@@ -71,10 +71,10 @@ function lerpCoord(a: LatLng, b: LatLng, t: number): LatLng {
   };
 }
 
-// Camera center bias — fraction of the tee→green segment, measured from
-// the green back toward the tee. 0 = camera right on the green (green
-// dead-centre), 0.5 = midpoint, 1 = camera on the tee. 0.35 puts the green
-// in the upper third while keeping the approach visible below.
+// Camera center bias — fraction of the green→tee segment, measured from
+// the green toward the tee. 0 = camera right on the green, 0.5 = midpoint,
+// 1 = camera on the tee. 0.35 keeps the camera near the green while pushing
+// the green toward the top of the screen so the approach is visible below.
 const GREEN_AT_TOP_BIAS = 0.35;
 // Camera altitude (iOS) and zoom (Android) for the oriented hole view.
 // ~800m altitude / zoom 17 fits an average par-4/5 with margin.
@@ -245,11 +245,12 @@ export default function HoleMapScreen({ route, navigation }: Props) {
     const greenAnchor = markers.pin;
 
     // Best case: both ends of the hole are known. Orient the camera so the
-    // tee→green axis runs vertically up the screen (green at top).
+    // hole runs vertically up the screen with the green at top, biased so
+    // the camera sits near the green.
     if (teeAnchor && greenAnchor) {
       focusedHoleRef.current = holeNumber;
-      const heading = bearingDegrees(teeAnchor, greenAnchor);
-      const center = lerpCoord(greenAnchor, teeAnchor, GREEN_AT_TOP_BIAS);
+      const heading = bearingDegrees(greenAnchor, teeAnchor);
+      const center = lerpCoord(teeAnchor, greenAnchor, GREEN_AT_TOP_BIAS);
       mapRef.current?.animateCamera(
         {
           center,
