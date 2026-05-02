@@ -5,6 +5,7 @@ import type { HoleCoordinateSet } from '@/hooks/coordinates/types';
 import type { HoleCoordinate } from '@/types/database/course.types';
 import type { HazardPolygon } from '@/types/database/holeHazards.types';
 import type { MapTier } from '@/hooks/useMapTier';
+import { calculateDistance } from '@/utils/gpsCalculations';
 
 export interface LatLng {
   latitude: number;
@@ -36,6 +37,14 @@ const toLatLng = (c: HoleCoordinate): LatLng => ({
 const TEE_ORDER: TeePoiType[] = ['tee_back', 'tee_front'];
 const GREEN_ORDER: GreenPoiType[] = ['green_front', 'green_center', 'green_back'];
 
+// Real greens are typically 25–40m deep, so any of front / back should be
+// at most ~25m from the centre. We allow up to 50m to absorb GPS noise +
+// generously large greens, but anything beyond is almost certainly a
+// mislabelled fairway / approach POI from the upstream coordinate source
+// (we've seen GolfAPI.io return a 100-yard marker as `green_front`).
+// Drop those rather than render misplaced markers that confuse the user.
+const MAX_GREEN_POI_DISTANCE_FROM_CENTER_M = 50;
+
 /**
  * Pure selector. Phase A renders pin only on free tier. Phase B
  * populates tees+greens for non-free. Phase C1 hazards are passed in
@@ -64,9 +73,25 @@ export function selectHoleMapMarkers(
     return c ? [{ type, coordinate: toLatLng(c) }] : [];
   });
 
+  // Build candidate green markers, then sanity-check each non-centre point
+  // against the centre. If the upstream data has a green_front / green_back
+  // that's improbably far from green_center, drop it — leaving the centre
+  // alone is far better UX than rendering a misplaced "front" 100m short.
+  const centerLatLng = center ? toLatLng(center) : null;
   const greens: PoiMarker<GreenPoiType>[] = GREEN_ORDER.flatMap((type) => {
     const c = set[type];
-    return c ? [{ type, coordinate: toLatLng(c) }] : [];
+    if (!c) return [];
+    const coordinate = toLatLng(c);
+    if (type !== 'green_center' && centerLatLng) {
+      const meters = calculateDistance(
+        centerLatLng.latitude,
+        centerLatLng.longitude,
+        coordinate.latitude,
+        coordinate.longitude
+      );
+      if (meters > MAX_GREEN_POI_DISTANCE_FROM_CENTER_M) return [];
+    }
+    return [{ type, coordinate }];
   });
 
   // Phase C1: hazards on premium only.

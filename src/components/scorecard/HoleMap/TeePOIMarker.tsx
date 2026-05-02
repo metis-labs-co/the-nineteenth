@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { View, Pressable, StyleSheet } from 'react-native';
+import { Pressable, StyleSheet, Text } from 'react-native';
 import { Marker } from 'react-native-maps';
 import { useThemeColors } from '@/context/ThemeContext';
 import type { LatLng, TeePoiType } from '@/hooks/useHoleMapMarkers';
@@ -10,6 +10,11 @@ interface TeePOIMarkerProps {
   selected?: boolean;
   onPress: (type: TeePoiType) => void;
 }
+
+const LETTER: Record<TeePoiType, string> = {
+  tee_back: 'B',
+  tee_front: 'F',
+};
 
 export const TeePOIMarker = React.memo(function TeePOIMarker({
   type,
@@ -33,14 +38,22 @@ export const TeePOIMarker = React.memo(function TeePOIMarker({
         testID={testID}
         style={[
           styles.peg,
-          { borderColor: colors.textSecondary, backgroundColor: 'rgba(255,255,255,0.85)' },
+          { borderColor: colors.textSecondary, backgroundColor: 'rgba(255,255,255,0.92)' },
           selected && {
             borderColor: colors.primary,
             backgroundColor: colors.primary,
           },
         ]}
       >
-        <View />
+        <Text
+          style={[
+            styles.letter,
+            { color: selected ? 'white' : colors.textPrimary },
+          ]}
+          allowFontScaling={false}
+        >
+          {LETTER[type]}
+        </Text>
       </Pressable>
     </Marker>
   );
@@ -48,9 +61,17 @@ export const TeePOIMarker = React.memo(function TeePOIMarker({
 
 const styles = StyleSheet.create({
   peg: {
-    width: 16,
-    height: 16,
-    borderRadius: 3,
+    width: 22,
+    height: 22,
+    borderRadius: 4,
     borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  letter: {
+    fontSize: 11,
+    fontWeight: '700',
+    lineHeight: 12,
+    includeFontPadding: false,
   },
 });

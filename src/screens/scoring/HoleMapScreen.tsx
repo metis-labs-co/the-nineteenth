@@ -1,7 +1,7 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import MapView, { PROVIDER_DEFAULT, type MapPressEvent } from 'react-native-maps';
+import MapView, { PROVIDER_DEFAULT, type MapPressEvent, type Region } from 'react-native-maps';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { useThemeColors } from '@/context/ThemeContext';
@@ -41,6 +41,45 @@ type Props = NativeStackScreenProps<RootStackParamList, 'HoleMap'>;
 
 const DEFAULT_REGION_DELTA = 0.003;
 const DEFAULT_TARGET: GreenPoiType = 'green_center';
+
+/**
+ * Initial bearing from `from` to `to` in degrees clockwise from north.
+ * Used to rotate the map so the tee→green axis runs vertically up the
+ * screen (green at top, tee at bottom).
+ */
+function bearingDegrees(from: LatLng, to: LatLng): number {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const toDeg = (r: number) => (r * 180) / Math.PI;
+  const phi1 = toRad(from.latitude);
+  const phi2 = toRad(to.latitude);
+  const dLambda = toRad(to.longitude - from.longitude);
+  const y = Math.sin(dLambda) * Math.cos(phi2);
+  const x =
+    Math.cos(phi1) * Math.sin(phi2) -
+    Math.sin(phi1) * Math.cos(phi2) * Math.cos(dLambda);
+  return (toDeg(Math.atan2(y, x)) + 360) % 360;
+}
+
+/**
+ * Linearly interpolate between two coordinates. Good enough at hole-scale
+ * (~hundreds of metres) — no need for great-circle interpolation here.
+ */
+function lerpCoord(a: LatLng, b: LatLng, t: number): LatLng {
+  return {
+    latitude: a.latitude + (b.latitude - a.latitude) * t,
+    longitude: a.longitude + (b.longitude - a.longitude) * t,
+  };
+}
+
+// Camera center bias — fraction of the tee→green segment, measured from
+// the green back toward the tee. 0 = camera right on the green (green
+// dead-centre), 0.5 = midpoint, 1 = camera on the tee. 0.35 puts the green
+// in the upper third while keeping the approach visible below.
+const GREEN_AT_TOP_BIAS = 0.35;
+// Camera altitude (iOS) and zoom (Android) for the oriented hole view.
+// ~800m altitude / zoom 17 fits an average par-4/5 with margin.
+const HOLE_CAMERA_ALTITUDE = 800;
+const HOLE_CAMERA_ZOOM = 17;
 
 export default function HoleMapScreen({ route, navigation }: Props) {
   const { courseId, holeNumber, roundId, mode = 'live' } = route.params;
@@ -158,21 +197,112 @@ export default function HoleMapScreen({ route, navigation }: Props) {
     setActiveShot(null);
   }, []);
 
-  const initialRegion = useMemo(() => {
-    const focus = markers.pin ?? userCoord ?? { latitude: 0, longitude: 0 };
+  // Track the imperative MapView so we can animate the camera once we have
+  // real coordinates to focus on. Without this, `initialRegion` is the only
+  // chance to position the map — and it's evaluated once at mount, before
+  // markers.pin / userCoord have resolved, so the map opens at (0,0)
+  // (Atlantic Ocean → solid navy in satellite view) and stays there.
+  const mapRef = useRef<MapView | null>(null);
+
+  // The first available focus point, in priority order:
+  //   1. The hole pin (green centre / front) — best for orienting on a hole
+  //   2. The user's current location — useful before coordinates load
+  const focusCoord: LatLng | null = markers.pin ?? userCoord ?? null;
+
+  // Keep `initialRegion` defined so the MapView can mount, but don't open
+  // at (0,0) — fall back to a global view that lets the user see SOMETHING
+  // while data loads, instead of a featureless ocean tile. Once focusCoord
+  // resolves, the effect below animates to it at a tight zoom.
+  const initialRegion = useMemo<Region>(() => {
+    if (focusCoord) {
+      return {
+        latitude: focusCoord.latitude,
+        longitude: focusCoord.longitude,
+        latitudeDelta: DEFAULT_REGION_DELTA,
+        longitudeDelta: DEFAULT_REGION_DELTA,
+      };
+    }
     return {
-      ...focus,
-      latitudeDelta: DEFAULT_REGION_DELTA,
-      longitudeDelta: DEFAULT_REGION_DELTA,
+      latitude: -27.0,
+      longitude: 133.0,
+      latitudeDelta: 60,
+      longitudeDelta: 60,
     };
-  }, [markers.pin, userCoord]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only used at mount
+  }, []);
+
+  // Snap the camera to the right place once data resolves, then leave it
+  // alone (lets the user pan/zoom freely without the map fighting them).
+  // We re-focus only when the hole number changes.
+  const focusedHoleRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (focusedHoleRef.current === holeNumber) return;
+
+    const teeAnchor =
+      markers.tees.find((t) => t.type === 'tee_back')?.coordinate ??
+      markers.tees[0]?.coordinate ??
+      null;
+    const greenAnchor = markers.pin;
+
+    // Best case: both ends of the hole are known. Orient the camera so the
+    // tee→green axis runs vertically up the screen (green at top).
+    if (teeAnchor && greenAnchor) {
+      focusedHoleRef.current = holeNumber;
+      const heading = bearingDegrees(teeAnchor, greenAnchor);
+      const center = lerpCoord(greenAnchor, teeAnchor, GREEN_AT_TOP_BIAS);
+      mapRef.current?.animateCamera(
+        {
+          center,
+          heading,
+          pitch: 0,
+          altitude: HOLE_CAMERA_ALTITUDE,
+          zoom: HOLE_CAMERA_ZOOM,
+        },
+        { duration: 400 }
+      );
+      return;
+    }
+
+    // Only the green is known (tee data missing). Centre on it, no rotation.
+    if (greenAnchor) {
+      focusedHoleRef.current = holeNumber;
+      mapRef.current?.animateToRegion(
+        {
+          latitude: greenAnchor.latitude,
+          longitude: greenAnchor.longitude,
+          latitudeDelta: DEFAULT_REGION_DELTA,
+          longitudeDelta: DEFAULT_REGION_DELTA,
+        },
+        400
+      );
+      return;
+    }
+
+    // No course data yet — centre on the user as a transient placeholder.
+    // Don't mark the hole focused, so we'll re-orient when the pin arrives.
+    if (userCoord) {
+      mapRef.current?.animateToRegion(
+        {
+          latitude: userCoord.latitude,
+          longitude: userCoord.longitude,
+          latitudeDelta: DEFAULT_REGION_DELTA,
+          longitudeDelta: DEFAULT_REGION_DELTA,
+        },
+        400
+      );
+    }
+  }, [holeNumber, markers.pin, markers.tees, userCoord]);
 
   const canReset =
     tap !== null ||
     selectedTee !== null ||
     selectedTarget !== DEFAULT_TARGET ||
     movingShotId !== null;
-  const showFallback = hasCoordinates === false;
+  // Show the "no coordinates" overlay when the course has none at all OR
+  // when this specific hole has no pin and we have no user GPS to fall back
+  // to. Without the second case, the map opens on a coordinate-less hole
+  // showing only featureless ocean (the bug we just fixed for navy-screen).
+  const showFallback = hasCoordinates === false || focusCoord === null;
 
   return (
     <SafeAreaView
@@ -188,6 +318,7 @@ export default function HoleMapScreen({ route, navigation }: Props) {
 
       <View style={styles.flex}>
         <MapView
+          ref={mapRef}
           style={StyleSheet.absoluteFill}
           provider={PROVIDER_DEFAULT}
           mapType="satellite"

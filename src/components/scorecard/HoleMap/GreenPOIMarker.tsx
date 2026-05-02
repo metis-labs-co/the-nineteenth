@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { View, Pressable, StyleSheet } from 'react-native';
+import { Pressable, StyleSheet, Text } from 'react-native';
 import { Marker } from 'react-native-maps';
 import { useThemeColors } from '@/context/ThemeContext';
 import type { LatLng, GreenPoiType } from '@/hooks/useHoleMapMarkers';
@@ -15,6 +15,12 @@ const LABEL: Record<GreenPoiType, string> = {
   green_front: 'Front of green',
   green_center: 'Centre of green',
   green_back: 'Back of green',
+};
+
+const LETTER: Record<GreenPoiType, string> = {
+  green_front: 'F',
+  green_center: 'C',
+  green_back: 'B',
 };
 
 export const GreenPOIMarker = React.memo(function GreenPOIMarker({
@@ -39,12 +45,14 @@ export const GreenPOIMarker = React.memo(function GreenPOIMarker({
           styles.dot,
           { borderColor: 'white', backgroundColor: colors.success },
           selected && {
-            borderColor: colors.primary,
+            borderColor: 'white',
             backgroundColor: colors.primary,
           },
         ]}
       >
-        <View />
+        <Text style={styles.letter} allowFontScaling={false}>
+          {LETTER[type]}
+        </Text>
       </Pressable>
     </Marker>
   );
@@ -52,9 +60,18 @@ export const GreenPOIMarker = React.memo(function GreenPOIMarker({
 
 const styles = StyleSheet.create({
   dot: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  letter: {
+    fontSize: 11,
+    fontWeight: '700',
+    lineHeight: 12,
+    color: 'white',
+    includeFontPadding: false,
   },
 });
