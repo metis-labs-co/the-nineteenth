@@ -41,6 +41,15 @@ import type {
   Hole,
   GeoPoint,
 } from '@/types/database';
+import { calculateDistance } from '@/utils/gpsCalculations';
+
+// Max plausible distance between green_front/green_back and green_center.
+// Real greens are 25–40m deep; we allow up to 50m to absorb GPS noise.
+// Beyond that, the upstream POI is almost certainly mislabelled — e.g.
+// GolfAPI returns yardage markers as `green_front` for The Eastern Golf
+// Club at 60–125m from green_center. Mirrors the runtime guard in
+// useHoleMapMarkers.ts so bad rows never reach the DB in the first place.
+const MAX_GREEN_POI_DISTANCE_FROM_CENTER_M = 50;
 
 // =====================================================
 // STATE NORMALIZATION
@@ -405,6 +414,8 @@ export function transformApiCoordinate(
 
 /**
  * Transform all coordinates from a course, filtering to essential POIs
+ * and dropping implausibly-placed green_front / green_back markers
+ * (see MAX_GREEN_POI_DISTANCE_FROM_CENTER_M).
  *
  * @param apiResponse - Full coordinates response from GolfAPI.io
  * @returns Array of partial HoleCoordinate objects
@@ -421,7 +432,52 @@ export function transformApiCoordinates(
     }
   }
 
-  return coordinates;
+  return dropImplausibleGreenPois(coordinates);
+}
+
+/**
+ * Drop green_front / green_back rows that are too far from green_center
+ * to be the actual front / back of the same green. Some upstream feeds
+ * (e.g. The Eastern Golf Club from GolfAPI.io) tag fairway yardage
+ * markers as green_front; keeping them would put a green-coloured
+ * marker on the fairway 100m short of the actual green.
+ */
+function dropImplausibleGreenPois(
+  coords: Partial<HoleCoordinate>[]
+): Partial<HoleCoordinate>[] {
+  const byHole = new Map<number, Partial<HoleCoordinate>[]>();
+  for (const c of coords) {
+    if (c.hole_number == null) continue;
+    const list = byHole.get(c.hole_number);
+    if (list) list.push(c);
+    else byHole.set(c.hole_number, [c]);
+  }
+
+  const out: Partial<HoleCoordinate>[] = [];
+  for (const holeCoords of byHole.values()) {
+    const center = holeCoords.find((c) => c.poi_type === 'green_center');
+    for (const c of holeCoords) {
+      const isPeripheralGreen =
+        c.poi_type === 'green_front' || c.poi_type === 'green_back';
+      if (
+        isPeripheralGreen &&
+        center?.latitude != null &&
+        center.longitude != null &&
+        c.latitude != null &&
+        c.longitude != null
+      ) {
+        const meters = calculateDistance(
+          center.latitude,
+          center.longitude,
+          c.latitude,
+          c.longitude
+        );
+        if (meters > MAX_GREEN_POI_DISTANCE_FROM_CENTER_M) continue;
+      }
+      out.push(c);
+    }
+  }
+  return out;
 }
 
 /**

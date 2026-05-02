@@ -47,13 +47,15 @@ const PIN_ONLY_SET = {
   green_center: buildCoord('green_center', -37.82, 144.97),
 };
 
+// Greens clustered within ~25m of green_center to clear the
+// MAX_GREEN_POI_DISTANCE_FROM_CENTER_M=50 sanity filter.
 const FULL_SET = {
   hole_number: 7,
   tee_back: buildCoord('tee_back', -37.81, 144.96),
   tee_front: buildCoord('tee_front', -37.811, 144.961),
-  green_front: buildCoord('green_front', -37.82, 144.97),
+  green_front: buildCoord('green_front', -37.8208, 144.9708),
   green_center: buildCoord('green_center', -37.821, 144.971),
-  green_back: buildCoord('green_back', -37.822, 144.972),
+  green_back: buildCoord('green_back', -37.8212, 144.9712),
 };
 
 jest.mock('@/hooks/useHoleCoordinates', () => ({

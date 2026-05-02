@@ -1,11 +1,23 @@
 import React from 'react';
 import { View } from 'react-native';
 
-const MockMapView: React.FC<any> = ({ children, testID, ...rest }) => (
-  <View testID={testID ?? 'mock-mapview'} {...rest}>
-    {children}
-  </View>
+// Forwarded ref exposes the imperative camera methods that
+// HoleMapScreen calls to position the map after data loads.
+const MockMapView = React.forwardRef<unknown, any>(
+  ({ children, testID, ...rest }, ref) => {
+    React.useImperativeHandle(ref, () => ({
+      animateToRegion: jest.fn(),
+      animateCamera: jest.fn(),
+      fitToCoordinates: jest.fn(),
+    }));
+    return (
+      <View testID={testID ?? 'mock-mapview'} {...rest}>
+        {children}
+      </View>
+    );
+  }
 );
+MockMapView.displayName = 'MockMapView';
 
 export const Marker: React.FC<any> = ({ children, testID, ...rest }) => (
   <View testID={testID ?? 'mock-marker'} {...rest}>

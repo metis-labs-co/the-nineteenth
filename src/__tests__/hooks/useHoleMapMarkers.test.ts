@@ -13,13 +13,15 @@ const coord = (poi_type: HoleCoordinate['poi_type'], lat: number, lng: number): 
   created_at: '2026-01-01T00:00:00Z',
 });
 
+// Greens are clustered within ~25m of green_center so the
+// MAX_GREEN_POI_DISTANCE_FROM_CENTER_M=50 sanity filter doesn't drop them.
 const fullSet: HoleCoordinateSet = {
   hole_number: 7,
   tee_back: coord('tee_back', -37.81, 144.96),
   tee_front: coord('tee_front', -37.811, 144.961),
-  green_front: coord('green_front', -37.82, 144.97),
+  green_front: coord('green_front', -37.8208, 144.9708),
   green_center: coord('green_center', -37.821, 144.971),
-  green_back: coord('green_back', -37.822, 144.972),
+  green_back: coord('green_back', -37.8212, 144.9712),
 };
 
 describe('selectHoleMapMarkers', () => {
@@ -32,7 +34,7 @@ describe('selectHoleMapMarkers', () => {
     it('falls back to green_front when green_center missing', () => {
       const partial: HoleCoordinateSet = { ...fullSet, green_center: undefined };
       const result = selectHoleMapMarkers(partial, 'free');
-      expect(result.pin).toEqual({ latitude: -37.82, longitude: 144.97 });
+      expect(result.pin).toEqual({ latitude: -37.8208, longitude: 144.9708 });
     });
 
     it('returns null pin when no green coordinates exist', () => {
@@ -79,9 +81,9 @@ describe('selectHoleMapMarkers', () => {
     it('populates greens with typed POI markers in front-center-back order', () => {
       const result = selectHoleMapMarkers(fullSet, 'social');
       expect(result.greens).toEqual([
-        { type: 'green_front', coordinate: { latitude: -37.82, longitude: 144.97 } },
+        { type: 'green_front', coordinate: { latitude: -37.8208, longitude: 144.9708 } },
         { type: 'green_center', coordinate: { latitude: -37.821, longitude: 144.971 } },
-        { type: 'green_back', coordinate: { latitude: -37.822, longitude: 144.972 } },
+        { type: 'green_back', coordinate: { latitude: -37.8212, longitude: 144.9712 } },
       ]);
     });
 
