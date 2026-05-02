@@ -1,6 +1,7 @@
-import React, { useCallback, useEffect } from 'react';
-import { View, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Linking, Pressable, StyleSheet, View } from 'react-native';
 import { Icon, Text } from 'react-native-paper';
+import * as Location from 'expo-location';
 import { useThemeColors } from '@/context/ThemeContext';
 import { borderRadius, spacing, typography } from '@/constants/theme';
 import { useUserLocation } from '@/hooks/useUserLocation';
@@ -72,43 +73,83 @@ export const LogShotInline = React.memo(function LogShotInline({
     }
   }, [permissionStatus, isWatching, startWatching]);
 
+  // Local "fetching an immediate fix" state. Distinct from `logShot.isPending`
+  // (the DB write) and `isWatching` (the long-lived subscription). Lets a
+  // user tap the button while watchPositionAsync hasn't yet fired its first
+  // callback and get a one-shot getCurrentPositionAsync.
+  const [isFetchingPosition, setIsFetchingPosition] = useState(false);
+
+  const logShotAt = useCallback(
+    (latitude: number, longitude: number) => {
+      logShot.mutate(
+        { roundId, holeNumber, latitude, longitude },
+        {
+          onSuccess: (shot) => {
+            showToast({
+              shotId: shot.id,
+              sequence: shot.sequence,
+              roundId,
+              holeNumber,
+            });
+          },
+          onError: (err: unknown) => {
+            showErrorToast({ message: friendlyShotError(err) });
+          },
+        }
+      );
+    },
+    [logShot, roundId, holeNumber, showToast, showErrorToast]
+  );
+
   const handlePress = useCallback(async () => {
-    if (permissionStatus !== 'granted') {
+    // Permission denied previously — iOS won't show another prompt. Direct
+    // the user to system settings via a toast with an "Open Settings" hint.
+    if (permissionStatus === 'denied') {
+      showErrorToast({
+        message: 'Location is off for this app. Enable it in iOS Settings → The Nineteenth → Location.',
+        durationMs: 6000,
+      });
+      // Best-effort: try to deep-link to the app's settings page.
+      void Linking.openSettings().catch(() => undefined);
+      return;
+    }
+
+    // Permission undetermined — ask for it. Native dialog handles the rest.
+    if (permissionStatus === 'undetermined') {
       const granted = await requestPermission();
       if (granted) startWatching();
       return;
     }
-    if (!location) return;
-    logShot.mutate(
-      {
-        roundId,
-        holeNumber,
-        latitude: location.latitude,
-        longitude: location.longitude,
-      },
-      {
-        onSuccess: (shot) => {
-          showToast({
-            shotId: shot.id,
-            sequence: shot.sequence,
-            roundId,
-            holeNumber,
-          });
-        },
-        onError: (err: unknown) => {
-          showErrorToast({ message: friendlyShotError(err) });
-        },
+
+    // Permission granted. If the long-lived watch hasn't produced a fix yet,
+    // request a one-shot position with high accuracy so the button feels
+    // responsive instead of silently no-ing on first taps.
+    if (!location) {
+      if (isFetchingPosition) return;
+      setIsFetchingPosition(true);
+      try {
+        const fix = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Highest,
+        });
+        logShotAt(fix.coords.latitude, fix.coords.longitude);
+      } catch {
+        showErrorToast({
+          message: "Couldn't get your location. Move to an open area and try again.",
+        });
+      } finally {
+        setIsFetchingPosition(false);
       }
-    );
+      return;
+    }
+
+    logShotAt(location.latitude, location.longitude);
   }, [
     permissionStatus,
     requestPermission,
     startWatching,
     location,
-    logShot,
-    roundId,
-    holeNumber,
-    showToast,
+    isFetchingPosition,
+    logShotAt,
     showErrorToast,
   ]);
 
@@ -118,10 +159,14 @@ export const LogShotInline = React.memo(function LogShotInline({
 
   const isAwaitingPermission =
     permissionStatus === 'undetermined' || permissionStatus === 'denied';
-  const isAcquiring = permissionStatus === 'granted' && !location;
-  const showSpinner = logShot.isPending || isAcquiring;
-  const pressable =
-    !disabled && !logShot.isPending && (location !== null || isAwaitingPermission);
+  // Spinner only while we're actively doing something: writing to the DB or
+  // running a one-shot getCurrentPositionAsync. Don't spin just because the
+  // background watch hasn't produced a fix — that made the button look hung.
+  const showSpinner = logShot.isPending || isFetchingPosition;
+  // Always allow the press unless mid-mutation. Each branch in handlePress
+  // handles its own state — the previous "gray and unpressable when no fix"
+  // behavior felt broken because nothing happened on tap.
+  const pressable = !disabled && !logShot.isPending && !isFetchingPosition;
 
   return (
     <Pressable
@@ -129,7 +174,7 @@ export const LogShotInline = React.memo(function LogShotInline({
       accessibilityLabel={
         isAwaitingPermission
           ? 'Enable GPS to log shots'
-          : isAcquiring
+          : isFetchingPosition
           ? 'Acquiring GPS — log shot when ready'
           : 'Log shot at current GPS'
       }

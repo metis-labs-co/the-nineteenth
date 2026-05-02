@@ -269,7 +269,17 @@ export function useStartNewRound(onStarted?: () => void, pendingLeagueId?: strin
           });
         }
 
-        // Create round_players records
+        // Create round_players records.
+        //
+        // This insert MUST succeed for the round to be usable. If it fails,
+        // the round_players join is empty server-side, which means:
+        //   - useRoundPlayers returns 0 players
+        //   - On any cold-start resume, useRoundData silently bails
+        //   - The score-entry screen wedges on "Loading scorecard…" forever
+        // Previously this error was swallowed ("non-fatal") and produced
+        // exactly that wedged state on TestFlight.
+        // Now: surface the error and roll back the orphan rounds row so the
+        // user can retry cleanly.
         if (user?.id) {
           const roundPlayersToInsert = [
             { round_id: roundId, player_id: user.id, added_by: null, selected_tee: selectedTee ?? null },
@@ -286,7 +296,17 @@ export function useStartNewRound(onStarted?: () => void, pendingLeagueId?: strin
             .from('round_players') as any)
             .insert(roundPlayersToInsert);
 
-          // round_players error is non-fatal
+          if (roundPlayersError) {
+            console.error('Error inserting round_players:', roundPlayersError);
+            // Roll back the orphan rounds row so the user isn't left with
+            // an unusable round in their list. Best-effort — if delete
+            // fails we still throw the original error.
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
+            await (supabase.from('rounds') as any).delete().eq('id', roundId);
+            throw new Error(
+              `Couldn't add players to the round: ${roundPlayersError.message}. Please try again.`
+            );
+          }
         }
 
         // Create scoring pairs if enabled

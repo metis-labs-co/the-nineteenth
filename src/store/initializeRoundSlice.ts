@@ -25,6 +25,30 @@ type GetFn = () => {
   groupScorecards: Map<string, Scorecard>;
 };
 
+/**
+ * Read the players embedded in cached scorecards for a round. Used as a
+ * recovery fallback when the network player query returns 0 — e.g. when
+ * round_players is missing on the server but local scorecards still exist
+ * from a previous successful initialization.
+ */
+export async function getOfflinePlayersForRound(roundId: string): Promise<Player[]> {
+  try {
+    const scorecards = await getScorecardsByRound(roundId);
+    const seen = new Set<string>();
+    const players: Player[] = [];
+    for (const sc of scorecards) {
+      if (!sc.player) continue;
+      if (!isValidUUID(sc.playerId)) continue;
+      if (seen.has(sc.playerId)) continue;
+      seen.add(sc.playerId);
+      players.push(sc.player);
+    }
+    return players;
+  } catch {
+    return [];
+  }
+}
+
 export async function initializeRound(
   set: SetFn,
   initSyncListener: () => void,

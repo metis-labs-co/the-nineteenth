@@ -155,8 +155,12 @@ export const DistanceToPin = React.memo(function DistanceToPin({
   // RENDER LOGIC
   // =====================================================
 
-  // Feature disabled in settings - hide completely
-  if (!showGpsDistance) {
+  // Hide only when BOTH GPS distance and the hole map are off. The legacy
+  // `showGpsDistance` setting has no user-facing toggle anymore (it's always
+  // false on a fresh install), so the practical gate is `enableHoleMap` —
+  // the new Game Settings toggle. Without this, turning on "Show hole map"
+  // wouldn't actually surface the distance / map-open badge in the header.
+  if (!showGpsDistance && !enableHoleMap) {
     return null;
   }
 
@@ -269,8 +273,27 @@ export const DistanceToPin = React.memo(function DistanceToPin({
     );
   }
 
-  // No distance available (green coordinates might be missing for this hole)
-  return null;
+  // GPS is working but the green coordinate for *this hole* is missing —
+  // surface that explicitly. Falling through to `null` here is what was
+  // causing the "badge flashes then disappears" behavior on holes where the
+  // course has partial coordinate coverage. If the hole map is enabled, the
+  // crossed-out icon stays tappable to open the map view (which can show
+  // tee/fairway markers even without a green pin).
+  return (
+    <TouchableOpacity
+      style={styles.noGpsContainer}
+      onPress={canOpenMap ? handleOpenMap : handleNoGpsPress}
+      activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel={
+        canOpenMap
+          ? 'Distance unavailable for this hole — open map'
+          : 'Distance unavailable for this hole'
+      }
+    >
+      <Icon source="crosshairs-off" size={18} color={colors.gray400} />
+    </TouchableOpacity>
+  );
 });
 
 // =====================================================

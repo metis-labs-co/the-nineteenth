@@ -121,7 +121,11 @@ export function useStartSocialRound({
           });
         }
 
-        // Create round_players records
+        // Create round_players records.
+        // Mirror the safety added in useStartNewRound: the insert MUST
+        // succeed, otherwise the round is unrecoverable on resume (silent
+        // bail in useRoundData when round_players returns 0 rows). Roll
+        // back the orphan rounds row on failure.
         if (user?.id) {
           const roundPlayersToInsert = [
             { round_id: roundId, player_id: user.id, added_by: null },
@@ -133,7 +137,16 @@ export function useStartSocialRound({
           ];
 
           // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
-          await (supabase.from('round_players') as any).insert(roundPlayersToInsert);
+          const { error: roundPlayersError } = await (supabase.from('round_players') as any).insert(roundPlayersToInsert);
+
+          if (roundPlayersError) {
+            console.error('Error inserting round_players (social round):', roundPlayersError);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
+            await (supabase.from('rounds') as any).delete().eq('id', roundId);
+            throw new Error(
+              `Couldn't add players to the round: ${roundPlayersError.message}. Please try again.`
+            );
+          }
         }
 
         // Initialize the scorecard store

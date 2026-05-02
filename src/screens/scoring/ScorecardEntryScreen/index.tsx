@@ -644,9 +644,12 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
         </Text>
         <Text style={[styles.errorText, { color: colors.textSecondary }]}>{fetchError}</Text>
         <View style={styles.errorButtons}>
+          {/* Use nav.handleBackPress so we also clear the active round
+              session — otherwise a cold-start resume would land us right
+              back on this stuck screen. */}
           <TouchableOpacity
             style={[styles.errorButton, styles.errorButtonOutlined, { borderColor: colors.border }]}
-            onPress={() => navigation.goBack()}
+            onPress={nav.handleBackPress}
             activeOpacity={0.7}
             accessibilityRole="button"
           >

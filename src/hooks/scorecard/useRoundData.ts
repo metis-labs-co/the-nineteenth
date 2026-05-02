@@ -11,6 +11,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useScorecardStore } from '@/store/scorecardStore';
+import { getOfflinePlayersForRound } from '@/store/initializeRoundSlice';
 import { supabase } from '@/services/supabase/client';
 import { saveScorecard } from '@/services/offline/database';
 import { roundDataLogger } from '@/utils/debugLogger';
@@ -198,13 +199,36 @@ export function useRoundData({
     }
 
     // Need players and course data to initialize
-    const players = playersHook.players;
+    let players = playersHook.players;
     const holes = courseHook.holes;
     const gameType = metadata.data?.gameType || 'stableford';
 
+    pushDiagnostic('round_data.proceeding_post_loading', {
+      networkPlayerCount: players.length,
+      holeCount: holes.length,
+      gameType,
+      isTeamRound: metadata.data?.isTeamRound ?? false,
+      scoringPairsEnabled: scoringPairsHook.scoringPairsEnabled,
+      teamCount: teamsHook.teams.length,
+    });
+
+    // Recovery fallback: when the network player query returns 0 but local
+    // SQLite has scorecards from a prior successful init, derive the player
+    // list from those cached scorecards. This unsticks resumed rounds where
+    // round_players is missing or RLS-filtered on the server but the client
+    // still has everything it needs to render and score offline.
     if (players.length === 0) {
-      roundDataLogger.warn('No players found');
-      return;
+      pushDiagnostic('round_data.network_players_empty', { roundId });
+      const cachedPlayers = await getOfflinePlayersForRound(roundId);
+      pushDiagnostic('round_data.cached_player_fallback', {
+        cachedPlayerCount: cachedPlayers.length,
+      });
+      if (cachedPlayers.length === 0) {
+        roundDataLogger.warn('No players found (network and cache both empty)');
+        pushDiagnostic('round_data.no_players_anywhere', { roundId }, 'error');
+        return;
+      }
+      players = cachedPlayers;
     }
 
     // Determine which players to initialize scorecards for
@@ -252,6 +276,10 @@ export function useRoundData({
 
       if (playersToInitialize.length === 0) {
         roundDataLogger.warn('User not assigned to score any players');
+        pushDiagnostic('round_data.scoring_pairs_no_match', {
+          roundId,
+          playersToScoreCount: scoringPairsHook.playersToScore.length,
+        }, 'error');
         return;
       }
     }
@@ -311,6 +339,40 @@ export function useRoundData({
   useEffect(() => {
     initializeRoundData();
   }, [initializeRoundData]);
+
+  // Init failsafe: if `isInitialized` hasn't flipped within 20 seconds we're
+  // either stuck on a hung query or silently bailing on a server data gap
+  // (e.g. round_players empty, scoring pairs misconfigured). Surface a real
+  // error so the user can back out and retry instead of staring at the
+  // spinner forever. Triggered once per roundId.
+  const initFailsafeFiredRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!roundId) return;
+    if (initFailsafeFiredRef.current === roundId) return;
+    if (isInitialized && currentRoundId === roundId) return;
+
+    const timer = setTimeout(() => {
+      // Read latest store state to avoid a stale closure deciding to fire.
+      const latest = useScorecardStore.getState();
+      if (latest.isInitialized && latest.currentRoundId === roundId) return;
+      if (initFailsafeFiredRef.current === roundId) return;
+      initFailsafeFiredRef.current = roundId;
+      pushDiagnostic('round_data.init_failsafe_fired', {
+        roundId,
+        latestInitialized: latest.isInitialized,
+        latestRoundId: latest.currentRoundId,
+      }, 'error');
+      setState((prev) => ({
+        ...prev,
+        isLoading: false,
+        fetchError:
+          prev.fetchError ??
+          "Couldn't load this round. The round may be missing data on the server, or your connection may be unstable. Try going back and reopening it.",
+      }));
+    }, 20_000);
+
+    return () => clearTimeout(timer);
+  }, [roundId, isInitialized, currentRoundId]);
 
   // Sync the store's allowedPlayerIds to the user's scoring-pair scope.
   // Without this, completion checks (isHoleComplete, validateScores) iterate
