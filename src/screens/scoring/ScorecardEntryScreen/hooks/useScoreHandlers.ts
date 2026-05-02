@@ -159,19 +159,12 @@ export function useScoreHandlers({
   );
 
   const handleViewScorecard = useCallback(() => {
-    if (currentPlayers.length === 1) {
-      navigation.navigate('PlayerScorecard', {
-        playerId: currentPlayers[0].id,
-        roundId,
-      });
-    } else {
-      navigation.navigate('ReviewScorecard', {
-        roundId,
-        competitionId,
-        holes,
-      });
-    }
-  }, [navigation, roundId, competitionId, holes, currentPlayers]);
+    navigation.navigate('ReviewScorecard', {
+      roundId,
+      competitionId,
+      holes,
+    });
+  }, [navigation, roundId, competitionId, holes]);
 
   const handleBuildAsYouPlaySave = useCallback(
     async (updatedHole: Hole) => {
