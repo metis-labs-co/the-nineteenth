@@ -40,6 +40,12 @@ describe('weatherCodeToIcon', () => {
     );
   });
 
+  it('maps snow showers (85, 86) to weather-snowy', () => {
+    [85, 86].forEach((c) =>
+      expect(weatherCodeToIcon(c).icon).toBe('weather-snowy'),
+    );
+  });
+
   it('maps showers (80-82) to weather-pouring', () => {
     [80, 81, 82].forEach((c) =>
       expect(weatherCodeToIcon(c).icon).toBe('weather-pouring'),
