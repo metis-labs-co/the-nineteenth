@@ -166,8 +166,13 @@ export interface HomeData {
   inProgressRounds: RoundWithCourse[];
   upcomingRounds: RoundItem[];
   /**
-   * The first upcoming round whose tee time is within the next 24 hours.
-   * Null when no round qualifies. Used for the hero RoundTodayCard.
+   * The first upcoming round whose tee time is within the next 24 hours,
+   * or null if none. Surface for the RoundTodayCard hero on the Home screen.
+   *
+   * Typed as `RoundItem` for convenience. Callers that need the richer
+   * `RoundWithCourse` shape (e.g. weather lookups via clubs.{latitude,longitude})
+   * cast at the call site — safe because the round-list query already selects
+   * the clubs join and `course.clubs` is populated.
    */
   upcomingWithin24h: RoundItem | null;
   /**
