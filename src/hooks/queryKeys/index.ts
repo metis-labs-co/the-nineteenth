@@ -17,6 +17,7 @@ import { friendsKeys, notificationKeys, pushKeys, placeholderPlayersKeys } from 
 import { skinsKeys, wolfKeys, prizePoolKeys, achievementKeys, cosmeticKeys, leagueKeys, subscriptionKeys, aiKeys } from './features';
 import { shotLogKeys } from './shots';
 import { hazardKeys } from './hazards';
+import { bagKeys } from './bag';
 
 // Domain-specific query key exports
 export { authKeys };
@@ -68,6 +69,7 @@ export {
 
 export { shotLogKeys };
 export { hazardKeys };
+export { bagKeys };
 
 // =====================================================
 // HELPER TYPES
@@ -122,4 +124,5 @@ export const allQueryKeys = [
   leagueKeys.all,
   shotLogKeys.all,
   hazardKeys.all,
+  bagKeys.all,
 ] as const;

@@ -11,4 +11,5 @@ export type TabKey =
   | 'scrambleTeamScore'
   | 'scrambleLeaderboard'
   | 'scrambleContributions'
-  | 'leaderboard';
+  | 'leaderboard'
+  | 'shots';

@@ -3,7 +3,7 @@
  * leaderboard, skins, wolf, and payouts. Handles offline submission and sync.
  */
 
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -20,10 +20,16 @@ import { Tabs } from '@/components/common/Tabs';
 import { MismatchResolutionModal } from '@/components/scoring';
 import { spacing } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
-import { useAuth } from '@/hooks';
+import { useAuth, useConfirmationDialog } from '@/hooks';
 import { usePendingMismatches, useResolveMismatch, usePartnerStatus } from '@/hooks/useScoreMismatch';
 import { useRoundScoringPairs, useScorecardsRealtime } from '@/hooks/scorecard';
+import { useDeleteShot, useSetShotClub } from '@/hooks/shots';
+import { useBag } from '@/hooks/queries/useBag';
 import { StatsTab } from '@/screens/rounds/ViewRoundScreen/tabs/StatsTab';
+import { ShotLogList } from '@/components/features/shots/ShotLogList';
+import { BagClubPickerSheet } from '@/components/features/bag/BagClubPickerSheet';
+import { clubLabel, type ClubKey } from '@/constants/clubs';
+import type { ShotLogEntry } from '@/types/database/shotLog.types';
 
 import { useScoreReview, useScoreSubmission, useReviewScorecardTabs, useScrambleTeams } from './hooks';
 import {
@@ -193,6 +199,58 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
       return result;
     },
     [currentUserId, resolveMismatch]
+  );
+
+  // Shots tab — delete + change-club mutations and supporting state.
+  const { data: bag = [] } = useBag(currentUserId);
+  const deleteShot = useDeleteShot();
+  const setShotClub = useSetShotClub();
+  const [clubEditingShot, setClubEditingShot] = useState<ShotLogEntry | null>(null);
+  const {
+    dialogConfig: shotDialogConfig,
+    showDialog: showShotDialog,
+    dismissDialog: dismissShotDialog,
+  } = useConfirmationDialog();
+
+  const handleDeleteShot = useCallback(
+    (shot: ShotLogEntry) => {
+      const club = clubLabel(shot.club_used);
+      showShotDialog({
+        title: 'Delete shot?',
+        message: `Remove shot ${shot.sequence}${shot.club_used ? ` (${club})` : ''} on hole ${shot.hole_number}? Subsequent shots on this hole will be renumbered.`,
+        confirmLabel: 'Delete',
+        cancelLabel: 'Cancel',
+        confirmVariant: 'destructive',
+        onConfirm: () => {
+          dismissShotDialog();
+          deleteShot.mutate({
+            shotId: shot.id,
+            roundId: shot.round_id,
+            holeNumber: shot.hole_number,
+          });
+        },
+      });
+    },
+    [showShotDialog, dismissShotDialog, deleteShot]
+  );
+
+  const handleChangeClub = useCallback((shot: ShotLogEntry) => {
+    setClubEditingShot(shot);
+  }, []);
+
+  const handleClubPicked = useCallback(
+    (clubKey: ClubKey) => {
+      if (!clubEditingShot) return;
+      const target = clubEditingShot;
+      setClubEditingShot(null);
+      setShotClub.mutate({
+        shotId: target.id,
+        roundId: target.round_id,
+        holeNumber: target.hole_number,
+        clubKey,
+      });
+    },
+    [clubEditingShot, setShotClub]
   );
 
   // Navigation handlers
@@ -404,6 +462,20 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
         />
       )}
 
+      {activeTab === 'shots' && roundId && (
+        <ShotLogList
+          roundId={roundId}
+          courseId={roundDetails?.course_id ?? null}
+          playerNameMap={playerNamesById}
+          isRefreshing={isRefreshing}
+          onRefresh={handleRefresh}
+          bottomInset={insets.bottom}
+          currentPlayerId={currentUserId}
+          onDeleteShot={handleDeleteShot}
+          onChangeClubForShot={handleChangeClub}
+        />
+      )}
+
       {/* Action Buttons */}
       <ReviewActions
         isOnline={isOnline}
@@ -436,6 +508,19 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
 
       {/* Confirmation/Alert Dialog */}
       <ConfirmationDialog {...dialogConfig} onCancel={dismissDialog} />
+
+      {/* Shot delete confirmation — separate dialog state so it doesn't
+          collide with submission/sync dialogs above. */}
+      <ConfirmationDialog {...shotDialogConfig} onCancel={dismissShotDialog} />
+
+      {/* Club picker for editing a logged shot's club. */}
+      <BagClubPickerSheet
+        visible={clubEditingShot !== null}
+        bag={bag}
+        title="Change club"
+        onPick={handleClubPicked}
+        onCancel={() => setClubEditingShot(null)}
+      />
     </View>
   );
 }

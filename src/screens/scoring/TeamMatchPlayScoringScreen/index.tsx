@@ -134,6 +134,7 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
 
   // Course data from round
   const courseName = roundData?.course?.name;
+  const clubName = roundData?.course?.club?.name ?? null;
   const selectedTeeBox: TeeBox | undefined = roundData?.selected_tee ?? undefined;
   const selectedTeeColor = selectedTeeBox?.color ?? 'white';
 
@@ -701,6 +702,7 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={[]}>
       <TeamMatchPlayHeader
         courseName={courseName}
+        clubName={clubName}
         selectedTee={selectedTeeBox}
         onBack={handleBackPress}
         isSuperAdmin={isSuperAdmin}

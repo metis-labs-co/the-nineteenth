@@ -35,6 +35,8 @@ export interface RoundMetadata {
   selectedTeeData: TeeBox | null; // Full tee object with ratings for daily handicap
   courseId: string | null;
   courseName: string | null;
+  /** The club (venue) the course belongs to, when known. */
+  clubName: string | null;
   courseTees: TeeBox[];
   roundStatus: RoundStatus;
   /** Team configuration for standalone scramble rounds (split into teams) */
@@ -196,6 +198,7 @@ export function useRoundMetadata(roundId: string | undefined): UseRoundMetadataR
         selectedTeeData: selectedTeeData, // Full TeeBox with slopeRating/courseRating
         courseId: courseId || null,
         courseName: roundData.courses?.name || null,
+        clubName: roundData.courses?.clubs?.name || null,
         courseTees,
         roundStatus: (roundData.status || 'upcoming') as RoundStatus,
         teamConfig: roundData.team_config ?? null,

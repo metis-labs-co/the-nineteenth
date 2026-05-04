@@ -5,6 +5,7 @@ export { PendingActionsSection } from './PendingActionsSection';
 export { UpcomingRoundsSection } from './UpcomingRoundsSection';
 export { CompetitionsLeaguesSection } from './CompetitionsLeaguesSection';
 export { StatsHighlightsSection } from './StatsHighlightsSection';
+export { BagSummarySection } from './BagSummarySection';
 export { AchievementProgressSection } from './AchievementProgressSection';
 export { AchievementStatsSection } from './AchievementStatsSection';
 export { LastRoundSection } from './LastRoundSection';

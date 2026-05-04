@@ -74,53 +74,39 @@ export function ScorecardFooter({
           <Icon source="clipboard-list-outline" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
 
-        {showReviewButton ? (
-          // Wrap right-side buttons in a flex:1 group so Previous and the
-          // group are equal width — keeps the icon button visually centred
-          // even when both Next Hole and Review Scores are shown.
-          <View style={styles.navRightGroup}>
-            {canGoNext && (
-              <TouchableOpacity
-                onPress={onNextHole}
-                style={[
-                  styles.navGroupButton,
-                  styles.navButtonContent,
-                  { borderWidth: 1, borderColor: colors.border },
-                ]}
-                activeOpacity={0.7}
-                accessibilityRole="button"
-              >
-                <Text style={[styles.navButtonLabel, { color: colors.textPrimary }]}>Next Hole</Text>
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity
-              onPress={onViewScorecard}
-              style={[
-                styles.navGroupButton,
-                styles.navButtonContent,
-                { backgroundColor: colors.success },
-              ]}
-              activeOpacity={0.8}
-              accessibilityRole="button"
-            >
-              <Text style={[styles.navButtonLabelPrimary, { color: colors.white }]}>Review Scores</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <TouchableOpacity
-            onPress={onNextHole}
-            style={[
-              styles.navButton,
-              styles.navButtonContent,
-              { backgroundColor: colors.primary },
-            ]}
-            activeOpacity={0.8}
-            accessibilityRole="button"
-          >
-            <Text style={[styles.navButtonLabelPrimary, { color: colors.white }]}>Next Hole</Text>
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity
+          onPress={onNextHole}
+          disabled={!canGoNext}
+          style={[
+            styles.navButton,
+            styles.navButtonContent,
+            { backgroundColor: colors.primary },
+            !canGoNext && { opacity: 0.5 },
+          ]}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+        >
+          <Text style={[styles.navButtonLabelPrimary, { color: colors.white }]}>Next Hole</Text>
+        </TouchableOpacity>
       </View>
+
+      {showReviewButton && (
+        // Full-width Review Scores button on its own row beneath the
+        // three navigation buttons. Avoids cramming a 4th button into
+        // the top row when both Next Hole and Review Scores are valid.
+        <TouchableOpacity
+          onPress={onViewScorecard}
+          style={[
+            styles.reviewButton,
+            styles.navButtonContent,
+            { backgroundColor: colors.success },
+          ]}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+        >
+          <Text style={[styles.navButtonLabelPrimary, { color: colors.white }]}>Review Scores</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -145,13 +131,8 @@ const styles = StyleSheet.create({
     width: 56,
     borderRadius: borderRadius.lg,
   },
-  navRightGroup: {
-    flex: 1,
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  navGroupButton: {
-    flex: 1,
+  reviewButton: {
+    marginTop: spacing.md,
     borderRadius: borderRadius.lg,
   },
   navButtonContent: {

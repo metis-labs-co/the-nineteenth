@@ -100,9 +100,13 @@ export interface PuttingDepthStats {
 export interface FairwayMissDirectionStats {
   leftCount: number;
   rightCount: number;
+  longCount: number;
+  shortCount: number;
   totalMisses: number;
   leftPercentage: number | null;
   rightPercentage: number | null;
+  longPercentage: number | null;
+  shortPercentage: number | null;
 }
 
 /**

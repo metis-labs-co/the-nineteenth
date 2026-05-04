@@ -10,7 +10,17 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Text } from 'react-native-paper';
 import { BottomSheet } from '@/components/common';
-import { IconArrowLeft, IconArrowRight, IconDroplet, IconBan, IconCircleOff, IconQuestionMark } from '@tabler/icons-react-native';
+import {
+  IconArrowLeft,
+  IconArrowRight,
+  IconArrowUp,
+  IconArrowDown,
+  IconCheck,
+  IconDroplet,
+  IconBan,
+  IconCircleOff,
+  IconQuestionMark,
+} from '@tabler/icons-react-native';
 import { spacing, borderRadius, typography, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import type {
@@ -63,9 +73,11 @@ export function DetailedStatsSheet({
   const colors = useThemeColors();
 
   // Local state mirrors score data for editing
+  const [fairwayHit, setFairwayHit] = useState<boolean | undefined>(score?.fairwayHit);
   const [fairwayDir, setFairwayDir] = useState<FairwayMissDirection | undefined>(
     score?.fairwayMissDirection
   );
+  const [greenHit, setGreenHit] = useState<boolean | undefined>(score?.greenInRegulation);
   const [greenDir, setGreenDir] = useState<GreenMissDirection | undefined>(
     score?.greenMissDirection
   );
@@ -74,7 +86,9 @@ export function DetailedStatsSheet({
 
   // Sync local state when score changes (e.g. navigating holes)
   useEffect(() => {
+    setFairwayHit(score?.fairwayHit);
     setFairwayDir(score?.fairwayMissDirection);
+    setGreenHit(score?.greenInRegulation);
     setGreenDir(score?.greenMissDirection);
     setBunkers(score?.bunkerShots ?? 0);
     setHazards(score?.hazards ?? []);
@@ -82,13 +96,15 @@ export function DetailedStatsSheet({
 
   const handleDone = useCallback(() => {
     onStatsUpdate({
+      fairwayHit,
       fairwayMissDirection: fairwayDir,
+      greenInRegulation: greenHit,
       greenMissDirection: greenDir,
       bunkerShots: bunkers,
       hazards: hazards.length > 0 ? hazards : undefined,
     });
     onClose();
-  }, [fairwayDir, greenDir, bunkers, hazards, onStatsUpdate, onClose]);
+  }, [fairwayHit, fairwayDir, greenHit, greenDir, bunkers, hazards, onStatsUpdate, onClose]);
 
   const toggleHazard = useCallback((type: HazardType) => {
     setHazards((prev) => {
@@ -100,17 +116,70 @@ export function DetailedStatsSheet({
     });
   }, []);
 
-  const toggleFairwayDir = useCallback((dir: FairwayMissDirection) => {
-    setFairwayDir((prev) => (prev === dir ? undefined : dir));
-  }, []);
+  const handleFairwaySelect = useCallback(
+    (option: 'hit' | FairwayMissDirection) => {
+      if (option === 'hit') {
+        // Toggle: if already hit, deselect everything
+        if (fairwayHit === true) {
+          setFairwayHit(undefined);
+        } else {
+          setFairwayHit(true);
+          setFairwayDir(undefined);
+        }
+      } else {
+        // Toggle miss direction: if same direction, deselect
+        if (fairwayHit === false && fairwayDir === option) {
+          setFairwayHit(undefined);
+          setFairwayDir(undefined);
+        } else {
+          setFairwayHit(false);
+          setFairwayDir(option);
+        }
+      }
+    },
+    [fairwayHit, fairwayDir]
+  );
 
-  const toggleGreenDir = useCallback((dir: GreenMissDirection) => {
-    setGreenDir((prev) => (prev === dir ? undefined : dir));
-  }, []);
+  const handleGreenSelect = useCallback(
+    (option: 'hit' | GreenMissDirection) => {
+      if (option === 'hit') {
+        if (greenHit === true) {
+          setGreenHit(undefined);
+        } else {
+          setGreenHit(true);
+          setGreenDir(undefined);
+        }
+      } else {
+        if (greenHit === false && greenDir === option) {
+          setGreenHit(undefined);
+          setGreenDir(undefined);
+        } else {
+          setGreenHit(false);
+          setGreenDir(option);
+        }
+      }
+    },
+    [greenHit, greenDir]
+  );
+
+  // Active state for inline toggles
+  const firActive: 'hit' | FairwayMissDirection | null =
+    fairwayHit === true
+      ? 'hit'
+      : fairwayHit === false && fairwayDir
+        ? fairwayDir
+        : null;
+
+  const girActive: 'hit' | GreenMissDirection | null =
+    greenHit === true
+      ? 'hit'
+      : greenHit === false && greenDir
+        ? greenDir
+        : null;
 
   // Determine which sections to show
-  const showFairwaySection = showFairwayMissDirection && score?.fairwayHit !== true;
-  const showGreenSection = showGreenMissDirection && score?.greenInRegulation !== true;
+  const showFairwaySection = showFairwayMissDirection;
+  const showGreenSection = showGreenMissDirection;
   const hasAnySections = showFairwaySection || showGreenSection || showBunkerShots || showHazards;
 
   return (
@@ -131,27 +200,48 @@ export function DetailedStatsSheet({
           </View>
         )}
 
-        {/* Fairway Miss Direction */}
+        {/* Fairway In Regulation */}
         {showFairwaySection && (
           <View style={styles.section}>
             <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
-              FAIRWAY MISS DIRECTION
+              FAIRWAY IN REGULATION
             </Text>
             <View style={styles.toggleRow}>
               <TouchableOpacity
                 style={[
                   styles.toggleButton,
+                  styles.toggleButtonSmall,
                   { borderColor: colors.border },
-                  fairwayDir === 'left' && { backgroundColor: colors.primary + '20', borderColor: colors.primary },
+                  firActive === 'hit' && { backgroundColor: colors.success + '20', borderColor: colors.success },
                 ]}
-                onPress={() => toggleFairwayDir('left')}
+                onPress={() => handleFairwaySelect('hit')}
                 activeOpacity={0.7}
               >
                 <View style={styles.directionButtonContent}>
-                  <IconArrowLeft size={16} color={fairwayDir === 'left' ? colors.primary : colors.textSecondary} />
+                  <IconCheck size={16} color={firActive === 'hit' ? colors.success : colors.textSecondary} />
                   <Text style={[
                     styles.toggleText,
-                    { color: fairwayDir === 'left' ? colors.primary : colors.textSecondary },
+                    { color: firActive === 'hit' ? colors.success : colors.textSecondary },
+                  ]}>
+                    Hit
+                  </Text>
+                </View>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.toggleButton,
+                  styles.toggleButtonSmall,
+                  { borderColor: colors.border },
+                  firActive === 'left' && { backgroundColor: colors.error + '15', borderColor: colors.error },
+                ]}
+                onPress={() => handleFairwaySelect('left')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.directionButtonContent}>
+                  <IconArrowLeft size={16} color={firActive === 'left' ? colors.error : colors.textSecondary} />
+                  <Text style={[
+                    styles.toggleText,
+                    { color: firActive === 'left' ? colors.error : colors.textSecondary },
                   ]}>
                     Left
                   </Text>
@@ -160,33 +250,94 @@ export function DetailedStatsSheet({
               <TouchableOpacity
                 style={[
                   styles.toggleButton,
+                  styles.toggleButtonSmall,
                   { borderColor: colors.border },
-                  fairwayDir === 'right' && { backgroundColor: colors.primary + '20', borderColor: colors.primary },
+                  firActive === 'right' && { backgroundColor: colors.error + '15', borderColor: colors.error },
                 ]}
-                onPress={() => toggleFairwayDir('right')}
+                onPress={() => handleFairwaySelect('right')}
                 activeOpacity={0.7}
               >
                 <View style={styles.directionButtonContent}>
                   <Text style={[
                     styles.toggleText,
-                    { color: fairwayDir === 'right' ? colors.primary : colors.textSecondary },
+                    { color: firActive === 'right' ? colors.error : colors.textSecondary },
                   ]}>
                     Right
                   </Text>
-                  <IconArrowRight size={16} color={fairwayDir === 'right' ? colors.primary : colors.textSecondary} />
+                  <IconArrowRight size={16} color={firActive === 'right' ? colors.error : colors.textSecondary} />
+                </View>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.toggleButton,
+                  styles.toggleButtonSmall,
+                  { borderColor: colors.border },
+                  firActive === 'long' && { backgroundColor: colors.error + '15', borderColor: colors.error },
+                ]}
+                onPress={() => handleFairwaySelect('long')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.directionButtonContent}>
+                  <IconArrowUp size={16} color={firActive === 'long' ? colors.error : colors.textSecondary} />
+                  <Text style={[
+                    styles.toggleText,
+                    { color: firActive === 'long' ? colors.error : colors.textSecondary },
+                  ]}>
+                    Long
+                  </Text>
+                </View>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.toggleButton,
+                  styles.toggleButtonSmall,
+                  { borderColor: colors.border },
+                  firActive === 'short' && { backgroundColor: colors.error + '15', borderColor: colors.error },
+                ]}
+                onPress={() => handleFairwaySelect('short')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.directionButtonContent}>
+                  <IconArrowDown size={16} color={firActive === 'short' ? colors.error : colors.textSecondary} />
+                  <Text style={[
+                    styles.toggleText,
+                    { color: firActive === 'short' ? colors.error : colors.textSecondary },
+                  ]}>
+                    Short
+                  </Text>
                 </View>
               </TouchableOpacity>
             </View>
           </View>
         )}
 
-        {/* Green Miss Direction */}
+        {/* Green In Regulation */}
         {showGreenSection && (
           <View style={styles.section}>
             <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
-              GREEN MISS DIRECTION
+              GREEN IN REGULATION
             </Text>
             <View style={styles.toggleRow}>
+              <TouchableOpacity
+                style={[
+                  styles.toggleButton,
+                  styles.toggleButtonSmall,
+                  { borderColor: colors.border },
+                  girActive === 'hit' && { backgroundColor: colors.success + '20', borderColor: colors.success },
+                ]}
+                onPress={() => handleGreenSelect('hit')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.directionButtonContent}>
+                  <IconCheck size={16} color={girActive === 'hit' ? colors.success : colors.textSecondary} />
+                  <Text style={[
+                    styles.toggleText,
+                    { color: girActive === 'hit' ? colors.success : colors.textSecondary },
+                  ]}>
+                    Hit
+                  </Text>
+                </View>
+              </TouchableOpacity>
               {(['left', 'right', 'long', 'short'] as GreenMissDirection[]).map((dir) => (
                 <TouchableOpacity
                   key={dir}
@@ -194,14 +345,14 @@ export function DetailedStatsSheet({
                     styles.toggleButton,
                     styles.toggleButtonSmall,
                     { borderColor: colors.border },
-                    greenDir === dir && { backgroundColor: colors.primary + '20', borderColor: colors.primary },
+                    girActive === dir && { backgroundColor: colors.error + '15', borderColor: colors.error },
                   ]}
-                  onPress={() => toggleGreenDir(dir)}
+                  onPress={() => handleGreenSelect(dir)}
                   activeOpacity={0.7}
                 >
                   <Text style={[
                     styles.toggleText,
-                    { color: greenDir === dir ? colors.primary : colors.textSecondary },
+                    { color: girActive === dir ? colors.error : colors.textSecondary },
                   ]}>
                     {dir.charAt(0).toUpperCase() + dir.slice(1)}
                   </Text>
@@ -328,11 +479,14 @@ const styles = StyleSheet.create({
   },
   toggleRow: {
     flexDirection: 'row',
-    gap: spacing.sm,
+    gap: spacing.xs,
   },
   toggleButton: {
     flex: 1,
+    flexBasis: 0,
+    minWidth: 0,
     paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xs,
     borderRadius: borderRadius.md,
     borderWidth: 2,
     alignItems: 'center',
@@ -342,7 +496,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   toggleText: {
-    ...typography.body,
+    ...typography.caption,
     fontWeight: '600',
   },
   stepperRow: {

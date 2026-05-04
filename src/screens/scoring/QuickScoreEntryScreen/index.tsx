@@ -42,7 +42,7 @@ export default function QuickScoreEntryScreen({ route, navigation }: Props) {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <PageHeader
-        title="Quick Score Entry"
+        title={vm.round?.course?.club?.name || vm.course?.name || 'Quick Score Entry'}
         subtitle={`${vm.player?.name ?? 'Player'} · ${vm.course?.name ?? 'Course'}`}
         showBack
         onBack={() => navigation.goBack()}

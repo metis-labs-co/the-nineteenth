@@ -11,6 +11,7 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { useStatsVisibilityWithTier } from '@/hooks/useStatsVisibilityWithTier';
 import { usePairings, useSubMatches } from '@/hooks/rounds';
 import { useRoundTeams } from '@/hooks/scorecard/useRoundTeams';
+import { useShotLogByRound } from '@/hooks/shots';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import type { TabKey } from './types';
@@ -105,6 +106,10 @@ export function useViewRoundScreen({ route, navigation }: Props) {
     : pairingsForCount?.length ?? 0;
   const teamCount = teamsForCount.length;
 
+  // Whether to surface the Shots tab — gated on at least one logged shot.
+  const { data: shotLogForRound } = useShotLogByRound(roundId);
+  const hasShots = (shotLogForRound?.length ?? 0) > 0;
+
   // Tabs
   const tabs = useViewRoundTabs({
     isMatchPlayRound,
@@ -121,6 +126,7 @@ export function useViewRoundScreen({ route, navigation }: Props) {
     hasWolfGame,
     hasPayoutsTab,
     hasStats,
+    hasShots,
     // Prefer the round-player count when it's higher than the scorecard
     // count — scorecards only exist once scoring starts, but tabs like
     // "Groups" need to appear before anyone has scored.

@@ -24,6 +24,8 @@ import type { Player, TeeBox } from '@/types';
 
 export interface ScorecardHeaderProps {
   courseName?: string;
+  /** Club (venue) name — preferred title when available. Falls back to courseName, then to "Score Entry". */
+  clubName?: string | null;
   selectedTee?: TeeBox | null;
   onBack: () => void;
   isStandaloneRound: boolean;
@@ -44,6 +46,7 @@ export interface ScorecardHeaderProps {
 
 export function ScorecardHeader({
   courseName,
+  clubName,
   selectedTee,
   onBack,
   isStandaloneRound: _isStandaloneRound,
@@ -143,7 +146,7 @@ export function ScorecardHeader({
   return (
     <>
       <PageHeader
-        title="Score Entry"
+        title={clubName || courseName || 'Score Entry'}
         subtitle={renderSubtitle()}
         showBack
         onBack={onBack}

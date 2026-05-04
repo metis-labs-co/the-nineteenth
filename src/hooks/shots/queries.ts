@@ -39,3 +39,29 @@ export function useShotLog(roundId: string, holeNumber: number) {
     staleTime: CACHE_TIMES.MODERATE,
   });
 }
+
+/**
+ * Fetch every shot for a round (all holes, all players) sorted by
+ * (hole, player, sequence). Used by the Shots tab on Review Scorecard
+ * and View Round screens.
+ */
+export async function fetchShotLogByRound(roundId: string): Promise<ShotLogEntry[]> {
+  const { data, error } = await shotLogTable()
+    .select('*')
+    .eq('round_id', roundId)
+    .order('hole_number', { ascending: true })
+    .order('player_id', { ascending: true })
+    .order('sequence', { ascending: true });
+
+  if (error) throw error;
+  return (data as ShotLogEntry[] | null) ?? [];
+}
+
+export function useShotLogByRound(roundId: string | undefined) {
+  return useQuery({
+    queryKey: shotLogKeys.byRound(roundId ?? ''),
+    queryFn: () => fetchShotLogByRound(roundId as string),
+    enabled: !!roundId,
+    staleTime: CACHE_TIMES.MODERATE,
+  });
+}

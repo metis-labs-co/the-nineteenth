@@ -11,6 +11,7 @@ import { useStatsVisibilityWithTier } from '@/hooks/useStatsVisibilityWithTier';
 import { useActiveSkinsGameForRound } from '@/hooks/useSkins';
 import { useWolfGameByRound } from '@/hooks/wolf';
 import { useRoundDetails } from '@/hooks/useRoundDetails';
+import { useShotLogByRound } from '@/hooks/shots';
 import type { PayoutsMode } from '@/utils/combinedPayouts';
 import type { GameType } from '@/types';
 
@@ -18,7 +19,7 @@ import type { GameType } from '@/types';
 // TAB TYPES
 // =====================================================
 
-export type TabKey = 'scorecard' | 'stats' | 'leaderboard' | 'contributions' | 'skins' | 'wolf' | 'payouts';
+export type TabKey = 'scorecard' | 'stats' | 'leaderboard' | 'contributions' | 'skins' | 'wolf' | 'payouts' | 'shots';
 
 // =====================================================
 // HOOK
@@ -79,6 +80,11 @@ export function useReviewScorecardTabs({ roundId, storeGameType, playerCount }: 
         ? 'wolf-only'
         : null;
 
+  // Shot log presence — drives the Shots tab. We only need to know whether
+  // any shots exist; the tab itself will fetch the full list when active.
+  const { data: shotLogForRound } = useShotLogByRound(roundId || undefined);
+  const hasShots = (shotLogForRound?.length ?? 0) > 0;
+
   // Stats visibility (for Stats tab)
   const statsVisibility = useStatsVisibilityWithTier();
   const hasStats =
@@ -138,8 +144,13 @@ export function useReviewScorecardTabs({ roundId, storeGameType, playerCount }: 
       tabList.push({ key: 'payouts' as const, label: 'Payouts' });
     }
 
+    // Shots tab — appended last when any shots exist on the round.
+    if (hasShots) {
+      tabList.push({ key: 'shots' as const, label: 'Shots' });
+    }
+
     return tabList;
-  }, [hasSkinsGame, hasWolfGame, hasPayoutsTab, isStrokePlay, isScramble, isShamble, isBestBall, isMatchPlayTeam, hasStats, isSoloRound]);
+  }, [hasSkinsGame, hasWolfGame, hasPayoutsTab, hasShots, isStrokePlay, isScramble, isShamble, isBestBall, isMatchPlayTeam, hasStats, isSoloRound]);
 
   // Show the tab bar whenever there's more than a single tab. Every individual
   // format now gets a Leaderboard tab alongside Scorecard, so this is true for
@@ -195,5 +206,8 @@ export function useReviewScorecardTabs({ roundId, storeGameType, playerCount }: 
     // Stats
     statsVisibility,
     hasStats,
+
+    // Shots
+    hasShots,
   };
 }

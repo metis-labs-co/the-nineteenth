@@ -43,6 +43,7 @@ import {
   UpcomingRoundsSection,
   CompetitionsLeaguesSection,
   StatsHighlightsSection,
+  BagSummarySection,
   AchievementStatsSection,
   AchievementProgressSection,
   LastRoundSection,
@@ -229,6 +230,7 @@ export default function HomeScreen() {
                   rounds={home.upcomingRounds}
                   showViewAll={showViewAll}
                 />
+                <BagSummarySection />
                 <CompetitionsLeaguesSection
                   competitions={home.competitions}
                   leagues={home.leagues}

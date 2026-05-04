@@ -12,7 +12,9 @@ export interface ShotLogEntry {
   latitude: number;
   longitude: number;
 
-  // Reserved nullable columns for v2 — no UI today.
+  // Activated in the What's-in-the-Bag feature (May 2026).
+  // `club_used` stores a canonical ClubKey from `src/constants/clubs.ts`.
+  // `shot_type` remains reserved for a later iteration.
   club_used: string | null;
   shot_type: string | null;
 
@@ -22,9 +24,15 @@ export interface ShotLogEntry {
 
 export type ShotLogInsert = Pick<
   ShotLogEntry,
-  'round_id' | 'hole_number' | 'player_id' | 'sequence' | 'latitude' | 'longitude'
+  | 'round_id'
+  | 'hole_number'
+  | 'player_id'
+  | 'sequence'
+  | 'latitude'
+  | 'longitude'
+  | 'club_used'
 >;
 
 export type ShotLogUpdate = Partial<
-  Pick<ShotLogEntry, 'latitude' | 'longitude'>
+  Pick<ShotLogEntry, 'latitude' | 'longitude' | 'club_used'>
 >;

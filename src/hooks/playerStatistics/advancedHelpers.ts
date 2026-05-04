@@ -37,22 +37,32 @@ export function calculateFairwayMissDirectionStats(
 ): FairwayMissDirectionStats {
   let leftCount = 0;
   let rightCount = 0;
+  let longCount = 0;
+  let shortCount = 0;
 
   for (const score of allScores) {
     if (score.fairwayHit === false && score.fairwayMissDirection) {
-      if (score.fairwayMissDirection === 'left') leftCount++;
-      else if (score.fairwayMissDirection === 'right') rightCount++;
+      switch (score.fairwayMissDirection) {
+        case 'left': leftCount++; break;
+        case 'right': rightCount++; break;
+        case 'long': longCount++; break;
+        case 'short': shortCount++; break;
+      }
     }
   }
 
-  const totalMisses = leftCount + rightCount;
+  const totalMisses = leftCount + rightCount + longCount + shortCount;
 
   return {
     leftCount,
     rightCount,
+    longCount,
+    shortCount,
     totalMisses,
     leftPercentage: totalMisses > 0 ? Math.round((leftCount / totalMisses) * 1000) / 10 : null,
     rightPercentage: totalMisses > 0 ? Math.round((rightCount / totalMisses) * 1000) / 10 : null,
+    longPercentage: totalMisses > 0 ? Math.round((longCount / totalMisses) * 1000) / 10 : null,
+    shortPercentage: totalMisses > 0 ? Math.round((shortCount / totalMisses) * 1000) / 10 : null,
   };
 }
 

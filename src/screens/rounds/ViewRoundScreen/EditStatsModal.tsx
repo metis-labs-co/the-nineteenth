@@ -289,41 +289,13 @@ export function EditStatsModal({
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* FIR — inline: Left / Right / Hit */}
+          {/* FIR — inline: Hit / Left / Right / Long / Short */}
           {showFIRSection && (
             <View style={styles.section}>
               <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
                 FAIRWAY IN REGULATION
               </Text>
               <View style={styles.inlineRow}>
-                <TouchableOpacity
-                  style={[
-                    styles.inlineButton,
-                    { borderColor: colors.border },
-                    firActive === 'left' && { backgroundColor: colors.error + '15', borderColor: colors.error },
-                  ]}
-                  onPress={() => handleFairwaySelect('left')}
-                  activeOpacity={0.7}
-                >
-                  <IconArrowLeft size={18} color={firActive === 'left' ? colors.error : colors.textSecondary} />
-                  <Text style={[styles.inlineButtonText, { color: firActive === 'left' ? colors.error : colors.textSecondary }]}>
-                    Left
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.inlineButton,
-                    { borderColor: colors.border },
-                    firActive === 'right' && { backgroundColor: colors.error + '15', borderColor: colors.error },
-                  ]}
-                  onPress={() => handleFairwaySelect('right')}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.inlineButtonText, { color: firActive === 'right' ? colors.error : colors.textSecondary }]}>
-                    Right
-                  </Text>
-                  <IconArrowRight size={18} color={firActive === 'right' ? colors.error : colors.textSecondary} />
-                </TouchableOpacity>
                 <TouchableOpacity
                   style={[
                     styles.inlineButton,
@@ -337,6 +309,50 @@ export function EditStatsModal({
                   <Text style={[styles.inlineButtonText, { color: firActive === 'hit' ? colors.success : colors.textSecondary }]}>
                     Hit
                   </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.inlineButton,
+                    { borderColor: colors.border },
+                    firActive === 'left' && { backgroundColor: colors.error + '15', borderColor: colors.error },
+                  ]}
+                  onPress={() => handleFairwaySelect('left')}
+                  activeOpacity={0.7}
+                >
+                  <IconArrowLeft size={16} color={firActive === 'left' ? colors.error : colors.textSecondary} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.inlineButton,
+                    { borderColor: colors.border },
+                    firActive === 'right' && { backgroundColor: colors.error + '15', borderColor: colors.error },
+                  ]}
+                  onPress={() => handleFairwaySelect('right')}
+                  activeOpacity={0.7}
+                >
+                  <IconArrowRight size={16} color={firActive === 'right' ? colors.error : colors.textSecondary} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.inlineButton,
+                    { borderColor: colors.border },
+                    firActive === 'long' && { backgroundColor: colors.error + '15', borderColor: colors.error },
+                  ]}
+                  onPress={() => handleFairwaySelect('long')}
+                  activeOpacity={0.7}
+                >
+                  <IconArrowUp size={16} color={firActive === 'long' ? colors.error : colors.textSecondary} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.inlineButton,
+                    { borderColor: colors.border },
+                    firActive === 'short' && { backgroundColor: colors.error + '15', borderColor: colors.error },
+                  ]}
+                  onPress={() => handleFairwaySelect('short')}
+                  activeOpacity={0.7}
+                >
+                  <IconArrowDown size={16} color={firActive === 'short' ? colors.error : colors.textSecondary} />
                 </TouchableOpacity>
               </View>
             </View>

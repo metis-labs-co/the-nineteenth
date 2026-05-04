@@ -30,37 +30,28 @@ const noop = () => {};
 describe('MapMarkerSet — Free tier', () => {
   it('renders no POI markers on free tier even when present in markers', () => {
     const { queryByTestId } = render(
-      <MapMarkerSet markers={fullMarkers} tier="free" onTeePress={noop} onGreenPress={noop} />
+      <MapMarkerSet markers={fullMarkers} tier="free" onGreenPress={noop} />
     );
-    expect(queryByTestId('tee-poi-tee_back')).toBeNull();
     expect(queryByTestId('green-poi-green_center')).toBeNull();
   });
 });
 
 describe('MapMarkerSet — Social/Premium tier', () => {
-  it('renders all tees and greens on social tier', () => {
+  it('renders all greens on social tier', () => {
     const { getByTestId } = render(
-      <MapMarkerSet markers={fullMarkers} tier="social" onTeePress={noop} onGreenPress={noop} />
+      <MapMarkerSet markers={fullMarkers} tier="social" onGreenPress={noop} />
     );
-    expect(getByTestId('tee-poi-tee_back')).toBeTruthy();
-    expect(getByTestId('tee-poi-tee_front')).toBeTruthy();
     expect(getByTestId('green-poi-green_front')).toBeTruthy();
     expect(getByTestId('green-poi-green_center')).toBeTruthy();
     expect(getByTestId('green-poi-green_back')).toBeTruthy();
   });
 
-  it('invokes onTeePress with the tapped type', () => {
-    const onTeePress = jest.fn();
-    const { getByTestId } = render(
-      <MapMarkerSet
-        markers={fullMarkers}
-        tier="social"
-        onTeePress={onTeePress}
-        onGreenPress={noop}
-      />
+  it('does not render tee POI markers even when tee data is present', () => {
+    const { queryByTestId } = render(
+      <MapMarkerSet markers={fullMarkers} tier="social" onGreenPress={noop} />
     );
-    fireEvent.press(getByTestId('tee-poi-tee_front'));
-    expect(onTeePress).toHaveBeenCalledWith('tee_front');
+    expect(queryByTestId('tee-poi-tee_back')).toBeNull();
+    expect(queryByTestId('tee-poi-tee_front')).toBeNull();
   });
 
   it('invokes onGreenPress with the tapped type', () => {
@@ -69,7 +60,6 @@ describe('MapMarkerSet — Social/Premium tier', () => {
       <MapMarkerSet
         markers={fullMarkers}
         tier="premium"
-        onTeePress={noop}
         onGreenPress={onGreenPress}
       />
     );
@@ -77,18 +67,15 @@ describe('MapMarkerSet — Social/Premium tier', () => {
     expect(onGreenPress).toHaveBeenCalledWith('green_back');
   });
 
-  it('shows selected styling for selectedTee and selectedGreen', () => {
+  it('shows selected styling for selectedGreen', () => {
     const { getByTestId } = render(
       <MapMarkerSet
         markers={fullMarkers}
         tier="social"
-        selectedTee="tee_back"
         selectedGreen="green_front"
-        onTeePress={noop}
         onGreenPress={noop}
       />
     );
-    expect(getByTestId('tee-poi-tee_back-selected')).toBeTruthy();
     expect(getByTestId('green-poi-green_front-selected')).toBeTruthy();
   });
 });

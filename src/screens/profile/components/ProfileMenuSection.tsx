@@ -35,6 +35,7 @@ interface ProfileMenuSectionProps {
   onPrivacyData: () => void;
   onAppearance: () => void;
   onGameSettings: () => void;
+  onWhatsInTheBag: () => void;
   onSecurity: () => void;
   onDeveloper: () => void;
   onCountryRegion: () => void;
@@ -61,6 +62,7 @@ export const ProfileMenuSection = React.memo(function ProfileMenuSection({
   onPrivacyData,
   onAppearance,
   onGameSettings,
+  onWhatsInTheBag,
   onSecurity,
   onDeveloper,
   onCountryRegion,
@@ -205,6 +207,12 @@ export const ProfileMenuSection = React.memo(function ProfileMenuSection({
             title="Game Settings"
             onPress={onGameSettings}
             testID="menu-game-settings"
+          />
+          <MenuItemRow
+            icon="golf"
+            title="What's in the Bag"
+            onPress={onWhatsInTheBag}
+            testID="menu-whats-in-the-bag"
           />
           {biometricAvailable && (
             <MenuItemRow

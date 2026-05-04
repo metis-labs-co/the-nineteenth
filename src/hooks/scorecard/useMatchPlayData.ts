@@ -39,6 +39,8 @@ interface UseMatchPlayDataResult {
   holes: Hole[];
   /** Course name */
   courseName: string | null;
+  /** Club (venue) name, when known. */
+  clubName: string | null;
   /** Selected tee box */
   selectedTee: TeeBox | undefined;
   /** Combined loading state */
@@ -372,6 +374,7 @@ export function useMatchPlayData({
     player2,
     holes: courseHook.holes,
     courseName: roundData?.course?.name || courseHook.course?.name || null,
+    clubName: roundData?.course?.club?.name || null,
     selectedTee,
     isLoading,
     error: combinedError,

@@ -29,12 +29,22 @@ export interface SupabasePlayerData {
 }
 
 /**
+ * Club data returned from Supabase joins (subset of full Club type)
+ */
+export interface SupabaseClubData {
+  id: string;
+  name: string;
+}
+
+/**
  * Course data returned from Supabase joins
  */
 export interface SupabaseCourseData {
   id: string;
   name: string;
   holes?: Hole[];
+  /** Club (venue) the course belongs to. Optional — older queries may omit it. */
+  clubs?: SupabaseClubData | null;
 }
 
 /**
@@ -122,7 +132,11 @@ export const ROUND_METADATA_SELECT = `
   team_config,
   courses!course_id (
     id,
-    name
+    name,
+    clubs!club_id (
+      id,
+      name
+    )
   )
 `;
 

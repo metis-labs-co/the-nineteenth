@@ -193,6 +193,7 @@ export default function ProfileScreen() {
           onPrivacyData={() => navigation.navigate('PrivacyData')}
           onAppearance={() => navigation.navigate('Appearance')}
           onGameSettings={() => navigation.navigate('GameSettings')}
+          onWhatsInTheBag={() => navigation.navigate('WhatsInTheBag')}
           onSecurity={() => navigation.navigate('Security')}
           onDeveloper={() => navigation.navigate('Developer')}
           onCountryRegion={() => navigation.navigate('CountryRegion')}

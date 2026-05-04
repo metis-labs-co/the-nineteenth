@@ -1,5 +1,5 @@
-export { useShotLog, fetchShotLog } from './queries';
-export { useLogShot, useUpdateShot, useDeleteShot } from './mutations';
+export { useShotLog, useShotLogByRound, fetchShotLog } from './queries';
+export { useLogShot, useUpdateShot, useDeleteShot, useSetShotClub } from './mutations';
 export {
   nextSequence,
   applyOptimisticInsert,

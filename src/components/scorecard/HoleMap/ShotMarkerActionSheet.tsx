@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, Text, Pressable, StyleSheet, Modal } from 'react-native';
+import { Text, Pressable, StyleSheet, Modal } from 'react-native';
 import { Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { clubLabel } from '@/constants/clubs';
 import type { ShotLogEntry } from '@/types/database/shotLog.types';
 
 interface ShotMarkerActionSheetProps {
@@ -11,6 +12,7 @@ interface ShotMarkerActionSheetProps {
   onClose: () => void;
   onDelete: (shot: ShotLogEntry) => void;
   onMoveOnMap: (shot: ShotLogEntry) => void;
+  onChangeClub?: (shot: ShotLogEntry) => void;
 }
 
 export function ShotMarkerActionSheet({
@@ -19,10 +21,13 @@ export function ShotMarkerActionSheet({
   onClose,
   onDelete,
   onMoveOnMap,
+  onChangeClub,
 }: ShotMarkerActionSheetProps) {
   const colors = useThemeColors();
 
   if (!shot) return null;
+
+  const club = clubLabel(shot.club_used);
 
   return (
     <Modal
@@ -39,7 +44,27 @@ export function ShotMarkerActionSheet({
         >
           <Text style={[styles.title, { color: colors.textPrimary }]}>
             Shot {shot.sequence}
+            {shot.club_used && (
+              <Text style={[styles.titleClub, { color: colors.textSecondary }]}>
+                {'  · '}{club}
+              </Text>
+            )}
           </Text>
+
+          {onChangeClub && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Change club"
+              onPress={() => onChangeClub(shot)}
+              style={[styles.action, { borderColor: colors.border }]}
+              testID="shot-action-change-club"
+            >
+              <Icon source="golf" size={22} color={colors.textPrimary} />
+              <Text style={[styles.actionText, { color: colors.textPrimary }]}>
+                {shot.club_used ? 'Change club' : 'Set club'}
+              </Text>
+            </Pressable>
+          )}
 
           <Pressable
             accessibilityRole="button"
@@ -98,6 +123,10 @@ const styles = StyleSheet.create({
   title: {
     ...typography.h4,
     marginBottom: spacing.md,
+  },
+  titleClub: {
+    ...typography.body,
+    fontWeight: '400',
   },
   action: {
     flexDirection: 'row',

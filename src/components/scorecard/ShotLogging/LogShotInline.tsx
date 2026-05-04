@@ -2,12 +2,19 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, StyleSheet, View } from 'react-native';
 import { Icon, Text } from 'react-native-paper';
 import * as Location from 'expo-location';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useThemeColors } from '@/context/ThemeContext';
 import { borderRadius, spacing, typography } from '@/constants/theme';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { useLogShot, useShotTrackingEligibility } from '@/hooks/shots';
 import { useShotLoggingUiStore } from '@/store/shotLoggingUiStore';
 import { useSettingsStore } from '@/store/settingsStore';
+import { useAuth } from '@/hooks/useAuth';
+import { useBag } from '@/hooks/queries/useBag';
+import { BagClubPickerSheet } from '@/components/features/bag/BagClubPickerSheet';
+import type { ClubKey } from '@/constants/clubs';
+import type { RootStackParamList } from '@/navigation/types';
 
 /**
  * Map raw supabase / Postgres errors to short, user-facing copy.
@@ -50,9 +57,13 @@ export const LogShotInline = React.memo(function LogShotInline({
   disabled = false,
 }: LogShotInlineProps) {
   const colors = useThemeColors();
+  const navigation =
+    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const eligibility = useShotTrackingEligibility(roundId);
   const enableHoleMap = useSettingsStore((s) => s.enableHoleMap);
   const trackShotsAutomatically = useSettingsStore((s) => s.trackShotsAutomatically);
+  const { player } = useAuth();
+  const { data: bag = [] } = useBag(player?.id);
 
   const {
     location,
@@ -64,6 +75,13 @@ export const LogShotInline = React.memo(function LogShotInline({
   const logShot = useLogShot();
   const showToast = useShotLoggingUiStore((s) => s.showToast);
   const showErrorToast = useShotLoggingUiStore((s) => s.showErrorToast);
+
+  // Position captured at tap-time, awaiting the user's club pick. The picker
+  // is mounted only while this is non-null. Set to null on cancel/log/error.
+  const [pendingPosition, setPendingPosition] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
 
   // Bootstrap GPS — this button may be the only entry point on courses without
   // hole_coordinates (where DistanceToPin never mounts).
@@ -79,10 +97,24 @@ export const LogShotInline = React.memo(function LogShotInline({
   // callback and get a one-shot getCurrentPositionAsync.
   const [isFetchingPosition, setIsFetchingPosition] = useState(false);
 
-  const logShotAt = useCallback(
+  // Position is captured immediately on tap; the actual write happens once
+  // the user picks a club. This separates "where I hit it from" (a
+  // time-sensitive GPS capture) from "what I hit" (a deliberate choice the
+  // user can take their time on without GPS drift mattering).
+  const queueShotForClub = useCallback(
     (latitude: number, longitude: number) => {
+      setPendingPosition({ latitude, longitude });
+    },
+    []
+  );
+
+  const handleClubPicked = useCallback(
+    (clubKey: ClubKey) => {
+      if (!pendingPosition) return;
+      const { latitude, longitude } = pendingPosition;
+      setPendingPosition(null);
       logShot.mutate(
-        { roundId, holeNumber, latitude, longitude },
+        { roundId, holeNumber, latitude, longitude, clubKey },
         {
           onSuccess: (shot) => {
             showToast({
@@ -98,8 +130,17 @@ export const LogShotInline = React.memo(function LogShotInline({
         }
       );
     },
-    [logShot, roundId, holeNumber, showToast, showErrorToast]
+    [pendingPosition, logShot, roundId, holeNumber, showToast, showErrorToast]
   );
+
+  const handlePickerCancel = useCallback(() => {
+    setPendingPosition(null);
+  }, []);
+
+  const handleSetupBag = useCallback(() => {
+    setPendingPosition(null);
+    navigation.navigate('WhatsInTheBag');
+  }, [navigation]);
 
   const handlePress = useCallback(async () => {
     // Permission denied previously — iOS won't show another prompt. Direct
@@ -131,7 +172,7 @@ export const LogShotInline = React.memo(function LogShotInline({
         const fix = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.Highest,
         });
-        logShotAt(fix.coords.latitude, fix.coords.longitude);
+        queueShotForClub(fix.coords.latitude, fix.coords.longitude);
       } catch {
         showErrorToast({
           message: "Couldn't get your location. Move to an open area and try again.",
@@ -142,14 +183,14 @@ export const LogShotInline = React.memo(function LogShotInline({
       return;
     }
 
-    logShotAt(location.latitude, location.longitude);
+    queueShotForClub(location.latitude, location.longitude);
   }, [
     permissionStatus,
     requestPermission,
     startWatching,
     location,
     isFetchingPosition,
-    logShotAt,
+    queueShotForClub,
     showErrorToast,
   ]);
 
@@ -169,34 +210,45 @@ export const LogShotInline = React.memo(function LogShotInline({
   const pressable = !disabled && !logShot.isPending && !isFetchingPosition;
 
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={
-        isAwaitingPermission
-          ? 'Enable GPS to log shots'
-          : isFetchingPosition
-          ? 'Acquiring GPS — log shot when ready'
-          : 'Log shot at current GPS'
-      }
-      accessibilityState={{ disabled: !pressable }}
-      onPress={handlePress}
-      disabled={!pressable}
-      testID="log-shot-inline"
-      style={[
-        styles.button,
-        { backgroundColor: pressable ? colors.primary : colors.gray400 },
-      ]}
-    >
-      {showSpinner ? (
-        <ActivityIndicator color={colors.white} size="small" testID="log-shot-inline-spinner" />
-      ) : (
-        <View style={styles.iconRow}>
-          <Icon source="golf-tee" size={16} color={colors.white} />
-          <Icon source="plus" size={12} color={colors.white} />
-        </View>
-      )}
-      <Text style={[styles.label, { color: colors.white }]}>Log Shot</Text>
-    </Pressable>
+    <>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={
+          isAwaitingPermission
+            ? 'Enable GPS to log shots'
+            : isFetchingPosition
+            ? 'Acquiring GPS — log shot when ready'
+            : 'Log shot at current GPS'
+        }
+        accessibilityState={{ disabled: !pressable }}
+        onPress={handlePress}
+        disabled={!pressable}
+        testID="log-shot-inline"
+        style={[
+          styles.button,
+          { backgroundColor: pressable ? colors.primary : colors.gray400 },
+        ]}
+      >
+        {showSpinner ? (
+          <ActivityIndicator color={colors.white} size="small" testID="log-shot-inline-spinner" />
+        ) : (
+          <View style={styles.iconRow}>
+            <Icon source="golf-tee" size={16} color={colors.white} />
+            <Icon source="plus" size={12} color={colors.white} />
+          </View>
+        )}
+        <Text style={[styles.label, { color: colors.white }]}>Log Shot</Text>
+      </Pressable>
+
+      <BagClubPickerSheet
+        visible={pendingPosition !== null}
+        bag={bag}
+        title="Which club did you hit?"
+        onPick={handleClubPicked}
+        onCancel={handlePickerCancel}
+        onSetupBag={handleSetupBag}
+      />
+    </>
   );
 });
 LogShotInline.displayName = 'LogShotInline';

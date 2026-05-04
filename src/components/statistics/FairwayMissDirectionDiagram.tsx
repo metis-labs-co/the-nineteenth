@@ -141,6 +141,18 @@ export const FairwayMissDirectionDiagram = React.memo(function FairwayMissDirect
               R: {stats.rightPercentage ?? 0}%
             </Text>
           </View>
+
+          {/* Long/Short totals (when present) */}
+          {(stats.longCount > 0 || stats.shortCount > 0) && (
+            <View style={[styles.labelsRow, { width: svgWidth }]}>
+              <Text style={[styles.dirLabel, { color: colors.error }]}>
+                Long: {stats.longPercentage ?? 0}%
+              </Text>
+              <Text style={[styles.dirLabel, { color: colors.error }]}>
+                Short: {stats.shortPercentage ?? 0}%
+              </Text>
+            </View>
+          )}
         </>
       ) : (
         /* Empty state */

@@ -139,7 +139,7 @@ export const StatsRow = React.memo(function StatsRow({
           >
             {fairwayHit !== true && score?.fairwayMissDirection ? (
               <Text style={[styles.missDirectionText, { color: colors.error }]}>
-                {score.fairwayMissDirection === 'left' ? 'L' : 'R'}
+                {{ left: 'L', right: 'R', long: 'Lo', short: 'Sh' }[score.fairwayMissDirection]}
               </Text>
             ) : (
               <Icon
@@ -251,7 +251,7 @@ export const StatsRow = React.memo(function StatsRow({
               <View style={styles.additionalStatsContent}>
                 <IconPlus size={14} color={colors.primary} />
                 <Text style={[styles.additionalStatsText, { color: colors.primary }]}>
-                  Add Additional Stats
+                  Stats
                 </Text>
               </View>
               <DetailedStatsBadges

@@ -762,8 +762,8 @@ function createEmptyStatistics(): PlayerStatistics {
       puttsPerGIR: null,
     },
     fairwayMissDirection: {
-      leftCount: 0, rightCount: 0, totalMisses: 0,
-      leftPercentage: null, rightPercentage: null,
+      leftCount: 0, rightCount: 0, longCount: 0, shortCount: 0, totalMisses: 0,
+      leftPercentage: null, rightPercentage: null, longPercentage: null, shortPercentage: null,
     },
     greenMissDirection: {
       leftCount: 0, rightCount: 0, longCount: 0, shortCount: 0, totalMisses: 0,

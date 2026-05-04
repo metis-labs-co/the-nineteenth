@@ -9,7 +9,7 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
-import { shotLogKeys } from '@/hooks/queryKeys';
+import { shotLogKeys, bagKeys } from '@/hooks/queryKeys';
 import { useAuth } from '@/hooks/useAuth';
 import {
   applyOptimisticInsert,
@@ -17,6 +17,7 @@ import {
   applyOptimisticDelete,
 } from './sequence';
 import type { ShotLogEntry } from '@/types/database/shotLog.types';
+import type { ClubKey } from '@/constants/clubs';
 
 // Until the supabase Database types are regenerated post-migration, the
 // generated client doesn't know about `shot_log`. Cast to bypass the
@@ -29,6 +30,8 @@ interface LogShotInput {
   holeNumber: number;
   latitude: number;
   longitude: number;
+  /** Required: the canonical club key the player hit. Drives per-club analytics. */
+  clubKey: ClubKey;
 }
 
 interface UpdateShotInput {
@@ -37,6 +40,13 @@ interface UpdateShotInput {
   holeNumber: number;
   latitude: number;
   longitude: number;
+}
+
+interface SetShotClubInput {
+  shotId: string;
+  roundId: string;
+  holeNumber: number;
+  clubKey: ClubKey;
 }
 
 interface DeleteShotInput {
@@ -89,6 +99,7 @@ export function useLogShot() {
             sequence,
             latitude: input.latitude,
             longitude: input.longitude,
+            club_used: input.clubKey,
           })
           .select()
           .single();
@@ -114,12 +125,44 @@ export function useLogShot() {
       queryClient.setQueryData<ShotLogEntry[]>(cacheKey, (existing) =>
         applyOptimisticInsert(existing ?? [], newShot)
       );
+      queryClient.invalidateQueries({ queryKey: shotLogKeys.byRound(input.roundId) });
+      if (player) {
+        queryClient.invalidateQueries({ queryKey: bagKeys.perClubStats(player.id) });
+      }
+    },
+  });
+}
+
+export function useSetShotClub() {
+  const queryClient = useQueryClient();
+  const { player } = useAuth();
+
+  return useMutation({
+    mutationFn: async (input: SetShotClubInput): Promise<ShotLogEntry> => {
+      const { data, error } = await shotLogTable()
+        .update({ club_used: input.clubKey })
+        .eq('id', input.shotId)
+        .select()
+        .single();
+      if (error) throw error;
+      return data as ShotLogEntry;
+    },
+    onSuccess: (updated, input) => {
+      const cacheKey = shotLogKeys.byHole(input.roundId, input.holeNumber);
+      queryClient.setQueryData<ShotLogEntry[]>(cacheKey, (existing) =>
+        applyOptimisticUpdate(existing ?? [], input.shotId, updated)
+      );
+      queryClient.invalidateQueries({ queryKey: shotLogKeys.byRound(input.roundId) });
+      if (player) {
+        queryClient.invalidateQueries({ queryKey: bagKeys.perClubStats(player.id) });
+      }
     },
   });
 }
 
 export function useUpdateShot() {
   const queryClient = useQueryClient();
+  const { player } = useAuth();
 
   return useMutation({
     mutationFn: async (input: UpdateShotInput): Promise<ShotLogEntry> => {
@@ -140,12 +183,18 @@ export function useUpdateShot() {
       queryClient.setQueryData<ShotLogEntry[]>(cacheKey, (existing) =>
         applyOptimisticUpdate(existing ?? [], input.shotId, updated)
       );
+      queryClient.invalidateQueries({ queryKey: shotLogKeys.byRound(input.roundId) });
+      if (player) {
+        // Distance changes when a shot moves — refresh per-club stats.
+        queryClient.invalidateQueries({ queryKey: bagKeys.perClubStats(player.id) });
+      }
     },
   });
 }
 
 export function useDeleteShot() {
   const queryClient = useQueryClient();
+  const { player } = useAuth();
 
   return useMutation({
     mutationFn: async (input: DeleteShotInput): Promise<void> => {
@@ -159,6 +208,10 @@ export function useDeleteShot() {
       );
       // Refetch from server to pick up server-side sequence compaction.
       queryClient.invalidateQueries({ queryKey: cacheKey });
+      queryClient.invalidateQueries({ queryKey: shotLogKeys.byRound(input.roundId) });
+      if (player) {
+        queryClient.invalidateQueries({ queryKey: bagKeys.perClubStats(player.id) });
+      }
     },
   });
 }

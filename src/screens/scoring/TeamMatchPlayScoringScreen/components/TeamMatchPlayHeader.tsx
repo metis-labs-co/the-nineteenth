@@ -21,6 +21,8 @@ import type { TeeBox } from '@/types';
 
 export interface TeamMatchPlayHeaderProps {
   courseName?: string;
+  /** Club (venue) name — preferred title when available. */
+  clubName?: string | null;
   selectedTee?: TeeBox | null;
   onBack: () => void;
   isSuperAdmin: boolean;
@@ -29,6 +31,7 @@ export interface TeamMatchPlayHeaderProps {
 
 export function TeamMatchPlayHeader({
   courseName,
+  clubName,
   selectedTee,
   onBack,
   isSuperAdmin: _isSuperAdmin,
@@ -71,7 +74,7 @@ export function TeamMatchPlayHeader({
 
   return (
     <PageHeader
-      title="Team Match Play"
+      title={clubName || courseName || 'Team Match Play'}
       subtitle={renderSubtitle()}
       showBack
       onBack={onBack}

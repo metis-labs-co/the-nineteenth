@@ -21,6 +21,8 @@ interface UseViewRoundTabsParams {
   hasWolfGame: boolean;
   hasPayoutsTab: boolean;
   hasStats: boolean;
+  /** True when at least one shot has been logged on the round. */
+  hasShots: boolean;
   playerCount: number;
   /** Number of tee groups / sub-matches for the Groups tab badge. */
   groupCount?: number;
@@ -61,6 +63,7 @@ export function useViewRoundTabs({
   hasWolfGame,
   hasPayoutsTab,
   hasStats,
+  hasShots,
   playerCount,
   groupCount,
   teamCount,
@@ -137,6 +140,13 @@ export function useViewRoundTabs({
       result.push({ key: 'stats', label: 'Stats' });
     }
 
+    // Shots tab — only when shots exist for the round. Sits after Stats so
+    // it doesn't push the more common tabs off-screen for users who don't
+    // track shots.
+    if (hasShots) {
+      result.push({ key: 'shots', label: 'Shots' });
+    }
+
     return result;
-  }, [isMatchPlayRound, isTeamMatchPlayRound, isShambleRound, isScrambleRound, isStrokePlayRound, isStablefordRound, isParRound, isSplitRound, isTeamRound, hasSkinsGame, hasWolfGame, hasPayoutsTab, hasStats, playerCount, groupCount, teamCount]);
+  }, [isMatchPlayRound, isTeamMatchPlayRound, isShambleRound, isScrambleRound, isStrokePlayRound, isStablefordRound, isParRound, isSplitRound, isTeamRound, hasSkinsGame, hasWolfGame, hasPayoutsTab, hasStats, hasShots, playerCount, groupCount, teamCount]);
 }

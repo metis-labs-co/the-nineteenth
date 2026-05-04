@@ -172,7 +172,15 @@ export const useSettingsStore = create<SettingsState>()(
 );
 
 /**
- * Hook to get formatted distance with unit
+ * Hook to get formatted distance with unit.
+ *
+ * Output collapses to a larger unit at long distances so the page header
+ * doesn't display six-digit metre/yard counts:
+ *   - metres ≥ 1000  → km   (e.g. "1.4km", "23.6km", "104km")
+ *   - yards  ≥ 1760  → mi   (e.g. "1.4mi", "23.6mi", "104mi")
+ *
+ * Below those thresholds the original whole-unit format is preserved
+ * ("142m" / "155yd").
  */
 export function useFormattedDistance() {
   const distanceUnit = useSettingsStore((state) => state.distanceUnit);
@@ -181,10 +189,19 @@ export function useFormattedDistance() {
     formatDistance: (yards: number): string => {
       if (distanceUnit === 'metres') {
         // Convert yards to metres (1 yard = 0.9144 metres)
-        const metres = Math.round(yards * 0.9144);
-        return `${metres}m`;
+        const metres = yards * 0.9144;
+        if (metres >= 1000) {
+          const km = metres / 1000;
+          return km >= 100 ? `${Math.round(km)}km` : `${km.toFixed(1)}km`;
+        }
+        return `${Math.round(metres)}m`;
       }
-      return `${yards}yd`;
+      const YARDS_PER_MILE = 1760;
+      if (yards >= YARDS_PER_MILE) {
+        const miles = yards / YARDS_PER_MILE;
+        return miles >= 100 ? `${Math.round(miles)}mi` : `${miles.toFixed(1)}mi`;
+      }
+      return `${Math.round(yards)}yd`;
     },
     unit: distanceUnit,
     unitLabel: distanceUnit === 'metres' ? 'm' : 'yd',

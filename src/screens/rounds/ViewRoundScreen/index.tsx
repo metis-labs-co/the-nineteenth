@@ -53,6 +53,14 @@ import { StablefordLeaderboardFull } from '@/components/scorecard/StablefordLead
 import { ParLeaderboardFull } from '@/components/scorecard/ParLeaderboardFull';
 import { SubMatchesTab } from './tabs/SubMatchesTab';
 import { IndividualTeamLeaderboardTab } from './tabs/IndividualTeamLeaderboardTab';
+import { ShotLogList } from '@/components/features/shots/ShotLogList';
+import { BagClubPickerSheet } from '@/components/features/bag/BagClubPickerSheet';
+import { ConfirmationDialog } from '@/components/common';
+import { useConfirmationDialog } from '@/hooks';
+import { useDeleteShot, useSetShotClub } from '@/hooks/shots';
+import { useBag } from '@/hooks/queries/useBag';
+import { clubLabel, type ClubKey } from '@/constants/clubs';
+import type { ShotLogEntry } from '@/types/database/shotLog.types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ViewRound'>;
 
@@ -62,6 +70,60 @@ export default function ViewRoundScreen(props: Props) {
   const isDark = useIsDark();
   const competitionIconBackground = isDark ? `${colors.primary}33` : colors.primaryLighter;
   const userScorecard = vm.scorecards?.find((sc) => sc.id === vm.userScorecardId);
+
+  // Shots tab edit/delete plumbing — only active while the round is
+  // in-progress (RLS rejects shot_log writes on completed rounds).
+  const isInProgress = vm.round?.status === 'in-progress';
+  const { data: bag = [] } = useBag(isInProgress ? vm.user?.id : undefined);
+  const deleteShot = useDeleteShot();
+  const setShotClub = useSetShotClub();
+  const [clubEditingShot, setClubEditingShot] = React.useState<ShotLogEntry | null>(null);
+  const {
+    dialogConfig: shotDialogConfig,
+    showDialog: showShotDialog,
+    dismissDialog: dismissShotDialog,
+  } = useConfirmationDialog();
+
+  const handleDeleteShot = React.useCallback(
+    (shot: ShotLogEntry) => {
+      const club = clubLabel(shot.club_used);
+      showShotDialog({
+        title: 'Delete shot?',
+        message: `Remove shot ${shot.sequence}${shot.club_used ? ` (${club})` : ''} on hole ${shot.hole_number}? Subsequent shots on this hole will be renumbered.`,
+        confirmLabel: 'Delete',
+        cancelLabel: 'Cancel',
+        confirmVariant: 'destructive',
+        onConfirm: () => {
+          dismissShotDialog();
+          deleteShot.mutate({
+            shotId: shot.id,
+            roundId: shot.round_id,
+            holeNumber: shot.hole_number,
+          });
+        },
+      });
+    },
+    [showShotDialog, dismissShotDialog, deleteShot]
+  );
+
+  const handleChangeClub = React.useCallback((shot: ShotLogEntry) => {
+    setClubEditingShot(shot);
+  }, []);
+
+  const handleClubPicked = React.useCallback(
+    (clubKey: ClubKey) => {
+      if (!clubEditingShot) return;
+      const target = clubEditingShot;
+      setClubEditingShot(null);
+      setShotClub.mutate({
+        shotId: target.id,
+        roundId: target.round_id,
+        holeNumber: target.hole_number,
+        clubKey,
+      });
+    },
+    [clubEditingShot, setShotClub]
+  );
 
   // Get header title with icons for skins/wolf standalone rounds.
   // A user-defined round name always wins over the icon-decorated title.
@@ -436,6 +498,17 @@ export default function ViewRoundScreen(props: Props) {
             totalHoles={round.course?.holes?.length || 18}
           />
         )}
+        {vm.activeTab === 'shots' && vm.roundId && (
+          <ShotLogList
+            roundId={vm.roundId}
+            courseId={round?.course_id ?? null}
+            playerNameMap={vm.playerNameMap}
+            noScroll
+            currentPlayerId={vm.user?.id}
+            onDeleteShot={isInProgress ? handleDeleteShot : undefined}
+            onChangeClubForShot={isInProgress ? handleChangeClub : undefined}
+          />
+        )}
       </ScrollView>
 
       {/* Modals and Bottom Sheets - rendered last to appear on top */}
@@ -467,6 +540,18 @@ export default function ViewRoundScreen(props: Props) {
           initialHole={vm.editStatsInitialHole}
         />
       )}
+
+      {/* Shot delete confirmation (Shots tab — in-progress rounds only). */}
+      <ConfirmationDialog {...shotDialogConfig} onCancel={dismissShotDialog} />
+
+      {/* Club picker for editing a logged shot's club. */}
+      <BagClubPickerSheet
+        visible={clubEditingShot !== null}
+        bag={bag}
+        title="Change club"
+        onPick={handleClubPicked}
+        onCancel={() => setClubEditingShot(null)}
+      />
 
     </View>
   );

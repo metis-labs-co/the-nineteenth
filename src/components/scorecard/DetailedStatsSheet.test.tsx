@@ -95,8 +95,8 @@ describe('Empty state', () => {
       <DetailedStatsSheet
         {...defaultProps}
         score={{ ...baseScore, fairwayHit: true, greenInRegulation: true }}
-        showFairwayMissDirection={true}
-        showGreenMissDirection={true}
+        showFairwayMissDirection={false}
+        showGreenMissDirection={false}
         showBunkerShots={false}
         showHazards={false}
       />
@@ -118,7 +118,7 @@ describe('Empty state', () => {
 // FAIRWAY MISS DIRECTION
 // ===========================================================================
 
-describe('Fairway miss direction section', () => {
+describe('Fairway in regulation section', () => {
   it('shows fairway section when fairwayHit=false and showFairwayMissDirection=true', () => {
     render(
       <DetailedStatsSheet
@@ -130,10 +130,10 @@ describe('Fairway miss direction section', () => {
         showHazards={false}
       />
     );
-    expect(screen.getByText('FAIRWAY MISS DIRECTION')).toBeTruthy();
+    expect(screen.getByText('FAIRWAY IN REGULATION')).toBeTruthy();
   });
 
-  it('hides fairway section when fairwayHit=true', () => {
+  it('still shows fairway section when fairwayHit=true (so user can re-toggle)', () => {
     render(
       <DetailedStatsSheet
         {...defaultProps}
@@ -144,7 +144,7 @@ describe('Fairway miss direction section', () => {
         showHazards={false}
       />
     );
-    expect(screen.queryByText('FAIRWAY MISS DIRECTION')).toBeNull();
+    expect(screen.getByText('FAIRWAY IN REGULATION')).toBeTruthy();
   });
 
   it('hides fairway section when showFairwayMissDirection=false', () => {
@@ -158,10 +158,10 @@ describe('Fairway miss direction section', () => {
         showHazards={false}
       />
     );
-    expect(screen.queryByText('FAIRWAY MISS DIRECTION')).toBeNull();
+    expect(screen.queryByText('FAIRWAY IN REGULATION')).toBeNull();
   });
 
-  it('fairway Left button can be pressed to toggle selection', () => {
+  it('renders all five fairway buttons (Hit / Left / Right / Long / Short)', () => {
     render(
       <DetailedStatsSheet
         {...defaultProps}
@@ -172,32 +172,15 @@ describe('Fairway miss direction section', () => {
         showHazards={false}
       />
     );
-    // Both buttons should be visible
-    expect(screen.getByText(/Left/)).toBeTruthy();
-    expect(screen.getByText(/Right/)).toBeTruthy();
-
-    // Press Left — should not throw
-    fireEvent.press(screen.getByText(/Left/));
-    // After pressing, Done is still available
-    expect(screen.getByText('Done')).toBeTruthy();
+    expect(screen.getByText('Hit')).toBeTruthy();
+    expect(screen.getAllByText('Left').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Right').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Long').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Short').length).toBeGreaterThan(0);
   });
 
-  it('fairway Right button can be pressed to toggle selection', () => {
-    render(
-      <DetailedStatsSheet
-        {...defaultProps}
-        score={{ ...baseScore, fairwayHit: false, fairwayMissDirection: undefined }}
-        showFairwayMissDirection={true}
-        showGreenMissDirection={false}
-        showBunkerShots={false}
-        showHazards={false}
-      />
-    );
-    fireEvent.press(screen.getByText(/Right/));
-    expect(screen.getByText('Done')).toBeTruthy();
-  });
-
-  it('pressing the same fairway direction twice deselects it', () => {
+  it('fairway Hit button toggles fairwayHit=true and clears miss direction', () => {
+    const onStatsUpdate = jest.fn();
     render(
       <DetailedStatsSheet
         {...defaultProps}
@@ -206,12 +189,58 @@ describe('Fairway miss direction section', () => {
         showGreenMissDirection={false}
         showBunkerShots={false}
         showHazards={false}
+        onStatsUpdate={onStatsUpdate}
       />
     );
-    // Press Left again to deselect
-    fireEvent.press(screen.getByText(/Left/));
-    // Done still available
-    expect(screen.getByText('Done')).toBeTruthy();
+    fireEvent.press(screen.getByText('Hit'));
+    fireEvent.press(screen.getByText('Done'));
+    expect(onStatsUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ fairwayHit: true, fairwayMissDirection: undefined })
+    );
+  });
+
+  it('pressing the same fairway direction twice clears it', () => {
+    const onStatsUpdate = jest.fn();
+    render(
+      <DetailedStatsSheet
+        {...defaultProps}
+        score={{ ...baseScore, fairwayHit: false, fairwayMissDirection: 'left' }}
+        showFairwayMissDirection={true}
+        showGreenMissDirection={false}
+        showBunkerShots={false}
+        showHazards={false}
+        onStatsUpdate={onStatsUpdate}
+      />
+    );
+    // The Left button has only an icon (no text on small variant); press by accessibility doesn't apply.
+    // Use the FAIRWAY section's Left text label.
+    const leftLabels = screen.getAllByText('Left');
+    fireEvent.press(leftLabels[0]);
+    fireEvent.press(screen.getByText('Done'));
+    expect(onStatsUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ fairwayHit: undefined, fairwayMissDirection: undefined })
+    );
+  });
+
+  it('selecting Long fairway miss saves fairwayMissDirection=long', () => {
+    const onStatsUpdate = jest.fn();
+    render(
+      <DetailedStatsSheet
+        {...defaultProps}
+        score={{ ...baseScore, fairwayHit: undefined, fairwayMissDirection: undefined }}
+        showFairwayMissDirection={true}
+        showGreenMissDirection={false}
+        showBunkerShots={false}
+        showHazards={false}
+        onStatsUpdate={onStatsUpdate}
+      />
+    );
+    const longLabels = screen.getAllByText('Long');
+    fireEvent.press(longLabels[0]);
+    fireEvent.press(screen.getByText('Done'));
+    expect(onStatsUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ fairwayHit: false, fairwayMissDirection: 'long' })
+    );
   });
 });
 
@@ -219,7 +248,7 @@ describe('Fairway miss direction section', () => {
 // GREEN MISS DIRECTION
 // ===========================================================================
 
-describe('Green miss direction section', () => {
+describe('Green in regulation section', () => {
   it('shows green section when GIR=false and showGreenMissDirection=true', () => {
     render(
       <DetailedStatsSheet
@@ -231,10 +260,10 @@ describe('Green miss direction section', () => {
         showHazards={false}
       />
     );
-    expect(screen.getByText('GREEN MISS DIRECTION')).toBeTruthy();
+    expect(screen.getByText('GREEN IN REGULATION')).toBeTruthy();
   });
 
-  it('hides green section when GIR=true', () => {
+  it('still shows green section when GIR=true (so user can re-toggle)', () => {
     render(
       <DetailedStatsSheet
         {...defaultProps}
@@ -245,10 +274,10 @@ describe('Green miss direction section', () => {
         showHazards={false}
       />
     );
-    expect(screen.queryByText('GREEN MISS DIRECTION')).toBeNull();
+    expect(screen.getByText('GREEN IN REGULATION')).toBeTruthy();
   });
 
-  it('renders all four green direction buttons', () => {
+  it('renders Hit and all four green direction buttons', () => {
     render(
       <DetailedStatsSheet
         {...defaultProps}
@@ -259,10 +288,31 @@ describe('Green miss direction section', () => {
         showHazards={false}
       />
     );
+    expect(screen.getByText('Hit')).toBeTruthy();
     expect(screen.getByText('Left')).toBeTruthy();
     expect(screen.getByText('Right')).toBeTruthy();
     expect(screen.getByText('Long')).toBeTruthy();
     expect(screen.getByText('Short')).toBeTruthy();
+  });
+
+  it('green Hit toggles greenInRegulation=true and clears miss direction', () => {
+    const onStatsUpdate = jest.fn();
+    render(
+      <DetailedStatsSheet
+        {...defaultProps}
+        score={{ ...baseScore, fairwayHit: true, greenInRegulation: false, greenMissDirection: 'short' }}
+        showFairwayMissDirection={false}
+        showGreenMissDirection={true}
+        showBunkerShots={false}
+        showHazards={false}
+        onStatsUpdate={onStatsUpdate}
+      />
+    );
+    fireEvent.press(screen.getByText('Hit'));
+    fireEvent.press(screen.getByText('Done'));
+    expect(onStatsUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ greenInRegulation: true, greenMissDirection: undefined })
+    );
   });
 
   it('green direction button can be pressed to select', () => {
@@ -281,6 +331,7 @@ describe('Green miss direction section', () => {
   });
 
   it('pressing the same green direction twice deselects it', () => {
+    const onStatsUpdate = jest.fn();
     render(
       <DetailedStatsSheet
         {...defaultProps}
@@ -289,10 +340,14 @@ describe('Green miss direction section', () => {
         showGreenMissDirection={true}
         showBunkerShots={false}
         showHazards={false}
+        onStatsUpdate={onStatsUpdate}
       />
     );
     fireEvent.press(screen.getByText('Short'));
-    expect(screen.getByText('Done')).toBeTruthy();
+    fireEvent.press(screen.getByText('Done'));
+    expect(onStatsUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ greenInRegulation: undefined, greenMissDirection: undefined })
+    );
   });
 });
 
@@ -510,7 +565,7 @@ describe('Done button', () => {
       />
     );
 
-    fireEvent.press(screen.getByText(/Right/));
+    fireEvent.press(screen.getByText('Right'));
     fireEvent.press(screen.getByText('Done'));
 
     expect(onStatsUpdate).toHaveBeenCalledWith(

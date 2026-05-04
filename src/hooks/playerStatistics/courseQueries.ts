@@ -480,7 +480,7 @@ function createEmptyCourseStatistics(courseId: string): CourseStatisticsData {
     recentRounds: [],
     shortGame: { scramblingPercentage: null, scrambleAttempts: 0, scramblesMade: 0, bogeyAvoidanceRate: 0, doubleBogeyOrWorseRate: 0 },
     puttingDepth: { onePuttPercentage: null, threePuttPercentage: null, puttsPerGIR: null },
-    fairwayMissDirection: { leftCount: 0, rightCount: 0, totalMisses: 0, leftPercentage: null, rightPercentage: null },
+    fairwayMissDirection: { leftCount: 0, rightCount: 0, longCount: 0, shortCount: 0, totalMisses: 0, leftPercentage: null, rightPercentage: null, longPercentage: null, shortPercentage: null },
     greenMissDirection: { leftCount: 0, rightCount: 0, longCount: 0, shortCount: 0, totalMisses: 0, leftPercentage: null, rightPercentage: null, longPercentage: null, shortPercentage: null },
     bunkerStats: { totalBunkerShots: 0, holesWithBunkers: 0, totalHolesTracked: 0, averageBunkerShotsPerRound: null, holesWithBunkersPercentage: null },
     hazardStats: { waterCount: 0, obCount: 0, lateralCount: 0, lostBallCount: 0, totalHazards: 0, averageHazardsPerRound: null, holesWithHazards: 0, totalHolesTracked: 0 },

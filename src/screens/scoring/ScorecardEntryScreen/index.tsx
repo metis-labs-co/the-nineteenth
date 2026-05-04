@@ -171,6 +171,7 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
   // Data fetching hook
   const {
     courseName,
+    clubName,
     courseId,
     courseTees,
     selectedTee,
@@ -691,6 +692,7 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={[]}>
       <ScorecardHeader
         courseName={courseName ?? undefined}
+        clubName={clubName}
         selectedTee={courseTees.find((t) => t.color?.toLowerCase() === selectedTee) ?? null}
         onBack={nav.handleBackPress}
         isStandaloneRound={isStandaloneRound}

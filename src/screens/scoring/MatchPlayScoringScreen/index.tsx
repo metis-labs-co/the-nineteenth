@@ -81,6 +81,7 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
     player2,
     holes,
     courseName,
+    clubName,
     selectedTee: selectedTeeBox,
     isLoading,
     error: dataError,
@@ -597,6 +598,7 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
       {/* Header with course/tee info and skins indicator */}
       <MatchPlayHeader
         courseName={courseName ?? undefined}
+        clubName={clubName}
         selectedTee={selectedTeeBox}
         onBack={handleBackPress}
         isSuperAdmin={isSuperAdmin}

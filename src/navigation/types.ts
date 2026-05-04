@@ -127,6 +127,10 @@ export type RootStackParamList = {
   Developer: undefined;
   NotificationSettings: undefined;
 
+  // What's in the Bag
+  WhatsInTheBag: undefined;
+  ClubDistanceDetail: { clubKey: import('@/constants/clubs').ClubKey };
+
   // Friends
   Friends: { fromProfile?: boolean } | undefined;
 

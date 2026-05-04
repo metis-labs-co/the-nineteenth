@@ -55,7 +55,7 @@ export interface HoleShotContributions {
 /**
  * Direction the tee shot missed the fairway
  */
-export type FairwayMissDirection = 'left' | 'right';
+export type FairwayMissDirection = 'left' | 'right' | 'long' | 'short';
 
 /**
  * Direction/distance the approach missed the green

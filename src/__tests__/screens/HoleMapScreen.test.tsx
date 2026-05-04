@@ -87,10 +87,21 @@ jest.mock('@/store/settingsStore', () => ({
 // skins-via-rounds transitive imports.
 jest.mock('@/hooks/shots', () => ({
   useShotLog: jest.fn(() => ({ data: [], isLoading: false })),
+  useShotLogByRound: jest.fn(() => ({ data: [], isLoading: false })),
   useLogShot: jest.fn(() => ({ mutate: jest.fn(), isPending: false })),
   useUpdateShot: jest.fn(() => ({ mutate: jest.fn(), isPending: false })),
   useDeleteShot: jest.fn(() => ({ mutate: jest.fn(), isPending: false })),
+  useSetShotClub: jest.fn(() => ({ mutate: jest.fn(), isPending: false })),
   useShotTrackingEligibility: jest.fn(() => ({ eligible: false, reason: 'not-premium' })),
+}));
+
+jest.mock('@/hooks/useAuth', () => ({
+  useAuth: jest.fn(() => ({ player: null, user: null })),
+}));
+
+jest.mock('@/hooks/queries/useBag', () => ({
+  useBag: jest.fn(() => ({ data: [], isLoading: false })),
+  useUpdateBag: jest.fn(() => ({ mutate: jest.fn(), isPending: false })),
 }));
 
 // Phase C1: mock the hazard hooks so the screen doesn't need a QueryClient.
@@ -180,13 +191,13 @@ describe('HoleMapScreen — Social/Premium tier (Phase B)', () => {
     });
   });
 
-  it('renders all tee and green POI markers', () => {
-    const { getByTestId } = render(<HoleMapScreen {...makeProps()} />);
-    expect(getByTestId('tee-poi-tee_back')).toBeTruthy();
-    expect(getByTestId('tee-poi-tee_front')).toBeTruthy();
+  it('renders green POI markers and never renders tee POI markers', () => {
+    const { getByTestId, queryByTestId } = render(<HoleMapScreen {...makeProps()} />);
     expect(getByTestId('green-poi-green_front')).toBeTruthy();
     expect(getByTestId('green-poi-green_center-selected')).toBeTruthy();
     expect(getByTestId('green-poi-green_back')).toBeTruthy();
+    expect(queryByTestId('tee-poi-tee_back')).toBeNull();
+    expect(queryByTestId('tee-poi-tee_front')).toBeNull();
   });
 
   it('selecting a different green POI moves the selected indicator', () => {
@@ -196,22 +207,10 @@ describe('HoleMapScreen — Social/Premium tier (Phase B)', () => {
     expect(queryByTestId('green-poi-green_center-selected')).toBeNull();
   });
 
-  it('selecting a tee POI marks it selected; tapping again deselects', () => {
-    const { getByTestId, queryByTestId } = render(<HoleMapScreen {...makeProps()} />);
-    fireEvent.press(getByTestId('tee-poi-tee_back'));
-    expect(getByTestId('tee-poi-tee_back-selected')).toBeTruthy();
-    fireEvent.press(getByTestId('tee-poi-tee_back-selected'));
-    expect(queryByTestId('tee-poi-tee_back-selected')).toBeNull();
-  });
-
-  it('reset button clears tee and target selections', () => {
-    const { getByTestId, getByLabelText, queryByTestId } = render(
-      <HoleMapScreen {...makeProps()} />
-    );
-    fireEvent.press(getByTestId('tee-poi-tee_back'));
+  it('reset button restores the default green target selection', () => {
+    const { getByTestId, getByLabelText } = render(<HoleMapScreen {...makeProps()} />);
     fireEvent.press(getByTestId('green-poi-green_back'));
     fireEvent.press(getByLabelText(/reset marker/i));
-    expect(queryByTestId('tee-poi-tee_back-selected')).toBeNull();
     expect(getByTestId('green-poi-green_center-selected')).toBeTruthy();
   });
 });

@@ -12,16 +12,20 @@ import { useMapTier } from '@/hooks/useMapTier';
 import {
   useHoleMapMarkers,
   type LatLng,
-  type TeePoiType,
   type GreenPoiType,
 } from '@/hooks/useHoleMapMarkers';
 import {
   useShotLog,
   useUpdateShot,
   useDeleteShot,
+  useSetShotClub,
   useShotTrackingEligibility,
 } from '@/hooks/shots';
 import { useShotLoggingPrefStore } from '@/store/shotLoggingPrefStore';
+import { useAuth } from '@/hooks/useAuth';
+import { useBag } from '@/hooks/queries/useBag';
+import { BagClubPickerSheet } from '@/components/features/bag/BagClubPickerSheet';
+import type { ClubKey } from '@/constants/clubs';
 import {
   UserMarker,
   PinMarker,
@@ -94,21 +98,21 @@ export default function HoleMapScreen({ route, navigation }: Props) {
   const trackShots = useShotLoggingPrefStore((s) => s.byRound[roundId] === true);
   const updateShot = useUpdateShot();
   const deleteShot = useDeleteShot();
+  const setShotClub = useSetShotClub();
+  const { player } = useAuth();
+  const { data: bag = [] } = useBag(player?.id);
 
   const [tap, setTap] = useState<LatLng | null>(null);
   const [selectedTarget, setSelectedTarget] = useState<GreenPoiType>(DEFAULT_TARGET);
-  const [selectedTee, setSelectedTee] = useState<TeePoiType | null>(null);
   const [activeShot, setActiveShot] = useState<ShotLogEntry | null>(null);
   const [movingShotId, setMovingShotId] = useState<string | null>(null);
+  // Shot whose club is being edited via the picker. Distinct from `activeShot`
+  // so the action sheet can close cleanly while the picker takes over.
+  const [clubEditingShot, setClubEditingShot] = useState<ShotLogEntry | null>(null);
 
   const userCoord: LatLng | null = location
     ? { latitude: location.latitude, longitude: location.longitude }
     : null;
-
-  const teeCoord = useMemo<LatLng | null>(() => {
-    if (!selectedTee) return null;
-    return markers.tees.find((m) => m.type === selectedTee)?.coordinate ?? null;
-  }, [selectedTee, markers.tees]);
 
   const targetCoord = useMemo<LatLng | null>(() => {
     if (tier !== 'free') {
@@ -127,7 +131,11 @@ export default function HoleMapScreen({ route, navigation }: Props) {
     return triple.length > 1 ? triple : undefined;
   }, [tier, markers.greens]);
 
-  const startAnchor: LatLng | null = teeCoord ?? userCoord;
+  // The user is standing on the tee box when the map is opened, so their
+  // GPS position is the right "from" anchor for distance lines. Tee POI
+  // markers are intentionally not rendered (see MapMarkerSet) — using
+  // them here would re-introduce the same misleading-tee issue.
+  const startAnchor: LatLng | null = userCoord;
 
   const isLive = mode === 'live';
   const showShotTrail = eligibility.eligible && trackShots && shots.length > 0;
@@ -157,17 +165,12 @@ export default function HoleMapScreen({ route, navigation }: Props) {
     [movingShotId, updateShot, roundId, holeNumber]
   );
 
-  const onTeePress = useCallback((type: TeePoiType) => {
-    setSelectedTee((prev) => (prev === type ? null : type));
-  }, []);
-
   const onGreenPress = useCallback((type: GreenPoiType) => {
     setSelectedTarget(type);
   }, []);
 
   const onReset = useCallback(() => {
     setTap(null);
-    setSelectedTee(null);
     setSelectedTarget(DEFAULT_TARGET);
     setMovingShotId(null);
   }, []);
@@ -196,6 +199,26 @@ export default function HoleMapScreen({ route, navigation }: Props) {
     setMovingShotId(shot.id);
     setActiveShot(null);
   }, []);
+
+  const onActionChangeClub = useCallback((shot: ShotLogEntry) => {
+    setClubEditingShot(shot);
+    setActiveShot(null);
+  }, []);
+
+  const onClubPickedForEdit = useCallback(
+    (clubKey: ClubKey) => {
+      if (!clubEditingShot) return;
+      const target = clubEditingShot;
+      setClubEditingShot(null);
+      setShotClub.mutate({
+        shotId: target.id,
+        roundId: target.round_id,
+        holeNumber: target.hole_number,
+        clubKey,
+      });
+    },
+    [clubEditingShot, setShotClub]
+  );
 
   // Track the imperative MapView so we can animate the camera once we have
   // real coordinates to focus on. Without this, `initialRegion` is the only
@@ -296,7 +319,6 @@ export default function HoleMapScreen({ route, navigation }: Props) {
 
   const canReset =
     tap !== null ||
-    selectedTee !== null ||
     selectedTarget !== DEFAULT_TARGET ||
     movingShotId !== null;
   // Show the "no coordinates" overlay when the course has none at all OR
@@ -355,9 +377,7 @@ export default function HoleMapScreen({ route, navigation }: Props) {
           <MapMarkerSet
             markers={markers}
             tier={tier}
-            selectedTee={selectedTee}
             selectedGreen={tier === 'free' ? null : selectedTarget}
-            onTeePress={onTeePress}
             onGreenPress={onGreenPress}
           />
 
@@ -380,6 +400,15 @@ export default function HoleMapScreen({ route, navigation }: Props) {
           onClose={closeActionSheet}
           onDelete={onActionDelete}
           onMoveOnMap={onActionMove}
+          onChangeClub={isLive ? onActionChangeClub : undefined}
+        />
+
+        <BagClubPickerSheet
+          visible={clubEditingShot !== null}
+          bag={bag}
+          title="Change club"
+          onPick={onClubPickedForEdit}
+          onCancel={() => setClubEditingShot(null)}
         />
       </View>
     </SafeAreaView>

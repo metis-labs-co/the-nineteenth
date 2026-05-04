@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
-import { TeePOIMarker, GreenPOIMarker } from '@/components/scorecard/HoleMap';
+import { GreenPOIMarker } from '@/components/scorecard/HoleMap';
 
 jest.mock('@/context/ThemeContext', () => ({
   useThemeColors: () => ({
@@ -13,33 +13,6 @@ jest.mock('@/context/ThemeContext', () => ({
 }));
 
 const coord = { latitude: -37.81, longitude: 144.96 };
-
-describe('TeePOIMarker', () => {
-  it('renders with the correct testID variant per type', () => {
-    const { getByTestId, rerender } = render(
-      <TeePOIMarker type="tee_back" coordinate={coord} onPress={() => {}} />
-    );
-    expect(getByTestId('tee-poi-tee_back')).toBeTruthy();
-    rerender(<TeePOIMarker type="tee_front" coordinate={coord} onPress={() => {}} />);
-    expect(getByTestId('tee-poi-tee_front')).toBeTruthy();
-  });
-
-  it('invokes onPress with the type when pressed', () => {
-    const onPress = jest.fn();
-    const { getByTestId } = render(
-      <TeePOIMarker type="tee_back" coordinate={coord} onPress={onPress} />
-    );
-    fireEvent.press(getByTestId('tee-poi-tee_back'));
-    expect(onPress).toHaveBeenCalledWith('tee_back');
-  });
-
-  it('shows selected styling when selected=true', () => {
-    const { getByTestId } = render(
-      <TeePOIMarker type="tee_back" coordinate={coord} selected onPress={() => {}} />
-    );
-    expect(getByTestId('tee-poi-tee_back-selected')).toBeTruthy();
-  });
-});
 
 describe('GreenPOIMarker', () => {
   it('renders with the correct testID variant per type', () => {

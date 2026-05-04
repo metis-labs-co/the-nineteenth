@@ -31,6 +31,8 @@ import type { TeeBox } from '@/types';
 
 interface RoundDataState {
   courseName: string | null;
+  /** Club (venue) the course belongs to, when known. */
+  clubName: string | null;
   courseId: string | null;
   courseTees: TeeBox[];
   selectedTee: string | null;
@@ -69,6 +71,7 @@ export function useRoundData({
 }: UseRoundDataParams): UseRoundDataResult {
   const [state, setState] = useState<RoundDataState>({
     courseName: null,
+    clubName: null,
     courseId: null,
     courseTees: [],
     selectedTee: null,
@@ -728,6 +731,7 @@ export function useRoundData({
 
     setState({
       courseName: metadata.data?.courseName || courseHook.course?.name || null,
+      clubName: metadata.data?.clubName || null,
       courseId: metadata.data?.courseId || courseHook.course?.id || null,
       courseTees: metadata.data?.courseTees || courseHook.course?.tees || [],
       selectedTee: metadata.data?.selectedTee || null,

@@ -71,6 +71,8 @@ import CourseStatisticsScreen from '@/screens/profile/CourseStatisticsScreen';
 import HandicapHistoryScreen from '@/screens/profile/HandicapHistoryScreen';
 import AppearanceScreen from '@/screens/profile/AppearanceScreen';
 import GameSettingsScreen from '@/screens/profile/GameSettingsScreen';
+import WhatsInTheBagScreen from '@/screens/profile/WhatsInTheBagScreen';
+import ClubDistanceDetailScreen from '@/screens/profile/ClubDistanceDetailScreen';
 import SecurityScreen from '@/screens/profile/SecurityScreen';
 import DeveloperScreen from '@/screens/profile/DeveloperScreen';
 import NotificationSettingsScreen from '@/screens/profile/NotificationSettingsScreen';
@@ -603,6 +605,24 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
               component={GameSettingsScreen}
               options={{
                 title: 'Game Settings',
+                headerShown: false,
+              }}
+            />
+
+            <Stack.Screen
+              name="WhatsInTheBag"
+              component={WhatsInTheBagScreen}
+              options={{
+                title: "What's in the Bag",
+                headerShown: false,
+              }}
+            />
+
+            <Stack.Screen
+              name="ClubDistanceDetail"
+              component={ClubDistanceDetailScreen}
+              options={{
+                title: 'Club Distance',
                 headerShown: false,
               }}
             />
