@@ -56,9 +56,15 @@ export const RoundTodayCard = React.memo(function RoundTodayCard({
   const { data: weather } = useUpcomingRoundWeather(round);
 
   const courseName = round.course?.name ?? 'Round';
+  const clubName = round.course?.clubs?.name ?? null;
+  const headlineLabel = clubName ?? courseName;
   const dayLabel = formatDayLabel(round.date);
   const teeLabel = formatTeeTime(getTeeTime(round));
-  const subtitle = [dayLabel, teeLabel].filter(Boolean).join(' · ');
+  // When we have a club name, show course name on its own line above the day/time.
+  const courseLine = clubName && courseName !== clubName ? courseName : null;
+  const subtitle = [courseLine, [dayLabel, teeLabel].filter(Boolean).join(' · ')]
+    .filter(Boolean)
+    .join(' · ');
   const sectionTitle = dayLabel === 'Tomorrow' ? 'Round tomorrow' : 'Round today';
 
   return (
@@ -68,7 +74,7 @@ export const RoundTodayCard = React.memo(function RoundTodayCard({
         testID="round-today-card"
         onPress={() => navigation.navigate('ViewRound', { roundId: round.id })}
         accessibilityRole="button"
-        accessibilityLabel={`Round at ${courseName}, ${subtitle}`}
+        accessibilityLabel={`Round at ${headlineLabel}, ${subtitle}`}
         accessibilityHint="Opens round details"
         style={[
           styles.card,
@@ -79,10 +85,10 @@ export const RoundTodayCard = React.memo(function RoundTodayCard({
           <Icon source="golf" size={28} color={colors.primary} />
           <View style={styles.text}>
             <Text style={[styles.title, { color: colors.textPrimary }]} numberOfLines={1}>
-              {courseName}
+              {headlineLabel}
             </Text>
             {!!subtitle && (
-              <Text style={[styles.subtitle, { color: colors.textSecondary }]} numberOfLines={1}>
+              <Text style={[styles.subtitle, { color: colors.textSecondary }]} numberOfLines={2}>
                 {subtitle}
               </Text>
             )}
