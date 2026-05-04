@@ -9,9 +9,9 @@
  */
 
 import { useQuery, type UseQueryResult } from '@tanstack/react-query';
+import { CACHE_TIMES, GC_TIMES } from '@/constants/cacheConfig';
 
 const OPEN_METEO_URL = 'https://api.open-meteo.com/v1/forecast';
-const STALE_TIME_MS = 30 * 60 * 1000;
 
 export type WeatherInput =
   | { kind: 'current'; lat: number; lng: number }
@@ -68,6 +68,8 @@ async function fetchSnapshot(input: WeatherInput): Promise<WeatherSnapshot | nul
         weatherCode: c.weather_code,
         windKph: c.wind_speed_10m,
         windDirDeg: c.wind_direction_10m,
+        // Open-Meteo's current-conditions endpoint does not return precipitation_probability;
+        // only the at-time hourly endpoint does. Set 0 here so consumers fail-soft.
         precipProbability: 0,
         fetchedAt: new Date().toISOString(),
       };
@@ -101,6 +103,7 @@ export function useWeather(
     queryKey: ['weather', input?.kind ?? 'idle', lat, lng, isoDateTime],
     queryFn: () => fetchSnapshot(input as WeatherInput),
     enabled,
-    staleTime: STALE_TIME_MS,
+    staleTime: CACHE_TIMES.STATIC,
+    gcTime: GC_TIMES.LONG,
   });
 }
