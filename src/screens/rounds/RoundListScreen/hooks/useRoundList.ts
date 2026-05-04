@@ -21,6 +21,23 @@ import {
   type PlayerStats,
 } from '@/utils/scorecardCalculations';
 
+/**
+ * Parse a PostGIS GEOGRAPHY(POINT) value (returned as GeoJSON) into
+ * `{ latitude, longitude }`. Returns nulls when the location is missing
+ * or malformed. Coordinates in the GeoJSON are [longitude, latitude].
+ */
+function parseClubLocation(
+  location: { type: 'Point'; coordinates: [number, number] } | null | undefined,
+): { latitude: number | null; longitude: number | null } {
+  if (!location?.coordinates || location.coordinates.length < 2) {
+    return { latitude: null, longitude: null };
+  }
+  return {
+    longitude: location.coordinates[0],
+    latitude: location.coordinates[1],
+  };
+}
+
 export function useRoundList(): UseRoundListReturn {
   const { user } = useAuth();
   const { limits } = useSubscriptionContext();
@@ -99,8 +116,7 @@ export function useRoundList(): UseRoundListReturn {
             name: string;
             city: string | null;
             state: string | null;
-            latitude: number | null;
-            longitude: number | null;
+            location: { type: 'Point'; coordinates: [number, number] } | null;
           } | null;
         } | null;
       }
@@ -128,8 +144,7 @@ export function useRoundList(): UseRoundListReturn {
               name,
               city,
               state,
-              latitude,
-              longitude
+              location
             )
           )
         `)
@@ -178,8 +193,7 @@ export function useRoundList(): UseRoundListReturn {
               state: round.courses?.club?.state ?? undefined,
               clubs: round.courses?.club
                 ? {
-                    latitude: round.courses.club.latitude,
-                    longitude: round.courses.club.longitude,
+                    ...parseClubLocation(round.courses.club.location),
                     name: round.courses.club.name,
                   }
                 : null,
@@ -226,8 +240,7 @@ export function useRoundList(): UseRoundListReturn {
                   name,
                   city,
                   state,
-                  latitude,
-                  longitude
+                  location
                 )
               )
             )
@@ -276,8 +289,7 @@ export function useRoundList(): UseRoundListReturn {
                 state: round.courses?.club?.state ?? undefined,
                 clubs: round.courses?.club
                   ? {
-                      latitude: round.courses.club.latitude,
-                      longitude: round.courses.club.longitude,
+                      ...parseClubLocation(round.courses.club.location),
                       name: round.courses.club.name,
                     }
                   : null,
