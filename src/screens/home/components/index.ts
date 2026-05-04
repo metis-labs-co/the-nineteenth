@@ -13,3 +13,4 @@ export { FriendActivitySection } from './FriendActivitySection';
 export { NewUserFallback } from './NewUserFallback';
 export { HomeSkeleton } from './HomeSkeleton';
 export { SectionHeader } from './SectionHeader';
+export { WeatherStrip } from './WeatherStrip';

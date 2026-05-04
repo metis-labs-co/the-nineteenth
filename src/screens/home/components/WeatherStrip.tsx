@@ -34,16 +34,16 @@ export function WeatherStrip({ snapshot }: WeatherStripProps) {
         showPrecip ? `, ${snapshot.precipProbability} percent chance of precipitation` : ''
       }`}
     >
-      <Icon source={icon} size={18} color={colors.textSecondary} />
-      <Text style={[styles.text, { color: colors.textSecondary }]}>{tempLabel}</Text>
-      <Text style={[styles.dot, { color: colors.textSecondary }]}>·</Text>
-      <Icon source="weather-windy" size={16} color={colors.textSecondary} />
-      <Text style={[styles.text, { color: colors.textSecondary }]}>{windLabel}</Text>
+      <Icon source={icon} size={18} color={colors.textTertiary} />
+      <Text style={[styles.text, { color: colors.textTertiary }]}>{tempLabel}</Text>
+      <Text style={[styles.dot, { color: colors.textTertiary }]}>·</Text>
+      <Icon source="weather-windy" size={16} color={colors.textTertiary} />
+      <Text style={[styles.text, { color: colors.textTertiary }]}>{windLabel}</Text>
       {showPrecip && (
         <>
-          <Text style={[styles.dot, { color: colors.textSecondary }]}>·</Text>
-          <Icon source="water-percent" size={16} color={colors.textSecondary} />
-          <Text style={[styles.text, { color: colors.textSecondary }]}>{snapshot.precipProbability}%</Text>
+          <Text style={[styles.dot, { color: colors.textTertiary }]}>·</Text>
+          <Icon source="water-percent" size={16} color={colors.textTertiary} />
+          <Text style={[styles.text, { color: colors.textTertiary }]}>{snapshot.precipProbability}%</Text>
         </>
       )}
     </View>
@@ -59,11 +59,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   text: {
-    ...typography.small,
-    fontWeight: '600',
+    ...typography.smallBold,
   },
   dot: {
     ...typography.small,
-    paddingHorizontal: spacing.xs / 2,
+    paddingHorizontal: spacing.xxs,
   },
 });
