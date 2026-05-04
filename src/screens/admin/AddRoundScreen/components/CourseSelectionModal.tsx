@@ -4,7 +4,7 @@
 
 import React, { memo, useCallback, useMemo } from 'react';
 import { View, StyleSheet, Modal, TouchableOpacity, FlatList } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text, Icon } from 'react-native-paper';
 import { LoadingSpinner, SearchBar, EmptyState } from '@/components/common';
 import { ClubCard } from '@/components/courses/ClubCard';
@@ -34,6 +34,7 @@ export const CourseSelectionModal = memo(function CourseSelectionModal({
   searchQuery,
   onSearchQueryChange,
 }: CourseSelectionModalProps) {
+  const insets = useSafeAreaInsets();
   const colors = useThemeColors();
 
   // Club data hooks
@@ -77,12 +78,8 @@ export const CourseSelectionModal = memo(function CourseSelectionModal({
       animationType="slide"
       presentationStyle="pageSheet"
       onRequestClose={handleClose}
-      transparent={false}
     >
-      <SafeAreaView
-        edges={['top', 'bottom']}
-        style={[styles.modalContainer, { backgroundColor: colors.background }]}
-      >
+      <View style={[styles.modalContainer, { paddingTop: insets.top, backgroundColor: colors.background }]}>
         {/* Modal Header */}
         <View style={[styles.modalHeader, { backgroundColor: colors.surfaceElevated, borderBottomColor: colors.border }]}>
           <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Select Course</Text>
@@ -126,7 +123,7 @@ export const CourseSelectionModal = memo(function CourseSelectionModal({
             ItemSeparatorComponent={ListSeparator}
           />
         )}
-      </SafeAreaView>
+      </View>
     </Modal>
   );
 });
