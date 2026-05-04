@@ -37,7 +37,6 @@ import { useStartNewRound } from '@/screens/rounds/RoundListScreen/hooks';
 import { useHomeData } from '@/hooks/home';
 import type { RootStackParamList } from '@/navigation/types';
 import type { GameType } from '@/types/database.types';
-import type { RoundWithCourse } from '@/components/competitions/detail/types';
 
 import {
   PendingActionsSection,
@@ -264,12 +263,7 @@ export default function HomeScreen() {
                 ) : null}
 
                 {home.upcomingWithin24h ? (
-                  // RoundItem is structurally compatible with RoundWithCourse here — the
-                  // round-list query selects course.clubs.{latitude, longitude}.
-                  // See useHomeData.upcomingWithin24h docblock for context.
-                  <RoundTodayCard
-                    round={home.upcomingWithin24h as unknown as RoundWithCourse}
-                  />
+                  <RoundTodayCard round={home.upcomingWithin24h} />
                 ) : null}
 
                 <PendingActionsSection actions={home.pendingActions} />

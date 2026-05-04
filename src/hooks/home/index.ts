@@ -9,3 +9,4 @@ export type {
 } from './useHomeData';
 export { usePendingActions } from './usePendingActions';
 export { useInProgressRounds } from './useInProgressRounds';
+export { useUpcomingRounds } from './useUpcomingRounds';

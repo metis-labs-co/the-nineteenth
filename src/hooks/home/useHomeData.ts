@@ -22,6 +22,7 @@ import { useFriends } from '@/hooks/friends';
 import { useUnreadNotificationCount } from '@/hooks/notifications/queries';
 import { usePendingActions } from './usePendingActions';
 import { useInProgressRounds } from './useInProgressRounds';
+import { useUpcomingRounds } from './useUpcomingRounds';
 import type { RoundItem } from '@/screens/rounds/RoundListScreen/types';
 import type { Competition } from '@/types';
 import type { League } from '@/types/database/league.types';
@@ -56,6 +57,29 @@ export function computeUpcomingWithin24h(
       typeof r.date === 'string'
         ? r.date.slice(0, 10)
         : r.date.toISOString().slice(0, 10);
+    const start = new Date(`${dateStr}T${teeTime}`).getTime();
+    if (start >= now.getTime() && start <= cutoff) return r;
+  }
+  return null;
+}
+
+/**
+ * Same as `computeUpcomingWithin24h` but operates on the richer
+ * `RoundWithCourse` shape (with snake_case `tee_time`). Used by the Home
+ * screen so the round-today hero card can include competition rounds.
+ */
+export function computeUpcomingRwcWithin24h(
+  upcoming: RoundWithCourse[],
+  now: Date,
+): RoundWithCourse | null {
+  const cutoff = now.getTime() + TWENTY_FOUR_HOURS_MS;
+  for (const r of upcoming) {
+    if (!r.date) continue;
+    const teeTime = r.tee_time ?? '09:00:00';
+    const dateStr =
+      typeof r.date === 'string'
+        ? r.date.slice(0, 10)
+        : (r.date as Date).toISOString().slice(0, 10);
     const start = new Date(`${dateStr}T${teeTime}`).getTime();
     if (start >= now.getTime() && start <= cutoff) return r;
   }
@@ -169,12 +193,11 @@ export interface HomeData {
    * The first upcoming round whose tee time is within the next 24 hours,
    * or null if none. Surface for the RoundTodayCard hero on the Home screen.
    *
-   * Typed as `RoundItem` for convenience. Callers that need the richer
-   * `RoundWithCourse` shape (e.g. weather lookups via clubs.{latitude,longitude})
-   * cast at the call site — safe because the round-list query already selects
-   * the clubs join and `course.clubs` is populated.
+   * Sourced from `useUpcomingRounds`, which fetches both standalone and
+   * competition rounds in `RoundWithCourse` shape (with `course.clubs`
+   * populated for the weather forecast).
    */
-  upcomingWithin24h: RoundItem | null;
+  upcomingWithin24h: RoundWithCourse | null;
   /**
    * `upcomingRounds` with `upcomingWithin24h` removed.
    * Use this for the scrollable list below the hero so the chosen round
@@ -232,6 +255,9 @@ export function useHomeData(): HomeData {
   const { data: inProgressRounds = [], refetch: refetchInProgress } =
     useInProgressRounds();
 
+  const { data: upcomingRoundsRwc = [], refetch: refetchUpcomingRwc } =
+    useUpcomingRounds();
+
   const upcomingRounds = useMemo(() => {
     const todayIso = new Date().toISOString().slice(0, 10);
     return (rounds?.active ?? [])
@@ -246,10 +272,16 @@ export function useHomeData(): HomeData {
       });
   }, [rounds?.active]);
 
-  const upcomingWithin24h = useMemo<RoundItem | null>(() => {
-    return computeUpcomingWithin24h(upcomingRounds, new Date());
-  }, [upcomingRounds]);
+  // Hero card picker. Uses the all-sources upcoming list (standalone +
+  // competition) so a competition round today shows up alongside standalone
+  // ones. Returns RoundWithCourse so RoundTodayCard / weather get the
+  // course.clubs join directly without a cast.
+  const upcomingWithin24h = useMemo<RoundWithCourse | null>(() => {
+    return computeUpcomingRwcWithin24h(upcomingRoundsRwc, new Date());
+  }, [upcomingRoundsRwc]);
 
+  // The "Coming up" list still draws from the standalone-only round-list
+  // (RoundItem). We exclude any round that the hero already shows.
   const upcomingRoundsForList = useMemo<RoundItem[]>(() => {
     return computeUpcomingForList(upcomingRounds, upcomingWithin24h?.id ?? null);
   }, [upcomingRounds, upcomingWithin24h]);
@@ -359,6 +391,7 @@ export function useHomeData(): HomeData {
     !roundsLoading &&
     inProgressRounds.length === 0 &&
     upcomingRounds.length === 0 &&
+    upcomingRoundsRwc.length === 0 &&
     !lastRound &&
     activeCompetitions.length === 0 &&
     activeLeagues.length === 0 &&
@@ -384,6 +417,7 @@ export function useHomeData(): HomeData {
     refetchUnread();
     refetchPending();
     refetchInProgress();
+    refetchUpcomingRwc();
   };
 
   const achievementSummaryStats = useMemo<AchievementSummaryStats | null>(() => {
