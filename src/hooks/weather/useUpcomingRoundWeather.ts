@@ -21,8 +21,9 @@ export function useUpcomingRoundWeather(round: RoundWithCourse | null) {
     if (lat == null || lng == null) return null;
     if (!round.date) return null;
 
-    // Default tee time to 09:00 if not specified.
-    const teeTime = round.tee_time ?? '09:00:00';
+    // Default tee time to 09:00 if not specified. Accept either snake_case (DB
+    // Round type) or camelCase (RoundItem mapped type) to be tolerant of both.
+    const teeTime = round.tee_time ?? (round as any).teeTime ?? '09:00:00';
     // Open-Meteo hourly times look like "2026-05-04T08:00" (no seconds).
     const isoDateTime = `${round.date}T${teeTime.slice(0, 5)}`;
 

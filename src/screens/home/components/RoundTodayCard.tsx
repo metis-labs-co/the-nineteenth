@@ -17,6 +17,10 @@ interface RoundTodayCardProps {
   round: RoundWithCourse;
 }
 
+function getTeeTime(round: { tee_time?: string | null; teeTime?: string | null }): string | null {
+  return round.tee_time ?? round.teeTime ?? null;
+}
+
 function formatTeeTime(teeTime: string | null): string {
   if (!teeTime) return '';
   const [h, m] = teeTime.split(':').map((s) => parseInt(s, 10));
@@ -53,7 +57,7 @@ export const RoundTodayCard = React.memo(function RoundTodayCard({
 
   const courseName = round.course?.name ?? 'Round';
   const dayLabel = formatDayLabel(round.date);
-  const teeLabel = formatTeeTime(round.tee_time);
+  const teeLabel = formatTeeTime(getTeeTime(round));
   const subtitle = [dayLabel, teeLabel].filter(Boolean).join(' · ');
   const sectionTitle = dayLabel === 'Tomorrow' ? 'Round tomorrow' : 'Round today';
 
