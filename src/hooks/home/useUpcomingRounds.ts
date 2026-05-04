@@ -37,6 +37,33 @@ function todayIsoDate(): string {
   return `${y}-${m}-${day}`;
 }
 
+/**
+ * `clubs.latitude` / `clubs.longitude` are TypeScript-only convenience
+ * fields — the underlying DB stores GPS only in `clubs.location` (a PostGIS
+ * GEOGRAPHY returned as GeoJSON `{ type: 'Point', coordinates: [lng, lat] }`).
+ * Derive the camelCase numeric fields from the location so downstream
+ * consumers (useUpcomingRoundWeather) can read them directly.
+ */
+function hydrateClubCoords(rounds: RoundWithCourse[]): RoundWithCourse[] {
+  for (const round of rounds) {
+    const club = round.course?.clubs as
+      | {
+          location?: { type: 'Point'; coordinates: [number, number] } | null;
+          latitude?: number | null;
+          longitude?: number | null;
+        }
+      | null
+      | undefined;
+    if (!club) continue;
+    const loc = club.location;
+    if (loc?.coordinates && loc.coordinates.length >= 2) {
+      club.longitude = loc.coordinates[0];
+      club.latitude = loc.coordinates[1];
+    }
+  }
+  return rounds;
+}
+
 export function useUpcomingRounds() {
   const { user } = useAuth();
 
@@ -90,7 +117,7 @@ export function useUpcomingRounds() {
         throw error;
       }
 
-      return (data ?? []) as RoundWithCourse[];
+      return hydrateClubCoords((data ?? []) as RoundWithCourse[]);
     },
     enabled: !!user?.id,
     staleTime: CACHE_TIMES.SHORT,
