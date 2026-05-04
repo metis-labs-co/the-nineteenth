@@ -22,6 +22,16 @@ export interface RoundCourse {
   city?: string;
   /** State where the course is located */
   state?: string;
+  /**
+   * Raw clubs row — present when the round-list query selects
+   * latitude/longitude from the clubs table.  Used by weather hooks
+   * that need GPS coordinates for the upcoming-round hero card.
+   */
+  clubs?: {
+    latitude?: number | null;
+    longitude?: number | null;
+    name?: string;
+  } | null;
 }
 
 /**

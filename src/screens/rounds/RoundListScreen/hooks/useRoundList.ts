@@ -99,6 +99,8 @@ export function useRoundList(): UseRoundListReturn {
             name: string;
             city: string | null;
             state: string | null;
+            latitude: number | null;
+            longitude: number | null;
           } | null;
         } | null;
       }
@@ -125,7 +127,9 @@ export function useRoundList(): UseRoundListReturn {
             club:clubs(
               name,
               city,
-              state
+              state,
+              latitude,
+              longitude
             )
           )
         `)
@@ -172,6 +176,13 @@ export function useRoundList(): UseRoundListReturn {
               venueName: round.courses?.club?.name,
               city: round.courses?.club?.city ?? undefined,
               state: round.courses?.club?.state ?? undefined,
+              clubs: round.courses?.club
+                ? {
+                    latitude: round.courses.club.latitude,
+                    longitude: round.courses.club.longitude,
+                    name: round.courses.club.name,
+                  }
+                : null,
             },
             holesCompleted: 0,
             totalHoles: holes.length || 18,
@@ -214,7 +225,9 @@ export function useRoundList(): UseRoundListReturn {
                 club:clubs(
                   name,
                   city,
-                  state
+                  state,
+                  latitude,
+                  longitude
                 )
               )
             )
@@ -261,6 +274,13 @@ export function useRoundList(): UseRoundListReturn {
                 venueName: round.courses?.club?.name,
                 city: round.courses?.club?.city ?? undefined,
                 state: round.courses?.club?.state ?? undefined,
+                clubs: round.courses?.club
+                  ? {
+                      latitude: round.courses.club.latitude,
+                      longitude: round.courses.club.longitude,
+                      name: round.courses.club.name,
+                    }
+                  : null,
               },
               holesCompleted: 0,
               totalHoles: holes.length || 18,

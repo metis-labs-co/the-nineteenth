@@ -34,6 +34,46 @@ import type {
   PendingAction,
 } from '@/types/home';
 
+// ---------------------------------------------------------------------------
+// Pure helpers — exported so they can be unit-tested without a React runtime.
+// ---------------------------------------------------------------------------
+
+const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Returns the first upcoming round whose tee time falls within the next 24h
+ * from `now`, or null if none qualifies.
+ */
+export function computeUpcomingWithin24h(
+  upcoming: RoundItem[],
+  now: Date,
+): RoundItem | null {
+  const cutoff = now.getTime() + TWENTY_FOUR_HOURS_MS;
+  for (const r of upcoming) {
+    if (!r.date) continue;
+    const teeTime = r.teeTime ?? '09:00:00';
+    const dateStr =
+      typeof r.date === 'string'
+        ? r.date.slice(0, 10)
+        : r.date.toISOString().slice(0, 10);
+    const start = new Date(`${dateStr}T${teeTime}`).getTime();
+    if (start >= now.getTime() && start <= cutoff) return r;
+  }
+  return null;
+}
+
+/**
+ * Returns `upcoming` with the hero-card round removed (by id), so the list
+ * below the hero doesn't duplicate it.
+ */
+export function computeUpcomingForList(
+  upcoming: RoundItem[],
+  pickedId: string | null,
+): RoundItem[] {
+  if (!pickedId) return upcoming;
+  return upcoming.filter((r) => r.id !== pickedId);
+}
+
 export interface AchievementHighlight {
   code: string;
   name: string;
@@ -125,6 +165,17 @@ export interface HomeData {
   /** In-progress rounds in RoundWithCourse shape — fed to the shared carousel. */
   inProgressRounds: RoundWithCourse[];
   upcomingRounds: RoundItem[];
+  /**
+   * The first upcoming round whose tee time is within the next 24 hours.
+   * Null when no round qualifies. Used for the hero RoundTodayCard.
+   */
+  upcomingWithin24h: RoundItem | null;
+  /**
+   * `upcomingRounds` with `upcomingWithin24h` removed.
+   * Use this for the scrollable list below the hero so the chosen round
+   * isn't shown twice.
+   */
+  upcomingRoundsForList: RoundItem[];
   lastRound: RoundItem | null;
   pendingActions: PendingAction[];
   competitions: Competition[];
@@ -189,6 +240,14 @@ export function useHomeData(): HomeData {
         return d >= todayIso;
       });
   }, [rounds?.active]);
+
+  const upcomingWithin24h = useMemo<RoundItem | null>(() => {
+    return computeUpcomingWithin24h(upcomingRounds, new Date());
+  }, [upcomingRounds]);
+
+  const upcomingRoundsForList = useMemo<RoundItem[]>(() => {
+    return computeUpcomingForList(upcomingRounds, upcomingWithin24h?.id ?? null);
+  }, [upcomingRounds, upcomingWithin24h]);
 
   const lastRound = useMemo<RoundItem | null>(() => {
     return rounds?.history?.[0] ?? null;
@@ -341,6 +400,8 @@ export function useHomeData(): HomeData {
     unreadCount,
     inProgressRounds,
     upcomingRounds,
+    upcomingWithin24h,
+    upcomingRoundsForList,
     lastRound,
     pendingActions,
     competitions: activeCompetitions,
