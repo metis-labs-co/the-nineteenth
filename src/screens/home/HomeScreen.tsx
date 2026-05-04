@@ -57,13 +57,11 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 // ---------------------------------------------------------------------------
 
 function HeaderRightSlot({
-  showWeatherChip,
   onPressGolf,
   onPressNotifications,
   unreadCount,
   golfLabel,
 }: {
-  showWeatherChip: boolean;
   onPressGolf: () => void;
   onPressNotifications: () => void;
   unreadCount: number;
@@ -72,7 +70,10 @@ function HeaderRightSlot({
   const colors = useThemeColors();
   return (
     <View style={styles.headerRightSlotRow}>
-      {showWeatherChip ? <HeaderWeatherChip /> : null}
+      {/* Always render the chip — it's a "my location" ambient indicator,
+          independent of the round-today weather inside RoundTodayCard. The
+          chip self-hides when there is no snapshot yet. */}
+      <HeaderWeatherChip />
       <TouchableOpacity
         onPress={onPressGolf}
         accessibilityRole="button"
@@ -192,7 +193,6 @@ export default function HomeScreen() {
         title={home.greeting.firstName ? `Welcome ${home.greeting.firstName}` : 'Welcome'}
         rightContent={
           <HeaderRightSlot
-            showWeatherChip={!home.upcomingWithin24h}
             onPressGolf={handleViewAllRounds}
             onPressNotifications={handleNotificationsPress}
             unreadCount={home.unreadCount}
