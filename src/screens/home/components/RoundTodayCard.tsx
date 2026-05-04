@@ -27,11 +27,18 @@ function formatTeeTime(teeTime: string | null): string {
   return `${hour12}:${minStr} ${period}`;
 }
 
+function localDateStr(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 function formatDayLabel(dateIso: string | null): string {
   if (!dateIso) return '';
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDateStr(new Date());
   if (dateIso === today) return 'Today';
-  const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const tomorrow = localDateStr(new Date(Date.now() + 24 * 60 * 60 * 1000));
   if (dateIso === tomorrow) return 'Tomorrow';
   const d = new Date(`${dateIso}T00:00:00`);
   return d.toLocaleDateString('en-AU', { weekday: 'long' });
@@ -48,15 +55,17 @@ export const RoundTodayCard = React.memo(function RoundTodayCard({
   const dayLabel = formatDayLabel(round.date);
   const teeLabel = formatTeeTime(round.tee_time);
   const subtitle = [dayLabel, teeLabel].filter(Boolean).join(' · ');
+  const sectionTitle = dayLabel === 'Tomorrow' ? 'Round tomorrow' : 'Round today';
 
   return (
     <View style={styles.wrapper}>
-      <SectionHeader title="Round today" />
+      <SectionHeader title={sectionTitle} />
       <TouchableOpacity
         testID="round-today-card"
         onPress={() => navigation.navigate('ViewRound', { roundId: round.id })}
         accessibilityRole="button"
         accessibilityLabel={`Round at ${courseName}, ${subtitle}`}
+        accessibilityHint="Opens round details"
         style={[
           styles.card,
           { backgroundColor: colors.surface, borderColor: colors.borderLight },
