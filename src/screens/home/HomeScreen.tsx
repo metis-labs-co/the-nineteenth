@@ -97,7 +97,15 @@ function HeaderRightSlot({
                 styles.headerBadge,
                 { backgroundColor: colors.error, borderColor: colors.surface },
               ]}
-            />
+            >
+              <Text
+                style={[styles.headerBadgeText, { color: colors.textOnColored }]}
+                numberOfLines={1}
+                allowFontScaling={false}
+              >
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </Text>
+            </View>
           ) : null}
         </View>
       </TouchableOpacity>
@@ -208,15 +216,20 @@ export default function HomeScreen() {
           <HomeSkeleton />
         ) : (
           <View>
-            <FeatureButton
-              title="Score Social Round"
-              subtitle="Start scoring a round at any course"
-              icon={
-                <IconPlus size={24} color={colors.white} strokeWidth={2.5} />
-              }
-              onPress={openCreateRound}
-              accessibilityLabel="Score new round"
-            />
+            {/* Hide the social-round CTA when the user already has an actionable
+                round to look at (mid-round or scheduled within 24h). The
+                bottom sheet is still reachable from the FAB / nav. */}
+            {!home.inProgressRounds.length && !home.upcomingWithin24h ? (
+              <FeatureButton
+                title="Score Social Round"
+                subtitle="Start scoring a round at any course"
+                icon={
+                  <IconPlus size={24} color={colors.white} strokeWidth={2.5} />
+                }
+                onPress={openCreateRound}
+                accessibilityLabel="Score new round"
+              />
+            ) : null}
 
             {home.isNewUser ? (
               <View style={styles.body}>
@@ -425,12 +438,20 @@ const styles = StyleSheet.create({
   },
   headerBadge: {
     position: 'absolute',
-    top: 0,
-    right: 0,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    top: -4,
+    right: -6,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
     borderWidth: 1,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerBadgeText: {
+    fontSize: 10,
+    lineHeight: 12,
+    fontWeight: '700',
   },
   devSection: {
     marginTop: spacing.xl,
