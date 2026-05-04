@@ -37,23 +37,78 @@ import { useStartNewRound } from '@/screens/rounds/RoundListScreen/hooks';
 import { useHomeData } from '@/hooks/home';
 import type { RootStackParamList } from '@/navigation/types';
 import type { GameType } from '@/types/database.types';
+import type { RoundWithCourse } from '@/components/competitions/detail/types';
 
 import {
   PendingActionsSection,
   UpcomingRoundsSection,
-  CompetitionsLeaguesSection,
-  StatsHighlightsSection,
   BagSummarySection,
-  AchievementStatsSection,
-  AchievementProgressSection,
-  LastRoundSection,
-  FriendActivitySection,
   NewUserFallback,
   HomeSkeleton,
   SectionHeader,
+  HeaderWeatherChip,
+  RoundTodayCard,
+  HomeTileGrid,
 } from './components';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
+
+// ---------------------------------------------------------------------------
+// HeaderRightSlot — inline helper, not exported
+// ---------------------------------------------------------------------------
+
+function HeaderRightSlot({
+  showWeatherChip,
+  onPressGolf,
+  onPressNotifications,
+  unreadCount,
+  golfLabel,
+}: {
+  showWeatherChip: boolean;
+  onPressGolf: () => void;
+  onPressNotifications: () => void;
+  unreadCount: number;
+  golfLabel: string;
+}) {
+  const colors = useThemeColors();
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+      {showWeatherChip ? <HeaderWeatherChip /> : null}
+      <TouchableOpacity
+        onPress={onPressGolf}
+        accessibilityRole="button"
+        accessibilityLabel={golfLabel}
+        style={[styles.headerActionButton, { backgroundColor: colors.surfaceVariant }]}
+      >
+        <Icon source="golf" size={22} color={colors.primary} />
+      </TouchableOpacity>
+      <TouchableOpacity
+        onPress={onPressNotifications}
+        accessibilityRole="button"
+        accessibilityLabel={
+          unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'
+        }
+        style={[styles.headerActionButton, { backgroundColor: colors.surfaceVariant }]}
+      >
+        <View>
+          <Icon source="bell-outline" size={22} color={colors.primary} />
+          {unreadCount > 0 ? (
+            <View
+              style={[
+                styles.headerBadge,
+                { backgroundColor: colors.error, borderColor: colors.surface },
+              ]}
+            />
+          ) : null}
+        </View>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// HomeScreen
+// ---------------------------------------------------------------------------
 
 export default function HomeScreen() {
   const colors = useThemeColors();
@@ -124,37 +179,19 @@ export default function HomeScreen() {
     navigation.navigate('AllRounds');
   }, [navigation]);
 
-  // Whether to show the "View all rounds" link in Upcoming.
-  const showViewAll = home.lastRound !== null || home.upcomingRounds.length > 3;
-
-  // If active round exists and there are no other completed rounds, hide
-  // the LastRound section to avoid redundancy.
-  const showLastRound = home.lastRound !== null;
-
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <PageHeader
-        title={
-          home.greeting.firstName
-            ? `Welcome ${home.greeting.firstName}`
-            : 'Welcome'
+        title={home.greeting.firstName ? `Welcome ${home.greeting.firstName}` : 'Welcome'}
+        rightContent={
+          <HeaderRightSlot
+            showWeatherChip={!home.upcomingWithin24h}
+            onPressGolf={handleViewAllRounds}
+            onPressNotifications={handleNotificationsPress}
+            unreadCount={home.unreadCount}
+            golfLabel="View all rounds"
+          />
         }
-        rightActions={[
-          {
-            icon: 'golf',
-            onPress: handleViewAllRounds,
-            accessibilityLabel: 'View all rounds',
-          },
-          {
-            icon: 'bell-outline',
-            onPress: handleNotificationsPress,
-            accessibilityLabel:
-              home.unreadCount > 0
-                ? `Notifications, ${home.unreadCount} unread`
-                : 'Notifications',
-            showBadge: home.unreadCount > 0,
-          },
-        ]}
       />
 
       <ScrollView
@@ -225,25 +262,34 @@ export default function HomeScreen() {
                     </TouchableOpacity>
                   </View>
                 ) : null}
+
+                {home.upcomingWithin24h ? (
+                  <RoundTodayCard
+                    round={home.upcomingWithin24h as unknown as RoundWithCourse}
+                  />
+                ) : null}
+
                 <PendingActionsSection actions={home.pendingActions} />
-                <UpcomingRoundsSection
-                  rounds={home.upcomingRounds}
-                  showViewAll={showViewAll}
-                />
+
                 <BagSummarySection />
-                <CompetitionsLeaguesSection
+
+                {home.upcomingRoundsForList.length > 0 ? (
+                  <UpcomingRoundsSection
+                    rounds={home.upcomingRoundsForList}
+                    showViewAll={
+                      home.lastRound !== null || home.upcomingRoundsForList.length > 3
+                    }
+                  />
+                ) : null}
+
+                <HomeTileGrid
+                  stats={home.stats}
+                  achievementSummary={home.achievementSummary}
+                  achievementsInProgressCount={home.achievementsInProgress.length}
                   competitions={home.competitions}
                   leagues={home.leagues}
+                  lastRound={home.lastRound}
                 />
-                <StatsHighlightsSection stats={home.stats} />
-                <AchievementStatsSection summary={home.achievementSummary} />
-                <AchievementProgressSection
-                  achievements={home.achievementsInProgress}
-                />
-                {showLastRound ? (
-                  <LastRoundSection round={home.lastRound} />
-                ) : null}
-                <FriendActivitySection items={[]} />
               </View>
             )}
 
@@ -367,6 +413,22 @@ const styles = StyleSheet.create({
   viewAllRoundsLabel: {
     ...typography.body,
     fontWeight: '600',
+  },
+  headerActionButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 22,
+  },
+  headerBadge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    borderWidth: 1,
   },
   devSection: {
     marginTop: spacing.xl,
