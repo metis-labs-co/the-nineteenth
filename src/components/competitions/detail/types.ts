@@ -22,6 +22,9 @@ export interface RoundWithCourse extends Round {
       name: string;
       city: string | null;
       state: string | null;
+      /** GPS coordinates — present when the query selects them from the clubs table */
+      latitude?: number | null;
+      longitude?: number | null;
     } | null;
   }) | null;
   /** Whether this round has an active skins game */
