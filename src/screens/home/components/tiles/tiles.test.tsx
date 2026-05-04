@@ -50,12 +50,12 @@ describe('AchievementsTile', () => {
     const { getByText } = render(
       wrap(
         <AchievementsTile
-          summary={{ totalEarned: 23, totalPoints: 540, completionPercentage: 57 }}
+          summary={{ totalEarned: 23, totalPoints: 540, completionPercentage: 57, totalDefinitions: 40 }}
           inProgressCount={3}
         />,
       ),
     );
-    expect(getByText(/23/)).toBeTruthy();
+    expect(getByText('23 / 40')).toBeTruthy();
     expect(getByText(/3 close/)).toBeTruthy();
   });
 

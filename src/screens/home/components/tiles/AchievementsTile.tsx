@@ -12,7 +12,11 @@ interface Props {
 
 export function AchievementsTile({ summary, inProgressCount }: Props) {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const headline = summary ? `${summary.totalEarned}` : null;
+  const headline = summary
+    ? (summary.totalDefinitions > 0
+        ? `${summary.totalEarned} / ${summary.totalDefinitions}`
+        : `${summary.totalEarned}`)
+    : null;
   const subtext = inProgressCount > 0 ? `${inProgressCount} close to unlocking` : 'Earn your first';
 
   return (

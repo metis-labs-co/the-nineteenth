@@ -48,6 +48,7 @@ export interface AchievementSummaryStats {
   totalEarned: number;
   totalPoints: number;
   completionPercentage: number;
+  totalDefinitions: number;
 }
 
 const ACHIEVEMENT_LIMIT = 2;
@@ -323,12 +324,16 @@ export function useHomeData(): HomeData {
 
   const achievementSummaryStats = useMemo<AchievementSummaryStats | null>(() => {
     if (!achievementSummary) return null;
+    const totalDefinitions = achievementDefinitions
+      ? achievementDefinitions.filter((d) => !d.is_hidden).length
+      : 0;
     return {
       totalEarned: achievementSummary.total_earned,
       totalPoints: achievementSummary.total_points,
       completionPercentage: achievementSummary.completion_percentage,
+      totalDefinitions,
     };
-  }, [achievementSummary]);
+  }, [achievementSummary, achievementDefinitions]);
 
   return {
     greeting: { firstName, timeOfDay: timeOfDay() },
