@@ -11,6 +11,7 @@ export { AchievementStatsSection } from './AchievementStatsSection';
 export { LastRoundSection } from './LastRoundSection';
 export { FriendActivitySection } from './FriendActivitySection';
 export { NewUserFallback } from './NewUserFallback';
+export { HeaderWeatherChip } from './HeaderWeatherChip';
 export { HomeSkeleton } from './HomeSkeleton';
 export { SectionHeader } from './SectionHeader';
 export { WeatherStrip } from './WeatherStrip';
