@@ -13,6 +13,8 @@ export { FriendActivitySection } from './FriendActivitySection';
 export { NewUserFallback } from './NewUserFallback';
 export { HeaderWeatherChip } from './HeaderWeatherChip';
 export { HomeSkeleton } from './HomeSkeleton';
+export { HomeTile } from './HomeTile';
+export type { HomeTileProps } from './HomeTile';
 export { RoundTodayCard } from './RoundTodayCard';
 export { SectionHeader } from './SectionHeader';
 export { WeatherStrip } from './WeatherStrip';
