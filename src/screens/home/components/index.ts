@@ -1,6 +1,10 @@
 /**
  * Home Screen Components
  */
+export { AchievementsTile } from './tiles/AchievementsTile';
+export { CompetitionsTile } from './tiles/CompetitionsTile';
+export { LastRoundTile } from './tiles/LastRoundTile';
+export { StatsTile } from './tiles/StatsTile';
 export { PendingActionsSection } from './PendingActionsSection';
 export { UpcomingRoundsSection } from './UpcomingRoundsSection';
 export { CompetitionsLeaguesSection } from './CompetitionsLeaguesSection';
