@@ -95,7 +95,7 @@ export function SubMatchTeeTimePicker({
           style={[
             styles.sheet,
             shadows.lg,
-            { backgroundColor: colors.surface },
+            { backgroundColor: colors.surfaceElevated },
           ]}
         >
           <View style={[styles.header, { borderBottomColor: colors.border }]}>

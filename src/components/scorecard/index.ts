@@ -7,6 +7,8 @@ export { PlayerScoreCard } from './PlayerScoreCard';
 export { MultiBallScoreInput } from './MultiBallScoreInput';
 export { QuickScorecardView } from './QuickScorecardView';
 export { HoleHeader } from './HoleHeader';
+export { RoundHeader } from './RoundHeader';
+export type { RoundHeaderProps } from './RoundHeader';
 export { GameTypeHeader } from './GameTypeHeader';
 export type { GameTypeHeaderProps, TeamScoreData, TeamMatchStatus } from './GameTypeHeader';
 

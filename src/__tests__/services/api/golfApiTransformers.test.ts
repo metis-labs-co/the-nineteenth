@@ -853,20 +853,27 @@ describe('golfApiTransformers', () => {
   // mapPoiToPoiType
   // ==========================================================================
   describe('mapPoiToPoiType', () => {
-    describe('tee positions', () => {
-      it('transforms poi=1, location=1 to "tee_front"', () => {
-        expect(mapPoiToPoiType(1, 1)).toBe('tee_front');
-        expect(mapPoiToPoiType(GolfApiPoiType.Tee, GolfApiLocation.Front)).toBe('tee_front');
+    // GolfAPI.io's poi codes were originally read as: 1=Tee, 11/12=Green*.
+    // On-course verification (Cobram-Barooga Old Course among others) showed
+    // every coordinate was landing on the wrong end of the hole. The codes
+    // are actually inverted from the historical enum names — poi=1 carries
+    // green positions (3 entries per hole = front/center/back) and
+    // poi=11/12 carry tee positions.
+
+    describe('green positions (poi=1 — formerly mis-labelled "Tee")', () => {
+      it('transforms poi=1, location=1 to "green_front"', () => {
+        expect(mapPoiToPoiType(1, 1)).toBe('green_front');
+        expect(mapPoiToPoiType(GolfApiPoiType.Tee, GolfApiLocation.Front)).toBe('green_front');
       });
 
-      it('transforms poi=1, location=3 to "tee_back"', () => {
-        expect(mapPoiToPoiType(1, 3)).toBe('tee_back');
-        expect(mapPoiToPoiType(GolfApiPoiType.Tee, GolfApiLocation.Back)).toBe('tee_back');
+      it('transforms poi=1, location=2 to "green_center"', () => {
+        expect(mapPoiToPoiType(1, 2)).toBe('green_center');
+        expect(mapPoiToPoiType(GolfApiPoiType.Tee, GolfApiLocation.Center)).toBe('green_center');
       });
 
-      it('transforms poi=1, location=2 to "tee_front" (center fallback)', () => {
-        expect(mapPoiToPoiType(1, 2)).toBe('tee_front');
-        expect(mapPoiToPoiType(GolfApiPoiType.Tee, GolfApiLocation.Center)).toBe('tee_front');
+      it('transforms poi=1, location=3 to "green_back"', () => {
+        expect(mapPoiToPoiType(1, 3)).toBe('green_back');
+        expect(mapPoiToPoiType(GolfApiPoiType.Tee, GolfApiLocation.Back)).toBe('green_back');
       });
 
       it('returns null for poi=1 with invalid location', () => {
@@ -875,22 +882,22 @@ describe('golfApiTransformers', () => {
       });
     });
 
-    describe('green positions', () => {
-      it('transforms poi=11 to "green_front"', () => {
-        expect(mapPoiToPoiType(11, 1)).toBe('green_front');
-        expect(mapPoiToPoiType(GolfApiPoiType.GreenFront, 1)).toBe('green_front');
+    describe('tee positions (poi=11/12 — formerly mis-labelled "GreenFront/GreenCenter")', () => {
+      it('transforms poi=11 to "tee_front"', () => {
+        expect(mapPoiToPoiType(11, 1)).toBe('tee_front');
+        expect(mapPoiToPoiType(GolfApiPoiType.GreenFront, 1)).toBe('tee_front');
       });
 
-      it('transforms poi=12 to "green_center"', () => {
-        expect(mapPoiToPoiType(12, 1)).toBe('green_center');
-        expect(mapPoiToPoiType(GolfApiPoiType.GreenCenter, 1)).toBe('green_center');
+      it('transforms poi=12 to "tee_back"', () => {
+        expect(mapPoiToPoiType(12, 1)).toBe('tee_back');
+        expect(mapPoiToPoiType(GolfApiPoiType.GreenCenter, 1)).toBe('tee_back');
       });
 
-      it('ignores location for green POIs', () => {
-        expect(mapPoiToPoiType(11, 2)).toBe('green_front');
-        expect(mapPoiToPoiType(11, 3)).toBe('green_front');
-        expect(mapPoiToPoiType(12, 2)).toBe('green_center');
-        expect(mapPoiToPoiType(12, 3)).toBe('green_center');
+      it('ignores location for tee POIs', () => {
+        expect(mapPoiToPoiType(11, 2)).toBe('tee_front');
+        expect(mapPoiToPoiType(11, 3)).toBe('tee_front');
+        expect(mapPoiToPoiType(12, 2)).toBe('tee_back');
+        expect(mapPoiToPoiType(12, 3)).toBe('tee_back');
       });
     });
 
@@ -931,10 +938,12 @@ describe('golfApiTransformers', () => {
   // transformApiCoordinate
   // ==========================================================================
   describe('transformApiCoordinate', () => {
-    it('transforms tee_back coordinate', () => {
+    // poi=1/loc=3 carries the green_back coord (despite the API enum
+    // calling it "Tee Back" — see mapPoiToPoiType comment).
+    it('transforms poi=1/loc=3 to green_back coordinate', () => {
       const coord = createMockCoordinate({
-        poi: 1, // Tee
-        location: 3, // Back
+        poi: 1,
+        location: 3,
         hole: 1,
         latitude: -37.9201,
         longitude: 145.0059,
@@ -944,27 +953,40 @@ describe('golfApiTransformers', () => {
 
       expect(result).not.toBe(null);
       expect(result?.hole_number).toBe(1);
-      expect(result?.poi_type).toBe('tee_back');
+      expect(result?.poi_type).toBe('green_back');
       expect(result?.latitude).toBe(-37.9201);
       expect(result?.longitude).toBe(145.0059);
     });
 
-    it('transforms tee_front coordinate', () => {
+    it('transforms poi=1/loc=1 to green_front coordinate', () => {
       const coord = createMockCoordinate({
-        poi: 1, // Tee
-        location: 1, // Front
+        poi: 1,
+        location: 1,
         hole: 5,
       });
 
       const result = transformApiCoordinate(coord);
 
       expect(result?.hole_number).toBe(5);
-      expect(result?.poi_type).toBe('tee_front');
+      expect(result?.poi_type).toBe('green_front');
     });
 
-    it('transforms green_front coordinate', () => {
+    it('transforms poi=1/loc=2 to green_center coordinate', () => {
       const coord = createMockCoordinate({
-        poi: 11, // GreenFront
+        poi: 1,
+        location: 2,
+        hole: 7,
+      });
+
+      const result = transformApiCoordinate(coord);
+
+      expect(result?.hole_number).toBe(7);
+      expect(result?.poi_type).toBe('green_center');
+    });
+
+    it('transforms poi=11 to tee_front coordinate', () => {
+      const coord = createMockCoordinate({
+        poi: 11,
         location: 1,
         hole: 9,
       });
@@ -972,12 +994,12 @@ describe('golfApiTransformers', () => {
       const result = transformApiCoordinate(coord);
 
       expect(result?.hole_number).toBe(9);
-      expect(result?.poi_type).toBe('green_front');
+      expect(result?.poi_type).toBe('tee_front');
     });
 
-    it('transforms green_center coordinate', () => {
+    it('transforms poi=12 to tee_back coordinate', () => {
       const coord = createMockCoordinate({
-        poi: 12, // GreenCenter
+        poi: 12,
         location: 2,
         hole: 18,
       });
@@ -985,7 +1007,7 @@ describe('golfApiTransformers', () => {
       const result = transformApiCoordinate(coord);
 
       expect(result?.hole_number).toBe(18);
-      expect(result?.poi_type).toBe('green_center');
+      expect(result?.poi_type).toBe('tee_back');
     });
 
     it('returns null for non-essential POI (fairway marker)', () => {
@@ -1046,11 +1068,11 @@ describe('golfApiTransformers', () => {
         courseID: 'course123',
         numCoordinates: 5,
         coordinates: [
-          createMockCoordinate({ poi: 1, location: 3, hole: 1 }), // tee_back - keep
+          createMockCoordinate({ poi: 1, location: 3, hole: 1 }), // green_back - keep
           createMockCoordinate({ poi: 2, location: 1, hole: 1 }), // fairway - skip
-          createMockCoordinate({ poi: 11, location: 1, hole: 1 }), // green_front - keep
+          createMockCoordinate({ poi: 11, location: 1, hole: 1 }), // tee_front - keep
           createMockCoordinate({ poi: 4, location: 1, hole: 1 }), // hazard - skip
-          createMockCoordinate({ poi: 12, location: 2, hole: 1 }), // green_center - keep
+          createMockCoordinate({ poi: 12, location: 2, hole: 1 }), // tee_back - keep
         ],
         apiRequestsLeft: '10',
       };
@@ -1058,9 +1080,9 @@ describe('golfApiTransformers', () => {
       const result = transformApiCoordinates(response);
 
       expect(result.length).toBe(3);
-      expect(result[0].poi_type).toBe('tee_back');
-      expect(result[1].poi_type).toBe('green_front');
-      expect(result[2].poi_type).toBe('green_center');
+      expect(result[0].poi_type).toBe('green_back');
+      expect(result[1].poi_type).toBe('tee_front');
+      expect(result[2].poi_type).toBe('tee_back');
     });
 
     it('handles empty coordinates array', () => {

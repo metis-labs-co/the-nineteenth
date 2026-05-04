@@ -18,17 +18,21 @@ jest.mock('@/context/ThemeContext', () => ({
   }),
 }));
 
+const mockUseUserLocationReturn = {
+  location: { latitude: -37.81, longitude: 144.96 } as { latitude: number; longitude: number } | null,
+  accuracy: 5 as number | null,
+  permissionStatus: 'granted' as 'granted' | 'denied' | 'undetermined',
+  isLoading: false,
+  isWatching: true,
+  hasBeenAsked: true,
+  requestPermission: jest.fn(),
+  startWatching: jest.fn(),
+  stopWatching: jest.fn(),
+  error: null,
+};
+
 jest.mock('@/hooks/useUserLocation', () => ({
-  useUserLocation: () => ({
-    location: { latitude: -37.81, longitude: 144.96 },
-    accuracy: 5,
-    permissionStatus: 'granted',
-    isLoading: false,
-    isWatching: true,
-    hasBeenAsked: true,
-    requestPermission: jest.fn(),
-    startWatching: jest.fn(),
-  }),
+  useUserLocation: () => mockUseUserLocationReturn,
 }));
 
 const buildCoord = (poi_type: string, lat: number, lng: number) => ({
@@ -212,5 +216,105 @@ describe('HoleMapScreen — Social/Premium tier (Phase B)', () => {
     fireEvent.press(getByTestId('green-poi-green_back'));
     fireEvent.press(getByLabelText(/reset marker/i));
     expect(getByTestId('green-poi-green_center-selected')).toBeTruthy();
+  });
+});
+
+describe('HoleMapScreen — GPS header button', () => {
+  beforeEach(() => {
+    mockGoBack.mockClear();
+    mockUseUserLocationReturn.requestPermission.mockClear();
+    mockUseUserLocationReturn.startWatching.mockClear();
+    mockUseUserLocationReturn.stopWatching.mockClear();
+    const { useMapTier } = require('@/hooks/useMapTier');
+    (useMapTier as jest.Mock).mockReturnValue('free');
+    const { useHoleCoordinatesByHole } = require('@/hooks/useHoleCoordinates');
+    (useHoleCoordinatesByHole as jest.Mock).mockReturnValue({
+      data: PIN_ONLY_SET,
+      isLoading: false,
+    });
+    // Reset to a known-good baseline; individual tests override.
+    mockUseUserLocationReturn.permissionStatus = 'granted';
+    mockUseUserLocationReturn.isWatching = true;
+    mockUseUserLocationReturn.hasBeenAsked = true;
+    mockUseUserLocationReturn.location = { latitude: -37.81, longitude: 144.96 };
+  });
+
+  it('shows the active GPS button when permission is granted and watching', () => {
+    const { getByTestId } = render(<HoleMapScreen {...makeProps()} />);
+    expect(getByTestId('gps-button-granted-active')).toBeTruthy();
+  });
+
+  it('tapping the GPS button while watching pauses the subscription', () => {
+    const { getByTestId } = render(<HoleMapScreen {...makeProps()} />);
+    fireEvent.press(getByTestId('gps-button-granted-active'));
+    expect(mockUseUserLocationReturn.stopWatching).toHaveBeenCalledTimes(1);
+  });
+
+  it('tapping the GPS button while paused resumes the subscription', () => {
+    mockUseUserLocationReturn.isWatching = false;
+    const { getByTestId } = render(<HoleMapScreen {...makeProps()} />);
+    fireEvent.press(getByTestId('gps-button-granted'));
+    expect(mockUseUserLocationReturn.startWatching).toHaveBeenCalled();
+  });
+
+  it('shows the denied GPS button and prompts via Alert when permission is denied', () => {
+    const alertSpy = jest.spyOn(require('react-native').Alert, 'alert').mockImplementation(() => {});
+    mockUseUserLocationReturn.permissionStatus = 'denied';
+    mockUseUserLocationReturn.isWatching = false;
+    mockUseUserLocationReturn.location = null;
+    const { getByTestId } = render(<HoleMapScreen {...makeProps()} />);
+    expect(getByTestId('gps-button-denied')).toBeTruthy();
+    expect(alertSpy).toHaveBeenCalledTimes(1);
+    expect(alertSpy.mock.calls[0][0]).toMatch(/location is off/i);
+    alertSpy.mockRestore();
+  });
+
+  it('tapping the denied GPS button opens device Settings', () => {
+    const Linking = require('react-native').Linking;
+    const openSettingsSpy = jest.spyOn(Linking, 'openSettings').mockImplementation(() => Promise.resolve());
+    jest.spyOn(require('react-native').Alert, 'alert').mockImplementation(() => {});
+    mockUseUserLocationReturn.permissionStatus = 'denied';
+    mockUseUserLocationReturn.isWatching = false;
+    mockUseUserLocationReturn.location = null;
+    const { getByTestId } = render(<HoleMapScreen {...makeProps()} />);
+    fireEvent.press(getByTestId('gps-button-denied'));
+    expect(openSettingsSpy).toHaveBeenCalledTimes(1);
+    openSettingsSpy.mockRestore();
+  });
+
+  it('auto-requests permission when undetermined and not yet asked', () => {
+    mockUseUserLocationReturn.permissionStatus = 'undetermined';
+    mockUseUserLocationReturn.isWatching = false;
+    mockUseUserLocationReturn.hasBeenAsked = false;
+    mockUseUserLocationReturn.location = null;
+    render(<HoleMapScreen {...makeProps()} />);
+    expect(mockUseUserLocationReturn.requestPermission).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('HoleMapScreen — Recenter button', () => {
+  beforeEach(() => {
+    const { useMapTier } = require('@/hooks/useMapTier');
+    (useMapTier as jest.Mock).mockReturnValue('free');
+    const { useHoleCoordinatesByHole } = require('@/hooks/useHoleCoordinates');
+    (useHoleCoordinatesByHole as jest.Mock).mockReturnValue({
+      data: PIN_ONLY_SET,
+      isLoading: false,
+    });
+    mockUseUserLocationReturn.permissionStatus = 'granted';
+    mockUseUserLocationReturn.isWatching = true;
+    mockUseUserLocationReturn.hasBeenAsked = true;
+  });
+
+  it('shows the recenter button when the user location is known', () => {
+    mockUseUserLocationReturn.location = { latitude: -37.81, longitude: 144.96 };
+    const { getByTestId } = render(<HoleMapScreen {...makeProps()} />);
+    expect(getByTestId('recenter-button')).toBeTruthy();
+  });
+
+  it('hides the recenter button when there is no user location', () => {
+    mockUseUserLocationReturn.location = null;
+    const { queryByTestId } = render(<HoleMapScreen {...makeProps()} />);
+    expect(queryByTestId('recenter-button')).toBeNull();
   });
 });

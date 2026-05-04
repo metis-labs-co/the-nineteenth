@@ -35,6 +35,7 @@ import { InProgressRoundSection } from '@/components/competitions/detail/section
 import CreateRoundBottomSheet from '@/screens/rounds/CreateRoundBottomSheet';
 import { useStartNewRound } from '@/screens/rounds/RoundListScreen/hooks';
 import { useHomeData } from '@/hooks/home';
+import { useDevFlagsStore } from '@/store/devFlagsStore';
 import type { RootStackParamList } from '@/navigation/types';
 import type { GameType } from '@/types/database.types';
 
@@ -125,6 +126,11 @@ export default function HomeScreen() {
   const [bottomSheetVisible, setBottomSheetVisible] = useState(false);
 
   const home = useHomeData();
+
+  const forceNewUserHome = useDevFlagsStore((s) => s.forceNewUserHome);
+  const toggleForceNewUserHome = useDevFlagsStore(
+    (s) => s.toggleForceNewUserHome
+  );
 
   const {
     handleStartNewRound,
@@ -234,6 +240,16 @@ export default function HomeScreen() {
             {home.isNewUser ? (
               <View style={styles.body}>
                 <NewUserFallback onCreateRound={openCreateRound} />
+                <View style={styles.newUserGridSpacer}>
+                  <HomeTileGrid
+                    stats={home.stats}
+                    achievementSummary={home.achievementSummary}
+                    achievementsInProgressCount={home.achievementsInProgress.length}
+                    competitions={home.competitions}
+                    leagues={home.leagues}
+                    lastRound={home.lastRound}
+                  />
+                </View>
               </View>
             ) : (
               <View style={styles.body}>
@@ -371,6 +387,47 @@ export default function HomeScreen() {
                       View onboarding
                     </Text>
                   </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.devButton,
+                      {
+                        backgroundColor: forceNewUserHome
+                          ? colors.primaryLighter
+                          : colors.surface,
+                        borderColor: forceNewUserHome
+                          ? colors.primary
+                          : colors.border,
+                      },
+                    ]}
+                    onPress={toggleForceNewUserHome}
+                    accessibilityRole="switch"
+                    accessibilityState={{ checked: forceNewUserHome }}
+                    accessibilityLabel="Force new-user home state"
+                  >
+                    <Icon
+                      source={
+                        forceNewUserHome
+                          ? 'toggle-switch'
+                          : 'toggle-switch-off-outline'
+                      }
+                      size={20}
+                      color={
+                        forceNewUserHome ? colors.primary : colors.textPrimary
+                      }
+                    />
+                    <Text
+                      style={[
+                        styles.devButtonLabel,
+                        {
+                          color: forceNewUserHome
+                            ? colors.primary
+                            : colors.textPrimary,
+                        },
+                      ]}
+                    >
+                      Force new-user home state
+                    </Text>
+                  </TouchableOpacity>
                 </View>
               </View>
             )}
@@ -402,6 +459,9 @@ const styles = StyleSheet.create({
   },
   body: {
     paddingHorizontal: layout.screenPadding,
+  },
+  newUserGridSpacer: {
+    marginTop: spacing.lg,
   },
   carouselWrapper: {
     // InProgressRoundSection sets its own container margins; just give it room

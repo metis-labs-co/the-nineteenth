@@ -213,7 +213,7 @@ export function DatePicker({
               <View
                 style={[
                   styles.pickerModalContent,
-                  { backgroundColor: isDark ? '#1c1c1e' : colors.surface },
+                  { backgroundColor: colors.surfaceElevated },
                 ]}
               >
                 <View

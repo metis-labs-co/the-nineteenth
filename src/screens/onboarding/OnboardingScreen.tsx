@@ -2,7 +2,7 @@
  * OnboardingScreen - Multi-step onboarding flow
  *
  * Shows to authenticated users who haven't set their handicap yet.
- * 6 steps: Welcome -> Name -> Create Competitions -> Notifications -> Handicap Capture -> Home Club
+ * 4 steps: Name -> Notifications -> Handicap Capture -> Home Club
  *
  * Biometric enrollment is no longer part of this flow — it's surfaced as a
  * one-time bottom sheet immediately after first sign-in
@@ -35,9 +35,7 @@ import { spacing, typography } from '@/constants/theme';
 import { ThemeProvider, useThemeColors } from '@/context/ThemeContext';
 
 // Step components
-import WelcomeStep from './components/WelcomeStep';
 import NameCaptureStep from './components/NameCaptureStep';
-import CreateCompetitionsStep from './components/CreateCompetitionsStep';
 import NotificationsStep from './components/NotificationsStep';
 import HandicapCaptureStep from './components/HandicapCaptureStep';
 import HomeClubStep from './components/HomeClubStep';
@@ -68,9 +66,7 @@ export interface StepProps {
 }
 
 const STEPS: StepItem[] = [
-  { key: 'welcome', component: WelcomeStep },
   { key: 'name', component: NameCaptureStep },
-  { key: 'competitions', component: CreateCompetitionsStep },
   { key: 'notifications', component: NotificationsStep },
   { key: 'handicap', component: HandicapCaptureStep },
   { key: 'homeClub', component: HomeClubStep },

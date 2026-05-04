@@ -1,6 +1,3 @@
-export { ScorecardHeader } from './ScorecardHeader';
-export type { ScorecardHeaderProps } from './ScorecardHeader';
-
 export { ScorecardFooter } from './ScorecardFooter';
 export type { ScorecardFooterProps } from './ScorecardFooter';
 

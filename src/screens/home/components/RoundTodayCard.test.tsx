@@ -55,9 +55,25 @@ describe('RoundTodayCard', () => {
     expect(queryByTestId('weather-strip')).toBeNull();
   });
 
-  it('navigates to ViewRound on press', () => {
+  it('navigates to ViewRound on press without competitionId for a standalone round', () => {
     const { getByTestId } = render(wrap(<RoundTodayCard round={round} />));
     fireEvent.press(getByTestId('round-today-card'));
-    expect(mockNavigate).toHaveBeenCalledWith('ViewRound', { roundId: 'r-1' });
+    expect(mockNavigate).toHaveBeenCalledWith('ViewRound', {
+      roundId: 'r-1',
+      competitionId: undefined,
+    });
+  });
+
+  it('passes competitionId to ViewRound for a competition round', () => {
+    const competitionRound = {
+      ...round,
+      competition: { id: 'comp-1', name: 'Club Champs' },
+    };
+    const { getByTestId } = render(wrap(<RoundTodayCard round={competitionRound} />));
+    fireEvent.press(getByTestId('round-today-card'));
+    expect(mockNavigate).toHaveBeenCalledWith('ViewRound', {
+      roundId: 'r-1',
+      competitionId: 'comp-1',
+    });
   });
 });

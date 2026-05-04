@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { Alert, Linking, View, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { PROVIDER_DEFAULT, type MapPressEvent, type Region } from 'react-native-maps';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -36,6 +36,7 @@ import {
   NoCoordinatesFallback,
   ShotTrail,
   ShotMarkerActionSheet,
+  RecenterButton,
 } from '@/components/scorecard/HoleMap';
 import type { ShotLogEntry } from '@/types/database/shotLog.types';
 
@@ -89,7 +90,20 @@ export default function HoleMapScreen({ route, navigation }: Props) {
   const { courseId, holeNumber, roundId, mode = 'live' } = route.params;
   const colors = useThemeColors();
   const tier = useMapTier();
-  const { location } = useUserLocation();
+  // GPS for the user marker + distance-from-here-to-pin line. Each call to
+  // `useUserLocation` is an isolated subscription, so we have to start
+  // watching from this screen — being granted permission elsewhere (e.g.
+  // DistanceToPin on the scorecard) doesn't carry the active subscription.
+  const {
+    location,
+    permissionStatus,
+    isLoading: isLoadingLocationPermission,
+    isWatching,
+    hasBeenAsked,
+    requestPermission: requestLocationPermission,
+    startWatching: startWatchingLocation,
+    stopWatching: stopWatchingLocation,
+  } = useUserLocation();
   const { data: hasCoordinates } = useHasCoordinates(courseId);
   const markers = useHoleMapMarkers(courseId, holeNumber, tier);
   const { triggerBackfill } = useCoordinateBackfill(courseId);
@@ -109,6 +123,80 @@ export default function HoleMapScreen({ route, navigation }: Props) {
   // Shot whose club is being edited via the picker. Distinct from `activeShot`
   // so the action sheet can close cleanly while the picker takes over.
   const [clubEditingShot, setClubEditingShot] = useState<ShotLogEntry | null>(null);
+
+  // First-open prompt: if permission has never been asked, request it as
+  // soon as the initial check finishes. After this the system dialog won't
+  // re-appear (iOS suppresses repeat prompts), so we only need to ask once.
+  useEffect(() => {
+    if (
+      !isLoadingLocationPermission &&
+      !hasBeenAsked &&
+      permissionStatus === 'undetermined'
+    ) {
+      requestLocationPermission();
+    }
+  }, [
+    isLoadingLocationPermission,
+    hasBeenAsked,
+    permissionStatus,
+    requestLocationPermission,
+  ]);
+
+  // Once permission is granted (now or previously), start the watch
+  // subscription on this screen's hook instance.
+  useEffect(() => {
+    if (permissionStatus === 'granted' && !isWatching) {
+      startWatchingLocation();
+    }
+  }, [permissionStatus, isWatching, startWatchingLocation]);
+
+  // If location is denied, the OS won't re-show the system permission
+  // dialog — we have to point the user at Settings ourselves. Show this
+  // once per navigation to the screen so the player gets a fresh nudge
+  // each time they open the map but isn't trapped in a re-prompt loop
+  // mid-session.
+  const deniedAlertShownRef = useRef(false);
+  useEffect(() => {
+    if (
+      permissionStatus === 'denied' &&
+      !isLoadingLocationPermission &&
+      !deniedAlertShownRef.current
+    ) {
+      deniedAlertShownRef.current = true;
+      Alert.alert(
+        'Location is off',
+        'Enable location access in Settings to see your position on the course map.',
+        [
+          { text: 'Not now', style: 'cancel' },
+          { text: 'Open Settings', onPress: () => Linking.openSettings() },
+        ]
+      );
+    }
+  }, [permissionStatus, isLoadingLocationPermission]);
+
+  const onGpsPress = useCallback(() => {
+    if (permissionStatus === 'denied') {
+      Linking.openSettings();
+      return;
+    }
+    if (permissionStatus === 'undetermined') {
+      requestLocationPermission();
+      return;
+    }
+    // Granted — toggle the watch subscription so the user can pause
+    // GPS without leaving the screen (battery / privacy preference).
+    if (isWatching) {
+      stopWatchingLocation();
+    } else {
+      startWatchingLocation();
+    }
+  }, [
+    permissionStatus,
+    isWatching,
+    requestLocationPermission,
+    startWatchingLocation,
+    stopWatchingLocation,
+  ]);
 
   const userCoord: LatLng | null = location
     ? { latitude: location.latitude, longitude: location.longitude }
@@ -227,6 +315,13 @@ export default function HoleMapScreen({ route, navigation }: Props) {
   // (Atlantic Ocean → solid navy in satellite view) and stays there.
   const mapRef = useRef<MapView | null>(null);
 
+  // Recenter on the user's current GPS without disturbing zoom or heading,
+  // so the player can return to themselves after panning around the hole.
+  const onRecenterPress = useCallback(() => {
+    if (!userCoord) return;
+    mapRef.current?.animateCamera({ center: userCoord }, { duration: 400 });
+  }, [userCoord]);
+
   // The first available focus point, in priority order:
   //   1. The hole pin (green centre / front) — best for orienting on a hole
   //   2. The user's current location — useful before coordinates load
@@ -272,8 +367,14 @@ export default function HoleMapScreen({ route, navigation }: Props) {
     // the camera sits near the green.
     if (teeAnchor && greenAnchor) {
       focusedHoleRef.current = holeNumber;
-      const heading = bearingDegrees(greenAnchor, teeAnchor);
-      const center = lerpCoord(teeAnchor, greenAnchor, GREEN_AT_TOP_BIAS);
+      // Heading = bearing FROM tee TO green so that direction is "up" on
+      // screen — green at top, tee at bottom. (The reverse — bearing from
+      // green→tee — was the 898966d regression that had the tee at the
+      // top instead.) Camera centre lerps from green back toward the tee
+      // by GREEN_AT_TOP_BIAS, so the camera sits near the green and the
+      // approach is visible below.
+      const heading = bearingDegrees(teeAnchor, greenAnchor);
+      const center = lerpCoord(greenAnchor, teeAnchor, GREEN_AT_TOP_BIAS);
       mapRef.current?.animateCamera(
         {
           center,
@@ -329,7 +430,11 @@ export default function HoleMapScreen({ route, navigation }: Props) {
 
   return (
     <SafeAreaView
-      style={[styles.flex, { backgroundColor: colors.background }]}
+      // surfaceElevated (not background) so the safe-area inset above the
+      // header stays opaque. `colors.background` is transparent when the
+      // image backdrop is enabled, which on a modal screen exposes the
+      // default white modal backdrop and looks like a white status-bar strip.
+      style={[styles.flex, { backgroundColor: colors.surfaceElevated }]}
       edges={['top']}
     >
       <MapHeader
@@ -337,6 +442,9 @@ export default function HoleMapScreen({ route, navigation }: Props) {
         canReset={canReset}
         onClose={onClose}
         onReset={onReset}
+        gpsPermission={isLoadingLocationPermission ? 'loading' : permissionStatus}
+        gpsActive={isWatching}
+        onGpsPress={onGpsPress}
       />
 
       <View style={styles.flex}>
@@ -393,6 +501,8 @@ export default function HoleMapScreen({ route, navigation }: Props) {
         {showFallback && (
           <NoCoordinatesFallback onRequestBackfill={triggerBackfill} />
         )}
+
+        <RecenterButton visible={!!userCoord} onPress={onRecenterPress} />
 
         <ShotMarkerActionSheet
           visible={activeShot !== null}

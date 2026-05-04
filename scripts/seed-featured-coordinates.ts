@@ -11,6 +11,15 @@
  *   --dry-run    Show what would be fetched without writing to database
  *   --state VIC  Only process courses in a specific state
  *   --force      Re-fetch coordinates even if course already has data
+ *   --all        Include non-featured clubs (defaults to featured only).
+ *                Use after the poi_type swap migration to re-fetch every
+ *                course with a golfapi_course_id so all three green
+ *                positions (front/center/back) are written instead of the
+ *                single squashed row that the migration left behind.
+ *   --prod       Target the production Supabase project. Reads
+ *                EXPO_PUBLIC_SUPABASE_URL_PROD + SUPABASE_SECRET_KEY_PROD
+ *                instead of the default (staging) values. Without this
+ *                flag the script writes to staging.
  *
  * Prerequisites:
  *   - .env must have EXPO_PUBLIC_SUPABASE_URL, SUPABASE_SECRET_KEY (or EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY)
@@ -27,13 +36,35 @@ import { createClient } from '@supabase/supabase-js';
 // Load .env from project root
 config({ path: resolve(__dirname, '..', '.env') });
 
-const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL!;
-const SUPABASE_KEY = process.env.SUPABASE_SECRET_KEY || process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
+// =====================================================
+// CLI ARGS  (parsed before Supabase client init so --prod can pick env vars)
+// =====================================================
+
+const args = process.argv.slice(2);
+const DRY_RUN = args.includes('--dry-run');
+const FORCE = args.includes('--force');
+const INCLUDE_ALL = args.includes('--all');
+const TARGET_PROD = args.includes('--prod');
+const stateIdx = args.indexOf('--state');
+const STATE_FILTER = stateIdx !== -1 ? args[stateIdx + 1]?.toUpperCase() : null;
+
+const SUPABASE_URL = TARGET_PROD
+  ? process.env.EXPO_PUBLIC_SUPABASE_URL_PROD!
+  : process.env.EXPO_PUBLIC_SUPABASE_URL!;
+const SUPABASE_KEY = TARGET_PROD
+  ? (process.env.SUPABASE_SECRET_KEY_PROD ||
+     process.env.SUPABASE_SERVICE_ROLE_KEY ||
+     process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY_PROD)!
+  : (process.env.SUPABASE_SECRET_KEY ||
+     process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY)!;
 const GOLFAPI_URL = process.env.EXPO_PUBLIC_GOLFAPI_IO_URL || 'https://www.golfapi.io/api/v2.3';
 const GOLFAPI_KEY = process.env.EXPO_PUBLIC_GOLFAPI_IO_KEY!;
 
 if (!SUPABASE_URL || !SUPABASE_KEY) {
-  console.error('Missing Supabase credentials in .env');
+  console.error(
+    `Missing Supabase credentials in .env for ${TARGET_PROD ? 'PROD' : 'staging'} target.\n` +
+    `  Need: ${TARGET_PROD ? 'EXPO_PUBLIC_SUPABASE_URL_PROD + SUPABASE_SECRET_KEY_PROD' : 'EXPO_PUBLIC_SUPABASE_URL + SUPABASE_SECRET_KEY'}`
+  );
   process.exit(1);
 }
 if (!GOLFAPI_KEY) {
@@ -43,15 +74,20 @@ if (!GOLFAPI_KEY) {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// =====================================================
-// CLI ARGS
-// =====================================================
-
-const args = process.argv.slice(2);
-const DRY_RUN = args.includes('--dry-run');
-const FORCE = args.includes('--force');
-const stateIdx = args.indexOf('--state');
-const STATE_FILTER = stateIdx !== -1 ? args[stateIdx + 1]?.toUpperCase() : null;
+// Prominent banner so the operator can't miss which DB they're hitting.
+const supabaseHost = (() => {
+  try {
+    return new URL(SUPABASE_URL).host;
+  } catch {
+    return SUPABASE_URL;
+  }
+})();
+console.log(
+  `\n${'='.repeat(60)}\n` +
+  `Target: ${TARGET_PROD ? 'PRODUCTION' : 'STAGING'}\n` +
+  `Host:   ${supabaseHost}\n` +
+  `${'='.repeat(60)}\n`
+);
 
 // =====================================================
 // GOLFAPI.IO TYPES & HELPERS
@@ -77,17 +113,22 @@ type PoiType = 'tee_front' | 'tee_back' | 'green_front' | 'green_center' | 'gree
 
 /**
  * Map GolfAPI.io numeric POI code to our PoiType string.
- * Mirrors src/services/api/golfApiTransformers.ts:mapPoiToPoiType
+ * Mirrors src/services/api/golfApiTransformers.ts:mapPoiToPoiType.
+ *
+ * GolfAPI.io's poi codes are inverted from the labels in their docs
+ * (verified on-course): poi=1 carries green positions (front/center/back)
+ * and poi=11/12 carry tee positions. See the central transformer for the
+ * full explanation.
  */
 function mapPoiToPoiType(poi: number, location: number): PoiType | null {
   if (poi === 1) {
-    if (location === 1) return 'tee_front';
-    if (location === 3) return 'tee_back';
-    if (location === 2) return 'tee_front';
+    if (location === 1) return 'green_front';
+    if (location === 2) return 'green_center';
+    if (location === 3) return 'green_back';
     return null;
   }
-  if (poi === 11) return 'green_front';
-  if (poi === 12) return 'green_center';
+  if (poi === 11) return 'tee_front';
+  if (poi === 12) return 'tee_back';
   return null;
 }
 
@@ -157,7 +198,7 @@ async function getFeaturedCourses(): Promise<FeaturedCourse[]> {
   if (!data) return [];
 
   return (data as any[])
-    .filter((row: any) => row.clubs?.is_featured === true)
+    .filter((row: any) => INCLUDE_ALL ? true : row.clubs?.is_featured === true)
     .filter((row: any) => !STATE_FILTER || row.clubs?.state === STATE_FILTER)
     .map((row: any) => ({
       course_id: row.id,

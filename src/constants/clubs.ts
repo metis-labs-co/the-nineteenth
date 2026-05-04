@@ -12,13 +12,16 @@ export type ClubCategory = 'wood' | 'hybrid' | 'iron' | 'wedge' | 'putter';
 
 export type ClubKey =
   | 'driver'
+  | 'mini-driver'
   | '3-wood'
+  | '4-wood'
   | '5-wood'
   | '7-wood'
   | '2-hybrid'
   | '3-hybrid'
   | '4-hybrid'
   | '5-hybrid'
+  | '1-iron'
   | '2-iron'
   | '3-iron'
   | '4-iron'
@@ -48,13 +51,16 @@ export interface Club {
 
 export const CLUBS: readonly Club[] = [
   { key: 'driver', label: 'Driver', category: 'wood' },
+  { key: 'mini-driver', label: 'Mini Driver', category: 'wood' },
   { key: '3-wood', label: '3 Wood', category: 'wood' },
+  { key: '4-wood', label: '4 Wood', category: 'wood' },
   { key: '5-wood', label: '5 Wood', category: 'wood' },
   { key: '7-wood', label: '7 Wood', category: 'wood' },
   { key: '2-hybrid', label: '2 Hybrid', category: 'hybrid' },
   { key: '3-hybrid', label: '3 Hybrid', category: 'hybrid' },
   { key: '4-hybrid', label: '4 Hybrid', category: 'hybrid' },
   { key: '5-hybrid', label: '5 Hybrid', category: 'hybrid' },
+  { key: '1-iron', label: '1 Iron', category: 'iron' },
   { key: '2-iron', label: '2 Iron', category: 'iron' },
   { key: '3-iron', label: '3 Iron', category: 'iron' },
   { key: '4-iron', label: '4 Iron', category: 'iron' },

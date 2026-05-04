@@ -20,6 +20,7 @@ import {
 } from '@/hooks/achievements/queries';
 import { useFriends } from '@/hooks/friends';
 import { useUnreadNotificationCount } from '@/hooks/notifications/queries';
+import { useDevFlagsStore } from '@/store/devFlagsStore';
 import { usePendingActions } from './usePendingActions';
 import { useInProgressRounds } from './useInProgressRounds';
 import { useUpcomingRounds } from './useUpcomingRounds';
@@ -387,7 +388,9 @@ export function useHomeData(): HomeData {
     return deduped.slice(0, ACHIEVEMENT_LIMIT);
   }, [achievementProgress, achievementDefinitions, friendCountForAchievements]);
 
-  const isNewUser =
+  const forceNewUserHome = useDevFlagsStore((s) => s.forceNewUserHome);
+
+  const computedIsNewUser =
     !roundsLoading &&
     inProgressRounds.length === 0 &&
     upcomingRounds.length === 0 &&
@@ -397,6 +400,8 @@ export function useHomeData(): HomeData {
     activeLeagues.length === 0 &&
     pendingActions.length === 0 &&
     (friends?.length ?? 0) === 0;
+
+  const isNewUser = (__DEV__ && forceNewUserHome) || computedIsNewUser;
 
   const firstName = useMemo(() => {
     const fullName = player?.name ?? user?.user_metadata?.name;
@@ -432,6 +437,33 @@ export function useHomeData(): HomeData {
       totalDefinitions,
     };
   }, [achievementSummary, achievementDefinitions]);
+
+  // Dev-only: when the "Force new-user home state" flag is on, blank out every
+  // data field so the UI is a faithful preview of a fresh account. Identity
+  // (greeting, refetch, loading) stays real.
+  if (__DEV__ && forceNewUserHome) {
+    return {
+      greeting: { firstName, timeOfDay: timeOfDay() },
+      handicap: { value: null, delta30d: null, hasHandicap: false },
+      unreadCount: 0,
+      inProgressRounds: [],
+      upcomingRounds: [],
+      upcomingWithin24h: null,
+      upcomingRoundsForList: [],
+      lastRound: null,
+      pendingActions: [],
+      competitions: [],
+      leagues: [],
+      stats: null,
+      achievementSummary: null,
+      achievementsInProgress: [],
+      friendCount: 0,
+      isLoading: roundsLoading,
+      isRefetching: roundsRefetching,
+      refetchAll,
+      isNewUser: true,
+    };
+  }
 
   return {
     greeting: { firstName, timeOfDay: timeOfDay() },

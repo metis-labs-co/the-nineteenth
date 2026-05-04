@@ -18,7 +18,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { LoadingSpinner, ConfirmationDialog } from '@/components/common';
-import { HoleHeader, SwipeableHoleNavigator } from '@/components/scorecard';
+import { HoleHeader, RoundHeader, SwipeableHoleNavigator } from '@/components/scorecard';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -31,13 +31,13 @@ import { useSubMatches, useUpdateSubMatchResult } from '@/hooks/rounds';
 import { useCompetitionInfo } from '@/hooks/competitions';
 import { useAuth } from '@/hooks/useAuth';
 import { calculatePlayingHandicap } from '@/hooks/usePlayingHandicap';
-import { useProcessSkinsIfNeeded } from '@/hooks';
+import { useProcessSkinsIfNeeded, useOnlineStatus } from '@/hooks';
+import { useOfflineSync } from '@/hooks/scorecard';
 import { teamMatchPlayLogger } from '@/utils/debugLogger';
 import type { RootStackScreenProps } from '@/navigation/types';
 import type { Player, TeeBox } from '@/types';
 
 import {
-  TeamMatchPlayHeader,
   TeamMatchPlayFooter,
   TeamScorePanel,
   TeamMatchProgress,
@@ -64,7 +64,11 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
     initializeRound,
     loadFromOffline,
     resetRound,
+    isSyncing,
+    pendingSyncCount,
   } = useScorecardStore();
+  const isOnline = useOnlineStatus();
+  const { triggerSync } = useOfflineSync();
 
   // State
   const [currentHole, setCurrentHole] = useState(1);
@@ -133,6 +137,7 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
   }, [isSplitRound, subMatches, selectedSubMatchId, ownSubMatchId]);
 
   // Course data from round
+  const courseId = roundData?.course?.id ?? undefined;
   const courseName = roundData?.course?.name;
   const clubName = roundData?.course?.club?.name ?? null;
   const selectedTeeBox: TeeBox | undefined = roundData?.selected_tee ?? undefined;
@@ -700,13 +705,19 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={[]}>
-      <TeamMatchPlayHeader
+      <RoundHeader
+        titleFallback="Team Match Play"
         courseName={courseName}
         clubName={clubName}
         selectedTee={selectedTeeBox}
         onBack={handleBackPress}
-        isSuperAdmin={isSuperAdmin}
         roundId={roundId}
+        courseId={courseId}
+        currentHole={currentHole}
+        isOnline={isOnline}
+        isSyncing={isSyncing}
+        pendingSyncCount={pendingSyncCount}
+        onSyncPress={triggerSync}
       />
 
       {showSubMatchPicker && (

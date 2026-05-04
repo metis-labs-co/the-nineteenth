@@ -4,11 +4,19 @@
  * Combines round.date (YYYY-MM-DD) and round.tee_time (HH:MM:SS) into the
  * local-time string Open-Meteo's hourly response uses (timezone=auto).
  *
- * Returns null-equivalent state when the round has no course coords or no date.
+ * Coordinate resolution:
+ *   1. clubs.latitude / clubs.longitude (pre-hydrated from clubs.location)
+ *   2. clubs.location.coordinates (raw GeoJSON)
+ *   3. hole_coordinates fallback for the round's course / sibling courses
+ *      at the same club (`useFallbackCourseCoords`).
+ *
+ * Returns null-equivalent state when none of those resolve, or when the round
+ * has no date.
  */
 
 import { useMemo } from 'react';
 import { useWeather, type WeatherInput } from './useWeather';
+import { useFallbackCourseCoords } from './useFallbackCourseCoords';
 import type { RoundWithCourse } from '@/components/competitions/detail/types';
 
 /**
@@ -48,48 +56,31 @@ function extractClubCoords(
 }
 
 export function useUpcomingRoundWeather(round: RoundWithCourse | null) {
-  const input = useMemo<WeatherInput | null>(() => {
-    if (!round || !round.course) {
-      console.log('[weather] skip — no round/course', { roundId: round?.id });
-      return null;
-    }
-    const coords = extractClubCoords(round);
-    if (!coords) {
-      console.log('[weather] skip — no club coords', {
-        roundId: round.id,
-        courseId: round.course?.id,
-        clubKeys: round.course?.clubs ? Object.keys(round.course.clubs) : null,
-        hasLocation: !!(round.course?.clubs as { location?: unknown } | null)
-          ?.location,
-      });
-      return null;
-    }
-    if (!round.date) {
-      console.log('[weather] skip — no date', { roundId: round.id });
-      return null;
-    }
+  const courseId = round?.course?.id ?? null;
+  // `club_id` lives on the Course row but isn't in the narrowed type used by
+  // RoundWithCourse — read it defensively.
+  const clubId =
+    (round?.course as { club_id?: string | null } | null | undefined)?.club_id ??
+    null;
 
-    // Default tee time to 09:00 if not specified. Accept either snake_case (DB
-    // Round type) or camelCase (RoundItem mapped type) to be tolerant of both.
+  // Always issue the fallback query so coords are ready when the club row has
+  // no location of its own. The query is keyed by courseId/clubId and cached
+  // for the static TTL, so this is cheap.
+  const { data: fallbackCoords } = useFallbackCourseCoords(courseId, clubId);
+
+  const input = useMemo<WeatherInput | null>(() => {
+    if (!round || !round.course) return null;
+    if (!round.date) return null;
+
+    const coords = extractClubCoords(round) ?? fallbackCoords ?? null;
+    if (!coords) return null;
+
     const teeTime = readTeeTime(round);
     // Open-Meteo hourly times look like "2026-05-04T08:00" (no seconds).
     const isoDateTime = `${round.date}T${teeTime.slice(0, 5)}`;
 
-    console.log('[weather] requesting', {
-      roundId: round.id,
-      lat: coords.lat,
-      lng: coords.lng,
-      isoDateTime,
-    });
     return { kind: 'at-time', lat: coords.lat, lng: coords.lng, isoDateTime };
-  }, [round]);
+  }, [round, fallbackCoords]);
 
-  const result = useWeather(input);
-  if (input && result.isError) {
-    console.log('[weather] error', { error: result.error });
-  }
-  if (input && result.data === null && result.isFetched) {
-    console.log('[weather] resolved to null (fail-soft)');
-  }
-  return result;
+  return useWeather(input);
 }

@@ -371,18 +371,28 @@ export function mapPoiToPoiType(
   poi: number,
   location: number
 ): PoiType | null {
-  // Tee positions
-  if (poi === 1) { // GolfApiPoiType.Tee
-    if (location === 1) return 'tee_front'; // GolfApiLocation.Front
-    if (location === 3) return 'tee_back';  // GolfApiLocation.Back
-    // Center tee (location 2) - map to tee_front as fallback
-    if (location === 2) return 'tee_front';
+  // GolfAPI.io's poi codes were originally implemented assuming poi=1 was
+  // the tee box and poi=11/12 were green positions, but on-course testing
+  // showed every coordinate landing on the wrong end of the hole. The poi
+  // codes are actually inverted from the labels in their docs:
+  //   poi=1   → green positions (3 entries per hole = front/center/back)
+  //   poi=11  → tee front
+  //   poi=12  → tee back
+  // Verified against multiple Australian courses + the Tee table's hole
+  // length data. The historic enum names (GolfApiPoiType.Tee = 1 etc.) are
+  // kept for backwards compatibility but read as misleading.
+
+  // Green positions (poi=1 has 3 sub-positions per the API's `location` field)
+  if (poi === 1) {
+    if (location === 1) return 'green_front';
+    if (location === 2) return 'green_center';
+    if (location === 3) return 'green_back';
     return null;
   }
 
-  // Green positions
-  if (poi === 11) return 'green_front';  // GolfApiPoiType.GreenFront
-  if (poi === 12) return 'green_center'; // GolfApiPoiType.GreenCenter
+  // Tee positions
+  if (poi === 11) return 'tee_front';
+  if (poi === 12) return 'tee_back';
 
   // Non-essential POIs (fairway markers, hazards, etc.) - skip
   return null;

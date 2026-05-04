@@ -19,13 +19,12 @@ import { View, StyleSheet, ScrollView, BackHandler } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { LoadingSpinner, ErrorState, Pill, ConfirmationDialog } from '@/components/common';
 import { useConfirmationDialog } from '@/hooks';
-import { HoleHeader, SwipeableHoleNavigator } from '@/components/scorecard';
+import { HoleHeader, RoundHeader, SwipeableHoleNavigator } from '@/components/scorecard';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
-import { useIsSuperAdmin } from '@/store/subscriptionStore';
 import { useScorecardStore } from '@/store/scorecardStore';
-import { useMatchPlayData, useMatchPlayScoring } from '@/hooks/scorecard';
+import { useMatchPlayData, useMatchPlayScoring, useOfflineSync } from '@/hooks/scorecard';
 import { useProcessSkinsIfNeeded, useOnlineStatus } from '@/hooks';
 import { supabase } from '@/services/supabase/client';
 import { matchPlayLogger } from '@/utils/debugLogger';
@@ -36,7 +35,7 @@ import { useIsSocial } from '@/context/SubscriptionContext';
 import { calculatePlayingHandicap } from '@/hooks/usePlayingHandicap';
 import type { RootStackScreenProps } from '@/navigation/types';
 
-import { MatchPlayHeader, MatchPlayFooter, PlayerScoreCard, MatchProgress } from './components';
+import { MatchPlayFooter, PlayerScoreCard, MatchProgress } from './components';
 import { DEFAULT_HOLES } from './constants';
 import type { HoleResult } from './types';
 
@@ -53,7 +52,6 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
   const isOnline = useOnlineStatus();
 
   // Super admin check
-  const isSuperAdmin = useIsSuperAdmin();
   const isSocial = useIsSocial();
   const { handicapSource, selectedTeeData: storeTeeData, playerTeeMap } = useScorecardStore();
 
@@ -80,6 +78,7 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
     player1,
     player2,
     holes,
+    courseId,
     courseName,
     clubName,
     selectedTee: selectedTeeBox,
@@ -115,8 +114,9 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
     currentHole,
   });
 
-  // Get sync status from store for offline indicator
-  const { isSyncing: _isSyncing, pendingSyncCount: _pendingSyncCount, submitScorecards } = useScorecardStore();
+  // Sync status (drives the offline indicator + animated sync line in RoundHeader).
+  const { isSyncing, pendingSyncCount, submitScorecards } = useScorecardStore();
+  const { triggerSync } = useOfflineSync();
 
   // Skins processing hook
   const { processSkinsHole } = useProcessSkinsIfNeeded();
@@ -595,14 +595,19 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={[]}>
-      {/* Header with course/tee info and skins indicator */}
-      <MatchPlayHeader
+      <RoundHeader
+        titleFallback="Match Play"
         courseName={courseName ?? undefined}
         clubName={clubName}
         selectedTee={selectedTeeBox}
         onBack={handleBackPress}
-        isSuperAdmin={isSuperAdmin}
         roundId={roundId}
+        courseId={courseId ?? undefined}
+        currentHole={currentHole}
+        isOnline={isOnline}
+        isSyncing={isSyncing}
+        pendingSyncCount={pendingSyncCount}
+        onSyncPress={triggerSync}
       />
 
       {/* Match Status Bar */}

@@ -280,6 +280,12 @@ export function useScoreSubmission({
                 dismissDialog();
                 refreshPartnerStatus();
               },
+              showSecondaryAction: bypassAvailable,
+              secondaryActionLabel: 'Submit Anyway',
+              onSecondaryAction: () => {
+                dismissDialog();
+                handleBypassSubmit();
+              },
             });
             return;
           }
@@ -322,6 +328,12 @@ export function useScoreSubmission({
               onConfirm: () => {
                 dismissDialog();
                 refreshPartnerStatus();
+              },
+              showSecondaryAction: bypassAvailable,
+              secondaryActionLabel: 'Submit Anyway',
+              onSecondaryAction: () => {
+                dismissDialog();
+                handleBypassSubmit();
               },
             });
             return;
@@ -519,7 +531,7 @@ export function useScoreSubmission({
         performSubmission();
       },
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- navigation and resetRound excluded to prevent unnecessary re-renders
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- navigation and resetRound excluded to prevent unnecessary re-renders. handleBypassSubmit is also excluded — it's declared after handleSubmit (TDZ if added here), and its deps are a strict subset of handleSubmit's, so handleSubmit re-creates whenever handleBypassSubmit's identity would change, keeping the closure fresh.
   }, [
     isOnline,
     competitionId,

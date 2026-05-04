@@ -37,6 +37,8 @@ interface UseMatchPlayDataResult {
   player2: MatchPlayer;
   /** Course hole data */
   holes: Hole[];
+  /** Course id (for distance-to-pin / map sheet). */
+  courseId: string | null;
   /** Course name */
   courseName: string | null;
   /** Club (venue) name, when known. */
@@ -373,6 +375,7 @@ export function useMatchPlayData({
     player1,
     player2,
     holes: courseHook.holes,
+    courseId: roundData?.course?.id ?? courseHook.course?.id ?? null,
     courseName: roundData?.course?.name || courseHook.course?.name || null,
     clubName: roundData?.course?.club?.name || null,
     selectedTee,

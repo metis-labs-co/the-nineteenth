@@ -1,19 +1,24 @@
 /**
- * ScorecardHeader Component
+ * RoundHeader Component
  *
- * Renders the header section of the scorecard entry screen:
- * - PageHeader with title, subtitle, back button, and action buttons
- * - Skins game indicator (when skins is active)
- * - Offline status indicator
- * - Sync line animation when syncing
- * - Scoring pairs info header (when enabled)
+ * Shared header for every score-entry screen (stroke play, match play,
+ * team match play). Renders:
+ *  - PageHeader with title (club / course / format fallback) and a
+ *    course + tee-colour-circle subtitle
+ *  - Right-aligned indicators: GPS distance-to-pin (opens HoleMap),
+ *    SkinsIndicator, WolfIndicator. Each indicator self-hides when its
+ *    game isn't active for the round.
+ *  - OfflineIndicator + animated sync line when offline / syncing
+ *  - Scoring-pairs banner (optional — stroke play only)
+ *
+ * Designed to replace the per-screen ScorecardHeader / MatchPlayHeader /
+ * TeamMatchPlayHeader copies, all of which were ~95% the same code.
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, Animated } from 'react-native';
 import { Text } from 'react-native-paper';
-import { ConfirmationDialog } from '@/components/common';
-import { PageHeader, OfflineIndicator } from '@/components/common';
+import { ConfirmationDialog, PageHeader, OfflineIndicator } from '@/components/common';
 import { SkinsIndicator } from '@/components/skins';
 import { WolfIndicator } from '@/components/wolf';
 import { DistanceToPin } from '@/components/scorecard/HoleHeader/DistanceToPin';
@@ -22,34 +27,39 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import type { Player, TeeBox } from '@/types';
 
-export interface ScorecardHeaderProps {
-  courseName?: string;
-  /** Club (venue) name — preferred title when available. Falls back to courseName, then to "Score Entry". */
+export interface RoundHeaderProps {
+  /** Title fallback when no club / course name is available. */
+  titleFallback?: string;
+  /** Club (venue) name — preferred title when available. */
   clubName?: string | null;
+  /** Course name — preferred subtitle, also used as title when no club. */
+  courseName?: string | null;
   selectedTee?: TeeBox | null;
   onBack: () => void;
-  isStandaloneRound: boolean;
-  // Round ID for skins indicator
+
+  /** Round id — required, drives skins/wolf indicators and the map sheet. */
   roundId: string;
-  // GPS distance to pin
+  /** Course id — required for the GPS distance-to-pin badge. Omit to hide. */
   courseId?: string;
   currentHole: number;
-  // Offline/sync state
+
+  /** Offline / sync state. */
   isOnline: boolean;
   isSyncing: boolean;
   pendingSyncCount: number;
   onSyncPress: () => void;
-  // Scoring pairs
-  scoringPairsEnabled: boolean;
-  playersToScore: Player[];
+
+  /** Scoring-pairs banner (stroke play only — leave default false otherwise). */
+  scoringPairsEnabled?: boolean;
+  playersToScore?: Player[];
 }
 
-export function ScorecardHeader({
-  courseName,
+export function RoundHeader({
+  titleFallback = 'Score Entry',
   clubName,
+  courseName,
   selectedTee,
   onBack,
-  isStandaloneRound: _isStandaloneRound,
   roundId,
   courseId,
   currentHole,
@@ -57,20 +67,17 @@ export function ScorecardHeader({
   isSyncing,
   pendingSyncCount,
   onSyncPress,
-  scoringPairsEnabled,
-  playersToScore,
-}: ScorecardHeaderProps) {
+  scoringPairsEnabled = false,
+  playersToScore = [],
+}: RoundHeaderProps) {
   const colors = useThemeColors();
 
-  // Dialog state
+  // Skins-indicator-info popover (placeholder until detailed view ships).
   const [showSkinsAlert, setShowSkinsAlert] = useState(false);
-
-  // Handle skins indicator press - show coming soon alert for now
   const _handleSkinsPress = useCallback(() => {
     setShowSkinsAlert(true);
   }, []);
 
-  // Build subtitle with course name, color circle, and tee name
   const renderSubtitle = (): React.ReactNode | undefined => {
     if (!courseName) return undefined;
 
@@ -94,9 +101,9 @@ export function ScorecardHeader({
     return courseName;
   };
 
-  // Sync line animation
+  // Animated bar that scrolls during sync — mirrors the original
+  // ScorecardHeader behaviour exactly (1s loop, 200→400px translate).
   const syncLineAnim = useRef(new Animated.Value(0)).current;
-
   useEffect(() => {
     if (isSyncing) {
       const animation = Animated.loop(
@@ -115,30 +122,20 @@ export function ScorecardHeader({
       );
       animation.start();
       return () => animation.stop();
-    } else {
-      syncLineAnim.setValue(0);
     }
+    syncLineAnim.setValue(0);
+    return undefined;
   }, [isSyncing, syncLineAnim]);
 
-  // Compute offline status for indicator
-  const getOfflineStatus = (): 'online' | 'offline' | 'syncing' | 'error' => {
-    if (!isOnline) return 'offline';
-    return 'online';
-  };
+  const offlineStatus: 'online' | 'offline' | 'syncing' | 'error' =
+    isOnline ? 'online' : 'offline';
 
-  // Custom right content with GPS, skins indicator and delete button
-  // All icons use consistent 32x32 containers with 18px icons
   const renderRightContent = () => (
     <View style={styles.rightContent}>
-      {/* GPS Distance to Pin */}
       {courseId && (
         <DistanceToPin courseId={courseId} holeNumber={currentHole} roundId={roundId} />
       )}
-
-      {/* Skins Indicator - shows when skins game is active (minimal variant = no background) */}
       <SkinsIndicator roundId={roundId} size="sm" variant="minimal" />
-
-      {/* Wolf Indicator - shows when Wolf game is active */}
       <WolfIndicator roundId={roundId} currentHole={currentHole} size="sm" variant="minimal" />
     </View>
   );
@@ -146,21 +143,19 @@ export function ScorecardHeader({
   return (
     <>
       <PageHeader
-        title={clubName || courseName || 'Score Entry'}
+        title={clubName || courseName || titleFallback}
         subtitle={renderSubtitle()}
         showBack
         onBack={onBack}
         rightContent={renderRightContent()}
       />
 
-      {/* Offline Status Indicator - only show when offline, not during sync */}
       <OfflineIndicator
-        status={getOfflineStatus()}
+        status={offlineStatus}
         pendingSyncs={pendingSyncCount}
         onSyncPress={onSyncPress}
       />
 
-      {/* Sync Line Indicator */}
       {isSyncing && (
         <View style={[styles.syncLineContainer, { backgroundColor: colors.gray200 }]}>
           <Animated.View
@@ -182,7 +177,6 @@ export function ScorecardHeader({
         </View>
       )}
 
-      {/* Scoring Pairs Info Header */}
       {scoringPairsEnabled && playersToScore.length > 0 && (
         <View style={[styles.scoringPairsHeader, { backgroundColor: colors.surfaceVariant }]}>
           <Text style={[styles.scoringPairsLabel, { color: colors.primary }]}>
@@ -194,7 +188,6 @@ export function ScorecardHeader({
         </View>
       )}
 
-      {/* Skins Tracking Alert */}
       <ConfirmationDialog
         visible={showSkinsAlert}
         title="Skins Tracking"
@@ -254,3 +247,5 @@ const styles = StyleSheet.create({
     ...typography.smallBold,
   },
 });
+
+export default RoundHeader;

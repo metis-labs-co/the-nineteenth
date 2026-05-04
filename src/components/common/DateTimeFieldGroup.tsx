@@ -252,7 +252,7 @@ export const DateTimeFieldGroup = memo(function DateTimeFieldGroup({
               style={[styles.pickerModalOverlay, { backgroundColor: colors.overlay }]}
             >
               <View
-                style={[styles.pickerModalContent, { backgroundColor: colors.surface }]}
+                style={[styles.pickerModalContent, { backgroundColor: colors.surfaceElevated }]}
               >
                 <View
                   style={[styles.pickerHeader, { borderBottomColor: colors.border }]}
@@ -355,7 +355,7 @@ export const DateTimeFieldGroup = memo(function DateTimeFieldGroup({
                 style={[styles.pickerModalOverlay, { backgroundColor: colors.overlay }]}
               >
                 <View
-                  style={[styles.pickerModalContent, { backgroundColor: colors.surface }]}
+                  style={[styles.pickerModalContent, { backgroundColor: colors.surfaceElevated }]}
                 >
                   <View
                     style={[styles.pickerHeader, { borderBottomColor: colors.border }]}

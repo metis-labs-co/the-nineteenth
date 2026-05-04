@@ -57,8 +57,8 @@ import {
   useWolfIntegration,
   useScoreHandlers,
 } from './hooks';
+import { RoundHeader } from '@/components/scorecard';
 import {
-  ScorecardHeader,
   ScorecardFooter,
   ScorecardDialogs,
   ScorecardScoreContent,
@@ -690,12 +690,12 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={[]}>
-      <ScorecardHeader
+      <RoundHeader
+        titleFallback="Score Entry"
         courseName={courseName ?? undefined}
         clubName={clubName}
         selectedTee={courseTees.find((t) => t.color?.toLowerCase() === selectedTee) ?? null}
         onBack={nav.handleBackPress}
-        isStandaloneRound={isStandaloneRound}
         roundId={roundId}
         courseId={courseId ?? undefined}
         currentHole={currentHole}

@@ -4,6 +4,7 @@ export { TapMarker } from './TapMarker';
 export { GreenPOIMarker } from './GreenPOIMarker';
 export { DistanceLine } from './DistanceLine';
 export { MapMarkerSet } from './MapMarkerSet';
+export { RecenterButton } from './RecenterButton';
 export { NoCoordinatesFallback } from './NoCoordinatesFallback';
 export { MapHeader } from './MapHeader';
 export { ShotTrail } from './ShotTrail';

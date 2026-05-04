@@ -29,7 +29,7 @@ const holeCoordinatesTable = () =>
 interface ShotWithCourse extends ShotLogEntry {
   rounds: {
     course_id: string;
-    played_at: string | null;
+    date: string | null;
     courses: { name: string | null } | null;
   } | null;
 }
@@ -55,19 +55,22 @@ export interface ClubStatsEntry {
 export type PerClubStats = Partial<Record<ClubKey, ClubStatsEntry>>;
 
 async function fetchPerClubStats(playerId: string): Promise<PerClubStats> {
-  // 1. Pull every shot for the player that has a club assigned, joined with
-  //    rounds(course_id, played_at, courses(name)) so we can find the
+  // 1. Pull every shot for the player that has a club assigned, joined
+  //    with rounds(course_id, date, courses(name)) so we can find the
   //    matching tee coordinate AND have round/course context for the
   //    Club Distance Detail screen.
   const { data, error } = await shotLogTable()
-    .select('*, rounds(course_id, played_at, courses(name))')
+    .select('*, rounds(course_id, date, courses(name))')
     .eq('player_id', playerId)
     .not('club_used', 'is', null)
     .order('round_id', { ascending: true })
     .order('hole_number', { ascending: true })
     .order('sequence', { ascending: true });
 
-  if (error) throw error;
+  if (error) {
+    console.error('[usePerClubStats] shot_log query failed:', error);
+    throw error;
+  }
   const shots = (data as ShotWithCourse[] | null) ?? [];
   if (shots.length === 0) return {};
 
@@ -120,7 +123,7 @@ async function fetchPerClubStats(playerId: string): Promise<PerClubStats> {
       if (!isClubKey(shot.club_used)) continue;
       const enriched: ShotWithContext = {
         ...shot,
-        roundPlayedAt: original.rounds?.played_at ?? null,
+        roundPlayedAt: original.rounds?.date ?? null,
         courseName: original.rounds?.courses?.name ?? null,
       };
       const list = buckets.get(shot.club_used) ?? [];

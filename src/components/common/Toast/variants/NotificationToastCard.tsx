@@ -260,7 +260,7 @@ export const NotificationToastCard = React.memo(function NotificationToastCard({
       style={[
         styles.container,
         {
-          backgroundColor: colors.surface,
+          backgroundColor: colors.surfaceElevated,
           borderColor: colors.border,
         },
         shadows.lg,

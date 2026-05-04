@@ -45,6 +45,12 @@ export const NewUserFallback = React.memo(function NewUserFallback({
         colors={colors}
       />
       <Action
+        icon="bag-personal-outline"
+        label="Set up your bag"
+        onPress={() => navigation.navigate('WhatsInTheBag')}
+        colors={colors}
+      />
+      <Action
         icon="trophy-outline"
         label="Join a competition"
         onPress={() => navigation.navigate('JoinCompetition')}

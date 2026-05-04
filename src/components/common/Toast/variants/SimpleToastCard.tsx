@@ -47,7 +47,7 @@ export const SimpleToastCard = React.memo(function SimpleToastCard({
       style={[
         styles.container,
         {
-          backgroundColor: colors.surface,
+          backgroundColor: colors.surfaceElevated,
           borderColor: colors.border,
         },
         shadows.lg,

@@ -72,7 +72,12 @@ export const RoundTodayCard = React.memo(function RoundTodayCard({
       <SectionHeader title={sectionTitle} />
       <TouchableOpacity
         testID="round-today-card"
-        onPress={() => navigation.navigate('ViewRound', { roundId: round.id })}
+        onPress={() =>
+          navigation.navigate('ViewRound', {
+            roundId: round.id,
+            competitionId: round.competition?.id,
+          })
+        }
         accessibilityRole="button"
         accessibilityLabel={`Round at ${headlineLabel}, ${subtitle}`}
         accessibilityHint="Opens round details"
