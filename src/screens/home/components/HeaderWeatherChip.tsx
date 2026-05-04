@@ -18,14 +18,14 @@ export function HeaderWeatherChip() {
     <View
       testID="header-weather-chip"
       accessibilityRole="text"
-      accessibilityLabel={`Currently ${tempLabel}, ${label}`}
+      accessibilityLabel={`Currently ${Math.round(snapshot.tempC)} degrees, ${label}`}
       style={[
         styles.chip,
         { backgroundColor: colors.surfaceVariant, borderColor: colors.borderLight },
       ]}
     >
-      <Icon source={icon} size={16} color={colors.textPrimary} />
-      <Text style={[styles.text, { color: colors.textPrimary }]}>{tempLabel}</Text>
+      <Icon source={icon} size={16} color={colors.textSecondary} />
+      <Text style={[styles.text, { color: colors.textSecondary }]}>{tempLabel}</Text>
     </View>
   );
 }
