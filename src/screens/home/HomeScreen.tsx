@@ -72,7 +72,7 @@ function HeaderRightSlot({
 }) {
   const colors = useThemeColors();
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+    <View style={styles.headerRightSlotRow}>
       {showWeatherChip ? <HeaderWeatherChip /> : null}
       <TouchableOpacity
         onPress={onPressGolf}
@@ -264,6 +264,9 @@ export default function HomeScreen() {
                 ) : null}
 
                 {home.upcomingWithin24h ? (
+                  // RoundItem is structurally compatible with RoundWithCourse here — the
+                  // round-list query selects course.clubs.{latitude, longitude}.
+                  // See useHomeData.upcomingWithin24h docblock for context.
                   <RoundTodayCard
                     round={home.upcomingWithin24h as unknown as RoundWithCourse}
                   />
@@ -413,6 +416,11 @@ const styles = StyleSheet.create({
   viewAllRoundsLabel: {
     ...typography.body,
     fontWeight: '600',
+  },
+  headerRightSlotRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   headerActionButton: {
     width: 44,
