@@ -79,7 +79,7 @@ export const CourseSelectionModal = memo(function CourseSelectionModal({
       presentationStyle="pageSheet"
       onRequestClose={handleClose}
     >
-      <View style={[styles.modalContainer, { paddingTop: insets.top, backgroundColor: colors.background }]}>
+      <View style={[styles.modalContainer, { paddingTop: insets.top, backgroundColor: colors.surface }]}>
         {/* Modal Header */}
         <View style={[styles.modalHeader, { backgroundColor: colors.surfaceElevated, borderBottomColor: colors.border }]}>
           <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Select Course</Text>
