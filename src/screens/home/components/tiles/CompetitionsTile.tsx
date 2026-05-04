@@ -27,7 +27,7 @@ export function CompetitionsTile({ competitions, leagues }: Props) {
       title="Competitions"
       headline={headline}
       subtext={subtext}
-      onPress={() => navigation.navigate('Competitions')}
+      onPress={() => navigation.navigate('MainTabs', { screen: 'CompetitionsTab' })}
     />
   );
 }
