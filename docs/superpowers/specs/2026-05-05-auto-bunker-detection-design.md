@@ -128,57 +128,15 @@ Approach: per (round, hole, player), order shots by `sequence`. For each `from_b
 1. A shot at sequence N+1 exists, lands within ~10m of the hole's `green_center` coordinate (using `hole_coordinates` table), AND
 2. Either the hole is finalised at sequence N+1 (no further shots — implies hole-out), OR exactly one further shot at sequence N+2 exists and the player's recorded stroke count for that hole equals N+2.
 
-```sql
-CREATE OR REPLACE VIEW v_sand_saves AS
-WITH shot_chain AS (
-  SELECT
-    s.id,
-    s.round_id,
-    s.hole_number,
-    s.player_id,
-    s.sequence,
-    s.from_bunker,
-    s.location,
-    LEAD(s.location, 1) OVER w AS next_location,
-    LEAD(s.sequence, 1) OVER w AS next_seq,
-    COUNT(*) OVER w_grp        AS total_shots
-  FROM shot_log s
-  WINDOW
-    w     AS (PARTITION BY s.round_id, s.hole_number, s.player_id ORDER BY s.sequence),
-    w_grp AS (PARTITION BY s.round_id, s.hole_number, s.player_id)
-),
-green_centers AS (
-  SELECT
-    course_id,
-    hole_number,
-    location AS green_location
-  FROM hole_coordinates
-  WHERE poi_type = 'green_center'
-)
-SELECT
-  sc.id          AS bunker_shot_id,
-  sc.round_id,
-  sc.hole_number,
-  sc.player_id,
-  TRUE           AS is_sand_save
-FROM shot_chain sc
-JOIN rounds r        ON r.id = sc.round_id
-JOIN green_centers gc
-  ON gc.course_id = r.course_id AND gc.hole_number = sc.hole_number
-WHERE sc.from_bunker = true
-  AND sc.next_location IS NOT NULL
-  -- Next shot is on/near the green
-  AND ST_DWithin(sc.next_location, gc.green_location, 10)
-  -- Bunker shot was within 2 strokes of the final stroke (PGA: 1 putt max after escape)
-  AND sc.total_shots - sc.sequence <= 2;
-```
+Both views use `WITH (security_invoker = true)` so SELECTs are evaluated under the calling user's RLS (matching the project convention applied to `achievement_leaderboard` in `20260303000000_fix_security_linter_warnings.sql`).
 
-The view returns one row per sand save. Aggregation (e.g., "sand saves per player per round") happens at the consumption layer.
-
-**Sand save attempt count** (denominator for %): a `from_bunker = true` shot that was greenside — meaning the player's *next* shot landed on or near the green. This includes both successful saves and missed saves (e.g., 2-putt bogeys after escape). Bunker shots that didn't reach the green (chunked, fairway-bunker punch-out short of the green, etc.) are excluded from the denominator — by PGA convention they aren't sand-save opportunities.
+`v_sand_save_attempts` is defined first as the denominator. `v_sand_saves` is then defined as a structural filter on `v_sand_save_attempts`, so the "saves ⊂ attempts" invariant holds by construction rather than by coincidence of two parallel WHERE clauses.
 
 ```sql
-CREATE OR REPLACE VIEW v_sand_save_attempts AS
+-- Denominator: bunker shot whose next shot landed on/near the green.
+CREATE OR REPLACE VIEW v_sand_save_attempts
+  WITH (security_invoker = true)
+AS
 WITH shot_chain AS (
   SELECT
     s.id,
@@ -210,9 +168,34 @@ JOIN green_centers gc
 WHERE sc.from_bunker = true
   AND sc.next_location IS NOT NULL
   AND ST_DWithin(sc.next_location, gc.green_location, 10);
+
+-- Numerator: an attempt that was holed within 2 strokes of the bunker shot
+-- (PGA: 1 putt max after escape, or hole-out).
+CREATE OR REPLACE VIEW v_sand_saves
+  WITH (security_invoker = true)
+AS
+SELECT
+  a.bunker_shot_id,
+  a.round_id,
+  a.hole_number,
+  a.player_id,
+  TRUE AS is_sand_save
+FROM v_sand_save_attempts a
+JOIN shot_log s ON s.id = a.bunker_shot_id
+WHERE (
+  SELECT COUNT(*)
+  FROM shot_log s2
+  WHERE s2.round_id    = a.round_id
+    AND s2.hole_number = a.hole_number
+    AND s2.player_id   = a.player_id
+) - s.sequence <= 2;
 ```
 
-Note: a successful sand save is always also an attempt — the attempt view's WHERE clause is a strict subset of the save view's preconditions. `v_sand_saves` rows are guaranteed to have a matching row in `v_sand_save_attempts` joined by `bunker_shot_id`.
+The view returns one row per sand save. Aggregation (e.g., "sand saves per player per round") happens at the consumption layer.
+
+**Sand save attempt count** (denominator for %): a `from_bunker = true` shot that was greenside — meaning the player's *next* shot landed on or near the green. This includes both successful saves and missed saves (e.g., 2-putt bogeys after escape). Bunker shots that didn't reach the green (chunked, fairway-bunker punch-out short of the green, etc.) are excluded from the denominator — by PGA convention they aren't sand-save opportunities.
+
+A successful sand save is always also an attempt because `v_sand_saves` selects from `v_sand_save_attempts`. `v_sand_saves` rows are guaranteed to have a matching row in `v_sand_save_attempts` joined by `bunker_shot_id`.
 
 `Sand save % = COUNT(v_sand_saves) / COUNT(v_sand_save_attempts) * 100` for any (player, round, …) scope.
 
