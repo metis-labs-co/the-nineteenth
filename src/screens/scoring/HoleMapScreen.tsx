@@ -8,6 +8,7 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { useHasCoordinates } from '@/hooks/useHoleCoordinates';
 import { useCoordinateBackfill } from '@/hooks/useCoordinateBackfill';
+import { useHazardBackfill } from '@/hooks/hazards';
 import { useMapTier } from '@/hooks/useMapTier';
 import {
   useHoleMapMarkers,
@@ -107,6 +108,7 @@ export default function HoleMapScreen({ route, navigation }: Props) {
   const { data: hasCoordinates } = useHasCoordinates(courseId);
   const markers = useHoleMapMarkers(courseId, holeNumber, tier);
   const { triggerBackfill } = useCoordinateBackfill(courseId);
+  useHazardBackfill(courseId);
   const { data: shots = [] } = useShotLog(roundId, holeNumber);
   const eligibility = useShotTrackingEligibility(roundId);
   const trackShots = useShotLoggingPrefStore((s) => s.byRound[roundId] === true);

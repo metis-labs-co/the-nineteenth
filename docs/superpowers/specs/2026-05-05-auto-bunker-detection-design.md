@@ -45,7 +45,7 @@ Three independent layers:
 ┌──────────────────────────────────────────────────────┐
 │ 2. Detection (per shot, server-side)                 │
 │    BEFORE INSERT trigger on shot_log                 │
-│    PostGIS ST_Contains → sets NEW.from_bunker        │
+│    PostGIS ST_Covers → sets NEW.from_bunker          │
 └──────────────────────────────────────────────────────┘
                          │
                          ▼
@@ -76,7 +76,11 @@ No backfill of existing `shot_log` rows in V1. New shots from this point forward
 
 ```sql
 CREATE OR REPLACE FUNCTION shot_log_detect_bunker()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_catalog
+AS $$
 DECLARE
   v_course_id UUID;
 BEGIN
@@ -92,9 +96,9 @@ BEGIN
     WHERE course_id   = v_course_id
       AND hole_number = NEW.hole_number
       AND hazard_type = 'bunker'
-      AND ST_Contains(
-            polygon::geometry,
-            ST_SetSRID(ST_MakePoint(NEW.longitude, NEW.latitude), 4326)
+      AND ST_Covers(
+            polygon,
+            ST_SetSRID(ST_MakePoint(NEW.longitude, NEW.latitude), 4326)::geography
           )
     LIMIT 1
   ) THEN
@@ -103,15 +107,17 @@ BEGIN
 
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
-CREATE TRIGGER shot_log_detect_bunker_bef_ins
+CREATE TRIGGER shot_log_detect_bunker_before_insert
   BEFORE INSERT ON shot_log
   FOR EACH ROW
   EXECUTE FUNCTION shot_log_detect_bunker();
 ```
 
-`SECURITY DEFINER` is needed so the trigger can read `hole_hazards` even though the inserting user has no direct read access to that table (RLS-restricted to the polygon overlay use-case via separate select policy).
+We use `ST_Covers` (geography-native) rather than `ST_Contains` so the GIST index on `hole_hazards.polygon` is used and boundary points count as inside — a ball on the bunker edge is in the bunker for stat purposes.
+
+`SECURITY DEFINER` is needed so the trigger can read `hole_hazards` even though the inserting user has no direct read access to that table (RLS-restricted to the polygon overlay use-case via separate select policy). `SET search_path = public, pg_catalog` hardens against search-path-shadowing attacks on the elevated function.
 
 ### 6.3 Sand-save derivation view
 
@@ -122,57 +128,15 @@ Approach: per (round, hole, player), order shots by `sequence`. For each `from_b
 1. A shot at sequence N+1 exists, lands within ~10m of the hole's `green_center` coordinate (using `hole_coordinates` table), AND
 2. Either the hole is finalised at sequence N+1 (no further shots — implies hole-out), OR exactly one further shot at sequence N+2 exists and the player's recorded stroke count for that hole equals N+2.
 
-```sql
-CREATE OR REPLACE VIEW v_sand_saves AS
-WITH shot_chain AS (
-  SELECT
-    s.id,
-    s.round_id,
-    s.hole_number,
-    s.player_id,
-    s.sequence,
-    s.from_bunker,
-    s.location,
-    LEAD(s.location, 1) OVER w AS next_location,
-    LEAD(s.sequence, 1) OVER w AS next_seq,
-    COUNT(*) OVER w_grp        AS total_shots
-  FROM shot_log s
-  WINDOW
-    w     AS (PARTITION BY s.round_id, s.hole_number, s.player_id ORDER BY s.sequence),
-    w_grp AS (PARTITION BY s.round_id, s.hole_number, s.player_id)
-),
-green_centers AS (
-  SELECT
-    course_id,
-    hole_number,
-    location AS green_location
-  FROM hole_coordinates
-  WHERE poi_type = 'green_center'
-)
-SELECT
-  sc.id          AS bunker_shot_id,
-  sc.round_id,
-  sc.hole_number,
-  sc.player_id,
-  TRUE           AS is_sand_save
-FROM shot_chain sc
-JOIN rounds r        ON r.id = sc.round_id
-JOIN green_centers gc
-  ON gc.course_id = r.course_id AND gc.hole_number = sc.hole_number
-WHERE sc.from_bunker = true
-  AND sc.next_location IS NOT NULL
-  -- Next shot is on/near the green
-  AND ST_DWithin(sc.next_location, gc.green_location, 10)
-  -- Bunker shot was within 2 strokes of the final stroke (PGA: 1 putt max after escape)
-  AND sc.total_shots - sc.sequence <= 2;
-```
+Both views use `WITH (security_invoker = true)` so SELECTs are evaluated under the calling user's RLS (matching the project convention applied to `achievement_leaderboard` in `20260303000000_fix_security_linter_warnings.sql`).
 
-The view returns one row per sand save. Aggregation (e.g., "sand saves per player per round") happens at the consumption layer.
-
-**Sand save attempt count** (denominator for %): a `from_bunker = true` shot that was greenside — meaning the player's *next* shot landed on or near the green. This includes both successful saves and missed saves (e.g., 2-putt bogeys after escape). Bunker shots that didn't reach the green (chunked, fairway-bunker punch-out short of the green, etc.) are excluded from the denominator — by PGA convention they aren't sand-save opportunities.
+`v_sand_save_attempts` is defined first as the denominator. `v_sand_saves` is then defined as a structural filter on `v_sand_save_attempts`, so the "saves ⊂ attempts" invariant holds by construction rather than by coincidence of two parallel WHERE clauses.
 
 ```sql
-CREATE OR REPLACE VIEW v_sand_save_attempts AS
+-- Denominator: bunker shot whose next shot landed on/near the green.
+CREATE OR REPLACE VIEW v_sand_save_attempts
+  WITH (security_invoker = true)
+AS
 WITH shot_chain AS (
   SELECT
     s.id,
@@ -204,9 +168,34 @@ JOIN green_centers gc
 WHERE sc.from_bunker = true
   AND sc.next_location IS NOT NULL
   AND ST_DWithin(sc.next_location, gc.green_location, 10);
+
+-- Numerator: an attempt that was holed within 2 strokes of the bunker shot
+-- (PGA: 1 putt max after escape, or hole-out).
+CREATE OR REPLACE VIEW v_sand_saves
+  WITH (security_invoker = true)
+AS
+SELECT
+  a.bunker_shot_id,
+  a.round_id,
+  a.hole_number,
+  a.player_id,
+  TRUE AS is_sand_save
+FROM v_sand_save_attempts a
+JOIN shot_log s ON s.id = a.bunker_shot_id
+WHERE (
+  SELECT COUNT(*)
+  FROM shot_log s2
+  WHERE s2.round_id    = a.round_id
+    AND s2.hole_number = a.hole_number
+    AND s2.player_id   = a.player_id
+) - s.sequence <= 2;
 ```
 
-Note: a successful sand save is always also an attempt — the attempt view's WHERE clause is a strict subset of the save view's preconditions. `v_sand_saves` rows are guaranteed to have a matching row in `v_sand_save_attempts` joined by `bunker_shot_id`.
+The view returns one row per sand save. Aggregation (e.g., "sand saves per player per round") happens at the consumption layer.
+
+**Sand save attempt count** (denominator for %): a `from_bunker = true` shot that was greenside — meaning the player's *next* shot landed on or near the green. This includes both successful saves and missed saves (e.g., 2-putt bogeys after escape). Bunker shots that didn't reach the green (chunked, fairway-bunker punch-out short of the green, etc.) are excluded from the denominator — by PGA convention they aren't sand-save opportunities.
+
+A successful sand save is always also an attempt because `v_sand_saves` selects from `v_sand_save_attempts`. `v_sand_saves` rows are guaranteed to have a matching row in `v_sand_save_attempts` joined by `bunker_shot_id`.
 
 `Sand save % = COUNT(v_sand_saves) / COUNT(v_sand_save_attempts) * 100` for any (player, round, …) scope.
 
@@ -223,7 +212,7 @@ Note: a successful sand save is always also an attempt — the attempt view's WH
 A new edge function in `supabase/functions/ingest-course-hazards/index.ts`:
 
 - **Input:** `{ courseId: string }`
-- **Auth:** invoked with service-role key (server-to-server only) OR by an authenticated admin user; not callable by regular clients
+- **Auth:** any authenticated user. The function validates the caller's JWT via a user-scoped Supabase client, then performs writes to `hole_hazards` via an internal service-role client. Mirrors the pattern in `supabase/functions/delete-account/index.ts`. Server-side idempotency (unique index on `course_id, hole_number, hazard_type, external_id`) makes user-driven invocation safe.
 - **Logic per hole** — iterate over every hole that has both `tee_back` and `green_center` rows in `hole_coordinates` for the given course. Holes missing either are skipped (logged as warnings; do not fail the whole ingestion).
   1. Read tee_back + green_center coordinates from `hole_coordinates`
   2. Build a per-hole bbox padded by ~40m
@@ -256,7 +245,7 @@ The Undo affordance is unchanged; deleting an auto-tagged bunker shot deletes th
 Existing component at `src/components/statistics/BunkerStatsSection.tsx`. Adds one row:
 
 - **Sand Save %** — derived from `v_sand_saves` and `v_sand_save_attempts` joined by `bunker_shot_id`
-- Display format: `64% (7/11)` — same percentage style as existing GIR / fairway stats
+- Display format: `64%` inline, with the underlying ratio (`7 of 11`) included in the accessibility label. Matches the sibling Avg/Round and Holes-with-Bunker stats which are also value-only inline.
 
 A new TanStack Query hook `useSandSaveStats(playerId)` fetches the aggregate. Query key: `['stats', 'sandSave', playerId]`.
 

@@ -772,6 +772,7 @@ function createEmptyStatistics(): PlayerStatistics {
     bunkerStats: {
       totalBunkerShots: 0, holesWithBunkers: 0, totalHolesTracked: 0,
       averageBunkerShotsPerRound: null, holesWithBunkersPercentage: null,
+      sandSavePercentage: null, sandSaves: 0, sandSaveAttempts: 0,
     },
     hazardStats: {
       waterCount: 0, obCount: 0, lateralCount: 0, lostBallCount: 0,

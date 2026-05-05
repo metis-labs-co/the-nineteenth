@@ -122,6 +122,7 @@ export const LogShotInline = React.memo(function LogShotInline({
               sequence: shot.sequence,
               roundId,
               holeNumber,
+              fromBunker: shot.from_bunker,
             });
           },
           onError: (err: unknown) => {

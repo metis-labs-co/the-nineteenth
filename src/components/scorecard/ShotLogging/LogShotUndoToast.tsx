@@ -29,6 +29,7 @@ export const LogShotUndoToast = React.memo(function LogShotUndoToast({
   const variant = useShotLoggingUiStore((s) => s.variant);
   const lastShotId = useShotLoggingUiStore((s) => s.lastShotId);
   const lastSequence = useShotLoggingUiStore((s) => s.lastSequence);
+  const lastFromBunker = useShotLoggingUiStore((s) => s.lastFromBunker);
   const lastShotContext = useShotLoggingUiStore((s) => s.lastShotContext);
   const errorMessage = useShotLoggingUiStore((s) => s.errorMessage);
   const dismissAt = useShotLoggingUiStore((s) => s.dismissAt);
@@ -66,22 +67,21 @@ export const LogShotUndoToast = React.memo(function LogShotUndoToast({
   const textColor = colors.white;
   const actionColor = colors.white;
 
+  const message = isError
+    ? errorMessage
+    : lastFromBunker
+      ? `Bunker shot ${lastSequence} logged`
+      : `Shot ${lastSequence} logged`;
+
   return (
     <View
       pointerEvents="box-none"
       style={[styles.wrap, { bottom: TOAST_BASE_BOTTOM + bottomInset }]}
     >
-      <View
-        style={[
-          styles.toast,
-          { backgroundColor: surface, height: TOAST_HEIGHT },
-        ]}
-      >
-        {isError && (
-          <Icon source="alert-circle-outline" size={20} color={textColor} />
-        )}
+      <View style={[styles.toast, { backgroundColor: surface, height: TOAST_HEIGHT }]}>
+        {isError && <Icon source="alert-circle-outline" size={20} color={textColor} />}
         <Text style={[styles.message, { color: textColor }]} numberOfLines={2}>
-          {isError ? errorMessage : `Shot ${lastSequence} logged`}
+          {message}
         </Text>
         {!isError && (
           <Pressable

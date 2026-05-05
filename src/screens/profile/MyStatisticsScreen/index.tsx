@@ -9,12 +9,13 @@
  * Each locked section shows a FeatureLock overlay with upgrade prompt.
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { View, StyleSheet, ScrollView, RefreshControl } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import { useAuth } from '@/hooks/useAuth';
 import { usePlayerStatistics } from '@/hooks/usePlayerStatistics';
+import { useSandSaveStats } from '@/hooks/queries/useSandSaveStats';
 import { spacing } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { PageHeader } from '@/components/common/PageHeader';
@@ -55,6 +56,11 @@ export default function MyStatisticsScreen({ navigation }: Props) {
     isRefetching,
   } = usePlayerStatistics(user?.id);
 
+  // Sand Save % is sourced from view-backed counts (v_sand_saves /
+  // v_sand_save_attempts) rather than per-hole shot data, so we merge it
+  // into bunkerStats before passing to the Game Stats tab.
+  const sandSaveQuery = useSandSaveStats(user?.id);
+
   // Upgrade prompt handling
   const {
     upgradePromptConfig,
@@ -78,6 +84,21 @@ export default function MyStatisticsScreen({ navigation }: Props) {
   const handleRefresh = useCallback(() => {
     refetch();
   }, [refetch]);
+
+  // Merge view-backed sand-save aggregates into bunkerStats. Memoize so the
+  // GameStatsTab receives a stable reference when neither dependency changes.
+  const gameStatsTabStats = useMemo(() => {
+    if (!stats) return null;
+    return {
+      ...stats,
+      bunkerStats: {
+        ...stats.bunkerStats,
+        sandSaves: sandSaveQuery.data?.sandSaves ?? 0,
+        sandSaveAttempts: sandSaveQuery.data?.sandSaveAttempts ?? 0,
+        sandSavePercentage: sandSaveQuery.data?.sandSavePercentage ?? null,
+      },
+    };
+  }, [stats, sandSaveQuery.data]);
 
   // Render loading state
   if (isLoading) {
@@ -142,8 +163,11 @@ export default function MyStatisticsScreen({ navigation }: Props) {
         {activeTab === 'scoring' && (
           <ScoringTab stats={stats} onUpgradePress={onUpgradePress} />
         )}
-        {activeTab === 'gameStats' && (
-          <GameStatsTab stats={stats} onUpgradePress={onUpgradePress} />
+        {activeTab === 'gameStats' && gameStatsTabStats && (
+          <GameStatsTab
+            stats={gameStatsTabStats}
+            onUpgradePress={onUpgradePress}
+          />
         )}
 
         <View style={styles.footer} />

@@ -18,6 +18,9 @@ export interface ShotLogEntry {
   club_used: string | null;
   shot_type: string | null;
 
+  /** Set automatically by the shot_log_detect_bunker server-side trigger. */
+  from_bunker: boolean;
+
   created_at: string; // ISO timestamp
   updated_at: string; // ISO timestamp
 }

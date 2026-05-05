@@ -72,4 +72,25 @@ describe('shotLoggingUiStore', () => {
     expect(state.lastSequence).toBeNull();
     expect(state.dismissAt).toBeNull();
   });
+
+  it('showToast records lastFromBunker when fromBunker=true', () => {
+    useShotLoggingUiStore.getState().showToast({
+      shotId: 'shot-1',
+      sequence: 1,
+      roundId: 'r1',
+      holeNumber: 7,
+      fromBunker: true,
+    });
+    expect(useShotLoggingUiStore.getState().lastFromBunker).toBe(true);
+  });
+
+  it('lastFromBunker defaults to false when fromBunker not provided', () => {
+    useShotLoggingUiStore.getState().showToast({
+      shotId: 'shot-2',
+      sequence: 2,
+      roundId: 'r1',
+      holeNumber: 7,
+    });
+    expect(useShotLoggingUiStore.getState().lastFromBunker).toBe(false);
+  });
 });

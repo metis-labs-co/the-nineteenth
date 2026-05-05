@@ -133,6 +133,10 @@ export interface BunkerStats {
   totalHolesTracked: number;
   averageBunkerShotsPerRound: number | null;
   holesWithBunkersPercentage: number | null;
+  /** PGA-style sand saves (greenside bunker → ≤ 1 putt). Null when no attempts recorded. */
+  sandSavePercentage: number | null;
+  sandSaves: number;
+  sandSaveAttempts: number;
 }
 
 /**

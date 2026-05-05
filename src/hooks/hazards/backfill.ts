@@ -1,28 +1,50 @@
 /**
- * Hazard backfill orchestration (Phase C1).
+ * Hazard backfill orchestration.
  *
- * The hole_hazards table is populated via a server-side service-role
- * job (Supabase Edge Function or admin script), not from the client.
- * Phase C1 spec §4.2 keeps client-facing INSERT/UPDATE/DELETE policies
- * unset for security — we don't ship the service role key in the app.
- *
- * This hook is therefore a thin pass-through for now: when the table
- * is empty for a course, it returns `{ wasAttempted: false }` and the
- * map renders without hazards. The actual data ingestion is a deploy
- * task documented in the spec; the OSM and GolfAPI fetchers under
- * `src/services/hazards/` are ready for the Edge Function to import.
+ * On first call for a given courseId, fires the ingest-course-hazards
+ * Edge Function (server-side, service-role-authed). Idempotent on the
+ * server: repeated upserts on the same (course, hole, external_id)
+ * tuple are no-ops. We dedupe per-courseId on the client to avoid
+ * spurious invocations across re-renders / multiple components mounting.
  */
+
+import { useEffect, useRef, useState } from 'react';
+import { supabase } from '@/services/supabase/client';
+
+const inFlight = new Set<string>();
 
 export interface UseHazardBackfillResult {
   /** Whether a backfill attempt has been made for this courseId. */
   wasAttempted: boolean;
 }
 
-export function useHazardBackfill(_courseId?: string): UseHazardBackfillResult {
-  // Client-side backfill is not supported by design (RLS forbids client
-  // writes to hole_hazards). This hook exists so callers can compose it
-  // analogously to useCoordinateBackfill; the actual ingestion happens
-  // server-side. Returning a stable shape avoids re-renders when called
-  // from the map screen.
-  return { wasAttempted: false };
+export function useHazardBackfill(courseId?: string): UseHazardBackfillResult {
+  const [wasAttempted, setWasAttempted] = useState(false);
+  const startedFor = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!courseId) return;
+    if (startedFor.current === courseId) return;
+    if (inFlight.has(courseId)) {
+      startedFor.current = courseId;
+      setWasAttempted(true);
+      return;
+    }
+
+    startedFor.current = courseId;
+    inFlight.add(courseId);
+    setWasAttempted(true);
+
+    void supabase.functions
+      .invoke('ingest-course-hazards', { body: { courseId } })
+      .catch((err: unknown) => {
+        // eslint-disable-next-line no-console
+        console.warn('[useHazardBackfill] invoke failed', err);
+      })
+      .finally(() => {
+        inFlight.delete(courseId);
+      });
+  }, [courseId]);
+
+  return { wasAttempted };
 }
