@@ -5,6 +5,7 @@
  */
 
 import { golfApiClient } from '@/services/api/golfApiClient';
+import { supabase } from '@/services/supabase/client';
 import { createModuleLogger } from '@/utils/debugLogger';
 import { courseCacheService } from '../cacheService';
 import { teesService } from '../teesService';
@@ -85,6 +86,18 @@ export async function importCourse(golfapiCourseId: string): Promise<ImportCours
       }
     } catch (coordError) {
       logger.warn('Failed to import coordinates (non-blocking)', { error: coordError instanceof Error ? coordError.message : String(coordError) });
+    }
+
+    // Fire-and-forget OSM bunker ingestion. Runs server-side via
+    // ingest-course-hazards Edge Function. Course creation is not blocked.
+    if (coordinatesImported > 0) {
+      void supabase.functions
+        .invoke('ingest-course-hazards', { body: { courseId: course.id } })
+        .catch((err: unknown) => {
+          logger.warn('Hazard ingestion fire-and-forget failed', {
+            error: err instanceof Error ? err.message : String(err),
+          });
+        });
     }
 
     return {
@@ -196,7 +209,15 @@ export async function importClubWithCourses(golfapiClubId: string): Promise<Impo
           // Import GPS coordinates (non-blocking)
           try {
             const coordCount = await importCoordinates(courseSummary.courseID, course.id);
-            // coordCount used for debugging only
+            if (coordCount > 0) {
+              void supabase.functions
+                .invoke('ingest-course-hazards', { body: { courseId: course.id } })
+                .catch((err: unknown) => {
+                  logger.warn('Hazard ingestion fire-and-forget failed', {
+                    error: err instanceof Error ? err.message : String(err),
+                  });
+                });
+            }
           } catch (coordError) {
             logger.warn('Failed to import coordinates for course', { name: course.name, error: coordError instanceof Error ? coordError.message : String(coordError) });
           }
