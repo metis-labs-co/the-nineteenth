@@ -45,7 +45,7 @@ Three independent layers:
 ┌──────────────────────────────────────────────────────┐
 │ 2. Detection (per shot, server-side)                 │
 │    BEFORE INSERT trigger on shot_log                 │
-│    PostGIS ST_Contains → sets NEW.from_bunker        │
+│    PostGIS ST_Covers → sets NEW.from_bunker          │
 └──────────────────────────────────────────────────────┘
                          │
                          ▼
@@ -212,7 +212,7 @@ A successful sand save is always also an attempt because `v_sand_saves` selects 
 A new edge function in `supabase/functions/ingest-course-hazards/index.ts`:
 
 - **Input:** `{ courseId: string }`
-- **Auth:** invoked with service-role key (server-to-server only) OR by an authenticated admin user; not callable by regular clients
+- **Auth:** any authenticated user. The function validates the caller's JWT via a user-scoped Supabase client, then performs writes to `hole_hazards` via an internal service-role client. Mirrors the pattern in `supabase/functions/delete-account/index.ts`. Server-side idempotency (unique index on `course_id, hole_number, hazard_type, external_id`) makes user-driven invocation safe.
 - **Logic per hole** — iterate over every hole that has both `tee_back` and `green_center` rows in `hole_coordinates` for the given course. Holes missing either are skipped (logged as warnings; do not fail the whole ingestion).
   1. Read tee_back + green_center coordinates from `hole_coordinates`
   2. Build a per-hole bbox padded by ~40m

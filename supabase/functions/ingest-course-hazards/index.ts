@@ -6,7 +6,10 @@
  * create duplicates (uses unique index on
  * course_id, hole_number, hazard_type, external_id).
  *
- * Auth: requires service-role key. Not callable by regular clients.
+ * Auth: any authenticated user. Validates the caller's JWT via a
+ * user-scoped Supabase client, then performs writes to hole_hazards
+ * via an internal service-role client. Mirrors the pattern in
+ * supabase/functions/delete-account/index.ts.
  *
  * Request body: { courseId: string }
  * Response: { success: boolean, holesProcessed: number, polygonsUpserted: number, errors: string[] }
@@ -42,16 +45,6 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function isServiceRole(authHeader: string | null): boolean {
-  if (!authHeader || !authHeader.startsWith('Bearer ')) return false;
-  const token = authHeader.substring(7);
-  const candidates = [
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),
-    Deno.env.get('ADMIN_API_KEY'),
-  ].filter((k): k is string => typeof k === 'string' && k.length > 0);
-  return candidates.some((k) => k === token);
-}
-
 interface HoleCoord {
   hole_number: number;
   poi_type: string;
@@ -68,7 +61,26 @@ serve(async (req: Request): Promise<Response> => {
   const errors: string[] = [];
 
   try {
-    if (!isServiceRole(req.headers.get('Authorization'))) {
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ success: false, errors: ['Missing authorization header'] }),
+        { status: 401, headers: jsonHeaders }
+      );
+    }
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const serviceKey  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const anonKey     = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+
+    // Validate JWT via a user-scoped client.
+    const supabaseUser = createClient(supabaseUrl, anonKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: { user }, error: authError } = await supabaseUser.auth.getUser();
+    if (authError || !user) {
+      console.warn('[ingest-course-hazards] Auth failed:', authError?.message);
       return new Response(
         JSON.stringify({ success: false, errors: ['Unauthorized'] }),
         { status: 401, headers: jsonHeaders }
@@ -83,11 +95,12 @@ serve(async (req: Request): Promise<Response> => {
       );
     }
 
-    console.log(`[ingest-course-hazards] Starting ingest for courseId=${courseId}`);
+    console.log(`[ingest-course-hazards] Starting ingest for courseId=${courseId}, requestedBy=${user.id}`);
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const serviceKey  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase    = createClient(supabaseUrl, serviceKey);
+    // Service-role client for privileged writes to hole_hazards.
+    const supabase = createClient(supabaseUrl, serviceKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
 
     // Fetch tee_back + green_center coords for this course
     const { data: coords, error: coordsErr } = await supabase
