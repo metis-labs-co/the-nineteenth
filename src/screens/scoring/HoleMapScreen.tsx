@@ -108,7 +108,11 @@ export default function HoleMapScreen({ route, navigation }: Props) {
   const { data: hasCoordinates } = useHasCoordinates(courseId);
   const markers = useHoleMapMarkers(courseId, holeNumber, tier);
   const { triggerBackfill } = useCoordinateBackfill(courseId);
-  useHazardBackfill(courseId);
+  // Only Premium+ tiers see hazard polygons (`useHoleMapMarkers` gates render
+  // on `tier === 'premium'`), so free/social viewers shouldn't trigger
+  // Overpass ingestion when they open the map. Passing undefined no-ops
+  // the hook via its existing courseId-required check.
+  useHazardBackfill(tier === 'premium' ? courseId : undefined);
   const { data: shots = [] } = useShotLog(roundId, holeNumber);
   const eligibility = useShotTrackingEligibility(roundId);
   const trackShots = useShotLoggingPrefStore((s) => s.byRound[roundId] === true);
