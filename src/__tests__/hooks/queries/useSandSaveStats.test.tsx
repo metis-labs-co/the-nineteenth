@@ -70,4 +70,33 @@ describe('useSandSaveStats', () => {
       sandSavePercentage: null,
     });
   });
+
+  it('filters by courseId when provided', async () => {
+    // Two .eq calls in chain (player_id, course_id) — return the result on
+    // the inner one. Each `from()` call returns its own builder.
+    const buildBuilder = (count: number) => ({
+      select: () => ({
+        eq: () => ({
+          eq: () => Promise.resolve({ count, data: null, error: null }),
+        }),
+      }),
+    });
+
+    mockFrom
+      .mockReturnValueOnce(buildBuilder(3)) // saves count
+      .mockReturnValueOnce(buildBuilder(5)); // attempts count
+
+    const { result } = renderHook(
+      () => useSandSaveStats('player-1', 'course-9'),
+      { wrapper: makeWrapper() }
+    );
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(result.current.data).toEqual({
+      sandSaves: 3,
+      sandSaveAttempts: 5,
+      sandSavePercentage: 60,
+    });
+  });
 });

@@ -7,12 +7,13 @@
  * - Game Stats: Advanced stats (driving, approach, short game, putting, bunkers, hazards)
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { View, StyleSheet, ScrollView, RefreshControl } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import { useAuth } from '@/hooks/useAuth';
 import { useCourseStatistics } from '@/hooks/playerStatistics';
+import { useSandSaveStats } from '@/hooks/queries/useSandSaveStats';
 import { spacing } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { PageHeader } from '@/components/common/PageHeader';
@@ -40,6 +41,28 @@ export default function CourseStatisticsScreen({ route, navigation }: Props) {
     refetch,
     isRefetching,
   } = useCourseStatistics(user?.id, courseId);
+
+  // Sand Save % is sourced from view-backed counts (v_sand_saves /
+  // v_sand_save_attempts) rather than per-hole shot data, so we merge it
+  // into bunkerStats before passing to the Game Stats tab. courseId
+  // scopes the counts to this course only.
+  const sandSaveQuery = useSandSaveStats(user?.id, courseId);
+
+  // Merge view-backed sand-save aggregates into bunkerStats. Memoize so
+  // the GameStatsTab receives a stable reference when neither dependency
+  // changes.
+  const gameStatsTabStats = useMemo(() => {
+    if (!stats) return null;
+    return {
+      ...stats,
+      bunkerStats: {
+        ...stats.bunkerStats,
+        sandSaves: sandSaveQuery.data?.sandSaves ?? 0,
+        sandSaveAttempts: sandSaveQuery.data?.sandSaveAttempts ?? 0,
+        sandSavePercentage: sandSaveQuery.data?.sandSavePercentage ?? null,
+      },
+    };
+  }, [stats, sandSaveQuery.data]);
 
   const handleGoBack = useCallback(() => {
     navigation.goBack();
@@ -117,7 +140,9 @@ export default function CourseStatisticsScreen({ route, navigation }: Props) {
       >
         {activeTab === 'overview' && <CourseOverviewTab stats={stats} />}
         {activeTab === 'holes' && <CourseHolesTab stats={stats} />}
-        {activeTab === 'gameStats' && <CourseGameStatsTab stats={stats} />}
+        {activeTab === 'gameStats' && (
+          <CourseGameStatsTab stats={gameStatsTabStats ?? stats} />
+        )}
 
         <View style={styles.footer} />
       </ScrollView>
