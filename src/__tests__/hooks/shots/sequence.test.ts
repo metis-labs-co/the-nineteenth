@@ -16,6 +16,7 @@ const make = (id: string, sequence: number, lat = 0, lng = 0): ShotLogEntry => (
   longitude: lng,
   club_used: null,
   shot_type: null,
+  from_bunker: false,
   created_at: '2026-01-01T00:00:00Z',
   updated_at: '2026-01-01T00:00:00Z',
 });

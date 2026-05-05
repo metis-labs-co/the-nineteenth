@@ -17,6 +17,7 @@ const makeShot = (
   longitude,
   club_used: null,
   shot_type: null,
+  from_bunker: false,
   created_at: '2026-05-04T00:00:00Z',
   updated_at: '2026-05-04T00:00:00Z',
   ...overrides,
