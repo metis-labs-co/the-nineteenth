@@ -100,6 +100,30 @@ export const BunkerStatsSection = React.memo(function BunkerStatsSection({
                       : '-'}
                   </Text>
                 </View>
+
+                {/* Vertical divider */}
+                <View style={[styles.verticalDivider, { backgroundColor: colors.border }]} />
+
+                {/* Sand Save % */}
+                <View
+                  style={styles.secondaryStat}
+                  accessible
+                  accessibilityRole="text"
+                  accessibilityLabel={
+                    bunkerStats.sandSavePercentage !== null
+                      ? `Sand save percentage: ${bunkerStats.sandSavePercentage.toFixed(0)}%, ${bunkerStats.sandSaves} of ${bunkerStats.sandSaveAttempts}`
+                      : 'Sand save percentage: not available'
+                  }
+                >
+                  <Text style={[styles.secondaryLabel, { color: colors.textSecondary }]}>
+                    Sand Save
+                  </Text>
+                  <Text style={[styles.secondaryValue, { color: colors.success }]}>
+                    {bunkerStats.sandSavePercentage !== null
+                      ? `${bunkerStats.sandSavePercentage.toFixed(0)}%`
+                      : '-'}
+                  </Text>
+                </View>
               </View>
             </>
           ) : (

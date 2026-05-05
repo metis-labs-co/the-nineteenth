@@ -134,6 +134,9 @@ export function calculateBunkerStats(
       totalHolesTracked > 0
         ? Math.round((holesWithBunkers / totalHolesTracked) * 1000) / 10
         : null,
+    sandSavePercentage: null,
+    sandSaves: 0,
+    sandSaveAttempts: 0,
   };
 }
 

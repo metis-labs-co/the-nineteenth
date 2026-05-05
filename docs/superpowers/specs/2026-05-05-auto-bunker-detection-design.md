@@ -245,7 +245,7 @@ The Undo affordance is unchanged; deleting an auto-tagged bunker shot deletes th
 Existing component at `src/components/statistics/BunkerStatsSection.tsx`. Adds one row:
 
 - **Sand Save %** — derived from `v_sand_saves` and `v_sand_save_attempts` joined by `bunker_shot_id`
-- Display format: `64% (7/11)` — same percentage style as existing GIR / fairway stats
+- Display format: `64%` inline, with the underlying ratio (`7 of 11`) included in the accessibility label. Matches the sibling Avg/Round and Holes-with-Bunker stats which are also value-only inline.
 
 A new TanStack Query hook `useSandSaveStats(playerId)` fetches the aggregate. Query key: `['stats', 'sandSave', playerId]`.
 
