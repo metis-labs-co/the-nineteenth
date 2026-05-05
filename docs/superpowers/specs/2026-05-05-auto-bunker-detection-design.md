@@ -76,7 +76,11 @@ No backfill of existing `shot_log` rows in V1. New shots from this point forward
 
 ```sql
 CREATE OR REPLACE FUNCTION shot_log_detect_bunker()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_catalog
+AS $$
 DECLARE
   v_course_id UUID;
 BEGIN
@@ -92,9 +96,9 @@ BEGIN
     WHERE course_id   = v_course_id
       AND hole_number = NEW.hole_number
       AND hazard_type = 'bunker'
-      AND ST_Contains(
-            polygon::geometry,
-            ST_SetSRID(ST_MakePoint(NEW.longitude, NEW.latitude), 4326)
+      AND ST_Covers(
+            polygon,
+            ST_SetSRID(ST_MakePoint(NEW.longitude, NEW.latitude), 4326)::geography
           )
     LIMIT 1
   ) THEN
@@ -103,15 +107,17 @@ BEGIN
 
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
-CREATE TRIGGER shot_log_detect_bunker_bef_ins
+CREATE TRIGGER shot_log_detect_bunker_before_insert
   BEFORE INSERT ON shot_log
   FOR EACH ROW
   EXECUTE FUNCTION shot_log_detect_bunker();
 ```
 
-`SECURITY DEFINER` is needed so the trigger can read `hole_hazards` even though the inserting user has no direct read access to that table (RLS-restricted to the polygon overlay use-case via separate select policy).
+We use `ST_Covers` (geography-native) rather than `ST_Contains` so the GIST index on `hole_hazards.polygon` is used and boundary points count as inside — a ball on the bunker edge is in the bunker for stat purposes.
+
+`SECURITY DEFINER` is needed so the trigger can read `hole_hazards` even though the inserting user has no direct read access to that table (RLS-restricted to the polygon overlay use-case via separate select policy). `SET search_path = public, pg_catalog` hardens against search-path-shadowing attacks on the elevated function.
 
 ### 6.3 Sand-save derivation view
 
