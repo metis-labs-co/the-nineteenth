@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, StyleSheet, View } from 'react-native';
 import { Icon, Text } from 'react-native-paper';
 import * as Location from 'expo-location';
@@ -7,7 +7,13 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useThemeColors } from '@/context/ThemeContext';
 import { borderRadius, spacing, typography } from '@/constants/theme';
 import { useUserLocation } from '@/hooks/useUserLocation';
-import { useLogShot, useShotTrackingEligibility } from '@/hooks/shots';
+import {
+  useLogShot,
+  useShotTrackingEligibility,
+  useShouldPromptBunker,
+  useShotLog,
+} from '@/hooks/shots';
+import { useRoundDetails } from '@/hooks/rounds/queries';
 import { useShotLoggingUiStore } from '@/store/shotLoggingUiStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useAuth } from '@/hooks/useAuth';
@@ -75,6 +81,50 @@ export const LogShotInline = React.memo(function LogShotInline({
   const logShot = useLogShot();
   const showToast = useShotLoggingUiStore((s) => s.showToast);
   const showErrorToast = useShotLoggingUiStore((s) => s.showErrorToast);
+  const showBunkerPrompt = useShotLoggingUiStore((s) => s.showBunkerPrompt);
+
+  const { data: roundDetails } = useRoundDetails(roundId);
+  const courseId = roundDetails?.course_id ?? undefined;
+
+  const { data: shotsForHole } = useShotLog(roundId, holeNumber);
+  const { latestShot, priorShot } = useMemo(() => {
+    const list = shotsForHole ?? [];
+    // Filter to current player's shots only — useShotLog returns all players on the round.
+    const own = player ? list.filter((s) => s.player_id === player.id) : list;
+    return {
+      latestShot: own.length > 0 ? own[own.length - 1] : null,
+      priorShot: own.length > 1 ? own[own.length - 2] : null,
+    };
+  }, [shotsForHole, player]);
+
+  const promptEligible = useShouldPromptBunker(
+    latestShot,
+    priorShot,
+    courseId,
+    holeNumber
+  );
+
+  const lastDispatchedShotIdRef = useRef<string | null>(null);
+
+  // When a NEW shot id appears in the cache for this player on this hole,
+  // decide whether to dispatch the bunker prompt. The regular post-shot
+  // success toast is already dispatched from useLogShot.onSuccess; the
+  // prompt overwrites it within the same render commit when eligible.
+  useEffect(() => {
+    if (!eligibility.eligible) return;
+    if (!latestShot) return;
+    if (latestShot.id === lastDispatchedShotIdRef.current) return;
+    lastDispatchedShotIdRef.current = latestShot.id;
+
+    if (promptEligible) {
+      showBunkerPrompt({
+        shotId: latestShot.id,
+        sequence: latestShot.sequence,
+        roundId,
+        holeNumber,
+      });
+    }
+  }, [eligibility.eligible, latestShot, promptEligible, showBunkerPrompt, roundId, holeNumber]);
 
   // Position captured at tap-time, awaiting the user's club pick. The picker
   // is mounted only while this is non-null. Set to null on cancel/log/error.
