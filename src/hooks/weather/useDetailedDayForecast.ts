@@ -24,6 +24,19 @@ import {
 
 const OPEN_METEO_URL = 'https://api.open-meteo.com/v1/forecast';
 
+interface DailyResponse {
+  time: string[];
+  weather_code: number[];
+  temperature_2m_max: number[];
+  temperature_2m_min: number[];
+  precipitation_probability_max: number[];
+  precipitation_sum: number[];
+  wind_gusts_10m_max: number[];
+  uv_index_max: number[];
+  sunrise: string[];
+  sunset: string[];
+}
+
 export type Coords = { lat: number; lng: number };
 
 export interface DaySummary {
@@ -85,7 +98,7 @@ function buildUrl(coords: Coords): string {
   );
 }
 
-function summariseDay(daily: any, i: number): DaySummary {
+function summariseDay(daily: DailyResponse, i: number): DaySummary {
   return {
     dateIso: daily.time[i],
     weatherCode: daily.weather_code[i],
@@ -109,7 +122,7 @@ async function fetchDetailed(coords: Coords): Promise<DetailedForecast | null> {
     }
     const json = await res.json();
     const hourly: HourlySlice = json.hourly;
-    const daily = json.daily;
+    const daily: DailyResponse = json.daily;
     const todayIso: string = daily.time[0];
 
     const now = new Date();

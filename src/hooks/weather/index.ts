@@ -7,5 +7,4 @@ export { weatherCodeToIcon } from './weatherCodeToIcon';
 export type { WeatherIcon } from './weatherCodeToIcon';
 export { useDetailedDayForecast } from './useDetailedDayForecast';
 export type { Coords, DaySummary, DetailedForecast } from './useDetailedDayForecast';
-export { aggregateWeatherBucket } from './aggregateWeatherBucket';
-export type { BucketStats, HourlySlice } from './aggregateWeatherBucket';
+export type { BucketStats } from './aggregateWeatherBucket';
