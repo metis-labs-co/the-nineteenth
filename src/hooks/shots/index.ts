@@ -11,3 +11,4 @@ export {
   type ShotTrackingEligibility,
   type ShotTrackingIneligibilityReason,
 } from './useShotTrackingEligibility';
+export { useSetShotBunker } from './useSetShotBunker';
