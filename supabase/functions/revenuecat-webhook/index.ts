@@ -32,7 +32,8 @@ type RevenueCatEventType =
   | 'UNCANCELLATION'
   | 'NON_RENEWING_PURCHASE'
   | 'SUBSCRIBER_ALIAS'
-  | 'TRANSFER';
+  | 'TRANSFER'
+  | 'TEST';
 
 interface RevenueCatWebhookEvent {
   api_version: string;
@@ -343,6 +344,15 @@ async function handleWebhook(
         success: true,
         message: 'Billing issue noted',
         userId: event.app_user_id,
+      };
+
+    case 'TEST':
+      // Sent by the "Send test event" button in the RevenueCat dashboard.
+      // Has fake app_user_id and no real transaction; just confirm receipt.
+      console.log('[Webhook] TEST event received — connectivity confirmed');
+      return {
+        success: true,
+        message: 'Test event acknowledged',
       };
 
     case 'NON_RENEWING_PURCHASE':

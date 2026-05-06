@@ -39,21 +39,21 @@ export const FAQ_DATA: FAQItem[] = [
     id: '1',
     question: 'How do I create a competition?',
     answer:
-      'Go to the Competitions tab and tap the "+" button in the top right corner. Follow the steps to set up your competition name, dates, handicap system, and invite players. You can also add rounds and configure game types during setup.',
+      'Open the Competitions tab and tap "Create" for the step-by-step wizard, or "AI Create" to describe your competition in plain English (Social tier and above). The wizard walks you through naming your competition, choosing dates, picking a handicap system, configuring rounds and game types, and inviting players.',
     category: 'getting-started',
   },
   {
     id: '2',
     question: 'How do I join a competition?',
     answer:
-      'You\'ll need an invite code from the competition organiser. Go to the Competitions tab, tap "Join Competition", and enter the 6-character code. You\'ll then be added as a player to that competition.',
+      'You\'ll need an invite code from the organiser (it looks like "COMP-12345"). Open the Competitions tab, tap "Join" in the top right, enter the code, and tap "Look Up". You\'ll see a preview of the competition before confirming.',
     category: 'getting-started',
   },
   {
     id: '3',
-    question: 'How does the scoring system work?',
+    question: 'What game types are supported?',
     answer:
-      'The Nineteenth supports multiple scoring formats including Stableford, Stroke Play, and Match Play. Your net score is calculated based on your handicap and the course stroke index. Stableford points are awarded based on your net score relative to par for each hole.',
+      'The Nineteenth supports Stableford, Stroke Play, Match Play, and Par for individual play, plus team formats like Best Ball, Scramble, and Shamble (Premium tier). Your net score is calculated from your handicap and the hole stroke index. Premium organisers can also add Skins and Wolf side-games with optional prize pools.',
     category: 'scoring',
   },
   {
@@ -67,46 +67,67 @@ export const FAQ_DATA: FAQItem[] = [
     id: '5',
     question: 'How do I update my handicap?',
     answer:
-      'Go to your Profile and tap "Edit Profile". You can update your handicap there. Your handicap is used to calculate your strokes received on each hole based on the course stroke index.',
+      'Go to Profile and tap "Edit Profile". You can update your handicap (between 0 and 54) there. It\'s used to calculate your strokes received on each hole based on the course stroke index. You can also view your handicap history from the Profile menu.',
     category: 'account',
   },
   {
     id: '6',
     question: 'What are scoring pairs?',
     answer:
-      'Scoring pairs is an optional feature for competitive rounds where each player has a designated marker (another player) who officially records their score. This follows traditional golf competition rules where your marker attests to your score.',
+      'Scoring pairs is an optional feature for competitive rounds (Premium tier) where each player has a designated marker (another player) who officially records their score. This follows traditional golf competition rules where your marker attests to your score.',
     category: 'scoring',
   },
   {
     id: '7',
-    question: 'How do I invite friends to the app?',
+    question: 'How do I add friends?',
     answer:
-      'You can add friends through the Friends tab. Search for them by name or share your friend code. Once connected, you can see their stats, compare scores, and easily add them to your competitions.',
+      'Open Profile and tap "Friends", then tap "Add Friends". Search by name (at least 2 characters) and send a friend request. Once they accept, you can compare stats, see each other\'s scores, and easily add them to competitions. Free users can have up to 5 friends; Social adds 15, and Premium is unlimited.',
     category: 'getting-started',
   },
   {
     id: '8',
-    question: 'What subscription plans are available?',
+    question: 'What are leagues?',
     answer:
-      'We offer Free, Social, and Premium tiers. Free users can create up to 3 competitions with basic features. Social and Premium tiers offer more competitions, players per competition, additional game types, and advanced statistics. Check the Subscription screen for full details.',
-    category: 'subscription',
+      'Leagues let you run cross-course competitions using the World Handicap System (WHS) handicap differential. Tag any round you play to a league and the leaderboard updates automatically. Open the Leagues tab to create one, join via invite code, or browse public leagues. Premium tier unlocks Ladder and Eclectic league formats.',
+    category: 'getting-started',
   },
   {
     id: '9',
+    question: 'Can I track rounds outside of a competition?',
+    answer:
+      'Yes — you can create standalone rounds for any social or practice round. From the Home screen, start a new round, pick your course and tees, add playing partners, and score it normally. These rounds count toward your statistics and can be tagged to a league afterwards.',
+    category: 'scoring',
+  },
+  {
+    id: '10',
+    question: 'What subscription plans are available?',
+    answer:
+      'There are four tiers: Free (3 competitions, 1 league, Stableford only, up to 5 friends), Social (8 competitions, 3 leagues, Stroke/Match Play, AI Create, 15 friends), Premium (50 competitions and leagues, all team formats, Skins, Wolf, prize pools, scoring pairs, unlimited friends), and Enterprise (200 competitions and leagues for large organisations). Open the Subscription screen for the full feature list.',
+    category: 'subscription',
+  },
+  {
+    id: '11',
+    question: 'Can I control push notifications?',
+    answer:
+      'Yes. Open Profile > Notifications to toggle push notifications on or off, and choose which categories you want to receive (e.g. competition updates, friend requests, round reminders). You can also manage notifications at the device level in your phone\'s settings.',
+    category: 'account',
+  },
+  {
+    id: '12',
     question: 'How do I delete my account?',
     answer:
       'Go to Profile > Privacy & Data > Delete Account. You\'ll be asked to confirm twice, including typing "DELETE" to proceed. This permanently removes your account and personal data. Historical scores are anonymised to preserve competition records.',
     category: 'privacy',
   },
   {
-    id: '10',
+    id: '13',
     question: 'How do I download my data?',
     answer:
       'Go to Profile > Privacy & Data > Download My Data. This exports all your personal data as a JSON file, which you can save or share. This is your right under data protection laws (GDPR Article 20).',
     category: 'privacy',
   },
   {
-    id: '11',
+    id: '14',
     question: 'What happens to my data if I delete my account?',
     answer:
       'When you delete your account, all personal data (profile, friends, notifications, subscriptions) is permanently deleted. Historical scores in competitions are anonymised — they remain for competition integrity but are no longer linked to your identity. This process is completed within 30 days.',

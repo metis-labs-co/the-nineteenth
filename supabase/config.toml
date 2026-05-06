@@ -7,9 +7,28 @@
 # rejects non-JWT tokens (like the new sb_secret format) with
 # UNAUTHORIZED_INVALID_JWT_FORMAT before the function runs, so it's
 # disabled here.
+#
+# `send-support-email` is a public contact form: it must be invokable by
+# users whose session has expired or by anonymous guest users, where
+# supabase-js falls back to sending the publishable `sb_publishable_...`
+# key as the auth header — also non-JWT, so gateway rejects. The function
+# validates input and routes to fixed @thenineteenth.golf addresses, so
+# there's no need for gateway-level auth.
+#
+# `revenuecat-webhook` receives server-to-server webhooks from RevenueCat.
+# RevenueCat sends a static value in the Authorization header (configured
+# in their dashboard) — also non-JWT, so the gateway rejects it. The
+# function authenticates callers itself via timing-safe comparison against
+# REVENUECAT_WEBHOOK_SECRET.
 
 [functions.test-notification]
 verify_jwt = false
 
 [functions.test-push]
+verify_jwt = false
+
+[functions.send-support-email]
+verify_jwt = false
+
+[functions.revenuecat-webhook]
 verify_jwt = false

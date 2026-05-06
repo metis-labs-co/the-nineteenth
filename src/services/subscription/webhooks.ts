@@ -51,7 +51,8 @@ export type RevenueCatEventType =
   | 'UNCANCELLATION'
   | 'NON_RENEWING_PURCHASE'
   | 'SUBSCRIBER_ALIAS'
-  | 'TRANSFER';
+  | 'TRANSFER'
+  | 'TEST';
 
 /**
  * RevenueCat subscriber information
@@ -463,6 +464,15 @@ export async function handleRevenueCatWebhook(
 
     case 'UNCANCELLATION':
       return handleUncancellation(event);
+
+    case 'TEST':
+      // Sent by RevenueCat dashboard's "Send test event" button.
+      // No real transaction — just confirm connectivity.
+      console.log('[Webhook] TEST event received — connectivity confirmed');
+      return {
+        success: true,
+        message: 'Test event acknowledged',
+      };
 
     // Events we acknowledge but don't process
     case 'NON_RENEWING_PURCHASE':

@@ -27,6 +27,7 @@ import {
   getTierFromProductId,
   getBillingPeriod,
 } from '@/constants/products';
+import { syncSubscriptionFromRevenueCat } from '../syncFromRevenueCat';
 import type { SubscriptionSource, SubscriptionTier } from '@/types/subscription.types';
 import type { SubscriptionProvider } from './SubscriptionProvider';
 import type {
@@ -274,6 +275,33 @@ export class RevenueCatSubscriptionProvider implements SubscriptionProvider {
 
   async purchaseProduct(productId: string): Promise<SubscriptionResult<PurchaseResult>> {
     try {
+      // Defensive: ensure RevenueCat is logged in as the current Supabase user
+      // before purchasing. Without this, a startup race between AuthContext and
+      // SubscriptionProvider can leave the SDK as $RCAnonymousID, in which case
+      // RevenueCat webhooks fire with an app_user_id that doesn't match our
+      // user_subscriptions.user_id and the upsert lands on an orphaned row.
+      const user = await getCurrentUser();
+      if (!user) {
+        return {
+          success: false,
+          error: 'You must be signed in to purchase',
+          errorCode: 'NOT_AUTHENTICATED',
+        };
+      }
+      try {
+        await Purchases.logIn(user.id);
+      } catch (loginErr) {
+        console.error(
+          '[RevenueCatSubscriptionProvider] Pre-purchase logIn failed:',
+          loginErr
+        );
+        return {
+          success: false,
+          error: 'Could not link account before purchase. Please try again.',
+          errorCode: 'PROVIDER_ERROR',
+        };
+      }
+
       // Get current offerings
       const offerings = await Purchases.getOfferings();
       const pkg = this.findPackageByProductId(offerings, productId);
@@ -298,6 +326,33 @@ export class RevenueCatSubscriptionProvider implements SubscriptionProvider {
       console.log(
         `[RevenueCatSubscriptionProvider] Purchase successful: ${productId} -> ${tier}`
       );
+
+      // Eagerly sync to user_subscriptions via Edge Function so the UI
+      // reflects the new tier immediately. The Edge Function fetches the
+      // authoritative state from RC's REST API (server-trusted) and writes
+      // with service role. The webhook still fires for renewal/cancellation
+      // events later — this just removes the user-facing dependency on
+      // webhook timing or delivery routing for the initial purchase.
+      try {
+        const syncResult = await syncSubscriptionFromRevenueCat();
+        if (syncResult?.synced) {
+          console.log(
+            `[RevenueCatSubscriptionProvider] Synced via Edge Function -> ${syncResult.tier}`
+          );
+        } else {
+          console.warn(
+            '[RevenueCatSubscriptionProvider] Sync returned no entitlement; ' +
+              'webhook will reconcile.'
+          );
+        }
+      } catch (syncErr) {
+        // Non-fatal: the purchase succeeded with Apple/RC, the webhook will
+        // eventually reconcile. Just surface in logs.
+        console.error(
+          '[RevenueCatSubscriptionProvider] Eager sync failed (purchase still valid):',
+          syncErr
+        );
+      }
 
       return {
         success: true,

@@ -40,8 +40,23 @@ export async function loginToRevenueCat(userId: string): Promise<void> {
   try {
     await Purchases.logIn(userId);
   } catch (err) {
+    // Previously this swallowed "no singleton instance" / "configure" errors
+    // silently, masking a startup race where AuthContext fires SIGNED_IN
+    // before SubscriptionProvider runs Purchases.configure(). The user would
+    // remain $RCAnonymousID and any subsequent purchase would be unrecoverable.
+    // RevenueCatProvider.purchaseProduct now re-runs logIn defensively right
+    // before purchase, so the race is no longer fatal — but we still want
+    // visibility into when it happens.
     const message = err instanceof Error ? err.message : String(err);
-    if (!message.includes('no singleton instance') && !message.includes('configure')) {
+    const isNotConfigured =
+      message.includes('no singleton instance') || message.includes('configure');
+    if (isNotConfigured) {
+      console.warn(
+        '[RevenueCat] logIn called before SDK was configured — user will ' +
+          'be linked at purchase time instead. userId:',
+        userId
+      );
+    } else {
       console.error('[RevenueCat] Login error:', err);
     }
   }
