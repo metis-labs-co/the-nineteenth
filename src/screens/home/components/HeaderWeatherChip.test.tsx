@@ -1,6 +1,5 @@
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
-import { Text } from 'react-native';
 import { HeaderWeatherChip } from './HeaderWeatherChip';
 import * as useDeviceWeatherModule from '@/hooks/weather/useDeviceWeather';
 

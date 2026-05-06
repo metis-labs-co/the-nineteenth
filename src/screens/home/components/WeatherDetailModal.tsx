@@ -112,7 +112,7 @@ function ErrorBody({ onRetry }: { onRetry: () => void }) {
     <View style={styles.errorBody}>
       <Icon source="weather-cloudy-alert" size={36} color={colors.textSecondary} />
       <Text style={[typography.body, { color: colors.textPrimary, marginTop: spacing.md }]}>
-        Couldn't load weather right now
+        Couldn&apos;t load weather right now
       </Text>
       <Pressable
         onPress={onRetry}
