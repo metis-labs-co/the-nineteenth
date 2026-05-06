@@ -120,7 +120,7 @@ function ErrorBody({ onRetry }: { onRetry: () => void }) {
         accessibilityLabel="Retry"
         style={[styles.retryBtn, { backgroundColor: colors.primary }]}
       >
-        <Text style={[typography.body, { color: colors.onPrimary, fontWeight: '600' }]}>
+        <Text style={[typography.body, { color: colors.textOnColored, fontWeight: '600' }]}>
           Retry
         </Text>
       </Pressable>
@@ -219,7 +219,7 @@ function BucketCard({
           {label}
         </Text>
         <Text
-          style={[typography.caption, { color: colors.textMuted, marginTop: spacing.sm }]}
+          style={[typography.caption, { color: colors.textTertiary, marginTop: spacing.sm }]}
         >
           Already passed
         </Text>
@@ -291,7 +291,7 @@ function ForecastRow({ day }: { day: DaySummary }) {
       testID={`forecast-row-${day.dateIso}`}
       accessibilityLabel={a11y}
       accessibilityRole="text"
-      style={[styles.forecastRow, { borderTopColor: colors.divider }]}
+      style={[styles.forecastRow, { borderTopColor: colors.borderLight }]}
     >
       <Text style={[typography.small, { color: colors.textPrimary, flex: 1 }]}>
         {formatDayDate(day.dateIso)}
