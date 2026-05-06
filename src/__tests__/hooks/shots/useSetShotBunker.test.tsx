@@ -12,9 +12,9 @@ jest.mock('@/services/supabase/client', () => ({
 }));
 
 function makeWrapper(client: QueryClient) {
-  return ({ children }: { children: React.ReactNode }) => (
-    <QueryClientProvider client={client}>{children}</QueryClientProvider>
-  );
+  return function Wrapper({ children }: { children: React.ReactNode }) {
+    return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  };
 }
 
 describe('useSetShotBunker', () => {

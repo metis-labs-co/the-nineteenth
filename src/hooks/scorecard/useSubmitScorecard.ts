@@ -14,6 +14,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { saveScorecard } from '@/services/offline/database';
 import { queueScorecardSync, getIsOnline, manualSync } from '@/services/offline/sync';
 import { flushPendingScorecardSyncs } from '@/store/scorecardSyncDebounce';
+import { useShotLoggingUiStore } from '@/store/shotLoggingUiStore';
 import { scorecardKeys } from './useScorecards';
 import { useAuth } from '@/hooks/useAuth';
 import { useCheckAchievements } from '@/hooks/achievements/useCheckAchievements';
@@ -196,6 +197,12 @@ export function useSubmitScorecards() {
       queryClient.invalidateQueries({
         queryKey: scorecardKeys.list({ roundId: variables.roundId }),
       });
+
+      // Free the bunker-prompt cooldown set's entries for this round —
+      // the round is now finalized, no more shot logging will happen on it.
+      useShotLoggingUiStore
+        .getState()
+        .clearBunkerCooldownForRound(variables.roundId);
 
       // Check for achievements if we have the required data
       if (!playerId || !isAchievementReady) {
