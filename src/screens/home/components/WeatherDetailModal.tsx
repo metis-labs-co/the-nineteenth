@@ -57,7 +57,7 @@ export function WeatherDetailModal({
           style={[
             styles.card,
             shadows.lg,
-            { backgroundColor: colors.surface },
+            { backgroundColor: colors.surfaceElevated },
           ]}
           onPress={(e) => e.stopPropagation()}
         >
