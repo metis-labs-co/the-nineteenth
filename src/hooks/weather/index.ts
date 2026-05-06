@@ -5,3 +5,6 @@ export { useUpcomingRoundWeather } from './useUpcomingRoundWeather';
 export { useFallbackCourseCoords } from './useFallbackCourseCoords';
 export { weatherCodeToIcon } from './weatherCodeToIcon';
 export type { WeatherIcon } from './weatherCodeToIcon';
+export { useDetailedDayForecast } from './useDetailedDayForecast';
+export type { Coords, DaySummary, DetailedForecast } from './useDetailedDayForecast';
+export type { BucketStats } from './aggregateWeatherBucket';

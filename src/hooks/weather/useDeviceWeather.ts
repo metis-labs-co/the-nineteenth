@@ -13,5 +13,6 @@ export function useDeviceWeather() {
   const input: WeatherInput | null = location
     ? { kind: 'current', lat: location.latitude, lng: location.longitude }
     : null;
-  return useWeather(input);
+  const query = useWeather(input);
+  return { ...query, location };
 }
