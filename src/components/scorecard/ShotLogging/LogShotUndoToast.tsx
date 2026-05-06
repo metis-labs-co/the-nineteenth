@@ -4,7 +4,7 @@ import { Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography } from '@/constants/theme';
 import { useShotLoggingUiStore } from '@/store/shotLoggingUiStore';
-import { useDeleteShot } from '@/hooks/shots';
+import { useDeleteShot, useSetShotBunker } from '@/hooks/shots';
 
 interface LogShotUndoToastProps {
   /** Bottom safe-area / chrome inset. The toast sits 16dp above this. */
@@ -34,18 +34,25 @@ export const LogShotUndoToast = React.memo(function LogShotUndoToast({
   const errorMessage = useShotLoggingUiStore((s) => s.errorMessage);
   const dismissAt = useShotLoggingUiStore((s) => s.dismissAt);
   const clearToast = useShotLoggingUiStore((s) => s.clearToast);
+  const dismissBunkerPrompt = useShotLoggingUiStore((s) => s.dismissBunkerPrompt);
   const deleteShot = useDeleteShot();
+  const setShotBunker = useSetShotBunker();
+
+  const isBunkerPrompt = variant === 'bunkerPrompt';
 
   useEffect(() => {
     if (!dismissAt) return;
     const remaining = dismissAt - Date.now();
+    const onTimeout = isBunkerPrompt
+      ? () => dismissBunkerPrompt({ confirmed: false })
+      : clearToast;
     if (remaining <= 0) {
-      clearToast();
+      onTimeout();
       return;
     }
-    const t = setTimeout(clearToast, remaining);
+    const t = setTimeout(onTimeout, remaining);
     return () => clearTimeout(t);
-  }, [dismissAt, clearToast]);
+  }, [dismissAt, clearToast, isBunkerPrompt, dismissBunkerPrompt]);
 
   const handleUndo = useCallback(() => {
     if (!lastShotId || !lastShotContext) return;
@@ -57,9 +64,20 @@ export const LogShotUndoToast = React.memo(function LogShotUndoToast({
     clearToast();
   }, [lastShotId, lastShotContext, deleteShot, clearToast]);
 
+  const handleYes = useCallback(() => {
+    if (!lastShotId) return;
+    setShotBunker.mutate({ shotId: lastShotId });
+    dismissBunkerPrompt({ confirmed: true });
+  }, [lastShotId, setShotBunker, dismissBunkerPrompt]);
+
+  const handleNo = useCallback(() => {
+    dismissBunkerPrompt({ confirmed: false });
+  }, [dismissBunkerPrompt]);
+
   if (!dismissAt) return null;
   if (variant === 'success' && (!lastShotId || lastSequence === null)) return null;
   if (variant === 'error' && !errorMessage) return null;
+  if (variant === 'bunkerPrompt' && !lastShotId) return null;
 
   const isError = variant === 'error';
   // Solid surface — primary green for success, solid error red for error.
@@ -69,9 +87,11 @@ export const LogShotUndoToast = React.memo(function LogShotUndoToast({
 
   const message = isError
     ? errorMessage
-    : lastFromBunker
-      ? `Bunker shot ${lastSequence} logged`
-      : `Shot ${lastSequence} logged`;
+    : isBunkerPrompt
+      ? 'Was that a bunker shot?'
+      : lastFromBunker
+        ? `Bunker shot ${lastSequence} logged`
+        : `Shot ${lastSequence} logged`;
 
   return (
     <View
@@ -83,7 +103,30 @@ export const LogShotUndoToast = React.memo(function LogShotUndoToast({
         <Text style={[styles.message, { color: textColor }]} numberOfLines={2}>
           {message}
         </Text>
-        {!isError && (
+        {isBunkerPrompt ? (
+          <View style={styles.promptActions}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Yes, that was a bunker shot"
+              onPress={handleYes}
+              testID="inline-shot-toast-bunker-yes"
+              hitSlop={8}
+              style={styles.promptButton}
+            >
+              <Text style={[styles.action, { color: actionColor }]}>Yes</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="No, not a bunker shot"
+              onPress={handleNo}
+              testID="inline-shot-toast-bunker-no"
+              hitSlop={8}
+              style={styles.promptButton}
+            >
+              <Text style={[styles.action, { color: actionColor }]}>No</Text>
+            </Pressable>
+          </View>
+        ) : !isError ? (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={`Undo shot ${lastSequence}`}
@@ -93,8 +136,7 @@ export const LogShotUndoToast = React.memo(function LogShotUndoToast({
           >
             <Text style={[styles.action, { color: actionColor }]}>Undo</Text>
           </Pressable>
-        )}
-        {isError && (
+        ) : (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Dismiss"
@@ -135,5 +177,15 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     fontSize: 13,
     letterSpacing: 0.5,
+  },
+  promptActions: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  promptButton: {
+    minWidth: 44,
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
