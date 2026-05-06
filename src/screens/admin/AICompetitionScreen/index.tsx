@@ -92,7 +92,7 @@ export default function AICompetitionScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: colors.surface }]}>
       <AICompetitionHeader screenState={screenState} onBack={handleBack} />
       <FeatureLock feature="ai_competition">
         <View style={styles.content}>{renderContent()}</View>

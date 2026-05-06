@@ -10,6 +10,7 @@ import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { PromptInput, SuggestionChips } from '@/components/ai';
+import type { SubscriptionTier } from '@/types/subscription.types';
 
 interface AIInputStateProps {
   prompt: string;
@@ -17,7 +18,7 @@ interface AIInputStateProps {
   onSubmit: () => void;
   onSuggestionSelect: (suggestion: string) => void;
   isLoading: boolean;
-  tier: string;
+  tier: SubscriptionTier;
 }
 
 export function AIInputState({
@@ -44,7 +45,11 @@ export function AIInputState({
       />
 
       <View style={styles.suggestionsContainer}>
-        <SuggestionChips onSelect={onSuggestionSelect} disabled={isLoading} />
+        <SuggestionChips
+          onSelect={onSuggestionSelect}
+          disabled={isLoading}
+          tier={tier}
+        />
       </View>
 
       {/* Info card */}
