@@ -111,6 +111,7 @@ export const LogShotInline = React.memo(function LogShotInline({
   // success toast is already dispatched from useLogShot.onSuccess; the
   // prompt overwrites it within the same render commit when eligible.
   useEffect(() => {
+    if (!eligibility.eligible) return;
     if (!latestShot) return;
     if (latestShot.id === lastDispatchedShotIdRef.current) return;
     lastDispatchedShotIdRef.current = latestShot.id;
@@ -123,7 +124,7 @@ export const LogShotInline = React.memo(function LogShotInline({
         holeNumber,
       });
     }
-  }, [latestShot, promptEligible, showBunkerPrompt, roundId, holeNumber]);
+  }, [eligibility.eligible, latestShot, promptEligible, showBunkerPrompt, roundId, holeNumber]);
 
   // Position captured at tap-time, awaiting the user's club pick. The picker
   // is mounted only while this is non-null. Set to null on cancel/log/error.
