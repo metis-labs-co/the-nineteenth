@@ -13,10 +13,13 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
+import { useHomeUiStore } from '@/store/homeUiStore';
 import type { RootStackParamList } from '@/navigation/types';
 import type { GettingStartedTasks } from '@/hooks/home/useHomeData';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
+
+const DISMISS_THRESHOLD = 2;
 
 interface NewUserFallbackProps {
   onCreateRound: () => void;
@@ -29,8 +32,17 @@ export const NewUserFallback = React.memo(function NewUserFallback({
 }: NewUserFallbackProps) {
   const colors = useThemeColors();
   const navigation = useNavigation<Nav>();
+  const dismissed = useHomeUiStore((s) => s.gettingStartedDismissed);
+  const dismissGettingStarted = useHomeUiStore((s) => s.dismissGettingStarted);
 
-  if (gettingStarted.allCompleted) return null;
+  if (gettingStarted.allCompleted || dismissed) return null;
+
+  const completedCount =
+    Number(gettingStarted.hasCreatedRound) +
+    Number(gettingStarted.hasSetUpBag) +
+    Number(gettingStarted.hasJoinedCompetition) +
+    Number(gettingStarted.hasAddedFriend);
+  const canDismiss = completedCount >= DISMISS_THRESHOLD;
 
   return (
     <View
@@ -39,6 +51,17 @@ export const NewUserFallback = React.memo(function NewUserFallback({
         { backgroundColor: colors.surface, borderColor: colors.borderLight },
       ]}
     >
+      {canDismiss ? (
+        <TouchableOpacity
+          onPress={dismissGettingStarted}
+          accessibilityRole="button"
+          accessibilityLabel="Dismiss getting started"
+          hitSlop={8}
+          style={styles.closeButton}
+        >
+          <Icon source="close" size={20} color={colors.textSecondary} />
+        </TouchableOpacity>
+      ) : null}
       <Icon source="party-popper" size={32} color={colors.primary} />
       <Text style={[styles.title, { color: colors.textPrimary }]}>
         Getting started
@@ -138,6 +161,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'flex-start',
     gap: spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  closeButton: {
+    position: 'absolute',
+    top: spacing.sm,
+    right: spacing.sm,
+    padding: spacing.xs,
+    zIndex: 1,
   },
   title: {
     ...typography.h3,
