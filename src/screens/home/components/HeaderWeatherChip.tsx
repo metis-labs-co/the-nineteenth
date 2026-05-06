@@ -4,14 +4,12 @@ import { Icon, Text } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { borderRadius, spacing, typography } from '@/constants/theme';
 import { useDeviceWeather } from '@/hooks/weather/useDeviceWeather';
-import { useOneShotLocation } from '@/hooks/useOneShotLocation';
 import { weatherCodeToIcon } from '@/hooks/weather/weatherCodeToIcon';
 import { WeatherDetailModal } from './WeatherDetailModal';
 
 export function HeaderWeatherChip() {
   const colors = useThemeColors();
-  const { data: snapshot } = useDeviceWeather();
-  const { location } = useOneShotLocation();
+  const { data: snapshot, location } = useDeviceWeather();
   const [modalVisible, setModalVisible] = useState(false);
 
   if (!snapshot) return null;
@@ -30,6 +28,7 @@ export function HeaderWeatherChip() {
         accessibilityLabel={`Currently ${Math.round(snapshot.tempC)} degrees, ${label}`}
         accessibilityHint="Opens detailed forecast"
         accessibilityState={{ expanded: modalVisible }}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         onPress={() => setModalVisible(true)}
         style={[
           styles.chip,
