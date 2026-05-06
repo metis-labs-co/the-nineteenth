@@ -16,6 +16,7 @@ import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useIsSuperAdmin } from '@/store/subscriptionStore';
 import { FullScreenWizard } from '@/components/common/FullScreenWizard';
+import { SystemModalTheme } from '@/components/common';
 import type { UseWizardReturn, WizardStepConfig } from '@/components/common/FullScreenWizard';
 import { useAddCourseWizard } from './hooks/useAddCourseWizard';
 import { useTeeManagement } from './hooks/useTeeManagement';
@@ -111,6 +112,7 @@ export function AddCourseModal({ visible, onClose, onVenueCreated }: AddCourseMo
       presentationStyle="fullScreen"
       onRequestClose={wizard.handleClose}
     >
+      <SystemModalTheme>
       <FullScreenWizard
         title="Add Course"
         wizard={wizardCompat}
@@ -173,6 +175,7 @@ export function AddCourseModal({ visible, onClose, onVenueCreated }: AddCourseMo
           {footer}
         </View>
       </FullScreenWizard>
+      </SystemModalTheme>
     </Modal>
   );
 }

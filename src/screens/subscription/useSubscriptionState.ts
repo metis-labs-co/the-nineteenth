@@ -25,9 +25,11 @@ const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreCl
 // ============================================================================
 
 /**
- * Display order for tiers in comparison (excludes internal-only tiers)
+ * Display order for tiers in comparison (excludes internal-only tiers).
+ * Enterprise is intentionally hidden until the feature is launched —
+ * dev simulation mode in PlansComparison still surfaces it for testing.
  */
-export const COMPARISON_TIERS: SubscriptionTier[] = ['free', 'social', 'premium', 'enterprise'];
+export const COMPARISON_TIERS: SubscriptionTier[] = ['free', 'social', 'premium'];
 
 /**
  * Icons for each tier

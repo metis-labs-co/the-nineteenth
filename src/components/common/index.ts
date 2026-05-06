@@ -158,6 +158,8 @@ export { AppIcon } from './AppIcon';
 export { Logo } from './Logo';
 export { LogoHorizontal } from './LogoHorizontal';
 
+export { SystemModalTheme } from './SystemModalTheme';
+
 // === Hooks ===
 // Shared hooks for common component behaviors
 export { useSwipeToDelete } from './hooks';

@@ -5,7 +5,7 @@
 import React, { useCallback } from 'react';
 import { View, StyleSheet, FlatList, TouchableOpacity, Modal } from 'react-native';
 import { Text, IconButton, Icon } from 'react-native-paper';
-import { GolfBallLoader, SearchBar } from '@/components/common';
+import { GolfBallLoader, SearchBar, SystemModalTheme } from '@/components/common';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -36,8 +36,13 @@ export const CourseSelectionModal = React.memo(function CourseSelectionModal({
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+      <SystemModalTheme>
+      {/* surfaceElevated (not background) so the modal stays opaque even when
+          the image backdrop is enabled. `colors.background` is transparent in
+          that mode and the system fullScreen modal's default white shows
+          through. */}
       <View
-        style={[styles.modalContainer, { paddingTop: insets.top, backgroundColor: colors.background }]}
+        style={[styles.modalContainer, { paddingTop: insets.top, backgroundColor: colors.surfaceElevated }]}
       >
         {/* Modal Header */}
         <View
@@ -139,6 +144,7 @@ export const CourseSelectionModal = React.memo(function CourseSelectionModal({
           }
         />
       </View>
+      </SystemModalTheme>
     </Modal>
   );
 });

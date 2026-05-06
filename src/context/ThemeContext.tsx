@@ -87,9 +87,26 @@ interface ThemeProviderProps {
    * image so the screen renders an opaque branded background.
    */
   forceMode?: 'light' | 'dark';
+  /**
+   * Pin the surface style for this subtree (e.g. 'solid' inside system
+   * modals where the in-app backdrop image isn't visible and translucent
+   * surfaces would wash out against the system white).
+   */
+  forceSurfaceStyle?: SurfaceStyle;
+  /**
+   * Pin the backdrop style for this subtree (e.g. 'none' inside system
+   * modals so `colors.background` doesn't go transparent over the system
+   * default white modal background).
+   */
+  forceBackdropStyle?: BackdropStyle;
 }
 
-export function ThemeProvider({ children, forceMode }: ThemeProviderProps) {
+export function ThemeProvider({
+  children,
+  forceMode,
+  forceSurfaceStyle,
+  forceBackdropStyle,
+}: ThemeProviderProps) {
   const themeMode = useThemeStore((state) => state.themeMode);
   const surfaceStyle = useThemeStore((state) => state.surfaceStyle);
   const backdropStyle = useThemeStore((state) => state.backdropStyle);
@@ -99,8 +116,11 @@ export function ThemeProvider({ children, forceMode }: ThemeProviderProps) {
   const toggleTheme = useThemeStore((state) => state.toggleTheme);
   const userIsDark = useIsDarkMode();
   const isDark = forceMode ? forceMode === 'dark' : userIsDark;
-  const effectiveSurfaceStyle = forceMode ? 'solid' : surfaceStyle;
-  const effectiveBackdropStyle = forceMode ? 'none' : backdropStyle;
+  // Resolution order: forceMode > forceSurfaceStyle/forceBackdropStyle > store
+  const effectiveSurfaceStyle =
+    forceMode ? 'solid' : forceSurfaceStyle ?? surfaceStyle;
+  const effectiveBackdropStyle =
+    forceMode ? 'none' : forceBackdropStyle ?? backdropStyle;
 
   const value = useMemo<ThemeContextValue>(
     () => ({

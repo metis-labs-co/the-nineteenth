@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { Text, Icon, IconButton } from 'react-native-paper';
 import { OnboardingCard } from './OnboardingCard';
-import { GolfBallLoader, SearchBar } from '@/components/common';
+import { GolfBallLoader, SearchBar, SystemModalTheme } from '@/components/common';
 import { ClubCard } from '@/components/courses/ClubCard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
@@ -231,10 +231,15 @@ export function HomeClubStep({
 
       {/* Club Selection Modal */}
       <Modal visible={showClubModal} animationType="slide" onRequestClose={handleCloseModal}>
+        <SystemModalTheme>
+        {/* surfaceElevated (not background) so the modal stays opaque even
+            when the image backdrop is enabled. `colors.background` is
+            transparent in that mode and the system fullScreen modal's default
+            white shows through. */}
         <View
           style={[
             styles.modalContainer,
-            { paddingTop: insets.top, backgroundColor: colors.background },
+            { paddingTop: insets.top, backgroundColor: colors.surfaceElevated },
           ]}
         >
           {/* Modal Header */}
@@ -294,6 +299,7 @@ export function HomeClubStep({
             }
           />
         </View>
+        </SystemModalTheme>
       </Modal>
     </>
   );

@@ -20,6 +20,9 @@ import {
 } from '@/hooks/achievements/queries';
 import { useFriends } from '@/hooks/friends';
 import { useUnreadNotificationCount } from '@/hooks/notifications/queries';
+import { useBag } from '@/hooks/queries/useBag';
+import { useHasCreatedRound } from '@/hooks/queries/useHasCreatedRound';
+import { PUTTER_KEY } from '@/constants/clubs';
 import { useDevFlagsStore } from '@/store/devFlagsStore';
 import { usePendingActions } from './usePendingActions';
 import { useInProgressRounds } from './useInProgressRounds';
@@ -216,7 +219,20 @@ export interface HomeData {
   isLoading: boolean;
   isRefetching: boolean;
   refetchAll: () => void;
-  isNewUser: boolean;
+  /**
+   * Per-task onboarding status for the Home "Getting started" card. The card
+   * stays visible until every task is `true`; completed tasks render as a
+   * done state inline so users can revisit them.
+   */
+  gettingStarted: GettingStartedTasks;
+}
+
+export interface GettingStartedTasks {
+  hasCreatedRound: boolean;
+  hasSetUpBag: boolean;
+  hasJoinedCompetition: boolean;
+  hasAddedFriend: boolean;
+  allCompleted: boolean;
 }
 
 export function useHomeData(): HomeData {
@@ -246,6 +262,11 @@ export function useHomeData(): HomeData {
   const { data: achievementSummary } = useAchievementSummary(userId ?? '');
 
   const { data: friends, refetch: refetchFriends } = useFriends();
+
+  const { data: bag = [], refetch: refetchBag } = useBag(player?.id);
+
+  const { data: hasCreatedRound = false, refetch: refetchHasCreatedRound } =
+    useHasCreatedRound(userId);
 
   const { data: unreadCount = 0, refetch: refetchUnread } =
     useUnreadNotificationCount();
@@ -390,18 +411,39 @@ export function useHomeData(): HomeData {
 
   const forceNewUserHome = useDevFlagsStore((s) => s.forceNewUserHome);
 
-  const computedIsNewUser =
-    !roundsLoading &&
-    inProgressRounds.length === 0 &&
-    upcomingRounds.length === 0 &&
-    upcomingRoundsRwc.length === 0 &&
-    !lastRound &&
-    activeCompetitions.length === 0 &&
-    activeLeagues.length === 0 &&
-    pendingActions.length === 0 &&
-    (friends?.length ?? 0) === 0;
-
-  const isNewUser = (__DEV__ && forceNewUserHome) || computedIsNewUser;
+  const gettingStarted = useMemo<GettingStartedTasks>(() => {
+    // Dev override: force every task incomplete so the card always shows.
+    if (__DEV__ && forceNewUserHome) {
+      return {
+        hasCreatedRound: false,
+        hasSetUpBag: false,
+        hasJoinedCompetition: false,
+        hasAddedFriend: false,
+        allCompleted: false,
+      };
+    }
+    // Bag query always surfaces the putter — count only user-picked clubs so
+    // the unset state matches BagSummarySection's empty check.
+    const hasSetUpBag = bag.some((k) => k !== PUTTER_KEY);
+    // "Joined a competition" means the user is an organizer or accepted
+    // player on any competition (active or otherwise).
+    const hasJoinedCompetition = (competitions ?? []).length > 0;
+    // "Added a friend" means the user initiated the friendship; being added
+    // by someone else doesn't count for this onboarding step.
+    const hasAddedFriend = (friends ?? []).some((f) => f.is_requester);
+    const allCompleted =
+      hasCreatedRound &&
+      hasSetUpBag &&
+      hasJoinedCompetition &&
+      hasAddedFriend;
+    return {
+      hasCreatedRound,
+      hasSetUpBag,
+      hasJoinedCompetition,
+      hasAddedFriend,
+      allCompleted,
+    };
+  }, [forceNewUserHome, bag, competitions, friends, hasCreatedRound]);
 
   const firstName = useMemo(() => {
     const fullName = player?.name ?? user?.user_metadata?.name;
@@ -423,6 +465,8 @@ export function useHomeData(): HomeData {
     refetchPending();
     refetchInProgress();
     refetchUpcomingRwc();
+    refetchBag();
+    refetchHasCreatedRound();
   };
 
   const achievementSummaryStats = useMemo<AchievementSummaryStats | null>(() => {
@@ -461,7 +505,7 @@ export function useHomeData(): HomeData {
       isLoading: roundsLoading,
       isRefetching: roundsRefetching,
       refetchAll,
-      isNewUser: true,
+      gettingStarted,
     };
   }
 
@@ -484,6 +528,6 @@ export function useHomeData(): HomeData {
     isLoading: roundsLoading,
     isRefetching: roundsRefetching,
     refetchAll,
-    isNewUser,
+    gettingStarted,
   };
 }

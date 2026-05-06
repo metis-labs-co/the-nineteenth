@@ -227,7 +227,7 @@ export function WolfDecisionModal({
                 style={[
                   styles.optionCard,
                   {
-                    backgroundColor: colors.background,
+                    backgroundColor: colors.surface,
                     borderColor: colors.border,
                   },
                 ]}

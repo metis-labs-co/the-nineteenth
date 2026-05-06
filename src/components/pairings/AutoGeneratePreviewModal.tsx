@@ -12,7 +12,7 @@
 import React, { useCallback } from 'react';
 import { StyleSheet, View, ScrollView, TouchableOpacity, Modal } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
-import { PlayerAvatar, LoadingSpinner } from '@/components/common';
+import { PlayerAvatar, LoadingSpinner, SystemModalTheme } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { formatTeeTimeForDisplay } from '@/utils';
@@ -169,7 +169,12 @@ export const AutoGeneratePreviewModal = React.memo(
         presentationStyle="pageSheet"
         onRequestClose={onClose}
       >
-        <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <SystemModalTheme>
+        {/* surfaceElevated (not background) so the modal stays opaque even
+            when the image backdrop is enabled. `colors.background` is
+            transparent in that mode and the system pageSheet's default white
+            shows through. */}
+        <View style={[styles.container, { backgroundColor: colors.surfaceElevated }]}>
           {/* Header */}
           <View
             style={[
@@ -332,6 +337,7 @@ export const AutoGeneratePreviewModal = React.memo(
             </TouchableOpacity>
           </View>
         </View>
+        </SystemModalTheme>
       </Modal>
     );
   }

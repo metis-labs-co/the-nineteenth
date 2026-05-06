@@ -69,7 +69,7 @@ export function IncompleteScoresModal({
           style={[
             styles.modalContent,
             {
-              backgroundColor: colors.background,
+              backgroundColor: colors.surfaceElevated,
               paddingBottom: insets.bottom + spacing.md,
             },
           ]}

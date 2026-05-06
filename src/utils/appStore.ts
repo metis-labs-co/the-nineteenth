@@ -1,4 +1,5 @@
 import { Linking, Platform, Alert } from 'react-native';
+import Purchases from 'react-native-purchases';
 
 // iOS: Opens directly to subscription management
 const IOS_SUBSCRIPTIONS_URL = 'https://apps.apple.com/account/subscriptions';
@@ -10,26 +11,29 @@ const ANDROID_SUBSCRIPTIONS_URL =
 /**
  * Opens the App Store (iOS) or Play Store (Android) subscription management screen.
  *
- * @returns Promise<boolean> - true if URL was opened successfully, false otherwise
+ * On iOS, prefers StoreKit's native manage-subscriptions sheet via RevenueCat.
+ * That sheet is environment-aware (production / sandbox / TestFlight), which the
+ * `apps.apple.com` URL is not — production-only URLs hide TestFlight/sandbox
+ * subscriptions, so testers cannot find their plan to downgrade.
  *
- * @example
- * ```tsx
- * import { openAppStoreSubscriptionSettings } from '@/utils';
+ * Falls back to the App Store URL if StoreKit isn't available (RevenueCat not
+ * initialized, iOS too old, etc.).
  *
- * const handleManageSubscription = async () => {
- *   const success = await openAppStoreSubscriptionSettings();
- *   if (success) {
- *     console.log('Opened subscription settings');
- *   }
- * };
- * ```
- *
- * @remarks
- * - iOS Simulator: URL will open but may not show subscriptions (no App Store account)
- * - Real device: Opens App Store subscription management
- * - Android: Opens Play Store subscription page
+ * @returns Promise<boolean> - true if the management UI was opened successfully
  */
 export async function openAppStoreSubscriptionSettings(): Promise<boolean> {
+  if (Platform.OS === 'ios') {
+    try {
+      await Purchases.showManageSubscriptions();
+      return true;
+    } catch (error) {
+      console.warn(
+        '[openAppStoreSubscriptionSettings] StoreKit sheet unavailable, falling back to URL:',
+        error
+      );
+    }
+  }
+
   const url = Platform.select({
     ios: IOS_SUBSCRIPTIONS_URL,
     android: ANDROID_SUBSCRIPTIONS_URL,

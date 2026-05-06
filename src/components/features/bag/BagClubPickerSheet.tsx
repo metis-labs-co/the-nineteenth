@@ -11,6 +11,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Icon, Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useThemeColors } from '@/context/ThemeContext';
+import { SystemModalTheme } from '@/components/common';
 import { borderRadius, spacing, typography, shadows } from '@/constants/theme';
 import {
   CATEGORY_LABELS,
@@ -66,6 +67,7 @@ export function BagClubPickerSheet({
       onRequestClose={onCancel}
       transparent={false}
     >
+      <SystemModalTheme>
       <SafeAreaView
         edges={['top', 'bottom']}
         style={[styles.flex, { backgroundColor: colors.surfaceElevated }]}
@@ -156,6 +158,7 @@ export function BagClubPickerSheet({
           </ScrollView>
         )}
       </SafeAreaView>
+      </SystemModalTheme>
     </Modal>
   );
 }

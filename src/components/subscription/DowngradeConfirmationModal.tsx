@@ -36,6 +36,8 @@ import {
   TouchableOpacity,
   AccessibilityInfo,
   Modal,
+  ScrollView,
+  useWindowDimensions,
 } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -170,6 +172,7 @@ export const DowngradeConfirmationModal = React.memo(
     testID,
   }: DowngradeConfirmationModalProps) {
     const colors = useThemeColors();
+    const { height: windowHeight } = useWindowDimensions();
 
     // Animation values
     const scaleAnim = useRef(new Animated.Value(0.85)).current;
@@ -257,6 +260,7 @@ export const DowngradeConfirmationModal = React.memo(
               styles.container,
               {
                 backgroundColor: colors.surfaceElevated,
+                maxHeight: windowHeight * 0.9,
                 transform: [{ scale: scaleAnim }],
                 opacity: opacityAnim,
               },
@@ -265,175 +269,184 @@ export const DowngradeConfirmationModal = React.memo(
             accessibilityRole="alert"
             accessibilityLabel={`Downgrade from ${currentTierName} to ${targetTierName}`}
           >
-            {/* Header Icon */}
-            <View
-              style={[
-                styles.iconContainer,
-                { backgroundColor: `${colors.warning}15` },
-              ]}
+            <ScrollView
+              contentContainerStyle={styles.scrollContent}
+              showsVerticalScrollIndicator={false}
             >
-              <Icon
-                source="arrow-down-circle"
-                size={40}
-                color={colors.warning}
-              />
-            </View>
+              {/* Header Icon */}
+              <View
+                style={[
+                  styles.iconContainer,
+                  { backgroundColor: `${colors.warning}15` },
+                ]}
+              >
+                <Icon
+                  source="arrow-down-circle"
+                  size={40}
+                  color={colors.warning}
+                />
+              </View>
 
-            {/* Title */}
-            <Text style={[styles.title, { color: colors.textPrimary }]}>
-              Downgrade Plan?
-            </Text>
-
-            {/* Tier Change Display */}
-            <View style={styles.tierChangeRow}>
-              <Text style={[styles.tierName, { color: currentTierColor }]}>
-                {currentTierName}
+              {/* Title */}
+              <Text style={[styles.title, { color: colors.textPrimary }]}>
+                Downgrade Plan?
               </Text>
-              <Icon
-                source="arrow-right"
-                size={20}
-                color={colors.textSecondary}
-              />
-              <Text style={[styles.tierName, { color: targetTierColor }]}>
-                {targetTierName}
-              </Text>
-            </View>
 
-            {/* Warning Section */}
-            {lostFeatures.length > 0 && (
+              {/* Tier Change Display */}
+              <View style={styles.tierChangeRow}>
+                <Text style={[styles.tierName, { color: currentTierColor }]}>
+                  {currentTierName}
+                </Text>
+                <Icon
+                  source="arrow-right"
+                  size={20}
+                  color={colors.textSecondary}
+                />
+                <Text style={[styles.tierName, { color: targetTierColor }]}>
+                  {targetTierName}
+                </Text>
+              </View>
+
+              {/* Warning Section */}
+              {lostFeatures.length > 0 && (
+                <View
+                  style={[
+                    styles.section,
+                    { backgroundColor: `${colors.warning}10` },
+                  ]}
+                >
+                  <View style={styles.sectionHeader}>
+                    <Icon
+                      source="alert-circle-outline"
+                      size={20}
+                      color={colors.warning}
+                    />
+                    <Text
+                      style={[styles.sectionTitle, { color: colors.warning }]}
+                    >
+                      You&apos;ll lose access to:
+                    </Text>
+                  </View>
+                  <View style={styles.featureList}>
+                    {lostFeatures.map((feature, index) => (
+                      <View
+                        key={index}
+                        style={styles.featureRow}
+                        accessibilityLabel={feature}
+                      >
+                        <Icon
+                          source="minus-circle-outline"
+                          size={16}
+                          color={colors.error}
+                        />
+                        <Text
+                          style={[
+                            styles.featureText,
+                            { color: colors.textPrimary },
+                          ]}
+                          numberOfLines={2}
+                        >
+                          {feature}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+
+              {/* Reassurance Section */}
               <View
                 style={[
                   styles.section,
-                  { backgroundColor: `${colors.warning}10` },
+                  { backgroundColor: `${colors.success}10` },
                 ]}
               >
                 <View style={styles.sectionHeader}>
-                  <Icon
-                    source="alert-circle-outline"
-                    size={20}
-                    color={colors.warning}
-                  />
-                  <Text
-                    style={[styles.sectionTitle, { color: colors.warning }]}
-                  >
-                    You&apos;ll lose access to:
+                  <Icon source="check-circle" size={20} color={colors.success} />
+                  <Text style={[styles.sectionTitle, { color: colors.success }]}>
+                    Your existing content is safe:
                   </Text>
                 </View>
                 <View style={styles.featureList}>
-                  {lostFeatures.map((feature, index) => (
-                    <View
-                      key={index}
-                      style={styles.featureRow}
-                      accessibilityLabel={feature}
+                  <View style={styles.featureRow}>
+                    <Icon
+                      source="check"
+                      size={16}
+                      color={colors.success}
+                    />
+                    <Text
+                      style={[styles.featureText, { color: colors.textPrimary }]}
                     >
-                      <Icon
-                        source="minus-circle-outline"
-                        size={16}
-                        color={colors.error}
-                      />
-                      <Text
-                        style={[
-                          styles.featureText,
-                          { color: colors.textPrimary },
-                        ]}
-                        numberOfLines={2}
-                      >
-                        {feature}
-                      </Text>
-                    </View>
-                  ))}
+                      Current competitions preserved
+                    </Text>
+                  </View>
+                  <View style={styles.featureRow}>
+                    <Icon
+                      source="check"
+                      size={16}
+                      color={colors.success}
+                    />
+                    <Text
+                      style={[styles.featureText, { color: colors.textPrimary }]}
+                    >
+                      All historical data kept
+                    </Text>
+                  </View>
                 </View>
               </View>
-            )}
 
-            {/* Reassurance Section */}
-            <View
-              style={[
-                styles.section,
-                { backgroundColor: `${colors.success}10` },
-              ]}
-            >
-              <View style={styles.sectionHeader}>
-                <Icon source="check-circle" size={20} color={colors.success} />
-                <Text style={[styles.sectionTitle, { color: colors.success }]}>
-                  Your existing content is safe:
+              {/* Timing Note */}
+              <View style={styles.timingNote}>
+                <Icon
+                  source="clock-outline"
+                  size={16}
+                  color={colors.textSecondary}
+                />
+                <Text
+                  style={[styles.timingText, { color: colors.textSecondary }]}
+                >
+                  Changes take effect at end of billing period
                 </Text>
               </View>
-              <View style={styles.featureList}>
-                <View style={styles.featureRow}>
-                  <Icon
-                    source="check"
-                    size={16}
-                    color={colors.success}
-                  />
-                  <Text
-                    style={[styles.featureText, { color: colors.textPrimary }]}
-                  >
-                    Current competitions preserved
-                  </Text>
-                </View>
-                <View style={styles.featureRow}>
-                  <Icon
-                    source="check"
-                    size={16}
-                    color={colors.success}
-                  />
-                  <Text
-                    style={[styles.featureText, { color: colors.textPrimary }]}
-                  >
-                    All historical data kept
-                  </Text>
-                </View>
-              </View>
-            </View>
+            </ScrollView>
 
-            {/* Timing Note */}
-            <View style={styles.timingNote}>
-              <Icon
-                source="clock-outline"
-                size={16}
-                color={colors.textSecondary}
-              />
-              <Text
-                style={[styles.timingText, { color: colors.textSecondary }]}
+            {/* Action buttons stay pinned outside the scroll so they're always
+                reachable even when the lost-features list is long. */}
+            <View style={styles.actions}>
+              {/* Primary Button - Manage in App Store */}
+              <TouchableOpacity
+                style={[styles.primaryButton, { backgroundColor: colors.primary }]}
+                onPress={handleConfirm}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Manage in App Store"
+                accessibilityHint="Opens your subscription settings in the App Store"
               >
-                Changes take effect at end of billing period
-              </Text>
-            </View>
+                <Icon source="store" size={20} color={colors.white} />
+                <Text style={[styles.primaryButtonText, { color: colors.white }]}>
+                  Manage in App Store
+                </Text>
+              </TouchableOpacity>
 
-            {/* Primary Button - Manage in App Store */}
-            <TouchableOpacity
-              style={[styles.primaryButton, { backgroundColor: colors.primary }]}
-              onPress={handleConfirm}
-              activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityLabel="Manage in App Store"
-              accessibilityHint="Opens your subscription settings in the App Store"
-            >
-              <Icon source="store" size={20} color={colors.white} />
-              <Text style={[styles.primaryButtonText, { color: colors.white }]}>
-                Manage in App Store
-              </Text>
-            </TouchableOpacity>
-
-            {/* Secondary Button - Keep Current Tier */}
-            <TouchableOpacity
-              style={styles.secondaryButton}
-              onPress={handleDismiss}
-              activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityLabel={`Keep ${currentTierName}`}
-              accessibilityHint="Closes this prompt and keeps your current plan"
-            >
-              <Text
-                style={[
-                  styles.secondaryButtonText,
-                  { color: colors.textSecondary },
-                ]}
+              {/* Secondary Button - Keep Current Tier */}
+              <TouchableOpacity
+                style={styles.secondaryButton}
+                onPress={handleDismiss}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel={`Keep ${currentTierName}`}
+                accessibilityHint="Closes this prompt and keeps your current plan"
               >
-                Keep {currentTierName}
-              </Text>
-            </TouchableOpacity>
+                <Text
+                  style={[
+                    styles.secondaryButtonText,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  Keep {currentTierName}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </Animated.View>
         </View>
       </Modal>
@@ -459,8 +472,16 @@ const styles = StyleSheet.create({
     maxWidth: 360,
     borderRadius: borderRadius.xxl,
     paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.xxl,
+    overflow: 'hidden',
+  },
+  scrollContent: {
     alignItems: 'center',
+    paddingTop: spacing.xxl,
+    paddingBottom: spacing.md,
+  },
+  actions: {
+    alignItems: 'center',
+    paddingBottom: spacing.xxl,
   },
   iconContainer: {
     width: 72,

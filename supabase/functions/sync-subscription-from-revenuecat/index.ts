@@ -143,14 +143,17 @@ serve(async (req: Request) => {
   // 2. Fetch canonical state from RevenueCat REST
   let rc: RcSubscriberResponse;
   try {
+    // NB: do NOT send X-Platform here. That header makes RC classify the
+    // request as coming from a mobile SDK, which then rejects secret API
+    // keys with code 7243 ("Secret API keys should not be used in your
+    // app."). Server-side GET /v1/subscribers only needs the bearer token.
     const rcRes = await fetch(
       `https://api.revenuecat.com/v1/subscribers/${encodeURIComponent(userId)}`,
       {
         method: 'GET',
         headers: {
           Authorization: `Bearer ${rcSecretKey}`,
-          'Content-Type': 'application/json',
-          'X-Platform': 'ios', // RC requires this header on some endpoints; ios is fine for read
+          Accept: 'application/json',
         },
       }
     );

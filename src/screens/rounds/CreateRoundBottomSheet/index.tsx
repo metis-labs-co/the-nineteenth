@@ -41,7 +41,7 @@ import {
 import { isGolfApiResult } from '@/hooks/courses';
 import type { ClubCardItem } from '@/components/courses/ClubCard';
 import { useOneShotLocation } from '@/hooks/useOneShotLocation';
-import { FullScreenWizard } from '@/components/common';
+import { FullScreenWizard, SystemModalTheme } from '@/components/common';
 import type { UseWizardReturn, WizardStepConfig } from '@/components/common';
 
 // Types
@@ -506,6 +506,7 @@ export default function CreateRoundBottomSheet({
       presentationStyle="fullScreen"
       onRequestClose={handleClose}
     >
+      <SystemModalTheme>
       <FullScreenWizard
         title="Create Round"
         wizard={wizardCompat}
@@ -793,6 +794,7 @@ export default function CreateRoundBottomSheet({
           />
         )}
       </FullScreenWizard>
+      </SystemModalTheme>
     </Modal>
   );
 }

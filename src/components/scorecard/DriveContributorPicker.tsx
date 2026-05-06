@@ -81,7 +81,7 @@ export function DriveContributorPicker({
       <TouchableOpacity
         style={[
           styles.selector,
-          { borderColor: colors.border, backgroundColor: colors.background },
+          { borderColor: colors.border, backgroundColor: colors.surface },
           selectedPlayer && { borderColor: colors.primary },
           disabled && styles.selectorDisabled,
         ]}

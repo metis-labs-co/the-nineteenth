@@ -8,7 +8,7 @@ import React, { useCallback, useMemo } from 'react';
 import { StyleSheet, View, Modal, FlatList, TouchableOpacity } from 'react-native';
 import { Text, Icon, IconButton } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { SearchBar, GolfBallLoader } from '@/components/common';
+import { SearchBar, GolfBallLoader, SystemModalTheme } from '@/components/common';
 import { ClubCard } from '@/components/courses/ClubCard';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography } from '@/constants/theme';
@@ -96,10 +96,15 @@ export const HomeClubModal = React.memo(function HomeClubModal({
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+      <SystemModalTheme>
+      {/* surfaceElevated (not background) so the modal stays opaque even when
+          the image backdrop is enabled. `colors.background` is transparent in
+          that mode and the system fullScreen modal's default white shows
+          through. */}
       <View
         style={[
           styles.container,
-          { paddingTop: insets.top, backgroundColor: colors.background },
+          { paddingTop: insets.top, backgroundColor: colors.surfaceElevated },
         ]}
       >
         {/* Header */}
@@ -166,6 +171,7 @@ export const HomeClubModal = React.memo(function HomeClubModal({
           ListEmptyComponent={ListEmptyComponent}
         />
       </View>
+      </SystemModalTheme>
     </Modal>
   );
 });

@@ -316,6 +316,11 @@ export function generateLightColors(
     primaryBackground: adjustLightness(primary.primary, 0.95),
 
     // Backgrounds
+    // `background` is intentionally transparent in image-backdrop mode — only
+    // use it for app-root containers (Screen wrappers, SafeAreaView at the
+    // navigator root). Modals, cards, and buttons must use `surface` or
+    // `surfaceElevated` so they stay opaque against system white in
+    // iOS-rendered modals or against the dim overlay in transparent modals.
     background: backdropStyle === 'image' ? 'transparent' : grays.gray100,
     surface: tinted.surface,
     surfaceVariant: tinted.surfaceVariant,

@@ -237,87 +237,78 @@ export default function HomeScreen() {
               />
             ) : null}
 
-            {home.isNewUser ? (
-              <View style={styles.body}>
-                <NewUserFallback onCreateRound={openCreateRound} />
-                <View style={styles.newUserGridSpacer}>
-                  <HomeTileGrid
-                    stats={home.stats}
-                    achievementSummary={home.achievementSummary}
-                    achievementsInProgressCount={home.achievementsInProgress.length}
-                    competitions={home.competitions}
-                    leagues={home.leagues}
-                    lastRound={home.lastRound}
+            <View style={styles.body}>
+              {!home.gettingStarted.allCompleted ? (
+                <NewUserFallback
+                  onCreateRound={openCreateRound}
+                  gettingStarted={home.gettingStarted}
+                />
+              ) : null}
+
+              {home.inProgressRounds.length > 0 ? (
+                <View style={styles.carouselWrapper}>
+                  <SectionHeader title="Continue scoring" />
+                  <InProgressRoundSection
+                    rounds={home.inProgressRounds}
+                    onScoreRound={handleScoreRound}
+                    onViewRound={handleViewRound}
+                    roundDisplayNumbers={roundDisplayNumbers}
                   />
-                </View>
-              </View>
-            ) : (
-              <View style={styles.body}>
-                {home.inProgressRounds.length > 0 ? (
-                  <View style={styles.carouselWrapper}>
-                    <SectionHeader title="Continue scoring" />
-                    <InProgressRoundSection
-                      rounds={home.inProgressRounds}
-                      onScoreRound={handleScoreRound}
-                      onViewRound={handleViewRound}
-                      roundDisplayNumbers={roundDisplayNumbers}
-                    />
-                    <TouchableOpacity
-                      onPress={handleViewAllRounds}
-                      accessibilityRole="button"
-                      accessibilityLabel="View all rounds"
+                  <TouchableOpacity
+                    onPress={handleViewAllRounds}
+                    accessibilityRole="button"
+                    accessibilityLabel="View all rounds"
+                    style={[
+                      styles.viewAllRoundsButton,
+                      {
+                        backgroundColor: colors.surface,
+                        borderColor: colors.borderLight,
+                      },
+                    ]}
+                  >
+                    <Text
                       style={[
-                        styles.viewAllRoundsButton,
-                        {
-                          backgroundColor: colors.surface,
-                          borderColor: colors.borderLight,
-                        },
+                        styles.viewAllRoundsLabel,
+                        { color: colors.textPrimary },
                       ]}
                     >
-                      <Text
-                        style={[
-                          styles.viewAllRoundsLabel,
-                          { color: colors.textPrimary },
-                        ]}
-                      >
-                        View all rounds
-                      </Text>
-                      <Icon
-                        source="chevron-right"
-                        size={20}
-                        color={colors.textSecondary}
-                      />
-                    </TouchableOpacity>
-                  </View>
-                ) : null}
+                      View all rounds
+                    </Text>
+                    <Icon
+                      source="chevron-right"
+                      size={20}
+                      color={colors.textSecondary}
+                    />
+                  </TouchableOpacity>
+                </View>
+              ) : null}
 
-                {home.upcomingWithin24h ? (
-                  <RoundTodayCard round={home.upcomingWithin24h} />
-                ) : null}
+              {home.upcomingWithin24h ? (
+                <RoundTodayCard round={home.upcomingWithin24h} />
+              ) : null}
 
-                <PendingActionsSection actions={home.pendingActions} />
+              <PendingActionsSection actions={home.pendingActions} />
 
-                <BagSummarySection />
+              <BagSummarySection />
 
-                {home.upcomingRoundsForList.length > 0 ? (
-                  <UpcomingRoundsSection
-                    rounds={home.upcomingRoundsForList}
-                    showViewAll={
-                      home.lastRound !== null || home.upcomingRoundsForList.length > 3
-                    }
-                  />
-                ) : null}
-
-                <HomeTileGrid
-                  stats={home.stats}
-                  achievementSummary={home.achievementSummary}
-                  achievementsInProgressCount={home.achievementsInProgress.length}
-                  competitions={home.competitions}
-                  leagues={home.leagues}
-                  lastRound={home.lastRound}
+              {home.upcomingRoundsForList.length > 0 ? (
+                <UpcomingRoundsSection
+                  rounds={home.upcomingRoundsForList}
+                  showViewAll={
+                    home.lastRound !== null || home.upcomingRoundsForList.length > 3
+                  }
                 />
-              </View>
-            )}
+              ) : null}
+
+              <HomeTileGrid
+                stats={home.stats}
+                achievementSummary={home.achievementSummary}
+                achievementsInProgressCount={home.achievementsInProgress.length}
+                competitions={home.competitions}
+                leagues={home.leagues}
+                lastRound={home.lastRound}
+              />
+            </View>
 
             {__DEV__ && (
               <View
@@ -459,9 +450,6 @@ const styles = StyleSheet.create({
   },
   body: {
     paddingHorizontal: layout.screenPadding,
-  },
-  newUserGridSpacer: {
-    marginTop: spacing.lg,
   },
   carouselWrapper: {
     // InProgressRoundSection sets its own container margins; just give it room

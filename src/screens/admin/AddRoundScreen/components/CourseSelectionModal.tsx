@@ -6,7 +6,7 @@ import React, { memo, useCallback, useMemo } from 'react';
 import { View, StyleSheet, Modal, TouchableOpacity, FlatList } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text, Icon } from 'react-native-paper';
-import { LoadingSpinner, SearchBar, EmptyState } from '@/components/common';
+import { LoadingSpinner, SearchBar, EmptyState, SystemModalTheme } from '@/components/common';
 import { ClubCard } from '@/components/courses/ClubCard';
 import { spacing, typography } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -79,7 +79,8 @@ export const CourseSelectionModal = memo(function CourseSelectionModal({
       presentationStyle="pageSheet"
       onRequestClose={handleClose}
     >
-      <View style={[styles.modalContainer, { paddingTop: insets.top, backgroundColor: colors.surface }]}>
+      <SystemModalTheme>
+      <View style={[styles.modalContainer, { paddingTop: insets.top, backgroundColor: colors.surfaceElevated }]}>
         {/* Modal Header */}
         <View style={[styles.modalHeader, { backgroundColor: colors.surfaceElevated, borderBottomColor: colors.border }]}>
           <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Select Course</Text>
@@ -124,6 +125,7 @@ export const CourseSelectionModal = memo(function CourseSelectionModal({
           />
         )}
       </View>
+      </SystemModalTheme>
     </Modal>
   );
 });
