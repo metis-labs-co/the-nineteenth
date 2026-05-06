@@ -19,6 +19,7 @@ import { borderRadius, shadows, spacing, typography } from '@/constants/theme';
 import {
   useDetailedDayForecast,
   type BucketStats,
+  type Coords,
   type DaySummary,
   type DetailedForecast,
 } from '@/hooks/weather';
@@ -27,7 +28,7 @@ import { weatherCodeToIcon } from '@/hooks/weather/weatherCodeToIcon';
 interface WeatherDetailModalProps {
   visible: boolean;
   onDismiss: () => void;
-  coords: { lat: number; lng: number } | null;
+  coords: Coords | null;
 }
 
 export function WeatherDetailModal({
@@ -327,6 +328,7 @@ function formatDayDate(iso: string): string {
 }
 
 function formatTime(iso: string): string {
+  if (!iso || iso.length < 16) return '--:--';
   const hh = iso.slice(11, 13);
   const mm = iso.slice(14, 16);
   return `${parseInt(hh, 10)}:${mm}`;
@@ -351,6 +353,7 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     maxHeight: '85%',
   },
+  // Visual: 32×32 (compact density). Effective tap area: 56×56 via hitSlop on the Pressable — meets ≥44 a11y target.
   closeBtn: {
     alignSelf: 'flex-end',
     width: 32,

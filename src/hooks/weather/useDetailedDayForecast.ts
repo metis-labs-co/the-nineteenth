@@ -125,19 +125,8 @@ async function fetchDetailed(coords: Coords): Promise<DetailedForecast | null> {
     const daily: DailyResponse = json.daily;
     const todayIso: string = daily.time[0];
 
-    const now = new Date();
-    const nowIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-    const isToday = nowIso === todayIso;
-    const currentHour = now.getHours();
-    const morningPassed = isToday && currentHour >= 12;
-    const afternoonPassed = isToday && currentHour >= 18;
-
-    const morning = morningPassed
-      ? null
-      : aggregateWeatherBucket(hourly, 6, 12, todayIso);
-    const afternoon = afternoonPassed
-      ? null
-      : aggregateWeatherBucket(hourly, 12, 18, todayIso);
+    const morning = aggregateWeatherBucket(hourly, 6, 12, todayIso);
+    const afternoon = aggregateWeatherBucket(hourly, 12, 18, todayIso);
 
     return {
       locationIso: json.timezone ?? 'UTC',
@@ -151,6 +140,32 @@ async function fetchDetailed(coords: Coords): Promise<DetailedForecast | null> {
   }
 }
 
+/**
+ * Override morning/afternoon to null if the user's local clock has already
+ * passed the bucket end. Done at render time so cache hits don't surface
+ * stale "morning" data after noon.
+ */
+function applyPastBucketOverride(forecast: DetailedForecast): DetailedForecast {
+  const now = new Date();
+  const todayIso = forecast.today.summary.dateIso;
+  const nowIso =
+    `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-` +
+    `${String(now.getDate()).padStart(2, '0')}`;
+  const isToday = nowIso === todayIso;
+  const currentHour = now.getHours();
+  const morningPassed = isToday && currentHour >= 12;
+  const afternoonPassed = isToday && currentHour >= 18;
+  if (!morningPassed && !afternoonPassed) return forecast;
+  return {
+    ...forecast,
+    today: {
+      ...forecast.today,
+      morning: morningPassed ? null : forecast.today.morning,
+      afternoon: afternoonPassed ? null : forecast.today.afternoon,
+    },
+  };
+}
+
 export function useDetailedDayForecast(
   coords: Coords | null,
 ): UseQueryResult<DetailedForecast | null> {
@@ -158,11 +173,14 @@ export function useDetailedDayForecast(
   const lat = coords ? roundCoord(coords.lat) : 0;
   const lng = coords ? roundCoord(coords.lng) : 0;
 
-  return useQuery({
+  const query = useQuery({
     queryKey: ['weather', 'detailed-day', lat, lng],
     queryFn: () => fetchDetailed(coords as Coords),
     enabled,
     staleTime: CACHE_TIMES.STATIC,
     gcTime: GC_TIMES.LONG,
   });
+
+  const data = query.data ? applyPastBucketOverride(query.data) : query.data;
+  return { ...query, data } as UseQueryResult<DetailedForecast | null>;
 }
