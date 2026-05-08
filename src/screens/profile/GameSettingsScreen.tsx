@@ -8,10 +8,11 @@ import type { RootStackParamList } from '@/navigation/types';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useSettingsStore } from '@/store/settingsStore';
+import { useIsSuperAdmin } from '@/store/subscriptionStore';
 import { PageHeader } from '@/components/common/PageHeader';
 import { SectionHeader } from '@/components/common';
 import { FeatureLockToggle } from '@/components/subscription/FeatureLockToggle';
-import { IconArrowsLeftRight, IconTarget, IconShovel, IconAlertTriangle, IconMap, IconCrosshair } from '@tabler/icons-react-native';
+import { IconArrowsLeftRight, IconTarget, IconShovel, IconAlertTriangle, IconMap, IconCrosshair, IconHandStop } from '@tabler/icons-react-native';
 import { RadioButtonOption, SettingRow } from './components';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -35,6 +36,8 @@ export default function GameSettingsScreen() {
   );
   const enableHoleMap = useSettingsStore((state) => state.enableHoleMap);
   const trackShotsAutomatically = useSettingsStore((state) => state.trackShotsAutomatically);
+  const shotPromptingEnabled = useSettingsStore((state) => state.shotPromptingEnabled);
+  const isSuperAdmin = useIsSuperAdmin();
 
   // Get actions from store
   const setDistanceUnit = useSettingsStore((state) => state.setDistanceUnit);
@@ -51,6 +54,9 @@ export default function GameSettingsScreen() {
   const setEnableHoleMap = useSettingsStore((state) => state.setEnableHoleMap);
   const setTrackShotsAutomatically = useSettingsStore(
     (state) => state.setTrackShotsAutomatically
+  );
+  const setShotPromptingEnabled = useSettingsStore(
+    (state) => state.setShotPromptingEnabled
   );
 
   const handleBack = useCallback(() => {
@@ -227,6 +233,16 @@ export default function GameSettingsScreen() {
               onValueChange={setTrackShotsAutomatically}
               colors={colors}
             />
+            {isSuperAdmin && (
+              <SettingRow
+                icon={<IconHandStop size={20} color={colors.gray600} />}
+                label="Shot prompting (Super Admin)"
+                description="Prompt to log a shot after standing still for ~45 seconds. Internal testing only."
+                value={shotPromptingEnabled}
+                onValueChange={setShotPromptingEnabled}
+                colors={colors}
+              />
+            )}
           </View>
         </View>
 

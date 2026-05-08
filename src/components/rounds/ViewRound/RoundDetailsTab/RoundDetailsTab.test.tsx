@@ -85,8 +85,12 @@ jest.mock('./sheets', () => {
       visible ? <View testID="edit-datetime-sheet" /> : null,
     EditTeeSheet: ({ visible }: { visible: boolean }) =>
       visible ? <View testID="edit-tee-sheet" /> : null,
+    EditNineTypeSheet: ({ visible }: { visible: boolean }) =>
+      visible ? <View testID="edit-nine-type-sheet" /> : null,
     MatchupSheet: ({ visible }: { visible: boolean }) =>
       visible ? <View testID="matchup-sheet" /> : null,
+    RoundRulesSheet: ({ visible }: { visible: boolean }) =>
+      visible ? <View testID="round-rules-sheet" /> : null,
   };
 });
 

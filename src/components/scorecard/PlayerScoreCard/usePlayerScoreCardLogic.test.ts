@@ -8,7 +8,8 @@
  */
 
 import { renderHook, act } from '@testing-library/react-native';
-import { usePlayerScoreCardLogic } from './usePlayerScoreCardLogic';
+import { usePlayerScoreCardLogic, MAX_SCORE, MIN_SCORE } from './usePlayerScoreCardLogic';
+import { PICKUP_SCORE } from '@/constants/scoring';
 import type { Hole, HoleScore } from '@/types';
 
 // ============================================================================
@@ -17,7 +18,7 @@ import type { Hole, HoleScore } from '@/types';
 
 jest.mock('@/utils/scoring', () => ({
   getStrokesOnHole: jest.fn(() => 0),
-  calculateStablefordPoints: jest.fn(() => 2),
+  calculateStablefordPointsNet: jest.fn(() => 2),
 }));
 
 // ============================================================================
@@ -152,6 +153,206 @@ describe('usePlayerScoreCardLogic', () => {
 
       expect(onStatsUpdate).toHaveBeenCalledTimes(1);
       expect(onStatsUpdate).toHaveBeenCalledWith({ greenInRegulation: false });
+    });
+  });
+
+  describe('handleShotIncrement (auto-bump from logged shot)', () => {
+    it('sets strokes to 1 on first shot when no score exists', () => {
+      const onScoreSelect = jest.fn();
+
+      const { result } = renderHook(() =>
+        usePlayerScoreCardLogic({
+          handicap: 10,
+          currentHole: testHole,
+          currentScore: undefined,
+          onScoreSelect,
+        })
+      );
+
+      act(() => {
+        result.current.handleShotIncrement();
+      });
+
+      expect(onScoreSelect).toHaveBeenCalledWith(1);
+    });
+
+    it('adds 1 stroke on subsequent shots', () => {
+      const onScoreSelect = jest.fn();
+      const currentScore: HoleScore = { strokes: 3 };
+
+      const { result } = renderHook(() =>
+        usePlayerScoreCardLogic({
+          handicap: 10,
+          currentHole: testHole,
+          currentScore,
+          onScoreSelect,
+        })
+      );
+
+      act(() => {
+        result.current.handleShotIncrement();
+      });
+
+      expect(onScoreSelect).toHaveBeenCalledWith(4);
+    });
+
+    it('caps at MAX_SCORE', () => {
+      const onScoreSelect = jest.fn();
+      const currentScore: HoleScore = { strokes: MAX_SCORE };
+
+      const { result } = renderHook(() =>
+        usePlayerScoreCardLogic({
+          handicap: 10,
+          currentHole: testHole,
+          currentScore,
+          onScoreSelect,
+        })
+      );
+
+      act(() => {
+        result.current.handleShotIncrement();
+      });
+
+      expect(onScoreSelect).toHaveBeenCalledWith(MAX_SCORE);
+    });
+
+    it('no-ops when disabled', () => {
+      const onScoreSelect = jest.fn();
+
+      const { result } = renderHook(() =>
+        usePlayerScoreCardLogic({
+          handicap: 10,
+          currentHole: testHole,
+          currentScore: { strokes: 3 },
+          onScoreSelect,
+          disabled: true,
+        })
+      );
+
+      act(() => {
+        result.current.handleShotIncrement();
+      });
+
+      expect(onScoreSelect).not.toHaveBeenCalled();
+    });
+
+    it('no-ops when picked up', () => {
+      const onScoreSelect = jest.fn();
+
+      const { result } = renderHook(() =>
+        usePlayerScoreCardLogic({
+          handicap: 10,
+          currentHole: testHole,
+          currentScore: { strokes: PICKUP_SCORE },
+          onScoreSelect,
+        })
+      );
+
+      act(() => {
+        result.current.handleShotIncrement();
+      });
+
+      expect(onScoreSelect).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('handleShotDecrement (auto-decrement on undo)', () => {
+    it('removes 1 stroke from current score', () => {
+      const onScoreSelect = jest.fn();
+      const currentScore: HoleScore = { strokes: 4 };
+
+      const { result } = renderHook(() =>
+        usePlayerScoreCardLogic({
+          handicap: 10,
+          currentHole: testHole,
+          currentScore,
+          onScoreSelect,
+        })
+      );
+
+      act(() => {
+        result.current.handleShotDecrement();
+      });
+
+      expect(onScoreSelect).toHaveBeenCalledWith(3);
+    });
+
+    it('floors at MIN_SCORE', () => {
+      const onScoreSelect = jest.fn();
+      const currentScore: HoleScore = { strokes: MIN_SCORE };
+
+      const { result } = renderHook(() =>
+        usePlayerScoreCardLogic({
+          handicap: 10,
+          currentHole: testHole,
+          currentScore,
+          onScoreSelect,
+        })
+      );
+
+      act(() => {
+        result.current.handleShotDecrement();
+      });
+
+      expect(onScoreSelect).toHaveBeenCalledWith(MIN_SCORE);
+    });
+
+    it('no-ops when no score is set', () => {
+      const onScoreSelect = jest.fn();
+
+      const { result } = renderHook(() =>
+        usePlayerScoreCardLogic({
+          handicap: 10,
+          currentHole: testHole,
+          currentScore: undefined,
+          onScoreSelect,
+        })
+      );
+
+      act(() => {
+        result.current.handleShotDecrement();
+      });
+
+      expect(onScoreSelect).not.toHaveBeenCalled();
+    });
+
+    it('no-ops when disabled', () => {
+      const onScoreSelect = jest.fn();
+
+      const { result } = renderHook(() =>
+        usePlayerScoreCardLogic({
+          handicap: 10,
+          currentHole: testHole,
+          currentScore: { strokes: 4 },
+          onScoreSelect,
+          disabled: true,
+        })
+      );
+
+      act(() => {
+        result.current.handleShotDecrement();
+      });
+
+      expect(onScoreSelect).not.toHaveBeenCalled();
+    });
+
+    it('no-ops when picked up', () => {
+      const onScoreSelect = jest.fn();
+
+      const { result } = renderHook(() =>
+        usePlayerScoreCardLogic({
+          handicap: 10,
+          currentHole: testHole,
+          currentScore: { strokes: PICKUP_SCORE },
+          onScoreSelect,
+        })
+      );
+
+      act(() => {
+        result.current.handleShotDecrement();
+      });
+
+      expect(onScoreSelect).not.toHaveBeenCalled();
     });
   });
 

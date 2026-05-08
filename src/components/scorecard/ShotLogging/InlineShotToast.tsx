@@ -26,24 +26,29 @@ export const InlineShotToast = React.memo(function InlineShotToast() {
   const dismissAt = useShotLoggingUiStore((s) => s.dismissAt);
   const clearToast = useShotLoggingUiStore((s) => s.clearToast);
   const dismissBunkerPrompt = useShotLoggingUiStore((s) => s.dismissBunkerPrompt);
+  const confirmShotPrompt = useShotLoggingUiStore((s) => s.confirmShotPrompt);
+  const dismissShotPrompt = useShotLoggingUiStore((s) => s.dismissShotPrompt);
   const deleteShot = useDeleteShot();
   const setShotBunker = useSetShotBunker();
 
   const isBunkerPrompt = variant === 'bunkerPrompt';
+  const isShotPrompt = variant === 'shotPrompt';
 
   useEffect(() => {
     if (!dismissAt) return;
     const remaining = dismissAt - Date.now();
     const onTimeout = isBunkerPrompt
       ? () => dismissBunkerPrompt({ confirmed: false })
-      : clearToast;
+      : isShotPrompt
+        ? dismissShotPrompt
+        : clearToast;
     if (remaining <= 0) {
       onTimeout();
       return;
     }
     const t = setTimeout(onTimeout, remaining);
     return () => clearTimeout(t);
-  }, [dismissAt, clearToast, isBunkerPrompt, dismissBunkerPrompt]);
+  }, [dismissAt, clearToast, isBunkerPrompt, dismissBunkerPrompt, isShotPrompt, dismissShotPrompt]);
 
   const handleUndo = useCallback(() => {
     if (!lastShotId || !lastShotContext) return;
@@ -65,22 +70,40 @@ export const InlineShotToast = React.memo(function InlineShotToast() {
     dismissBunkerPrompt({ confirmed: false });
   }, [dismissBunkerPrompt]);
 
+  const handleShotPromptYes = useCallback(() => {
+    confirmShotPrompt();
+  }, [confirmShotPrompt]);
+
+  const handleShotPromptDismiss = useCallback(() => {
+    dismissShotPrompt();
+  }, [dismissShotPrompt]);
+
   if (!dismissAt) return null;
   if (variant === 'success' && (!lastShotId || lastSequence === null)) return null;
   if (variant === 'error' && !errorMessage) return null;
+  if (variant === 'warning' && (!lastShotId || lastSequence === null)) return null;
   if (variant === 'bunkerPrompt' && !lastShotId) return null;
 
   const isError = variant === 'error';
-  const surface = isError ? colors.error : colors.primary;
+  const isWarning = variant === 'warning';
+  const surface = isError
+    ? colors.error
+    : isWarning
+      ? colors.warning
+      : colors.primary;
   const textColor = colors.white;
 
   const message = isError
     ? errorMessage
-    : isBunkerPrompt
-      ? 'Was that a bunker shot?'
-      : lastFromBunker
-        ? `Bunker shot ${lastSequence} logged`
-        : `Shot ${lastSequence} logged`;
+    : isWarning
+      ? `Shot ${lastSequence} logged · weak GPS — tap the shot on the map to reposition`
+      : isBunkerPrompt
+        ? 'Was that a bunker shot?'
+        : isShotPrompt
+          ? 'Did you just take a shot?'
+          : lastFromBunker
+            ? `Bunker shot ${lastSequence} logged`
+            : `Shot ${lastSequence} logged`;
 
   return (
     <View
@@ -89,6 +112,9 @@ export const InlineShotToast = React.memo(function InlineShotToast() {
     >
       {isError && (
         <Icon source="alert-circle-outline" size={20} color={textColor} />
+      )}
+      {isWarning && (
+        <Icon source="crosshairs-question" size={20} color={textColor} />
       )}
       <Text style={[styles.message, { color: textColor }]} numberOfLines={2}>
         {message}
@@ -114,6 +140,29 @@ export const InlineShotToast = React.memo(function InlineShotToast() {
             style={styles.promptButton}
           >
             <Text style={[styles.action, { color: textColor }]}>No</Text>
+          </Pressable>
+        </View>
+      ) : isShotPrompt ? (
+        <View style={styles.promptActions}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Yes, log a shot now"
+            onPress={handleShotPromptYes}
+            testID="inline-shot-toast-shot-prompt-yes"
+            hitSlop={8}
+            style={styles.promptButton}
+          >
+            <Text style={[styles.action, { color: textColor }]}>Yes</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Dismiss shot prompt"
+            onPress={handleShotPromptDismiss}
+            testID="inline-shot-toast-shot-prompt-dismiss"
+            hitSlop={8}
+            style={styles.promptButton}
+          >
+            <Text style={[styles.action, { color: textColor }]}>Dismiss</Text>
           </Pressable>
         </View>
       ) : !isError ? (

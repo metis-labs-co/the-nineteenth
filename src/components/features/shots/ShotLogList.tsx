@@ -7,18 +7,28 @@
  * `computeShotDistances`. Per-shot tee anchor uses the round's hole coords.
  */
 
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { Icon, Text } from 'react-native-paper';
+import { AddShotHolePickerSheet } from './AddShotHolePickerSheet';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useThemeColors } from '@/context/ThemeContext';
 import { borderRadius, spacing, typography, shadows } from '@/constants/theme';
 import { useShotLogByRound } from '@/hooks/shots';
 import { useHoleCoordinates } from '@/hooks/useHoleCoordinates';
 import { useSettingsStore } from '@/store/settingsStore';
-import { computeShotDistances, type ShotWithDistance } from '@/utils/shotDistances';
+import { useTeeOverrideStore } from '@/store/teeOverrideStore';
+import {
+  computeShotDistances,
+  resolveTeeAnchor,
+  type ShotWithDistance,
+} from '@/utils/shotDistances';
+import { useCustomHoleTeesByCourse } from '@/hooks/customTees';
 import { metersToYards } from '@/utils/gpsCalculations';
 import { clubLabel } from '@/constants/clubs';
 import type { ShotLogEntry } from '@/types/database/shotLog.types';
+import type { RootStackParamList } from '@/navigation/types';
 
 interface ShotLogListProps {
   roundId: string;
@@ -51,6 +61,21 @@ interface ShotLogListProps {
    * other players' shots aren't shown as editable.
    */
   currentPlayerId?: string;
+  /** Round status — drives the "Add shot" button visibility per the cap rules. */
+  roundStatus?: 'upcoming' | 'in-progress' | 'completed';
+  /**
+   * Strokes scored per hole for the *current user*. Holes appearing here
+   * with `strokes > 0` but with no logged shots render a placeholder
+   * section with an "Add shot" affordance. For completed rounds, also
+   * gates the "Add shot" button: hidden once shots logged ≥ strokes.
+   */
+  holeStrokeCounts?: Record<number, number>;
+  /**
+   * Total holes for the round. Used by the bottom hole picker to list all
+   * holes (including ones with no shots and no strokes yet) when the round
+   * is in progress. Defaults to 18 when not provided.
+   */
+  totalHoles?: number;
 }
 
 interface HoleGroup {
@@ -69,14 +94,52 @@ export function ShotLogList({
   onDeleteShot,
   onChangeClubForShot,
   currentPlayerId,
+  roundStatus,
+  holeStrokeCounts,
+  totalHoles = 18,
 }: ShotLogListProps) {
   const colors = useThemeColors();
+  const navigation =
+    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const distanceUnit = useSettingsStore((s) => s.distanceUnit);
+  const teeOverrides = useTeeOverrideStore((s) => s.byRoundHole);
   const { data: shots = [], isLoading } = useShotLogByRound(roundId);
+  const [holePickerVisible, setHolePickerVisible] = useState(false);
+
+  const handleViewHoleOnMap = useCallback(
+    (holeNumber: number) => {
+      if (!courseId) return;
+      navigation.navigate('HoleMap', {
+        courseId,
+        holeNumber,
+        roundId,
+        mode: 'review',
+      });
+    },
+    [courseId, navigation, roundId]
+  );
+
+  const handleAddShotForHole = useCallback(
+    (holeNumber: number) => {
+      if (!courseId) return;
+      navigation.navigate('HoleMap', {
+        courseId,
+        holeNumber,
+        roundId,
+        mode: 'log-shot',
+        strokesScoredAtNav: holeStrokeCounts?.[holeNumber] ?? null,
+        roundStatus: roundStatus ?? 'in-progress',
+      });
+    },
+    [courseId, navigation, roundId, holeStrokeCounts, roundStatus]
+  );
   const { coordinatesByHole, isLoading: coordsLoading } = useHoleCoordinates(
     courseId ?? '',
     { enabled: !!courseId }
   );
+  const { data: customTeesByHole = {} } = useCustomHoleTeesByCourse(courseId, {
+    enabled: !!courseId,
+  });
 
   const formatDistance = useCallback(
     (meters: number | null) => {
@@ -90,7 +153,6 @@ export function ShotLogList({
   );
 
   const grouped: HoleGroup[] = useMemo(() => {
-    if (shots.length === 0) return [];
     const byHole = new Map<number, Map<string, ShotLogEntry[]>>();
     for (const s of shots) {
       const holeMap = byHole.get(s.hole_number) ?? new Map();
@@ -100,24 +162,82 @@ export function ShotLogList({
       byHole.set(s.hole_number, holeMap);
     }
 
+    // Union of (holes with shots) ∪ (holes where the current user has
+    // strokes scored). Holes with strokes-but-no-shots render with a
+    // placeholder body so the user can backfill from the same surface.
+    const holeNumbers = new Set<number>(byHole.keys());
+    if (holeStrokeCounts) {
+      for (const [k, v] of Object.entries(holeStrokeCounts)) {
+        if (v > 0) holeNumbers.add(Number(k));
+      }
+    }
+    if (holeNumbers.size === 0) return [];
+
     const holes: HoleGroup[] = [];
-    for (const holeNumber of Array.from(byHole.keys()).sort((a, b) => a - b)) {
-      const holeMap = byHole.get(holeNumber)!;
+    for (const holeNumber of Array.from(holeNumbers).sort((a, b) => a - b)) {
+      const holeMap = byHole.get(holeNumber);
       const set = coordinatesByHole?.[holeNumber];
-      const tee = set?.tee_back ?? set?.tee_front ?? null;
-      const perPlayer = Array.from(holeMap.entries()).map(([playerId, playerShots]) => ({
-        playerId,
-        shots: computeShotDistances(playerShots, tee),
-      }));
+      const override = teeOverrides[`${roundId}::${holeNumber}`] ?? null;
+      // Build the same coords array shape the resolver expects, prefer the
+      // custom tee when the override matches one, otherwise fall back to
+      // the standard back/front pick.
+      const holeCoords = [set?.tee_back, set?.tee_front].filter(
+        (c): c is NonNullable<typeof c> => !!c
+      );
+      const tee = resolveTeeAnchor(
+        override,
+        customTeesByHole[holeNumber] ?? [],
+        holeCoords
+      );
+      const perPlayer = holeMap
+        ? Array.from(holeMap.entries()).map(([playerId, playerShots]) => ({
+            playerId,
+            shots: computeShotDistances(playerShots, tee),
+          }))
+        : [];
       holes.push({ holeNumber, perPlayer });
     }
     return holes;
-  }, [shots, coordinatesByHole]);
+  }, [
+    shots,
+    coordinatesByHole,
+    customTeesByHole,
+    teeOverrides,
+    roundId,
+    holeStrokeCounts,
+  ]);
 
   const showPlayerHeaders = useMemo(() => {
     const playerIds = new Set(shots.map((s) => s.player_id));
     return playerIds.size > 1;
   }, [shots]);
+
+  /** Current user's logged shots count per hole — for cap visibility on
+   *  the "+ Add shot" affordance. */
+  const userShotsByHole = useMemo(() => {
+    const map: Record<number, number> = {};
+    if (!currentPlayerId) return map;
+    for (const s of shots) {
+      if (s.player_id === currentPlayerId) {
+        map[s.hole_number] = (map[s.hole_number] ?? 0) + 1;
+      }
+    }
+    return map;
+  }, [shots, currentPlayerId]);
+
+  /** Whether the "Add shot" button should render for the given hole.
+   *  Hidden when: courseId is null, round upcoming, completed-round at cap. */
+  const canAddShotForHole = useCallback(
+    (holeNumber: number): boolean => {
+      if (!courseId) return false;
+      if (roundStatus === 'upcoming') return false;
+      const n = userShotsByHole[holeNumber] ?? 0;
+      const s = holeStrokeCounts?.[holeNumber];
+      if (roundStatus === 'completed' && s != null && n >= s) return false;
+      return true;
+    },
+    [courseId, roundStatus, userShotsByHole, holeStrokeCounts]
+  );
 
   if (isLoading || coordsLoading) {
     return (
@@ -127,7 +247,12 @@ export function ShotLogList({
     );
   }
 
-  if (grouped.length === 0) {
+  /** Whether the bottom hole picker entry should be rendered.
+   *  Only useful while in progress — completed rounds can't add shots
+   *  to holes that have no strokes scored. */
+  const showHolePickerEntry = !!courseId && roundStatus === 'in-progress';
+
+  if (grouped.length === 0 && !showHolePickerEntry) {
     return (
       <View style={styles.center}>
         <Text style={[typography.body, { color: colors.textSecondary, textAlign: 'center' }]}>
@@ -139,11 +264,78 @@ export function ShotLogList({
 
   const body = (
     <>
+      {grouped.length === 0 && showHolePickerEntry && (
+        <View style={[styles.center, styles.emptyHoleBlockTop]}>
+          <Text
+            style={[
+              typography.body,
+              { color: colors.textSecondary, textAlign: 'center' },
+            ]}
+          >
+            No shots have been logged for this round yet.
+          </Text>
+        </View>
+      )}
+
       {grouped.map((hole) => (
         <View key={hole.holeNumber} style={styles.holeBlock}>
-          <Text style={[typography.h4, { color: colors.textPrimary }]}>
-            Hole {hole.holeNumber}
-          </Text>
+          <View style={styles.holeHeaderRow}>
+            <Text style={[typography.h4, { color: colors.textPrimary }]}>
+              Hole {hole.holeNumber}
+            </Text>
+            <View style={styles.holeHeaderActions}>
+              {canAddShotForHole(hole.holeNumber) && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Log shot for hole ${hole.holeNumber}`}
+                  accessibilityHint="Opens the map to place a new shot for this hole"
+                  hitSlop={8}
+                  onPress={() => handleAddShotForHole(hole.holeNumber)}
+                  style={({ pressed }) => [
+                    styles.holeMapIconButton,
+                    pressed && { opacity: 0.6 },
+                  ]}
+                >
+                  <Icon source="plus-circle-outline" size={22} color={colors.primary} />
+                </Pressable>
+              )}
+              {courseId && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`View shots for hole ${hole.holeNumber} on map`}
+                  accessibilityHint="Opens the hole map showing every shot on this hole"
+                  hitSlop={8}
+                  onPress={() => handleViewHoleOnMap(hole.holeNumber)}
+                  style={({ pressed }) => [
+                    styles.holeMapIconButton,
+                    pressed && { opacity: 0.6 },
+                  ]}
+                >
+                  <Icon source="map-outline" size={22} color={colors.textSecondary} />
+                </Pressable>
+              )}
+            </View>
+          </View>
+
+          {hole.perPlayer.length === 0 && (
+            <View
+              style={[
+                styles.shotGroup,
+                shadows.sm,
+                styles.emptyHoleBlock,
+                { backgroundColor: colors.surface },
+              ]}
+            >
+              <Text
+                style={[
+                  typography.caption,
+                  { color: colors.textSecondary, textAlign: 'center' },
+                ]}
+              >
+                No shots logged for this hole yet.
+              </Text>
+            </View>
+          )}
 
           {hole.perPlayer.map((group, groupIdx) => (
             <View key={group.playerId} style={[styles.playerBlock, groupIdx > 0 && { marginTop: spacing.sm }]}>
@@ -243,37 +435,79 @@ export function ShotLogList({
           ))}
         </View>
       ))}
+
+      {showHolePickerEntry && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Log shot for another hole"
+          accessibilityHint="Opens a picker to choose any hole and log a shot there"
+          onPress={() => setHolePickerVisible(true)}
+          style={({ pressed }) => [
+            styles.addAnotherHoleButton,
+            {
+              borderColor: colors.primary,
+              backgroundColor: colors.surface,
+              opacity: pressed ? 0.7 : 1,
+            },
+          ]}
+        >
+          <Icon source="plus-circle-outline" size={20} color={colors.primary} />
+          <Text style={[typography.bodyBold, { color: colors.primary }]}>
+            Log shot for another hole
+          </Text>
+        </Pressable>
+      )}
     </>
   );
+
+  const picker = showHolePickerEntry ? (
+    <AddShotHolePickerSheet
+      visible={holePickerVisible}
+      onClose={() => setHolePickerVisible(false)}
+      totalHoles={totalHoles}
+      shotsByHole={userShotsByHole}
+      strokesByHole={holeStrokeCounts}
+      onSelect={(holeNumber) => {
+        setHolePickerVisible(false);
+        handleAddShotForHole(holeNumber);
+      }}
+    />
+  ) : null;
 
   if (noScroll) {
     // Caller already provides horizontal padding via its own scroll
     // container; only contribute vertical spacing here so the content
     // isn't double-inset.
     return (
-      <View style={[styles.contentNoScroll, { paddingBottom: bottomInset + spacing.xxxl }]}>
-        {body}
-      </View>
+      <>
+        <View style={[styles.contentNoScroll, { paddingBottom: bottomInset + spacing.xxxl }]}>
+          {body}
+        </View>
+        {picker}
+      </>
     );
   }
 
   return (
-    <ScrollView
-      style={styles.scroll}
-      contentContainerStyle={[styles.content, { paddingBottom: bottomInset + spacing.xxxl }]}
-      refreshControl={
-        onRefresh ? (
-          <RefreshControl
-            refreshing={!!isRefreshing}
-            onRefresh={onRefresh}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
-          />
-        ) : undefined
-      }
-    >
-      {body}
-    </ScrollView>
+    <>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[styles.content, { paddingBottom: bottomInset + spacing.xxxl }]}
+        refreshControl={
+          onRefresh ? (
+            <RefreshControl
+              refreshing={!!isRefreshing}
+              onRefresh={onRefresh}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
+            />
+          ) : undefined
+        }
+      >
+        {body}
+      </ScrollView>
+      {picker}
+    </>
   );
 }
 
@@ -295,6 +529,44 @@ const styles = StyleSheet.create({
   },
   holeBlock: {
     gap: spacing.sm,
+  },
+  holeHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  holeMapIconButton: {
+    padding: spacing.xs,
+    minWidth: 32,
+    minHeight: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  holeHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  emptyHoleBlock: {
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.md,
+  },
+  emptyHoleBlockTop: {
+    paddingBottom: spacing.lg,
+  },
+  addAnotherHoleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: borderRadius.full,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    minHeight: 48,
+    marginTop: spacing.sm,
   },
   playerBlock: {
     gap: spacing.xs,

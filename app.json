@@ -18,9 +18,12 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.the.nineteenth.golf",
-      "buildNumber": "13",
+      "buildNumber": "14",
       "usesAppleSignIn": true,
       "appleTeamId": "TMB3988D5Z",
+      "config": {
+        "googleMapsApiKey": "AIzaSyAMl3b9QzegKRiH_arqIhA1BeF1y678ZB8"
+      },
       "associatedDomains": [
         "applinks:thenineteenth.golf",
         "applinks:www.thenineteenth.golf",
@@ -59,7 +62,7 @@
         }
       },
       "package": "com.the.nineteenth.golf",
-      "versionCode": 31,
+      "versionCode": 32,
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",

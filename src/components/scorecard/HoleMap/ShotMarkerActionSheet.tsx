@@ -38,7 +38,7 @@ export function ShotMarkerActionSheet({
     >
       <Pressable style={styles.overlay} onPress={onClose} testID="shot-action-sheet-overlay">
         <Pressable
-          style={[styles.sheet, shadows.lg, { backgroundColor: colors.surface }]}
+          style={[styles.sheet, shadows.lg, { backgroundColor: colors.surfaceElevated }]}
           // Stop the inner press from bubbling to overlay-dismiss.
           onPress={(e) => e.stopPropagation()}
         >

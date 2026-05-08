@@ -82,13 +82,22 @@ export type RootStackParamList = {
     roundId: string;
   };
 
-  // Hole Map (modal — Phase A; mode added in Phase C2)
+  // Hole Map (modal — Phase A; mode added in Phase C2; 'log-shot' added 2026-05-08)
   HoleMap: {
     courseId: string;
     holeNumber: number;
     roundId: string;
-    /** 'live' (default) shows shot-logging affordances; 'review' is read-only. */
-    mode?: 'live' | 'review';
+    /**
+     * - 'live' (default): full shot-logging affordances during scoring
+     * - 'review': read-only post-round review
+     * - 'log-shot': retroactive single-shot tap-to-place flow from the Shots tab
+     */
+    mode?: 'live' | 'review' | 'log-shot';
+    /** Strokes scored for this hole at navigation time. Used for cap behaviour
+     *  in 'log-shot' mode. `null` when unknown (treat as no cap). */
+    strokesScoredAtNav?: number | null;
+    /** Round status snapshot at navigation time. Used for cap behaviour. */
+    roundStatus?: 'upcoming' | 'in-progress' | 'completed';
   };
 
   // Quick Score Entry (admin/organizer backfill)
@@ -130,6 +139,31 @@ export type RootStackParamList = {
   // What's in the Bag
   WhatsInTheBag: undefined;
   ClubDistanceDetail: { clubKey: import('@/constants/clubs').ClubKey };
+  ShotMap: {
+    /** Shot row id — required for the move-on-map edit flow. */
+    shotId: string;
+    /** Round id — required so the cache can be patched correctly after a move. */
+    roundId: string;
+    /** Course id — used to fetch tee coordinates for the shot-1 tee override.
+     *  `null` when the round has no linked course (standalone manual rounds). */
+    courseId: string | null;
+    /** Shot sequence within the hole (1-based). Tee-origin override is only
+     *  meaningful for shot 1. */
+    sequence: number;
+    /** Landing position of the shot. */
+    shotLatitude: number;
+    shotLongitude: number;
+    /** Position the shot was struck from (tee or prior shot). `null` when unknown. */
+    originLatitude: number | null;
+    originLongitude: number | null;
+    /** Distance the shot travelled, in metres. `null` when origin is unknown. */
+    distanceMeters: number | null;
+    clubKey: import('@/constants/clubs').ClubKey;
+    holeNumber: number;
+    courseName: string | null;
+    /** Round date (ISO) for the header. */
+    roundPlayedAt: string | null;
+  };
 
   // Friends
   Friends: { fromProfile?: boolean } | undefined;

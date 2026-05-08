@@ -39,6 +39,7 @@ import {
 import { PlayersSection } from './components';
 import {
   EditDateTimeSheet,
+  EditNineTypeSheet,
   EditTeeSheet,
   MatchupSheet,
   RoundRulesSheet,
@@ -50,6 +51,7 @@ import { useRoundTeams } from '@/hooks/scorecard/useRoundTeams';
 type OpenSheet =
   | 'date-time'
   | 'tee'
+  | 'nine-type'
   | 'matchup'
   | 'round-type'
   | 'round-rules'
@@ -81,6 +83,17 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
   // (see useViewRoundPermissions).
   const canEdit = isOrganizer && round.status === 'upcoming';
 
+  // Hole count (`nine_type`) is the one field we deliberately allow
+  // changing mid-round: switching full → front9 doesn't invalidate
+  // scores already entered, and players sometimes decide to cut a round
+  // short or extend it after they've started. Standalone rounds only —
+  // for competition rounds, hole count is fixed by the competition.
+  const isStandalone = round.competition_id === null;
+  const canEditNineType =
+    isOrganizer &&
+    isStandalone &&
+    (round.status === 'upcoming' || round.status === 'in-progress');
+
   // Per-field edit sheets - only one open at a time. Kept local to the tab
   // because no other component needs to observe this state.
   const [openSheet, setOpenSheet] = useState<OpenSheet>(null);
@@ -101,6 +114,10 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
     if (!canEdit) return;
     setOpenSheet('round-type');
   }, [canEdit]);
+  const openNineType = useCallback(() => {
+    if (!canEditNineType) return;
+    setOpenSheet('nine-type');
+  }, [canEditNineType]);
   const openRoundRules = useCallback(() => {
     setOpenSheet('round-rules');
   }, []);
@@ -333,6 +350,38 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
 
           <View style={[styles.detailDivider, { backgroundColor: colors.border }]} />
 
+          {/* Holes Played — `nine_type` selector. Visible for standalone
+              rounds; editable mid-round (full ↔ front9 ↔ back9) so users
+              can extend or cut a round short without losing scores
+              they've already entered. */}
+          {isStandalone && (
+            <>
+              <DetailRow
+                icon="flag"
+                label="Holes"
+                onPress={canEditNineType ? openNineType : undefined}
+                accessibilityHint={
+                  canEditNineType
+                    ? 'Change number of holes'
+                    : undefined
+                }
+              >
+                <Pill
+                  label={
+                    round.nine_type === 'front9'
+                      ? 'Front 9'
+                      : round.nine_type === 'back9'
+                        ? 'Back 9'
+                        : 'Full 18'
+                  }
+                  variant="primary"
+                  size="md"
+                />
+              </DetailRow>
+              <View style={[styles.detailDivider, { backgroundColor: colors.border }]} />
+            </>
+          )}
+
           {/* Round Type — single preset picker that writes the full set
               of format fields (game_type, is_team_round, team_format,
               round_format, sub_match_size, rules_override) in one shot.
@@ -467,6 +516,14 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
         tees={round.course?.tees ?? []}
         currentTee={round.selected_tee ?? null}
       />
+      {isStandalone && (
+        <EditNineTypeSheet
+          visible={openSheet === 'nine-type'}
+          onDismiss={handleCloseSheet}
+          roundId={round.id}
+          currentNineType={round.nine_type}
+        />
+      )}
       {showMatchupRow && (
         <MatchupSheet
           visible={openSheet === 'matchup'}

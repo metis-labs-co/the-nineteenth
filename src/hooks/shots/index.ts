@@ -13,3 +13,4 @@ export {
 } from './useShotTrackingEligibility';
 export { useSetShotBunker } from './useSetShotBunker';
 export { useShouldPromptBunker } from './useShouldPromptBunker';
+export { useShotDwellPrompt } from './useShotDwellPrompt';

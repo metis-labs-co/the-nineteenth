@@ -4,7 +4,7 @@ exports[`RoundDetailsTab Snapshots matches snapshot with full data 1`] = `
 <View
   style={
     {
-      "backgroundColor": "#f9fafb",
+      "backgroundColor": "#f3f4f6",
       "flex": 1,
     }
   }
@@ -1187,7 +1187,7 @@ exports[`RoundDetailsTab Snapshots matches snapshot with minimal data 1`] = `
 <View
   style={
     {
-      "backgroundColor": "#f9fafb",
+      "backgroundColor": "#f3f4f6",
       "flex": 1,
     }
   }
@@ -2161,7 +2161,7 @@ exports[`RoundDetailsTab Snapshots matches snapshot without edit capabilities 1`
 <View
   style={
     {
-      "backgroundColor": "#f9fafb",
+      "backgroundColor": "#f3f4f6",
       "flex": 1,
     }
   }

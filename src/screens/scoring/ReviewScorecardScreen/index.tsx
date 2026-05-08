@@ -140,6 +140,24 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
     return map;
   }, [currentPlayers]);
 
+  // Strokes per hole for the *current user* — used by ShotLogList to gate
+  // the "+ Add shot" affordance and render placeholders for stroke-only
+  // holes. Read from the scorecard store (already hydrated for the active
+  // scoring session).
+  const userHoleStrokeCounts = useMemo(() => {
+    if (!currentUserId) return undefined;
+    const map: Record<number, number> = {};
+    for (let h = 1; h <= holeCount; h++) {
+      const score = getPlayerScore(currentUserId, h);
+      const strokes =
+        score && 'strokes' in score && typeof (score as { strokes?: unknown }).strokes === 'number'
+          ? (score as { strokes: number }).strokes
+          : 0;
+      if (strokes > 0) map[h] = strokes;
+    }
+    return map;
+  }, [currentUserId, holeCount, getPlayerScore, groupScorecards]);
+
   // Mismatch hooks
   const { data: mismatches = [] } = usePendingMismatches(roundId || undefined);
   const { mutateAsync: resolveMismatch, isPending: isResolving } = useResolveMismatch();
@@ -469,10 +487,17 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
           playerNameMap={playerNamesById}
           isRefreshing={isRefreshing}
           onRefresh={handleRefresh}
-          bottomInset={insets.bottom}
+          // The ReviewActions bar is `position: absolute` along the bottom
+          // (~80px above safe-area). Add headroom so the last row — esp.
+          // the "Log shot for another hole" button — clears it on scroll.
+          // Matches the Stats tab pattern on this same screen.
+          bottomInset={insets.bottom + 100}
           currentPlayerId={currentUserId}
           onDeleteShot={handleDeleteShot}
           onChangeClubForShot={handleChangeClub}
+          roundStatus={roundDetails?.status ?? 'in-progress'}
+          holeStrokeCounts={userHoleStrokeCounts}
+          totalHoles={holeCount}
         />
       )}
 

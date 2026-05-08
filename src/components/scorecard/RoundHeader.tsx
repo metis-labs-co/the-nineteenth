@@ -16,9 +16,14 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, StyleSheet, Animated } from 'react-native';
-import { Text } from 'react-native-paper';
-import { ConfirmationDialog, PageHeader, OfflineIndicator } from '@/components/common';
+import { View, StyleSheet, Animated, Pressable } from 'react-native';
+import { Text, Icon } from 'react-native-paper';
+import {
+  ConfirmationDialog,
+  PageHeader,
+  OfflineIndicator,
+  ShotLoggingInfoSheet,
+} from '@/components/common';
 import { SkinsIndicator } from '@/components/skins';
 import { WolfIndicator } from '@/components/wolf';
 import { DistanceToPin } from '@/components/scorecard/HoleHeader/DistanceToPin';
@@ -52,6 +57,13 @@ export interface RoundHeaderProps {
   /** Scoring-pairs banner (stroke play only — leave default false otherwise). */
   scoringPairsEnabled?: boolean;
   playersToScore?: Player[];
+
+  /**
+   * Show an info icon that opens a bottom sheet explaining how to log shots.
+   * Enable on screens that mount the shot-logging UI (stroke play, match
+   * play). The icon is rendered in the right-content area of the header.
+   */
+  showShotLoggingInfo?: boolean;
 }
 
 export function RoundHeader({
@@ -69,6 +81,7 @@ export function RoundHeader({
   onSyncPress,
   scoringPairsEnabled = false,
   playersToScore = [],
+  showShotLoggingInfo = false,
 }: RoundHeaderProps) {
   const colors = useThemeColors();
 
@@ -77,6 +90,8 @@ export function RoundHeader({
   const _handleSkinsPress = useCallback(() => {
     setShowSkinsAlert(true);
   }, []);
+
+  const [showShotInfo, setShowShotInfo] = useState(false);
 
   const renderSubtitle = (): React.ReactNode | undefined => {
     if (!courseName) return undefined;
@@ -132,6 +147,22 @@ export function RoundHeader({
 
   const renderRightContent = () => (
     <View style={styles.rightContent}>
+      {showShotLoggingInfo && (
+        <Pressable
+          onPress={() => setShowShotInfo(true)}
+          accessibilityRole="button"
+          accessibilityLabel="How to log shots"
+          hitSlop={8}
+          style={styles.headerIconButton}
+          testID="round-header-shot-info"
+        >
+          <Icon
+            source="information-outline"
+            size={22}
+            color={colors.textSecondary}
+          />
+        </Pressable>
+      )}
       {courseId && (
         <DistanceToPin courseId={courseId} holeNumber={currentHole} roundId={roundId} />
       )}
@@ -197,6 +228,13 @@ export function RoundHeader({
         onConfirm={() => setShowSkinsAlert(false)}
         onCancel={() => setShowSkinsAlert(false)}
       />
+
+      {showShotLoggingInfo && (
+        <ShotLoggingInfoSheet
+          visible={showShotInfo}
+          onClose={() => setShowShotInfo(false)}
+        />
+      )}
     </>
   );
 }

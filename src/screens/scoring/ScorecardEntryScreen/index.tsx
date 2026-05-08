@@ -46,6 +46,7 @@ import type { RootStackScreenProps } from '@/navigation/types';
 import type { Hole } from '@/types';
 import { isSingleBallScore } from '@/types/database';
 import { calculatePlayingHandicap } from '@/hooks/usePlayingHandicap';
+import { useApplyAutoTeeOverrides } from '@/hooks/useApplyAutoTeeOverrides';
 import { resolvePlayerTee } from '@/utils/teeResolution';
 import { getTeeColor } from '@/services/courses';
 
@@ -188,6 +189,17 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
     ballCount,
     isSoloRound,
   } = useRoundData({ roundId, competitionId, currentUserId: user?.id });
+
+  // Pre-populate per-hole tee origin overrides based on the player's chosen
+  // tee box. Maps the round's selected tee to the most accurate origin
+  // (custom tee → back/front POI → default to back). Idempotent — never
+  // overwrites a manual choice the user has already set on a hole map.
+  // Per-player tee wins over the round default so co-scoring rounds set
+  // the override against the *current user's* tee.
+  const playerTeeForAutoOverride = user?.id
+    ? playerTeeMap.get(user.id) ?? selectedTeeData
+    : selectedTeeData;
+  useApplyAutoTeeOverrides(roundId, courseId, playerTeeForAutoOverride, holes);
 
   // Split team rounds (round_format='split') break the round into independent
   // sub-matches (e.g. a 2v2 better-ball with two cross-team pairs). Each user
@@ -705,6 +717,7 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
         onSyncPress={triggerSync}
         scoringPairsEnabled={scoringPairsEnabled}
         playersToScore={playersToScore}
+        showShotLoggingInfo
       />
 
       {buildAsYouPlay.enabled && (

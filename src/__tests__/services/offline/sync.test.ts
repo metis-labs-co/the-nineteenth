@@ -725,6 +725,34 @@ describe('Error Handling', () => {
     // RLS error should still mark as synced to prevent infinite retry
     expect(database.markScorecardsAsSynced).toHaveBeenCalledWith([scorecard.id]);
   });
+
+  it('should drop pending-queue syncs immediately on RLS error (no retries)', async () => {
+    // Simulates the production log: a queued scorecard sync hits RLS because
+    // the user no longer has access to the round (round deleted, membership
+    // revoked). Retrying would burn 3 slots and emit a misleading
+    // "PERMANENT SYNC FAILURE" warning. Instead, drop and move on.
+    const rlsSync = createPendingSync({ id: 42, retryCount: 0 });
+    (database.getPendingSyncs as jest.Mock).mockResolvedValue([rlsSync]);
+
+    const mockFrom = supabase.from as jest.Mock;
+    mockFrom.mockReturnValue({
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      maybeSingle: jest.fn(() => Promise.resolve({ data: null, error: null })),
+      upsert: jest.fn(() =>
+        Promise.resolve({
+          data: null,
+          error: { message: 'new row violates row-level security policy for table "scorecards"', code: '42501' },
+        })
+      ),
+    });
+
+    await syncAll();
+
+    // Removed without ever incrementing retry count
+    expect(database.removePendingSync).toHaveBeenCalledWith(42);
+    expect(database.incrementSyncRetryCount).not.toHaveBeenCalled();
+  });
 });
 
 // ============================================================================

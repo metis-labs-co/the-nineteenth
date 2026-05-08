@@ -406,7 +406,13 @@ const styles = StyleSheet.create({
 - Use Paper for: `Text`, `ActivityIndicator`, `Divider`, `Icon`, `TextInput`
 - **DO NOT use Paper's `Button` component** - use `TouchableOpacity` with explicit styling
 
-**Complete guide**: See [STYLING_GUIDE.md](docs/guides/STYLING_GUIDE.md) for patterns, design tokens, and best practices.
+**Modals & sheets — solid surfaces** (CRITICAL):
+- The app has user-configurable `surfaceStyle` (solid/translucent) and `backdropStyle` (image/none) settings. In translucent + image mode, `colors.surface*` and `colors.background` are partially transparent so the photographic backdrop shows through.
+- iOS system modals (RN `<Modal>` and React Navigation `presentation: 'modal'`) render in a separate UIWindow where the backdrop image is **not** visible — the system draws white instead, and translucent surfaces wash to white in any theme.
+- **Every screen presented as `presentation: 'modal'` (or RN `<Modal>` content) must be wrapped in `<SystemModalTheme>` from `@/components/common`.** It pins the subtree to solid surfaces while preserving the user's light/dark preference.
+- Sheet-styled footers/sections inside a modal screen are covered by wrapping the screen root.
+
+**Complete guide**: See [STYLING_GUIDE.md](docs/guides/STYLING_GUIDE.md) for patterns, design tokens, and best practices (including "Modals & Sheets — Solid Surfaces").
 
 ---
 

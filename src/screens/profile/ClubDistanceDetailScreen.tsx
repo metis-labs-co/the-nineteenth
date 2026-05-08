@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, View } from 'react-native';
-import { Text } from 'react-native-paper';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { Icon, Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -63,9 +63,42 @@ export default function ClubDistanceDetailScreen() {
     return parts.join(' · ');
   }, [entry, formatDistance]);
 
+  const handleViewOnMap = useCallback(
+    (shot: ShotWithContext) => {
+      navigation.navigate('ShotMap', {
+        shotId: shot.id,
+        roundId: shot.round_id,
+        courseId: shot.courseId,
+        sequence: shot.sequence,
+        shotLatitude: shot.latitude,
+        shotLongitude: shot.longitude,
+        originLatitude: shot.originLatitude,
+        originLongitude: shot.originLongitude,
+        distanceMeters: shot.distanceMeters,
+        clubKey,
+        holeNumber: shot.hole_number,
+        courseName: shot.courseName,
+        roundPlayedAt: shot.roundPlayedAt,
+      });
+    },
+    [navigation, clubKey]
+  );
+
   const renderItem = useCallback(
     ({ item }: { item: ShotWithContext }) => (
-      <View style={[styles.row, { backgroundColor: colors.surface }]}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`View shot on map at ${item.courseName ?? 'course'} hole ${item.hole_number}`}
+        accessibilityHint="Opens a map focused on this shot"
+        onPress={() => handleViewOnMap(item)}
+        style={({ pressed }) => [
+          styles.row,
+          {
+            backgroundColor: colors.surface,
+            opacity: pressed ? 0.7 : 1,
+          },
+        ]}
+      >
         <View style={styles.rowLeft}>
           <Text style={[typography.body, { color: colors.textPrimary }]}>
             {item.courseName ?? 'Unknown course'}
@@ -82,9 +115,10 @@ export default function ClubDistanceDetailScreen() {
         >
           {formatDistance(item.distanceMeters)}
         </Text>
-      </View>
+        <Icon source="chevron-right" size={20} color={colors.textSecondary} />
+      </Pressable>
     ),
-    [colors, formatDistance]
+    [colors, formatDistance, handleViewOnMap]
   );
 
   return (

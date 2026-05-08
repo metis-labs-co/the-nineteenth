@@ -299,9 +299,27 @@ Built-in `KeyboardAvoidingView` automatically adjusts the sheet when the keyboar
 ### Dark/Light Theme Support
 
 The component uses `useThemeColors()` to automatically adapt to the current theme:
-- `colors.surface` for sheet background
+- `colors.surfaceElevated` for sheet background
 - `colors.border` for handle and header border
 - `colors.textPrimary` / `colors.textSecondary` for text
+
+### Surface Style — Always Solid in System Modals
+
+The app's appearance settings include a "translucent" surface style that makes `colors.surface*` partially transparent so the photographic backdrop shows through. iOS system modals (RN `<Modal>` and React Navigation `presentation: 'modal'`) render in a separate UIWindow where the photographic backdrop **isn't visible** — the system shows white instead, and translucent surfaces wash to white.
+
+**Rule:** any sheet (this `BottomSheet` component, sheet-styled footers, or content rendered inside a system modal) **must** be wrapped in `SystemModalTheme` so its surfaces stay solid regardless of the user's appearance settings:
+
+```tsx
+import { SystemModalTheme } from '@/components/common';
+
+<SystemModalTheme>
+  <BottomSheet visible={visible} onClose={onClose}>
+    {/* ... */}
+  </BottomSheet>
+</SystemModalTheme>
+```
+
+If you're authoring a screen presented as `presentation: 'modal'` and the screen has any sheet-styled footer/section, wrap the entire screen content in `SystemModalTheme` at the screen root. See `docs/guides/STYLING_GUIDE.md` ("Modals & Sheets — Solid Surfaces") for the full rationale.
 
 ### Safe Area Handling
 

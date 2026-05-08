@@ -26,6 +26,7 @@ function shot(overrides: Partial<ShotLogEntry>): ShotLogEntry {
     club_used: null,
     shot_type: null,
     from_bunker: false,
+    accuracy_meters: null,
     created_at: new Date('2026-05-06T10:00:00Z').toISOString(),
     updated_at: new Date('2026-05-06T10:00:00Z').toISOString(),
     ...overrides,

@@ -32,6 +32,8 @@ interface LogShotInput {
   longitude: number;
   /** Required: the canonical club key the player hit. Drives per-club analytics. */
   clubKey: ClubKey;
+  /** Reported GPS accuracy (metres) at capture time, or null when unavailable. */
+  accuracyMeters?: number | null;
 }
 
 interface UpdateShotInput {
@@ -100,6 +102,7 @@ export function useLogShot() {
             latitude: input.latitude,
             longitude: input.longitude,
             club_used: input.clubKey,
+            accuracy_meters: input.accuracyMeters ?? null,
           })
           .select()
           .single();
@@ -170,6 +173,8 @@ export function useUpdateShot() {
         .update({
           latitude: input.latitude,
           longitude: input.longitude,
+          // Manual repositions are user-trusted; clear the warning flag.
+          accuracy_meters: null,
         })
         .eq('id', input.shotId)
         .select()

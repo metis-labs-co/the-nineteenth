@@ -118,6 +118,67 @@ The `ColorPalette` type includes:
 
 ---
 
+## Modals & Sheets — Solid Surfaces
+
+The app supports two appearance settings beyond light/dark that affect how surfaces composite:
+
+- **Surface style** — `solid` or `translucent` (semi-transparent surfaces tinted over the backdrop)
+- **Backdrop** — `image` or `none` (a photographic backdrop behind every screen)
+
+In `translucent` + `image` mode, `colors.background` is transparent and `colors.surface` is partially transparent so the photographic backdrop shows through for a frosted-glass effect.
+
+### The problem with system modals
+
+iOS system modals open in a **separate UIWindow** above the React Native tree. The app's photographic backdrop is not visible behind them — the system draws its default **white** instead. With translucent surfaces or a transparent background, modal content washes to white in any theme (including dark mode).
+
+This applies to:
+
+- `<Modal>` with `presentationStyle` of `pageSheet` / `fullScreen`
+- Any `<Modal>` without `transparent={true}`
+- React Navigation native-stack screens with `presentation: 'modal'`, `'pageSheet'`, `'formSheet'`, or `'fullScreenModal'`
+- Sheet-styled footers/components rendered inside any of the above
+
+### The rule
+
+> **Every screen, modal, or sheet rendered inside a system UIWindow MUST be wrapped in `SystemModalTheme`.**
+
+`SystemModalTheme` (in `@/components/common`) pins the subtree to `surfaceStyle: 'solid'` + `backdropStyle: 'none'`, preserving the user's light/dark preference but giving solid, legible surfaces regardless of their appearance settings.
+
+```tsx
+// React Navigation modal screen
+import { SystemModalTheme } from '@/components/common';
+
+export default function MyModalScreen(props: Props) {
+  return (
+    <SystemModalTheme>
+      <MyModalScreenContent {...props} />
+    </SystemModalTheme>
+  );
+}
+```
+
+```tsx
+// RN <Modal> usage
+<Modal presentationStyle="pageSheet" ...>
+  <SystemModalTheme>
+    <View>{/* sheet content */}</View>
+  </SystemModalTheme>
+</Modal>
+```
+
+### Don't do this
+
+- ❌ Don't manually hardcode `backgroundColor: '#fff'` on a sheet to "fix" the white-bleed — that breaks dark mode.
+- ❌ Don't rely on `colors.surface` alone in a system modal — it's translucent in some appearance modes.
+- ❌ Don't apply `forceMode="dark"` to force dark mode inside a modal — that overrides the user's light/dark preference. Use `SystemModalTheme`, which only pins surface/backdrop styles.
+
+### Reference
+
+- Component: `src/components/common/SystemModalTheme.tsx`
+- Underlying provider: `ThemeProvider` from `@/context/ThemeContext` (`forceSurfaceStyle` / `forceBackdropStyle` props)
+
+---
+
 ## Styling Patterns
 
 ### Pattern 1: Styles in Same File (Recommended for Most Components)

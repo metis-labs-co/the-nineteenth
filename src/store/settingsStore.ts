@@ -38,6 +38,10 @@ interface SettingsState {
   // by the inline log-shot button; this is the user-facing master switch.
   trackShotsAutomatically: boolean;
 
+  // Shot prompting — detect when the user has been stationary for ~20s and
+  // prompt them to log a shot. Super-admin only while in test phase.
+  shotPromptingEnabled: boolean;
+
   // Collapse the FIR/GIR/Putts stats row by default when scoring 3+ players
   autoCollapseStatsForLargeGroups: boolean;
 
@@ -65,6 +69,7 @@ interface SettingsState {
   setShowGpsDistance: (show: boolean) => void;
   setEnableHoleMap: (enable: boolean) => void;
   setTrackShotsAutomatically: (enable: boolean) => void;
+  setShotPromptingEnabled: (enable: boolean) => void;
   setAutoCollapseStatsForLargeGroups: (collapse: boolean) => void;
   setCountryOverride: (country: string | null) => void;
   setBiometricEnabled: (enabled: boolean) => void;
@@ -86,6 +91,8 @@ const DEFAULT_SETTINGS = {
   showGpsDistance: false, // GPS distance-to-pin disabled by default (feature not yet available)
   enableHoleMap: false, // Hole map feature flag (Phase A) — staged rollout
   trackShotsAutomatically: false, // Phase C2 — premium solo-round shot logging
+  shotPromptingEnabled: false, // Super admin only — dwell-based shot prompt
+
   autoCollapseStatsForLargeGroups: true,
   countryOverride: null as string | null,
   biometricEnabled: false,
@@ -118,6 +125,8 @@ export const useSettingsStore = create<SettingsState>()(
       setEnableHoleMap: (enable) => set({ enableHoleMap: enable }),
 
       setTrackShotsAutomatically: (enable) => set({ trackShotsAutomatically: enable }),
+
+      setShotPromptingEnabled: (enable) => set({ shotPromptingEnabled: enable }),
 
       setAutoCollapseStatsForLargeGroups: (collapse) =>
         set({ autoCollapseStatsForLargeGroups: collapse }),
@@ -161,6 +170,7 @@ export const useSettingsStore = create<SettingsState>()(
         showGpsDistance: state.showGpsDistance,
         enableHoleMap: state.enableHoleMap,
         trackShotsAutomatically: state.trackShotsAutomatically,
+        shotPromptingEnabled: state.shotPromptingEnabled,
         autoCollapseStatsForLargeGroups: state.autoCollapseStatsForLargeGroups,
         countryOverride: state.countryOverride,
         biometricEnabled: state.biometricEnabled,

@@ -2,6 +2,8 @@ export { EditDateTimeSheet } from './EditDateTimeSheet';
 export type { EditDateTimeSheetProps } from './EditDateTimeSheet';
 export { EditTeeSheet } from './EditTeeSheet';
 export type { EditTeeSheetProps } from './EditTeeSheet';
+export { EditNineTypeSheet } from './EditNineTypeSheet';
+export type { EditNineTypeSheetProps } from './EditNineTypeSheet';
 export { MatchupSheet } from './MatchupSheet';
 export type { MatchupSheetProps } from './MatchupSheet';
 export { RoundRulesSheet } from './RoundRulesSheet';

@@ -79,6 +79,24 @@ export function usePlayerScoreCardLogic({
     }
   }, [disabled, selectedScore, currentHole.par, onScoreSelect, isPickedUp]);
 
+  // Bump strokes by 1 in response to a logged shot. First shot from "no
+  // score" sets strokes to 1 (not par), since each logged shot is a real
+  // stroke. No-op when disabled or picked up.
+  const handleShotIncrement = useCallback(() => {
+    if (disabled || isPickedUp) return;
+    const newScore = selectedScore ? Math.min(MAX_SCORE, selectedScore + 1) : 1;
+    onScoreSelect(newScore);
+  }, [disabled, isPickedUp, selectedScore, onScoreSelect]);
+
+  // Symmetric decrement when a logged shot is undone. Floors at MIN_SCORE
+  // and does nothing when there's no score yet.
+  const handleShotDecrement = useCallback(() => {
+    if (disabled || isPickedUp) return;
+    if (!selectedScore) return;
+    const newScore = Math.max(MIN_SCORE, selectedScore - 1);
+    onScoreSelect(newScore);
+  }, [disabled, isPickedUp, selectedScore, onScoreSelect]);
+
   const handleParSelect = useCallback(() => {
     if (!disabled) {
       onScoreSelect(currentHole.par);
@@ -144,6 +162,8 @@ export function usePlayerScoreCardLogic({
     handlePickUp,
     handleDecrement,
     handleIncrement,
+    handleShotIncrement,
+    handleShotDecrement,
     handleParSelect,
     // Stats handlers
     handleFairwayToggle,

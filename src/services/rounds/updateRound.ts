@@ -15,6 +15,7 @@ import type {
 } from '@/types/database.types';
 import type {
   BracketSeedingStyle,
+  NineType,
   PairingSource,
   QualifyingMetric,
 } from '@/types/database/enums';
@@ -35,6 +36,9 @@ export interface UpdateRoundFields {
   pairing_style?: BracketSeedingStyle | null;
   pairing_metric?: QualifyingMetric | null;
   name?: string | null;
+  // Hole count for standalone rounds. Editable mid-round via
+  // EditNineTypeSheet so users can extend or shorten a round in flight.
+  nine_type?: NineType;
 }
 
 /**

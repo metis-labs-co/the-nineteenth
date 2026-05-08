@@ -151,6 +151,28 @@ export async function syncAll(): Promise<boolean> {
           }
         }
       } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+
+        // RLS policy errors (42501) mean the current user has no permission
+        // to write this row — almost always because the round/competition
+        // was deleted, the user was removed, or the scorecard belongs to a
+        // round the user no longer has access to. Retrying won't help, so
+        // drop the sync immediately rather than burning retry slots and
+        // emitting misleading "PERMANENT SYNC FAILURE" warnings.
+        const isRlsError =
+          errorMessage.includes('row-level security policy') || errorMessage.includes('42501');
+
+        if (isRlsError) {
+          syncLogger.warn('RLS POLICY ERROR: Dropping sync - user lacks access to round (likely deleted or membership revoked)', {
+            id: sync.id,
+            type: sync.type,
+            roundId: sync.data?.roundId?.substring(0, 8) + '...',
+            playerId: sync.data?.playerId?.substring(0, 8) + '...',
+          });
+          await removePendingSync(sync.id!);
+          continue;
+        }
+
         syncLogger.error('Failed to process sync', error, {
           id: sync.id,
           type: sync.type,
@@ -173,7 +195,7 @@ export async function syncAll(): Promise<boolean> {
             roundId: sync.data?.roundId?.substring(0, 8) + '...',
             playerId: sync.data?.playerId?.substring(0, 8) + '...',
             maxRetries: MAX_RETRY_COUNT,
-            lastError: error instanceof Error ? error.message : String(error),
+            lastError: errorMessage,
           });
           await removePendingSync(sync.id!);
         }

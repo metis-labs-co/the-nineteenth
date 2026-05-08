@@ -156,6 +156,8 @@ export const PlayerScoreCard = React.memo(function PlayerScoreCard({
     handlePickUp,
     handleDecrement,
     handleIncrement,
+    handleShotIncrement,
+    handleShotDecrement,
     handleParSelect,
     handleFairwayToggle,
     handleGIRToggle,
@@ -327,6 +329,8 @@ export const PlayerScoreCard = React.memo(function PlayerScoreCard({
                   roundId={roundId}
                   holeNumber={currentHole.number}
                   disabled={disabled}
+                  onShotLogged={handleShotIncrement}
+                  onShotUndone={handleShotDecrement}
                 />
               ) : undefined
             }

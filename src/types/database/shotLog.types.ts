@@ -21,6 +21,13 @@ export interface ShotLogEntry {
   /** Set automatically by the shot_log_detect_bunker server-side trigger. */
   from_bunker: boolean;
 
+  /**
+   * Reported GPS accuracy (metres) at the moment the shot was logged.
+   * `null` for legacy rows and for rows whose position has been manually
+   * overridden via the move-on-map flow.
+   */
+  accuracy_meters: number | null;
+
   created_at: string; // ISO timestamp
   updated_at: string; // ISO timestamp
 }
@@ -34,8 +41,9 @@ export type ShotLogInsert = Pick<
   | 'latitude'
   | 'longitude'
   | 'club_used'
+  | 'accuracy_meters'
 >;
 
 export type ShotLogUpdate = Partial<
-  Pick<ShotLogEntry, 'latitude' | 'longitude' | 'club_used'>
+  Pick<ShotLogEntry, 'latitude' | 'longitude' | 'club_used' | 'accuracy_meters'>
 >;

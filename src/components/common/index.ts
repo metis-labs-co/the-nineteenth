@@ -66,6 +66,8 @@ export type {
 // Informational sheets and modals
 export { HandicapInfoSheet } from './HandicapInfoSheet';
 export type { HandicapInfoSheetProps } from './HandicapInfoSheet';
+export { ShotLoggingInfoSheet } from './ShotLoggingInfoSheet';
+export type { ShotLoggingInfoSheetProps } from './ShotLoggingInfoSheet';
 
 // === Selection Components ===
 // Modal and inline selection patterns

@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
+import { MapInstructionsSheet } from './MapInstructionsSheet';
 
 export type MapHeaderGpsPermission =
   | 'granted'
@@ -62,6 +63,7 @@ export function MapHeader({
   onGpsPress,
 }: MapHeaderProps) {
   const colors = useThemeColors();
+  const [showInstructions, setShowInstructions] = useState(false);
 
   const gpsAppearance = gpsPermission
     ? gpsButtonAppearance(gpsPermission, gpsActive)
@@ -81,54 +83,75 @@ export function MapHeader({
   })();
 
   return (
-    <View
-      style={[
-        styles.container,
-        // surfaceElevated (not surface) so the header is always opaque —
-        // `colors.surface` becomes translucent when the user has the
-        // "translucent surfaces" setting on, which over a modal presents
-        // as washed-out white because the underlying modal backdrop shows
-        // through. The map header should always be a solid card.
-        { backgroundColor: colors.surfaceElevated, borderBottomColor: colors.border },
-      ]}
-    >
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Close map"
-        onPress={onClose}
-        style={styles.iconButton}
+    <>
+      <View
+        style={[
+          styles.container,
+          // surfaceElevated (not surface) so the header is always opaque —
+          // `colors.surface` becomes translucent when the user has the
+          // "translucent surfaces" setting on, which over a modal presents
+          // as washed-out white because the underlying modal backdrop shows
+          // through. The map header should always be a solid card.
+          { backgroundColor: colors.surfaceElevated, borderBottomColor: colors.border },
+        ]}
       >
-        <Icon source="close" size={24} color={colors.textPrimary} />
-      </Pressable>
-
-      <View style={styles.center}>
-        <Text style={[styles.title, { color: colors.textPrimary }]}>
-          Hole {holeNumber}
-        </Text>
-      </View>
-
-      {gpsAppearance && (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={gpsAppearance.label}
-          onPress={onGpsPress}
+          accessibilityLabel="Close map"
+          onPress={onClose}
           style={styles.iconButton}
-          testID={`gps-button-${gpsPermission}${gpsActive ? '-active' : ''}`}
         >
-          <Icon source={gpsAppearance.icon} size={24} color={gpsTintColor} />
+          <Icon source="close" size={24} color={colors.textPrimary} />
         </Pressable>
-      )}
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Reset marker"
-        accessibilityState={{ disabled: !canReset }}
-        onPress={canReset ? onReset : undefined}
-        style={[styles.iconButton, !canReset && styles.iconButtonDisabled]}
-      >
-        <Icon source="restart" size={24} color={colors.textPrimary} />
-      </Pressable>
-    </View>
+        <View style={styles.center}>
+          <Text style={[styles.title, { color: colors.textPrimary }]}>
+            Hole {holeNumber}
+          </Text>
+        </View>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="How to use the map"
+          onPress={() => setShowInstructions(true)}
+          style={styles.iconButton}
+          testID="map-header-info"
+        >
+          <Icon
+            source="information-outline"
+            size={24}
+            color={colors.textPrimary}
+          />
+        </Pressable>
+
+        {gpsAppearance && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={gpsAppearance.label}
+            onPress={onGpsPress}
+            style={styles.iconButton}
+            testID={`gps-button-${gpsPermission}${gpsActive ? '-active' : ''}`}
+          >
+            <Icon source={gpsAppearance.icon} size={24} color={gpsTintColor} />
+          </Pressable>
+        )}
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Reset marker"
+          accessibilityState={{ disabled: !canReset }}
+          onPress={canReset ? onReset : undefined}
+          style={[styles.iconButton, !canReset && styles.iconButtonDisabled]}
+        >
+          <Icon source="restart" size={24} color={colors.textPrimary} />
+        </Pressable>
+      </View>
+
+      <MapInstructionsSheet
+        visible={showInstructions}
+        onClose={() => setShowInstructions(false)}
+      />
+    </>
   );
 }
 

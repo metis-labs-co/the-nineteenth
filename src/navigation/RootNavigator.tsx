@@ -73,6 +73,7 @@ import AppearanceScreen from '@/screens/profile/AppearanceScreen';
 import GameSettingsScreen from '@/screens/profile/GameSettingsScreen';
 import WhatsInTheBagScreen from '@/screens/profile/WhatsInTheBagScreen';
 import ClubDistanceDetailScreen from '@/screens/profile/ClubDistanceDetailScreen';
+import ShotMapScreen from '@/screens/profile/ShotMapScreen';
 import SecurityScreen from '@/screens/profile/SecurityScreen';
 import DeveloperScreen from '@/screens/profile/DeveloperScreen';
 import NotificationSettingsScreen from '@/screens/profile/NotificationSettingsScreen';
@@ -624,6 +625,17 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
               options={{
                 title: 'Club Distance',
                 headerShown: false,
+              }}
+            />
+
+            <Stack.Screen
+              name="ShotMap"
+              component={ShotMapScreen}
+              options={{
+                title: 'Shot Map',
+                headerShown: false,
+                presentation: 'fullScreenModal',
+                animation: 'slide_from_bottom',
               }}
             />
 

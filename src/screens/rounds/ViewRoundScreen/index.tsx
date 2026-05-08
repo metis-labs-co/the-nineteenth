@@ -77,6 +77,21 @@ export default function ViewRoundScreen(props: Props) {
   const { data: bag = [] } = useBag(isInProgress ? vm.user?.id : undefined);
   const deleteShot = useDeleteShot();
   const setShotClub = useSetShotClub();
+
+  // Strokes per hole for the *current user* — used by ShotLogList to gate
+  // the "+ Add shot" affordance and render placeholder sections for holes
+  // with strokes scored but no shots logged yet.
+  const userHoleStrokeCounts = React.useMemo(() => {
+    if (!vm.user?.id || !vm.round?.course?.holes) return undefined;
+    const map: Record<number, number> = {};
+    for (const h of vm.round.course.holes) {
+      const strokes = vm.getPlayerScore(vm.user.id, h.number);
+      if (typeof strokes === 'number' && strokes > 0) {
+        map[h.number] = strokes;
+      }
+    }
+    return map;
+  }, [vm.user?.id, vm.getPlayerScore, vm.round?.course?.holes]);
   const [clubEditingShot, setClubEditingShot] = React.useState<ShotLogEntry | null>(null);
   const {
     dialogConfig: shotDialogConfig,
@@ -507,6 +522,9 @@ export default function ViewRoundScreen(props: Props) {
             currentPlayerId={vm.user?.id}
             onDeleteShot={isInProgress ? handleDeleteShot : undefined}
             onChangeClubForShot={isInProgress ? handleChangeClub : undefined}
+            roundStatus={round?.status}
+            holeStrokeCounts={userHoleStrokeCounts}
+            totalHoles={round?.course?.holes?.length || 18}
           />
         )}
       </ScrollView>

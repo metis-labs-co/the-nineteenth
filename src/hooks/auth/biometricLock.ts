@@ -6,7 +6,9 @@
  *
  * Behavior:
  * - Cold start: locks immediately if biometric is enabled and available
- * - Warm resume: locks after 5 minutes of inactivity (background/inactive)
+ * - Warm resume: locks after 5 minutes of inactivity (background/inactive),
+ *   or after 4 hours when an active scoring session is in progress so that
+ *   pocketing the phone mid-round doesn't repeatedly re-prompt for Face ID
  * - Auto-triggers biometric prompt when locked
  * - Fails open if biometrics become unavailable (user removed from device)
  */
@@ -14,10 +16,14 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import { useSettingsStore } from '@/store/settingsStore';
+import { useScorecardStore } from '@/store/scorecardStore';
 import { biometricService } from '@/services/biometric';
 import type { BiometricType } from '@/services/biometric';
 
 const LOCK_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+// Extended threshold while a round is being scored — covers a typical
+// 4–4.5 hour round so quick pocket-and-resume doesn't re-prompt mid-round.
+const SCORING_LOCK_TIMEOUT_MS = 4 * 60 * 60 * 1000; // 4 hours
 
 export interface UseBiometricLockReturn {
   isLocked: boolean;
@@ -62,7 +68,10 @@ export function useBiometricLock(isAuthenticated: boolean): UseBiometricLockRetu
       } else if (nextAppState === 'active') {
         if (backgroundTimestampRef.current) {
           const elapsed = Date.now() - backgroundTimestampRef.current;
-          if (elapsed > LOCK_TIMEOUT_MS) {
+          const { currentRoundId, isInitialized } = useScorecardStore.getState();
+          const isScoringActive = !!currentRoundId && isInitialized;
+          const threshold = isScoringActive ? SCORING_LOCK_TIMEOUT_MS : LOCK_TIMEOUT_MS;
+          if (elapsed > threshold) {
             setIsLocked(true);
             setError(null);
           }
