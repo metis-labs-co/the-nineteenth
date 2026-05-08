@@ -14,4 +14,6 @@ export { HazardOverlay } from './HazardOverlay';
 export { MovePreviewBanner } from './MovePreviewBanner';
 export { TeeMarkerSet, buildTeeOptions, type TeeOption } from './TeeMarkerSet';
 export { AddTeePill } from './AddTeePill';
+export { EditTeePill } from './EditTeePill';
+export { CustomTeeActionSheet } from './CustomTeeActionSheet';
 export { LogShotPreviewBanner } from './LogShotPreviewBanner';

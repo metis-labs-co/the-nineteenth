@@ -13,6 +13,8 @@ export interface ScorecardDialogsProps {
   // Incomplete dialog
   showIncompleteDialog: boolean;
   completedHolesCount: number;
+  /** Total scorable holes for the round (9 for front/back nine, 18 for full). */
+  totalHolesCount: number;
   onIncompleteConfirm: () => void;
   onIncompleteCancel: () => void;
   // Submit error dialog
@@ -24,6 +26,7 @@ export function ScorecardDialogs({
   // Incomplete dialog
   showIncompleteDialog,
   completedHolesCount,
+  totalHolesCount,
   onIncompleteConfirm,
   onIncompleteCancel,
   // Submit error dialog
@@ -36,7 +39,7 @@ export function ScorecardDialogs({
       <ConfirmationDialog
         visible={showIncompleteDialog}
         title="Incomplete Round"
-        message={`You have only completed ${completedHolesCount} of 18 holes. Submit anyway?`}
+        message={`You have only completed ${completedHolesCount} of ${totalHolesCount} holes. Submit anyway?`}
         confirmLabel="Submit"
         cancelLabel="Continue Scoring"
         onConfirm={onIncompleteConfirm}

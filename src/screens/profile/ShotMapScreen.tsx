@@ -19,7 +19,9 @@ import { PageHeader } from '@/components/common/PageHeader';
 import { SystemModalTheme } from '@/components/common';
 import {
   AddTeePill,
+  CustomTeeActionSheet,
   DistanceLine,
+  EditTeePill,
   MovePreviewBanner,
   TapMarker,
   TeeMarkerSet,
@@ -36,6 +38,8 @@ import { useCourseTeeColors } from '@/hooks/useCourseTeeColors';
 import {
   useCustomHoleTees,
   useCreateCustomHoleTee,
+  useUpdateCustomHoleTee,
+  useDeleteCustomHoleTee,
 } from '@/hooks/customTees';
 import {
   CUSTOM_TEE_COLORS,
@@ -206,6 +210,7 @@ function ShotMapScreenContent({ route, navigation }: Props) {
     (s) => s.byRoundHole[`${roundId}::${holeNumber}`] ?? null
   );
   const setTeeOverride = useTeeOverrideStore((s) => s.setOverride);
+  const clearTeeOverride = useTeeOverrideStore((s) => s.clearOverride);
 
   // User-defined custom tees for this hole. Only fetched for shot 1 (the
   // only sequence where tee origin makes sense).
@@ -403,6 +408,16 @@ function ShotMapScreenContent({ route, navigation }: Props) {
   } | null>(null);
   const [placedTeeColor, setPlacedTeeColor] = useState<CustomTeeColor>('white');
   const createCustomTee = useCreateCustomHoleTee();
+  const updateCustomTee = useUpdateCustomHoleTee();
+  const deleteCustomTee = useDeleteCustomHoleTee();
+
+  // Edit-custom-tee state, mirroring the HoleMapScreen flow.
+  const [editingTeeSheet, setEditingTeeSheet] = useState<string | null>(null);
+  const [movingTeeId, setMovingTeeId] = useState<string | null>(null);
+  const [previewTeeCoord, setPreviewTeeCoord] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
 
   const handleAddCustomTee = useCallback(() => {
     if (!courseId) {
@@ -415,6 +430,8 @@ function ShotMapScreenContent({ route, navigation }: Props) {
     }
     setIsMoving(false);
     setPreviewCoord(null);
+    setMovingTeeId(null);
+    setPreviewTeeCoord(null);
     setIsPlacingTee(true);
     setPlacedTeeCoord(null);
     setPlacedTeeColor('white');
@@ -427,11 +444,11 @@ function ShotMapScreenContent({ route, navigation }: Props) {
 
   const onMapLongPress = useCallback(
     (_e: LongPressEvent) => {
-      if (isMoving || isPlacingTee) return;
+      if (isMoving || isPlacingTee || movingTeeId) return;
       setIsMoving(true);
       setPreviewCoord(null);
     },
-    [isMoving, isPlacingTee]
+    [isMoving, isPlacingTee, movingTeeId]
   );
 
   const onMapPress = useCallback(
@@ -440,10 +457,14 @@ function ShotMapScreenContent({ route, navigation }: Props) {
         setPlacedTeeCoord(e.nativeEvent.coordinate);
         return;
       }
+      if (movingTeeId) {
+        setPreviewTeeCoord(e.nativeEvent.coordinate);
+        return;
+      }
       if (!isMoving) return;
       setPreviewCoord(e.nativeEvent.coordinate);
     },
-    [isMoving, isPlacingTee]
+    [isMoving, isPlacingTee, movingTeeId]
   );
 
   const onSavePlacedTee = useCallback(() => {
@@ -518,6 +539,103 @@ function ShotMapScreenContent({ route, navigation }: Props) {
   const onCancelPreview = useCallback(() => {
     setIsMoving(false);
     setPreviewCoord(null);
+  }, []);
+
+  // ----- Edit-custom-tee handlers ---------------------------------------
+  const editingTeeRow = useMemo(
+    () =>
+      editingTeeSheet
+        ? customTees.find((t) => t.id === editingTeeSheet) ?? null
+        : null,
+    [editingTeeSheet, customTees]
+  );
+  const editTeeSwatch = useMemo<string | null>(() => {
+    if (!selectedCustomTee) return null;
+    const meta = CUSTOM_TEE_COLORS.find((c) => c.key === selectedCustomTee.color);
+    return meta?.swatch ?? null;
+  }, [selectedCustomTee]);
+  const handleOpenEditTee = useCallback(() => {
+    if (!selectedCustomTee) return;
+    setEditingTeeSheet(selectedCustomTee.id);
+  }, [selectedCustomTee]);
+  const handleCloseTeeSheet = useCallback(() => setEditingTeeSheet(null), []);
+  const handleActionMoveTee = useCallback((tee: { id: string }) => {
+    setEditingTeeSheet(null);
+    setIsMoving(false);
+    setPreviewCoord(null);
+    setMovingTeeId(tee.id);
+    setPreviewTeeCoord(null);
+  }, []);
+  const handleActionDeleteTee = useCallback(
+    (tee: { id: string; course_id: string; hole_number: number }) => {
+      Alert.alert(
+        'Delete tee?',
+        'This removes the custom tee from this hole. Any rounds using it as the origin will fall back to the default tee.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: () => {
+              deleteCustomTee.mutate(
+                {
+                  id: tee.id,
+                  course_id: tee.course_id,
+                  hole_number: tee.hole_number,
+                },
+                {
+                  onSuccess: () => {
+                    if (teeOverride === tee.id) {
+                      clearTeeOverride(roundId, holeNumber);
+                    }
+                    setEditingTeeSheet(null);
+                  },
+                  onError: (err: unknown) => {
+                    const message =
+                      err instanceof Error ? err.message : 'Unknown error';
+                    Alert.alert("Couldn't delete tee", message);
+                  },
+                }
+              );
+            },
+          },
+        ]
+      );
+    },
+    [deleteCustomTee, teeOverride, clearTeeOverride, roundId, holeNumber]
+  );
+  const teeMovedNew = useMemo(() => {
+    if (!previewTeeCoord || !shot) return null;
+    return calculateDistance(
+      previewTeeCoord.latitude,
+      previewTeeCoord.longitude,
+      shot.latitude,
+      shot.longitude
+    );
+  }, [previewTeeCoord, shot]);
+  const handleSaveTeePreview = useCallback(() => {
+    if (!movingTeeId || !previewTeeCoord) return;
+    updateCustomTee.mutate(
+      {
+        id: movingTeeId,
+        latitude: previewTeeCoord.latitude,
+        longitude: previewTeeCoord.longitude,
+      },
+      {
+        onSettled: () => {
+          setMovingTeeId(null);
+          setPreviewTeeCoord(null);
+        },
+        onError: (err: unknown) => {
+          const message = err instanceof Error ? err.message : 'Unknown error';
+          Alert.alert("Couldn't move tee", message);
+        },
+      }
+    );
+  }, [movingTeeId, previewTeeCoord, updateCustomTee]);
+  const handleCancelTeePreview = useCallback(() => {
+    setMovingTeeId(null);
+    setPreviewTeeCoord(null);
   }, []);
 
   const club = CLUBS_BY_KEY[clubKey];
@@ -632,6 +750,11 @@ function ShotMapScreenContent({ route, navigation }: Props) {
           {/* Live preview line from origin to candidate position. */}
           {origin && previewCoord && (
             <DistanceLine from={origin} to={previewCoord} variant="gps-to-tap" />
+          )}
+
+          {/* Ghost pin for the candidate new tee position. */}
+          {movingTeeId && previewTeeCoord && (
+            <TapMarker coordinate={previewTeeCoord} />
           )}
 
           {/* Placed-tee marker during the "add custom tee" flow. */}
@@ -799,14 +922,58 @@ function ShotMapScreenContent({ route, navigation }: Props) {
           />
         )}
 
+        {movingTeeId && previewTeeCoord && (
+          <MovePreviewBanner
+            shotNumber={1}
+            shotLabel="Distance"
+            movedOriginal={currentDistance}
+            movedNew={teeMovedNew}
+            nextShotNumber={null}
+            nextOriginal={null}
+            nextNew={null}
+            onSave={handleSaveTeePreview}
+            onCancel={handleCancelTeePreview}
+            isSaving={updateCustomTee.isPending}
+            distanceUnit={distanceUnit}
+          />
+        )}
+
         {/* Floating "+ Add tee" pill — top-left of the map. Only relevant
             for shot 1 (where the origin is a tee, not a prior shot's
             landing) and only when the round is linked to a course. Hidden
-            while another in-flight flow (move, place-tee) is open so it
-            doesn't compete with the in-flight banner. */}
+            while another in-flight flow (move, place-tee, tee-move) is
+            open so it doesn't compete with the in-flight banner. */}
         <AddTeePill
-          visible={isTeeShot && !!courseId && !isMoving && !isPlacingTee}
+          visible={
+            isTeeShot &&
+            !!courseId &&
+            !isMoving &&
+            !isPlacingTee &&
+            !movingTeeId
+          }
           onPress={handleAddCustomTee}
+        />
+
+        {/* Edit-tee pill — surfaces when a custom tee is the current origin. */}
+        <EditTeePill
+          visible={
+            isTeeShot &&
+            !!selectedCustomTee &&
+            !isMoving &&
+            !isPlacingTee &&
+            !movingTeeId &&
+            editingTeeSheet === null
+          }
+          swatch={editTeeSwatch}
+          onPress={handleOpenEditTee}
+        />
+
+        <CustomTeeActionSheet
+          visible={editingTeeRow !== null}
+          tee={editingTeeRow}
+          onClose={handleCloseTeeSheet}
+          onMoveOnMap={handleActionMoveTee}
+          onDelete={handleActionDeleteTee}
         />
       </View>
 

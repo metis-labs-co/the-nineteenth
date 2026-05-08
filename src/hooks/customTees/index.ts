@@ -131,3 +131,89 @@ export function useCreateCustomHoleTee() {
     },
   });
 }
+
+interface UpdateCustomHoleTeeInput {
+  id: string;
+  latitude: number;
+  longitude: number;
+}
+
+/**
+ * Move an existing custom tee to new GPS coordinates. The user can only
+ * update their own rows (RLS policy). The colour and (course, hole) are
+ * fixed — to change those, delete and re-create.
+ */
+export function useUpdateCustomHoleTee() {
+  const queryClient = useQueryClient();
+  const { player } = useAuth();
+
+  return useMutation({
+    mutationFn: async (input: UpdateCustomHoleTeeInput): Promise<CustomHoleTee> => {
+      const { data, error } = await customTeesTable()
+        .update({ latitude: input.latitude, longitude: input.longitude })
+        .eq('id', input.id)
+        .select()
+        .single();
+      if (error) throw error;
+      if (!data) throw new Error('Custom tee update returned no row');
+      return data as CustomHoleTee;
+    },
+    onSuccess: (updated) => {
+      queryClient.invalidateQueries({
+        queryKey: customHoleTeeKeys.byCourseHole(
+          updated.course_id,
+          updated.hole_number
+        ),
+      });
+      queryClient.invalidateQueries({
+        queryKey: customHoleTeeKeys.byCourse(updated.course_id),
+      });
+      if (player?.id) {
+        queryClient.invalidateQueries({
+          queryKey: bagKeys.perClubStats(player.id),
+        });
+      }
+    },
+  });
+}
+
+interface DeleteCustomHoleTeeInput {
+  id: string;
+  /** Course id + hole number — needed to invalidate the right caches and
+   *  to reset any tee-override that points at this row. */
+  course_id: string;
+  hole_number: number;
+}
+
+/**
+ * Delete a custom tee by id. The host screen is responsible for clearing
+ * any `teeOverrideStore` entry that points at this tee, since the store
+ * lives in client state and isn't reachable from this hook.
+ */
+export function useDeleteCustomHoleTee() {
+  const queryClient = useQueryClient();
+  const { player } = useAuth();
+
+  return useMutation({
+    mutationFn: async (input: DeleteCustomHoleTeeInput): Promise<void> => {
+      const { error } = await customTeesTable().delete().eq('id', input.id);
+      if (error) throw error;
+    },
+    onSuccess: (_data, input) => {
+      queryClient.invalidateQueries({
+        queryKey: customHoleTeeKeys.byCourseHole(
+          input.course_id,
+          input.hole_number
+        ),
+      });
+      queryClient.invalidateQueries({
+        queryKey: customHoleTeeKeys.byCourse(input.course_id),
+      });
+      if (player?.id) {
+        queryClient.invalidateQueries({
+          queryKey: bagKeys.perClubStats(player.id),
+        });
+      }
+    },
+  });
+}

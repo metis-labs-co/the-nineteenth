@@ -484,8 +484,11 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
       const holeData = getHoleInfo(holeNumber);
       if (!holeData) return null;
 
-      const canGoPrev = holeNumber > 1;
-      const canGoNext = holeNumber < 18;
+      // Bound to the round's playable hole range (front 9 / back 9 / full).
+      const firstHoleNumber = holes[0]?.number ?? 1;
+      const lastHoleNumber = holes[holes.length - 1]?.number ?? 18;
+      const canGoPrev = holeNumber > firstHoleNumber;
+      const canGoNext = holeNumber < lastHoleNumber;
 
       return (
         <View style={styles.contentArea}>
@@ -750,6 +753,7 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
       <ScorecardDialogs
         showIncompleteDialog={dialogs.showIncompleteDialog}
         completedHolesCount={dialogs.completedHolesCount}
+        totalHolesCount={holes.length}
         onIncompleteConfirm={submission.performSubmit}
         onIncompleteCancel={dialogs.closeIncompleteDialog}
         showSubmitErrorDialog={dialogs.showSubmitErrorDialog}

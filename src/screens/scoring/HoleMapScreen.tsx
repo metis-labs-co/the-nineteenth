@@ -51,6 +51,8 @@ import {
   MovePreviewBanner,
   TeeMarkerSet,
   AddTeePill,
+  EditTeePill,
+  CustomTeeActionSheet,
   LogShotPreviewBanner,
   buildTeeOptions,
   type TeeOption,
@@ -60,6 +62,8 @@ import { useCourseTeeColors } from '@/hooks/useCourseTeeColors';
 import {
   useCustomHoleTees,
   useCreateCustomHoleTee,
+  useUpdateCustomHoleTee,
+  useDeleteCustomHoleTee,
 } from '@/hooks/customTees';
 import {
   CUSTOM_TEE_COLORS,
@@ -162,6 +166,8 @@ export default function HoleMapScreen({ route, navigation }: Props) {
   const deleteShot = useDeleteShot();
   const setShotClub = useSetShotClub();
   const logShot = useLogShot();
+  const updateCustomTee = useUpdateCustomHoleTee();
+  const deleteCustomTee = useDeleteCustomHoleTee();
   const { player } = useAuth();
   const { data: bag = [] } = useBag(player?.id);
 
@@ -182,6 +188,14 @@ export default function HoleMapScreen({ route, navigation }: Props) {
   const [isPlacingTee, setIsPlacingTee] = useState(false);
   const [placedTeeCoord, setPlacedTeeCoord] = useState<LatLng | null>(null);
   const [placedTeeColor, setPlacedTeeColor] = useState<CustomTeeColor>('white');
+
+  // Edit-custom-tee state. `editingTeeSheet` opens the action sheet with
+  // Move / Delete options. `movingTeeId` enters the same tap-to-confirm
+  // flow as shot moves but for a custom tee row instead — `previewTeeCoord`
+  // is the candidate new position.
+  const [editingTeeSheet, setEditingTeeSheet] = useState<string | null>(null);
+  const [movingTeeId, setMovingTeeId] = useState<string | null>(null);
+  const [previewTeeCoord, setPreviewTeeCoord] = useState<LatLng | null>(null);
 
   // Log-shot mode state. `pendingLogPosition` is the candidate position the
   // user has tapped to place. While non-null, the LogShotPreviewBanner is
@@ -317,6 +331,12 @@ export default function HoleMapScreen({ route, navigation }: Props) {
         setPlacedTeeCoord(e.nativeEvent.coordinate);
         return;
       }
+      // Move-tee mode: tap stages a candidate new tee position; confirmed
+      // via MovePreviewBanner before the DB write.
+      if (movingTeeId) {
+        setPreviewTeeCoord(e.nativeEvent.coordinate);
+        return;
+      }
       // In shot-move mode, taps stage a candidate new position. The user
       // confirms via the MovePreviewBanner before the DB write — first tap
       // drops the ghost pin, subsequent taps reposition it.
@@ -332,7 +352,7 @@ export default function HoleMapScreen({ route, navigation }: Props) {
       }
       setTap(e.nativeEvent.coordinate);
     },
-    [movingShotId, isPlacingTee, isLogShot]
+    [movingShotId, movingTeeId, isPlacingTee, isLogShot]
   );
 
   const onGreenPress = useCallback((type: GreenPoiType) => {
@@ -344,6 +364,8 @@ export default function HoleMapScreen({ route, navigation }: Props) {
     setSelectedTarget(DEFAULT_TARGET);
     setMovingShotId(null);
     setPreviewCoord(null);
+    setMovingTeeId(null);
+    setPreviewTeeCoord(null);
   }, []);
 
   const onClose = useCallback(() => navigation.goBack(), [navigation]);
@@ -373,7 +395,7 @@ export default function HoleMapScreen({ route, navigation }: Props) {
   // the new position; long-press would be an accidental gesture mid-drag.
   const onMapLongPress = useCallback(
     (e: LongPressEvent) => {
-      if (movingShotId || isPlacingTee || isLogShot) return;
+      if (movingShotId || movingTeeId || isPlacingTee || isLogShot) return;
       if (shots.length === 0) return;
 
       const press = e.nativeEvent.coordinate;
@@ -401,7 +423,7 @@ export default function HoleMapScreen({ route, navigation }: Props) {
       }
       onShotLongPress(nearestShot);
     },
-    [movingShotId, isPlacingTee, isLogShot, shots, onShotLongPress]
+    [movingShotId, movingTeeId, isPlacingTee, isLogShot, shots, onShotLongPress]
   );
 
   const closeActionSheet = useCallback(() => setActiveShot(null), []);
@@ -750,6 +772,7 @@ export default function HoleMapScreen({ route, navigation }: Props) {
     s.byRoundHole[`${roundId}::${holeNumber}`] ?? null
   );
   const setTeeOverride = useTeeOverrideStore((s) => s.setOverride);
+  const clearTeeOverride = useTeeOverrideStore((s) => s.clearOverride);
 
   const backTeeCoord = useMemo<LatLng | null>(
     () => markers.tees.find((t) => t.type === 'tee_back')?.coordinate ?? null,
@@ -824,6 +847,103 @@ export default function HoleMapScreen({ route, navigation }: Props) {
     },
     [setTeeOverride, roundId, holeNumber]
   );
+
+  // Edit-custom-tee handlers — the action sheet, the in-flight move, and
+  // the delete-with-confirmation flow. Only relevant when a custom tee is
+  // currently selected (system back/front tees are read-only course data).
+  const editingTeeRow = useMemo(
+    () =>
+      editingTeeSheet
+        ? customTees.find((t) => t.id === editingTeeSheet) ?? null
+        : null,
+    [editingTeeSheet, customTees]
+  );
+  const editTeeSwatch = useMemo<string | null>(() => {
+    if (!selectedCustomTee) return null;
+    const meta = CUSTOM_TEE_COLORS.find((c) => c.key === selectedCustomTee.color);
+    return meta?.swatch ?? null;
+  }, [selectedCustomTee]);
+  const handleOpenEditTee = useCallback(() => {
+    if (!selectedCustomTee) return;
+    setEditingTeeSheet(selectedCustomTee.id);
+  }, [selectedCustomTee]);
+  const handleCloseTeeSheet = useCallback(() => setEditingTeeSheet(null), []);
+  const handleActionMoveTee = useCallback((tee: { id: string }) => {
+    setEditingTeeSheet(null);
+    setMovingShotId(null);
+    setPreviewCoord(null);
+    setMovingTeeId(tee.id);
+    setPreviewTeeCoord(null);
+  }, []);
+  const handleActionDeleteTee = useCallback(
+    (tee: { id: string; course_id: string; hole_number: number }) => {
+      Alert.alert(
+        'Delete tee?',
+        'This removes the custom tee from this hole. Any rounds using it as the origin will fall back to the default tee.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: () => {
+              deleteCustomTee.mutate(
+                {
+                  id: tee.id,
+                  course_id: tee.course_id,
+                  hole_number: tee.hole_number,
+                },
+                {
+                  onSuccess: () => {
+                    if (teeOverride === tee.id) {
+                      clearTeeOverride(roundId, holeNumber);
+                    }
+                    setEditingTeeSheet(null);
+                  },
+                  onError: (err: unknown) => {
+                    const message =
+                      err instanceof Error ? err.message : 'Unknown error';
+                    Alert.alert("Couldn't delete tee", message);
+                  },
+                }
+              );
+            },
+          },
+        ]
+      );
+    },
+    [
+      deleteCustomTee,
+      teeOverride,
+      clearTeeOverride,
+      roundId,
+      holeNumber,
+    ]
+  );
+  const handleSaveTeePreview = useCallback(() => {
+    if (!movingTeeId || !previewTeeCoord) return;
+    updateCustomTee.mutate(
+      {
+        id: movingTeeId,
+        latitude: previewTeeCoord.latitude,
+        longitude: previewTeeCoord.longitude,
+      },
+      {
+        onSettled: () => {
+          setMovingTeeId(null);
+          setPreviewTeeCoord(null);
+        },
+        onError: (err: unknown) => {
+          const message = err instanceof Error ? err.message : 'Unknown error';
+          Alert.alert("Couldn't move tee", message);
+        },
+      }
+    );
+  }, [movingTeeId, previewTeeCoord, updateCustomTee]);
+  const handleCancelTeePreview = useCallback(() => {
+    setMovingTeeId(null);
+    setPreviewTeeCoord(null);
+  }, []);
+
   const handleAddCustomTee = useCallback(() => {
     if (!courseId) {
       Alert.alert(
@@ -833,9 +953,11 @@ export default function HoleMapScreen({ route, navigation }: Props) {
       );
       return;
     }
-    // Cancel any in-flight shot move before entering place-tee mode.
+    // Cancel any in-flight shot or tee move before entering place-tee mode.
     setMovingShotId(null);
     setPreviewCoord(null);
+    setMovingTeeId(null);
+    setPreviewTeeCoord(null);
     setIsPlacingTee(true);
     setPlacedTeeCoord(null);
     setPlacedTeeColor('white');
@@ -889,6 +1011,36 @@ export default function HoleMapScreen({ route, navigation }: Props) {
     return recomputeAfterMove(sortedShots, movedIndex, previewCoord, teeAnchor);
   }, [movedIndex, previewCoord, sortedShots, teeAnchor]);
 
+  // Distance pair for the tee-move preview banner. Anchor preference:
+  // shot 1 if any shots are logged, else the green pin so the player has
+  // *some* reference point. Falls back to nulls when neither is available.
+  const teeMovePreview = useMemo(() => {
+    if (!movingTeeId || !previewTeeCoord || !teeAnchor) return null;
+    const anchor =
+      sortedShots[0]
+        ? {
+            latitude: sortedShots[0].latitude,
+            longitude: sortedShots[0].longitude,
+          }
+        : markers.pin;
+    if (!anchor) return null;
+    return {
+      label: sortedShots[0] ? 'Shot 1' : 'To pin',
+      original: calculateDistance(
+        teeAnchor.latitude,
+        teeAnchor.longitude,
+        anchor.latitude,
+        anchor.longitude
+      ),
+      next: calculateDistance(
+        previewTeeCoord.latitude,
+        previewTeeCoord.longitude,
+        anchor.latitude,
+        anchor.longitude
+      ),
+    };
+  }, [movingTeeId, previewTeeCoord, teeAnchor, sortedShots, markers.pin]);
+
   // Prior anchor for the log-shot preview: last shot if any, else the tee.
   const logShotPriorAnchor: LatLng | null = useMemo(() => {
     if (sortedShots.length > 0) {
@@ -917,7 +1069,9 @@ export default function HoleMapScreen({ route, navigation }: Props) {
     tap !== null ||
     selectedTarget !== DEFAULT_TARGET ||
     movingShotId !== null ||
-    previewCoord !== null;
+    previewCoord !== null ||
+    movingTeeId !== null ||
+    previewTeeCoord !== null;
   // Show the "no coordinates" overlay when the course has none at all OR
   // when this specific hole has no pin and we have no user GPS to fall back
   // to. Without the second case, the map opens on a coordinate-less hole
@@ -1013,6 +1167,11 @@ export default function HoleMapScreen({ route, navigation }: Props) {
             <TapMarker coordinate={previewCoord} />
           )}
 
+          {/* Ghost pin for the candidate new tee position during a tee move. */}
+          {movingTeeId && previewTeeCoord && (
+            <TapMarker coordinate={previewTeeCoord} />
+          )}
+
           {/* Log-shot candidate position — same TapMarker visual as move mode. */}
           {isLogShot && pendingLogPosition && (
             <TapMarker coordinate={pendingLogPosition} />
@@ -1054,6 +1213,24 @@ export default function HoleMapScreen({ route, navigation }: Props) {
           />
         )}
 
+        {/* Tee-move preview banner — same visual treatment as the shot one
+            so users recognise the pattern. Reuses MovePreviewBanner with a
+            "Tee" label and the shot 1 (or to-pin) distance shift. */}
+        {movingTeeId && previewTeeCoord && teeMovePreview && (
+          <MovePreviewBanner
+            shotNumber={1}
+            shotLabel={teeMovePreview.label}
+            movedOriginal={teeMovePreview.original}
+            movedNew={teeMovePreview.next}
+            nextShotNumber={null}
+            nextOriginal={null}
+            nextNew={null}
+            onSave={handleSaveTeePreview}
+            onCancel={handleCancelTeePreview}
+            isSaving={updateCustomTee.isPending}
+          />
+        )}
+
         {isLogShot && pendingLogPosition && logShotStaged === null && (
           <LogShotPreviewBanner
             shotNumber={shots.length + 1}
@@ -1083,11 +1260,41 @@ export default function HoleMapScreen({ route, navigation }: Props) {
 
         {/* Floating "+ Add tee" pill — top-left of the map, opens the
             existing place-custom-tee flow. Hidden when the map is in a
-            modal-ish state (placing a tee, logging a shot, moving a shot)
-            so it doesn't compete with the in-flight banner. */}
+            modal-ish state (placing a tee, logging a shot, moving a shot
+            or tee) so it doesn't compete with the in-flight banner. */}
         <AddTeePill
-          visible={!!courseId && !isPlacingTee && !isLogShot && !movingShotId}
+          visible={
+            !!courseId &&
+            !isPlacingTee &&
+            !isLogShot &&
+            !movingShotId &&
+            !movingTeeId
+          }
           onPress={handleAddCustomTee}
+        />
+
+        {/* Edit-tee pill — only visible when a user-created custom tee is
+            currently selected as origin. Tapping opens the action sheet
+            with Move / Delete options. */}
+        <EditTeePill
+          visible={
+            !!selectedCustomTee &&
+            !isPlacingTee &&
+            !isLogShot &&
+            !movingShotId &&
+            !movingTeeId &&
+            editingTeeSheet === null
+          }
+          swatch={editTeeSwatch}
+          onPress={handleOpenEditTee}
+        />
+
+        <CustomTeeActionSheet
+          visible={editingTeeRow !== null}
+          tee={editingTeeRow}
+          onClose={handleCloseTeeSheet}
+          onMoveOnMap={handleActionMoveTee}
+          onDelete={handleActionDeleteTee}
         />
 
         {isPlacingTee && !placedTeeCoord && (

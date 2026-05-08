@@ -93,6 +93,7 @@ export function useRoundData({
     currentPlayers,
     holes: storeHoles,
     isInitialized,
+    nineType: storeNineType,
     loadFromOffline,
     initializeRound,
     ensureTeamMemberScorecards,
@@ -141,8 +142,25 @@ export function useRoundData({
       currentPlayersCount: currentPlayers.length,
     });
 
+    // If the round's nine_type has been changed externally (e.g. via the
+    // EditNineTypeSheet on ViewRound) since this round was last initialized,
+    // the store still holds the previous filtered hole set — fall through
+    // to a full re-init so holes/scopes/UI all reflect the new selection.
+    const metadataNineType = metadata.data?.nineType;
+    const nineTypeChanged =
+      isInitialized &&
+      currentRoundId === roundId &&
+      !!metadataNineType &&
+      metadataNineType !== storeNineType;
+
     // Skip full initialization if store is already initialized with THIS SPECIFIC round
-    if (isInitialized && currentPlayers.length > 0 && currentRoundId === roundId) {
+    // and its nine_type still matches the round's persisted value.
+    if (
+      isInitialized &&
+      currentPlayers.length > 0 &&
+      currentRoundId === roundId &&
+      !nineTypeChanged
+    ) {
       roundDataLogger.info('Store already initialized for this round, using hook data');
       pushDiagnostic('round_data.already_initialized', { roundId });
       return;
@@ -157,6 +175,21 @@ export function useRoundData({
       pushDiagnostic('round_data.reset_different_round', {
         from: currentRoundId,
         to: roundId,
+      });
+      resetRound();
+    }
+
+    // Reset store if the same round's nine_type changed under us.
+    if (nineTypeChanged) {
+      roundDataLogger.info('Resetting store - nine_type changed', {
+        roundId: roundId?.substring(0, 8),
+        from: storeNineType,
+        to: metadataNineType,
+      });
+      pushDiagnostic('round_data.reset_nine_type_changed', {
+        roundId,
+        from: storeNineType,
+        to: metadataNineType,
       });
       resetRound();
     }
@@ -321,6 +354,7 @@ export function useRoundData({
     isInitialized,
     currentRoundId,
     currentPlayers.length,
+    storeNineType,
     metadata.data,
     metadata.isLoading,
     metadata.error,
