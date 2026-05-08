@@ -215,15 +215,18 @@ export function BottomSheet({
               },
           containerStyle,
         ]}
-        {...panHandlers}
       >
         <KeyboardAvoidingView
           style={styles.keyboardView}
           behavior={effectiveKeyboardBehavior === 'none' ? undefined : effectiveKeyboardBehavior}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
         >
-          {/* Header */}
-          {customHeader ?? (
+          {/* Header — gesture is attached here only so scrollable
+              content inside the sheet can scroll without triggering
+              swipe-to-dismiss. */}
+          {customHeader ? (
+            <View {...panHandlers}>{customHeader}</View>
+          ) : (
             <BottomSheetHeader
               title={title}
               showCloseButton={showCloseButton}
@@ -231,6 +234,7 @@ export function BottomSheet({
               headerLeft={headerLeft}
               headerRight={headerRight}
               showHandle={effectiveShowHandle}
+              panHandlers={panHandlers}
             />
           )}
 

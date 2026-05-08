@@ -9,7 +9,7 @@ import MapView, {
   type MapPressEvent,
   type Region,
 } from 'react-native-maps';
-import { borderRadius, shadows, spacing, typography } from '@/constants/theme';
+import { shadows, spacing, typography } from '@/constants/theme';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { useThemeColors } from '@/context/ThemeContext';
@@ -49,8 +49,11 @@ import {
   ShotMarkerActionSheet,
   RecenterButton,
   MovePreviewBanner,
-  TeeOverrideSheet,
+  TeeMarkerSet,
+  AddTeePill,
   LogShotPreviewBanner,
+  buildTeeOptions,
+  type TeeOption,
 } from '@/components/scorecard/HoleMap';
 import { useTeeOverrideStore, type TeeOverride } from '@/store/teeOverrideStore';
 import { useCourseTeeColors } from '@/hooks/useCourseTeeColors';
@@ -295,9 +298,10 @@ export default function HoleMapScreen({ route, navigation }: Props) {
   }, [tier, markers.greens]);
 
   // The user is standing on the tee box when the map is opened, so their
-  // GPS position is the right "from" anchor for distance lines. Tee POI
-  // markers are intentionally not rendered (see MapMarkerSet) — using
-  // them here would re-introduce the same misleading-tee issue.
+  // GPS position is the right "from" anchor for the live distance line to
+  // the green. Tees are rendered via `TeeMarkerSet` further down — that
+  // marker set is for *origin selection* (which tee shot 1 is measured
+  // from), not for the distance-from-here-to-pin display.
   const startAnchor: LatLng | null = userCoord;
 
   const showShotTrail = eligibility.eligible && trackShots && shots.length > 0;
@@ -795,31 +799,25 @@ export default function HoleMapScreen({ route, navigation }: Props) {
   }, [selectedCustomTee, teeOverride, backTeeCoord, frontTeeCoord]);
 
   // Map back/front POIs to the course's longest/shortest TeeBoxes so the
-  // origin marker and chooser rows can render in the actual tee colour.
+  // tee markers render in the actual tee colour.
   const courseTeeColors = useCourseTeeColors(courseId);
-  // Resolved swatch for the origin marker on the trail — uses the colour
-  // of whichever tee is currently in effect (back / front / custom).
-  const originSwatch: string | null = useMemo(() => {
-    if (selectedCustomTee) {
-      const meta = CUSTOM_TEE_COLORS.find((c) => c.key === selectedCustomTee.color);
-      return meta?.swatch ?? null;
-    }
-    if (currentSelection === 'front') return courseTeeColors.front.swatch;
-    if (currentSelection === 'back') return courseTeeColors.back.swatch;
-    return null;
-  }, [selectedCustomTee, currentSelection, courseTeeColors]);
 
-  const [teeChooserVisible, setTeeChooserVisible] = useState(false);
-
-  // Available in both live and review modes — players want to set the
-  // correct tee at the start of a round (so shot 1 distances are right)
-  // and to fix it retrospectively after a round. Custom tees count too.
-  const canChooseTee =
-    !!backTeeCoord || !!frontTeeCoord || customTees.length > 0;
-  const handleOriginPress = useCallback(() => {
-    if (!canChooseTee) return;
-    setTeeChooserVisible(true);
-  }, [canChooseTee]);
+  // All tees for this hole, ready to render via TeeMarkerSet. Tap any of
+  // them and the host store records the choice as this round/hole's
+  // origin. Available in both live and review modes — players want to
+  // set the correct tee at the start of a round (so shot 1 distances are
+  // right) and to fix it retrospectively after a round.
+  const teeOptions = useMemo<TeeOption[]>(
+    () =>
+      buildTeeOptions({
+        backTeeCoord,
+        frontTeeCoord,
+        customTees,
+        backColor: courseTeeColors.back,
+        frontColor: courseTeeColors.front,
+      }),
+    [backTeeCoord, frontTeeCoord, customTees, courseTeeColors]
+  );
   const handleSelectTee = useCallback(
     (tee: TeeOverride) => {
       setTeeOverride(roundId, holeNumber, tee);
@@ -997,13 +995,18 @@ export default function HoleMapScreen({ route, navigation }: Props) {
               shots={shots}
               target={targetCoord}
               origin={teeAnchor}
-              originSwatch={originSwatch}
-              onOriginPress={canChooseTee ? handleOriginPress : undefined}
               onShotPress={isLogShot ? undefined : onShotPress}
-              onShotLongPress={isLogShot ? undefined : onShotLongPress}
               movingShotId={movingShotId}
             />
           )}
+
+          {/* Tappable tee markers — every available tee for this hole.
+              Tapping switches the round/hole's origin via teeOverrideStore. */}
+          <TeeMarkerSet
+            tees={teeOptions}
+            selected={currentSelection}
+            onSelect={handleSelectTee}
+          />
 
           {/* Ghost pin — candidate new position while move-and-confirm is open. */}
           {movingShotId && previewCoord && (
@@ -1078,17 +1081,13 @@ export default function HoleMapScreen({ route, navigation }: Props) {
           onCancel={onLogShotPickerCancel}
         />
 
-        <TeeOverrideSheet
-          visible={teeChooserVisible}
-          onClose={() => setTeeChooserVisible(false)}
-          currentSelection={currentSelection}
-          hasBackTee={!!backTeeCoord}
-          hasFrontTee={!!frontTeeCoord}
-          backTeeColor={courseTeeColors.back}
-          frontTeeColor={courseTeeColors.front}
-          customTees={customTees}
-          onSelect={handleSelectTee}
-          onAddCustom={handleAddCustomTee}
+        {/* Floating "+ Add tee" pill — top-left of the map, opens the
+            existing place-custom-tee flow. Hidden when the map is in a
+            modal-ish state (placing a tee, logging a shot, moving a shot)
+            so it doesn't compete with the in-flight banner. */}
+        <AddTeePill
+          visible={!!courseId && !isPlacingTee && !isLogShot && !movingShotId}
+          onPress={handleAddCustomTee}
         />
 
         {isPlacingTee && !placedTeeCoord && (

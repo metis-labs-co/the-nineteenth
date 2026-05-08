@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { Marker, Polyline } from 'react-native-maps';
 import { useThemeColors } from '@/context/ThemeContext';
 import { typography } from '@/constants/theme';
@@ -76,25 +76,12 @@ interface ShotTrailProps {
   target?: LatLng | null;
   /**
    * Optional origin (typically the hole's tee) — when present, prepends a
-   * trail segment from origin → shot 1 and renders a small marker at the
-   * origin so the first shot's start point is visible. Used in review mode.
+   * trail segment from origin → shot 1. The origin marker itself is rendered
+   * by the host's `TeeMarkerSet`, not here.
    */
   origin?: LatLng | null;
-  /**
-   * Optional fill colour for the origin marker (e.g. the back-tee colour
-   * resolved from `Course.tees`). Defaults to the theme primary colour.
-   */
-  originSwatch?: string | null;
-  /**
-   * Tap callback for the origin marker (review mode). When provided, the
-   * origin marker becomes interactive and the user can swap between
-   * back/front tee positions.
-   */
-  onOriginPress?: () => void;
   /** Tap callback for individual shot markers (live mode). Omit for read-only. */
   onShotPress?: (shot: ShotLogEntry) => void;
-  /** Long-press callback — fast path into move mode. Omit to disable long-press. */
-  onShotLongPress?: (shot: ShotLogEntry) => void;
   /** Shot id currently being moved — its marker is dimmed as a visual reference. */
   movingShotId?: string | null;
 }
@@ -106,10 +93,7 @@ export const ShotTrail = React.memo(function ShotTrail({
   shots,
   target,
   origin,
-  originSwatch,
-  onOriginPress,
   onShotPress,
-  onShotLongPress,
   movingShotId,
 }: ShotTrailProps) {
   const colors = useThemeColors();
@@ -138,42 +122,6 @@ export const ShotTrail = React.memo(function ShotTrail({
           testID="shot-trail-line"
         />
       )}
-      {/* Origin (tee) marker — small subdued dot anchoring shot 1's start.
-          Tappable when an `onOriginPress` callback is supplied (review mode). */}
-      {origin && (
-        <Marker
-          coordinate={origin}
-          anchor={{ x: 0.5, y: 0.5 }}
-          tracksViewChanges={false}
-          testID="shot-trail-origin"
-        >
-          <Pressable
-            onPress={onOriginPress}
-            disabled={!onOriginPress}
-            accessibilityRole={onOriginPress ? 'button' : undefined}
-            accessibilityLabel={
-              onOriginPress
-                ? 'Change tee origin'
-                : 'Tee origin'
-            }
-            accessibilityHint={
-              onOriginPress ? 'Opens a chooser to swap between back and front tee.' : undefined
-            }
-            hitSlop={10}
-            style={styles.originHitArea}
-          >
-            <View
-              style={[
-                styles.originDot,
-                {
-                  backgroundColor: originSwatch ?? colors.primary,
-                  borderColor: 'white',
-                },
-              ]}
-            />
-          </Pressable>
-        </Marker>
-      )}
       {/* Dashed final segment to target */}
       {targetSegment && (
         <Polyline
@@ -192,7 +140,6 @@ export const ShotTrail = React.memo(function ShotTrail({
           color={colors.primary}
           warningColor={colors.warning}
           onPress={onShotPress}
-          onLongPress={onShotLongPress}
           dimmed={movingShotId === shot.id}
           isLowAccuracy={
             shot.accuracy_meters !== null &&
@@ -210,7 +157,6 @@ interface ShotNumberMarkerProps {
   color: string;
   warningColor: string;
   onPress?: (shot: ShotLogEntry) => void;
-  onLongPress?: (shot: ShotLogEntry) => void;
   dimmed: boolean;
   isLowAccuracy: boolean;
   /**
@@ -225,17 +171,11 @@ const ShotNumberMarker = React.memo(function ShotNumberMarker({
   color,
   warningColor,
   onPress,
-  onLongPress,
   dimmed,
   isLowAccuracy,
   offset,
 }: ShotNumberMarkerProps) {
   const handlePress = useCallback(() => onPress?.(shot), [onPress, shot]);
-  const handleLongPress = useCallback(
-    () => onLongPress?.(shot),
-    [onLongPress, shot]
-  );
-  const testID = `shot-marker-${shot.sequence}`;
 
   // react-native-maps Markers with tracksViewChanges={false} don't repaint
   // when their coordinate prop changes — the native view freezes at its
@@ -262,18 +202,16 @@ const ShotNumberMarker = React.memo(function ShotNumberMarker({
       coordinate={{ latitude: shot.latitude, longitude: shot.longitude }}
       anchor={{ x: 0.5, y: 0.5 }}
       tracksViewChanges={tracks}
+      onPress={onPress ? handlePress : undefined}
+      tappable
+      accessibilityLabel={
+        isLowAccuracy
+          ? `Shot ${shot.sequence}, weak GPS signal`
+          : `Shot ${shot.sequence}`
+      }
+      testID={`shot-marker-${shot.sequence}`}
     >
-      <Pressable
-        onPress={onPress ? handlePress : undefined}
-        onLongPress={onLongPress ? handleLongPress : undefined}
-        delayLongPress={350}
-        accessibilityRole={onPress ? 'button' : undefined}
-        accessibilityLabel={
-          isLowAccuracy
-            ? `Shot ${shot.sequence}, weak GPS signal — long-press to reposition`
-            : `Shot ${shot.sequence}`
-        }
-        testID={testID}
+      <View
         style={[
           styles.wrapper,
           dimmed && styles.dimmed,
@@ -284,12 +222,11 @@ const ShotNumberMarker = React.memo(function ShotNumberMarker({
           },
           transformStyle,
         ]}
-        hitSlop={8}
       >
         <View style={[styles.bubble, { backgroundColor: color }]}>
           <Text style={[styles.numberText, { color: 'white' }]}>{shot.sequence}</Text>
         </View>
-      </Pressable>
+      </View>
     </Marker>
   );
 });
@@ -319,17 +256,5 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 11,
     lineHeight: 12,
-  },
-  originDot: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    borderWidth: 2,
-  },
-  originHitArea: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });

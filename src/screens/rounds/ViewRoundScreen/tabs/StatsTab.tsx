@@ -13,10 +13,12 @@ import { spacing, borderRadius, typography, shadows } from '@/constants/theme';
 import { FeatureLockCompact } from '@/components/subscription/FeatureLockCompact';
 import { isSingleBallScore } from '@/types/database/base';
 import { splitHolesByNine, generateDefaultHoles } from '@/utils/scorecardCalculations';
+import { filterHolesByNineType } from '@/utils/holeTransformers';
 import type { Hole, Player } from '@/types';
 import type { ScorecardWithPlayer, RoundPlayer } from '@/hooks/useRoundDetails';
 import type { CourseWithClub } from '@/hooks/useRoundDetails';
 import type { ScorecardTablePlayer } from '@/components/scorecard/ScorecardTable/types';
+import type { NineType } from '@/types/database/enums';
 
 interface StatsVisibility {
   showPutts: boolean;
@@ -37,16 +39,22 @@ interface StatsTabProps {
   canEditStats?: boolean;
   onEditStats?: (holeNumber?: number) => void;
   onUpgradePress?: () => void;
+  /** Which holes the round is being played over. Filters the rendered
+   *  hole rows and OUT/IN subtotals. Defaults to 'full'. */
+  nineType?: NineType;
 }
 
-export function StatsTab({ displayPlayers: displayPlayersProp, scorecards, roundPlayers, holes: rawHoles, statsVisibility, canEditStats, onEditStats, onUpgradePress }: StatsTabProps) {
+export function StatsTab({ displayPlayers: displayPlayersProp, scorecards, roundPlayers, holes: rawHoles, statsVisibility, canEditStats, onEditStats, onUpgradePress, nineType = 'full' }: StatsTabProps) {
   const colors = useThemeColors();
   const [selectedPlayerIndex, setSelectedPlayerIndex] = useState(0);
 
   const holes = useMemo(() => {
-    if (Array.isArray(rawHoles) && rawHoles.length > 0) return rawHoles;
-    return generateDefaultHoles();
-  }, [rawHoles]);
+    const base =
+      Array.isArray(rawHoles) && rawHoles.length > 0
+        ? rawHoles
+        : generateDefaultHoles();
+    return filterHolesByNineType(base, nineType);
+  }, [rawHoles, nineType]);
 
   // Merge scorecards with round players (same logic as RoundScorecardTab)
   // If displayPlayersProp is provided, skip the merge logic entirely
@@ -355,10 +363,10 @@ export function StatsTab({ displayPlayers: displayPlayersProp, scorecards, round
           ))}
         </View>
 
-        {/* Front 9 */}
-        {renderNineSection(front9, 'OUT')}
+        {/* Front 9 — hidden for Back 9 only rounds */}
+        {front9.length > 0 && renderNineSection(front9, 'OUT')}
 
-        {/* Back 9 */}
+        {/* Back 9 — hidden for Front 9 only rounds */}
         {back9.length > 0 && renderNineSection(back9, 'IN')}
 
         {/* Total row */}

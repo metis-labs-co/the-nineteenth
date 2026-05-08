@@ -73,9 +73,16 @@ interface ShotLogListProps {
   /**
    * Total holes for the round. Used by the bottom hole picker to list all
    * holes (including ones with no shots and no strokes yet) when the round
-   * is in progress. Defaults to 18 when not provided.
+   * is in progress. Defaults to 18 when not provided. Ignored when
+   * `holeNumbers` is supplied.
    */
   totalHoles?: number;
+  /**
+   * Explicit hole numbers the round is being played over (e.g. [10..18] for
+   * a Back 9 round). When provided, the bottom hole picker only offers
+   * these holes. Falls back to `1..totalHoles` when omitted.
+   */
+  holeNumbers?: number[];
 }
 
 interface HoleGroup {
@@ -97,6 +104,7 @@ export function ShotLogList({
   roundStatus,
   holeStrokeCounts,
   totalHoles = 18,
+  holeNumbers,
 }: ShotLogListProps) {
   const colors = useThemeColors();
   const navigation =
@@ -465,6 +473,7 @@ export function ShotLogList({
       visible={holePickerVisible}
       onClose={() => setHolePickerVisible(false)}
       totalHoles={totalHoles}
+      holeNumbers={holeNumbers}
       shotsByHole={userShotsByHole}
       strokesByHole={holeStrokeCounts}
       onSelect={(holeNumber) => {

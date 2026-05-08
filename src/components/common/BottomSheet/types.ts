@@ -6,7 +6,7 @@
  */
 
 import type { ReactNode } from 'react';
-import type { ViewStyle, StyleProp } from 'react-native';
+import type { ViewStyle, StyleProp, PanResponderInstance } from 'react-native';
 
 /**
  * Height configuration for BottomSheet
@@ -192,6 +192,13 @@ export interface BottomSheetHeaderProps {
 
   /** Show the handle bar above the header */
   showHandle?: boolean;
+
+  /**
+   * PanResponder handlers spread on the header so swipe-to-dismiss
+   * is restricted to the handle/header area, leaving scrollable
+   * content free to scroll normally.
+   */
+  panHandlers?: PanResponderInstance['panHandlers'];
 }
 
 /**

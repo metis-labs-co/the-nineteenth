@@ -60,6 +60,7 @@ import { useConfirmationDialog } from '@/hooks';
 import { useDeleteShot, useSetShotClub } from '@/hooks/shots';
 import { useBag } from '@/hooks/queries/useBag';
 import { clubLabel, type ClubKey } from '@/constants/clubs';
+import { filterHolesByNineType } from '@/utils/holeTransformers';
 import type { ShotLogEntry } from '@/types/database/shotLog.types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ViewRound'>;
@@ -217,6 +218,17 @@ export default function ViewRoundScreen(props: Props) {
 
   const { round } = vm;
 
+  // Holes the round is actually being played over. For 'front9' / 'back9'
+  // standalone rounds this strips the unplayed nine so the scorecard,
+  // stats, and shot picker all surface only the holes that count. The
+  // course holes themselves stay intact in the round payload — this is a
+  // display-time filter only.
+  const playableHoles = filterHolesByNineType(
+    Array.isArray(round.course?.holes) ? round.course.holes : [],
+    round.nine_type
+  );
+  const playableHoleNumbers = playableHoles.map((h) => h.number);
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
@@ -348,6 +360,7 @@ export default function ViewRoundScreen(props: Props) {
             selectedTeeData={round.selected_tee}
             gameType={round.game_type}
             handicapSource={round.handicap_source ?? undefined}
+            nineType={round.nine_type}
           />
         )}
         {vm.activeTab === 'stats' && (
@@ -359,6 +372,7 @@ export default function ViewRoundScreen(props: Props) {
             canEditStats={vm.userScorecardSubmitted}
             onEditStats={vm.handleEditStatsOpen}
             onUpgradePress={vm.handleNavigateToSubscription}
+            nineType={round.nine_type}
           />
         )}
         {vm.activeTab === 'match' && (vm.isMatchPlayRound || vm.isTeamMatchPlayRound) && (
@@ -524,7 +538,8 @@ export default function ViewRoundScreen(props: Props) {
             onChangeClubForShot={isInProgress ? handleChangeClub : undefined}
             roundStatus={round?.status}
             holeStrokeCounts={userHoleStrokeCounts}
-            totalHoles={round?.course?.holes?.length || 18}
+            totalHoles={playableHoles.length || round?.course?.holes?.length || 18}
+            holeNumbers={playableHoleNumbers}
           />
         )}
       </ScrollView>

@@ -18,10 +18,13 @@ import { borderRadius, spacing, typography, shadows } from '@/constants/theme';
 import { PageHeader } from '@/components/common/PageHeader';
 import { SystemModalTheme } from '@/components/common';
 import {
+  AddTeePill,
   DistanceLine,
   MovePreviewBanner,
   TapMarker,
-  TeeOverrideSheet,
+  TeeMarkerSet,
+  buildTeeOptions,
+  type TeeOption,
 } from '@/components/scorecard/HoleMap';
 import { CLUBS_BY_KEY } from '@/constants/clubs';
 import { calculateDistance, metersToYards } from '@/utils/gpsCalculations';
@@ -41,13 +44,12 @@ import {
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ShotMap'>;
 
+type LatLng = { latitude: number; longitude: number };
+
 const SOLO_DELTA = 0.0008;
 const PADDING_FACTOR = 2.5;
 
-function regionFor(
-  shot: { latitude: number; longitude: number },
-  origin: { latitude: number; longitude: number } | null
-): Region {
+function regionFor(shot: LatLng, origin: LatLng | null): Region {
   if (!origin) {
     return {
       latitude: shot.latitude,
@@ -70,6 +72,35 @@ function regionFor(
     latitudeDelta: latDelta,
     longitudeDelta: lngDelta,
   };
+}
+
+// Initial bearing from `from` to `to` in degrees clockwise from north.
+// Used to rotate the map so the hole's tee→green axis runs vertically up
+// the screen.
+function bearingDegrees(from: LatLng, to: LatLng): number {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const toDeg = (r: number) => (r * 180) / Math.PI;
+  const phi1 = toRad(from.latitude);
+  const phi2 = toRad(to.latitude);
+  const dLambda = toRad(to.longitude - from.longitude);
+  const y = Math.sin(dLambda) * Math.cos(phi2);
+  const x =
+    Math.cos(phi1) * Math.sin(phi2) -
+    Math.sin(phi1) * Math.cos(phi2) * Math.cos(dLambda);
+  return (toDeg(Math.atan2(y, x)) + 360) % 360;
+}
+
+// Pick a zoom that frames the shot with a bit of padding. Visible vertical
+// extent is `max(shot length × 2.5, 80m)` — same multiplier as `regionFor`,
+// just expressed as a zoom so we can pair it with a heading.
+function cameraSizeFor(distanceMeters: number): { zoom: number; altitude: number } {
+  const visibleMeters = Math.max(distanceMeters * PADDING_FACTOR, 80);
+  const visibleDegrees = visibleMeters / 111_000;
+  const zoom = Math.log2(360 / visibleDegrees);
+  // Apple Maps altitude that corresponds to `zoom` at mid-latitudes
+  // (used on iOS; Android reads `zoom` directly).
+  const altitude = 591_657_550 / Math.pow(2, zoom);
+  return { zoom, altitude };
 }
 
 function formatPlayedAt(iso: string | null): string | null {
@@ -139,10 +170,16 @@ function ShotMapScreenContent({ route, navigation }: Props) {
   // shot's landing — overriding the tee doesn't apply, so the chooser is
   // hidden and we use the route-passed origin directly.
   const isTeeShot = sequence === 1;
+  // Hole coordinates serve two purposes here:
+  //   1. Tee origin override (back/front) — only meaningful for shot 1.
+  //   2. Map orientation — every shot benefits from rotating the map so
+  //      the hole's tee→green axis runs vertically up the screen.
+  // Fetch whenever the round is linked to a course; gating on `isTeeShot`
+  // would break orientation for shot 2+.
   const { data: holeCoords } = useHoleCoordinatesByHole(
     courseId ?? '',
     holeNumber,
-    { enabled: isTeeShot && !!courseId }
+    { enabled: !!courseId }
   );
   const backTeeCoord = useMemo(
     () =>
@@ -225,51 +262,24 @@ function ShotMapScreenContent({ route, navigation }: Props) {
     return null;
   }, [isTeeShot, teeOverride, selectedCustomTee, backTeeCoord, frontTeeCoord]);
 
-  // Origin chooser is meaningful when shot 1 has at least one tee available
-  // (back, front, or custom). With no course we can't fetch tees and can't
-  // create new ones either — chooser stays hidden.
-  const canChooseTee =
-    isTeeShot && !!courseId && (!!backTeeCoord || !!frontTeeCoord || customTees.length > 0);
-
   // Map back/front POIs to the course's longest/shortest TeeBoxes for
-  // colour-coded marker fills + chooser labels.
+  // colour-coded marker fills.
   const courseTeeColors = useCourseTeeColors(courseId);
-  const originSwatch: string | null = useMemo(() => {
-    if (!isTeeShot) return null;
-    if (selectedCustomTee) {
-      const meta = CUSTOM_TEE_COLORS.find((c) => c.key === selectedCustomTee.color);
-      return meta?.swatch ?? null;
-    }
-    if (currentSelection === 'front') return courseTeeColors.front.swatch;
-    if (currentSelection === 'back') return courseTeeColors.back.swatch;
-    return null;
-  }, [isTeeShot, selectedCustomTee, currentSelection, courseTeeColors]);
 
-  // Human-readable label for the currently effective origin (footer).
-  // Uses the resolved colour name (e.g. "Black tee") when available.
-  const originLabel: string | null = useMemo(() => {
-    if (!isTeeShot) return null;
-    if (selectedCustomTee) {
-      const meta = CUSTOM_TEE_COLORS.find((c) => c.key === selectedCustomTee.color);
-      return `${meta?.label ?? selectedCustomTee.color} tee`;
-    }
-    if (currentSelection === 'front') {
-      return courseTeeColors.front.label
-        ? `${courseTeeColors.front.label} tee`
-        : 'Front tee';
-    }
-    if (currentSelection === 'back') {
-      return courseTeeColors.back.label
-        ? `${courseTeeColors.back.label} tee`
-        : 'Back tee';
-    }
-    return null;
-  }, [isTeeShot, selectedCustomTee, currentSelection, courseTeeColors]);
-  const [teeChooserVisible, setTeeChooserVisible] = useState(false);
-  const handleOriginPress = useCallback(() => {
-    if (!canChooseTee) return;
-    setTeeChooserVisible(true);
-  }, [canChooseTee]);
+  // All tees for this hole, ready to render via TeeMarkerSet. Only shot 1
+  // has a tee origin (shot 2+ measures from the prior shot's landing), so
+  // the array is empty for non-tee shots and TeeMarkerSet renders nothing.
+  const teeOptions = useMemo<TeeOption[]>(() => {
+    if (!isTeeShot) return [];
+    return buildTeeOptions({
+      backTeeCoord,
+      frontTeeCoord,
+      customTees,
+      backColor: courseTeeColors.back,
+      frontColor: courseTeeColors.front,
+    });
+  }, [isTeeShot, backTeeCoord, frontTeeCoord, customTees, courseTeeColors]);
+
   const handleSelectTee = useCallback(
     (tee: TeeOverride) => {
       setTeeOverride(roundId, holeNumber, tee);
@@ -297,9 +307,75 @@ function ShotMapScreenContent({ route, navigation }: Props) {
   );
   const mapRef = useRef<MapView | null>(null);
 
+  // Hole orientation: rotate the map so the hole's natural tee→green axis
+  // runs vertically up the screen. Independent of `origin` (which can swap
+  // between tees for the shot-1 override) — orientation reflects the
+  // hole's intrinsic geometry, not the shot's chosen origin.
+  const holeOrientationTee = useMemo<LatLng | null>(() => {
+    const back = holeCoords?.tee_back;
+    if (back) return { latitude: back.latitude, longitude: back.longitude };
+    const front = holeCoords?.tee_front;
+    if (front) return { latitude: front.latitude, longitude: front.longitude };
+    return null;
+  }, [holeCoords]);
+
+  const holeOrientationGreen = useMemo<LatLng | null>(() => {
+    const center = holeCoords?.green_center;
+    if (center) return { latitude: center.latitude, longitude: center.longitude };
+    const front = holeCoords?.green_front;
+    if (front) return { latitude: front.latitude, longitude: front.longitude };
+    const back = holeCoords?.green_back;
+    if (back) return { latitude: back.latitude, longitude: back.longitude };
+    return null;
+  }, [holeCoords]);
+
+  const holeHeading = useMemo<number | null>(() => {
+    if (!holeOrientationTee || !holeOrientationGreen) return null;
+    return bearingDegrees(holeOrientationTee, holeOrientationGreen);
+  }, [holeOrientationTee, holeOrientationGreen]);
+
+  // Build a heading-aware camera for the current shot/origin pair.
+  const orientedCameraFor = useCallback(
+    (s: LatLng, o: LatLng | null, heading: number) => {
+      const center: LatLng = o
+        ? {
+            latitude: (s.latitude + o.latitude) / 2,
+            longitude: (s.longitude + o.longitude) / 2,
+          }
+        : s;
+      const dist = o
+        ? calculateDistance(s.latitude, s.longitude, o.latitude, o.longitude)
+        : 0;
+      const { zoom, altitude } = cameraSizeFor(dist);
+      return { center, heading, pitch: 0, altitude, zoom };
+    },
+    []
+  );
+
+  // Apply hole orientation once, after coordinates resolve. Subsequent
+  // pans/rotations by the user are preserved — only the recenter button
+  // restores this framing.
+  const orientedRef = useRef(false);
+  useEffect(() => {
+    if (orientedRef.current) return;
+    if (holeHeading == null) return;
+    orientedRef.current = true;
+    mapRef.current?.animateCamera(
+      orientedCameraFor(shot, origin, holeHeading),
+      { duration: 400 }
+    );
+  }, [holeHeading, shot, origin, orientedCameraFor]);
+
   const handleRecenter = useCallback(() => {
+    if (holeHeading != null) {
+      mapRef.current?.animateCamera(
+        orientedCameraFor(shot, origin, holeHeading),
+        { duration: 350 }
+      );
+      return;
+    }
     mapRef.current?.animateToRegion(regionFor(shot, origin), 350);
-  }, [shot, origin]);
+  }, [shot, origin, holeHeading, orientedCameraFor]);
 
   const formattedDistance = useMemo(() => {
     if (currentDistance == null) return null;
@@ -497,44 +573,35 @@ function ShotMapScreenContent({ route, navigation }: Props) {
           // detail — needed for tee placement and tracking short putts.
           maxZoomLevel={22}
         >
-          {origin && (
+          {/* Tappable tee markers — only shot 1 has a selectable origin.
+              For shot 2+ the origin is the prior shot's landing position
+              (drawn separately below) and isn't user-selectable. */}
+          {isTeeShot && (
+            <TeeMarkerSet
+              tees={teeOptions}
+              selected={currentSelection}
+              onSelect={handleSelectTee}
+            />
+          )}
+
+          {/* For shot 2+, render a small dimmed origin dot so the user can
+              still see where the prior shot landed. Shot 1's origin is
+              represented by the selected tee marker above. */}
+          {!isTeeShot && origin && (
             <Marker
               coordinate={origin}
               anchor={{ x: 0.5, y: 0.5 }}
-              tracksViewChanges={canChooseTee}
+              tracksViewChanges={false}
             >
-              <Pressable
-                onPress={canChooseTee ? handleOriginPress : undefined}
-                disabled={!canChooseTee}
-                accessibilityRole={canChooseTee ? 'button' : undefined}
-                accessibilityLabel={
-                  canChooseTee
-                    ? `Change tee origin${originLabel ? ` (currently ${originLabel})` : ''}`
-                    : 'Shot origin'
-                }
-                accessibilityHint={
-                  canChooseTee
-                    ? 'Opens a chooser to swap between back, front, and custom tees.'
-                    : undefined
-                }
-                hitSlop={10}
-                style={styles.originHitArea}
-              >
-                <View
-                  style={[
-                    styles.originDot,
-                    canChooseTee
-                      ? {
-                          backgroundColor: originSwatch ?? colors.primary,
-                          borderColor: 'white',
-                        }
-                      : {
-                          backgroundColor: colors.textSecondary,
-                          borderColor: colors.surface,
-                        },
-                  ]}
-                />
-              </Pressable>
+              <View
+                style={[
+                  styles.originDot,
+                  {
+                    backgroundColor: colors.textSecondary,
+                    borderColor: colors.surface,
+                  },
+                ]}
+              />
             </Marker>
           )}
 
@@ -731,6 +798,16 @@ function ShotMapScreenContent({ route, navigation }: Props) {
             distanceUnit={distanceUnit}
           />
         )}
+
+        {/* Floating "+ Add tee" pill — top-left of the map. Only relevant
+            for shot 1 (where the origin is a tee, not a prior shot's
+            landing) and only when the round is linked to a course. Hidden
+            while another in-flight flow (move, place-tee) is open so it
+            doesn't compete with the in-flight banner. */}
+        <AddTeePill
+          visible={isTeeShot && !!courseId && !isMoving && !isPlacingTee}
+          onPress={handleAddCustomTee}
+        />
       </View>
 
       <View
@@ -762,31 +839,6 @@ function ShotMapScreenContent({ route, navigation }: Props) {
             </Text>
           </View>
         </View>
-        {canChooseTee && (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Change tee origin"
-            onPress={handleOriginPress}
-            style={({ pressed }) => [
-              styles.teeRow,
-              { borderTopColor: colors.borderLight, opacity: pressed ? 0.7 : 1 },
-            ]}
-          >
-            <Icon source="golf-tee" size={16} color={colors.textSecondary} />
-            <Text style={[typography.caption, { color: colors.textSecondary }]}>
-              Origin: {originLabel ?? 'Default tee'}
-            </Text>
-            <Text
-              style={[
-                typography.caption,
-                styles.teeRowAction,
-                { color: colors.primary },
-              ]}
-            >
-              Change
-            </Text>
-          </Pressable>
-        )}
         {!origin && (
           <Text
             style={[
@@ -795,24 +847,12 @@ function ShotMapScreenContent({ route, navigation }: Props) {
               { color: colors.textSecondary },
             ]}
           >
-            Origin position isn't available for this shot, so the distance can't
-            be shown.
+            Origin position isn&apos;t available for this shot, so the distance
+            can&apos;t be shown.
           </Text>
         )}
       </View>
 
-      <TeeOverrideSheet
-        visible={teeChooserVisible}
-        onClose={() => setTeeChooserVisible(false)}
-        currentSelection={currentSelection}
-        hasBackTee={!!backTeeCoord}
-        hasFrontTee={!!frontTeeCoord}
-        backTeeColor={courseTeeColors.back}
-        frontTeeColor={courseTeeColors.front}
-        customTees={customTees}
-        onSelect={handleSelectTee}
-        onAddCustom={handleAddCustomTee}
-      />
     </View>
   );
 }
@@ -876,24 +916,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: borderRadius.full,
-  },
-  originHitArea: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  teeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingTop: spacing.md,
-    marginTop: spacing.md,
-    borderTopWidth: StyleSheet.hairlineWidth,
-  },
-  teeRowAction: {
-    marginLeft: 'auto',
-    fontWeight: '600',
   },
   placedTeeDot: {
     width: 22,

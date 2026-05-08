@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { Marker } from 'react-native-maps';
 import { useThemeColors } from '@/context/ThemeContext';
 import type { LatLng, GreenPoiType } from '@/hooks/useHoleMapMarkers';
@@ -35,12 +35,16 @@ export const GreenPOIMarker = React.memo(function GreenPOIMarker({
   const testID = selected ? `${baseTestID}-selected` : baseTestID;
 
   return (
-    <Marker coordinate={coordinate} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={LABEL[type]}
-        onPress={handlePress}
-        testID={testID}
+    <Marker
+      coordinate={coordinate}
+      anchor={{ x: 0.5, y: 0.5 }}
+      tracksViewChanges={false}
+      onPress={handlePress}
+      tappable
+      accessibilityLabel={LABEL[type]}
+      testID={testID}
+    >
+      <View
         style={[
           styles.dot,
           { borderColor: 'white', backgroundColor: colors.success },
@@ -53,7 +57,7 @@ export const GreenPOIMarker = React.memo(function GreenPOIMarker({
         <Text style={styles.letter} allowFontScaling={false}>
           {LETTER[type]}
         </Text>
-      </Pressable>
+      </View>
     </Marker>
   );
 });

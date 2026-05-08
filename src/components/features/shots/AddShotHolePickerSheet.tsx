@@ -18,8 +18,13 @@ import { BottomSheet } from '@/components/common';
 export interface AddShotHolePickerSheetProps {
   visible: boolean;
   onClose: () => void;
-  /** Total holes in the round. Defaults to 18 if not provided. */
+  /** Total holes in the round. Defaults to 18 if not provided. Ignored when
+   *  `holeNumbers` is supplied. */
   totalHoles?: number;
+  /** Explicit list of hole numbers to render. Use this for 9-hole rounds
+   *  (e.g. Back 9 → [10..18]) where holes don't simply start at 1. Falls
+   *  back to `1..totalHoles` when omitted. */
+  holeNumbers?: number[];
   /** Map of hole_number → shots logged by the current user. */
   shotsByHole: Record<number, number>;
   /** Map of hole_number → strokes scored by the current user. Optional. */
@@ -37,6 +42,7 @@ export function AddShotHolePickerSheet({
   visible,
   onClose,
   totalHoles = 18,
+  holeNumbers,
   shotsByHole,
   strokesByHole,
   onSelect,
@@ -44,17 +50,19 @@ export function AddShotHolePickerSheet({
   const colors = useThemeColors();
 
   const rows: RowMeta[] = useMemo(() => {
-    const out: RowMeta[] = [];
-    for (let h = 1; h <= totalHoles; h++) {
+    const numbers =
+      holeNumbers && holeNumbers.length > 0
+        ? [...holeNumbers].sort((a, b) => a - b)
+        : Array.from({ length: totalHoles }, (_, i) => i + 1);
+    return numbers.map((h) => {
       const n = shotsByHole[h] ?? 0;
       const s =
         strokesByHole && Object.prototype.hasOwnProperty.call(strokesByHole, h)
           ? strokesByHole[h]
           : null;
-      out.push({ holeNumber: h, n, s });
-    }
-    return out;
-  }, [totalHoles, shotsByHole, strokesByHole]);
+      return { holeNumber: h, n, s };
+    });
+  }, [holeNumbers, totalHoles, shotsByHole, strokesByHole]);
 
   return (
     <BottomSheet

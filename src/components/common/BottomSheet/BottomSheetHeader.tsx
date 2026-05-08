@@ -28,11 +28,12 @@ export function BottomSheetHeader({
   headerLeft,
   headerRight,
   showHandle = true,
+  panHandlers,
 }: BottomSheetHeaderProps) {
   const colors = useThemeColors();
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} {...(panHandlers ?? {})}>
       {/* Handle Bar */}
       {showHandle && (
         <View style={styles.handleContainer}>

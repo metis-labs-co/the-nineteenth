@@ -12,5 +12,6 @@ export { ShotTrail } from './ShotTrail';
 export { ShotMarkerActionSheet } from './ShotMarkerActionSheet';
 export { HazardOverlay } from './HazardOverlay';
 export { MovePreviewBanner } from './MovePreviewBanner';
-export { TeeOverrideSheet } from './TeeOverrideSheet';
+export { TeeMarkerSet, buildTeeOptions, type TeeOption } from './TeeMarkerSet';
+export { AddTeePill } from './AddTeePill';
 export { LogShotPreviewBanner } from './LogShotPreviewBanner';

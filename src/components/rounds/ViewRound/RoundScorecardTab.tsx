@@ -27,6 +27,7 @@ import {
   splitHolesByNine,
   generateDefaultHoles,
 } from '@/utils/scorecardCalculations';
+import { filterHolesByNineType } from '@/utils/holeTransformers';
 import {
   INDIVIDUAL_LABEL_WIDTH,
   INDIVIDUAL_TOTAL_WIDTH,
@@ -34,6 +35,7 @@ import {
 import type { ScorecardWithPlayer, CourseWithClub, RoundPlayer } from '@/hooks/useRoundDetails';
 import { isSingleBallScore, type Hole, type Player, type TeeBox } from '@/types/database.types';
 import type { GameType, HandicapSource } from '@/types/database';
+import type { NineType } from '@/types/database/enums';
 
 // =====================================================
 // TYPES
@@ -53,6 +55,9 @@ interface RoundScorecardTabProps {
   gameType?: GameType;
   /** Handicap source for daily HC calculation */
   handicapSource?: HandicapSource;
+  /** Which holes the round is being played over. Filters the displayed
+   *  hole columns and OUT/IN subtotal rows. Defaults to 'full'. */
+  nineType?: NineType;
 }
 
 // =====================================================
@@ -245,11 +250,11 @@ const IndividualScorecardView = React.memo(function IndividualScorecardView({
           </View>
         </View>
 
-        {/* Front 9 */}
-        {renderHoleRow(front9, false)}
+        {/* Front 9 — hidden when filtered out (e.g. Back 9 only round) */}
+        {front9.length > 0 && renderHoleRow(front9, false)}
 
-        {/* Back 9 */}
-        {renderHoleRow(back9, true)}
+        {/* Back 9 — hidden when filtered out (e.g. Front 9 only round) */}
+        {back9.length > 0 && renderHoleRow(back9, true)}
       </View>
     );
   };
@@ -273,16 +278,20 @@ export const RoundScorecardTab = React.memo(function RoundScorecardTab({
   selectedTeeData,
   gameType,
   handicapSource,
+  nineType = 'full',
 }: RoundScorecardTabProps) {
   const colors = useThemeColors();
   const { width: screenWidth } = useWindowDimensions();
   const [viewMode, setViewMode] = useState<ViewMode>('table');
 
-  // Default to standard 18 holes if no course data
+  // Default to standard 18 holes if no course data, then narrow to the
+  // round's `nine_type` so 9-hole rounds don't render empty back/front
+  // sections.
   const courseHoles = useMemo(() => {
-    if (Array.isArray(holes) && holes.length > 0) return holes;
-    return generateDefaultHoles();
-  }, [holes]);
+    const base =
+      Array.isArray(holes) && holes.length > 0 ? holes : generateDefaultHoles();
+    return filterHolesByNineType(base, nineType);
+  }, [holes, nineType]);
 
   // Merge scorecards with all players from pairings
   const displayPlayers: ScorecardTablePlayer[] = useMemo(() => {

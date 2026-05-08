@@ -117,26 +117,28 @@ export const ScorecardTable = React.memo(function ScorecardTable({
             <View style={[styles.tableRow, { borderBottomColor: colors.border }]}>
               <FixedHeaderCells />
             </View>
-            {/* Front 9 */}
+            {/* Front 9 — only when the round includes any front nine holes */}
             {front9.map((hole) => (
               <View key={hole.number} style={[styles.tableRow, { borderBottomColor: colors.border }]}>
                 <FixedHoleCells hole={hole} onHolePress={onHolePress} />
               </View>
             ))}
-            {/* OUT */}
-            <View style={[styles.tableRow, styles.subtotalRow, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.border }]}>
-              <FixedSubtotalCells label="OUT" par={parTotals.front9} />
-            </View>
-            {/* Back 9 */}
+            {front9.length > 0 && (
+              <View style={[styles.tableRow, styles.subtotalRow, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.border }]}>
+                <FixedSubtotalCells label="OUT" par={parTotals.front9} />
+              </View>
+            )}
+            {/* Back 9 — only when the round includes any back nine holes */}
             {back9.map((hole) => (
               <View key={hole.number} style={[styles.tableRow, { borderBottomColor: colors.border }]}>
                 <FixedHoleCells hole={hole} onHolePress={onHolePress} />
               </View>
             ))}
-            {/* IN */}
-            <View style={[styles.tableRow, styles.subtotalRow, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.border }]}>
-              <FixedSubtotalCells label="IN" par={parTotals.back9} />
-            </View>
+            {back9.length > 0 && (
+              <View style={[styles.tableRow, styles.subtotalRow, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.border }]}>
+                <FixedSubtotalCells label="IN" par={parTotals.back9} />
+              </View>
+            )}
             {/* Gross */}
             <View style={[styles.tableRow, styles.totalRow, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.border }]}>
               <FixedGrossCells parTotal={parTotals.total} />
@@ -174,13 +176,14 @@ export const ScorecardTable = React.memo(function ScorecardTable({
                   )}
                 </View>
               ))}
-              {/* OUT */}
-              <View style={[styles.tableRow, styles.subtotalRow, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.border }]}>
-                <ScrollableSubtotalCells playerStats={playerStats} isBack9={false} playerCellWidth={playerCellWidth} gameType={gameType} scoreDisplayMode={scoreDisplayMode} />
-                {showSoloStableford && playerStats[0] && (
-                  <SoloStablefordSubtotalCell playerStats={playerStats[0]} isBack9={false} />
-                )}
-              </View>
+              {front9.length > 0 && (
+                <View style={[styles.tableRow, styles.subtotalRow, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.border }]}>
+                  <ScrollableSubtotalCells playerStats={playerStats} isBack9={false} playerCellWidth={playerCellWidth} gameType={gameType} scoreDisplayMode={scoreDisplayMode} />
+                  {showSoloStableford && playerStats[0] && (
+                    <SoloStablefordSubtotalCell playerStats={playerStats[0]} isBack9={false} />
+                  )}
+                </View>
+              )}
               {/* Back 9 */}
               {back9.map((hole) => (
                 <View key={hole.number} style={[styles.tableRow, { borderBottomColor: colors.border }]}>
@@ -190,13 +193,14 @@ export const ScorecardTable = React.memo(function ScorecardTable({
                   )}
                 </View>
               ))}
-              {/* IN */}
-              <View style={[styles.tableRow, styles.subtotalRow, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.border }]}>
-                <ScrollableSubtotalCells playerStats={playerStats} isBack9={true} playerCellWidth={playerCellWidth} gameType={gameType} scoreDisplayMode={scoreDisplayMode} />
-                {showSoloStableford && playerStats[0] && (
-                  <SoloStablefordSubtotalCell playerStats={playerStats[0]} isBack9={true} />
-                )}
-              </View>
+              {back9.length > 0 && (
+                <View style={[styles.tableRow, styles.subtotalRow, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.border }]}>
+                  <ScrollableSubtotalCells playerStats={playerStats} isBack9={true} playerCellWidth={playerCellWidth} gameType={gameType} scoreDisplayMode={scoreDisplayMode} />
+                  {showSoloStableford && playerStats[0] && (
+                    <SoloStablefordSubtotalCell playerStats={playerStats[0]} isBack9={true} />
+                  )}
+                </View>
+              )}
               {/* Gross */}
               <View style={[styles.tableRow, styles.totalRow, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.border }]}>
                 <ScrollableGrossCells playerStats={playerStats} parTotals={parTotals} playerCellWidth={playerCellWidth} gameType={gameType} />
@@ -249,14 +253,16 @@ export const ScorecardTable = React.memo(function ScorecardTable({
         </View>
       ))}
 
-      {/* OUT subtotal */}
-      <View style={[styles.tableRow, styles.subtotalRow, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.border }]}>
-        <FixedSubtotalCells label="OUT" par={parTotals.front9} />
-        <ScrollableSubtotalCells playerStats={playerStats} isBack9={false} playerCellWidth={flexPlayerWidth} gameType={gameType} scoreDisplayMode={scoreDisplayMode} />
-        {showSoloStableford && playerStats[0] && (
-          <SoloStablefordSubtotalCell playerStats={playerStats[0]} isBack9={false} />
-        )}
-      </View>
+      {/* OUT subtotal — hidden for Back 9 only rounds */}
+      {front9.length > 0 && (
+        <View style={[styles.tableRow, styles.subtotalRow, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.border }]}>
+          <FixedSubtotalCells label="OUT" par={parTotals.front9} />
+          <ScrollableSubtotalCells playerStats={playerStats} isBack9={false} playerCellWidth={flexPlayerWidth} gameType={gameType} scoreDisplayMode={scoreDisplayMode} />
+          {showSoloStableford && playerStats[0] && (
+            <SoloStablefordSubtotalCell playerStats={playerStats[0]} isBack9={false} />
+          )}
+        </View>
+      )}
 
       {/* Back 9 */}
       {back9.map((hole) => (
@@ -269,14 +275,16 @@ export const ScorecardTable = React.memo(function ScorecardTable({
         </View>
       ))}
 
-      {/* IN subtotal */}
-      <View style={[styles.tableRow, styles.subtotalRow, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.border }]}>
-        <FixedSubtotalCells label="IN" par={parTotals.back9} />
-        <ScrollableSubtotalCells playerStats={playerStats} isBack9={true} playerCellWidth={flexPlayerWidth} gameType={gameType} scoreDisplayMode={scoreDisplayMode} />
-        {showSoloStableford && playerStats[0] && (
-          <SoloStablefordSubtotalCell playerStats={playerStats[0]} isBack9={true} />
-        )}
-      </View>
+      {/* IN subtotal — hidden for Front 9 only rounds */}
+      {back9.length > 0 && (
+        <View style={[styles.tableRow, styles.subtotalRow, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.border }]}>
+          <FixedSubtotalCells label="IN" par={parTotals.back9} />
+          <ScrollableSubtotalCells playerStats={playerStats} isBack9={true} playerCellWidth={flexPlayerWidth} gameType={gameType} scoreDisplayMode={scoreDisplayMode} />
+          {showSoloStableford && playerStats[0] && (
+            <SoloStablefordSubtotalCell playerStats={playerStats[0]} isBack9={true} />
+          )}
+        </View>
+      )}
 
       {/* Gross row */}
       <View style={[styles.tableRow, styles.totalRow, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.border }]}>

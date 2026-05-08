@@ -892,7 +892,7 @@ describe('ScorecardTable', () => {
       expect(screen.getByText('OUT')).toBeTruthy();
     });
 
-    it('shows IN row with zero par for front-9-only course', () => {
+    it('hides IN row entirely for front-9-only course', () => {
       const players: ScorecardTablePlayer[] = [
         createScorecardPlayer('1', 'John', 15),
       ];
@@ -905,11 +905,9 @@ describe('ScorecardTable', () => {
         />
       );
 
-      // IN row is still rendered but with 0 par when no back 9 holes
-      // The component renders both front/back sections regardless of hole count
-      expect(screen.getByText('IN')).toBeTruthy();
-      // Back 9 par should be 0 since there are no back 9 holes (0 appears in multiple places)
-      expect(screen.getAllByText('0').length).toBeGreaterThanOrEqual(1);
+      // 9-hole rounds (front 9 only) suppress the IN subtotal row so the
+      // scorecard doesn't render a meaningless empty back-nine summary.
+      expect(screen.queryByText('IN')).toBeNull();
     });
   });
 });
