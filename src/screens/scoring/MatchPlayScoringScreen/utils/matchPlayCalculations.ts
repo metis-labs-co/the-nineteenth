@@ -27,8 +27,10 @@ export function calculateMatchStatus(
   let player1Up = 0;
   let holesPlayed = 0;
 
-  for (let i = 1; i <= totalHoles; i++) {
-    const result = holeResults[i];
+  // Iterate the actual hole results — keys are real hole numbers (10..18 on
+  // back-9 / 10..27 on combo rounds), so a 1..totalHoles counter would skip
+  // everything for back-9 and miss combo holes entirely.
+  for (const result of Object.values(holeResults)) {
     if (result?.winner) {
       holesPlayed++;
       if (result.winner === 'player1') {

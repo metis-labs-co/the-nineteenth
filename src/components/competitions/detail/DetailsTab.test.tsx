@@ -166,6 +166,7 @@ function createTestCourse(overrides: Partial<Course> = {}): Course & { clubs?: {
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     api_locked: false,
+    start_hole: 1,
     clubs: {
       name: 'Royal Melbourne Golf Club',
       city: 'Melbourne',

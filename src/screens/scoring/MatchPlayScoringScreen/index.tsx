@@ -53,7 +53,7 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
 
   // Super admin check
   const isSocial = useIsSocial();
-  const { handicapSource, selectedTeeData: storeTeeData, playerTeeMap } = useScorecardStore();
+  const { handicapSource, selectedTeeData: storeTeeData, playerTeeMap, startHole } = useScorecardStore();
 
   // State - start on initialHole if provided (clamped to 1-18)
   const [currentHole, setCurrentHole] = useState(1);
@@ -272,19 +272,22 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
     }, 100);
   }, [currentHole, player1.name, player2.name, storeHandlePickUp, currentHoleData.par, currentHoleData.strokeIndex, triggerSkinsProcessing]);
 
-  // Navigation handlers
+  // Navigation handlers — bound to the round's actual hole range so back-9
+  // (10..18) and combo (10..27) rounds don't overshoot the played holes.
+  const firstHoleNumber = safeHoles[0]?.number ?? 1;
+  const lastHoleNumber = safeHoles[safeHoles.length - 1]?.number ?? 18;
   const handlePreviousHole = useCallback(() => {
-    if (currentHole > 1) {
+    if (currentHole > firstHoleNumber) {
       setCurrentHole(currentHole - 1);
     }
-  }, [currentHole]);
+  }, [currentHole, firstHoleNumber]);
 
   const handleNextHole = useCallback(() => {
     // Allow navigation even after match is complete so user can review/edit scores
-    if (currentHole < 18) {
+    if (currentHole < lastHoleNumber) {
       setCurrentHole(currentHole + 1);
     }
-  }, [currentHole]);
+  }, [currentHole, lastHoleNumber]);
 
   const handleHolePress = useCallback((holeNumber: number) => {
     setCurrentHole(holeNumber);
@@ -444,10 +447,10 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
       const holeResult = getHoleResult(holeNumber);
       const holeResultDisplay = getHoleResultDisplay(holeResult);
 
-      // Calculate navigation state for this hole
-      // Allow navigation even after match is complete so user can review/edit scores
-      const canGoPrev = holeNumber > 1;
-      const canGoNext = holeNumber < 18;
+      // Calculate navigation state for this hole — bound to the round's
+      // actual hole range so back-9 / combo rounds don't fall off the end.
+      const canGoPrev = holeNumber > firstHoleNumber;
+      const canGoNext = holeNumber < lastHoleNumber;
 
       return (
         <View style={styles.contentArea}>
@@ -455,6 +458,7 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
           <HoleHeader
             hole={holeData}
             selectedTee={selectedTeeColor}
+            startHole={startHole}
             onPrevious={handlePreviousHole}
             onNext={handleNextHole}
             canGoPrevious={canGoPrev}
@@ -527,6 +531,8 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
             <MatchProgress
               holeResults={holeResults}
               currentHole={holeNumber}
+              holeNumbers={safeHoles.map((h) => h.number)}
+              startHole={startHole}
               player1={player1}
               player2={player2}
               onHolePress={handleHolePress}
@@ -567,6 +573,10 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
       baseLabel,
       player1TeeDotColor,
       player2TeeDotColor,
+      firstHoleNumber,
+      lastHoleNumber,
+      safeHoles,
+      startHole,
     ]
   );
 
@@ -639,6 +649,8 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
       {/* Footer */}
       <MatchPlayFooter
         currentHole={currentHole}
+        firstHoleNumber={firstHoleNumber}
+        lastHoleNumber={lastHoleNumber}
         isMatchComplete={isMatchComplete}
         isSubmitting={isSubmitting}
         onPreviousHole={handlePreviousHole}

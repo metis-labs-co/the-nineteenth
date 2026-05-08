@@ -91,6 +91,7 @@ const createTestCourse = (overrides: Partial<CourseWithFavorite> = {}): CourseWi
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
   api_locked: false,
+  start_hole: 1,
   is_favorite: false,
   ...overrides,
 });

@@ -200,17 +200,13 @@ export async function finalizeTeamMatchPlayRound(
 
   if (holes.length === 0) return 0;
 
-  const holesByNumber = new Map<number, Hole>();
-  for (const h of holes) {
-    holesByNumber.set(h.number, h);
-  }
-
   // Hole-by-hole best-ball net comparison.
   const holeResults: Record<number, TeamHoleResult> = {};
 
-  for (let h = 1; h <= 18; h++) {
-    const hole = holesByNumber.get(h as Hole['number']);
-    if (!hole) continue;
+  // Iterate the round's actual holes — back-9 / combo rounds carry numbers
+  // 10..18 (or 10..27), not 1..18.
+  for (const hole of holes) {
+    const h = hole.number;
 
     const team1Nets: number[] = [];
     const team2Nets: number[] = [];
@@ -254,7 +250,7 @@ export async function finalizeTeamMatchPlayRound(
 
   if (Object.keys(holeResults).length === 0) return 0;
 
-  const matchStatus = calculateTeamMatchStatus(holeResults);
+  const matchStatus = calculateTeamMatchStatus(holeResults, holes.length);
   const wins = countHolesWon(holeResults);
 
   // Mode gate: in general-rules mode the override is dropped entirely. The

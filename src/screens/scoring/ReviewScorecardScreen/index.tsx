@@ -79,6 +79,7 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
     validateScores,
     selectedTeeData,
     handicapSource,
+    startHole,
     setCurrentHole,
     resetRound,
     submitScorecards,
@@ -147,16 +148,18 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
   const userHoleStrokeCounts = useMemo(() => {
     if (!currentUserId) return undefined;
     const map: Record<number, number> = {};
-    for (let h = 1; h <= holeCount; h++) {
-      const score = getPlayerScore(currentUserId, h);
+    // Iterate the actual round holes — for back-9 rounds these are 10..18,
+    // not 1..9, so a 1..N counter would key strokes against the wrong holes.
+    for (const hole of holes) {
+      const score = getPlayerScore(currentUserId, hole.number);
       const strokes =
         score && 'strokes' in score && typeof (score as { strokes?: unknown }).strokes === 'number'
           ? (score as { strokes: number }).strokes
           : 0;
-      if (strokes > 0) map[h] = strokes;
+      if (strokes > 0) map[hole.number] = strokes;
     }
     return map;
-  }, [currentUserId, holeCount, getPlayerScore, groupScorecards]);
+  }, [currentUserId, holes, getPlayerScore, groupScorecards]);
 
   // Mismatch hooks
   const { data: mismatches = [] } = usePendingMismatches(roundId || undefined);
@@ -364,6 +367,7 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
           bottomInset={insets.bottom}
           selectedTeeData={selectedTeeData}
           handicapSource={handicapSource}
+          startHole={startHole}
         />
       )}
 
@@ -454,6 +458,7 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
       {activeTab === 'skins' && skinsGame && (
         <SkinsTabContent
           skinsGameId={skinsGame.id}
+          totalHoles={holeCount}
           isRefreshing={isRefreshing}
           onRefresh={handleRefresh}
           bottomInset={insets.bottom}
@@ -463,6 +468,7 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
       {activeTab === 'wolf' && wolfGame && (
         <WolfTabContent
           wolfGameId={wolfGame.id}
+          totalHoles={holeCount}
           isRefreshing={isRefreshing}
           onRefresh={handleRefresh}
           bottomInset={insets.bottom}

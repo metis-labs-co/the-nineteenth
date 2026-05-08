@@ -9,12 +9,15 @@ import { useWolfSummary } from '@/hooks/wolf';
 
 interface WolfTabContentProps {
   wolfGameId: string;
+  /** Holes the round actually plays (9 for front/back nine, 18 for full).
+   *  Drives the "x of N holes" copy and the in-progress gate. */
+  totalHoles: number;
   isRefreshing: boolean;
   onRefresh: () => void;
   bottomInset: number;
 }
 
-export function WolfTabContent({ wolfGameId, isRefreshing, onRefresh, bottomInset }: WolfTabContentProps) {
+export function WolfTabContent({ wolfGameId, totalHoles, isRefreshing, onRefresh, bottomInset }: WolfTabContentProps) {
   const colors = useThemeColors();
   const {
     data: summary,
@@ -117,7 +120,7 @@ export function WolfTabContent({ wolfGameId, isRefreshing, onRefresh, bottomInse
       )}
 
       {/* In-Progress Info */}
-      {game.status === 'active' && holes_completed < 18 && (
+      {game.status === 'active' && holes_completed < totalHoles && (
         <View style={[styles.inProgressCard, { backgroundColor: colors.surface }]}>
           <View style={styles.inProgressHeader}>
             <Icon source="dog-side" size={20} color={wolfColor} />
@@ -126,7 +129,7 @@ export function WolfTabContent({ wolfGameId, isRefreshing, onRefresh, bottomInse
             </Text>
           </View>
           <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.sm }]}>
-            {holes_completed} of 18 holes completed
+            {holes_completed} of {totalHoles} holes completed
           </Text>
         </View>
       )}

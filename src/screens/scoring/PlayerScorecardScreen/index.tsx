@@ -68,7 +68,7 @@ export default function PlayerScorecardScreen({ navigation, route }: Props) {
   } = usePlayerScorecard(playerId);
 
   // Get submission methods from store
-  const { holes, getCompletedHolesCount, submitScorecards, setCurrentHole, groupScorecards } = useScorecardStore();
+  const { holes, getCompletedHolesCount, submitScorecards, setCurrentHole, groupScorecards, startHole } = useScorecardStore();
 
   // Skins finalization hook
   const { finalizeSkinsForRound } = useFinalizeSkinsForRound();
@@ -267,6 +267,7 @@ export default function PlayerScorecardScreen({ navigation, route }: Props) {
           showFIR={showFairwayHit}
           showGIR={showGreenInRegulation}
           onHolePress={handleHolePress}
+          startHole={startHole}
         />
       </ScrollView>
 

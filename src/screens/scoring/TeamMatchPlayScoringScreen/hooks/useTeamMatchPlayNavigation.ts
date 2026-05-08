@@ -15,6 +15,9 @@ import { teamMatchPlayLogger } from '@/utils/debugLogger';
 interface UseTeamMatchPlayNavigationParams {
   currentHole: number;
   setCurrentHole: (hole: number) => void;
+  /** First and last hole numbers for the round (handles back-9 / combo). */
+  firstHoleNumber: number;
+  lastHoleNumber: number;
   isMatchComplete: boolean;
   roundId: string;
   navigation: { goBack: () => void };
@@ -33,24 +36,27 @@ interface UseTeamMatchPlayNavigationParams {
 export function useTeamMatchPlayNavigation({
   currentHole,
   setCurrentHole,
+  firstHoleNumber,
+  lastHoleNumber,
   isMatchComplete,
   roundId,
   navigation,
   showDialog,
   dismissDialog,
 }: UseTeamMatchPlayNavigationParams) {
-  // Navigation handlers
+  // Navigation handlers — bound to the round's actual hole range so back-9
+  // (10..18) and combo (10..27) rounds don't overshoot.
   const handlePreviousHole = useCallback(() => {
-    if (currentHole > 1) {
+    if (currentHole > firstHoleNumber) {
       setCurrentHole(currentHole - 1);
     }
-  }, [currentHole, setCurrentHole]);
+  }, [currentHole, setCurrentHole, firstHoleNumber]);
 
   const handleNextHole = useCallback(() => {
-    if (currentHole < 18 && !isMatchComplete) {
+    if (currentHole < lastHoleNumber && !isMatchComplete) {
       setCurrentHole(currentHole + 1);
     }
-  }, [currentHole, setCurrentHole, isMatchComplete]);
+  }, [currentHole, setCurrentHole, lastHoleNumber, isMatchComplete]);
 
   const handleHolePress = useCallback(
     (holeNumber: number) => {

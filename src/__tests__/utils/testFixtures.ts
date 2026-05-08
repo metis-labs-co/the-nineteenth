@@ -110,6 +110,7 @@ export function createTestCourse(overrides: Partial<Course> = {}): Course {
     slope_rating: 125,
     course_rating: 70.0,
     api_locked: false,
+    start_hole: 1,
     golfapi_updated_at: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),

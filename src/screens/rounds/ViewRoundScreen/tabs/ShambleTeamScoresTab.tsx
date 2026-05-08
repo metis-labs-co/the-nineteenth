@@ -11,15 +11,13 @@ import type { HoleScore, MultiBallHoleScore, Player, Hole } from '@/types';
 interface ShambleTeamScoresTabProps {
   shamblePlayers: Player[];
   getShambleTeamScore: (holeNumber: number) => HoleScore | MultiBallHoleScore | undefined;
-  totalHoles: number;
   getShamblePlayerScore: (playerId: string, holeNumber: number) => HoleScore | MultiBallHoleScore | undefined;
-  holes: Hole[] | undefined;
+  holes: Hole[];
 }
 
 export function ShambleTeamScoresTab({
   shamblePlayers,
   getShambleTeamScore,
-  totalHoles,
   getShamblePlayerScore,
   holes,
 }: ShambleTeamScoresTabProps) {
@@ -28,10 +26,9 @@ export function ShambleTeamScoresTab({
       <ContributionLeaderboard
         players={shamblePlayers}
         getTeamScore={getShambleTeamScore}
-        totalHoles={totalHoles}
+        holes={holes}
         showOnlyDrives={true}
         getPlayerScore={getShamblePlayerScore}
-        holes={holes}
       />
     </View>
   );

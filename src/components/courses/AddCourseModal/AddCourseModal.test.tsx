@@ -332,6 +332,7 @@ const _createMockCourse = (): Course => ({
   course_rating: null,
   golfapi_updated_at: null,
   api_locked: false,
+  start_hole: 1,
   created_at: '2024-01-01',
   updated_at: '2024-01-01',
 });

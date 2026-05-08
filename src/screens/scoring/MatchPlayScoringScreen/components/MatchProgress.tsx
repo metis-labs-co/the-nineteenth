@@ -7,11 +7,16 @@ import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { displayHoleNumber } from '@/utils/holeTransformers';
 import type { HoleResult, MatchPlayer } from '../types';
 
 interface MatchProgressProps {
   holeResults: Record<number, HoleResult>;
   currentHole: number;
+  /** Hole numbers played in this round (handles back-9 / combo). */
+  holeNumbers: number[];
+  /** Display offset for combo / cross-nine courses (default 1). */
+  startHole?: number;
   player1: MatchPlayer;
   player2: MatchPlayer;
   onHolePress: (hole: number) => void;
@@ -24,6 +29,8 @@ interface MatchProgressProps {
 export function MatchProgress({
   holeResults,
   currentHole,
+  holeNumbers,
+  startHole = 1,
   player1,
   player2,
   onHolePress,
@@ -46,7 +53,7 @@ export function MatchProgress({
         style={styles.holesScroll}
       >
         <View style={styles.holesRow}>
-          {Array.from({ length: 18 }, (_, i) => i + 1).map(hole => {
+          {holeNumbers.map(hole => {
             const result = holeResults[hole];
             const isCurrentHole = hole === currentHole;
             const hasResult = result?.winner !== null && result?.winner !== undefined;
@@ -68,7 +75,7 @@ export function MatchProgress({
                 ]}
                 onPress={() => onHolePress(hole)}
                 activeOpacity={0.7}
-                accessibilityLabel={`Hole ${hole}${hasResult ? `, ${result?.winner}` : ''}`}
+                accessibilityLabel={`Hole ${displayHoleNumber(hole, startHole)}${hasResult ? `, ${result?.winner}` : ''}`}
               >
                 <Text
                   style={[
@@ -76,7 +83,7 @@ export function MatchProgress({
                     { color: hasResult ? colors.white : colors.textSecondary },
                   ]}
                 >
-                  {hole}
+                  {displayHoleNumber(hole, startHole)}
                 </Text>
               </TouchableOpacity>
             );

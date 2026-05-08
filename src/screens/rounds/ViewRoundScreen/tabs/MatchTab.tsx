@@ -38,6 +38,8 @@ interface MatchTabProps {
   isSplitRound?: boolean;
   /** Required to fetch sub-match data for split rounds. */
   roundId?: string;
+  /** Display offset for combo / cross-nine courses (default 1). */
+  startHole?: number;
 }
 
 export function MatchTab({
@@ -52,6 +54,7 @@ export function MatchTab({
   isTeamRound,
   isSplitRound = false,
   roundId,
+  startHole = 1,
 }: MatchTabProps) {
   const colors = useThemeColors();
 
@@ -89,6 +92,7 @@ export function MatchTab({
             player1={matchPlayPlayers!.player1}
             player2={matchPlayPlayers!.player2}
             getPlayerScore={getPlayerScore}
+            startHole={startHole}
           />
         </>
       )}

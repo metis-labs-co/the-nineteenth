@@ -121,6 +121,7 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
     selectedTeeData,
     handicapSource,
     playerTeeMap,
+    startHole,
     currentRoundId,
     setAllowedPlayers,
   } = useScorecardStore();
@@ -495,6 +496,7 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
           <HoleHeader
             hole={holeData}
             selectedTee={selectedTee ?? undefined}
+            startHole={startHole}
             onPrevious={nav.handlePreviousHole}
             onNext={nav.handleNextHole}
             canGoPrevious={canGoPrev}
@@ -580,6 +582,7 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
                   getPlayerHoleScore={getPlayerScore}
                   isHoleComplete={isHoleComplete}
                   onHolePress={nav.handleHolePress}
+                  startHole={startHole}
                   onScrollingChange={setIsQuickViewScrolling}
                 />
               </View>

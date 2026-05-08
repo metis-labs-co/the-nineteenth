@@ -224,6 +224,7 @@ function createCourseWithVenue(overrides: Partial<CourseWithClub> = {}): CourseW
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     api_locked: false,
+    start_hole: 1,
     club: createTestClub(),
     ...overrides,
   };

@@ -25,6 +25,8 @@ import { borderRadius, shadows, spacing, typography } from '@/constants/theme';
 import { roundKeys, leaderboardKeys } from '@/hooks/queryKeys';
 import { useRoundScorecards } from '@/hooks/rounds';
 import { updateRound } from '@/screens/admin/EditRoundScreen/hooks/useEditRoundData';
+import { deleteHoles } from '@/services/offline/database';
+import { useScorecardStore } from '@/store/scorecardStore';
 import { isMultiBallScore, isSingleBallScore } from '@/types/database/base';
 import type { NineType } from '@/types/database/enums';
 
@@ -141,6 +143,28 @@ export function EditNineTypeSheet({
       queryClient.invalidateQueries({ queryKey: roundKeys.detail(roundId) });
       queryClient.invalidateQueries({ queryKey: roundKeys.lists() });
       queryClient.invalidateQueries({ queryKey: leaderboardKeys.all });
+
+      // Clear the scoring caches keyed off the previous nine_type. Without
+      // this, opening Continue Scoring after a switch keeps showing the old
+      // hole count:
+      //   1. The Zustand scorecardStore holds the in-memory holes array
+      //      and `nineType` from the prior init — Scorecard short-circuits
+      //      its re-init when these are still set for this round.
+      //   2. SQLite's per-round holes cache may only contain the previous
+      //      filtered subset (e.g. 1–9 from a front9 init), so the offline
+      //      load path's `filterHolesByNineType` would re-emit the wrong
+      //      window when widening (front9 → full) or repointing (front9
+      //      → back9). Deleting forces the next open to fetch fresh course
+      //      holes and re-filter against the new nine_type.
+      const scorecardState = useScorecardStore.getState();
+      if (scorecardState.currentRoundId === roundId) {
+        scorecardState.resetRound();
+      }
+      void deleteHoles(roundId).catch(() => {
+        // Cache clear is best-effort — useRoundData's nine_type-mismatch
+        // path will still re-init from the network if SQLite isn't writable.
+      });
+
       setPendingChange(null);
       onDismiss();
     },

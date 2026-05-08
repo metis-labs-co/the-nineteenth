@@ -41,6 +41,7 @@ const createMockCourse = (id: string, name: string): Course => ({
   golfapi_updated_at: null,
   measure_unit: null,
   api_locked: false,
+  start_hole: 1,
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
 });

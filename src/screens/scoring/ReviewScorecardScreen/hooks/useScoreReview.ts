@@ -38,6 +38,7 @@ interface UseScoreReviewReturn {
   // Handicap display
   selectedTeeData: TeeBox | null;
   handicapSource: HandicapSource;
+  startHole: number;
 
   // Actions
   setCurrentHole: (hole: number) => void;
@@ -58,6 +59,7 @@ export function useScoreReview({ routeHoles }: UseScoreReviewParams): UseScoreRe
     setCurrentHole,
     selectedTeeData,
     handicapSource,
+    startHole,
     allowedPlayerIds,
   } = useScorecardStore();
 
@@ -139,6 +141,7 @@ export function useScoreReview({ routeHoles }: UseScoreReviewParams): UseScoreRe
     // Handicap display
     selectedTeeData,
     handicapSource: handicapSource ?? 'profile',
+    startHole: startHole ?? 1,
 
     // Validation
     incompleteHoles,

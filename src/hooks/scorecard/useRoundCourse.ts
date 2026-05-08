@@ -23,11 +23,16 @@ interface CourseData {
   name: string;
   holes: Hole[];
   tees: TeeBox[];
+  /** Display offset for hole numbers (1 = standard 1..18, 10 = combo
+   *  course starting at facility hole 10). See displayHoleNumber(). */
+  startHole: number;
 }
 
 interface UseRoundCourseResult {
   course: CourseData | null;
   holes: Hole[];
+  /** Convenience accessor — same as `course?.startHole ?? 1`. */
+  startHole: number;
   getHole: (holeNumber: number) => Hole | undefined;
   isLoading: boolean;
   error: string | null;
@@ -59,6 +64,12 @@ export function useRoundCourse(roundId: string | undefined): UseRoundCourseResul
     try {
       roundDataLogger.debug('Fetching course data', { roundId: roundId.substring(0, 8) });
 
+      // Important: this select stays on columns that have always existed.
+      // Adding a `start_hole` column to the join broke environments where
+      // the migration hadn't been applied yet ("column courses_1.start_hole
+      // does not exist"), which surfaced as a course-fetch failure that
+      // blocked the entire scorecard. start_hole is fetched separately
+      // below — failure there only loses the display offset (defaults to 1).
       const { data: roundData, error: roundError } = await supabase
         .from('rounds')
         .select(`
@@ -91,6 +102,7 @@ export function useRoundCourse(roundId: string | undefined): UseRoundCourseResul
           name: 'Unknown Course',
           holes: DEFAULT_HOLES,
           tees: [],
+          startHole: 1,
         });
         setIsLoading(false);
         return;
@@ -142,10 +154,37 @@ export function useRoundCourse(roundId: string | undefined): UseRoundCourseResul
         }
       }
 
+      // Fetch start_hole separately — a missing column (migration not yet
+      // applied) here just defaults the display offset to 1 instead of
+      // breaking the entire course fetch.
+      let startHole = 1;
+      if (courseData.id) {
+        try {
+          const { data: startHoleRow, error: startHoleError } = await supabase
+            .from('courses')
+            .select('start_hole')
+            .eq('id', courseData.id)
+            .maybeSingle() as {
+              data: { start_hole?: number | null } | null;
+              error: { message: string } | null;
+            };
+          if (startHoleError) {
+            roundDataLogger.warn('start_hole fetch failed — defaulting to 1', startHoleError);
+          } else if (typeof startHoleRow?.start_hole === 'number') {
+            startHole = startHoleRow.start_hole;
+          }
+        } catch (startHoleErr) {
+          roundDataLogger.warn('start_hole fetch threw — defaulting to 1', {
+            error: startHoleErr instanceof Error ? startHoleErr.message : String(startHoleErr),
+          });
+        }
+      }
+
       roundDataLogger.debug('Course data loaded', {
         courseName: courseData.name,
         holesCount: holes.length,
         hasYardages: holes.some(h => h.yardages && Object.keys(h.yardages).length > 0),
+        startHole,
       });
 
       setCourse({
@@ -153,6 +192,7 @@ export function useRoundCourse(roundId: string | undefined): UseRoundCourseResul
         name: courseData.name,
         holes,
         tees: [],
+        startHole,
       });
       setIsLoading(false);
     } catch (err) {
@@ -178,6 +218,7 @@ export function useRoundCourse(roundId: string | undefined): UseRoundCourseResul
   return {
     course,
     holes: course?.holes || DEFAULT_HOLES,
+    startHole: course?.startHole ?? 1,
     getHole,
     isLoading,
     error,

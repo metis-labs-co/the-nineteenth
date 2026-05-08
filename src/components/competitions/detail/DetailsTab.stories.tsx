@@ -103,6 +103,7 @@ function createCourse(id: string, name: string, clubName: string): Course & { cl
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     api_locked: false,
+    start_hole: 1,
     clubs: {
       name: clubName,
       city: 'Melbourne',

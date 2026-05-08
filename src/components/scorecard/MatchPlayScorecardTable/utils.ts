@@ -45,10 +45,10 @@ export function calculateAllData(
   let back9P2 = 0;
   let back9Played = 0;
 
-  // Calculate results for each hole
-  for (let holeNum = 1; holeNum <= 18; holeNum++) {
-    const hole = holes.find((h) => h.number === holeNum);
-    if (!hole) continue;
+  // Iterate the round's actual holes — back-9 / combo rounds carry numbers
+  // 10..18 (or 10..27), so a 1..18 counter would skip them entirely.
+  for (const hole of holes) {
+    const holeNum = hole.number;
 
     const p1Score = getPlayerScore(player1Id, holeNum) ?? null;
     const p2Score = getPlayerScore(player2Id, holeNum) ?? null;

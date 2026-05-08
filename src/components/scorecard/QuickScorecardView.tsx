@@ -10,6 +10,7 @@ import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors, type ColorPalette } from '@/context/ThemeContext';
+import { displayHoleNumber } from '@/utils/holeTransformers';
 import type { Hole, HoleScore, MultiBallHoleScore, Player } from '@/types';
 import { isSingleBallScore } from '@/types/database';
 import { PICKUP_SCORE } from '@/constants/scoring';
@@ -27,6 +28,8 @@ interface QuickScorecardViewProps {
   getPlayerHoleScore: (playerId: string, holeNumber: number) => HoleScore | MultiBallHoleScore | undefined;
   isHoleComplete: (holeNumber: number) => boolean;
   onHolePress: (holeNumber: number) => void;
+  /** Display offset for combo / cross-nine courses (default 1). */
+  startHole?: number;
   /** Callback when horizontal scrolling state changes (for disabling parent swipe gestures) */
   onScrollingChange?: (isScrolling: boolean) => void;
 }
@@ -38,6 +41,7 @@ export const QuickScorecardView = React.memo(function QuickScorecardView({
   getPlayerHoleScore,
   isHoleComplete,
   onHolePress,
+  startHole = 1,
   onScrollingChange,
 }: QuickScorecardViewProps) {
   const colors = useThemeColors();
@@ -113,7 +117,7 @@ export const QuickScorecardView = React.memo(function QuickScorecardView({
         ]}
         activeOpacity={0.7}
         onPress={() => onHolePress(holeNumber)}
-        accessibilityLabel={`Hole ${holeNumber}, ${completedCount} of ${players.length} players scored${allComplete ? ', all complete' : ''}`}
+        accessibilityLabel={`Hole ${displayHoleNumber(holeNumber, startHole)}, ${completedCount} of ${players.length} players scored${allComplete ? ', all complete' : ''}`}
         accessibilityRole="button"
         accessibilityState={{ selected: isCurrent }}
       >
@@ -123,7 +127,7 @@ export const QuickScorecardView = React.memo(function QuickScorecardView({
             { color: isCurrent ? colors.primary : colors.textSecondary },
           ]}
         >
-          {holeNumber}
+          {displayHoleNumber(holeNumber, startHole)}
         </Text>
         {displayScore ? (
           <Text
@@ -160,9 +164,10 @@ export const QuickScorecardView = React.memo(function QuickScorecardView({
     );
   };
 
-  // Split into front and back nine
-  const frontNine = Array.from({ length: 9 }, (_, i) => i + 1);
-  const backNine = Array.from({ length: 9 }, (_, i) => i + 10);
+  // Split the round's actual holes into front and back nine. For back-9
+  // rounds frontNine is empty; for front-9 rounds backNine is empty.
+  const frontNine = holes.filter((h) => h.number <= 9).map((h) => h.number);
+  const backNine = holes.filter((h) => h.number > 9).map((h) => h.number);
 
   return (
     <View
@@ -182,24 +187,30 @@ export const QuickScorecardView = React.memo(function QuickScorecardView({
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Front Nine */}
-        <View style={styles.nineSection}>
-          <Text style={[styles.nineLabel, { color: colors.textSecondary }]}>Front</Text>
-          <View style={styles.holesRow}>
-            {frontNine.map(renderHoleButton)}
+        {/* Front Nine — hidden on back-9 rounds where the round only plays 10–18. */}
+        {frontNine.length > 0 && (
+          <View style={styles.nineSection}>
+            <Text style={[styles.nineLabel, { color: colors.textSecondary }]}>Front</Text>
+            <View style={styles.holesRow}>
+              {frontNine.map(renderHoleButton)}
+            </View>
           </View>
-        </View>
+        )}
 
-        {/* Divider */}
-        <View style={[styles.divider, { backgroundColor: colors.border }]} />
+        {/* Divider — only when both halves render. */}
+        {frontNine.length > 0 && backNine.length > 0 && (
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+        )}
 
-        {/* Back Nine */}
-        <View style={styles.nineSection}>
-          <Text style={[styles.nineLabel, { color: colors.textSecondary }]}>Back</Text>
-          <View style={styles.holesRow}>
-            {backNine.map(renderHoleButton)}
+        {/* Back Nine — hidden on front-9 rounds. */}
+        {backNine.length > 0 && (
+          <View style={styles.nineSection}>
+            <Text style={[styles.nineLabel, { color: colors.textSecondary }]}>Back</Text>
+            <View style={styles.holesRow}>
+              {backNine.map(renderHoleButton)}
+            </View>
           </View>
-        </View>
+        )}
       </ScrollView>
     </View>
   );

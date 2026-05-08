@@ -34,14 +34,26 @@ interface LogShotInput {
   clubKey: ClubKey;
   /** Reported GPS accuracy (metres) at capture time, or null when unavailable. */
   accuracyMeters?: number | null;
+  /**
+   * For shot 1 only: the tee origin choice ('back'/'front'/customTeeId) so
+   * it persists with the shot row and follows the user across devices. If
+   * the host knows the player's selection at log-time it should pass it
+   * here; ignored when sequence ≠ 1.
+   */
+  teeOverride?: string | null;
 }
 
 interface UpdateShotInput {
   shotId: string;
   roundId: string;
   holeNumber: number;
-  latitude: number;
-  longitude: number;
+  latitude?: number;
+  longitude?: number;
+  /**
+   * Patch the tee origin column on shot 1. Pass `null` to clear (revert to
+   * default tee). Omit to leave unchanged.
+   */
+  teeOverride?: string | null;
 }
 
 interface SetShotClubInput {
@@ -103,6 +115,10 @@ export function useLogShot() {
             longitude: input.longitude,
             club_used: input.clubKey,
             accuracy_meters: input.accuracyMeters ?? null,
+            // Persist the tee origin choice on shot 1 so it follows the
+            // user across devices. NULL on later shots — the column is
+            // ignored there but harmless.
+            tee_override: sequence === 1 ? input.teeOverride ?? null : null,
           })
           .select()
           .single();
@@ -169,13 +185,20 @@ export function useUpdateShot() {
 
   return useMutation({
     mutationFn: async (input: UpdateShotInput): Promise<ShotLogEntry> => {
+      // Build the patch from whichever fields the caller supplied. A
+      // coordinate move clears `accuracy_meters` (manual repositions are
+      // user-trusted); a pure tee-override patch leaves accuracy alone.
+      const patch: Record<string, unknown> = {};
+      if (input.latitude !== undefined && input.longitude !== undefined) {
+        patch.latitude = input.latitude;
+        patch.longitude = input.longitude;
+        patch.accuracy_meters = null;
+      }
+      if (input.teeOverride !== undefined) {
+        patch.tee_override = input.teeOverride;
+      }
       const { data, error } = await shotLogTable()
-        .update({
-          latitude: input.latitude,
-          longitude: input.longitude,
-          // Manual repositions are user-trusted; clear the warning flag.
-          accuracy_meters: null,
-        })
+        .update(patch)
         .eq('id', input.shotId)
         .select()
         .single();

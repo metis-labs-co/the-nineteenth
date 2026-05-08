@@ -14,6 +14,9 @@ import { spacing, shadows, borderRadius, typography } from '@/constants/theme';
 
 export interface MatchPlayFooterProps {
   currentHole: number;
+  /** First and last hole numbers for the round (handles back-9 / combo). */
+  firstHoleNumber: number;
+  lastHoleNumber: number;
   isMatchComplete: boolean;
   isSubmitting: boolean;
   onPreviousHole: () => void;
@@ -24,6 +27,8 @@ export interface MatchPlayFooterProps {
 
 export function MatchPlayFooter({
   currentHole,
+  firstHoleNumber,
+  lastHoleNumber,
   isMatchComplete,
   isSubmitting,
   onPreviousHole,
@@ -33,9 +38,9 @@ export function MatchPlayFooter({
 }: MatchPlayFooterProps) {
   const colors = useThemeColors();
 
-  const canGoPrevious = currentHole > 1;
+  const canGoPrevious = currentHole > firstHoleNumber;
   // Allow navigation even after match is complete so user can review/edit scores
-  const canGoNext = currentHole < 18;
+  const canGoNext = currentHole < lastHoleNumber;
 
   return (
     <View

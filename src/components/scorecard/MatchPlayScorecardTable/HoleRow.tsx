@@ -12,6 +12,7 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography } from '@/constants/theme';
 import { MatchPlayScoreCell } from './MatchPlayScoreCell';
 import { getRunningStatusText } from './utils';
+import { displayHoleNumber } from '@/utils/holeTransformers';
 import type { HoleResult, MatchStatus } from '@/screens/scoring/MatchPlayScoringScreen/types';
 import type { Hole } from '@/types/database.types';
 
@@ -25,6 +26,8 @@ export interface HoleRowProps {
   runningStatus: MatchStatus | undefined;
   player1Name: string;
   player2Name: string;
+  /** Display offset for combo / cross-nine courses (default 1). */
+  startHole?: number;
   onPress?: () => void;
 }
 
@@ -63,6 +66,7 @@ export const HoleRow = React.memo(function HoleRow({
   runningStatus,
   player1Name,
   player2Name,
+  startHole = 1,
   onPress,
 }: HoleRowProps) {
   const colors = useThemeColors();
@@ -81,7 +85,7 @@ export const HoleRow = React.memo(function HoleRow({
   const rowContent = (
     <View style={[styles.row, { borderBottomColor: colors.border }]}>
       <View style={[styles.cell, styles.holeCell, { backgroundColor: colors.surface }]}>
-        <Text style={[styles.holeCellText, { color: colors.textPrimary }]}>{hole.number}</Text>
+        <Text style={[styles.holeCellText, { color: colors.textPrimary }]}>{displayHoleNumber(hole, startHole)}</Text>
       </View>
       <View style={[styles.cell, styles.parCell, { backgroundColor: colors.surface }]}>
         <Text style={[styles.parCellText, { color: colors.textSecondary }]}>{hole.par}</Text>

@@ -17,12 +17,16 @@ const SKINS_COLOR = skinsColor;
 
 interface SkinsTabContentProps {
   skinsGameId: string;
+  /** Holes the round actually plays (9 for front/back nine, 18 for full).
+   *  Drives the "x of N holes" copy and the "still has carryover" gate so
+   *  9-hole rounds don't get treated as incomplete 18-hole rounds. */
+  totalHoles: number;
   isRefreshing: boolean;
   onRefresh: () => void;
   bottomInset: number;
 }
 
-export function SkinsTabContent({ skinsGameId, isRefreshing, onRefresh, bottomInset }: SkinsTabContentProps) {
+export function SkinsTabContent({ skinsGameId, totalHoles, isRefreshing, onRefresh, bottomInset }: SkinsTabContentProps) {
   const colors = useThemeColors();
   const {
     data: summary,
@@ -136,8 +140,8 @@ export function SkinsTabContent({ skinsGameId, isRefreshing, onRefresh, bottomIn
     );
   }
 
-  // Calculate unsettled carryover (carryover from last completed hole if not all 18)
-  const unsettledCarryover = holes_completed < 18 ? current_carryover : 0;
+  // Carryover only "unsettled" if the round still has holes left to play.
+  const unsettledCarryover = holes_completed < totalHoles ? current_carryover : 0;
 
   return (
     <ScrollView
@@ -194,7 +198,7 @@ export function SkinsTabContent({ skinsGameId, isRefreshing, onRefresh, bottomIn
       )}
 
       {/* In-Progress Info */}
-      {game.status === 'active' && holes_completed < 18 && (
+      {game.status === 'active' && holes_completed < totalHoles && (
         <View style={[styles.inProgressCard, { backgroundColor: colors.surface }]}>
           <View style={styles.inProgressHeader}>
             <Icon source="golf" size={20} color={SKINS_COLOR} />
@@ -203,7 +207,7 @@ export function SkinsTabContent({ skinsGameId, isRefreshing, onRefresh, bottomIn
             </Text>
           </View>
           <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.sm }]}>
-            {holes_completed} of 18 holes completed
+            {holes_completed} of {totalHoles} holes completed
             {current_carryover > 0 && ` • $${current_carryover.toFixed(2)} carryover`}
           </Text>
         </View>

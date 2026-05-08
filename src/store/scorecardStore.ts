@@ -38,6 +38,9 @@ interface ScorecardState {
   selectedTeeData: TeeBox | null;
   playerTeeMap: Map<string, TeeBox>;
   nineType: NineType;
+  /** Display offset for hole numbers (1 = standard 1..18). See
+   *  displayHoleNumber() in src/utils/holeTransformers.ts. */
+  startHole: number;
 
   // Multi-ball scoring (solo rounds only)
   ballCount: BallCount;
@@ -70,7 +73,8 @@ interface ScorecardState {
     selectedTeeData?: TeeBox | null,
     handicapSource?: HandicapSource,
     playerTeeMap?: Map<string, TeeBox>,
-    nineType?: NineType
+    nineType?: NineType,
+    startHole?: number
   ) => Promise<void>;
   setAllowedPlayers: (playerIds: string[]) => void;
   setSelectedTeeData: (teeData: TeeBox | null) => void;
@@ -128,6 +132,7 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
     selectedTeeData: null,
     playerTeeMap: new Map(),
     nineType: 'full' as NineType,
+    startHole: 1,
     ballCount: 1,
     isMultiBall: false,
     groupScorecards: new Map(),
@@ -140,8 +145,8 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
     isInitialized: false,
 
     // Initialization (delegated to initializeRoundSlice)
-    initializeRound: (roundId, players, holes, gameType, isStandalone, allowedPlayerIds, selectedTeeData, handicapSource, playerTeeMap, nineType) =>
-      initSlice.initializeRound(set, initSyncListener, roundId, players, holes, gameType, isStandalone, allowedPlayerIds, selectedTeeData, handicapSource, playerTeeMap, nineType),
+    initializeRound: (roundId, players, holes, gameType, isStandalone, allowedPlayerIds, selectedTeeData, handicapSource, playerTeeMap, nineType, startHole) =>
+      initSlice.initializeRound(set, initSyncListener, roundId, players, holes, gameType, isStandalone, allowedPlayerIds, selectedTeeData, handicapSource, playerTeeMap, nineType, startHole),
 
     loadFromOffline: (roundId) =>
       initSlice.loadFromOffline(set, initSyncListener, roundId),
@@ -345,6 +350,7 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
         selectedTeeData: null,
         playerTeeMap: new Map(),
         nineType: 'full' as NineType,
+        startHole: 1,
         ballCount: 1,
         isMultiBall: false,
         groupScorecards: new Map(),

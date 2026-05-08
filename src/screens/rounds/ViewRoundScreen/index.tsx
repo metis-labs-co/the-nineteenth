@@ -361,6 +361,7 @@ export default function ViewRoundScreen(props: Props) {
             gameType={round.game_type}
             handicapSource={round.handicap_source ?? undefined}
             nineType={round.nine_type}
+            startHole={round.course?.start_hole ?? 1}
           />
         )}
         {vm.activeTab === 'stats' && (
@@ -388,6 +389,7 @@ export default function ViewRoundScreen(props: Props) {
             isTeamRound={round.is_team_round || false}
             isSplitRound={vm.isSplitRound}
             roundId={round.id}
+            startHole={round.course?.start_hole ?? 1}
           />
         )}
         {vm.activeTab === 'subMatches' && (
@@ -492,9 +494,8 @@ export default function ViewRoundScreen(props: Props) {
           <ShambleTeamScoresTab
             shamblePlayers={vm.shamblePlayers}
             getShambleTeamScore={vm.getShambleTeamScore}
-            totalHoles={round.course?.holes?.length || 18}
             getShamblePlayerScore={vm.getShamblePlayerScore}
-            holes={round.course?.holes || undefined}
+            holes={playableHoles}
           />
         )}
         {vm.activeTab === 'scrambleTeamScore' && vm.isScrambleRound && (
@@ -524,7 +525,7 @@ export default function ViewRoundScreen(props: Props) {
             onSelectTeam={vm.setSelectedTeamIndex}
             getTeamPlayersByIndex={vm.getScrambleTeamPlayersByIndex}
             getTeamScoreByIndex={vm.getScrambleTeamScoreByIndex}
-            totalHoles={round.course?.holes?.length || 18}
+            holes={playableHoles}
           />
         )}
         {vm.activeTab === 'shots' && vm.roundId && (

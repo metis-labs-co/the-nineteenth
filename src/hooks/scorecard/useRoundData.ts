@@ -108,6 +108,16 @@ export function useRoundData({
   // Track if we've already hydrated from Supabase for this round
   const hydratedRoundRef = useRef<string | null>(null);
 
+  // Belt-and-suspenders against an infinite reset loop. If `useRoundMetadata`
+  // and `loadFromOffline` ever read different `nine_type` values for the same
+  // row (e.g. because one of their selects errors and silently defaults), the
+  // mismatch detected by the nine_type-changed guard below would cause us to
+  // resetRound() → loadFromOffline → re-render → mismatch → reset … forever.
+  // Cap the reset to once per round per mount so a divergent read fails loudly
+  // (one warn) instead of pegging the CPU.
+  const nineTypeResetForRoundRef = useRef<string | null>(null);
+  const nineTypeMismatchWarnedForRoundRef = useRef<string | null>(null);
+
   // Use focused hooks
   const metadata = useRoundMetadata(roundId);
   const playersHook = useRoundPlayers(roundId, competitionId);
@@ -146,12 +156,37 @@ export function useRoundData({
     // EditNineTypeSheet on ViewRound) since this round was last initialized,
     // the store still holds the previous filtered hole set — fall through
     // to a full re-init so holes/scopes/UI all reflect the new selection.
+    //
+    // Capped to one reset per round per mount via nineTypeResetForRoundRef
+    // so a divergent metadata read (e.g. a fetch silently defaulting to
+    // 'full' while useRoundMetadata reads the real value) can't loop.
     const metadataNineType = metadata.data?.nineType;
-    const nineTypeChanged =
+    const rawNineTypeChanged =
       isInitialized &&
       currentRoundId === roundId &&
       !!metadataNineType &&
       metadataNineType !== storeNineType;
+    const nineTypeChanged =
+      rawNineTypeChanged && nineTypeResetForRoundRef.current !== roundId;
+
+    // Surface a divergent read once per round so an environment problem
+    // (e.g. unapplied migration breaking a select) is visible without
+    // spamming the log every render.
+    if (
+      rawNineTypeChanged &&
+      !nineTypeChanged &&
+      nineTypeMismatchWarnedForRoundRef.current !== roundId
+    ) {
+      nineTypeMismatchWarnedForRoundRef.current = roundId;
+      roundDataLogger.warn(
+        'nine_type mismatch persists after reset attempt — leaving store as-is to avoid loop',
+        {
+          roundId: roundId?.substring(0, 8),
+          metadataNineType,
+          storeNineType,
+        }
+      );
+    }
 
     // Skip full initialization if store is already initialized with THIS SPECIFIC round
     // and its nine_type still matches the round's persisted value.
@@ -191,6 +226,7 @@ export function useRoundData({
         from: storeNineType,
         to: metadataNineType,
       });
+      nineTypeResetForRoundRef.current = roundId;
       resetRound();
     }
 
@@ -345,6 +381,7 @@ export function useRoundData({
       metadata.data?.handicapSource ?? 'profile', // handicapSource
       metadata.data?.playerTeeMap ?? new Map(), // per-player tee overrides
       metadata.data?.nineType ?? 'full', // nine_type — slice filters holes accordingly
+      courseHook.startHole ?? 1, // start_hole — display offset for combo courses
     );
     pushDiagnostic('round_data.initialize_round_returned', { roundId });
   }, [
@@ -364,6 +401,7 @@ export function useRoundData({
     courseHook.holes,
     courseHook.isLoading,
     courseHook.error,
+    courseHook.startHole,
     teamsHook.teams,
     scoringPairsHook.scoringPairsEnabled,
     scoringPairsHook.playersToScore,

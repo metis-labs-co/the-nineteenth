@@ -38,6 +38,8 @@ interface ScorecardTabContentProps {
   bottomInset: number;
   selectedTeeData?: TeeBox | null;
   handicapSource?: HandicapSource;
+  /** Display offset for combo / cross-nine courses (default 1). */
+  startHole?: number;
 }
 
 export function ScorecardTabContent({
@@ -54,6 +56,7 @@ export function ScorecardTabContent({
   bottomInset,
   selectedTeeData,
   handicapSource,
+  startHole = 1,
 }: ScorecardTabContentProps) {
   const colors = useThemeColors();
   const { width: screenWidth } = useWindowDimensions();
@@ -189,6 +192,7 @@ export function ScorecardTabContent({
             scoreDisplayMode={scoreDisplayMode}
             selectedTeeData={selectedTeeData}
             handicapSource={handicapSource}
+            startHole={startHole}
           />
         )}
       </ScrollView>

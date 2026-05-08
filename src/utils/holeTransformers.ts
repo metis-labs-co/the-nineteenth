@@ -28,6 +28,23 @@ export function filterHolesByNineType(holes: Hole[], nineType: NineType): Hole[]
 }
 
 /**
+ * Convert an internal hole index (1..18) to the number the player sees on
+ * the course. Combo / cross-nine courses (e.g. Valley at Yering Meadows)
+ * use a non-1 `course.start_hole` so internal hole 1 displays as 10, hole
+ * 18 displays as 27, etc. Default startHole=1 = standard 1..18 numbering.
+ *
+ * Use only at render points — store keys, sync payloads, and stroke-index
+ * lookups all stay on the internal `hole.number`.
+ */
+export function displayHoleNumber(
+  hole: Pick<Hole, 'number'> | number,
+  startHole: number = 1
+): number {
+  const internal = typeof hole === 'number' ? hole : hole.number;
+  return internal + startHole - 1;
+}
+
+/**
  * Database hole format (snake_case, from Supabase JSONB)
  */
 export interface DatabaseHole {

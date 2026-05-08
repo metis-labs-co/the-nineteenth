@@ -30,6 +30,9 @@ import type { Hole } from '@/types';
 export interface HoleHeaderProps {
   hole: Hole;
   selectedTee?: string;
+  /** Display offset for combo / cross-nine courses (default 1 = standard
+   *  1..18, 10 = combo starting at facility hole 10). */
+  startHole?: number;
   onPrevious?: () => void;
   onNext?: () => void;
   canGoPrevious?: boolean;
@@ -44,6 +47,7 @@ export interface HoleHeaderProps {
 export const HoleHeader = React.memo(function HoleHeader({
   hole,
   selectedTee = 'white',
+  startHole = 1,
   onPrevious,
   onNext,
   canGoPrevious = true,
@@ -73,6 +77,7 @@ export const HoleHeader = React.memo(function HoleHeader({
 
       <HoleNumberDisplay
         holeNumber={hole.number}
+        startHole={startHole}
         onPress={onHolePress}
       />
 

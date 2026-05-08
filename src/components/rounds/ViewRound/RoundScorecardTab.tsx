@@ -58,6 +58,8 @@ interface RoundScorecardTabProps {
   /** Which holes the round is being played over. Filters the displayed
    *  hole columns and OUT/IN subtotal rows. Defaults to 'full'. */
   nineType?: NineType;
+  /** Display offset for combo / cross-nine courses (default 1). */
+  startHole?: number;
 }
 
 // =====================================================
@@ -279,6 +281,7 @@ export const RoundScorecardTab = React.memo(function RoundScorecardTab({
   gameType,
   handicapSource,
   nineType = 'full',
+  startHole = 1,
 }: RoundScorecardTabProps) {
   const colors = useThemeColors();
   const { width: screenWidth } = useWindowDimensions();
@@ -390,6 +393,7 @@ export const RoundScorecardTab = React.memo(function RoundScorecardTab({
           selectedTeeData={selectedTeeData}
           gameType={gameType}
           handicapSource={handicapSource}
+          startHole={startHole}
         />
       ) : (
         <IndividualScorecardView

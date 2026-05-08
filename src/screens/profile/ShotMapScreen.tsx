@@ -30,8 +30,9 @@ import {
 } from '@/components/scorecard/HoleMap';
 import { CLUBS_BY_KEY } from '@/constants/clubs';
 import { calculateDistance, metersToYards } from '@/utils/gpsCalculations';
+import { holeOrientedCamera } from '@/utils/holeOrientation';
 import { useSettingsStore } from '@/store/settingsStore';
-import { useUpdateShot } from '@/hooks/shots';
+import { useShotLog, useUpdateShot } from '@/hooks/shots';
 import { useHoleCoordinatesByHole } from '@/hooks/coordinates';
 import { useTeeOverrideStore, type TeeOverride } from '@/store/teeOverrideStore';
 import { useCourseTeeColors } from '@/hooks/useCourseTeeColors';
@@ -76,35 +77,6 @@ function regionFor(shot: LatLng, origin: LatLng | null): Region {
     latitudeDelta: latDelta,
     longitudeDelta: lngDelta,
   };
-}
-
-// Initial bearing from `from` to `to` in degrees clockwise from north.
-// Used to rotate the map so the hole's tee→green axis runs vertically up
-// the screen.
-function bearingDegrees(from: LatLng, to: LatLng): number {
-  const toRad = (d: number) => (d * Math.PI) / 180;
-  const toDeg = (r: number) => (r * 180) / Math.PI;
-  const phi1 = toRad(from.latitude);
-  const phi2 = toRad(to.latitude);
-  const dLambda = toRad(to.longitude - from.longitude);
-  const y = Math.sin(dLambda) * Math.cos(phi2);
-  const x =
-    Math.cos(phi1) * Math.sin(phi2) -
-    Math.sin(phi1) * Math.cos(phi2) * Math.cos(dLambda);
-  return (toDeg(Math.atan2(y, x)) + 360) % 360;
-}
-
-// Pick a zoom that frames the shot with a bit of padding. Visible vertical
-// extent is `max(shot length × 2.5, 80m)` — same multiplier as `regionFor`,
-// just expressed as a zoom so we can pair it with a heading.
-function cameraSizeFor(distanceMeters: number): { zoom: number; altitude: number } {
-  const visibleMeters = Math.max(distanceMeters * PADDING_FACTOR, 80);
-  const visibleDegrees = visibleMeters / 111_000;
-  const zoom = Math.log2(360 / visibleDegrees);
-  // Apple Maps altitude that corresponds to `zoom` at mid-latitudes
-  // (used on iOS; Android reads `zoom` directly).
-  const altitude = 591_657_550 / Math.pow(2, zoom);
-  return { zoom, altitude };
 }
 
 function formatPlayedAt(iso: string | null): string | null {
@@ -285,12 +257,57 @@ function ShotMapScreenContent({ route, navigation }: Props) {
     });
   }, [isTeeShot, backTeeCoord, frontTeeCoord, customTees, courseTeeColors]);
 
+  const updateShot = useUpdateShot();
+  // Pull this hole's shot rows so we can read shot 1's persisted
+  // tee_override and write changes back to the same row. Only fetched
+  // when this screen is showing shot 1 — for shot 2+ the override is
+  // irrelevant and the query is gated off.
+  const { data: shotsForHole = [] } = useShotLog(roundId, holeNumber);
+  const shotOne = useMemo(
+    () => (isTeeShot ? shotsForHole.find((s) => s.sequence === 1) ?? null : null),
+    [isTeeShot, shotsForHole]
+  );
+
   const handleSelectTee = useCallback(
     (tee: TeeOverride) => {
+      // Local store first for instant UI feedback; DB write follows so
+      // the choice persists across devices.
       setTeeOverride(roundId, holeNumber, tee);
+      if (shotOne) {
+        updateShot.mutate({
+          shotId: shotOne.id,
+          roundId,
+          holeNumber,
+          teeOverride: tee,
+        });
+      }
     },
-    [setTeeOverride, roundId, holeNumber]
+    [setTeeOverride, roundId, holeNumber, shotOne, updateShot]
   );
+
+  // Hydrate from DB and back-fill any local-only legacy data — same
+  // two-way sync as HoleMapScreen so the screens agree.
+  const teeSyncedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!shotOne) return;
+    const syncKey = `${shotOne.id}::${shotOne.tee_override ?? ''}`;
+    if (teeSyncedRef.current === syncKey) return;
+    teeSyncedRef.current = syncKey;
+
+    const local = useTeeOverrideStore.getState().getOverride(roundId, holeNumber);
+    if (shotOne.tee_override) {
+      if (local !== shotOne.tee_override) {
+        setTeeOverride(roundId, holeNumber, shotOne.tee_override);
+      }
+    } else if (local) {
+      updateShot.mutate({
+        shotId: shotOne.id,
+        roundId,
+        holeNumber,
+        teeOverride: local,
+      });
+    }
+  }, [shotOne, roundId, holeNumber, setTeeOverride, updateShot]);
 
   // Distance is always derived — keeps the footer in sync with both move
   // edits and tee-origin changes, with no risk of stale state.
@@ -312,10 +329,11 @@ function ShotMapScreenContent({ route, navigation }: Props) {
   );
   const mapRef = useRef<MapView | null>(null);
 
-  // Hole orientation: rotate the map so the hole's natural tee→green axis
-  // runs vertically up the screen. Independent of `origin` (which can swap
-  // between tees for the shot-1 override) — orientation reflects the
-  // hole's intrinsic geometry, not the shot's chosen origin.
+  // Hole framing: rotate so the hole's intrinsic tee→green axis runs
+  // vertically up the screen with the green at the top, and zoom out to
+  // fit the whole hole. Independent of `origin` (which can swap between
+  // tees for the shot-1 override) — the framing reflects the hole's
+  // geometry, not the shot's chosen origin.
   const holeOrientationTee = useMemo<LatLng | null>(() => {
     const back = holeCoords?.tee_back;
     if (back) return { latitude: back.latitude, longitude: back.longitude };
@@ -334,53 +352,31 @@ function ShotMapScreenContent({ route, navigation }: Props) {
     return null;
   }, [holeCoords]);
 
-  const holeHeading = useMemo<number | null>(() => {
-    if (!holeOrientationTee || !holeOrientationGreen) return null;
-    return bearingDegrees(holeOrientationTee, holeOrientationGreen);
-  }, [holeOrientationTee, holeOrientationGreen]);
-
-  // Build a heading-aware camera for the current shot/origin pair.
-  const orientedCameraFor = useCallback(
-    (s: LatLng, o: LatLng | null, heading: number) => {
-      const center: LatLng = o
-        ? {
-            latitude: (s.latitude + o.latitude) / 2,
-            longitude: (s.longitude + o.longitude) / 2,
-          }
-        : s;
-      const dist = o
-        ? calculateDistance(s.latitude, s.longitude, o.latitude, o.longitude)
-        : 0;
-      const { zoom, altitude } = cameraSizeFor(dist);
-      return { center, heading, pitch: 0, altitude, zoom };
-    },
-    []
+  const holeCamera = useMemo(
+    () => holeOrientedCamera(holeOrientationTee, holeOrientationGreen),
+    [holeOrientationTee, holeOrientationGreen]
   );
 
-  // Apply hole orientation once, after coordinates resolve. Subsequent
-  // pans/rotations by the user are preserved — only the recenter button
+  // Apply hole framing once, after coordinates resolve. Subsequent pans/
+  // rotations by the user are preserved — only the recenter button
   // restores this framing.
   const orientedRef = useRef(false);
   useEffect(() => {
     if (orientedRef.current) return;
-    if (holeHeading == null) return;
+    if (!holeCamera) return;
     orientedRef.current = true;
-    mapRef.current?.animateCamera(
-      orientedCameraFor(shot, origin, holeHeading),
-      { duration: 400 }
-    );
-  }, [holeHeading, shot, origin, orientedCameraFor]);
+    mapRef.current?.animateCamera(holeCamera, { duration: 400 });
+  }, [holeCamera]);
 
   const handleRecenter = useCallback(() => {
-    if (holeHeading != null) {
-      mapRef.current?.animateCamera(
-        orientedCameraFor(shot, origin, holeHeading),
-        { duration: 350 }
-      );
+    if (holeCamera) {
+      mapRef.current?.animateCamera(holeCamera, { duration: 350 });
       return;
     }
+    // Fallback when hole coords aren't available — frame the shot itself
+    // so the recenter button always does *something* useful.
     mapRef.current?.animateToRegion(regionFor(shot, origin), 350);
-  }, [shot, origin, holeHeading, orientedCameraFor]);
+  }, [holeCamera, shot, origin]);
 
   const formattedDistance = useMemo(() => {
     if (currentDistance == null) return null;
@@ -397,7 +393,6 @@ function ShotMapScreenContent({ route, navigation }: Props) {
     latitude: number;
     longitude: number;
   } | null>(null);
-  const updateShot = useUpdateShot();
 
   // Place-custom-tee state. Mutually exclusive with move mode — entering
   // either clears the other so the screen never has two pending edits.
@@ -587,6 +582,16 @@ function ShotMapScreenContent({ route, navigation }: Props) {
                   onSuccess: () => {
                     if (teeOverride === tee.id) {
                       clearTeeOverride(roundId, holeNumber);
+                      // Clear the DB-side reference so shot 1's
+                      // tee_override doesn't dangle at a deleted tee.
+                      if (shotOne && shotOne.tee_override === tee.id) {
+                        updateShot.mutate({
+                          shotId: shotOne.id,
+                          roundId,
+                          holeNumber,
+                          teeOverride: null,
+                        });
+                      }
                     }
                     setEditingTeeSheet(null);
                   },
@@ -602,7 +607,15 @@ function ShotMapScreenContent({ route, navigation }: Props) {
         ]
       );
     },
-    [deleteCustomTee, teeOverride, clearTeeOverride, roundId, holeNumber]
+    [
+      deleteCustomTee,
+      teeOverride,
+      clearTeeOverride,
+      roundId,
+      holeNumber,
+      shotOne,
+      updateShot,
+    ]
   );
   const teeMovedNew = useMemo(() => {
     if (!previewTeeCoord || !shot) return null;

@@ -112,20 +112,17 @@ export function ScrambleTeamLeaderboard({
       let holesCompleted = 0;
       let parForHolesPlayed = 0;
 
-      for (let holeNum = 1; holeNum <= holes.length; holeNum++) {
-        const score = getTeamScore(teamIndex, holeNum);
+      // Iterate the round's actual holes — back-9 rounds carry hole.number
+      // 10..18, and combo courses keep their own internal numbering.
+      for (const hole of holes) {
+        const score = getTeamScore(teamIndex, hole.number);
         if (!score || !isSingleBallScore(score) || !score.strokes) continue;
 
         holesCompleted++;
         gross += score.strokes;
 
-        // Get hole data for stroke index and par
-        const holeData = holes.find((h) => h.number === holeNum);
-        const strokeIndex = holeData?.strokeIndex ?? holeNum;
-        handicapStrokes += getHandicapStrokesForHole(teamHandicap, strokeIndex);
-
-        // Add par only for holes that have been played
-        parForHolesPlayed += holeData?.par ?? 0;
+        handicapStrokes += getHandicapStrokesForHole(teamHandicap, hole.strokeIndex);
+        parForHolesPlayed += hole.par;
       }
 
       const net = gross - handicapStrokes;

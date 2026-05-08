@@ -10,11 +10,16 @@ import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { displayHoleNumber } from '@/utils/holeTransformers';
 import type { TeamHoleResult, MatchTeam } from '../types';
 
 interface TeamMatchProgressProps {
   holeResults: Record<number, TeamHoleResult>;
   currentHole: number;
+  /** Hole numbers played in this round (handles back-9 / combo). */
+  holeNumbers: number[];
+  /** Display offset for combo / cross-nine courses (default 1). */
+  startHole?: number;
   team1: MatchTeam;
   team2: MatchTeam;
   onHolePress: (hole: number) => void;
@@ -23,6 +28,8 @@ interface TeamMatchProgressProps {
 export function TeamMatchProgress({
   holeResults,
   currentHole,
+  holeNumbers,
+  startHole = 1,
   team1,
   team2,
   onHolePress,
@@ -37,7 +44,7 @@ export function TeamMatchProgress({
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.holesScroll}>
         <View style={styles.holesRow}>
-          {Array.from({ length: 18 }, (_, i) => i + 1).map((hole) => {
+          {holeNumbers.map((hole) => {
             const result = holeResults[hole];
             const isCurrentHole = hole === currentHole;
             const hasResult = result?.winner !== null && result?.winner !== undefined;
@@ -67,7 +74,7 @@ export function TeamMatchProgress({
                 ]}
                 onPress={() => onHolePress(hole)}
                 activeOpacity={0.7}
-                accessibilityLabel={`Hole ${hole}${hasResult ? `, ${result?.winner === 'team1' ? team1.name : result?.winner === 'team2' ? team2.name : 'halved'}` : ''}`}
+                accessibilityLabel={`Hole ${displayHoleNumber(hole, startHole)}${hasResult ? `, ${result?.winner === 'team1' ? team1.name : result?.winner === 'team2' ? team2.name : 'halved'}` : ''}`}
               >
                 <Text
                   style={[
@@ -75,7 +82,7 @@ export function TeamMatchProgress({
                     { color: hasResult ? colors.white : colors.textSecondary },
                   ]}
                 >
-                  {hole}
+                  {displayHoleNumber(hole, startHole)}
                 </Text>
                 {hasResult && (
                   <Text style={[styles.resultLabel, { color: colors.white }]}>

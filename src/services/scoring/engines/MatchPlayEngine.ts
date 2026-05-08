@@ -128,8 +128,6 @@ export class MatchPlayEngine implements IScoringEngine {
     courseData: CourseHoleData,
     config: EngineConfig = DEFAULT_ENGINE_CONFIG
   ): MatchResult {
-    const holeMap = new Map(courseData.holes.map((h) => [h.number, h]));
-
     // Get playing handicaps
     const handicap1 = config.useHandicap
       ? getPlayingHandicap(
@@ -165,9 +163,10 @@ export class MatchPlayEngine implements IScoringEngine {
     let player2Up = 0;
     let holesPlayed = 0;
 
-    for (let holeNum = 1; holeNum <= 18; holeNum++) {
-      const hole = holeMap.get(holeNum);
-      if (!hole) continue;
+    // Iterate the round's actual holes — back-9 / combo rounds carry numbers
+    // 10..18 (or 10..27), not 1..18.
+    for (const hole of courseData.holes) {
+      const holeNum = hole.number;
 
       const score1 = scores1.find((s) => s.holeNumber === holeNum);
       const score2 = scores2.find((s) => s.holeNumber === holeNum);

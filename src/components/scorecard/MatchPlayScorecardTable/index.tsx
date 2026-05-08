@@ -43,6 +43,7 @@ export const MatchPlayScorecardTable = React.memo(function MatchPlayScorecardTab
   onHolePress,
   player1Handicap = 0,
   player2Handicap = 0,
+  startHole = 1,
 }: MatchPlayScorecardTableProps) {
   const colors = useThemeColors();
 
@@ -76,6 +77,7 @@ export const MatchPlayScorecardTable = React.memo(function MatchPlayScorecardTab
           runningStatus={data.runningStatus[hole.number]}
           player1Name={player1.name}
           player2Name={player2.name}
+          startHole={startHole}
           onPress={onHolePress ? () => onHolePress(hole.number) : undefined}
         />
       ))}
@@ -98,6 +100,7 @@ export const MatchPlayScorecardTable = React.memo(function MatchPlayScorecardTab
           runningStatus={data.runningStatus[hole.number]}
           player1Name={player1.name}
           player2Name={player2.name}
+          startHole={startHole}
           onPress={onHolePress ? () => onHolePress(hole.number) : undefined}
         />
       ))}

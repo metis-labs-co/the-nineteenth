@@ -66,6 +66,7 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
     resetRound,
     isSyncing,
     pendingSyncCount,
+    startHole,
   } = useScorecardStore();
   const isOnline = useOnlineStatus();
   const { triggerSync } = useOfflineSync();
@@ -379,6 +380,8 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
   } = useTeamMatchPlayNavigation({
     currentHole,
     setCurrentHole,
+    firstHoleNumber: holes[0]?.number ?? 1,
+    lastHoleNumber: holes[holes.length - 1]?.number ?? 18,
     isMatchComplete,
     roundId,
     navigation,
@@ -560,14 +563,19 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
       const holeWinner = getHoleWinnerForHole(holeNumber);
       const holeResultDisplay = getHoleResultDisplay(holeWinner);
 
-      const canGoPrev = holeNumber > 1;
-      const canGoNext = holeNumber < 18 && !isMatchComplete;
+      // Bound to the round's actual hole range so back-9 / combo rounds
+      // don't fall off the end.
+      const firstHoleNumber = holes[0]?.number ?? 1;
+      const lastHoleNumber = holes[holes.length - 1]?.number ?? 18;
+      const canGoPrev = holeNumber > firstHoleNumber;
+      const canGoNext = holeNumber < lastHoleNumber && !isMatchComplete;
 
       return (
         <View style={styles.contentArea}>
           <HoleHeader
             hole={holeData}
             selectedTee={selectedTeeColor}
+            startHole={startHole}
             onPrevious={handlePreviousHole}
             onNext={handleNextHole}
             canGoPrevious={canGoPrev}
@@ -636,6 +644,8 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
             <TeamMatchProgress
               holeResults={holeResults}
               currentHole={holeNumber}
+              holeNumbers={holes.map((h) => h.number)}
+              startHole={startHole}
               team1={team1}
               team2={team2}
               onHolePress={handleHolePress}
@@ -667,6 +677,8 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
       colors,
       holeResults,
       handleHolePress,
+      holes,
+      startHole,
     ]
   );
 
@@ -793,6 +805,8 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
 
       <TeamMatchPlayFooter
         currentHole={currentHole}
+        firstHoleNumber={holes[0]?.number ?? 1}
+        lastHoleNumber={holes[holes.length - 1]?.number ?? 18}
         isMatchComplete={isMatchComplete}
         isSubmitting={isSubmitting}
         onPreviousHole={handlePreviousHole}

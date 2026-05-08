@@ -90,10 +90,11 @@ export function getHandicapStrokesForHole(playerHandicap: number, strokeIndex: n
 interface UseContributionDataParams {
   players: Player[];
   getTeamScore: (holeNumber: number) => HoleScore | MultiBallHoleScore | undefined;
-  totalHoles: number;
+  /** The round's actual holes — drives the iteration so back-9 / combo
+   *  rounds key contributions against the correct hole numbers. */
+  holes: Hole[];
   showOnlyDrives: boolean;
   getPlayerScore?: (playerId: string, holeNumber: number) => HoleScore | MultiBallHoleScore | undefined;
-  holes?: Hole[];
 }
 
 function buildLeaderboard(
@@ -115,10 +116,9 @@ function buildLeaderboard(
 export function useContributionData({
   players,
   getTeamScore,
-  totalHoles,
+  holes,
   showOnlyDrives,
   getPlayerScore,
-  holes,
 }: UseContributionDataParams) {
   // Calculate contributions per player
   const contributions: PlayerContribution[] = useMemo(() => {
@@ -135,8 +135,8 @@ export function useContributionData({
       });
     });
 
-    for (let holeNum = 1; holeNum <= totalHoles; holeNum++) {
-      const score = getTeamScore(holeNum);
+    for (const hole of holes) {
+      const score = getTeamScore(hole.number);
       if (!score || !isSingleBallScore(score)) continue;
 
       const contribs = score.shotContributions;
@@ -162,7 +162,7 @@ export function useContributionData({
     }
 
     return Array.from(playerContribs.values());
-  }, [players, getTeamScore, totalHoles]);
+  }, [players, getTeamScore, holes]);
 
   const hasContributions = contributions.some((c) => c.total > 0);
 
@@ -176,13 +176,13 @@ export function useContributionData({
     const playerDriveHoles = new Map<string, number[]>();
     players.forEach((p) => playerDriveHoles.set(p.id, []));
 
-    for (let holeNum = 1; holeNum <= totalHoles; holeNum++) {
-      const score = getTeamScore(holeNum);
+    for (const hole of holes) {
+      const score = getTeamScore(hole.number);
       if (!score || !isSingleBallScore(score)) continue;
       const contribs = score.shotContributions;
       if (!contribs?.teeShot) continue;
       const existingHoles = playerDriveHoles.get(contribs.teeShot);
-      if (existingHoles) existingHoles.push(holeNum);
+      if (existingHoles) existingHoles.push(hole.number);
     }
 
     const totalDrives = contributions.reduce((sum, c) => sum + c.drives, 0);
@@ -197,7 +197,7 @@ export function useContributionData({
         holeNumbers: playerDriveHoles.get(c.playerId) || [],
       }))
       .sort((a, b) => b.count - a.count);
-  }, [contributions, players, getTeamScore, totalHoles]);
+  }, [contributions, players, getTeamScore, holes]);
 
   // Team score summary for Shamble format
   const teamScoreSummary: TeamScoreSummary | null = useMemo(() => {
@@ -209,37 +209,33 @@ export function useContributionData({
     let holesScored = 0;
     let parTotal = 0;
 
-    for (let holeNum = 1; holeNum <= totalHoles; holeNum++) {
-      const holeData = holes.find((h) => h.number === holeNum);
-      if (!holeData) continue;
-
+    for (const hole of holes) {
       let holeHasScores = false;
       let playersOnHole = 0;
 
       for (const player of players) {
-        const score = getPlayerScore(player.id, holeNum);
+        const score = getPlayerScore(player.id, hole.number);
         if (!score || !isSingleBallScore(score) || !score.strokes) continue;
 
         holeHasScores = true;
         playersOnHole++;
         const strokes = score.strokes;
         const playerHandicap = player.handicap ?? 0;
-        const strokeIndex = holeData.strokeIndex ?? holeNum;
-        const handicapStrokes = getHandicapStrokesForHole(playerHandicap, strokeIndex);
+        const handicapStrokes = getHandicapStrokesForHole(playerHandicap, hole.strokeIndex);
 
         grossTotal += strokes;
         netTotal += strokes - handicapStrokes;
-        stablefordTotal += calculateStablefordPoints(strokes, holeData.par, handicapStrokes);
+        stablefordTotal += calculateStablefordPoints(strokes, hole.par, handicapStrokes);
       }
 
       if (holeHasScores) {
         holesScored++;
-        parTotal += holeData.par * playersOnHole;
+        parTotal += hole.par * playersOnHole;
       }
     }
 
     return { grossTotal, netTotal, stablefordTotal, holesScored, parTotal, toParNet: netTotal - parTotal };
-  }, [showOnlyDrives, getPlayerScore, holes, totalHoles, players]);
+  }, [showOnlyDrives, getPlayerScore, holes, players]);
 
   // Individual player score summaries for Shamble format
   const playerScoreSummaries: PlayerScoreSummary[] = useMemo(() => {
@@ -252,21 +248,17 @@ export function useContributionData({
       let holesPlayed = 0;
       const playerHandicap = player.handicap ?? 0;
 
-      for (let holeNum = 1; holeNum <= totalHoles; holeNum++) {
-        const holeData = holes.find((h) => h.number === holeNum);
-        if (!holeData) continue;
-
-        const score = getPlayerScore(player.id, holeNum);
+      for (const hole of holes) {
+        const score = getPlayerScore(player.id, hole.number);
         if (!score || !isSingleBallScore(score) || !score.strokes) continue;
 
         holesPlayed++;
         const strokes = score.strokes;
-        const strokeIndex = holeData.strokeIndex ?? holeNum;
-        const handicapStrokes = getHandicapStrokesForHole(playerHandicap, strokeIndex);
+        const handicapStrokes = getHandicapStrokesForHole(playerHandicap, hole.strokeIndex);
 
         gross += strokes;
         net += strokes - handicapStrokes;
-        parForPlayer += holeData.par;
+        parForPlayer += hole.par;
       }
 
       return {
@@ -279,7 +271,7 @@ export function useContributionData({
         holesPlayed,
       };
     }).sort((a, b) => a.toPar - b.toPar);
-  }, [showOnlyDrives, getPlayerScore, holes, totalHoles, players]);
+  }, [showOnlyDrives, getPlayerScore, holes, players]);
 
   return {
     contributions,

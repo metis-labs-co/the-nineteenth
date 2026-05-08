@@ -62,6 +62,7 @@ export async function initializeRound(
   handicapSource: HandicapSource = 'profile',
   playerTeeMap: Map<string, TeeBox> = new Map(),
   nineType: NineType = 'full',
+  startHole: number = 1,
 ): Promise<void> {
   // Defensive filter: callers may pass the full course holes (18) regardless
   // of the round's nine_type. Filtering here keeps the in-memory state, the
@@ -131,6 +132,7 @@ export async function initializeRound(
       allowedPlayerIds,
       playerTeeMap,
       nineType,
+      startHole,
       isLoading: false,
       isInitialized: true,
     });
@@ -248,15 +250,25 @@ export async function loadFromOffline(
     let gameType: GameType = 'stableford';
     let handicapSource: HandicapSource = 'profile';
     let nineType: NineType = 'full';
+    let startHole = 1;
+
+    let courseId: string | null = null;
 
     try {
       // Race the metadata fetch against a 15s timeout. Without this, a
       // hung Supabase request (no response, no error) blocks loadFromOffline
       // from ever returning, which leaves `isInitialized` false and the
       // score-entry screen stuck on "Loading scorecard…" forever.
+      //
+      // Important: keep this select to columns on `rounds` only. A failed
+      // join (e.g. against a column that doesn't exist yet because a
+      // migration hasn't been applied) would surface as an error here,
+      // hit the catch below, and silently fall back to `nineType='full'` —
+      // which then mismatches what `useRoundMetadata` reads on the same
+      // row, infinite-looping the nine_type-changed reset in useRoundData.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase typed query workaround
       const fetchMetadata = (supabase.from('rounds') as any)
-        .select('game_type, handicap_source, nine_type, selected_tee')
+        .select('game_type, handicap_source, nine_type, selected_tee, course_id')
         .eq('id', roundId)
         .maybeSingle();
 
@@ -276,12 +288,34 @@ export async function loadFromOffline(
         if (!selectedTeeData && roundData.selected_tee) {
           selectedTeeData = roundData.selected_tee as TeeBox;
         }
+        courseId = (roundData.course_id as string | null) ?? null;
       }
     } catch (err) {
       storeLogger.warn('Could not fetch round metadata during offline load — using defaults', {
         roundId,
         error: err instanceof Error ? err.message : String(err),
       });
+    }
+
+    // start_hole is queried separately so a missing column or join issue
+    // can't break the nine_type read above. Failure here just leaves
+    // startHole=1 — useRoundCourse will populate the correct value on its
+    // next render.
+    if (courseId) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase typed query workaround
+        const { data: courseRow } = (await (supabase.from('courses') as any)
+          .select('start_hole')
+          .eq('id', courseId)
+          .maybeSingle()) as { data: { start_hole?: number | null } | null };
+        const courseStartHole = courseRow?.start_hole;
+        if (typeof courseStartHole === 'number') startHole = courseStartHole;
+      } catch (startHoleErr) {
+        storeLogger.warn('start_hole fetch failed during offline load — defaulting to 1', {
+          roundId,
+          error: startHoleErr instanceof Error ? startHoleErr.message : String(startHoleErr),
+        });
+      }
     }
 
     // Defensive filter: SQLite may hold 18 holes (round saved by older code,
@@ -318,6 +352,7 @@ export async function loadFromOffline(
       gameType,
       handicapSource,
       nineType,
+      startHole,
       isLoading: false,
       isInitialized: true,
     });

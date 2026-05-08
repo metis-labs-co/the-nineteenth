@@ -71,6 +71,7 @@ import {
 } from '@/types/database/customHoleTees.types';
 import { recomputeAfterMove } from '@/utils/shotDistances';
 import { calculateDistance } from '@/utils/gpsCalculations';
+import { holeOrientedCamera } from '@/utils/holeOrientation';
 import type { ShotLogEntry } from '@/types/database/shotLog.types';
 
 import type { RootStackParamList } from '@/navigation/types';
@@ -85,44 +86,8 @@ const DEFAULT_TARGET: GreenPoiType = 'green_center';
 // on a marker — fingers are big and shots cluster around greens.
 const LONG_PRESS_SNAP_RADIUS_METRES = 30;
 
-/**
- * Initial bearing from `from` to `to` in degrees clockwise from north.
- * Used to rotate the map so the tee→green axis runs vertically up the
- * screen (green at top, tee at bottom).
- */
-function bearingDegrees(from: LatLng, to: LatLng): number {
-  const toRad = (d: number) => (d * Math.PI) / 180;
-  const toDeg = (r: number) => (r * 180) / Math.PI;
-  const phi1 = toRad(from.latitude);
-  const phi2 = toRad(to.latitude);
-  const dLambda = toRad(to.longitude - from.longitude);
-  const y = Math.sin(dLambda) * Math.cos(phi2);
-  const x =
-    Math.cos(phi1) * Math.sin(phi2) -
-    Math.sin(phi1) * Math.cos(phi2) * Math.cos(dLambda);
-  return (toDeg(Math.atan2(y, x)) + 360) % 360;
-}
-
-/**
- * Linearly interpolate between two coordinates. Good enough at hole-scale
- * (~hundreds of metres) — no need for great-circle interpolation here.
- */
-function lerpCoord(a: LatLng, b: LatLng, t: number): LatLng {
-  return {
-    latitude: a.latitude + (b.latitude - a.latitude) * t,
-    longitude: a.longitude + (b.longitude - a.longitude) * t,
-  };
-}
-
-// Camera center bias — fraction of the green→tee segment, measured from
-// the green toward the tee. 0 = camera right on the green, 0.5 = midpoint,
-// 1 = camera on the tee. 0.35 keeps the camera near the green while pushing
-// the green toward the top of the screen so the approach is visible below.
-const GREEN_AT_TOP_BIAS = 0.35;
-// Camera altitude (iOS) and zoom (Android) for the oriented hole view.
-// ~800m altitude / zoom 17 fits an average par-4/5 with margin.
-const HOLE_CAMERA_ALTITUDE = 800;
-const HOLE_CAMERA_ZOOM = 17;
+// Hole-camera framing constants and helpers live in `@/utils/holeOrientation`
+// so HoleMapScreen and ShotMapScreen can't drift on the visual treatment.
 
 export default function HoleMapScreen({ route, navigation }: Props) {
   const {
@@ -580,7 +545,9 @@ export default function HoleMapScreen({ route, navigation }: Props) {
           }
         }
 
-        // Step 2: insert the shot.
+        // Step 2: insert the shot. Pass the local tee override so it
+        // gets persisted onto shot 1 — only meaningful for the first
+        // shot, ignored on later shots by the mutation.
         try {
           await logShot.mutateAsync({
             roundId,
@@ -589,6 +556,8 @@ export default function HoleMapScreen({ route, navigation }: Props) {
             longitude: position.longitude,
             clubKey,
             accuracyMeters: null,
+            teeOverride:
+              useTeeOverrideStore.getState().getOverride(roundId, holeNumber),
           });
         } catch (err) {
           console.error('[HoleMap log-shot] logShot failed:', err);
@@ -699,29 +668,12 @@ export default function HoleMapScreen({ route, navigation }: Props) {
       null;
     const greenAnchor = markers.pin;
 
-    // Best case: both ends of the hole are known. Orient the camera so the
-    // hole runs vertically up the screen with the green at top, biased so
-    // the camera sits near the green.
-    if (teeAnchor && greenAnchor) {
+    // Best case: both ends of the hole are known — frame the hole with
+    // green at top, tee at bottom, camera near the green.
+    const oriented = holeOrientedCamera(teeAnchor, greenAnchor);
+    if (oriented) {
       focusedHoleRef.current = holeNumber;
-      // Heading = bearing FROM tee TO green so that direction is "up" on
-      // screen — green at top, tee at bottom. (The reverse — bearing from
-      // green→tee — was the 898966d regression that had the tee at the
-      // top instead.) Camera centre lerps from green back toward the tee
-      // by GREEN_AT_TOP_BIAS, so the camera sits near the green and the
-      // approach is visible below.
-      const heading = bearingDegrees(teeAnchor, greenAnchor);
-      const center = lerpCoord(greenAnchor, teeAnchor, GREEN_AT_TOP_BIAS);
-      mapRef.current?.animateCamera(
-        {
-          center,
-          heading,
-          pitch: 0,
-          altitude: HOLE_CAMERA_ALTITUDE,
-          zoom: HOLE_CAMERA_ZOOM,
-        },
-        { duration: 400 }
-      );
+      mapRef.current?.animateCamera(oriented, { duration: 400 });
       return;
     }
 
@@ -841,12 +793,58 @@ export default function HoleMapScreen({ route, navigation }: Props) {
       }),
     [backTeeCoord, frontTeeCoord, customTees, courseTeeColors]
   );
+  // Shot 1 row, when it exists. The tee_override column lives on this
+  // row so it follows the user across devices — every tee selection /
+  // clear funnels through `updateShot.mutate({ teeOverride })`.
+  const shotOne = useMemo(
+    () => shots.find((s) => s.sequence === 1) ?? null,
+    [shots]
+  );
   const handleSelectTee = useCallback(
     (tee: TeeOverride) => {
+      // Local store first for instant UI feedback; DB write follows so
+      // the choice persists across devices. When shot 1 doesn't exist
+      // yet, the local value rides along on `useLogShot` (see the
+      // log-shot mutation call site).
       setTeeOverride(roundId, holeNumber, tee);
+      if (shotOne) {
+        updateShot.mutate({
+          shotId: shotOne.id,
+          roundId,
+          holeNumber,
+          teeOverride: tee,
+        });
+      }
     },
-    [setTeeOverride, roundId, holeNumber]
+    [setTeeOverride, roundId, holeNumber, shotOne, updateShot]
   );
+
+  // Hydrate from DB and back-fill any local-only legacy data.
+  // Two-way sync runs when shot 1 first becomes available:
+  //   1. DB has a tee_override → seed/correct the local store.
+  //   2. Local store has a value but DB doesn't → push to DB so it
+  //      follows the user (auto-migration of pre-DB local data).
+  const teeSyncedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!shotOne) return;
+    const syncKey = `${shotOne.id}::${shotOne.tee_override ?? ''}`;
+    if (teeSyncedRef.current === syncKey) return;
+    teeSyncedRef.current = syncKey;
+
+    const local = useTeeOverrideStore.getState().getOverride(roundId, holeNumber);
+    if (shotOne.tee_override) {
+      if (local !== shotOne.tee_override) {
+        setTeeOverride(roundId, holeNumber, shotOne.tee_override);
+      }
+    } else if (local) {
+      updateShot.mutate({
+        shotId: shotOne.id,
+        roundId,
+        holeNumber,
+        teeOverride: local,
+      });
+    }
+  }, [shotOne, roundId, holeNumber, setTeeOverride, updateShot]);
 
   // Edit-custom-tee handlers — the action sheet, the in-flight move, and
   // the delete-with-confirmation flow. Only relevant when a custom tee is
@@ -896,6 +894,16 @@ export default function HoleMapScreen({ route, navigation }: Props) {
                   onSuccess: () => {
                     if (teeOverride === tee.id) {
                       clearTeeOverride(roundId, holeNumber);
+                      // Also clear the DB-side reference so shot 1's
+                      // tee_override doesn't dangle at a deleted custom tee.
+                      if (shotOne && shotOne.tee_override === tee.id) {
+                        updateShot.mutate({
+                          shotId: shotOne.id,
+                          roundId,
+                          holeNumber,
+                          teeOverride: null,
+                        });
+                      }
                     }
                     setEditingTeeSheet(null);
                   },
@@ -917,6 +925,8 @@ export default function HoleMapScreen({ route, navigation }: Props) {
       clearTeeOverride,
       roundId,
       holeNumber,
+      shotOne,
+      updateShot,
     ]
   );
   const handleSaveTeePreview = useCallback(() => {

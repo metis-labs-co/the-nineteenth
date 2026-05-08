@@ -15,6 +15,7 @@ import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { ScoreIndicator } from '@/components/scorecard';
+import { displayHoleNumber } from '@/utils/holeTransformers';
 import { ScorecardTableMultiBall } from './ScorecardTableMultiBall';
 import { ScorecardTableBallsAsPlayers } from './ScorecardTableBallsAsPlayers';
 import type { HoleRowData, PlayerStats, MultiBallHoleRowData, MultiBallStats } from '../hooks';
@@ -39,6 +40,8 @@ interface ScorecardTableProps {
   showGIR?: boolean;
   // Hole press handler - navigates back to score entry for that hole
   onHolePress?: (holeNumber: number) => void;
+  /** Display offset for combo / cross-nine courses (default 1). */
+  startHole?: number;
 }
 
 export function ScorecardTable({
@@ -55,6 +58,7 @@ export function ScorecardTable({
   showFIR = false,
   showGIR = false,
   onHolePress,
+  startHole = 1,
 }: ScorecardTableProps) {
   const colors = useThemeColors();
 
@@ -142,7 +146,7 @@ export function ScorecardTable({
           activeOpacity={onHolePress ? 0.6 : 1}
         >
           <Text style={[styles.holeCellText, { color: onHolePress ? colors.primary : colors.textPrimary }]}>
-            {hole.number}
+            {displayHoleNumber(hole, startHole)}
           </Text>
         </TouchableOpacity>
         <View style={[styles.tableCell, styles.narrowCell, { backgroundColor: colors.surface }]}>

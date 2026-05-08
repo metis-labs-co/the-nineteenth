@@ -10,6 +10,7 @@ import React from 'react';
 import { View, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
+import { displayHoleNumber } from '@/utils/holeTransformers';
 import { styles } from '../styles';
 import type { Hole } from '@/types/database.types';
 
@@ -43,15 +44,17 @@ export const FixedHeaderCells = React.memo(function FixedHeaderCells(_props: Fix
 
 interface FixedHoleCellsProps {
   hole: Hole;
+  /** Display offset for combo / cross-nine courses (default 1). */
+  startHole?: number;
   onHolePress?: (holeNumber: number) => void;
 }
 
-export const FixedHoleCells = React.memo(function FixedHoleCells({ hole, onHolePress }: FixedHoleCellsProps) {
+export const FixedHoleCells = React.memo(function FixedHoleCells({ hole, startHole = 1, onHolePress }: FixedHoleCellsProps) {
   const colors = useThemeColors();
 
   const holeCellContent = (
     <Text style={[styles.holeCellText, { color: onHolePress ? colors.primary : colors.textPrimary }]}>
-      {hole.number}
+      {displayHoleNumber(hole, startHole)}
     </Text>
   );
 

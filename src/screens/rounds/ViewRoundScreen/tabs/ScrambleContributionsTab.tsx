@@ -6,7 +6,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { ScrambleTeamSelector, ContributionLeaderboard } from '@/components/scorecard';
 import { spacing } from '@/constants/theme';
-import type { HoleScore, MultiBallHoleScore, Player } from '@/types';
+import type { Hole, HoleScore, MultiBallHoleScore, Player } from '@/types';
 
 interface ScrambleTeam {
   id: string;
@@ -20,7 +20,7 @@ interface ScrambleContributionsTabProps {
   onSelectTeam: (index: number) => void;
   getTeamPlayersByIndex: (teamIndex: number) => Player[];
   getTeamScoreByIndex: (teamIndex: number, holeNumber: number) => HoleScore | MultiBallHoleScore | undefined;
-  totalHoles: number;
+  holes: Hole[];
 }
 
 export function ScrambleContributionsTab({
@@ -29,7 +29,7 @@ export function ScrambleContributionsTab({
   onSelectTeam,
   getTeamPlayersByIndex,
   getTeamScoreByIndex,
-  totalHoles,
+  holes,
 }: ScrambleContributionsTabProps) {
   return (
     <View style={styles.scrambleTabContent}>
@@ -43,7 +43,7 @@ export function ScrambleContributionsTab({
       <ContributionLeaderboard
         players={getTeamPlayersByIndex(selectedTeamIndex)}
         getTeamScore={(holeNumber) => getTeamScoreByIndex(selectedTeamIndex, holeNumber)}
-        totalHoles={totalHoles}
+        holes={holes}
         showOnlyDrives={false}
       />
     </View>

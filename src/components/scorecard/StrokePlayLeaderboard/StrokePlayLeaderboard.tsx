@@ -79,12 +79,13 @@ export const StrokePlayLeaderboard = React.memo(function StrokePlayLeaderboard({
       let coursePar = 0;
       let holesCompleted = 0;
 
-      // Calculate through current hole (or all completed holes)
-      for (let holeNum = 1; holeNum <= currentHole; holeNum++) {
-        const hole = holes.find((h) => h.number === holeNum);
-        if (!hole) continue;
+      // Iterate the round's actual holes up to the current one. `currentHole`
+      // is itself a hole number (10..18 on back-9 rounds), so filter rather
+      // than counter-loop — keeps partial-round semantics on every nine_type.
+      for (const hole of holes) {
+        if (hole.number > currentHole) continue;
 
-        const score = getPlayerScore(player.id, holeNum);
+        const score = getPlayerScore(player.id, hole.number);
         if (!score) continue;
 
         // Handle single ball score only

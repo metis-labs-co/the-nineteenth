@@ -37,19 +37,19 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 interface ContributionLeaderboardProps {
   players: Player[];
   getTeamScore: (holeNumber: number) => HoleScore | MultiBallHoleScore | undefined;
-  totalHoles?: number;
+  /** The round's actual holes — drives iteration so contributions key against
+   *  the correct hole numbers on back-9 / combo rounds. */
+  holes: Hole[];
   showOnlyDrives?: boolean;
   getPlayerScore?: (playerId: string, holeNumber: number) => HoleScore | MultiBallHoleScore | undefined;
-  holes?: Hole[];
 }
 
 export function ContributionLeaderboard({
   players,
   getTeamScore,
-  totalHoles = 18,
+  holes,
   showOnlyDrives = false,
   getPlayerScore,
-  holes,
 }: ContributionLeaderboardProps) {
   const colors = useThemeColors();
   const [expandedPlayers, setExpandedPlayers] = useState<Set<string>>(new Set());
@@ -67,10 +67,9 @@ export function ContributionLeaderboard({
   } = useContributionData({
     players,
     getTeamScore,
-    totalHoles,
+    holes,
     showOnlyDrives,
     getPlayerScore,
-    holes,
   });
 
   const togglePlayerExpanded = (playerId: string) => {
@@ -110,14 +109,14 @@ export function ContributionLeaderboard({
     return (
       <View style={styles.container}>
         {teamScoreSummary && (
-          <TeamScoreCard summary={teamScoreSummary} totalHoles={totalHoles} />
+          <TeamScoreCard summary={teamScoreSummary} totalHoles={holes.length} />
         )}
         <ExpandableDrivesCard
           entries={driveLeaderboardWithHoles}
           expandedPlayers={expandedPlayers}
           onToggleExpand={togglePlayerExpanded}
         />
-        <PlayerBreakdownCard players={playerScoreSummaries} totalHoles={totalHoles} />
+        <PlayerBreakdownCard players={playerScoreSummaries} totalHoles={holes.length} />
       </View>
     );
   }

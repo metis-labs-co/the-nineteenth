@@ -64,6 +64,7 @@ export const ScorecardTable = React.memo(function ScorecardTable({
   gameType,
   handicapSource,
   scoreDisplayMode,
+  startHole = 1,
 }: ScorecardTableProps) {
   const colors = useThemeColors();
   const [showHandicapInfo, setShowHandicapInfo] = useState(false);
@@ -120,7 +121,7 @@ export const ScorecardTable = React.memo(function ScorecardTable({
             {/* Front 9 — only when the round includes any front nine holes */}
             {front9.map((hole) => (
               <View key={hole.number} style={[styles.tableRow, { borderBottomColor: colors.border }]}>
-                <FixedHoleCells hole={hole} onHolePress={onHolePress} />
+                <FixedHoleCells hole={hole} startHole={startHole} onHolePress={onHolePress} />
               </View>
             ))}
             {front9.length > 0 && (
@@ -131,7 +132,7 @@ export const ScorecardTable = React.memo(function ScorecardTable({
             {/* Back 9 — only when the round includes any back nine holes */}
             {back9.map((hole) => (
               <View key={hole.number} style={[styles.tableRow, { borderBottomColor: colors.border }]}>
-                <FixedHoleCells hole={hole} onHolePress={onHolePress} />
+                <FixedHoleCells hole={hole} startHole={startHole} onHolePress={onHolePress} />
               </View>
             ))}
             {back9.length > 0 && (
@@ -245,7 +246,7 @@ export const ScorecardTable = React.memo(function ScorecardTable({
       {/* Front 9 */}
       {front9.map((hole) => (
         <View key={hole.number} style={[styles.tableRow, { borderBottomColor: colors.border }]}>
-          <FixedHoleCells hole={hole} onHolePress={onHolePress} />
+          <FixedHoleCells hole={hole} startHole={startHole} onHolePress={onHolePress} />
           <ScrollableHoleCells hole={hole} players={players} playerStats={playerStats} playerCellWidth={flexPlayerWidth} gameType={gameType} scoreDisplayMode={scoreDisplayMode} />
           {showSoloStableford && soloPlayer && (
             <SoloStablefordHoleCell hole={hole} player={soloPlayer} playerStats={playerStats[0]} />
@@ -267,7 +268,7 @@ export const ScorecardTable = React.memo(function ScorecardTable({
       {/* Back 9 */}
       {back9.map((hole) => (
         <View key={hole.number} style={[styles.tableRow, { borderBottomColor: colors.border }]}>
-          <FixedHoleCells hole={hole} onHolePress={onHolePress} />
+          <FixedHoleCells hole={hole} startHole={startHole} onHolePress={onHolePress} />
           <ScrollableHoleCells hole={hole} players={players} playerStats={playerStats} playerCellWidth={flexPlayerWidth} gameType={gameType} scoreDisplayMode={scoreDisplayMode} />
           {showSoloStableford && soloPlayer && (
             <SoloStablefordHoleCell hole={hole} player={soloPlayer} playerStats={playerStats[0]} />

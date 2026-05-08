@@ -19,6 +19,7 @@ const make = (sequence: number, lat: number, lng: number): ShotLogEntry => ({
   shot_type: null,
   from_bunker: false,
   accuracy_meters: null,
+  tee_override: null,
   created_at: '2026-01-01T00:00:00Z',
   updated_at: '2026-01-01T00:00:00Z',
 });

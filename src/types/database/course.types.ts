@@ -103,6 +103,12 @@ export interface Course {
   slope_rating: number | null; // NUMERIC(4,1)
   course_rating: number | null; // NUMERIC(4,1)
 
+  // Display offset for combo / cross-nine courses. 1 (default) = standard
+  // 1..18. 10 = combo starts at facility hole 10 (e.g. Valley/Lake at a
+  // 27-hole facility, signed 10..27). Internal hole.number stays 1..18 —
+  // see displayHoleNumber() in src/utils/holeTransformers.ts.
+  start_hole: number;
+
   // API lock
   api_locked: boolean; // When true, prevents API sync from overwriting this course
 

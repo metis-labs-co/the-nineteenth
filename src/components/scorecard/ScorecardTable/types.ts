@@ -67,6 +67,9 @@ export interface ScorecardTableProps {
   handicapSource?: HandicapSource;
   /** Score display mode for Stableford - 'strokes' shows gross strokes, 'points' shows Stableford points */
   scoreDisplayMode?: ScoreDisplayMode;
+  /** Display offset for combo / cross-nine courses (default 1 = standard
+   *  1..18, 10 = combo starting at facility hole 10). */
+  startHole?: number;
 }
 
 /**

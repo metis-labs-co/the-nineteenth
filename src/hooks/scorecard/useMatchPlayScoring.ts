@@ -99,10 +99,13 @@ export function useMatchPlayScoring({
     const p1Scorecard = groupScorecards.get(player1Id);
     const p2Scorecard = groupScorecards.get(player2Id);
 
-    for (let h = 1; h <= 18; h++) {
-      const holeInfo = holes.find((hole) => hole.number === h);
-      const par = holeInfo?.par ?? 4;
-      const strokeIndex = holeInfo?.strokeIndex ?? h;
+    // Iterate the round's actual holes — back-9 / combo rounds carry hole
+    // numbers 10..18 (or 10..27), and a 1..18 counter would skip the
+    // played holes entirely and key results against the wrong numbers.
+    for (const holeInfo of holes) {
+      const h = holeInfo.number;
+      const par = holeInfo.par;
+      const strokeIndex = holeInfo.strokeIndex;
 
       const p1RawScore = p1Scorecard?.scores[h];
       const p2RawScore = p2Scorecard?.scores[h];

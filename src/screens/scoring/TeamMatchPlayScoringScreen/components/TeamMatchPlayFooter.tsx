@@ -16,6 +16,9 @@ import { spacing, shadows, borderRadius, typography } from '@/constants/theme';
 
 export interface TeamMatchPlayFooterProps {
   currentHole: number;
+  /** First and last hole numbers for the round (handles back-9 / combo). */
+  firstHoleNumber: number;
+  lastHoleNumber: number;
   isMatchComplete: boolean;
   isSubmitting: boolean;
   onPreviousHole: () => void;
@@ -26,6 +29,8 @@ export interface TeamMatchPlayFooterProps {
 
 export function TeamMatchPlayFooter({
   currentHole,
+  firstHoleNumber,
+  lastHoleNumber,
   isMatchComplete,
   isSubmitting,
   onPreviousHole,
@@ -35,8 +40,8 @@ export function TeamMatchPlayFooter({
 }: TeamMatchPlayFooterProps) {
   const colors = useThemeColors();
 
-  const canGoPrevious = currentHole > 1;
-  const canGoNext = currentHole < 18 && !isMatchComplete;
+  const canGoPrevious = currentHole > firstHoleNumber;
+  const canGoNext = currentHole < lastHoleNumber && !isMatchComplete;
 
   return (
     <View

@@ -72,6 +72,7 @@ function createCourse(overrides: Partial<CourseWithClub> = {}): CourseWithClub {
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     api_locked: false,
+    start_hole: 1,
     club: createClub(),
     ...overrides,
   };

@@ -103,10 +103,9 @@ export function ContributionsTabContent({
       <ContributionLeaderboard
         players={isScramble ? getScrambleTeamPlayersByIndex(selectedTeamIndex) : currentPlayers}
         getTeamScore={isScramble ? (holeNumber) => getScrambleTeamScoreByIndex(selectedTeamIndex, holeNumber) : getTeamScoreForHole}
-        totalHoles={holes.length}
+        holes={holes}
         showOnlyDrives={isShamble}
         getPlayerScore={isShamble ? getPlayerScore : undefined}
-        holes={isShamble ? holes : undefined}
       />
     </ScrollView>
   );

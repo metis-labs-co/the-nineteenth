@@ -34,7 +34,7 @@ export {
 export { saveHoleScore, getHoleScores } from './dao/HoleScoreDAO';
 
 // Holes operations
-export { saveHoles, getHoles } from './dao/HolesDAO';
+export { saveHoles, getHoles, deleteHoles } from './dao/HolesDAO';
 
 // Sync queue operations
 export {

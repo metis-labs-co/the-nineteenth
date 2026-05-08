@@ -28,6 +28,13 @@ export interface ShotLogEntry {
    */
   accuracy_meters: number | null;
 
+  /**
+   * Player's chosen tee origin for shot 1: `'back'` / `'front'` / a
+   * `custom_hole_tees.id` UUID. `null` = no explicit override (use default).
+   * Only meaningful when `sequence === 1`; ignored on later shots.
+   */
+  tee_override: string | null;
+
   created_at: string; // ISO timestamp
   updated_at: string; // ISO timestamp
 }
@@ -42,8 +49,14 @@ export type ShotLogInsert = Pick<
   | 'longitude'
   | 'club_used'
   | 'accuracy_meters'
->;
+> & {
+  /** Optional — set on shot-1 inserts to persist the player's tee choice. */
+  tee_override?: string | null;
+};
 
 export type ShotLogUpdate = Partial<
-  Pick<ShotLogEntry, 'latitude' | 'longitude' | 'club_used' | 'accuracy_meters'>
+  Pick<
+    ShotLogEntry,
+    'latitude' | 'longitude' | 'club_used' | 'accuracy_meters' | 'tee_override'
+  >
 >;

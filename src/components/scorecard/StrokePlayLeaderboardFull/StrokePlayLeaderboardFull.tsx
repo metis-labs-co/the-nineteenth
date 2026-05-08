@@ -91,12 +91,10 @@ export const StrokePlayLeaderboardFull = React.memo(function StrokePlayLeaderboa
       let coursePar = 0;
       let holesCompleted = 0;
 
-      // Calculate through all holes with scores
-      for (let holeNum = 1; holeNum <= holes.length; holeNum++) {
-        const hole = holes.find((h) => h.number === holeNum);
-        if (!hole) continue;
-
-        const score = getPlayerScore(player.id, holeNum);
+      // Iterate the round's actual holes so back-9 rounds (numbers 10..18)
+      // and combo courses don't get keyed against 1..N counters.
+      for (const hole of holes) {
+        const score = getPlayerScore(player.id, hole.number);
         if (!score) continue;
 
         // Handle single ball score only
