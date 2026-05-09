@@ -17,6 +17,7 @@ import { saveScorecard } from '@/services/offline/database';
 import { roundDataLogger } from '@/utils/debugLogger';
 import { pushDiagnostic } from '@/services/diagnostics';
 import { getDisplayName } from '@/utils/displayHelpers';
+import { filterHolesByNineType } from '@/utils/holeTransformers';
 import type { Player, Scorecard, TeamWithMembers } from '@/types';
 import type { HoleScore } from '@/types/database/base';
 import type { TeamFormat, GameType } from '@/types/database.types';
@@ -540,13 +541,20 @@ export function useRoundData({
     );
 
     if (freshHasYardages && storeNeedsYardages) {
+      // Respect the round's nine_type: courseHook.holes is always the raw 18,
+      // and updateHoles also persists to SQLite. Without this filter, a Front 9
+      // / Back 9 round flips to 18 holes both in memory and on disk the moment
+      // fresh yardages arrive — which then breaks resume after an app kill.
+      const filteredFresh = filterHolesByNineType(courseHook.holes, storeNineType);
       roundDataLogger.info('Updating store holes with fresh yardage data', {
+        nineType: storeNineType,
         freshYardageKeys: courseHook.holes[0]?.yardages ? Object.keys(courseHook.holes[0].yardages) : [],
         storeYardageKeys: storeHoles[0]?.yardages ? Object.keys(storeHoles[0].yardages) : [],
+        filteredHoleCount: filteredFresh.length,
       });
-      updateHoles(courseHook.holes);
+      updateHoles(filteredFresh);
     }
-  }, [isInitialized, courseHook.isLoading, courseHook.holes, storeHoles, updateHoles]);
+  }, [isInitialized, courseHook.isLoading, courseHook.holes, storeHoles, storeNineType, updateHoles]);
 
   // Hydrate store from Supabase: merge any completed scorecards (e.g. from QuickScore)
   // that exist in Supabase but not in the local SQLite store

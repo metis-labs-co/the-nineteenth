@@ -15,7 +15,7 @@ import {
 import { supabase } from '@/services/supabase/client';
 import { storeLogger } from '@/utils/debugLogger';
 import { pushDiagnostic } from '@/services/diagnostics';
-import { filterHolesByNineType } from '@/utils/holeTransformers';
+import { filterHolesByNineType, transformHolesIfNeeded } from '@/utils/holeTransformers';
 import { isValidUUID } from './utils/scorecardCalculations';
 
 type SetFn = (partial: Record<string, unknown>) => void;
@@ -46,6 +46,37 @@ export async function getOfflinePlayersForRound(roundId: string): Promise<Player
     return players;
   } catch {
     return [];
+  }
+}
+
+/**
+ * Recovery fetch: pull the course holes for a round from Supabase.
+ * Used when the SQLite holes cache has been intentionally cleared (e.g.
+ * after a nine_type change) but scorecards still hold scored data — so
+ * loadFromOffline can resume rather than fall through to a fresh init
+ * that would overwrite the scorecards with empty scores.
+ *
+ * Yardage hydration is intentionally skipped here — the yardage-hydration
+ * effect in useRoundData will fill them in (correctly filtered by
+ * nine_type) on the next render. Returning the bare hole structure is
+ * enough to unstick the offline-load path.
+ */
+async function fetchCourseHolesForRound(roundId: string): Promise<Hole[] | null> {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase typed query workaround
+    const { data, error } = (await (supabase.from('rounds') as any)
+      .select(`courses!course_id ( holes )`)
+      .eq('id', roundId)
+      .maybeSingle()) as {
+        data: { courses: { holes: unknown[] | null } | null } | null;
+        error: { message: string } | null;
+      };
+
+    if (error || !data?.courses?.holes) return null;
+    const holes = transformHolesIfNeeded(data.courses.holes);
+    return holes.length > 0 ? holes : null;
+  } catch {
+    return null;
   }
 }
 
@@ -197,7 +228,7 @@ export async function loadFromOffline(
       return false;
     }
 
-    const cachedHoles = await getHoles(roundId);
+    let cachedHoles = await getHoles(roundId);
     storeLogger.debug('Loaded holes from SQLite', { roundId, holeCount: cachedHoles.length });
     pushDiagnostic('offline_load.holes_read', {
       roundId,
@@ -205,10 +236,27 @@ export async function loadFromOffline(
     });
 
     if (cachedHoles.length === 0) {
-      storeLogger.warn('No cached holes found, will fetch from network', { roundId });
-      pushDiagnostic('offline_load.no_cached_holes', { roundId }, 'warn');
-      set({ isLoading: false });
-      return false;
+      // The holes cache may have been intentionally cleared (e.g. after a
+      // nine_type change in EditNineTypeSheet) while scorecards still hold
+      // scored data. Falling through to fresh init via initializeRound would
+      // overwrite those SQLite scorecards with empty `scores: {}` — losing
+      // any unsynced strokes. Try a network recovery fetch first; only bail
+      // if Supabase is unreachable.
+      storeLogger.info('Holes cache empty, attempting recovery fetch from network', { roundId });
+      pushDiagnostic('offline_load.holes_recovery_fetch', { roundId });
+      const remoteHoles = await fetchCourseHolesForRound(roundId);
+      if (!remoteHoles || remoteHoles.length === 0) {
+        storeLogger.warn('Holes recovery fetch failed, will fetch from network', { roundId });
+        pushDiagnostic('offline_load.no_cached_holes', { roundId }, 'warn');
+        set({ isLoading: false });
+        return false;
+      }
+      await saveHoles(roundId, remoteHoles);
+      cachedHoles = remoteHoles;
+      pushDiagnostic('offline_load.holes_recovered', {
+        roundId,
+        holeCount: remoteHoles.length,
+      });
     }
 
     const newScorecards = new Map<string, Scorecard>();
@@ -250,6 +298,7 @@ export async function loadFromOffline(
     let gameType: GameType = 'stableford';
     let handicapSource: HandicapSource = 'profile';
     let nineType: NineType = 'full';
+    let nineTypeKnown = false;
     let startHole = 1;
 
     let courseId: string | null = null;
@@ -262,10 +311,10 @@ export async function loadFromOffline(
       //
       // Important: keep this select to columns on `rounds` only. A failed
       // join (e.g. against a column that doesn't exist yet because a
-      // migration hasn't been applied) would surface as an error here,
-      // hit the catch below, and silently fall back to `nineType='full'` —
-      // which then mismatches what `useRoundMetadata` reads on the same
-      // row, infinite-looping the nine_type-changed reset in useRoundData.
+      // migration hasn't been applied) would surface as an error here and
+      // hit the catch below. We now track `nineTypeKnown` so a failed read
+      // doesn't silently default to 'full' — instead we bail and let
+      // useRoundData's hook-driven init use useRoundMetadata's value.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase typed query workaround
       const fetchMetadata = (supabase.from('rounds') as any)
         .select('game_type, handicap_source, nine_type, selected_tee, course_id')
@@ -283,7 +332,10 @@ export async function loadFromOffline(
       if (roundData) {
         if (roundData.game_type) gameType = roundData.game_type as GameType;
         if (roundData.handicap_source) handicapSource = roundData.handicap_source as HandicapSource;
-        if (roundData.nine_type) nineType = roundData.nine_type as NineType;
+        if (roundData.nine_type) {
+          nineType = roundData.nine_type as NineType;
+          nineTypeKnown = true;
+        }
         // If no scorecard had persisted teeData, fall back to the round's default
         if (!selectedTeeData && roundData.selected_tee) {
           selectedTeeData = roundData.selected_tee as TeeBox;
@@ -291,10 +343,26 @@ export async function loadFromOffline(
         courseId = (roundData.course_id as string | null) ?? null;
       }
     } catch (err) {
-      storeLogger.warn('Could not fetch round metadata during offline load — using defaults', {
+      storeLogger.warn('Could not fetch round metadata during offline load', {
         roundId,
         error: err instanceof Error ? err.message : String(err),
       });
+    }
+
+    // If the metadata fetch failed (or returned no nine_type), we can't safely
+    // filter cachedHoles here — silently using 'full' would resume a Front 9 /
+    // Back 9 round with all 18 holes visible. Bail so useRoundData falls
+    // through to its hook-driven init path, which uses useRoundMetadata
+    // (with React Query retry) to resolve nine_type before calling
+    // initializeRound. initializeRound then filters defensively.
+    if (!nineTypeKnown) {
+      storeLogger.warn(
+        'Could not determine nine_type during offline load — falling back to network init',
+        { roundId }
+      );
+      pushDiagnostic('offline_load.nine_type_unknown', { roundId }, 'warn');
+      set({ isLoading: false });
+      return false;
     }
 
     // start_hole is queried separately so a missing column or join issue

@@ -486,8 +486,12 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
       if (!holeData) return null;
 
       // Bound to the round's playable hole range (front 9 / back 9 / full).
-      const firstHoleNumber = holes[0]?.number ?? 1;
-      const lastHoleNumber = holes[holes.length - 1]?.number ?? 18;
+      // If holes is briefly empty (e.g. mid re-init after a nine_type switch),
+      // bail rather than fabricating a 1–18 range which lets the user navigate
+      // outside the actual playable window.
+      if (holes.length === 0) return null;
+      const firstHoleNumber = holes[0].number;
+      const lastHoleNumber = holes[holes.length - 1].number;
       const canGoPrev = holeNumber > firstHoleNumber;
       const canGoNext = holeNumber < lastHoleNumber;
 
