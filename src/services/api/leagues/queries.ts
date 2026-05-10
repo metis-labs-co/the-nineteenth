@@ -179,101 +179,28 @@ export async function getMyLeagueRounds(leagueId: string): Promise<LeagueRound[]
 }
 
 /**
- * Fetch a player's league rounds with full scorecard and round details
+ * Fetch a player's league rounds with full scorecard and round details.
+ *
+ * Uses get_player_league_rounds RPC (SECURITY DEFINER) so league members
+ * can see the course name for any tagged round, not just rounds where the
+ * caller is the owner / a participant via round_players / a friend.
  */
 export async function getPlayerLeagueRounds(
   leagueId: string,
   playerId: string
 ): Promise<LeagueRoundDetail[]> {
-  // Query 1: league_rounds with scorecard data (avoids deep nested join
-  // through rounds table which fails due to RLS on standalone rounds)
-  const { data: leagueRoundsData, error: error1 } = await from('league_rounds')
-    .select(`
-      id,
-      scorecard_id,
-      handicap_differential,
-      tagged_at,
-      scorecards!league_rounds_scorecard_id_fkey (
-        round_id,
-        total_gross,
-        course_rating_used,
-        slope_rating_used,
-        daily_handicap_used
-      )
-    `)
-    .eq('league_id', leagueId)
-    .eq('player_id', playerId)
-    .order('tagged_at', { ascending: false });
-
-  if (error1) {
-    console.error('[Leagues] Error fetching player league rounds:', error1);
-    throw new Error(`Failed to fetch player league rounds: ${error1.message}`);
-  }
-
-  interface LeagueRoundRow {
-    id: string;
-    scorecard_id: string;
-    handicap_differential: number;
-    tagged_at: string;
-    scorecards?: {
-      round_id?: string;
-      total_gross?: number;
-      course_rating_used?: number | null;
-      slope_rating_used?: number | null;
-      daily_handicap_used?: number | null;
-    };
-  }
-
-  const rows = (leagueRoundsData ?? []) as unknown as LeagueRoundRow[];
-  const roundIds = rows
-    .map((r) => r.scorecards?.round_id)
-    .filter((id): id is string => !!id);
-
-  // Query 2: fetch round date + course name separately (direct query
-  // bypasses the nested RLS issue on standalone rounds)
-  interface RoundWithCourse {
-    id: string;
-    date: string | null;
-    courses?: { name?: string };
-  }
-  let roundsMap = new Map<string, RoundWithCourse>();
-
-  if (roundIds.length > 0) {
-    const { data: roundsData } = await from('rounds')
-      .select(`
-        id,
-        date,
-        courses!course_id (
-          name
-        )
-      `)
-      .in('id', roundIds);
-
-    if (roundsData) {
-      roundsMap = new Map(
-        (roundsData as unknown as RoundWithCourse[]).map((r) => [r.id, r])
-      );
-    }
-  }
-
-  return rows.map((row) => {
-    const sc = row.scorecards;
-    const round = sc?.round_id ? roundsMap.get(sc.round_id) : undefined;
-
-    return {
-      id: row.id,
-      scorecard_id: row.scorecard_id,
-      round_id: sc?.round_id ?? '',
-      handicap_differential: row.handicap_differential,
-      tagged_at: row.tagged_at,
-      total_gross: sc?.total_gross ?? 0,
-      course_rating_used: sc?.course_rating_used ?? null,
-      slope_rating_used: sc?.slope_rating_used ?? null,
-      daily_handicap_used: sc?.daily_handicap_used ?? null,
-      course_name: round?.courses?.name ?? 'Unknown Course',
-      date_played: round?.date ?? null,
-    } satisfies LeagueRoundDetail;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any).rpc('get_player_league_rounds', {
+    p_league_id: leagueId,
+    p_player_id: playerId,
   });
+
+  if (error) {
+    console.error('[Leagues] Error fetching player league rounds:', error);
+    throw new Error(`Failed to fetch player league rounds: ${error.message}`);
+  }
+
+  return (data ?? []) as LeagueRoundDetail[];
 }
 
 /**
