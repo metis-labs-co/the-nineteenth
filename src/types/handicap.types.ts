@@ -54,9 +54,9 @@ export interface ScoreDifferentialParams {
  * Used to display rounds in the Handicap History screen
  */
 export interface HandicapRound {
-  /** Scorecard ID (UUID) */
+  /** Scorecard ID (UUID) — for combined rounds this is the combined record's ID */
   scorecardId: string;
-  /** Round ID (UUID) */
+  /** Round ID (UUID) — for combined rounds this is the front-9 source round ID */
   roundId: string;
   /** Date of the round (ISO string) */
   roundDate: string;
@@ -78,6 +78,45 @@ export interface HandicapRound {
   isQualifying: boolean;
   /** Position in history (1 = most recent, 20 = oldest) */
   roundNumber: number;
+  /** True if this entry is a combination of two 9-hole rounds */
+  isCombined?: boolean;
+  /** Combined-only: source 9-hole scorecard IDs */
+  combinedFrontScorecardId?: string;
+  combinedBackScorecardId?: string;
+}
+
+/**
+ * A candidate pair of 9-hole rounds (one front9 and one back9 from the same
+ * course) that the user can combine into a single 18-hole handicap round.
+ */
+export interface CombinableNinePair {
+  /** Stable key for list rendering: `${frontScorecardId}_${backScorecardId}` */
+  id: string;
+  courseId: string;
+  courseName: string;
+  clubName: string;
+  /** Tee name (e.g. "White"). Both scorecards must share the same tee. */
+  teeName: string | null;
+  /** Front-9 scorecard summary */
+  front: NinePieceSummary;
+  /** Back-9 scorecard summary */
+  back: NinePieceSummary;
+  /** Projected combined-18 differential if the pair is combined */
+  projectedDifferential: number;
+  /** Projected combined gross */
+  projectedCombinedGross: number;
+}
+
+/**
+ * Summary fields for one 9-hole scorecard inside a combinable pair.
+ */
+export interface NinePieceSummary {
+  scorecardId: string;
+  roundId: string;
+  roundDate: string;
+  totalGross: number;
+  dailyHandicapUsed: number | null;
+  handicapDifferential: number | null;
 }
 
 /**
@@ -95,4 +134,6 @@ export interface HandicapSummary {
   rounds: HandicapRound[];
   /** ISO timestamp when index was last calculated */
   lastUpdated: string | null;
+  /** Unmatched 9-hole scorecards eligible to be paired into 18-hole rounds */
+  combinablePairs: CombinableNinePair[];
 }

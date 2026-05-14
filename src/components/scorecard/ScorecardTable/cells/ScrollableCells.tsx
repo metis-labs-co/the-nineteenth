@@ -11,7 +11,7 @@ import { View, TouchableOpacity, StyleSheet as RNStyleSheet } from 'react-native
 import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { getScoreColor, calculateParScore, getStrokesReceived, calculateStablefordPointsNet } from '@/utils/scoring';
-import { getFirstName, getScoreBackgroundColor } from '@/utils/displayHelpers';
+import { getFirstName, getScoreBackgroundColor, formatHandicapIndex } from '@/utils/displayHelpers';
 import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
 import { PICKUP_SCORE } from '@/constants/scoring';
 import { ScoreIndicator } from '../../ScoreIndicator';
@@ -84,7 +84,7 @@ export const ScrollableHeaderCells = React.memo(function ScrollableHeaderCells({
             </Text>
             <View style={headerLocalStyles.handicapRow}>
               <Text style={[styles.handicapText, { color: colors.textSecondary }]}>
-                {handicapLabel}: {displayHandicap}
+                {handicapLabel}: {formatHandicapIndex(displayHandicap, 0)}
               </Text>
               {/* Show info icon only on first player to avoid clutter */}
               {index === 0 && onHandicapInfoPress && (

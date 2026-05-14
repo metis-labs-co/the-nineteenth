@@ -20,6 +20,7 @@ import type { RootStackParamList } from '@/navigation/types';
 import AddPlayersBottomSheet from '@/components/competitionWizard/AddPlayersBottomSheet';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
+import { formatHandicapIndex } from '@/utils/displayHelpers';
 import { useTierLimits, useIsSuperAdmin } from '@/context/SubscriptionContext';
 import { UpgradePrompt } from '@/components/subscription';
 import { PageHeader, Tabs, ConfirmationDialog } from '@/components/common';
@@ -621,7 +622,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
           return (
             <SelectionItemRow
               label={player.player?.name ?? 'Unknown Player'}
-              description={isCompleted ? 'Scorecard completed' : player.player?.handicap != null ? `Handicap: ${player.player.handicap}` : undefined}
+              description={isCompleted ? 'Scorecard completed' : player.player?.handicap != null ? `Handicap: ${formatHandicapIndex(player.player.handicap)}` : undefined}
               selected={selected}
               disabled={isCompleted}
               icon={isCompleted ? 'check-circle' : 'account'}

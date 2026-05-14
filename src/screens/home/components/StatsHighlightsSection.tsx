@@ -9,6 +9,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
+import { formatHandicapIndex } from '@/utils/displayHelpers';
 import type { RootStackParamList } from '@/navigation/types';
 import type { StatsHighlights, NotableMoment } from '@/types/home';
 import { SectionHeader } from './SectionHeader';
@@ -89,7 +90,7 @@ export const StatsHighlightsSection = React.memo(
         >
           <Pill
             label="Handicap"
-            value={formatNumber(stats.handicap, 1)}
+            value={formatHandicapIndex(stats.handicap)}
             colors={colors}
           />
           <Pill

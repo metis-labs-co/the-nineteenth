@@ -395,7 +395,18 @@ export default function HoleMapScreen({ route, navigation }: Props) {
 
   const onActionDelete = useCallback(
     (shot: ShotLogEntry) => {
-      deleteShot.mutate({ shotId: shot.id, roundId, holeNumber });
+      deleteShot.mutate(
+        { shotId: shot.id, roundId, holeNumber },
+        {
+          onError: (err: unknown) => {
+            console.error('[HoleMap] deleteShot failed:', err);
+            Alert.alert(
+              "Couldn't delete shot",
+              "We couldn't delete the shot. Try again."
+            );
+          },
+        }
+      );
       setActiveShot(null);
     },
     [deleteShot, roundId, holeNumber]
@@ -419,6 +430,13 @@ export default function HoleMapScreen({ route, navigation }: Props) {
         longitude: previewCoord.longitude,
       },
       {
+        onError: (err: unknown) => {
+          console.error('[HoleMap] move shot failed:', err);
+          Alert.alert(
+            "Couldn't move shot",
+            "We couldn't save the new position. Try again."
+          );
+        },
         onSettled: () => {
           setMovingShotId(null);
           setPreviewCoord(null);
@@ -604,12 +622,23 @@ export default function HoleMapScreen({ route, navigation }: Props) {
       if (!clubEditingShot) return;
       const target = clubEditingShot;
       setClubEditingShot(null);
-      setShotClub.mutate({
-        shotId: target.id,
-        roundId: target.round_id,
-        holeNumber: target.hole_number,
-        clubKey,
-      });
+      setShotClub.mutate(
+        {
+          shotId: target.id,
+          roundId: target.round_id,
+          holeNumber: target.hole_number,
+          clubKey,
+        },
+        {
+          onError: (err: unknown) => {
+            console.error('[HoleMap] setShotClub failed:', err);
+            Alert.alert(
+              "Couldn't change club",
+              "We couldn't update the club. Try again."
+            );
+          },
+        }
+      );
     },
     [clubEditingShot, setShotClub]
   );
@@ -806,17 +835,37 @@ export default function HoleMapScreen({ route, navigation }: Props) {
       // the choice persists across devices. When shot 1 doesn't exist
       // yet, the local value rides along on `useLogShot` (see the
       // log-shot mutation call site).
+      const previousTee = useTeeOverrideStore
+        .getState()
+        .getOverride(roundId, holeNumber);
       setTeeOverride(roundId, holeNumber, tee);
       if (shotOne) {
-        updateShot.mutate({
-          shotId: shotOne.id,
-          roundId,
-          holeNumber,
-          teeOverride: tee,
-        });
+        updateShot.mutate(
+          {
+            shotId: shotOne.id,
+            roundId,
+            holeNumber,
+            teeOverride: tee,
+          },
+          {
+            onError: (err: unknown) => {
+              console.error('[HoleMap] setTeeOverride failed:', err);
+              // Roll the local store back so it doesn't drift from the DB.
+              if (previousTee) {
+                setTeeOverride(roundId, holeNumber, previousTee);
+              } else {
+                clearTeeOverride(roundId, holeNumber);
+              }
+              Alert.alert(
+                "Couldn't change tee",
+                "We couldn't save the tee selection. Try again."
+              );
+            },
+          }
+        );
       }
     },
-    [setTeeOverride, roundId, holeNumber, shotOne, updateShot]
+    [setTeeOverride, clearTeeOverride, roundId, holeNumber, shotOne, updateShot]
   );
 
   // Hydrate from DB and back-fill any local-only legacy data.

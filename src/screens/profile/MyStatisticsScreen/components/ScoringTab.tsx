@@ -161,6 +161,16 @@ export const ScoringTab = React.memo(function ScoringTab({
             />
           )}
 
+          {stats.bestNineHoleRound && (
+            <PerformanceRow
+              icon="numeric-9-circle-outline"
+              iconColor={colors.primary}
+              label="Best 9-Hole Round"
+              value={`${stats.bestNineHoleRound.totalGross} strokes`}
+              subtitle={`${stats.bestNineHoleRound.courseName} • ${formatDateAustralian(stats.bestNineHoleRound.date)}`}
+            />
+          )}
+
           {stats.birdieOrBetterPercentage > 0 && (
             <PerformanceRow
               icon="bird"

@@ -214,13 +214,35 @@ export function formatScoreRelativeToPar(total: number, parTotal: number): strin
 }
 
 /**
- * Format handicap for display
+ * Format a handicap index value with the golf-standard sign convention.
+ *
+ * Negative handicaps (plus golfers) display with a leading `+` (e.g. -2.4 → "+2.4").
+ * Non-negative handicaps display without a sign (e.g. 12.4 → "12.4").
+ *
+ * @param handicap The handicap value (may be negative for plus golfers)
+ * @param decimals Number of decimal places to show (default: 1)
+ * @returns Formatted string, or "—" if null/undefined
+ */
+export function formatHandicapIndex(
+  handicap: number | undefined | null,
+  decimals: number = 1
+): string {
+  if (handicap == null) return '—';
+  if (handicap < 0) return `+${Math.abs(handicap).toFixed(decimals)}`;
+  return handicap.toFixed(decimals);
+}
+
+/**
+ * Format handicap for display with "HC:" prefix.
+ * Uses the plus-handicap sign convention for negative values.
  *
  * @param handicap The handicap value
- * @returns Formatted string (e.g., "HC: 12")
+ * @returns Formatted string (e.g., "HC: 12", "HC: +2.4")
  */
 export function formatHandicap(handicap: number | undefined | null): string {
-  return `HC: ${handicap ?? 0}`;
+  if (handicap == null) return 'HC: 0';
+  if (handicap < 0) return `HC: +${Math.abs(handicap)}`;
+  return `HC: ${handicap}`;
 }
 
 // =====================================================

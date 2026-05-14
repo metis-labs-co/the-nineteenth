@@ -178,11 +178,14 @@ function calcLast5Average(
     : never
 ): number | null {
   if (!Array.isArray(recent) || recent.length === 0) return null;
-  const slice = recent.slice(0, 5);
-  const total = slice.reduce(
-    (sum: number, r: { totalGross: number }) => sum + r.totalGross,
-    0
+  // Restrict to 18-hole rounds — averaging a 9-hole gross alongside 18-hole
+  // grosses understates form. `recentRounds` mixes both, so filter here.
+  const fullRounds = (recent as { totalGross: number; holesPlayed: number }[]).filter(
+    (r) => r.holesPlayed >= 18
   );
+  if (fullRounds.length === 0) return null;
+  const slice = fullRounds.slice(0, 5);
+  const total = slice.reduce((sum, r) => sum + r.totalGross, 0);
   return total / slice.length;
 }
 

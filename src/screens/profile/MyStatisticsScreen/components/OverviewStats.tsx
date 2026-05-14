@@ -110,6 +110,15 @@ export const OverviewStats = React.memo(function OverviewStats({ stats }: Overvi
           icon="scale-balance"
           iconColor={colors.success}
         />
+        {stats.nineHoleRoundsPlayed > 0 && (
+          <StatCard
+            title="9-Hole"
+            value={stats.nineHoleRoundsPlayed}
+            subtitle="rounds"
+            icon="numeric-9-circle-outline"
+            iconColor={colors.primary}
+          />
+        )}
       </View>
 
       {/* Game Type Breakdown */}

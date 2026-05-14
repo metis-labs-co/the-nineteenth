@@ -177,6 +177,8 @@ export interface PlayerStatistics {
   competitionRoundsPlayed: number;
   matchPlayRoundsPlayed: number;
   handicapRoundsPlayed: number;
+  /** Rounds where fewer than 18 holes were scored (e.g. 9-hole practice rounds). */
+  nineHoleRoundsPlayed: number;
   competitionsEntered: number;
   competitionsWon: number;
   holesPlayed: number;
@@ -194,10 +196,14 @@ export interface PlayerStatistics {
   roundsPlayedYtd: number;
   averageGrossScoreYtd: number | null;
 
-  // Best/Worst Performance
+  // Best/Worst Performance (18-hole rounds only)
   bestRound: RoundSummary | null;
   worstRound: RoundSummary | null;
   bestStablefordRound: RoundSummary | null;
+
+  // 9-hole performance (rounds with < 18 holes scored)
+  bestNineHoleRound: RoundSummary | null;
+  averageNineHoleScore: number | null;
 
   // Course Stats
   favouriteCourse: CourseStats | null;

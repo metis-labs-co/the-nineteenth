@@ -11,6 +11,11 @@ import { CACHE_TIMES } from '@/constants/cacheConfig';
 import { supabase } from '@/services/supabase/client';
 import { calculateHandicapIndex, getQualifyingCount } from '@/utils/handicapDifferential';
 import { recalculateScorecardDifferential } from '@/services/handicap/recalculateScorecardDifferential';
+import { updatePlayerHandicapIndex } from '@/services/handicap/updatePlayerHandicapIndex';
+import {
+  fetchCombinedHandicapRounds,
+  fetchCombinableNinePairs,
+} from '@/services/handicap/loadCombinedAndPairs';
 import { syncLogger } from '@/utils/debugLogger';
 import type { HandicapSummary, HandicapRound } from '@/types';
 
@@ -96,9 +101,10 @@ async function fetchHandicapHistory(playerId: string): Promise<HandicapSummary> 
       course_rating_used,
       slope_rating_used,
       submitted_at,
-      rounds (
+      rounds!inner (
         id,
         date,
+        nine_type,
         courses (
           id,
           name,
@@ -112,6 +118,7 @@ async function fetchHandicapHistory(playerId: string): Promise<HandicapSummary> 
     .eq('player_id', playerId)
     .in('status', ['completed', 'confirmed'])
     .not('handicap_differential', 'is', null)
+    .eq('rounds.nine_type', 'full')
     .order('submitted_at', { ascending: false })
     .limit(20);
 
@@ -149,9 +156,10 @@ async function fetchHandicapHistory(playerId: string): Promise<HandicapSummary> 
           course_rating_used,
           slope_rating_used,
           submitted_at,
-          rounds (
+          rounds!inner (
             id,
             date,
+            nine_type,
             courses (
               id,
               name,
@@ -165,6 +173,7 @@ async function fetchHandicapHistory(playerId: string): Promise<HandicapSummary> 
         .eq('player_id', playerId)
         .in('status', ['completed', 'confirmed'])
         .not('handicap_differential', 'is', null)
+        .eq('rounds.nine_type', 'full')
         .order('submitted_at', { ascending: false })
         .limit(20);
 
@@ -183,81 +192,90 @@ async function fetchHandicapHistory(playerId: string): Promise<HandicapSummary> 
       sc.slope_rating_used !== null
   );
 
-  if (validScorecards.length === 0) {
+  // Fetch combined rounds and combinable 9-hole pairs in parallel
+  const [combinedRounds, combinablePairs] = await Promise.all([
+    fetchCombinedHandicapRounds(playerId),
+    fetchCombinableNinePairs(playerId),
+  ]);
+
+  // Convert 18-hole scorecards into HandicapRound entries (without qualifying
+  // status or round number — those are assigned after merging with combined
+  // rounds and sorting by date).
+  const eighteenRounds: HandicapRound[] = validScorecards.map((sc) => ({
+    scorecardId: sc.id,
+    roundId: sc.round_id,
+    roundDate: sc.rounds?.date ?? sc.submitted_at ?? '',
+    courseName: sc.rounds?.courses?.name ?? 'Unknown Course',
+    clubName: sc.rounds?.courses?.clubs?.name ?? '',
+    totalGross: sc.total_gross,
+    dailyHandicapUsed: sc.daily_handicap_used as number,
+    handicapDifferential: sc.handicap_differential as number,
+    courseRatingUsed: sc.course_rating_used as number,
+    slopeRatingUsed: sc.slope_rating_used as number,
+    isQualifying: false,
+    roundNumber: 0,
+  }));
+
+  // Merge 18-hole + combined entries, sort by date desc, cap at 20 for WHS
+  const allRounds = [...eighteenRounds, ...combinedRounds]
+    .sort((a, b) => (a.roundDate < b.roundDate ? 1 : a.roundDate > b.roundDate ? -1 : 0))
+    .slice(0, 20);
+
+  if (allRounds.length === 0) {
     return {
       handicapIndex: null,
       totalRounds: 0,
       qualifyingRoundsCount: 0,
       rounds: [],
       lastUpdated: null,
+      combinablePairs,
     };
   }
 
-  // Extract differentials for index calculation
-  const differentials = validScorecards.map((sc) => sc.handicap_differential as number);
-
-  // Calculate handicap index
+  // Extract differentials and calculate index from the merged list
+  const differentials = allRounds.map((r) => r.handicapDifferential);
   const handicapIndex = calculateHandicapIndex(differentials);
   const qualifyingCount = getQualifyingCount(differentials.length);
 
-  // Sort differentials to determine which rounds are qualifying
+  // Determine the qualifying threshold (the X-th best differential)
   const sortedDifferentials = [...differentials].sort((a, b) => a - b);
   const qualifyingThreshold = sortedDifferentials[qualifyingCount - 1] ?? Infinity;
 
-  // Track how many of each differential value we've marked as qualifying
-  // (handles ties correctly)
+  // Assign qualifying flag and round number, handling ties on the threshold
   const qualifyingUsed = new Map<number, number>();
-
-  // Transform to HandicapRound array
-  const rounds: HandicapRound[] = validScorecards.map((sc, index) => {
-    const differential = sc.handicap_differential as number;
-
-    // Determine if this round is qualifying
-    // A round qualifies if its differential is <= the threshold
-    // and we haven't already used all qualifying slots for this differential value
+  const rounds: HandicapRound[] = allRounds.map((r, index) => {
+    const differential = r.handicapDifferential;
     let isQualifying = false;
     if (differential <= qualifyingThreshold) {
       const usedCount = qualifyingUsed.get(differential) || 0;
-      const _availableAtThisDiff = differentials.filter((d) => d === differential).length;
       const totalQualifyingAtThisDiff = sortedDifferentials.filter(
         (d, i) => i < qualifyingCount && d === differential
       ).length;
-
       if (usedCount < totalQualifyingAtThisDiff) {
         isQualifying = true;
         qualifyingUsed.set(differential, usedCount + 1);
       }
     }
-
-    // Get course and club names with fallbacks
-    const courseName = sc.rounds?.courses?.name ?? 'Unknown Course';
-    const clubName = sc.rounds?.courses?.clubs?.name ?? '';
-
     return {
-      scorecardId: sc.id,
-      roundId: sc.round_id,
-      roundDate: sc.rounds?.date ?? sc.submitted_at ?? '',
-      courseName,
-      clubName,
-      totalGross: sc.total_gross,
-      dailyHandicapUsed: sc.daily_handicap_used as number,
-      handicapDifferential: differential,
-      courseRatingUsed: sc.course_rating_used as number,
-      slopeRatingUsed: sc.slope_rating_used as number,
+      ...r,
       isQualifying,
       roundNumber: index + 1, // 1 = most recent
     };
   });
 
-  // Find last updated timestamp
-  const lastUpdated = validScorecards[0]?.submitted_at ?? null;
+  const lastUpdated = rounds[0]?.roundDate ?? validScorecards[0]?.submitted_at ?? null;
+
+  // Keep stored player.handicap_index in sync with the 18-hole-only calculation.
+  // Fire-and-forget — never block the screen on this background write.
+  updatePlayerHandicapIndex(playerId).catch(() => {});
 
   return {
     handicapIndex,
-    totalRounds: validScorecards.length,
+    totalRounds: rounds.length,
     qualifyingRoundsCount: qualifyingCount,
     rounds,
     lastUpdated,
+    combinablePairs,
   };
 }
 

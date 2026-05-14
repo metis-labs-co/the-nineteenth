@@ -205,10 +205,14 @@ export const PartnersStep = memo(function PartnersStep({
     currentUserHandicapOverride ?? player?.handicap ?? null;
   const currentUserHandicapEdited = currentUserHandicapOverride != null;
 
-  // Format handicap for display ('—' when unset)
+  // Format handicap for display ('—' when unset). Plus handicaps (negative
+  // values) render with a leading '+' per golf convention.
   const formatHandicap = useCallback(
-    (value: number | null | undefined): string =>
-      value != null && !Number.isNaN(value) ? value.toFixed(1) : '—',
+    (value: number | null | undefined): string => {
+      if (value == null || Number.isNaN(value)) return '—';
+      if (value < 0) return `+${Math.abs(value).toFixed(1)}`;
+      return value.toFixed(1);
+    },
     []
   );
 

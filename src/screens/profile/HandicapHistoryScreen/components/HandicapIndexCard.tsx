@@ -10,6 +10,7 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, borderRadius, shadows, typography } from '@/constants/theme';
+import { formatHandicapIndex } from '@/utils/displayHelpers';
 
 interface HandicapIndexCardProps {
   handicapIndex: number | null;
@@ -33,7 +34,7 @@ export function HandicapIndexCard({
 
       {/* Main Index Display */}
       <Text style={[styles.indexValue, { color: colors.textPrimary }]}>
-        {handicapIndex !== null ? handicapIndex.toFixed(1) : '—'}
+        {formatHandicapIndex(handicapIndex)}
       </Text>
 
       {/* Stats Row */}

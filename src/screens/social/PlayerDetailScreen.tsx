@@ -54,6 +54,7 @@ import { FeatureLockButton } from '@/components/subscription/FeatureLockButton';
 import { UpgradePrompt, type UpgradePromptConfig } from '@/components/subscription';
 import { ProfileFrame, ProfileBadge, ProfileTitle } from '@/components/cosmetics';
 import { formatDateAustralian } from '@/utils/formatting';
+import { formatHandicapIndex } from '@/utils/displayHelpers';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PlayerDetail'>;
 
@@ -317,7 +318,7 @@ export default function PlayerDetailScreen({ navigation, route }: Props) {
           {player.handicap !== null && player.handicap !== undefined && (
             <View style={[styles.handicapBadge, { backgroundColor: colors.primaryLighter }]}>
               <Text style={[styles.handicapText, { color: colors.primaryDark }]}>
-                HC: {player.handicap}
+                HC: {formatHandicapIndex(player.handicap)}
               </Text>
             </View>
           )}

@@ -212,10 +212,17 @@ export function usePlayerStatistics(
       };
 
       let totalHolesPlayed = 0;
+      // Round-level totals — 18-hole rounds only. Mixing 9-hole and 18-hole
+      // gross scores into a single "average score per round" produces
+      // misleading numbers, so per-round averages exclude short rounds.
+      let fullRoundsCount = 0;
       let totalGrossScoreSum = 0;
       let totalPointsSum = 0;
 
-      // Year-to-date accumulators (current calendar year)
+      // 9-hole accumulators (rounds with < 18 holes scored)
+      let nineHoleGrossSum = 0;
+
+      // Year-to-date accumulators (current calendar year, 18-hole rounds only)
       const currentYear = new Date().getFullYear();
       let ytdRoundsCount = 0;
       let ytdGrossScoreSum = 0;
@@ -243,14 +250,26 @@ export function usePlayerStatistics(
         }
       >();
 
-      // Round summaries for best/worst calculations
-      const roundSummaries: RoundSummary[] = [];
+      // Round summaries split by hole count. Per-round records (best, worst,
+      // averages, course bests) draw from `fullRoundSummaries` only;
+      // `nineHoleSummaries` powers the separate 9-hole stats. `recentRounds`
+      // mixes both so the activity list reflects what the player actually
+      // played.
+      const fullRoundSummaries: RoundSummary[] = [];
+      const nineHoleSummaries: RoundSummary[] = [];
 
       // Track practice vs competition rounds and game type breakdown
       let practiceRoundsCount = 0;
       let matchPlayRoundsCount = 0;
       let handicapRoundsCount = 0;
+      let nineHoleRoundsCount = 0;
       const gameTypeCounts = new Map<string, number>();
+
+      // Threshold for treating a round as a "full" 18-hole round. Rounds below
+      // this contribute to per-hole metrics but are excluded from
+      // round-aggregated records (best/worst, averages, course bests) so that
+      // a 9-hole practice round doesn't show up as a player's lowest round.
+      const FULL_ROUND_HOLE_COUNT = 18;
 
       // Per-round stat tracking for sparklines
       const perRoundStats: {
@@ -360,46 +379,14 @@ export function usePlayerStatistics(
           }
         });
 
-        // Sum up totals
-        totalGrossScoreSum += scorecard.total_gross || 0;
-        totalPointsSum += scorecard.total_points || 0;
-
-        // Accumulate YTD aggregates from rounds dated this calendar year.
-        // `round.date` is the canonical source; falling back to submitted_at
-        // would let undated drafts leak into the YTD slice.
-        if (round.date) {
-          const roundYear = new Date(round.date).getFullYear();
-          if (roundYear === currentYear) {
-            ytdRoundsCount++;
-            ytdGrossScoreSum += scorecard.total_gross || 0;
-          }
-        }
-
-        // Track course stats
-        const existingCourseStats = courseStatsMap.get(course.id);
-        if (existingCourseStats) {
-          existingCourseStats.timesPlayed++;
-          existingCourseStats.totalScore += scorecard.total_gross || 0;
-          if (scorecard.total_gross < existingCourseStats.bestScore) {
-            existingCourseStats.bestScore = scorecard.total_gross;
-          }
-        } else {
-          courseStatsMap.set(course.id, {
-            courseId: course.id,
-            courseName: course.name,
-            timesPlayed: 1,
-            totalScore: scorecard.total_gross || 0,
-            bestScore: scorecard.total_gross || 0,
-          });
-        }
-
-        // Track practice round count
+        // Track practice round count (regardless of hole count)
         if (isPracticeRound) {
           practiceRoundsCount++;
         }
 
-        // Create round summary
-        roundSummaries.push({
+        // Build the round summary up front; we use it for both full and
+        // short-round buckets below.
+        const summary: RoundSummary = {
           roundId: round.id,
           courseId: course.id,
           competitionId: competition?.id ?? null,
@@ -411,7 +398,51 @@ export function usePlayerStatistics(
           holesPlayed: holesInScorecard,
           isPracticeRound,
           gameType: round.game_type,
-        });
+        };
+
+        const isFullRound = holesInScorecard >= FULL_ROUND_HOLE_COUNT;
+
+        if (isFullRound) {
+          fullRoundsCount++;
+          totalGrossScoreSum += scorecard.total_gross || 0;
+          totalPointsSum += scorecard.total_points || 0;
+
+          // Accumulate YTD aggregates from rounds dated this calendar year.
+          // `round.date` is the canonical source; falling back to submitted_at
+          // would let undated drafts leak into the YTD slice.
+          if (round.date) {
+            const roundYear = new Date(round.date).getFullYear();
+            if (roundYear === currentYear) {
+              ytdRoundsCount++;
+              ytdGrossScoreSum += scorecard.total_gross || 0;
+            }
+          }
+
+          // Course stats track full rounds only so course "best score" is
+          // never undercut by a 9-hole practice round.
+          const existingCourseStats = courseStatsMap.get(course.id);
+          if (existingCourseStats) {
+            existingCourseStats.timesPlayed++;
+            existingCourseStats.totalScore += scorecard.total_gross || 0;
+            if (scorecard.total_gross < existingCourseStats.bestScore) {
+              existingCourseStats.bestScore = scorecard.total_gross;
+            }
+          } else {
+            courseStatsMap.set(course.id, {
+              courseId: course.id,
+              courseName: course.name,
+              timesPlayed: 1,
+              totalScore: scorecard.total_gross || 0,
+              bestScore: scorecard.total_gross || 0,
+            });
+          }
+
+          fullRoundSummaries.push(summary);
+        } else {
+          nineHoleRoundsCount++;
+          nineHoleGrossSum += scorecard.total_gross || 0;
+          nineHoleSummaries.push(summary);
+        }
 
         // Collect per-round stats for sparklines
         let roundFirHit = 0, roundFirOpps = 0;
@@ -464,13 +495,24 @@ export function usePlayerStatistics(
       const favouriteCourse = courseStats.length > 0 ? courseStats[0] : null;
 
       // Find best/worst rounds (by gross score - lower is better for stroke play)
-      const sortedByGross = [...roundSummaries].sort((a, b) => a.totalGross - b.totalGross);
+      // Restricted to 18-hole rounds so a 9-hole practice round can't show up
+      // as the player's lowest gross.
+      const sortedByGross = [...fullRoundSummaries].sort((a, b) => a.totalGross - b.totalGross);
       const bestRound = sortedByGross.length > 0 ? sortedByGross[0] : null;
       const worstRound = sortedByGross.length > 0 ? sortedByGross[sortedByGross.length - 1] : null;
 
-      // Find best Stableford round (higher is better)
-      const sortedByPoints = [...roundSummaries].sort((a, b) => b.totalPoints - a.totalPoints);
+      // Find best Stableford round (higher is better) — full rounds only.
+      const sortedByPoints = [...fullRoundSummaries].sort((a, b) => b.totalPoints - a.totalPoints);
       const bestStablefordRound = sortedByPoints.length > 0 ? sortedByPoints[0] : null;
+
+      // 9-hole equivalents (independent record, not displayed alongside the
+      // 18-hole bests).
+      const sortedNineByGross = [...nineHoleSummaries].sort((a, b) => a.totalGross - b.totalGross);
+      const bestNineHoleRound = sortedNineByGross.length > 0 ? sortedNineByGross[0] : null;
+      const averageNineHoleScore =
+        nineHoleRoundsCount > 0
+          ? Math.round((nineHoleGrossSum / nineHoleRoundsCount) * 10) / 10
+          : null;
 
       // Calculate competitions won
       // A player wins if they have the highest points in a completed competition
@@ -530,9 +572,11 @@ export function usePlayerStatistics(
         }
       }
 
-      // Calculate averages
+      // Per-round averages reflect 18-hole rounds only — combining 9- and
+      // 18-hole gross totals would produce a misleading "average score per
+      // round". Per-hole metrics still include every hole played below.
       const averageGrossScore =
-        roundsPlayed > 0 ? Math.round((totalGrossScoreSum / roundsPlayed) * 10) / 10 : 0;
+        fullRoundsCount > 0 ? Math.round((totalGrossScoreSum / fullRoundsCount) * 10) / 10 : 0;
 
       const averageGrossScoreYtd =
         ytdRoundsCount > 0
@@ -540,10 +584,14 @@ export function usePlayerStatistics(
           : null;
 
       const averageStablefordPoints =
-        roundsPlayed > 0 ? Math.round((totalPointsSum / roundsPlayed) * 10) / 10 : 0;
+        fullRoundsCount > 0 ? Math.round((totalPointsSum / fullRoundsCount) * 10) / 10 : 0;
 
+      // Per-hole average spans every hole played, so include 9-hole gross
+       // alongside the 18-hole sum (denominator already counts all holes).
       const averageScorePerHole =
-        totalHolesPlayed > 0 ? Math.round((totalGrossScoreSum / totalHolesPlayed) * 100) / 100 : 0;
+        totalHolesPlayed > 0
+          ? Math.round(((totalGrossScoreSum + nineHoleGrossSum) / totalHolesPlayed) * 100) / 100
+          : 0;
 
       // Calculate percentages
       const totalScoreDistribution =
@@ -567,8 +615,9 @@ export function usePlayerStatistics(
           ? Math.round((birdieOrBetter / totalScoreDistribution) * 1000) / 10
           : 0;
 
-      // Get recent rounds (last 5)
-      const recentRounds = [...roundSummaries]
+      // Get recent rounds (last 5) — includes both full and 9-hole rounds so
+      // the activity list reflects everything the player has played.
+      const recentRounds = [...fullRoundSummaries, ...nineHoleSummaries]
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
         .slice(0, 5);
 
@@ -638,6 +687,7 @@ export function usePlayerStatistics(
         competitionRoundsPlayed: roundsPlayed - practiceRoundsCount,
         matchPlayRoundsPlayed: matchPlayRoundsCount,
         handicapRoundsPlayed: handicapRoundsCount,
+        nineHoleRoundsPlayed: nineHoleRoundsCount,
         competitionsEntered,
         competitionsWon,
         holesPlayed: totalHolesPlayed,
@@ -651,6 +701,8 @@ export function usePlayerStatistics(
         bestRound,
         worstRound,
         bestStablefordRound,
+        bestNineHoleRound,
+        averageNineHoleScore,
         favouriteCourse,
         courseStats,
         lowestGrossScore: bestRound?.totalGross ?? null,
@@ -715,6 +767,7 @@ function createEmptyStatistics(): PlayerStatistics {
     competitionRoundsPlayed: 0,
     matchPlayRoundsPlayed: 0,
     handicapRoundsPlayed: 0,
+    nineHoleRoundsPlayed: 0,
     competitionsEntered: 0,
     competitionsWon: 0,
     holesPlayed: 0,
@@ -728,6 +781,8 @@ function createEmptyStatistics(): PlayerStatistics {
     bestRound: null,
     worstRound: null,
     bestStablefordRound: null,
+    bestNineHoleRound: null,
+    averageNineHoleScore: null,
     favouriteCourse: null,
     courseStats: [],
     lowestGrossScore: null,

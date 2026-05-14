@@ -15,6 +15,7 @@ import { Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { ScaledText } from '@/components/common/ScaledText';
+import { formatHandicapIndex } from '@/utils/displayHelpers';
 import type { MatchPlayer, PlayerMatchStatus } from '../types';
 
 interface PlayerScoreCardProps {
@@ -111,8 +112,8 @@ export function PlayerScoreCard({
           </View>
           <ScaledText category="caption" style={[styles.handicapLabel, { color: colors.textSecondary }]}>
             {dailyHandicap != null
-              ? `DHC: ${dailyHandicap} / ${baseLabel ?? 'HC'}: ${baseHandicap ?? player.handicap}`
-              : `HC: ${player.handicap}`}
+              ? `DHC: ${formatHandicapIndex(dailyHandicap, 0)} / ${baseLabel ?? 'HC'}: ${formatHandicapIndex(baseHandicap ?? player.handicap)}`
+              : `HC: ${formatHandicapIndex(player.handicap)}`}
           </ScaledText>
         </TouchableOpacity>
 

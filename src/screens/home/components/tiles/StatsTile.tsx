@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { HomeTile } from '../HomeTile';
+import { formatHandicapIndex } from '@/utils/displayHelpers';
 import type { RootStackParamList } from '@/navigation/types';
 import type { StatsHighlights } from '@/types/home';
 
@@ -12,7 +13,7 @@ interface Props {
 export function StatsTile({ stats }: Props) {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
-  const headline = stats?.handicap != null ? stats.handicap.toFixed(1) : null;
+  const headline = stats?.handicap != null ? formatHandicapIndex(stats.handicap) : null;
   const subtext = (() => {
     if (!stats) return 'Play 3 rounds to unlock';
     const avg = stats.scoringAverage != null ? `avg ${Math.round(stats.scoringAverage)}` : null;

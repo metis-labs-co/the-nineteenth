@@ -13,6 +13,7 @@ import { Badge } from '@/components/common/Badge';
 import { useThemeColors } from '@/context/ThemeContext';
 import { withOpacity } from '@/constants/colors';
 import { spacing, typography } from '@/constants/theme';
+import { formatHandicapIndex } from '@/utils/displayHelpers';
 import type { LeagueLeaderboardEntry } from '@/types/database';
 
 interface Props {
@@ -92,7 +93,7 @@ export default React.memo(function LeagueLeaderboardRow({
           category="caption"
           style={[styles.hcText, { color: colors.textSecondary }]}
         >
-          {entry.avg_handicap != null ? entry.avg_handicap.toFixed(1) : '-'}
+          {entry.avg_handicap != null ? formatHandicapIndex(entry.avg_handicap) : '-'}
         </ScaledText>
       </View>
 

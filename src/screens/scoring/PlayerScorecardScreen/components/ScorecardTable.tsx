@@ -16,6 +16,7 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { ScoreIndicator } from '@/components/scorecard';
 import { displayHoleNumber } from '@/utils/holeTransformers';
+import { formatHandicapIndex } from '@/utils/displayHelpers';
 import { ScorecardTableMultiBall } from './ScorecardTableMultiBall';
 import { ScorecardTableBallsAsPlayers } from './ScorecardTableBallsAsPlayers';
 import type { HoleRowData, PlayerStats, MultiBallHoleRowData, MultiBallStats } from '../hooks';
@@ -304,7 +305,7 @@ export function ScorecardTable({
           <Text style={[styles.totalText, { color: colors.textPrimary }]}>{playerStats.totalPar}</Text>
         </View>
         <View style={[styles.tableCell, styles.narrowCell, { backgroundColor: colors.surfaceVariant }]}>
-          <Text style={[styles.totalText, { color: colors.textPrimary }]}>{playerHandicap || '-'}</Text>
+          <Text style={[styles.totalText, { color: colors.textPrimary }]}>{playerHandicap !== 0 ? formatHandicapIndex(playerHandicap, 0) : '-'}</Text>
         </View>
         <View style={[styles.tableCell, styles.scoreCell, { backgroundColor: colors.surfaceVariant }]}>
           <View style={styles.grossContainer}>

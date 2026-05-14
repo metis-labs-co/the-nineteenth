@@ -7,23 +7,28 @@
  */
 
 import React, { useCallback } from 'react';
-import { View, StyleSheet, FlatList, RefreshControl } from 'react-native';
+import { View, StyleSheet, FlatList, RefreshControl, Alert } from 'react-native';
 import { Text } from 'react-native-paper';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import { useAuth } from '@/hooks/useAuth';
 import { useHandicapHistory } from '@/hooks/useHandicapHistory';
+import {
+  useCombineHandicapRounds,
+  useUncombineHandicapRound,
+} from '@/hooks/player';
 import { spacing, typography } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { PageHeader } from '@/components/common/PageHeader';
 import { ErrorState, LoadingSpinner } from '@/components/common';
 import { FeatureLock } from '@/components/subscription';
-import type { HandicapRound } from '@/types';
+import type { HandicapRound, CombinableNinePair } from '@/types';
 
 import {
   HandicapIndexCard,
   HandicapRoundRow,
   EmptyHandicapState,
+  CombinablePairsSection,
 } from './components';
 
 // =====================================================
@@ -47,6 +52,8 @@ export default function HandicapHistoryScreen({ navigation }: Props) {
     refetch,
     isRefetching,
   } = useHandicapHistory(user?.id);
+  const combineMutation = useCombineHandicapRounds();
+  const uncombineMutation = useUncombineHandicapRound();
 
   const handleGoBack = useCallback(() => {
     navigation.goBack();
@@ -56,9 +63,55 @@ export default function HandicapHistoryScreen({ navigation }: Props) {
     refetch();
   }, [refetch]);
 
+  const handleCombine = useCallback(
+    (pair: CombinableNinePair) => {
+      if (!user?.id) return;
+      combineMutation.mutate(
+        {
+          frontScorecardId: pair.front.scorecardId,
+          backScorecardId: pair.back.scorecardId,
+          playerId: user.id,
+        },
+        {
+          onError: (err) => {
+            Alert.alert(
+              "Couldn't combine rounds",
+              err instanceof Error ? err.message : 'Something went wrong.',
+            );
+          },
+        },
+      );
+    },
+    [combineMutation, user?.id],
+  );
+
+  const handleUncombine = useCallback(
+    (round: HandicapRound) => {
+      if (!user?.id || !round.isCombined) return;
+      uncombineMutation.mutate(
+        { combinedRoundId: round.scorecardId, playerId: user.id },
+        {
+          onError: (err) => {
+            Alert.alert(
+              "Couldn't unlink round",
+              err instanceof Error ? err.message : 'Something went wrong.',
+            );
+          },
+        },
+      );
+    },
+    [uncombineMutation, user?.id],
+  );
+
   const renderRound = useCallback(
-    ({ item }: { item: HandicapRound }) => <HandicapRoundRow round={item} />,
-    []
+    ({ item }: { item: HandicapRound }) => (
+      <HandicapRoundRow
+        round={item}
+        onUncombine={item.isCombined ? handleUncombine : undefined}
+        isUncombining={uncombineMutation.isPending}
+      />
+    ),
+    [handleUncombine, uncombineMutation.isPending],
   );
 
   const keyExtractor = useCallback(
@@ -78,6 +131,16 @@ export default function HandicapHistoryScreen({ navigation }: Props) {
           qualifyingCount={summary.qualifyingRoundsCount}
         />
 
+        {/* Combinable 9-hole pairs (if any) */}
+        {user?.id && summary.combinablePairs.length > 0 && (
+          <CombinablePairsSection
+            pairs={summary.combinablePairs}
+            playerId={user.id}
+            isCombining={combineMutation.isPending}
+            onCombine={handleCombine}
+          />
+        )}
+
         {/* Section Header */}
         {summary.rounds.length > 0 && (
           <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>
@@ -86,7 +149,13 @@ export default function HandicapHistoryScreen({ navigation }: Props) {
         )}
       </View>
     );
-  }, [summary, colors.textSecondary]);
+  }, [
+    summary,
+    user?.id,
+    combineMutation.isPending,
+    handleCombine,
+    colors.textSecondary,
+  ]);
 
   // Render loading state
   if (isLoading) {
@@ -112,8 +181,11 @@ export default function HandicapHistoryScreen({ navigation }: Props) {
     );
   }
 
-  // Render empty state
-  if (!summary || summary.totalRounds === 0) {
+  // Render empty state only when there are no rounds AND no pairs to combine
+  if (
+    !summary ||
+    (summary.totalRounds === 0 && summary.combinablePairs.length === 0)
+  ) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <PageHeader title="Handicap History" showBack onBack={handleGoBack} />

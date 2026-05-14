@@ -12,6 +12,7 @@ import { PlayerAvatar } from '@/components/common';
 import { ProfileFrame, ProfileBadge, ProfileTitle } from '@/components/cosmetics';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
+import { formatHandicapIndex } from '@/utils/displayHelpers';
 import type { CosmeticDefinition } from '@/types/database/cosmetic.types';
 
 interface ProfileHeaderProps {
@@ -75,7 +76,7 @@ export const ProfileHeader = React.memo(function ProfileHeader({
         </Text>
         {displayHandicap !== null && (
           <Text style={[styles.userHandicap, { color: colors.primary }]}>
-            Handicap: {displayHandicap}
+            Handicap: {formatHandicapIndex(displayHandicap)}
           </Text>
         )}
       </View>

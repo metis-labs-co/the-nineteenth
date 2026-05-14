@@ -104,6 +104,8 @@ export type {
   ScoreDifferentialParams,
   HandicapRound,
   HandicapSummary,
+  CombinableNinePair,
+  NinePieceSummary,
 } from './handicap.types';
 
 // Re-export pairing types (player groupings with tee times)

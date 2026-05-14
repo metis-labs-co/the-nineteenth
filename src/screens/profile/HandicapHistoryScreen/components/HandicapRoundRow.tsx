@@ -5,15 +5,20 @@
  * Qualifying rounds are highlighted with a primary-colored left border.
  */
 
-import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import React, { useCallback } from 'react';
+import { View, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, borderRadius, typography } from '@/constants/theme';
+import { formatHandicapIndex } from '@/utils/displayHelpers';
 import type { HandicapRound } from '@/types';
 
 interface HandicapRoundRowProps {
   round: HandicapRound;
+  /** Called when the user taps the unlink button on a combined entry */
+  onUncombine?: (round: HandicapRound) => void;
+  /** When true, the unlink button is disabled (in-flight) */
+  isUncombining?: boolean;
 }
 
 /**
@@ -33,8 +38,28 @@ function formatDate(dateString: string): string {
   }
 }
 
-export function HandicapRoundRow({ round }: HandicapRoundRowProps) {
+export function HandicapRoundRow({
+  round,
+  onUncombine,
+  isUncombining,
+}: HandicapRoundRowProps) {
   const colors = useThemeColors();
+
+  const handleUncombinePress = useCallback(() => {
+    if (!onUncombine) return;
+    Alert.alert(
+      'Unlink combined round?',
+      'This restores both 9-hole rounds as separate scorecards. They will no longer count toward your handicap index.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Unlink',
+          style: 'destructive',
+          onPress: () => onUncombine(round),
+        },
+      ],
+    );
+  }, [onUncombine, round]);
 
   return (
     <View
@@ -56,6 +81,29 @@ export function HandicapRoundRow({ round }: HandicapRoundRowProps) {
         <Text style={[styles.date, { color: colors.textSecondary }]}>
           {formatDate(round.roundDate)}
         </Text>
+        {round.isCombined && (
+          <View style={styles.combinedBadgeRow}>
+            <View style={[styles.combinedBadge, { backgroundColor: colors.primaryLighter }]}>
+              <Icon source="link-variant" size={11} color={colors.primaryDark} />
+              <Text style={[styles.combinedBadgeText, { color: colors.primaryDark }]}>
+                Combined 9+9
+              </Text>
+            </View>
+            {onUncombine && (
+              <TouchableOpacity
+                onPress={handleUncombinePress}
+                disabled={isUncombining}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel="Unlink combined round"
+              >
+                <Text style={[styles.unlinkText, { color: colors.textTertiary }]}>
+                  Unlink
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
       </View>
 
       {/* Center Section: Gross Score */}
@@ -66,9 +114,9 @@ export function HandicapRoundRow({ round }: HandicapRoundRowProps) {
         <Text style={[styles.scoreLabel, { color: colors.textSecondary }]}>
           Gross
         </Text>
-        {round.dailyHandicapUsed > 0 && (
+        {round.dailyHandicapUsed !== 0 && (
           <Text style={[styles.handicapUsed, { color: colors.textTertiary }]}>
-            HC: {round.dailyHandicapUsed}
+            HC: {formatHandicapIndex(round.dailyHandicapUsed, 0)}
           </Text>
         )}
       </View>
@@ -141,5 +189,29 @@ const styles = StyleSheet.create({
   },
   differentialValue: {
     ...typography.h4,
+  },
+  combinedBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.xxs,
+  },
+  combinedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 2,
+    borderRadius: borderRadius.sm,
+  },
+  combinedBadgeText: {
+    ...typography.caption,
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  unlinkText: {
+    ...typography.caption,
+    fontSize: 11,
+    textDecorationLine: 'underline',
   },
 });

@@ -106,11 +106,19 @@ export function useCourseStatistics(
       };
 
       let totalHolesPlayed = 0;
+      // Round-aggregated totals exclude short rounds so a 9-hole practice
+      // round can't undercut "Best Score" or skew per-round averages on this
+      // course. Per-hole metrics still include every hole played.
+      let fullRoundsCount = 0;
       let totalGrossSum = 0;
+      let nineHoleGrossSum = 0;
       let totalPointsSum = 0;
       let bestGross = Infinity;
       let worstGross = 0;
       let courseName = '';
+
+      // Threshold for treating a round as "full" 18 holes.
+      const FULL_ROUND_HOLE_COUNT = 18;
 
       // Putting / FIR / GIR tracking
       let totalPutts = 0;
@@ -186,11 +194,18 @@ export function useCourseStatistics(
         // Process hole scores
         const holesInScorecard = Object.values(scores).filter((s) => s?.strokes).length;
         totalHolesPlayed += holesInScorecard;
-        totalGrossSum += scorecard.total_gross || 0;
-        totalPointsSum += scorecard.total_points || 0;
 
-        if (scorecard.total_gross && scorecard.total_gross < bestGross) bestGross = scorecard.total_gross;
-        if (scorecard.total_gross && scorecard.total_gross > worstGross) worstGross = scorecard.total_gross;
+        const isFullRound = holesInScorecard >= FULL_ROUND_HOLE_COUNT;
+        if (isFullRound) {
+          fullRoundsCount++;
+          totalGrossSum += scorecard.total_gross || 0;
+          totalPointsSum += scorecard.total_points || 0;
+
+          if (scorecard.total_gross && scorecard.total_gross < bestGross) bestGross = scorecard.total_gross;
+          if (scorecard.total_gross && scorecard.total_gross > worstGross) worstGross = scorecard.total_gross;
+        } else {
+          nineHoleGrossSum += scorecard.total_gross || 0;
+        }
 
         Object.entries(scores).forEach(([holeNum, holeScore]) => {
           if (!holeScore?.strokes) return;
@@ -321,12 +336,17 @@ export function useCourseStatistics(
 
       // Calculate averages
       const timesPlayed = scorecards.length;
-      const averageGrossScore = timesPlayed > 0
-        ? Math.round((totalGrossSum / timesPlayed) * 10) / 10 : 0;
-      const averageStablefordPoints = timesPlayed > 0
-        ? Math.round((totalPointsSum / timesPlayed) * 10) / 10 : 0;
+      // Per-round averages exclude 9-hole rounds — mixing the two produces a
+      // misleading "Avg Score" stat. `timesPlayed` keeps the total count for
+      // the "Rounds Played" tile.
+      const averageGrossScore = fullRoundsCount > 0
+        ? Math.round((totalGrossSum / fullRoundsCount) * 10) / 10 : 0;
+      const averageStablefordPoints = fullRoundsCount > 0
+        ? Math.round((totalPointsSum / fullRoundsCount) * 10) / 10 : 0;
+      // Per-hole average spans every hole played, so include 9-hole gross
+      // alongside the 18-hole sum (denominator already counts all holes).
       const averageScorePerHole = totalHolesPlayed > 0
-        ? Math.round((totalGrossSum / totalHolesPlayed) * 100) / 100 : 0;
+        ? Math.round(((totalGrossSum + nineHoleGrossSum) / totalHolesPlayed) * 100) / 100 : 0;
 
       // Score distribution totals
       const totalScoreDistribution =
