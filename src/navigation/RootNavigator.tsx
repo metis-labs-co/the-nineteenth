@@ -29,6 +29,7 @@ import LoginScreen from '@/screens/auth/LoginScreen';
 import SignupScreen from '@/screens/auth/SignupScreen';
 import OTPVerificationScreen from '@/screens/auth/OTPVerificationScreen';
 import WelcomeCarouselScreen from '@/screens/auth/WelcomeCarouselScreen';
+import WelcomeVideoScreen from '@/screens/auth/WelcomeVideoScreen';
 
 // Main Tab Navigator
 import MainTabNavigator from './MainTabNavigator';
@@ -259,16 +260,28 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
           // Auth screens - shown when user is NOT authenticated
           <>
             {!hasSeenWelcome && (
-              <Stack.Screen
-                name="WelcomeCarousel"
-                component={WelcomeCarouselScreen}
-                options={{
-                  title: 'Welcome',
-                  headerShown: false,
-                  gestureEnabled: false,
-                  animation: 'fade',
-                }}
-              />
+              <>
+                <Stack.Screen
+                  name="WelcomeVideo"
+                  component={WelcomeVideoScreen}
+                  options={{
+                    title: 'Welcome',
+                    headerShown: false,
+                    gestureEnabled: false,
+                    animation: 'fade',
+                  }}
+                />
+                <Stack.Screen
+                  name="WelcomeCarousel"
+                  component={WelcomeCarouselScreen}
+                  options={{
+                    title: 'Welcome',
+                    headerShown: false,
+                    gestureEnabled: false,
+                    animation: 'fade',
+                  }}
+                />
+              </>
             )}
             <Stack.Screen
               name="Login"
@@ -323,6 +336,14 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
                 the authenticated app via the dev tools section on Home. */}
             {__DEV__ && (
               <>
+                <Stack.Screen
+                  name="WelcomeVideo"
+                  component={WelcomeVideoScreen}
+                  options={{
+                    headerShown: false,
+                    presentation: 'modal',
+                  }}
+                />
                 <Stack.Screen
                   name="WelcomeCarousel"
                   component={WelcomeCarouselScreen}

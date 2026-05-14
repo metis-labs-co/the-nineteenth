@@ -17,6 +17,9 @@ import type {
  * Contains auth screens and main app screens
  */
 export type RootStackParamList = {
+  // First-launch welcome video (plays once before the WelcomeCarousel)
+  WelcomeVideo: undefined;
+
   // First-launch welcome/intro carousel (pre-auth)
   WelcomeCarousel: undefined;
 

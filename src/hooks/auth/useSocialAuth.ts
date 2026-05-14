@@ -12,6 +12,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import * as WebBrowser from 'expo-web-browser';
 import { makeRedirectUri } from 'expo-auth-session';
 import { supabase } from '@/services/supabase/client';
+import { getDeviceCountry } from '@/utils/locale';
 import { authKeys } from '../queryKeys';
 import { ensurePlayerProfile } from './utils';
 import {
@@ -101,6 +102,7 @@ export function useSocialAuth() {
           data.user.email,
           {
             name: fullName || data.user.user_metadata?.name,
+            country: isNewUser ? getDeviceCountry() : undefined,
           }
         );
       } catch (profileError) {
@@ -199,6 +201,7 @@ export function useSocialAuth() {
           data.user.email,
           {
             name: data.user.user_metadata?.full_name || data.user.user_metadata?.name,
+            country: isNewUser ? getDeviceCountry() : undefined,
           }
         );
       } catch (profileError) {

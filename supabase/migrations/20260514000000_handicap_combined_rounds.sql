@@ -57,3 +57,8 @@ DO $$ BEGIN
     USING (player_id = auth.uid());
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
+
+-- Data API grants (required for tables created after Supabase's Oct 30 2026 cutoff).
+-- RLS still gates row visibility; these grants only expose the table to PostgREST.
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.handicap_combined_rounds TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.handicap_combined_rounds TO service_role;

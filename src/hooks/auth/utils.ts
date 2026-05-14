@@ -16,6 +16,7 @@ interface UserMetadata {
   name?: string;
   handicap?: number;
   phone?: string;
+  country?: string;
 }
 
 /**
@@ -44,7 +45,20 @@ export async function ensurePlayerProfile(
     .single();
 
   if (existingProfile) {
-    return existingProfile as Player;
+    const existing = existingProfile as Player;
+    // Social signups: the auth trigger defaults country to 'AU' because no
+    // metadata is passed. Overwrite once with the detected device country
+    // when a caller supplies one for a freshly-created profile.
+    if (userMetadata?.country && existing.country !== userMetadata.country) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: updated } = await (supabase.from('players') as any)
+        .update({ country: userMetadata.country })
+        .eq('id', userId)
+        .select()
+        .single();
+      if (updated) return updated as Player;
+    }
+    return existing;
   }
 
   // Profile doesn't exist - create it
@@ -57,6 +71,7 @@ export async function ensurePlayerProfile(
     name: defaultName,
     handicap: userMetadata?.handicap ?? 0,
     phone: userMetadata?.phone || null,
+    country: userMetadata?.country ?? null,
     golf_id: null,
     handicap_updated_at: null,
     photo_url: null,

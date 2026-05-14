@@ -38,6 +38,8 @@ export interface Player {
   handicap_index_updated_at: string | null; // ISO timestamp when index was last calculated
   photo_url: string | null;
   home_club_id: string | null; // UUID, reference to player's designated home golf club (renamed from home_venue_id)
+  country?: string | null; // ISO-3166 alpha-2 (e.g. 'AU', 'GB', 'US') captured from device region at signup (optional for backwards compat with existing mocks)
+
   // Placeholder player fields
   is_placeholder: boolean; // TRUE for guest/placeholder players without auth accounts
   created_by: string | null; // UUID of user who created this placeholder (NULL for real players)

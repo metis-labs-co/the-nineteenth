@@ -5,6 +5,8 @@
  * No hardcoded 'en-AU' — dates display in whatever format the user's device expects.
  */
 
+import * as Localization from 'expo-localization';
+
 /**
  * Get the device's locale string (e.g., 'en-AU', 'en-US', 'de-DE').
  * Falls back to 'en' if Intl is unavailable.
@@ -15,6 +17,25 @@ export function getDeviceLocale(): string {
   } catch {
     return 'en';
   }
+}
+
+/**
+ * Get the device's country as an ISO-3166 alpha-2 code (e.g., 'AU', 'GB', 'US').
+ *
+ * Reads the device region from expo-localization (no permission required).
+ * Falls back to 'AU' if region can't be determined, since the app currently
+ * skews heavily Australian.
+ */
+export function getDeviceCountry(): string {
+  try {
+    const region = Localization.getLocales()[0]?.regionCode;
+    if (region && /^[A-Z]{2}$/.test(region)) {
+      return region;
+    }
+  } catch {
+    // fall through
+  }
+  return 'AU';
 }
 
 /**

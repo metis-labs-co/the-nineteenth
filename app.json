@@ -18,7 +18,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.the.nineteenth.golf",
-      "buildNumber": "0",
+      "buildNumber": "1",
       "usesAppleSignIn": true,
       "appleTeamId": "TMB3988D5Z",
       "associatedDomains": [
@@ -54,7 +54,7 @@
         "backgroundColor": "#1f2937"
       },
       "package": "com.the.nineteenth.golf",
-      "versionCode": 34,
+      "versionCode": 35,
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",
@@ -126,7 +126,9 @@
       "expo-font",
       "expo-local-authentication",
       "expo-secure-store",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-localization",
+      "expo-video"
     ],
     "runtimeVersion": {
       "policy": "appVersion"

@@ -12,6 +12,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import { pushService } from '@/services/notifications';
+import { getDeviceCountry } from '@/utils/locale';
 import { authKeys } from '../queryKeys';
 import { ensurePlayerProfile } from './utils';
 import type { AuthError } from '@supabase/supabase-js';
@@ -90,12 +91,13 @@ export function useAuthMutations() {
   const signupMutation = useMutation({
     mutationFn: async (credentials: SignupCredentials): Promise<SignupResponse> => {
       const { email, password, name, phone, handicap } = credentials;
+      const country = getDeviceCountry();
 
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          data: { name, phone, handicap },
+          data: { name, phone, handicap, country },
           emailRedirectTo: 'https://thenineteenth.golf/app/auth/confirm',
         },
       });

@@ -1872,6 +1872,7 @@ export type Database = {
       }
       players: {
         Row: {
+          country: string | null
           created_at: string | null
           created_by: string | null
           email: string
@@ -1898,6 +1899,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          country?: string | null
           created_at?: string | null
           created_by?: string | null
           email: string
@@ -1924,6 +1926,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          country?: string | null
           created_at?: string | null
           created_by?: string | null
           email?: string
