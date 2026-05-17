@@ -58,13 +58,17 @@ export function useAuthMutations() {
         throw new Error('Login failed: No user or session returned');
       }
 
-      // Fetch or create player profile
+      // Fetch or create player profile. Pass the device country so existing
+      // players with country=NULL get backfilled on first login.
       let playerData: Player | null = null;
       try {
         playerData = await ensurePlayerProfile(
           data.user.id,
           data.user.email,
-          data.user.user_metadata as { name?: string; handicap?: number; phone?: string }
+          {
+            ...(data.user.user_metadata as { name?: string; handicap?: number; phone?: string }),
+            country: getDeviceCountry(),
+          }
         );
       } catch (profileError) {
         console.warn('Player profile fetch/create failed:', profileError);
@@ -211,7 +215,10 @@ export function useAuthMutations() {
         playerData = await ensurePlayerProfile(
           data.user.id,
           data.user.email,
-          data.user.user_metadata as { name?: string; handicap?: number; phone?: string }
+          {
+            ...(data.user.user_metadata as { name?: string; handicap?: number; phone?: string }),
+            country: getDeviceCountry(),
+          }
         );
       } catch (profileError) {
         console.warn('Player profile fetch/create failed:', profileError);

@@ -46,10 +46,10 @@ export async function ensurePlayerProfile(
 
   if (existingProfile) {
     const existing = existingProfile as Player;
-    // Social signups: the auth trigger defaults country to 'AU' because no
-    // metadata is passed. Overwrite once with the detected device country
-    // when a caller supplies one for a freshly-created profile.
-    if (userMetadata?.country && existing.country !== userMetadata.country) {
+    // Backfill country once when missing — pre-2026-05 users and any social
+    // signups predating the country capture have country=NULL until they
+    // log in from a device with a detectable region.
+    if (userMetadata?.country && !existing.country) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: updated } = await (supabase.from('players') as any)
         .update({ country: userMetadata.country })

@@ -13,7 +13,6 @@ import { StyleSheet, ScrollView, RefreshControl, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography } from '@/constants/theme';
-import { useIsSocial } from '@/context/SubscriptionContext';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { useRoundTeams } from '@/hooks/scorecard/useRoundTeams';
 import { calculatePlayingHandicap } from '@/hooks/usePlayingHandicap';
@@ -46,7 +45,6 @@ export function MatchScorecardTabContent({
   bottomInset,
 }: MatchScorecardTabContentProps) {
   const colors = useThemeColors();
-  const isSocial = useIsSocial();
   const getPlayerScoreFromStore = useScorecardStore((s) => s.getPlayerScore);
 
   const competitionId = roundDetails?.competition_id ?? undefined;
@@ -69,14 +67,13 @@ export function MatchScorecardTabContent({
             holes,
             handicapSource,
             gameType: 'match-play',
-            applyDailyHandicap: isSocial,
           });
           map.set(member.player_id, playingHandicap);
         }
       }
     }
     return map;
-  }, [teamsData, selectedTeeData, holes, handicapSource, isSocial]);
+  }, [teamsData, selectedTeeData, holes, handicapSource]);
 
   const team1 = useMemo(
     () => (teamsData[0] ? toMatchTeam(teamsData[0], handicapMap) : null),

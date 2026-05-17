@@ -117,3 +117,8 @@ export function isClubKey(value: string | null | undefined): value is ClubKey {
 export function clubLabel(key: string | null | undefined): string {
   return isClubKey(key) ? CLUBS_BY_KEY[key].label : 'Unknown club';
 }
+
+/** True for any numbered iron (1-iron through 9-iron). False for wedges/PW. */
+export function isIronKey(key: ClubKey): boolean {
+  return CLUBS_BY_KEY[key]?.category === 'iron';
+}

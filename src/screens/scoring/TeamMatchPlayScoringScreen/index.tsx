@@ -23,7 +23,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useIsSuperAdmin } from '@/store/subscriptionStore';
-import { useIsSocial } from '@/context/SubscriptionContext';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { useRoundDetails } from '@/hooks/useRoundDetails';
 import { useRoundTeams } from '@/hooks/scorecard/useRoundTeams';
@@ -55,7 +54,6 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
 
   // Super admin check
   const isSuperAdmin = useIsSuperAdmin();
-  const isSocial = useIsSocial();
   const {
     handicapSource,
     currentRoundId,
@@ -218,9 +216,9 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
   ]);
 
   // Determine handicap label for display
-  const handicapLabel = isSocial && selectedTeeBox ? 'DHC' : 'HC';
+  const handicapLabel = selectedTeeBox ? 'DHC' : 'HC';
 
-  // Pre-compute daily handicap for all team members (Social tier+)
+  // Pre-compute daily handicap for all team members
   const handicapMap = useMemo(() => {
     const map = new Map<string, number>();
     for (const team of teamsData) {
@@ -232,14 +230,13 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
             holes,
             handicapSource,
             gameType: 'match-play',
-            applyDailyHandicap: isSocial,
           });
           map.set(member.player_id, playingHandicap);
         }
       }
     }
     return map;
-  }, [teamsData, selectedTeeBox, holes, handicapSource, isSocial]);
+  }, [teamsData, selectedTeeBox, holes, handicapSource]);
 
   // Find team data based on IDs. For split rounds, synthesize the two "teams"
   // from the active sub-match's sides so the existing best-ball scoring UI

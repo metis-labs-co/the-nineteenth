@@ -10,6 +10,7 @@ import {
 import { Text } from 'react-native-paper';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { OnboardingDots } from '@/screens/onboarding/components/OnboardingDots';
 import { ThemeProvider, useThemeColors } from '@/context/ThemeContext';
@@ -20,6 +21,13 @@ import { WelcomeSlide0Intro } from './components/WelcomeSlide0Intro';
 import { WelcomeSlide1Compete } from './components/WelcomeSlide1Compete';
 import { WelcomeSlide2Leagues } from './components/WelcomeSlide2Leagues';
 import { WelcomeSlide3Skins } from './components/WelcomeSlide3Skins';
+
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const welcomeVideoSource = require('../../../../assets/videos/welcome.mp4');
+
+// Dark-green overlay tinting the video so slide content stays readable.
+// Derived from the dark-mode brand background `#0f1710` (rgb 15, 23, 16).
+const VIDEO_OVERLAY_COLOR = 'rgba(15, 23, 16, 0.65)';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -54,6 +62,13 @@ function WelcomeCarouselContent({ navigation }: Props) {
 
   const flatListRef = useRef<FlatList<SlideItem>>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
+
+  // Looping muted ambient background for the carousel.
+  const videoPlayer = useVideoPlayer(welcomeVideoSource, (instance) => {
+    instance.loop = true;
+    instance.muted = true;
+    instance.play();
+  });
 
   const goToAuth = useCallback(
     (target: 'Login' | 'Signup') => {
@@ -114,6 +129,22 @@ function WelcomeCarouselContent({ navigation }: Props) {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <VideoView
+        style={StyleSheet.absoluteFill}
+        player={videoPlayer}
+        nativeControls={false}
+        contentFit="cover"
+        allowsFullscreen={false}
+        allowsPictureInPicture={false}
+      />
+      <View
+        style={[
+          StyleSheet.absoluteFill,
+          { backgroundColor: VIDEO_OVERLAY_COLOR },
+        ]}
+        pointerEvents="none"
+      />
+
       {!isLastSlide && (
         <TouchableOpacity
           style={[styles.skipButton, { top: insets.top + spacing.md }]}

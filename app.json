@@ -3,7 +3,7 @@
     "name": "The Nineteenth",
     "slug": "the-nineteenth",
     "scheme": "thenineteenth",
-    "version": "1.12.2",
+    "version": "1.12.3",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -54,7 +54,7 @@
         "backgroundColor": "#1f2937"
       },
       "package": "com.the.nineteenth.golf",
-      "versionCode": 35,
+      "versionCode": 36,
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",

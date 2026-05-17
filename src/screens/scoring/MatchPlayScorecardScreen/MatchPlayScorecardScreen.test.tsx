@@ -112,11 +112,6 @@ jest.mock('@/hooks/usePlayingHandicap', () => ({
   })),
 }));
 
-// Mock subscription context.
-jest.mock('@/context/SubscriptionContext', () => ({
-  useIsSocial: jest.fn(() => false),
-}));
-
 // Mock react-native-paper additions (Portal, Dialog, Button not in global mock)
 jest.mock('react-native-paper', () => {
   const React = require('react');

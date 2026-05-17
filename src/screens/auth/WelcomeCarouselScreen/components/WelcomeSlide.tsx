@@ -39,9 +39,11 @@ export function WelcomeSlide({
         <View style={styles.illustrationContainer}>{illustration}</View>
 
         <View style={styles.textContainer}>
-          <Text style={[styles.headline, { color: colors.textPrimary }]}>
-            {headline}
-          </Text>
+          {headline && (
+            <Text style={[styles.headline, { color: colors.textPrimary }]}>
+              {headline}
+            </Text>
+          )}
           <Text style={[styles.body, { color: colors.textSecondary }]}>
             {body}
           </Text>

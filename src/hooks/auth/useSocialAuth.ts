@@ -102,7 +102,7 @@ export function useSocialAuth() {
           data.user.email,
           {
             name: fullName || data.user.user_metadata?.name,
-            country: isNewUser ? getDeviceCountry() : undefined,
+            country: getDeviceCountry(),
           }
         );
       } catch (profileError) {
@@ -201,7 +201,7 @@ export function useSocialAuth() {
           data.user.email,
           {
             name: data.user.user_metadata?.full_name || data.user.user_metadata?.name,
-            country: isNewUser ? getDeviceCountry() : undefined,
+            country: getDeviceCountry(),
           }
         );
       } catch (profileError) {

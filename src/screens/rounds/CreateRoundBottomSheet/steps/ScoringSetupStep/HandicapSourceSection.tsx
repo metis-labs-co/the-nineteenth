@@ -2,7 +2,7 @@
  * HandicapSourceSection - Handicap mode selector for round creation
  *
  * Allows Premium users to choose between profile Handicap and Social Handicap Index
- * for daily handicap calculations. Locked for Free tier users.
+ * for daily handicap calculations.
  *
  * When tee and course data is provided, also displays:
  * - The selected handicap value (profile or Social Index)
@@ -14,8 +14,8 @@ import { View, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-nat
 import { Text, Icon } from 'react-native-paper';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
-import { useIsPremium, useIsSocial } from '@/context/SubscriptionContext';
-import { SegmentedButton, Pill } from '@/components/common';
+import { useIsPremium } from '@/context/SubscriptionContext';
+import { SegmentedButton } from '@/components/common';
 import { useAuth } from '@/hooks/useAuth';
 import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
 import type { TeeBox } from '@/types/database.types';
@@ -57,7 +57,6 @@ export const HandicapSourceSection = memo(function HandicapSourceSection({
 }: HandicapSourceSectionProps) {
   const colors = useThemeColors();
   const isPremium = useIsPremium();
-  const isSocial = useIsSocial();
   const { player } = useAuth();
 
   // Calculate handicap values for the current user (used in segmented button labels)
@@ -144,28 +143,6 @@ export const HandicapSourceSection = memo(function HandicapSourceSection({
     if (value === null || value === undefined) return 'N/A';
     return value >= 0 ? value.toFixed(1) : `+${Math.abs(value).toFixed(1)}`;
   };
-
-  if (!isSocial) {
-    // Free tier: show locked state, no player list
-    return (
-      <View style={[styles.container, styles.lockedContainer, { backgroundColor: colors.gray100, borderColor: colors.gray200 }]}>
-        <View style={styles.headerRow}>
-          <View style={[styles.iconContainer, { backgroundColor: colors.gray200 }]}>
-            <Icon source="golf-tee" size={18} color={colors.gray500} />
-          </View>
-          <View style={styles.labelContainer}>
-            <View style={styles.labelRow}>
-              <Text style={[styles.label, { color: colors.gray500 }]}>Handicap Mode</Text>
-              <Pill label="Social" variant="warning" size="sm" />
-            </View>
-            <Text style={[styles.hint, { color: colors.gray400 }]}>
-              Upgrade to see daily handicap calculations
-            </Text>
-          </View>
-        </View>
-      </View>
-    );
-  }
 
   return (
     <View style={[styles.container, { borderColor: colors.border }]}>
@@ -308,9 +285,6 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     marginBottom: spacing.md,
   },
-  lockedContainer: {
-    opacity: 0.8,
-  },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -322,14 +296,6 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  labelContainer: {
-    flex: 1,
-  },
-  labelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
   },
   label: {
     ...typography.bodyBold,

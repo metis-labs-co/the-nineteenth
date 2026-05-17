@@ -27,7 +27,6 @@ import { useMatchPlayData } from '@/hooks/scorecard';
 import { useActiveSkinsGameForRound, useSkinsResults } from '@/hooks/useSkins';
 import { useFinalizeSkinsForRound } from '@/hooks';
 import { calculatePlayingHandicap } from '@/hooks/usePlayingHandicap';
-import { useIsSocial } from '@/context/SubscriptionContext';
 import { isSingleBallScore } from '@/types/database/base';
 import type { SkinsResultWithWinner } from '@/types';
 import { scoringLogger } from '@/utils/debugLogger';
@@ -95,7 +94,6 @@ export default function MatchPlayScorecardScreen({ navigation, route }: Props) {
   } = useScorecardStore();
 
   // Playing handicap inputs (shared with the entry screen so both views agree).
-  const isSocial = useIsSocial();
   const teeData = storeTeeData || selectedTee;
 
   const player1PlayingHandicap = useMemo(() => {
@@ -106,9 +104,8 @@ export default function MatchPlayScorecardScreen({ navigation, route }: Props) {
       holes,
       handicapSource,
       gameType: 'match-play',
-      applyDailyHandicap: isSocial,
     }).playingHandicap;
-  }, [player1, teeData, holes, handicapSource, isSocial]);
+  }, [player1, teeData, holes, handicapSource]);
 
   const player2PlayingHandicap = useMemo(() => {
     if (!holes.length) return 0;
@@ -118,9 +115,8 @@ export default function MatchPlayScorecardScreen({ navigation, route }: Props) {
       holes,
       handicapSource,
       gameType: 'match-play',
-      applyDailyHandicap: isSocial,
     }).playingHandicap;
-  }, [player2, teeData, holes, handicapSource, isSocial]);
+  }, [player2, teeData, holes, handicapSource]);
 
   // Skins finalization hook
   const { finalizeSkinsForRound } = useFinalizeSkinsForRound();

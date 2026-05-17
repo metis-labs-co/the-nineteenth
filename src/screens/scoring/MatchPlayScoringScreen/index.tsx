@@ -31,7 +31,6 @@ import { matchPlayLogger } from '@/utils/debugLogger';
 import { getStrokesReceived } from '@/utils/scoring';
 import { resolvePlayerTee } from '@/utils/teeResolution';
 import { getTeeColor } from '@/services/courses';
-import { useIsSocial } from '@/context/SubscriptionContext';
 import { calculatePlayingHandicap } from '@/hooks/usePlayingHandicap';
 import type { RootStackScreenProps } from '@/navigation/types';
 
@@ -51,8 +50,6 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
   // Online status for round status update
   const isOnline = useOnlineStatus();
 
-  // Super admin check
-  const isSocial = useIsSocial();
   const { handicapSource, selectedTeeData: storeTeeData, playerTeeMap, startHole } = useScorecardStore();
 
   // State - start on initialHole if provided (clamped to 1-18)
@@ -182,10 +179,9 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
       holes: safeHoles,
       handicapSource,
       gameType: 'match-play',
-      applyDailyHandicap: isSocial,
     });
     return result;
-  }, [player1, teeData, safeHoles, handicapSource, isSocial]);
+  }, [player1, teeData, safeHoles, handicapSource]);
   const player1Handicap = player1HandicapResult.playingHandicap;
 
   const player2HandicapResult = useMemo(() => {
@@ -195,10 +191,9 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
       holes: safeHoles,
       handicapSource,
       gameType: 'match-play',
-      applyDailyHandicap: isSocial,
     });
     return result;
-  }, [player2, teeData, safeHoles, handicapSource, isSocial]);
+  }, [player2, teeData, safeHoles, handicapSource]);
   const player2Handicap = player2HandicapResult.playingHandicap;
 
   // Resolve per-player tee colour for the dot next to the player's name.

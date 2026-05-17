@@ -29,7 +29,6 @@ import LoginScreen from '@/screens/auth/LoginScreen';
 import SignupScreen from '@/screens/auth/SignupScreen';
 import OTPVerificationScreen from '@/screens/auth/OTPVerificationScreen';
 import WelcomeCarouselScreen from '@/screens/auth/WelcomeCarouselScreen';
-import WelcomeVideoScreen from '@/screens/auth/WelcomeVideoScreen';
 
 // Main Tab Navigator
 import MainTabNavigator from './MainTabNavigator';
@@ -162,6 +161,35 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
         });
         if (cancelled || !session || session.userId !== user.id) return;
 
+        // Don't resume if the round has already been submitted. The session is
+        // normally cleared on submit, but a stale entry (e.g. submitted on
+        // another device, or from a prior bug) would otherwise drop the user
+        // back on Score Entry every launch. Network errors fall through to
+        // the resume path so users without signal on-course aren't blocked.
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
+          const { data: round, error: roundError } = await (supabase as any)
+            .from('rounds')
+            .select('status')
+            .eq('id', session.roundId)
+            .maybeSingle();
+          if (cancelled) return;
+          if (!roundError && (round === null || round?.status === 'completed')) {
+            pushDiagnostic('root_nav.session_stale_clearing', {
+              roundId: session.roundId,
+              status: round?.status ?? 'not_found',
+            });
+            await activeRoundSession.clear();
+            return;
+          }
+        } catch (err) {
+          pushDiagnostic('root_nav.session_status_check_failed', {
+            error: err instanceof Error ? err.message : String(err),
+          }, 'warn');
+          // Fall through and resume — offline / transient errors shouldn't
+          // block users mid-round.
+        }
+
         // Wait briefly for NavigationContainer to be ready (it usually is by now).
         const start = Date.now();
         while (!navigationRef.isReady() && Date.now() - start < 2000) {
@@ -260,28 +288,16 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
           // Auth screens - shown when user is NOT authenticated
           <>
             {!hasSeenWelcome && (
-              <>
-                <Stack.Screen
-                  name="WelcomeVideo"
-                  component={WelcomeVideoScreen}
-                  options={{
-                    title: 'Welcome',
-                    headerShown: false,
-                    gestureEnabled: false,
-                    animation: 'fade',
-                  }}
-                />
-                <Stack.Screen
-                  name="WelcomeCarousel"
-                  component={WelcomeCarouselScreen}
-                  options={{
-                    title: 'Welcome',
-                    headerShown: false,
-                    gestureEnabled: false,
-                    animation: 'fade',
-                  }}
-                />
-              </>
+              <Stack.Screen
+                name="WelcomeCarousel"
+                component={WelcomeCarouselScreen}
+                options={{
+                  title: 'Welcome',
+                  headerShown: false,
+                  gestureEnabled: false,
+                  animation: 'fade',
+                }}
+              />
             )}
             <Stack.Screen
               name="Login"
@@ -336,14 +352,6 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
                 the authenticated app via the dev tools section on Home. */}
             {__DEV__ && (
               <>
-                <Stack.Screen
-                  name="WelcomeVideo"
-                  component={WelcomeVideoScreen}
-                  options={{
-                    headerShown: false,
-                    presentation: 'modal',
-                  }}
-                />
                 <Stack.Screen
                   name="WelcomeCarousel"
                   component={WelcomeCarouselScreen}

@@ -649,6 +649,10 @@ export default function HoleMapScreen({ route, navigation }: Props) {
   // markers.pin / userCoord have resolved, so the map opens at (0,0)
   // (Atlantic Ocean → solid navy in satellite view) and stays there.
   const mapRef = useRef<MapView | null>(null);
+  // animateCamera fires no-ops if the native MapView isn't ready yet, so we
+  // gate hole orientation on onMapReady — otherwise the rotation silently
+  // drops and the map sits north-up (looks "sideways" for east-west holes).
+  const [mapReady, setMapReady] = useState(false);
 
   // Recenter on the user's current GPS without disturbing zoom or heading,
   // so the player can return to themselves after panning around the hole.
@@ -689,6 +693,7 @@ export default function HoleMapScreen({ route, navigation }: Props) {
   // We re-focus only when the hole number changes.
   const focusedHoleRef = useRef<number | null>(null);
   useEffect(() => {
+    if (!mapReady) return;
     if (focusedHoleRef.current === holeNumber) return;
 
     const teeAnchor =
@@ -734,7 +739,7 @@ export default function HoleMapScreen({ route, navigation }: Props) {
         400
       );
     }
-  }, [holeNumber, markers.pin, markers.tees, userCoord]);
+  }, [mapReady, holeNumber, markers.pin, markers.tees, userCoord]);
 
   // Memoise the moved-shot index, the chosen tee anchor, and the recompute
   // result so the banner re-renders only when something actually changes.
@@ -1163,6 +1168,7 @@ export default function HoleMapScreen({ route, navigation }: Props) {
           provider={PROVIDER_GOOGLE}
           mapType="satellite"
           initialRegion={initialRegion}
+          onMapReady={() => setMapReady(true)}
           onPress={onMapPress}
           onLongPress={onMapLongPress}
           showsUserLocation={false}

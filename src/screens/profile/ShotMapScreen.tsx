@@ -328,6 +328,10 @@ function ShotMapScreenContent({ route, navigation }: Props) {
     []
   );
   const mapRef = useRef<MapView | null>(null);
+  // animateCamera fires no-ops if the native MapView isn't ready yet, so we
+  // gate hole orientation on onMapReady — otherwise the rotation silently
+  // drops and the map sits north-up (looks "sideways" for east-west holes).
+  const [mapReady, setMapReady] = useState(false);
 
   // Hole framing: rotate so the hole's intrinsic tee→green axis runs
   // vertically up the screen with the green at the top, and zoom out to
@@ -363,10 +367,10 @@ function ShotMapScreenContent({ route, navigation }: Props) {
   const orientedRef = useRef(false);
   useEffect(() => {
     if (orientedRef.current) return;
-    if (!holeCamera) return;
+    if (!mapReady || !holeCamera) return;
     orientedRef.current = true;
     mapRef.current?.animateCamera(holeCamera, { duration: 400 });
-  }, [holeCamera]);
+  }, [mapReady, holeCamera]);
 
   const handleRecenter = useCallback(() => {
     if (holeCamera) {
@@ -698,6 +702,7 @@ function ShotMapScreenContent({ route, navigation }: Props) {
           showsMyLocationButton={false}
           rotateEnabled
           pitchEnabled={false}
+          onMapReady={() => setMapReady(true)}
           onLongPress={onMapLongPress}
           onPress={onMapPress}
           // Lift the platform default (20) so users can pinch-zoom to ~1m

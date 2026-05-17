@@ -9,6 +9,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/services/supabase/client';
+import { activeRoundSession } from '@/services/activeRoundSession';
 import { useConfirmationDialog } from '@/hooks/useConfirmationDialog';
 import type { DialogConfig } from '@/hooks/useConfirmationDialog';
 import { useFinalizeSkinsForRound } from '@/hooks/useSkins';
@@ -177,6 +178,10 @@ export function useScoreSubmission({
   }, [currentRoundId, currentUserId, holeCount]);
 
   const navigateAfterSubmit = useCallback((roundId: string | null | undefined) => {
+    // Round is fully submitted — clear the resume-on-launch session so the
+    // next cold start doesn't land the user back on Score Entry for a round
+    // they've already finished.
+    void activeRoundSession.clear();
     resetRound();
     if (roundId) {
       submitLogger.info('Navigating to ViewRound (resetting stack)', { roundId: roundId.substring(0, 8) + '...' });

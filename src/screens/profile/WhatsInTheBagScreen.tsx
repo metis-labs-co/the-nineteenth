@@ -13,11 +13,12 @@ import { SectionHeader } from '@/components/common';
 import { MenuItemRow } from '@/screens/profile/components/MenuItemRow';
 
 import { useAuth } from '@/hooks/useAuth';
-import { useBag, useUpdateBag } from '@/hooks/queries/useBag';
+import { useBag, useBagDetails, useUpdateBag, type BagEntry } from '@/hooks/queries/useBag';
 import { usePerClubStats } from '@/hooks/queries/usePerClubStats';
 import { useSettingsStore } from '@/store/settingsStore';
 
 import { BagPickerSheet } from '@/components/features/bag/BagPickerSheet';
+import { ClubFittingSheet } from '@/components/features/bag/ClubFittingSheet';
 import {
   CATEGORY_LABELS,
   CATEGORY_ORDER,
@@ -25,6 +26,7 @@ import {
   PUTTER_KEY,
   type ClubKey,
 } from '@/constants/clubs';
+import { EMPTY_FITTING, fittingSummary, type ClubFitting } from '@/utils/clubFitting';
 import { metersToYards } from '@/utils/gpsCalculations';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -37,10 +39,26 @@ export default function WhatsInTheBagScreen() {
 
   const { player } = useAuth();
   const { data: bag = [], isLoading: bagLoading } = useBag(player?.id);
+  const { data: bagDetails = [] } = useBagDetails(player?.id);
   const { data: stats, isLoading: statsLoading } = usePerClubStats(player?.id);
   const updateBag = useUpdateBag();
 
   const [pickerVisible, setPickerVisible] = useState(false);
+  const [fittingClubKey, setFittingClubKey] = useState<ClubKey | null>(null);
+
+  const detailsByKey = useMemo(() => {
+    const map = new Map<ClubKey, BagEntry>();
+    for (const entry of bagDetails) map.set(entry.clubKey, entry);
+    return map;
+  }, [bagDetails]);
+
+  const fittingInitial = useMemo<ClubFitting>(() => {
+    if (!fittingClubKey) return { ...EMPTY_FITTING };
+    const entry = detailsByKey.get(fittingClubKey);
+    if (!entry) return { ...EMPTY_FITTING };
+    const { clubKey: _ck, addedAt: _a, updatedAt: _u, ...fitting } = entry;
+    return fitting;
+  }, [fittingClubKey, detailsByKey]);
 
   const groupedBag = useMemo(() => {
     const byCategory = new Map<(typeof CATEGORY_ORDER)[number], ClubKey[]>();
@@ -118,25 +136,45 @@ export default function WhatsInTheBagScreen() {
                     {CATEGORY_LABELS[group.category].toUpperCase()}
                   </Text>
                   <View style={styles.chipRow}>
-                    {group.keys.map((key) => (
-                      <View
-                        key={key}
-                        style={[
-                          styles.chip,
-                          {
-                            backgroundColor: colors.surface,
-                            borderColor: colors.border,
-                          },
-                        ]}
-                      >
-                        <Text
-                          style={[typography.caption, { color: colors.textPrimary }]}
+                    {group.keys.map((key) => {
+                      const entry = detailsByKey.get(key);
+                      const summary = entry ? fittingSummary(entry) : null;
+                      return (
+                        <Pressable
+                          key={key}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Edit ${CLUBS_BY_KEY[key].label} fitting details`}
+                          onPress={() => setFittingClubKey(key)}
+                          style={({ pressed }) => [
+                            styles.chip,
+                            {
+                              backgroundColor: colors.surface,
+                              borderColor: colors.border,
+                              opacity: pressed ? 0.7 : 1,
+                            },
+                          ]}
                         >
-                          {CLUBS_BY_KEY[key].label}
-                          {key === PUTTER_KEY && ' (locked)'}
-                        </Text>
-                      </View>
-                    ))}
+                          <Text
+                            style={[typography.caption, { color: colors.textPrimary }]}
+                          >
+                            {CLUBS_BY_KEY[key].label}
+                            {key === PUTTER_KEY && ' (locked)'}
+                          </Text>
+                          {summary && (
+                            <Text
+                              style={[
+                                typography.caption,
+                                styles.chipSubtitle,
+                                { color: colors.textSecondary },
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {summary}
+                            </Text>
+                          )}
+                        </Pressable>
+                      );
+                    })}
                   </View>
                 </View>
               ))}
@@ -236,6 +274,18 @@ export default function WhatsInTheBagScreen() {
         onSave={handleSave}
         saving={updateBag.isPending}
       />
+
+      {player && (
+        <ClubFittingSheet
+          visible={fittingClubKey !== null}
+          clubKey={fittingClubKey}
+          initial={fittingInitial}
+          playerId={player.id}
+          bag={bag}
+          bagDetails={bagDetails}
+          onClose={() => setFittingClubKey(null)}
+        />
+      )}
     </View>
   );
 }
@@ -272,6 +322,10 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     borderRadius: borderRadius.full,
     borderWidth: 1,
+  },
+  chipSubtitle: {
+    marginTop: 2,
+    maxWidth: 180,
   },
   editRow: {
     flexDirection: 'row',

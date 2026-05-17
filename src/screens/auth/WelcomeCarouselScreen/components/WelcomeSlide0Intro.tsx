@@ -13,13 +13,12 @@ export function WelcomeSlide0Intro() {
       illustration={
         <View style={styles.logoStack}>
           <AppIcon size={180} />
-          <View style={styles.wordmark}>
+          <View>
             <LogoHorizontal width={220} variant={isDark ? 'light' : 'dark'} />
           </View>
         </View>
       }
-      headline="Welcome to The Nineteenth"
-      body="Social golf competitions, made simple."
+      body="The home of social golf. Social competitions & leagues, your club and stat history, all in one place. You'll never need a socrecard again."
     />
   );
 }
@@ -27,9 +26,6 @@ export function WelcomeSlide0Intro() {
 const styles = StyleSheet.create({
   logoStack: {
     alignItems: 'center',
-  },
-  wordmark: {
-    marginTop: spacing.lg,
   },
 });
 

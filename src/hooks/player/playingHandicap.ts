@@ -3,15 +3,11 @@
  *
  * Encapsulates all handicap logic:
  * 1. Selects base handicap (WHS or Social) based on handicap source
- * 2. Calculates daily handicap using WHS formula (Social tier and above)
+ * 2. Calculates daily handicap using WHS formula when tee data is available
  * 3. Applies game type allowance
- *
- * Tier gating: Free tier uses raw base handicap. Social tier and above get
- * course-adjusted daily handicap via slope/course rating.
  */
 
 import { useMemo } from 'react';
-import { useIsSocial } from '@/context/SubscriptionContext';
 import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
 import { getBaseHandicap } from '@/utils/scorecardCalculations';
 import { getHandicapAllowance } from '@/services/scoring/utils/handicapUtils';
@@ -65,19 +61,17 @@ export function usePlayingHandicap({
   gameType,
   nineType,
 }: UsePlayingHandicapParams): PlayingHandicapResult {
-  const isSocial = useIsSocial();
-
   return useMemo(() => {
     const source = handicapSource ?? 'profile';
 
     // Step 1: Get base handicap (WHS or Social)
     const baseHandicap = getBaseHandicap(player as Parameters<typeof getBaseHandicap>[0], source);
 
-    // Step 2: Calculate daily handicap (Social tier and above, requires tee data)
+    // Step 2: Calculate daily handicap when tee data is available
     let dailyHandicap = baseHandicap;
     let isDailyHandicap = false;
 
-    if (isSocial && source !== 'none' && selectedTeeData) {
+    if (source !== 'none' && selectedTeeData) {
       const { slope, cr } = getEffectiveTeeRatings(selectedTeeData, nineType ?? 'full');
 
       if (slope && cr) {
@@ -110,12 +104,11 @@ export function usePlayingHandicap({
       handicapLabel: isDailyHandicap ? 'DHC' : 'HC',
       isDailyHandicap,
     };
-  }, [player, selectedTeeData, holes, handicapSource, gameType, nineType, isSocial]);
+  }, [player, selectedTeeData, holes, handicapSource, gameType, nineType]);
 }
 
 /**
  * Pure function version for use outside React components.
- * Does NOT check Premium status - caller must handle gating.
  */
 export function calculatePlayingHandicap(params: {
   player: ScorecardPlayerInfo | null;

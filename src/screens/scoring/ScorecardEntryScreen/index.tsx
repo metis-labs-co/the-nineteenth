@@ -26,7 +26,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { useStatsVisibilityWithTier } from '@/hooks/useStatsVisibilityWithTier';
 import { useIsSuperAdmin } from '@/store/subscriptionStore';
-import { useIsSocial } from '@/context/SubscriptionContext';
 import { useOfflineSync, useRoundData, useTeamScoring, useBuildAsYouPlay, useGroupFilter, useActiveSubMatch } from '@/hooks/scorecard';
 import { usePairings, useTeams as useCompetitionTeams } from '@/hooks/rounds';
 import {
@@ -140,9 +139,8 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
     statsVisibility.showHazards ||
     statsVisibility.showFairwayMissDirection ||
     statsVisibility.showGreenMissDirection;
-  const isSocial = useIsSocial();
 
-  // Pre-compute daily handicap + display info for each player (Social tier+), using per-player tees.
+  // Pre-compute daily handicap + display info for each player, using per-player tees.
   // Built across the full roster (not the sub-match-scoped slice) so cached
   // entries stay consistent even when the user navigates between sub-matches.
   const playerHandicapMap = useMemo(() => {
@@ -155,7 +153,6 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
         holes,
         handicapSource,
         gameType: undefined, // Game type allowance applied separately per format
-        applyDailyHandicap: isSocial,
       });
       map.set(player.id, {
         playingHandicap: result.playingHandicap,
@@ -165,7 +162,7 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
       });
     }
     return map;
-  }, [currentPlayers, playerTeeMap, selectedTeeData, holes, handicapSource, isSocial]);
+  }, [currentPlayers, playerTeeMap, selectedTeeData, holes, handicapSource]);
 
   // Show tee color dots next to player names (always when tee data is available)
   const showTeeDots = selectedTeeData != null || playerTeeMap.size > 0;
