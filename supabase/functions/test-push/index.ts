@@ -55,6 +55,10 @@ interface ExpoPushMessage {
   priority?: 'default' | 'normal' | 'high';
   channelId?: string;
   categoryId?: string;
+  // iOS 15+: bypasses Focus modes (DND, Sleep, Work, etc.) so the
+  // notification actually surfaces instead of silently landing in
+  // Notification Center.
+  interruptionLevel?: 'passive' | 'active' | 'time-sensitive' | 'critical';
 }
 
 interface ExpoPushTicket {
@@ -130,6 +134,36 @@ const ANDROID_CHANNEL_MAP: Record<string, string> = {
   wolf_game_cancelled: 'side-game-updates',
   prize_pool_settled: 'side-game-updates',
   tee_time_reminder: 'round-reminders',
+};
+
+// iOS interruption level per notification type.
+// Keep in sync with INTERRUPTION_LEVEL_MAP in
+// supabase/functions/test-notification/index.ts — see that file for the
+// rationale on which types break through Focus and which don't.
+const INTERRUPTION_LEVEL_MAP: Record<string, 'time-sensitive' | 'active'> = {
+  competition_player_added: 'time-sensitive',
+  new_round_created: 'time-sensitive',
+  friend_request_received: 'time-sensitive',
+  social_round_invitation: 'time-sensitive',
+  scorecard_submitted: 'time-sensitive',
+  tee_time_reminder: 'time-sensitive',
+  league_round_tagged: 'time-sensitive',
+  partnership_round_tagged: 'time-sensitive',
+  partnership_created: 'time-sensitive',
+  prize_pool_settled: 'time-sensitive',
+
+  competition_player_joined: 'active',
+  competition_status_changed: 'active',
+  round_completed: 'active',
+  friend_request_accepted: 'active',
+  league_player_joined: 'active',
+  league_player_left: 'active',
+  league_player_removed: 'active',
+  league_leaderboard_changed: 'active',
+  skins_game_completed: 'active',
+  skins_game_cancelled: 'active',
+  wolf_game_completed: 'active',
+  wolf_game_cancelled: 'active',
 };
 
 // =====================================================
@@ -453,6 +487,7 @@ serve(async (req: Request): Promise<Response> => {
         body: request.body,
         sound: 'default',
         priority: 'high',
+        interruptionLevel: INTERRUPTION_LEVEL_MAP[request.notification_type] ?? 'active',
         data: {
           type: request.notification_type,
           isTest: true,

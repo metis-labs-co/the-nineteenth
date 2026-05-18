@@ -247,18 +247,10 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       console.log('[NotificationProvider] Setting up push notification listeners');
     }
 
-    // Configure notification handler for foreground behavior
-    // This suppresses OS notification when app is foregrounded to avoid duplicates
-    // The in-app toast system handles foreground notifications
-    Notifications.setNotificationHandler({
-      handleNotification: async () => ({
-        // Don't show OS notification when foregrounded - our toast system handles it
-        shouldShowBanner: false,
-        shouldShowList: true,
-        shouldPlaySound: false,
-        shouldSetBadge: true,
-      }),
-    });
+    // Configure foreground notification handler. Source of truth lives in
+    // src/services/notifications/channels.ts so the behaviour is co-located
+    // with channel and category setup.
+    pushService.configureNotificationHandler();
 
     // Set up Android notification channels
     pushService.setupAndroidNotificationChannel();

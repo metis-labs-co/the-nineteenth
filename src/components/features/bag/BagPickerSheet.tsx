@@ -5,7 +5,7 @@
  * against the current bag and persists the changes.
  */
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Icon, Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -32,6 +32,15 @@ interface BagPickerSheetProps {
   saving?: boolean;
 }
 
+/**
+ * Outer wrapper. Renders ONLY the system <Modal> + <SystemModalTheme> —
+ * deliberately does NOT call `useThemeColors()` here. The inner content
+ * component reads colors from inside the SystemModalTheme provider so that
+ * solid+none surface colors take effect.
+ *
+ * See `docs/guides/STYLING_GUIDE.md` ("Modals & Sheets — Solid Surfaces")
+ * for why this split is mandatory.
+ */
 export function BagPickerSheet({
   visible,
   current,
@@ -39,18 +48,46 @@ export function BagPickerSheet({
   onSave,
   saving = false,
 }: BagPickerSheetProps) {
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={onCancel}
+      transparent={false}
+    >
+      <SystemModalTheme>
+        <BagPickerSheetContent
+          current={current}
+          onCancel={onCancel}
+          onSave={onSave}
+          saving={saving}
+        />
+      </SystemModalTheme>
+    </Modal>
+  );
+}
+
+interface BagPickerSheetContentProps {
+  current: readonly ClubKey[];
+  onCancel: () => void;
+  onSave: (next: ClubKey[]) => void;
+  saving: boolean;
+}
+
+function BagPickerSheetContent({
+  current,
+  onCancel,
+  onSave,
+  saving,
+}: BagPickerSheetContentProps) {
   const colors = useThemeColors();
   const [selected, setSelected] = useState<ClubKey[]>(() =>
     ensurePutter(current)
   );
 
-  // Reset local selection whenever the sheet (re-)opens or the underlying
-  // bag changes — prevents stale state on next open.
-  useEffect(() => {
-    if (visible) {
-      setSelected(ensurePutter(current));
-    }
-  }, [visible, current]);
+  // No reset-on-visible effect needed — the outer Modal unmounts this content
+  // when hidden, so state is naturally fresh per open.
 
   const grouped = useMemo(() => {
     return CATEGORY_ORDER.map((cat) => ({
@@ -67,18 +104,10 @@ export function BagPickerSheet({
   };
 
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={onCancel}
-      transparent={false}
+    <SafeAreaView
+      edges={['top', 'bottom']}
+      style={[styles.flex, { backgroundColor: colors.surfaceElevated }]}
     >
-      <SystemModalTheme>
-      <SafeAreaView
-        edges={['top', 'bottom']}
-        style={[styles.flex, { backgroundColor: colors.surfaceElevated }]}
-      >
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
           <Pressable
             accessibilityRole="button"
@@ -225,8 +254,6 @@ export function BagPickerSheet({
           )}
         </ScrollView>
       </SafeAreaView>
-      </SystemModalTheme>
-    </Modal>
   );
 }
 

@@ -61,6 +61,10 @@ interface ExpoPushMessage {
   channelId?: string;
   categoryId?: string;
   badge?: number;
+  // iOS 15+: bypasses Focus modes (DND, Sleep, Work, etc.) so the
+  // notification actually surfaces instead of silently landing in
+  // Notification Center.
+  interruptionLevel?: 'passive' | 'active' | 'time-sensitive' | 'critical';
 }
 
 interface ExpoPushTicket {
@@ -137,6 +141,40 @@ const ANDROID_CHANNEL_MAP: Record<string, string> = {
   wolf_game_cancelled: 'side-game-updates',
   prize_pool_settled: 'side-game-updates',
   tee_time_reminder: 'round-reminders',
+};
+
+// iOS interruption level per notification type.
+// 'time-sensitive' bypasses Focus modes (DND, Sleep, Work) — use for things
+// the user needs to act on or be alerted to in the moment.
+// 'active' is the default level — Focus modes silently file these into
+// Notification Center, which is the right behaviour for informational
+// notifications (someone joined a league you're in, a game completed, etc).
+const INTERRUPTION_LEVEL_MAP: Record<string, 'time-sensitive' | 'active'> = {
+  // Action / invitation / reminder — break through Focus
+  competition_player_added: 'time-sensitive',
+  new_round_created: 'time-sensitive',
+  friend_request_received: 'time-sensitive',
+  social_round_invitation: 'time-sensitive',
+  scorecard_submitted: 'time-sensitive',
+  tee_time_reminder: 'time-sensitive',
+  league_round_tagged: 'time-sensitive',
+  partnership_round_tagged: 'time-sensitive',
+  partnership_created: 'time-sensitive',
+  prize_pool_settled: 'time-sensitive',
+
+  // Informational — respect Focus
+  competition_player_joined: 'active',
+  competition_status_changed: 'active',
+  round_completed: 'active',
+  friend_request_accepted: 'active',
+  league_player_joined: 'active',
+  league_player_left: 'active',
+  league_player_removed: 'active',
+  league_leaderboard_changed: 'active',
+  skins_game_completed: 'active',
+  skins_game_cancelled: 'active',
+  wolf_game_completed: 'active',
+  wolf_game_cancelled: 'active',
 };
 
 // =====================================================
@@ -242,6 +280,7 @@ function buildExpoPushMessage(
     body: request.body,
     sound: 'default',
     priority: 'high',
+    interruptionLevel: INTERRUPTION_LEVEL_MAP[request.notification_type] ?? 'active',
   };
 
   // Add notification data for deep linking

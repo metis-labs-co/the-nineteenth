@@ -10,7 +10,7 @@
  *     copied so per-club lofts / lies are preserved)
  */
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Modal,
@@ -109,6 +109,15 @@ const SHAFT_FLEX_OPTIONS = SHAFT_FLEXES.map((v) => ({
   label: v,
 }));
 
+/**
+ * Outer wrapper. Renders ONLY the system <Modal> + <SystemModalTheme> —
+ * deliberately does NOT call `useThemeColors()` here. The inner content
+ * component reads colors from inside the SystemModalTheme provider so that
+ * solid+none surface colors take effect.
+ *
+ * See `docs/guides/STYLING_GUIDE.md` ("Modals & Sheets — Solid Surfaces")
+ * for why this split is mandatory.
+ */
 export function ClubFittingSheet({
   visible,
   clubKey,
@@ -118,6 +127,47 @@ export function ClubFittingSheet({
   bagDetails,
   onClose,
 }: ClubFittingSheetProps) {
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={onClose}
+      transparent={false}
+    >
+      <SystemModalTheme>
+        {clubKey !== null && (
+          <ClubFittingSheetContent
+            clubKey={clubKey}
+            initial={initial}
+            playerId={playerId}
+            bag={bag}
+            bagDetails={bagDetails}
+            onClose={onClose}
+          />
+        )}
+      </SystemModalTheme>
+    </Modal>
+  );
+}
+
+interface ClubFittingSheetContentProps {
+  clubKey: ClubKey;
+  initial: ClubFitting;
+  playerId: string;
+  bag: readonly ClubKey[];
+  bagDetails: readonly BagEntry[];
+  onClose: () => void;
+}
+
+function ClubFittingSheetContent({
+  clubKey,
+  initial,
+  playerId,
+  bag,
+  bagDetails,
+  onClose,
+}: ClubFittingSheetContentProps) {
   const colors = useThemeColors();
   const [form, setForm] = useState<FormState>(() => fittingToForm(initial));
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
@@ -127,19 +177,13 @@ export function ClubFittingSheet({
   const applyToClubs = useApplyFittingToClubs();
   const saving = updateFitting.isPending || applyToClubs.isPending;
 
-  // Reset local state every time the sheet opens or the focused club changes.
-  useEffect(() => {
-    if (visible) {
-      setForm(fittingToForm(initial));
-      setErrors({});
-      setCopyTargets(new Set());
-    }
-  }, [visible, initial, clubKey]);
+  // No reset-on-visible effect needed — the outer Modal unmounts this content
+  // when hidden, so state is naturally fresh per open.
 
-  const ironTargets = useMemo<ClubKey[]>(() => {
-    if (!clubKey || !isIronKey(clubKey)) return [];
-    return otherIronsInBag(bag, clubKey);
-  }, [bag, clubKey]);
+  const ironTargets = useMemo<ClubKey[]>(
+    () => (isIronKey(clubKey) ? otherIronsInBag(bag, clubKey) : []),
+    [bag, clubKey]
+  );
 
   const filledCount = useMemo(
     () => countFilledFields(formToInput(form) as ClubFitting),
@@ -207,26 +251,14 @@ export function ClubFittingSheet({
     }
   }, [clubKey, form, playerId, updateFitting, applyToClubs, copyTargets, onClose]);
 
-  if (!clubKey) {
-    return null;
-  }
-
   const club = CLUBS_BY_KEY[clubKey];
   const showCopySection = isIronKey(clubKey) && ironTargets.length > 0;
 
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={saving ? undefined : onClose}
-      transparent={false}
+    <SafeAreaView
+      edges={['top', 'bottom']}
+      style={[styles.flex, { backgroundColor: colors.background }]}
     >
-      <SystemModalTheme>
-        <SafeAreaView
-          edges={['top', 'bottom']}
-          style={[styles.flex, { backgroundColor: colors.background }]}
-        >
           <View style={[styles.header, { borderBottomColor: colors.border }]}>
             <Pressable
               accessibilityRole="button"
@@ -536,9 +568,7 @@ export function ClubFittingSheet({
               )}
             </ScrollView>
           </KeyboardAvoidingView>
-        </SafeAreaView>
-      </SystemModalTheme>
-    </Modal>
+    </SafeAreaView>
   );
 }
 

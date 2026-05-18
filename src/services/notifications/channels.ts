@@ -14,26 +14,25 @@ import { NotificationCategories, NotificationActions } from './types';
 // =====================================================
 
 /**
- * Configure how notifications are handled when the app is in the foreground
+ * Configure how notifications are handled when the app is in the foreground.
  *
- * By default, notifications received while the app is foregrounded
- * are not displayed. This configures them to show.
+ * Shows the OS banner and plays sound even when the app is open so users
+ * actually notice incoming pushes. The in-app Realtime toast may also fire
+ * for the same notification — the brief overlap is acceptable and far
+ * preferable to silent delivery.
  *
- * Call this once at app startup (e.g., in App.tsx or a root component).
+ * Single source of truth for the foreground handler. Called from
+ * NotificationProvider on mount.
  */
 export function configureNotificationHandler(): void {
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
-      // Show the notification as a banner and in notification list
       shouldShowBanner: true,
       shouldShowList: true,
-      // Play the notification sound
       shouldPlaySound: true,
-      // Update the app badge (iOS)
       shouldSetBadge: true,
     }),
   });
-
 }
 
 // =====================================================

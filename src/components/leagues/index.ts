@@ -1,6 +1,7 @@
 export { DifferentialBadge } from './DifferentialBadge';
 export { default as LeagueCard } from './LeagueCard';
 export { default as LeagueLeaderboardRow } from './LeagueLeaderboardRow';
+export { default as LeagueMiniLeaderboard } from './LeagueMiniLeaderboard';
 export { LeaguePlayerRoundsModal } from './LeaguePlayerRoundsModal';
 export { default as LeagueRoundCard } from './LeagueRoundCard';
 export { default as LeagueTypeSelector } from './LeagueTypeSelector';

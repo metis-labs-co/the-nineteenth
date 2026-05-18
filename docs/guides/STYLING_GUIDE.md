@@ -166,11 +166,89 @@ export default function MyModalScreen(props: Props) {
 </Modal>
 ```
 
+### Critical: call `useThemeColors()` INSIDE the wrap, never above it
+
+`SystemModalTheme` works by wrapping its children in a new `ThemeProvider`. `useThemeColors()` reads from the nearest provider via React context — so if you call it in the same component that renders `<SystemModalTheme>`, the value is captured against the **outer** provider (translucent + image-backdrop) and the wrap has no effect. The modal will still show through to white in image-backdrop mode, or wash out in translucent mode.
+
+This is a silent bug: the file looks correct (it has `<SystemModalTheme>`) but the surfaces are still wrong. The TypeScript compiler can't catch it.
+
+#### ❌ Wrong — `useThemeColors` is outside the wrap
+
+```tsx
+export function MySheet({ visible, onClose }: Props) {
+  const colors = useThemeColors();          // ← resolves against OUTER provider
+  return (
+    <Modal presentationStyle="pageSheet" visible={visible} onRequestClose={onClose}>
+      <SystemModalTheme>                    {/* ← inner provider only sees children */}
+        <SafeAreaView style={{ backgroundColor: colors.background }}>
+          {/* ↑ uses the OUTER colors. Still translucent / transparent. Bug. */}
+          ...
+        </SafeAreaView>
+      </SystemModalTheme>
+    </Modal>
+  );
+}
+```
+
+#### ✅ Right — split into outer wrapper + inner content
+
+The outer component renders **only** the `<Modal>` and `<SystemModalTheme>`. It does **not** call `useThemeColors()`. A separate inner component reads colors from inside the new provider:
+
+```tsx
+export function MySheet({ visible, onClose, ...rest }: Props) {
+  return (
+    <Modal presentationStyle="pageSheet" visible={visible} onRequestClose={onClose}>
+      <SystemModalTheme>
+        <MySheetContent onClose={onClose} {...rest} />
+      </SystemModalTheme>
+    </Modal>
+  );
+}
+
+function MySheetContent({ onClose, ...rest }: ContentProps) {
+  const colors = useThemeColors();          // ← resolves against the INNER provider
+  return (
+    <SafeAreaView style={{ backgroundColor: colors.background }}>
+      ...
+    </SafeAreaView>
+  );
+}
+```
+
+Bonus: the inner content unmounts when the modal is hidden, so you don't need a `useEffect` to reset local state on each open — it starts fresh automatically.
+
+The same rule applies to React Navigation modal screens, but the split is automatic because the inner `Screen` component is already a different function:
+
+```tsx
+export default function MyModalScreen(props: Props) {
+  // No useThemeColors() here — it would be captured against the outer provider.
+  return (
+    <SystemModalTheme>
+      <MyModalScreenContent {...props} />
+    </SystemModalTheme>
+  );
+}
+
+function MyModalScreenContent(props: Props) {
+  const colors = useThemeColors();          // ← inside the wrap, correct
+  ...
+}
+```
+
+**Rule of thumb:** any file that imports `SystemModalTheme` should have **two** components — the outer wrapper has zero theme reads; the inner content has them. If you see `useThemeColors()` in the same function that returns `<SystemModalTheme>`, that's the bug.
+
 ### Don't do this
 
+- ❌ Don't call `useThemeColors()` in the same component function that renders `<SystemModalTheme>` — split into outer/inner (see above).
 - ❌ Don't manually hardcode `backgroundColor: '#fff'` on a sheet to "fix" the white-bleed — that breaks dark mode.
 - ❌ Don't rely on `colors.surface` alone in a system modal — it's translucent in some appearance modes.
 - ❌ Don't apply `forceMode="dark"` to force dark mode inside a modal — that overrides the user's light/dark preference. Use `SystemModalTheme`, which only pins surface/backdrop styles.
+
+### Reference examples
+
+- `src/components/features/bag/BagPickerSheet.tsx` — `<Modal>` + outer/inner split
+- `src/components/features/bag/ClubFittingSheet.tsx` — `<Modal>` + outer/inner split with form state
+- `src/screens/profile/ShotMapScreen.tsx` — React Navigation modal screen with the split
 
 ### Reference
 
