@@ -24,12 +24,14 @@ import {
 import {
   EditDescriptionSheet,
   EditNameSheet,
+  EditWhatsAppLinkSheet,
 } from '@/components/competitions/detail/sections/sheets';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useAuth } from '@/hooks/useAuth';
 import { useConfirmationDialog } from '@/hooks';
 import { borderRadius, spacing, typography } from '@/constants/theme';
 import { useDeleteCompetition } from '@/screens/competitions/CompetitionDetailScreen/hooks/useDeleteCompetition';
+import { openWhatsAppGroup, shareWhatsAppLink } from '@/utils/whatsapp';
 
 import { useCompetitionData } from './hooks';
 import { useCompetitionPrizePools } from '@/hooks/prizePool';
@@ -72,6 +74,7 @@ export default function CompetitionSettingsScreen({ navigation, route }: Props) 
 
   const [isEditNameOpen, setIsEditNameOpen] = useState(false);
   const [isEditDescriptionOpen, setIsEditDescriptionOpen] = useState(false);
+  const [isEditWhatsAppOpen, setIsEditWhatsAppOpen] = useState(false);
 
   // Prize pool section state
   const { data: pools } = useCompetitionPrizePools(competitionId);
@@ -105,6 +108,20 @@ export default function CompetitionSettingsScreen({ navigation, route }: Props) 
       // User cancelled
     }
   }, [competition]);
+
+  const whatsappUrl = competition?.whatsapp_group_invite_url ?? null;
+
+  const handleOpenWhatsApp = useCallback(() => {
+    if (whatsappUrl) {
+      void openWhatsAppGroup(whatsappUrl);
+    }
+  }, [whatsappUrl]);
+
+  const handleShareWhatsApp = useCallback(() => {
+    if (whatsappUrl && competition) {
+      void shareWhatsAppLink(whatsappUrl, competition.name);
+    }
+  }, [whatsappUrl, competition]);
 
   if (isLoading) {
     return (
@@ -220,6 +237,123 @@ export default function CompetitionSettingsScreen({ navigation, route }: Props) 
         </View>
 
         <Divider style={[styles.divider, { backgroundColor: colors.border }]} />
+
+        {/* WhatsApp Group */}
+        {(isOrganizer || !!whatsappUrl) && (
+          <>
+            <View style={styles.section}>
+              <SectionHeader title="WhatsApp Group" />
+
+              {isOrganizer && !whatsappUrl && (
+                <TouchableOpacity
+                  onPress={() => setIsEditWhatsAppOpen(true)}
+                  style={[styles.whatsappRow, { backgroundColor: colors.surface }]}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel="Add WhatsApp group invite link"
+                >
+                  <Icon source="whatsapp" size={22} color={colors.primary} />
+                  <View style={styles.whatsappRowText}>
+                    <Text style={[styles.whatsappLabel, { color: colors.textPrimary }]}>
+                      Add WhatsApp Group
+                    </Text>
+                    <Text
+                      style={[styles.whatsappSubtitle, { color: colors.textSecondary }]}
+                    >
+                      Let members join your group chat with one tap
+                    </Text>
+                  </View>
+                  <Icon source="chevron-right" size={20} color={colors.textSecondary} />
+                </TouchableOpacity>
+              )}
+
+              {isOrganizer && whatsappUrl && (
+                <>
+                  <TouchableOpacity
+                    onPress={() => setIsEditWhatsAppOpen(true)}
+                    style={[styles.whatsappRow, { backgroundColor: colors.surface }]}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel="Edit WhatsApp group invite link"
+                  >
+                    <Icon source="whatsapp" size={22} color={colors.primary} />
+                    <View style={styles.whatsappRowText}>
+                      <Text
+                        style={[styles.whatsappLabel, { color: colors.textPrimary }]}
+                      >
+                        Group invite link
+                      </Text>
+                      <Text
+                        style={[styles.whatsappSubtitle, { color: colors.textSecondary }]}
+                        numberOfLines={1}
+                      >
+                        {whatsappUrl}
+                      </Text>
+                    </View>
+                    <Icon source="pencil-outline" size={20} color={colors.textSecondary} />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={handleOpenWhatsApp}
+                    style={[
+                      styles.whatsappRow,
+                      { backgroundColor: colors.surface, marginTop: spacing.sm },
+                    ]}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel="Open WhatsApp group"
+                  >
+                    <Icon source="open-in-new" size={20} color={colors.primary} />
+                    <Text style={[styles.whatsappLabel, { color: colors.primary, flex: 1 }]}>
+                      Open in WhatsApp
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={handleShareWhatsApp}
+                    style={[
+                      styles.whatsappRow,
+                      { backgroundColor: colors.surface, marginTop: spacing.sm },
+                    ]}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel="Share WhatsApp group link with members"
+                  >
+                    <Icon source="share-variant-outline" size={20} color={colors.primary} />
+                    <Text style={[styles.whatsappLabel, { color: colors.primary, flex: 1 }]}>
+                      Share with members
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              )}
+
+              {!isOrganizer && !!whatsappUrl && (
+                <TouchableOpacity
+                  onPress={handleOpenWhatsApp}
+                  style={[styles.whatsappRow, { backgroundColor: colors.surface }]}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel="Join WhatsApp group"
+                >
+                  <Icon source="whatsapp" size={22} color={colors.primary} />
+                  <View style={styles.whatsappRowText}>
+                    <Text style={[styles.whatsappLabel, { color: colors.textPrimary }]}>
+                      Join WhatsApp Group
+                    </Text>
+                    <Text
+                      style={[styles.whatsappSubtitle, { color: colors.textSecondary }]}
+                    >
+                      Tap to open the group in WhatsApp
+                    </Text>
+                  </View>
+                  <Icon source="chevron-right" size={20} color={colors.textSecondary} />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <Divider style={[styles.divider, { backgroundColor: colors.border }]} />
+          </>
+        )}
 
         {/* Prize Pools — organizer only */}
         {isOrganizer && (
@@ -358,6 +492,12 @@ export default function CompetitionSettingsScreen({ navigation, route }: Props) 
             competitionId={competitionId}
             currentDescription={competition.description}
           />
+          <EditWhatsAppLinkSheet
+            visible={isEditWhatsAppOpen}
+            onDismiss={() => setIsEditWhatsAppOpen(false)}
+            competitionId={competitionId}
+            currentUrl={competition.whatsapp_group_invite_url}
+          />
           <EditPrizePoolBottomSheet
             visible={poolSheetTab !== null}
             onClose={() => setPoolSheetTab(null)}
@@ -439,6 +579,24 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   poolSubtitle: {
+    ...typography.caption,
+  },
+  whatsappRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    gap: spacing.md,
+  },
+  whatsappRowText: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  whatsappLabel: {
+    ...typography.body,
+    fontWeight: '600',
+  },
+  whatsappSubtitle: {
     ...typography.caption,
   },
   inviteCode: {

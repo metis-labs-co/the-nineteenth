@@ -234,15 +234,15 @@ export const OnlyStablefordAllowed: Story = {
   ),
 };
 
-export const StrokePlayLocked: Story = {
+export const ParLocked: Story = {
   args: {
     value: 'stableford',
     onChange: () => {},
-    allowedGameTypes: ['stableford'],
+    allowedGameTypes: ['stableford', 'stroke'],
   },
   render: (args) => (
     <View style={styles.wrapper}>
-      <Text style={styles.header}>Stroke Play Requires Social Tier</Text>
+      <Text style={styles.header}>Par Requires Social Tier</Text>
       <RoundGameTypeSelector {...args} />
     </View>
   ),

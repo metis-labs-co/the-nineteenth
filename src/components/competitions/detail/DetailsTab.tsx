@@ -118,6 +118,11 @@ export const DetailsTab = React.memo(function DetailsTab({
         />
       )}
 
+      <WhatsAppGroupSection
+        whatsappUrl={competition.whatsapp_group_invite_url}
+        isPlayer={isPlayer}
+      />
+
       {showMiniLeaderboard && (
         <MiniLeaderboardSection
           individual={miniIndividual}
@@ -126,11 +131,6 @@ export const DetailsTab = React.memo(function DetailsTab({
           onOpenLeaderboard={onOpenLeaderboard ?? (() => {})}
         />
       )}
-
-      <WhatsAppGroupSection
-        whatsappUrl={competition.whatsapp_group_invite_url}
-        isPlayer={isPlayer}
-      />
 
       <SettingsSection
         competition={competition}

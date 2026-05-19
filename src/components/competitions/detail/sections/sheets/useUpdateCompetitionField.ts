@@ -16,6 +16,7 @@ type CompetitionUpdate = Partial<
     | 'end_date'
     | 'point_system'
     | 'per_round_rules_enabled'
+    | 'whatsapp_group_invite_url'
   >
 >;
 

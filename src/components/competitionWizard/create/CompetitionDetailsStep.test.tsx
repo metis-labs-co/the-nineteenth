@@ -148,6 +148,17 @@ jest.mock('@/components/common', () => {
       );
     },
     Pill: ({ label }: any) => <View testID="pill"><Text>{label}</Text></View>,
+    ToggleSwitch: ({ value, onValueChange, accessibilityLabel }: any) => {
+      const { TouchableOpacity: TO } = require('react-native');
+      return (
+        <TO
+          testID={`toggle-${accessibilityLabel?.toLowerCase().replace(/[^a-z0-9]/g, '-')}`}
+          onPress={() => onValueChange(!value)}
+          accessibilityRole="switch"
+          accessibilityState={{ checked: !!value }}
+        />
+      );
+    },
   };
 });
 

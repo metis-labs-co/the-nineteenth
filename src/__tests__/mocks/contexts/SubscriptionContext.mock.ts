@@ -31,7 +31,7 @@ export const mockTierLimits: Record<SubscriptionTier, TierLimits> = {
     maxFriends: 10,
     maxRoundsPlayed: 20, // 20 rounds for free tier
     maxLeaguesOwned: 1,
-    allowedGameTypes: ['stableford'],
+    allowedGameTypes: ['stableford', 'stroke'],
     canUseTeamFormats: false,
     canUseScoringPairs: false,
     canExportData: false,

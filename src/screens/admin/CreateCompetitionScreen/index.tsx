@@ -152,6 +152,8 @@ export default function CreateCompetitionScreen() {
           onBack={handleBack}
           onSkip={handlePlayersSkip}
           maxPlayersPerCompetition={limits?.maxPlayersPerCompetition}
+          organizerIsPlayer={wizardData.step1?.organizerIsPlayer !== false}
+          competitionMaxPlayers={wizardData.step1?.maxPlayers ?? null}
         />
       );
     }

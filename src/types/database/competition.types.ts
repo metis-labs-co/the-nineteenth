@@ -86,6 +86,18 @@ export interface Competition {
   // Knockout settings (null for event competitions)
   knockout_config: KnockoutConfig | null;
 
+  // Optional WhatsApp group invite link (https://chat.whatsapp.com/<code>)
+  // for organiser-led member coordination. Editable by the organiser only.
+  whatsapp_group_invite_url: string | null;
+
+  // Optional player slot capacity. NULL = unlimited.
+  max_players?: number | null;
+  // When true and max_players is set, joins are blocked once capacity is reached.
+  lock_at_capacity?: boolean;
+  // When false, the organizer is not auto-added to competition_players and does
+  // not appear in pairings, scoring, or leaderboards.
+  organizer_is_player?: boolean;
+
   created_at: string; // ISO timestamp
   updated_at: string; // ISO timestamp
   deleted_at: string | null; // ISO timestamp, soft delete

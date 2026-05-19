@@ -162,9 +162,8 @@ export function createUnknownFeatureAccess(featureId: string): FeatureAccess {
 export function getRequiredTierForGameType(gameType: GameType): SubscriptionTier {
   switch (gameType) {
     case 'stableford':
-      return 'free';
     case 'stroke':
-      return 'social';
+      return 'free';
     case 'match-play':
     case 'best-ball':
     case 'scramble':

@@ -234,6 +234,10 @@ export interface Competition {
   teamMode?: TeamMode;
   teamSize?: number;
   pointSystem?: PointSystemEntry[];
+  // Player slot capacity
+  maxPlayers?: number | null;
+  lockAtCapacity?: boolean;
+  organizerIsPlayer?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -252,6 +256,12 @@ export interface CompetitionCreateInput {
   teamMode?: TeamMode;
   teamSize?: number;
   pointSystem?: PointSystemEntry[];
+  // Player slot capacity (null/undefined = unlimited)
+  maxPlayers?: number | null;
+  // When true and maxPlayers is set, joins are blocked once capacity is reached
+  lockAtCapacity?: boolean;
+  // When false, the organizer is not auto-added as a player
+  organizerIsPlayer?: boolean;
 }
 
 // Round

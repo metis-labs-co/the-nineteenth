@@ -61,6 +61,36 @@ export async function checkCompetitionCreationPermission(): Promise<PermissionCh
 }
 
 /**
+ * Validate that an organizer-chosen player slot capacity does not exceed the
+ * user's tier limit. NULL/0/unlimited is always allowed.
+ */
+export function checkMaxPlayersWithinTier(maxPlayers: number | null | undefined): PermissionCheckResult {
+  if (maxPlayers == null || maxPlayers <= 0) {
+    return { allowed: true };
+  }
+
+  const limits = useSubscriptionStore.getState().limits;
+  if (!limits) {
+    return { allowed: true };
+  }
+
+  const tierMax = limits.maxPlayersPerCompetition;
+  if (isUnlimited(tierMax)) {
+    return { allowed: true, limit: tierMax };
+  }
+
+  if (maxPlayers > tierMax) {
+    return {
+      allowed: false,
+      error: `Player limit ${maxPlayers} exceeds your plan's maximum of ${tierMax} players per competition. Upgrade your plan to set a higher limit.`,
+      limit: tierMax,
+    };
+  }
+
+  return { allowed: true, limit: tierMax };
+}
+
+/**
  * Check if a round can be added to a competition based on tier limits
  * Uses cached tier limits from the subscription store
  */

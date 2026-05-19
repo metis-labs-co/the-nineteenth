@@ -7,3 +7,4 @@ export { EditTeamSizeSheet } from './EditTeamSizeSheet';
 export { EditDatesSheet } from './EditDatesSheet';
 export { EditCompetitionRulesSheet, detectActivePreset } from './EditCompetitionRulesSheet';
 export { EditScoringRulesModeSheet } from './EditScoringRulesModeSheet';
+export { EditWhatsAppLinkSheet } from './EditWhatsAppLinkSheet';

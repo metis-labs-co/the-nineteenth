@@ -10,12 +10,19 @@ const wrapper = ({ children }: { children: React.ReactNode }) => {
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 };
 
-function mockResponse(opts?: { todayIso?: string }) {
+function mockResponse(opts?: { todayIso?: string; tomorrowIso?: string }) {
   const todayIso = opts?.todayIso ?? '2026-05-06';
-  const hours = ['06:00', '07:00', '08:00', '09:00', '10:00', '11:00',
-                 '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
-  const time = hours.map((h) => `${todayIso}T${h}`);
-  const fill = (v: number) => hours.map(() => v);
+  const tomorrowIso = opts?.tomorrowIso ?? '2026-05-07';
+  const hourStrings = [
+    '06:00', '07:00', '08:00', '09:00', '10:00', '11:00',
+    '12:00', '13:00', '14:00', '15:00', '16:00', '17:00',
+  ];
+  // Hourly slice spans today + tomorrow so both can be bucketed.
+  const time = [
+    ...hourStrings.map((h) => `${todayIso}T${h}`),
+    ...hourStrings.map((h) => `${tomorrowIso}T${h}`),
+  ];
+  const fill = (v: number) => time.map(() => v);
   return {
     timezone: 'Australia/Melbourne',
     hourly: {
@@ -31,7 +38,7 @@ function mockResponse(opts?: { todayIso?: string }) {
       uv_index: fill(3),
     },
     daily: {
-      time: [todayIso, '2026-05-07', '2026-05-08'],
+      time: [todayIso, tomorrowIso, '2026-05-08'],
       weather_code: [1, 2, 3],
       temperature_2m_max: [21, 19, 17],
       temperature_2m_min: [11, 9, 8],
@@ -39,8 +46,8 @@ function mockResponse(opts?: { todayIso?: string }) {
       precipitation_sum: [0, 0.5, 5.0],
       wind_gusts_10m_max: [22, 28, 35],
       uv_index_max: [6, 5, 4],
-      sunrise: [`${todayIso}T06:42`, '2026-05-07T06:43', '2026-05-08T06:44'],
-      sunset: [`${todayIso}T17:31`, '2026-05-07T17:30', '2026-05-08T17:29'],
+      sunrise: [`${todayIso}T06:42`, `${tomorrowIso}T06:43`, '2026-05-08T06:44'],
+      sunset: [`${todayIso}T17:31`, `${tomorrowIso}T17:30`, '2026-05-08T17:29'],
     },
   };
 }
@@ -78,7 +85,7 @@ describe('useDetailedDayForecast', () => {
     expect(url).toContain('timezone=auto');
   });
 
-  it('returns morning, afternoon, today summary, and 2-day forecast', async () => {
+  it('returns today + tomorrow buckets, day-after summary, and locationIso', async () => {
     jest.useFakeTimers().setSystemTime(new Date('2026-05-06T08:00:00'));
     (global.fetch as jest.Mock).mockResolvedValue({
       ok: true,
@@ -97,13 +104,14 @@ describe('useDetailedDayForecast', () => {
     expect(data.today.summary.dateIso).toBe('2026-05-06');
     expect(data.today.summary.tempHighC).toBe(21);
     expect(data.today.summary.sunriseIso).toBe('2026-05-06T06:42');
-    expect(data.forecast).toHaveLength(2);
-    expect(data.forecast[0].dateIso).toBe('2026-05-07');
-    expect(data.forecast[1].dateIso).toBe('2026-05-08');
+    expect(data.tomorrow.morning).not.toBeNull();
+    expect(data.tomorrow.afternoon).not.toBeNull();
+    expect(data.tomorrow.summary.dateIso).toBe('2026-05-07');
+    expect(data.dayAfter.dateIso).toBe('2026-05-08');
     expect(data.locationIso).toBe('Australia/Melbourne');
   });
 
-  it('marks morning as null when "now" is past noon on todays date', async () => {
+  it('keeps morning/afternoon visible after noon (no past-bucket override)', async () => {
     jest.useFakeTimers().setSystemTime(new Date('2026-05-06T14:00:00'));
     (global.fetch as jest.Mock).mockResolvedValue({
       ok: true,
@@ -116,11 +124,11 @@ describe('useDetailedDayForecast', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     const data = result.current.data;
     if (!data) throw new Error('data null');
-    expect(data.today.morning).toBeNull();
+    expect(data.today.morning).not.toBeNull();
     expect(data.today.afternoon).not.toBeNull();
   });
 
-  it('marks both buckets as null when "now" is past 6pm', async () => {
+  it('flips eveningMode true at or after 18:00 local', async () => {
     jest.useFakeTimers().setSystemTime(new Date('2026-05-06T19:00:00'));
     (global.fetch as jest.Mock).mockResolvedValue({
       ok: true,
@@ -133,8 +141,26 @@ describe('useDetailedDayForecast', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     const data = result.current.data;
     if (!data) throw new Error('data null');
-    expect(data.today.morning).toBeNull();
-    expect(data.today.afternoon).toBeNull();
+    expect(data.eveningMode).toBe(true);
+    // Buckets remain populated; the UI uses eveningMode to swap layouts.
+    expect(data.tomorrow.morning).not.toBeNull();
+    expect(data.tomorrow.afternoon).not.toBeNull();
+  });
+
+  it('keeps eveningMode false before 18:00 local', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-05-06T15:00:00'));
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      json: async () => mockResponse(),
+    });
+    const { result } = renderHook(
+      () => useDetailedDayForecast({ lat: 0, lng: 0 }),
+      { wrapper },
+    );
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    const data = result.current.data;
+    if (!data) throw new Error('data null');
+    expect(data.eveningMode).toBe(false);
   });
 
   it('resolves to null when the API returns a non-OK status', async () => {

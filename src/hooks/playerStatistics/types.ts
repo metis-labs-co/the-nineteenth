@@ -18,7 +18,7 @@
  * - PlayerStatistics: Complete player statistics object
  */
 
-import type { GameType } from '@/types/database/enums';
+import type { GameType, RoundStatus } from '@/types/database/enums';
 
 /**
  * Score distribution breakdown
@@ -52,12 +52,19 @@ export interface RoundSummary {
   competitionId: string | null;
   competitionName: string;
   courseName: string;
+  /** Name of the club the course belongs to (null when not joined / unknown). */
+  clubName: string | null;
   date: string;
   totalGross: number;
   totalPoints: number;
   holesPlayed: number;
+  /** Standalone (non-competition) round. */
   isPracticeRound: boolean;
+  /** Standalone round counted toward handicap (handicap_source !== 'none'). */
+  isHandicapRound: boolean;
   gameType: GameType;
+  /** Status of the underlying round (upcoming / in-progress / completed). */
+  roundStatus: RoundStatus;
 }
 
 /**

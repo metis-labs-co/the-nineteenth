@@ -3,12 +3,15 @@
  * tailored to the home-screen "tap chip → modal" detail view.
  *
  * Fetches 3 days of hourly + daily data in one request, partitions today's
- * hourly slice into Morning (6-12) and Afternoon (12-18) buckets via the
- * pure aggregateWeatherBucket util, and returns a DetailedForecast.
+ * AND tomorrow's hourly slices into Morning (6-12) and Afternoon (12-18)
+ * buckets via the pure aggregateWeatherBucket util, and returns a
+ * DetailedForecast.
  *
- * Past-bucket detection: if the user's local clock is already past a
- * bucket's end on today's date, that bucket is returned as `null` so the
- * UI can render an "already passed" placeholder instead of stale data.
+ * Evening mode: when the user's local clock is at or past 18:00, the modal
+ * collapses today's full-day summary into a compact row and promotes
+ * tomorrow's morning/afternoon split to headline status. The `eveningMode`
+ * flag is derived from the local clock at render time so cache hits stay
+ * correct.
  *
  * Errors are logged and resolved as `null` so consumers render fail-soft,
  * mirroring the pattern in useWeather.ts.
@@ -52,14 +55,21 @@ export interface DaySummary {
   sunsetIso: string;
 }
 
+export interface DayBuckets {
+  morning: BucketStats | null;
+  afternoon: BucketStats | null;
+  summary: DaySummary;
+}
+
 export interface DetailedForecast {
   locationIso: string;
-  today: {
-    morning: BucketStats | null;
-    afternoon: BucketStats | null;
-    summary: DaySummary;
-  };
-  forecast: DaySummary[];
+  today: DayBuckets;
+  tomorrow: DayBuckets;
+  /** Day-after-tomorrow summary (row only; no hourly buckets). */
+  dayAfter: DaySummary;
+  /** True when the local clock is at or past 18:00 — flips the modal into
+   *  evening mode (today as a compact row, tomorrow as the headline split). */
+  eveningMode: boolean;
   fetchedAt: string;
 }
 
@@ -113,6 +123,9 @@ function summariseDay(daily: DailyResponse, i: number): DaySummary {
   };
 }
 
+/** Hour-of-day cutoff (local clock) for evening mode. */
+export const EVENING_MODE_HOUR = 18;
+
 async function fetchDetailed(coords: Coords): Promise<DetailedForecast | null> {
   try {
     const res = await fetch(buildUrl(coords));
@@ -124,14 +137,23 @@ async function fetchDetailed(coords: Coords): Promise<DetailedForecast | null> {
     const hourly: HourlySlice = json.hourly;
     const daily: DailyResponse = json.daily;
     const todayIso: string = daily.time[0];
-
-    const morning = aggregateWeatherBucket(hourly, 6, 12, todayIso);
-    const afternoon = aggregateWeatherBucket(hourly, 12, 18, todayIso);
+    const tomorrowIso: string = daily.time[1];
 
     return {
       locationIso: json.timezone ?? 'UTC',
-      today: { morning, afternoon, summary: summariseDay(daily, 0) },
-      forecast: [summariseDay(daily, 1), summariseDay(daily, 2)],
+      today: {
+        morning: aggregateWeatherBucket(hourly, 6, 12, todayIso),
+        afternoon: aggregateWeatherBucket(hourly, 12, 18, todayIso),
+        summary: summariseDay(daily, 0),
+      },
+      tomorrow: {
+        morning: aggregateWeatherBucket(hourly, 6, 12, tomorrowIso),
+        afternoon: aggregateWeatherBucket(hourly, 12, 18, tomorrowIso),
+        summary: summariseDay(daily, 1),
+      },
+      dayAfter: summariseDay(daily, 2),
+      // Placeholder — replaced at render time by deriveEveningMode().
+      eveningMode: false,
       fetchedAt: new Date().toISOString(),
     };
   } catch (err) {
@@ -141,29 +163,14 @@ async function fetchDetailed(coords: Coords): Promise<DetailedForecast | null> {
 }
 
 /**
- * Override morning/afternoon to null if the user's local clock has already
- * passed the bucket end. Done at render time so cache hits don't surface
- * stale "morning" data after noon.
+ * Recompute `eveningMode` against the user's local clock at render time.
+ * Done here (not in fetchDetailed) so cache hits stay in sync as the clock
+ * crosses the cutoff without a re-fetch.
  */
-function applyPastBucketOverride(forecast: DetailedForecast): DetailedForecast {
-  const now = new Date();
-  const todayIso = forecast.today.summary.dateIso;
-  const nowIso =
-    `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-` +
-    `${String(now.getDate()).padStart(2, '0')}`;
-  const isToday = nowIso === todayIso;
-  const currentHour = now.getHours();
-  const morningPassed = isToday && currentHour >= 12;
-  const afternoonPassed = isToday && currentHour >= 18;
-  if (!morningPassed && !afternoonPassed) return forecast;
-  return {
-    ...forecast,
-    today: {
-      ...forecast.today,
-      morning: morningPassed ? null : forecast.today.morning,
-      afternoon: afternoonPassed ? null : forecast.today.afternoon,
-    },
-  };
+function deriveEveningMode(forecast: DetailedForecast): DetailedForecast {
+  const eveningMode = new Date().getHours() >= EVENING_MODE_HOUR;
+  if (forecast.eveningMode === eveningMode) return forecast;
+  return { ...forecast, eveningMode };
 }
 
 export function useDetailedDayForecast(
@@ -181,6 +188,6 @@ export function useDetailedDayForecast(
     gcTime: GC_TIMES.LONG,
   });
 
-  const data = query.data ? applyPastBucketOverride(query.data) : query.data;
+  const data = query.data ? deriveEveningMode(query.data) : query.data;
   return { ...query, data } as UseQueryResult<DetailedForecast | null>;
 }

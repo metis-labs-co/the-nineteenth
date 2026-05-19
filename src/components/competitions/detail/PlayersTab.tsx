@@ -33,6 +33,12 @@ export interface PlayersTabProps {
   competitionId?: string;
   /** Competition name for filter label */
   competitionName?: string;
+  /** Optional player slot capacity. When set, shown as "X of N Players". */
+  maxPlayers?: number | null;
+  /** When false, organizer is shown as a non-playing row above the player list. */
+  organizerIsPlayer?: boolean;
+  /** Invite code, used in the empty-state copy. */
+  inviteCode?: string;
 }
 
 export const PlayersTab = React.memo(function PlayersTab({
@@ -45,6 +51,9 @@ export const PlayersTab = React.memo(function PlayersTab({
   colors,
   competitionId,
   competitionName,
+  maxPlayers,
+  organizerIsPlayer = true,
+  inviteCode,
 }: PlayersTabProps) {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
@@ -61,19 +70,35 @@ export const PlayersTab = React.memo(function PlayersTab({
     [navigation, currentUserId, competitionId, competitionName]
   );
 
+  const playerCountLabel = maxPlayers && maxPlayers > 0
+    ? `${players.length} of ${maxPlayers} ${maxPlayers === 1 ? 'Player' : 'Players'}`
+    : `${players.length} ${players.length === 1 ? 'Player' : 'Players'}`;
+
   return (
     <View>
+      {!organizerIsPlayer && (
+        <View style={[styles.organizerNote, { backgroundColor: colors.surface, borderColor: colors.borderLight }]}>
+          <Icon source="account-tie" size={18} color={colors.textSecondary} />
+          <Text style={[styles.organizerNoteText, { color: colors.textSecondary }]}>
+            The organiser is running this competition but not playing.
+          </Text>
+        </View>
+      )}
       {players.length === 0 ? (
         <EmptyState
           title="No players yet"
-          message="Share the invite code to get players to join."
+          message={
+            inviteCode
+              ? `Share invite code ${inviteCode} to fill ${maxPlayers ? `the ${maxPlayers} slots` : 'spots'}.`
+              : 'Share the invite code to get players to join.'
+          }
           icon="account-group-outline"
           compact
         />
       ) : (
         <View>
           <Text style={[styles.playersSectionTitle, { color: colors.textSecondary }]}>
-            {players.length} {players.length === 1 ? 'Player' : 'Players'}
+            {playerCountLabel}
           </Text>
           <View style={styles.playersContainer}>
             {players.map((cp) => {
@@ -227,6 +252,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+  },
+  organizerNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    marginBottom: spacing.md,
+  },
+  organizerNoteText: {
+    ...typography.small,
+    flex: 1,
   },
 });
 

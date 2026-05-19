@@ -102,7 +102,7 @@ export const FAQ_DATA: FAQItem[] = [
     id: '10',
     question: 'What subscription plans are available?',
     answer:
-      'There are four tiers: Free (3 competitions, 1 league, Stableford only, up to 5 friends), Social (8 competitions, 3 leagues, Stroke/Match Play, AI Create, 15 friends), Premium (50 competitions and leagues, all team formats, Skins, Wolf, prize pools, scoring pairs, unlimited friends), and Enterprise (200 competitions and leagues for large organisations). Open the Subscription screen for the full feature list.',
+      'There are four tiers: Free (3 competitions, 1 league, Stableford + Stroke Play, up to 5 friends), Social (8 competitions, 3 leagues, +Par and Match Play, AI Create, 15 friends), Premium (50 competitions and leagues, all team formats, Skins, Wolf, prize pools, scoring pairs, unlimited friends), and Enterprise (200 competitions and leagues for large organisations). Open the Subscription screen for the full feature list.',
     category: 'subscription',
   },
   {

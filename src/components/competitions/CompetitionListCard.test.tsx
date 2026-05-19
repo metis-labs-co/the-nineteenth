@@ -24,11 +24,6 @@ import { CompetitionListCard, CompetitionListCardData } from './CompetitionListC
 jest.mock('@tabler/icons-react-native', () => {
   const { View, Text } = require('react-native');
   return {
-    IconChevronRight: (props: any) => (
-      <View testID="icon-chevron-right" {...props}>
-        <Text>ChevronRight</Text>
-      </View>
-    ),
     IconUsers: (props: any) => (
       <View testID="icon-users" {...props}>
         <Text>Users</Text>
@@ -47,6 +42,40 @@ jest.mock('@tabler/icons-react-native', () => {
     IconCurrencyDollar: (props: any) => (
       <View testID="icon-currency-dollar" {...props}>
         <Text>CurrencyDollar</Text>
+      </View>
+    ),
+    IconMapPin: (props: any) => (
+      <View testID="icon-map-pin" {...props}>
+        <Text>MapPin</Text>
+      </View>
+    ),
+    IconCalendar: (props: any) => (
+      <View testID="icon-calendar" {...props}>
+        <Text>Calendar</Text>
+      </View>
+    ),
+  };
+});
+
+// Mock the new in-progress / upcoming subcomponents so they don't try to
+// fetch real data during card tests. Dedicated tests cover them separately.
+jest.mock('./CompetitionMiniLeaderboard', () => {
+  const { View, Text } = require('react-native');
+  return {
+    CompetitionMiniLeaderboard: ({ competitionId }: { competitionId: string }) => (
+      <View testID={`mini-leaderboard-${competitionId}`}>
+        <Text>MiniLeaderboard</Text>
+      </View>
+    ),
+  };
+});
+
+jest.mock('./CompetitionFirstRoundLine', () => {
+  const { View, Text } = require('react-native');
+  return {
+    CompetitionFirstRoundLine: ({ competitionId }: { competitionId: string }) => (
+      <View testID={`first-round-line-${competitionId}`}>
+        <Text>FirstRoundLine</Text>
       </View>
     ),
   };
@@ -235,13 +264,6 @@ describe('CompetitionListCard', () => {
       render(<CompetitionListCard competition={competition} onPress={defaultOnPress} />);
 
       expect(screen.getByText('Winter Cup 2025')).toBeTruthy();
-    });
-
-    it('renders chevron right icon', () => {
-      const competition = createCompetitionData();
-      render(<CompetitionListCard competition={competition} onPress={defaultOnPress} />);
-
-      expect(screen.getByTestId('icon-chevron-right')).toBeTruthy();
     });
 
     it('renders trophy icon for rounds', () => {
@@ -786,10 +808,16 @@ describe('CompetitionListCard', () => {
   describe('Edge Cases', () => {
     it('handles empty competition name', () => {
       const competition = createCompetitionData({ name: '' });
-      render(<CompetitionListCard competition={competition} onPress={defaultOnPress} />);
+      render(
+        <CompetitionListCard
+          competition={competition}
+          onPress={defaultOnPress}
+          testID="empty-name-card"
+        />
+      );
 
       // Should render without crashing
-      expect(screen.getByTestId('icon-chevron-right')).toBeTruthy();
+      expect(screen.getByTestId('empty-name-card')).toBeTruthy();
     });
 
     it('handles very long competition name', () => {
@@ -964,6 +992,57 @@ describe('CompetitionListCard', () => {
         render(<CompetitionListCard competition={competition} onPress={defaultOnPress} />);
 
         expect(screen.getByTestId(`status-badge-${expectedVariant}`)).toBeTruthy();
+      });
+    });
+  });
+
+  // ===========================================================================
+  // STATUS-CONDITIONAL EXTRAS (mini leaderboard / first-round line)
+  // ===========================================================================
+
+  describe('Status-Conditional Extras', () => {
+    it('renders the mini leaderboard for in-progress competitions', () => {
+      const competition = createCompetitionData({ status: 'in-progress' });
+      render(<CompetitionListCard competition={competition} onPress={defaultOnPress} />);
+
+      expect(screen.getByTestId(`mini-leaderboard-${competition.id}`)).toBeTruthy();
+      expect(screen.queryByTestId(`first-round-line-${competition.id}`)).toBeNull();
+    });
+
+    it('renders the mini leaderboard for active competitions too', () => {
+      const competition = createCompetitionData({ status: 'active' });
+      render(<CompetitionListCard competition={competition} onPress={defaultOnPress} />);
+
+      expect(screen.getByTestId(`mini-leaderboard-${competition.id}`)).toBeTruthy();
+    });
+
+    it('renders the first-round line and hides the date row for upcoming', () => {
+      const competition = createUpcomingCompetition({ startDate: '2025-04-10' });
+      render(<CompetitionListCard competition={competition} onPress={defaultOnPress} />);
+
+      expect(screen.getByTestId(`first-round-line-${competition.id}`)).toBeTruthy();
+      // Date row is hidden for upcoming — the first-round line shows the date instead.
+      expect(screen.queryByTestId('datetime-display')).toBeNull();
+      expect(screen.queryByTestId(`mini-leaderboard-${competition.id}`)).toBeNull();
+    });
+
+    it('does not render either extra for draft / completed / cancelled', () => {
+      const statuses = ['draft', 'completed', 'cancelled'];
+
+      statuses.forEach((status) => {
+        const competition = createCompetitionData({ id: `c-${status}`, status });
+        const { unmount } = render(
+          <CompetitionListCard competition={competition} onPress={defaultOnPress} />
+        );
+
+        expect(
+          screen.queryByTestId(`mini-leaderboard-${competition.id}`)
+        ).toBeNull();
+        expect(
+          screen.queryByTestId(`first-round-line-${competition.id}`)
+        ).toBeNull();
+
+        unmount();
       });
     });
   });

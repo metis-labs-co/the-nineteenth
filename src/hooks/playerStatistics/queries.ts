@@ -114,7 +114,11 @@ export function usePlayerStatistics(
             courses!inner (
               id,
               name,
-              holes
+              holes,
+              clubs (
+                id,
+                name
+              )
             ),
             competitions (
               id,
@@ -296,16 +300,23 @@ export function usePlayerStatistics(
         // Only require round and course - competition can be null for practice rounds
         if (!round || !course) return;
 
-        const isPracticeRound = !competition;
+        const isStandaloneRound = !competition;
 
         // Count match play rounds
         if (round.game_type === 'match-play') {
           matchPlayRoundsCount++;
         }
 
-        // Resolve effective handicap source: round > competition > default 'profile'
+        // Resolve effective handicap source: round > competition > default 'profile'.
+        // Practice vs Handicap is a partition of standalone rounds: a round
+        // counts toward handicap when its effective source is not 'none'.
+        // Competition rounds belong to the Competition bucket and are excluded
+        // from both Practice and Handicap counts so the three categories don't
+        // double-count the same round.
         const effectiveHandicapSource = round.handicap_source ?? competition?.handicap_source ?? 'profile';
-        if (effectiveHandicapSource !== 'none') {
+        const isHandicapRound = isStandaloneRound && effectiveHandicapSource !== 'none';
+        const isPracticeRound = isStandaloneRound && effectiveHandicapSource === 'none';
+        if (isHandicapRound) {
           handicapRoundsCount++;
         }
 
@@ -390,14 +401,18 @@ export function usePlayerStatistics(
           roundId: round.id,
           courseId: course.id,
           competitionId: competition?.id ?? null,
-          competitionName: competition?.name ?? 'Practice Round',
+          competitionName:
+            competition?.name ?? (isHandicapRound ? 'Handicap Round' : 'Practice Round'),
           courseName: course.name,
+          clubName: course.clubs?.name ?? null,
           date: round.date || scorecard.submitted_at || '',
           totalGross: scorecard.total_gross || 0,
           totalPoints: scorecard.total_points || 0,
           holesPlayed: holesInScorecard,
           isPracticeRound,
+          isHandicapRound,
           gameType: round.game_type,
+          roundStatus: round.status,
         };
 
         const isFullRound = holesInScorecard >= FULL_ROUND_HOLE_COUNT;
@@ -616,8 +631,12 @@ export function usePlayerStatistics(
           : 0;
 
       // Get recent rounds (last 5) — includes both full and 9-hole rounds so
-      // the activity list reflects everything the player has played.
+      // the activity list reflects everything the player has played. We
+      // exclude rounds that are still 'in-progress' or 'upcoming' so the
+      // activity list only shows finished rounds even if a scorecard within
+      // them was marked completed early.
       const recentRounds = [...fullRoundSummaries, ...nineHoleSummaries]
+        .filter((r) => r.roundStatus === 'completed')
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
         .slice(0, 5);
 

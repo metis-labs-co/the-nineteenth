@@ -16,7 +16,7 @@ import {
   ParTypeStatsSection,
   PerformanceChart,
 } from '@/components/statistics';
-import { formatDateAustralian } from '@/utils/formatting';
+import { formatDateLong } from '@/utils/formatting';
 import type { CourseStatisticsData } from '@/hooks/playerStatistics';
 
 interface CourseOverviewTabProps {
@@ -91,14 +91,16 @@ export const CourseOverviewTab = React.memo(function CourseOverviewTab({
             {stats.recentRounds.map((round, index) => (
               <RecentRoundRow
                 key={round.roundId}
-                date={formatDateAustralian(round.date)}
+                date={formatDateLong(round.date)}
                 courseName={round.courseName}
+                clubName={round.clubName}
                 competitionName={round.competitionName}
                 totalGross={round.totalGross}
                 totalPoints={round.totalPoints}
                 gameType={round.gameType}
                 isLast={index === stats.recentRounds.length - 1}
                 isPracticeRound={round.isPracticeRound}
+                isHandicapRound={round.isHandicapRound}
               />
             ))}
           </View>

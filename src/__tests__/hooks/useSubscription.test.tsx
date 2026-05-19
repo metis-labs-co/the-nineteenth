@@ -88,7 +88,7 @@ function createDBTierLimits(tier: SubscriptionTier, overrides: Partial<any> = {}
       max_rounds_per_competition: 2,
       max_players_per_competition: 10,
       max_friends: 10,
-      allowed_game_types: ['stableford'],
+      allowed_game_types: ['stableford', 'stroke'],
       can_use_team_formats: false,
       can_use_scoring_pairs: false,
       can_export_data: false,
@@ -416,7 +416,7 @@ describe('useSubscription', () => {
       expect(access.allowed).toBe(true);
     });
 
-    it('should deny stroke play for free tier', async () => {
+    it('should allow stroke play for free tier', async () => {
       setupMockData('free');
       const wrapper = createWrapper();
       const { result } = renderHook(() => useSubscription(), { wrapper });
@@ -427,9 +427,7 @@ describe('useSubscription', () => {
 
       const access = result.current.checkFeature('game_type', { gameType: 'stroke' });
 
-      expect(access.allowed).toBe(false);
-      expect(access.reason).toContain('Stroke Play');
-      expect(access.reason).toContain('social');
+      expect(access.allowed).toBe(true);
     });
 
     it('should allow stroke play for social tier', async () => {
@@ -862,7 +860,7 @@ describe('useSubscription - Additional Features', () => {
   });
 
   describe('Game type tier requirements', () => {
-    it('should require social tier for stroke play', async () => {
+    it('should allow stroke play on the free tier', async () => {
       setupMockData('free');
       const wrapper = createWrapper();
       const { result } = renderHook(() => useSubscription(), { wrapper });
@@ -872,8 +870,7 @@ describe('useSubscription - Additional Features', () => {
       });
 
       const access = result.current.checkFeature('game_type', { gameType: 'stroke' });
-      expect(access.allowed).toBe(false);
-      expect(access.requiredTier).toBe('social');
+      expect(access.allowed).toBe(true);
     });
 
     it('should allow match-play for social tier', async () => {

@@ -4,6 +4,8 @@ export type {
   CompetitionListCardData,
   CompetitionWinnerInfo,
 } from './CompetitionListCard';
+export { CompetitionMiniLeaderboard } from './CompetitionMiniLeaderboard';
+export { CompetitionFirstRoundLine } from './CompetitionFirstRoundLine';
 
 // Competition Detail Tab Components
 export {

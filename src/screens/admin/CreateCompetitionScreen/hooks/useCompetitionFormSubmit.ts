@@ -86,6 +86,11 @@ export function useCompetitionFormSubmit({
         teamSize: step1.enableTeams ? 2 : undefined,
         pointSystem: DEFAULT_POINT_SYSTEM,
 
+        // Slot capacity + organizer-not-playing
+        maxPlayers: step1.maxPlayers ?? null,
+        lockAtCapacity: step1.lockAtCapacity !== false,
+        organizerIsPlayer: step1.organizerIsPlayer !== false,
+
         rounds: step2.map((round) => ({
           courseName: round.courseName || undefined,
           courseId: round.courseId || undefined,

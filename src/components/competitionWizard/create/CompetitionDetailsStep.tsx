@@ -13,7 +13,7 @@ import {
 } from '@/schemas/competition';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
-import { DatePicker, FormInput, FormSection, Pill, SegmentedButton } from '@/components/common';
+import { DatePicker, FormInput, FormSection, Pill, SegmentedButton, ToggleSwitch } from '@/components/common';
 import { useIsPremium, useCheckFeature } from '@/context/SubscriptionContext';
 import { IconTrophy, IconLock } from '@tabler/icons-react-native';
 
@@ -70,6 +70,9 @@ export default function CompetitionDetailsStep({
       handicapSource: 'profile', // Default to profile handicap (Social Index is premium)
       inviteCode: '',
       enableTeams: false,
+      maxPlayers: null,
+      lockAtCapacity: true,
+      organizerIsPlayer: true,
     },
   });
 
@@ -82,6 +85,10 @@ export default function CompetitionDetailsStep({
 
   // Watch handicap source for hint text
   const handicapSource = useWatch({ control, name: 'handicapSource' });
+
+  // Watch max players to conditionally show "lock when full"
+  const maxPlayers = useWatch({ control, name: 'maxPlayers' });
+  const hasPlayerLimit = maxPlayers != null && maxPlayers > 0;
 
   const handleCompetitionTypeChange = (value: string) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -289,6 +296,101 @@ export default function CompetitionDetailsStep({
             </Text>
           </View>
 
+          {/* Players & slots */}
+          <View style={styles.fieldContainer}>
+            <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Players & slots</Text>
+
+            {/* Set a player limit */}
+            <View style={styles.toggleRow}>
+              <View style={styles.toggleRowText}>
+                <Text style={[styles.toggleRowLabel, { color: colors.textPrimary }]}>
+                  Set a player limit
+                </Text>
+                <Text style={[styles.toggleRowDescription, { color: colors.textSecondary }]}>
+                  Limit how many players can join via the invite code.
+                </Text>
+              </View>
+              <Controller
+                control={control}
+                name="maxPlayers"
+                render={({ field: { value, onChange } }) => (
+                  <ToggleSwitch
+                    value={value != null && value > 0}
+                    onValueChange={(on) => onChange(on ? 8 : null)}
+                    accessibilityLabel="Set a player limit"
+                  />
+                )}
+              />
+            </View>
+
+            {hasPlayerLimit && (
+              <>
+                <Controller
+                  control={control}
+                  name="maxPlayers"
+                  render={({ field: { value, onChange } }) => (
+                    <FormInput
+                      label="Maximum players"
+                      placeholder="e.g. 8"
+                      value={value != null ? String(value) : ''}
+                      onChangeText={(text) => {
+                        const digits = text.replace(/[^0-9]/g, '');
+                        onChange(digits ? parseInt(digits, 10) : null);
+                      }}
+                      keyboardType="number"
+                      error={errors.maxPlayers?.message}
+                    />
+                  )}
+                />
+
+                <View style={styles.toggleRow}>
+                  <View style={styles.toggleRowText}>
+                    <Text style={[styles.toggleRowLabel, { color: colors.textPrimary }]}>
+                      Lock when full
+                    </Text>
+                    <Text style={[styles.toggleRowDescription, { color: colors.textSecondary }]}>
+                      Block new joins once the limit is reached.
+                    </Text>
+                  </View>
+                  <Controller
+                    control={control}
+                    name="lockAtCapacity"
+                    render={({ field: { value, onChange } }) => (
+                      <ToggleSwitch
+                        value={value !== false}
+                        onValueChange={onChange}
+                        accessibilityLabel="Lock when full"
+                      />
+                    )}
+                  />
+                </View>
+              </>
+            )}
+
+            {/* Organizing but not playing */}
+            <View style={styles.toggleRow}>
+              <View style={styles.toggleRowText}>
+                <Text style={[styles.toggleRowLabel, { color: colors.textPrimary }]}>
+                  I&apos;m organizing, not playing
+                </Text>
+                <Text style={[styles.toggleRowDescription, { color: colors.textSecondary }]}>
+                  You won&apos;t be added to pairings, scoring or the leaderboard.
+                </Text>
+              </View>
+              <Controller
+                control={control}
+                name="organizerIsPlayer"
+                render={({ field: { value, onChange } }) => (
+                  <ToggleSwitch
+                    value={value === false}
+                    onValueChange={(on) => onChange(!on)}
+                    accessibilityLabel="Organizing but not playing"
+                  />
+                )}
+              />
+            </View>
+          </View>
+
           {/* Handicap Source */}
           <View style={styles.fieldContainer}>
             <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Handicap Source</Text>
@@ -445,5 +547,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  toggleRowText: {
+    flex: 1,
+  },
+  toggleRowLabel: {
+    ...typography.bodyBold,
+  },
+  toggleRowDescription: {
+    ...typography.caption,
+    marginTop: 2,
   },
 });

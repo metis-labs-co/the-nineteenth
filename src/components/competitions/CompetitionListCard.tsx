@@ -2,7 +2,7 @@
 import React, { useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { IconChevronRight, IconUsers, IconTrophy, IconCurrencyDollar } from '@tabler/icons-react-native';
+import { IconUsers, IconTrophy, IconCurrencyDollar } from '@tabler/icons-react-native';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, skinsColor } from '@/constants/theme';
 import {
@@ -14,6 +14,8 @@ import {
 } from '@/components/common';
 import type { StatusVariant } from '@/components/common';
 import type { WinnerInfo } from '@/components/common/WinnerRow';
+import { CompetitionMiniLeaderboard } from './CompetitionMiniLeaderboard';
+import { CompetitionFirstRoundLine } from './CompetitionFirstRoundLine';
 
 /**
  * Winner information for completed competitions
@@ -144,6 +146,14 @@ export const CompetitionListCard = React.memo(function CompetitionListCard<
     onDelete?.(competition);
   }, [onDelete, competition]);
 
+  const normalizedStatus = competition.status?.toLowerCase();
+  const isInProgress =
+    normalizedStatus === 'in-progress' ||
+    normalizedStatus === 'in_progress' ||
+    normalizedStatus === 'active';
+  const isUpcoming = normalizedStatus === 'upcoming';
+  const isCompleted = normalizedStatus === 'completed';
+
   const getAccessibilityLabel = () => {
     const role = competition.isOrganizer ? 'Organiser' : 'Player';
     const deleteHint = swipeEnabled ? ', swipe left to delete' : '';
@@ -163,69 +173,75 @@ export const CompetitionListCard = React.memo(function CompetitionListCard<
       testID={testID}
       style={styles.cardStyle}
     >
-      <View style={styles.contentWrapper}>
-        <View style={styles.content}>
-          {/* Top Row: Status Badge + Role */}
-          <View style={styles.topRow}>
-            <StatusBadge status={getStatusVariant(competition.status)} />
-            <Pill
-              label={competition.isOrganizer ? 'Organiser' : 'Player'}
-              variant={'default'}
-              size="md"
-            />
+      <View style={styles.content}>
+        {/* Top Row: Status Badge + Role */}
+        <View style={styles.topRow}>
+          <StatusBadge status={getStatusVariant(competition.status)} />
+          <Pill
+            label={competition.isOrganizer ? 'Organiser' : 'Player'}
+            variant={'default'}
+            size="md"
+          />
+        </View>
+
+        {/* Competition Name */}
+        <Text
+          style={[styles.competitionName, { color: colors.textPrimary }]}
+          numberOfLines={1}
+        >
+          {competition.name}
+        </Text>
+
+        {/* Meta Info: Rounds + Players + Prize Pool */}
+        <View style={styles.metaRow}>
+          <View style={styles.metaItem}>
+            <IconTrophy size={14} color={colors.textSecondary} />
+            <Text style={[styles.metaText, { color: colors.textSecondary }]}>
+              {competition.rounds} round{competition.rounds !== 1 ? 's' : ''}
+            </Text>
           </View>
-
-          {/* Competition Name */}
-          <Text
-            style={[styles.competitionName, { color: colors.textPrimary }]}
-            numberOfLines={1}
-          >
-            {competition.name}
-          </Text>
-
-          {/* Meta Info: Rounds + Players + Prize Pool */}
-          <View style={styles.metaRow}>
+          <View style={styles.metaItem}>
+            <IconUsers size={14} color={colors.textSecondary} />
+            <Text style={[styles.metaText, { color: colors.textSecondary }]}>
+              {competition.players} player{competition.players !== 1 ? 's' : ''}
+            </Text>
+          </View>
+          {competition.hasPrizePool && competition.prizePoolAmount != null && competition.prizePoolAmount > 0 && (
             <View style={styles.metaItem}>
-              <IconTrophy size={14} color={colors.textSecondary} />
-              <Text style={[styles.metaText, { color: colors.textSecondary }]}>
-                {competition.rounds} round{competition.rounds !== 1 ? 's' : ''}
+              <IconCurrencyDollar size={14} color={skinsColor} />
+              <Text style={[styles.metaText, { color: skinsColor }]}>
+                {formatPrizePoolAmount(competition.prizePoolAmount)} pool
               </Text>
             </View>
-            <View style={styles.metaItem}>
-              <IconUsers size={14} color={colors.textSecondary} />
-              <Text style={[styles.metaText, { color: colors.textSecondary }]}>
-                {competition.players} player{competition.players !== 1 ? 's' : ''}
-              </Text>
-            </View>
-            {competition.hasPrizePool && competition.prizePoolAmount != null && competition.prizePoolAmount > 0 && (
-              <View style={styles.metaItem}>
-                <IconCurrencyDollar size={14} color={skinsColor} />
-                <Text style={[styles.metaText, { color: skinsColor }]}>
-                  {formatPrizePoolAmount(competition.prizePoolAmount)} pool
-                </Text>
-              </View>
-            )}
-          </View>
+          )}
+        </View>
 
-          {/* Date Row */}
+        {/* Date Row — hidden for upcoming since the first-round line
+            below already includes the date/time. */}
+        {!isUpcoming && (
           <DateTimeDisplay
             date={competition.startDate}
             size="md"
             style={styles.dateRow}
           />
+        )}
 
-          {/* Winner Row - Only for completed competitions */}
-          {competition.status?.toLowerCase() === 'completed' && competition.winner && (
-            <View style={styles.winnerContainer}>
-              <WinnerRow winner={competition.winner} />
-            </View>
-          )}
-        </View>
+        {/* Mini leaderboard for in-progress competitions */}
+        {isInProgress && (
+          <CompetitionMiniLeaderboard competitionId={competition.id} />
+        )}
 
-        {/* Arrow */}
-        <View style={styles.arrow}>
-          <IconChevronRight size={20} color={colors.gray400} />
-        </View>
+        {/* First-round venue + date/time for upcoming competitions */}
+        {isUpcoming && (
+          <CompetitionFirstRoundLine competitionId={competition.id} />
+        )}
+
+        {/* Winner Row - Only for completed competitions */}
+        {isCompleted && competition.winner && (
+          <View style={styles.winnerContainer}>
+            <WinnerRow winner={competition.winner} />
+          </View>
+        )}
       </View>
     </CardContainer>
   );
@@ -236,16 +252,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  contentWrapper: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
   content: {
     flex: 1,
-  },
-  arrow: {
-    marginLeft: spacing.md,
   },
   topRow: {
     flexDirection: 'row',

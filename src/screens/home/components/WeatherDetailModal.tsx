@@ -1,8 +1,15 @@
 /**
  * WeatherDetailModal — centered modal triggered from HeaderWeatherChip.
- * Shows today (Morning + Afternoon buckets) plus a 2-day outlook for the
- * device location. Loading, error, and "bucket already passed" states are
- * all handled inline.
+ *
+ * Layout:
+ *  - Location header (reverse-geocoded place name, falls back to timezone).
+ *  - Day mode  (before 18:00): today's morning/afternoon split as the
+ *    headline, with tomorrow + day-after as compact rows. Morning stays
+ *    visible all day — buckets are never collapsed to "already passed".
+ *  - Evening mode (≥ 18:00): today collapses to a compact row, tomorrow's
+ *    morning/afternoon split becomes the headline, day-after stays as a row.
+ *
+ * Loading, error, and missing-bucket fallbacks are all handled inline.
  */
 
 import React from 'react';
@@ -20,10 +27,12 @@ import {
   useDetailedDayForecast,
   type BucketStats,
   type Coords,
+  type DayBuckets,
   type DaySummary,
   type DetailedForecast,
 } from '@/hooks/weather';
 import { weatherCodeToIcon } from '@/hooks/weather/weatherCodeToIcon';
+import { useReverseGeocode, timezoneToPlace } from '@/hooks/weather/useReverseGeocode';
 
 interface WeatherDetailModalProps {
   visible: boolean;
@@ -61,7 +70,10 @@ export function WeatherDetailModal({
           ]}
           onPress={(e) => e.stopPropagation()}
         >
-          <CloseButton onPress={onDismiss} />
+          <View style={styles.topBar}>
+            <LocationHeader coords={coords} locationIso={data?.locationIso ?? null} />
+            <CloseButton onPress={onDismiss} />
+          </View>
           {isLoading || data === undefined ? (
             <SkeletonBody />
           ) : data === null ? (
@@ -132,25 +144,88 @@ function ErrorBody({ onRetry }: { onRetry: () => void }) {
 function SuccessBody({ data }: { data: DetailedForecast }) {
   return (
     <ScrollView contentContainerStyle={styles.successBody}>
-      <DayHeader summary={data.today.summary} />
-      <SectionLabel>TODAY</SectionLabel>
-      <View style={styles.bucketRow}>
-        <BucketCard label="Morning" testIDBase="morning" stats={data.today.morning} />
-        <BucketCard label="Afternoon" testIDBase="afternoon" stats={data.today.afternoon} />
-      </View>
-      <SectionLabel>NEXT DAYS</SectionLabel>
-      {data.forecast.map((day) => (
-        <ForecastRow key={day.dateIso} day={day} />
-      ))}
+      {data.eveningMode ? (
+        <EveningLayout data={data} />
+      ) : (
+        <DayLayout data={data} />
+      )}
     </ScrollView>
   );
 }
 
-function DayHeader({ summary }: { summary: DaySummary }) {
+function DayLayout({ data }: { data: DetailedForecast }) {
+  return (
+    <>
+      <DayHeader summary={data.today.summary} />
+      <SectionLabel>TODAY</SectionLabel>
+      <BucketSplit buckets={data.today} testIDPrefix="today" />
+      <SectionLabel>NEXT DAYS</SectionLabel>
+      <ForecastRow day={data.tomorrow.summary} />
+      <ForecastRow day={data.dayAfter} />
+    </>
+  );
+}
+
+function EveningLayout({ data }: { data: DetailedForecast }) {
+  return (
+    <>
+      <SectionLabel>TODAY</SectionLabel>
+      <CompactDayRow day={data.today.summary} testID="today-compact-row" />
+      <DayHeader summary={data.tomorrow.summary} accent />
+      <SectionLabel>TOMORROW</SectionLabel>
+      <BucketSplit buckets={data.tomorrow} testIDPrefix="tomorrow" />
+      <SectionLabel>NEXT DAY</SectionLabel>
+      <ForecastRow day={data.dayAfter} />
+    </>
+  );
+}
+
+function LocationHeader({
+  coords,
+  locationIso,
+}: {
+  coords: Coords | null;
+  locationIso: string | null;
+}) {
+  const colors = useThemeColors();
+  const { data: place } = useReverseGeocode(coords);
+
+  const fallback = timezoneToPlace(locationIso);
+  const primary = place?.primary ?? fallback ?? 'Current location';
+  const secondary = place?.secondary ?? null;
+  const inlineLabel = secondary ? `${primary}, ${secondary}` : primary;
+  const a11y = `Forecast for ${inlineLabel}`;
+
+  return (
+    <View
+      testID="weather-location-header"
+      accessibilityRole="text"
+      accessibilityLabel={a11y}
+      style={[
+        styles.locationHeader,
+        { backgroundColor: colors.surfaceVariant, borderColor: colors.borderLight },
+      ]}
+    >
+      <Icon source="map-marker" size={16} color={colors.primary} />
+      <Text
+        style={[
+          typography.small,
+          styles.locationText,
+          { color: colors.textPrimary, fontWeight: '600' },
+        ]}
+        numberOfLines={1}
+      >
+        {inlineLabel}
+      </Text>
+    </View>
+  );
+}
+
+function DayHeader({ summary, accent }: { summary: DaySummary; accent?: boolean }) {
   const colors = useThemeColors();
   const { icon, label } = weatherCodeToIcon(summary.weatherCode);
   return (
-    <View style={styles.dayHeader}>
+    <View style={[styles.dayHeader, accent ? styles.dayHeaderAccent : null]}>
       <View style={styles.dayHeaderTop}>
         <Icon source={icon} size={36} color={colors.textPrimary} />
         <View style={{ flex: 1, marginLeft: spacing.md }}>
@@ -197,6 +272,29 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
+function BucketSplit({
+  buckets,
+  testIDPrefix,
+}: {
+  buckets: DayBuckets;
+  testIDPrefix: string;
+}) {
+  return (
+    <View style={styles.bucketRow}>
+      <BucketCard
+        label="Morning"
+        testIDBase={`${testIDPrefix}-morning`}
+        stats={buckets.morning}
+      />
+      <BucketCard
+        label="Afternoon"
+        testIDBase={`${testIDPrefix}-afternoon`}
+        stats={buckets.afternoon}
+      />
+    </View>
+  );
+}
+
 function BucketCard({
   label,
   testIDBase,
@@ -207,10 +305,14 @@ function BucketCard({
   stats: BucketStats | null;
 }) {
   const colors = useThemeColors();
+
+  // Defensive: stats can be null only when the API returns no hours for the
+  // window (very rare — e.g. partial midnight rollover). Render a quiet
+  // placeholder rather than crashing.
   if (stats === null) {
     return (
       <View
-        testID={`bucket-${testIDBase}-passed`}
+        testID={`bucket-${testIDBase}-empty`}
         style={[
           styles.bucketCard,
           { backgroundColor: colors.surfaceVariant, borderColor: colors.borderLight },
@@ -222,7 +324,7 @@ function BucketCard({
         <Text
           style={[typography.caption, { color: colors.textTertiary, marginTop: spacing.sm }]}
         >
-          Already passed
+          No data
         </Text>
       </View>
     );
@@ -277,6 +379,53 @@ function BucketLine({ label }: { label: string }) {
     <Text style={[typography.caption, { color: colors.textSecondary, marginTop: spacing.xs }]}>
       {label}
     </Text>
+  );
+}
+
+function CompactDayRow({ day, testID }: { day: DaySummary; testID: string }) {
+  const colors = useThemeColors();
+  const { icon, label } = weatherCodeToIcon(day.weatherCode);
+  const a11y =
+    `Today, ${label}, ` +
+    `high ${Math.round(day.tempHighC)} degrees, low ${Math.round(day.tempLowC)} degrees, ` +
+    `${Math.round(day.precipProbabilityMax)} percent rain.`;
+  return (
+    <View
+      testID={testID}
+      accessibilityRole="text"
+      accessibilityLabel={a11y}
+      style={[
+        styles.compactRow,
+        { backgroundColor: colors.surfaceVariant, borderColor: colors.borderLight },
+      ]}
+    >
+      <Icon source={icon} size={20} color={colors.textPrimary} />
+      <Text
+        style={[
+          typography.small,
+          { color: colors.textPrimary, marginLeft: spacing.sm, flex: 1 },
+        ]}
+        numberOfLines={1}
+      >
+        {label}
+      </Text>
+      <Text
+        style={[
+          typography.small,
+          { color: colors.textPrimary, marginLeft: spacing.md, width: 70, textAlign: 'right' },
+        ]}
+      >
+        {Math.round(day.tempHighC)}° / {Math.round(day.tempLowC)}°
+      </Text>
+      <Text
+        style={[
+          typography.caption,
+          { color: colors.textSecondary, marginLeft: spacing.md, width: 60, textAlign: 'right' },
+        ]}
+      >
+        {Math.round(day.precipProbabilityMax)}% rain
+      </Text>
+    </View>
   );
 }
 
@@ -353,21 +502,42 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     maxHeight: '85%',
   },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
   // Visual: 32×32 (compact density). Effective tap area: 56×56 via hitSlop on the Pressable — meets ≥44 a11y target.
   closeBtn: {
-    alignSelf: 'flex-end',
     width: 32,
     height: 32,
     borderRadius: borderRadius.full,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.sm,
   },
   successBody: {
     paddingBottom: spacing.md,
   },
+  locationHeader: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    minWidth: 0,
+  },
+  locationText: {
+    marginLeft: spacing.xs,
+    flexShrink: 1,
+  },
   dayHeader: {
     marginBottom: spacing.md,
+  },
+  dayHeaderAccent: {
+    marginTop: spacing.md,
   },
   dayHeaderTop: {
     flexDirection: 'row',
@@ -408,6 +578,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacing.sm,
     borderTopWidth: 1,
+  },
+  compactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
   },
   errorBody: {
     alignItems: 'center',

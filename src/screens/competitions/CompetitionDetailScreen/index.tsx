@@ -452,6 +452,9 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
             colors={colors}
             competitionId={id}
             competitionName={competition.name}
+            maxPlayers={competition.max_players ?? null}
+            organizerIsPlayer={competition.organizer_is_player !== false}
+            inviteCode={competition.invite_code}
           />
         )}
 

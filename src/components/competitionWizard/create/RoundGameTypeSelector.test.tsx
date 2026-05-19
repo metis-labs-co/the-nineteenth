@@ -21,9 +21,10 @@ import type { GameType } from '@/types/database.types';
 // MOCKS
 // ============================================================================
 
-// Mock useSubscription hook
+// Mock useSubscription hook — matches the free-tier defaults, which now
+// include Stroke Play.
 const mockLimits = {
-  allowedGameTypes: ['stableford'] as GameType[],
+  allowedGameTypes: ['stableford', 'stroke'] as GameType[],
 };
 
 jest.mock('@/hooks/useSubscription', () => ({
@@ -269,8 +270,8 @@ describe('RoundGameTypeSelector', () => {
     it('uses subscription limits when allowedGameTypes not provided', () => {
       render(<RoundGameTypeSelector {...defaultProps} />);
 
-      // Should use mockLimits which only has stableford
-      // Stroke, Par and Match Play should show tier badges
+      // mockLimits matches the free tier (Stableford + Stroke Play unlocked).
+      // Par should show a Social badge; Match Play should show a Premium badge.
       expect(screen.getAllByText('Social').length).toBeGreaterThanOrEqual(1);
       expect(screen.getByText('Premium')).toBeTruthy();
     });
@@ -343,9 +344,9 @@ describe('RoundGameTypeSelector', () => {
         />
       );
 
-      fireEvent.press(screen.getByLabelText('Stroke Play - Upgrade required'));
+      fireEvent.press(screen.getByLabelText('Par - Upgrade required'));
 
-      // The message contains "Social" tier
+      // Par still requires Social tier
       const lastPromptCall = mockUpgradePromptProps[mockUpgradePromptProps.length - 1];
       expect(lastPromptCall.config.message).toContain('Social');
     });
@@ -498,12 +499,12 @@ describe('RoundGameTypeSelector', () => {
       render(
         <RoundGameTypeSelector
           {...defaultProps}
-          allowedGameTypes={['stableford']}
+          allowedGameTypes={['stableford', 'stroke']}
         />
       );
 
-      const strokeOption = screen.getByLabelText('Stroke Play - Upgrade required');
-      expect(strokeOption.props.accessibilityHint).toBe('Tap to upgrade to Social');
+      const parOption = screen.getByLabelText('Par - Upgrade required');
+      expect(parOption.props.accessibilityHint).toBe('Tap to upgrade to Social');
     });
 
     it('has radio accessibility role', () => {
@@ -743,15 +744,15 @@ describe('RoundGameTypeSelector', () => {
       render(
         <RoundGameTypeSelector
           {...defaultProps}
-          allowedGameTypes={['stableford']}
+          allowedGameTypes={['stableford', 'stroke']}
         />
       );
 
-      fireEvent.press(screen.getByLabelText('Stroke Play - Upgrade required'));
+      fireEvent.press(screen.getByLabelText('Par - Upgrade required'));
 
       // Check the upgrade prompt was called with correct config
       const lastCall = mockUpgradePromptProps[mockUpgradePromptProps.length - 1];
-      expect(lastCall.config.benefits).toContain('Stroke Play game type');
+      expect(lastCall.config.benefits).toContain('Par game type');
     });
 
     it('passes correct benefits for Premium tier upgrade', () => {
@@ -773,11 +774,11 @@ describe('RoundGameTypeSelector', () => {
       render(
         <RoundGameTypeSelector
           {...defaultProps}
-          allowedGameTypes={['stableford']}
+          allowedGameTypes={['stableford', 'stroke']}
         />
       );
 
-      fireEvent.press(screen.getByLabelText('Stroke Play - Upgrade required'));
+      fireEvent.press(screen.getByLabelText('Par - Upgrade required'));
 
       const lastCall = mockUpgradePromptProps[mockUpgradePromptProps.length - 1];
       expect(lastCall.config.targetTier).toBe('social');
@@ -930,15 +931,11 @@ describe('RoundGameTypeSelector', () => {
         expect(screen.getByTestId('icon-counter')).toBeTruthy();
       });
 
-      it('requires social tier for Stroke Play', () => {
-        render(
-          <RoundGameTypeSelector
-            {...defaultProps}
-            allowedGameTypes={['stableford']}
-          />
-        );
-        // Both Stroke Play and Par require Social tier
-        expect(screen.getAllByText('Social').length).toBeGreaterThanOrEqual(1);
+      it('is available on the free tier', () => {
+        // Stroke Play moved to the free tier; given the default subscription
+        // mock, it should render unlocked with no upgrade badge.
+        render(<RoundGameTypeSelector {...defaultProps} />);
+        expect(screen.queryByLabelText('Stroke Play - Upgrade required')).toBeNull();
       });
     });
 

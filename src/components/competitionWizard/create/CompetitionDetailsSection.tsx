@@ -84,6 +84,22 @@ export function CompetitionDetailsSection({
           value={competitionData.enableTeams ? 'Team Competition' : 'Individual'}
           colors={colors}
         />
+        <ReviewItem
+          label="Player limit"
+          value={
+            competitionData.maxPlayers && competitionData.maxPlayers > 0
+              ? `${competitionData.maxPlayers}${
+                  competitionData.lockAtCapacity === false ? ' (no lock)' : ' (locks when full)'
+                }`
+              : 'No limit'
+          }
+          colors={colors}
+        />
+        <ReviewItem
+          label="Organiser"
+          value={competitionData.organizerIsPlayer === false ? 'Not playing' : 'Playing'}
+          colors={colors}
+        />
       </View>
     </View>
   );

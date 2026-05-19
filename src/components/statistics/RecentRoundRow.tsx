@@ -1,8 +1,9 @@
 /**
  * RecentRoundRow - Row displaying a recent round summary
  *
- * Shows date, course name, competition name, game type pill, and scores
- * formatted appropriately for the game type.
+ * Vertically stacks date, club + course, competition name, and pills on the
+ * left so the row can accommodate a long date format (e.g. "Fri, 23rd April,
+ * 2026") without crowding the scores column on the right.
  */
 
 import React from 'react';
@@ -23,6 +24,8 @@ export interface RecentRoundRowProps {
   date: string;
   /** Course name */
   courseName: string;
+  /** Club name (parent club for the course). Omitted from display when empty. */
+  clubName?: string | null;
   /** Competition name */
   competitionName: string;
   /** Total gross score */
@@ -33,8 +36,10 @@ export interface RecentRoundRowProps {
   gameType: GameType;
   /** Whether this is the last row (removes bottom border) */
   isLast?: boolean;
-  /** Whether this is a practice round (shows badge) */
+  /** Standalone round NOT counted toward handicap (shows "Practice" badge). */
   isPracticeRound?: boolean;
+  /** Standalone round counted toward handicap (shows "Handicap" badge). */
+  isHandicapRound?: boolean;
   /** Optional press handler */
   onPress?: () => void;
 }
@@ -68,36 +73,41 @@ function formatSecondaryScore(gameType: GameType, totalPoints: number): string |
 export const RecentRoundRow = React.memo(function RecentRoundRow({
   date,
   courseName,
+  clubName,
   competitionName,
   totalGross,
   totalPoints,
   gameType,
   isLast = false,
   isPracticeRound = false,
+  isHandicapRound = false,
   onPress,
 }: RecentRoundRowProps) {
   const colors = useThemeColors();
   const secondaryScore = formatSecondaryScore(gameType, totalPoints);
+  const showClub = !!clubName && clubName.trim() !== '' && clubName !== courseName;
 
   const content = (
     <>
-      <View style={styles.date}>
-        <Text style={[styles.dateText, { color: colors.textSecondary }]}>{date}</Text>
-      </View>
       <View style={styles.details}>
-        <View style={styles.courseRow}>
-          <Text style={[styles.course, { color: colors.textPrimary }]} numberOfLines={1}>
-            {courseName}
+        <Text style={[styles.dateText, { color: colors.textSecondary }]} numberOfLines={2}>
+          {date}
+        </Text>
+        <Text style={[styles.course, { color: colors.textPrimary }]} numberOfLines={2}>
+          {courseName}
+        </Text>
+        {showClub && (
+          <Text style={[styles.club, { color: colors.textSecondary }]} numberOfLines={2}>
+            {clubName}
           </Text>
-        </View>
+        )}
         <Text style={[styles.competition, { color: colors.textSecondary }]} numberOfLines={1}>
           {competitionName}
         </Text>
         <View style={styles.pillRow}>
           <Pill label={getGameTypeLabel(gameType)} variant="default" size="sm" />
-          {isPracticeRound && (
-            <Pill label="Practice" variant="info" size="sm" />
-          )}
+          {isHandicapRound && <Pill label="Handicap" variant="success" size="sm" />}
+          {isPracticeRound && <Pill label="Practice" variant="info" size="sm" />}
         </View>
       </View>
       <View style={styles.scores}>
@@ -137,31 +147,27 @@ export const RecentRoundRow = React.memo(function RecentRoundRow({
 const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     padding: spacing.lg,
     borderBottomWidth: 1,
   },
   rowLast: {
     borderBottomWidth: 0,
   },
-  date: {
-    width: 80,
+  details: {
+    flex: 1,
+    marginRight: spacing.md,
   },
   dateText: {
     ...typography.small,
-  },
-  details: {
-    flex: 1,
-    marginHorizontal: spacing.md,
-  },
-  courseRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
+    marginBottom: 2,
   },
   course: {
     ...typography.bodyBold,
-    flexShrink: 1,
+  },
+  club: {
+    ...typography.caption,
+    marginTop: 2,
   },
   competition: {
     ...typography.caption,
@@ -169,6 +175,7 @@ const styles = StyleSheet.create({
   },
   pillRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.xs,
     marginTop: spacing.xs,
   },

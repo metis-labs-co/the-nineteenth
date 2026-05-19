@@ -26,6 +26,7 @@ import type { HandicapRound, CombinableNinePair } from '@/types';
 
 import {
   HandicapIndexCard,
+  HandicapTrendChart,
   HandicapRoundRow,
   EmptyHandicapState,
   CombinablePairsSection,
@@ -130,6 +131,11 @@ export default function HandicapHistoryScreen({ navigation }: Props) {
           totalRounds={summary.totalRounds}
           qualifyingCount={summary.qualifyingRoundsCount}
         />
+
+        {/* Differential trend chart */}
+        {summary.rounds.length > 0 && (
+          <HandicapTrendChart rounds={summary.rounds} />
+        )}
 
         {/* Combinable 9-hole pairs (if any) */}
         {user?.id && summary.combinablePairs.length > 0 && (

@@ -39,7 +39,7 @@ const INDIVIDUAL_GAME_TYPE_OPTIONS: GameTypeOption[] = [
     label: 'Stroke Play',
     description: 'Lowest total strokes wins',
     icon: 'counter',
-    requiredTier: 'social',
+    requiredTier: 'free',
   },
   {
     value: 'par',
@@ -102,7 +102,6 @@ const TIER_DISPLAY_NAMES: Record<SubscriptionTier, string> = {
 const TIER_BENEFITS: Record<SubscriptionTier, string[]> = {
   free: [],
   social: [
-    'Stroke Play game type',
     'Par game type',
     'Up to 5 competitions',
     'Up to 12 players per competition',

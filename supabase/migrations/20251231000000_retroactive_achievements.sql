@@ -87,7 +87,7 @@ BEGIN
     v_batch_count := 0;
 
     FOR v_player IN
-      SELECT p.id, p.name, p.home_venue_id
+      SELECT p.id, p.name, p.home_club_id
       FROM players p
       WHERE p.is_placeholder = FALSE
         AND (p_player_id IS NULL OR p.id = p_player_id)
@@ -113,23 +113,21 @@ BEGIN
       WHERE sc.player_id = v_player.id
         AND sc.status IN ('completed', 'confirmed');
 
-      -- Count practice rounds (non-competition)
+      -- Count practice rounds (standalone, non-competition)
       SELECT COUNT(*) INTO v_practice_rounds
       FROM scorecards sc
       JOIN rounds r ON sc.round_id = r.id
-      JOIN competitions c ON r.competition_id = c.id
       WHERE sc.player_id = v_player.id
         AND sc.status IN ('completed', 'confirmed')
-        AND c.is_practice = TRUE;
+        AND r.competition_id IS NULL;
 
       -- Count competition rounds
       SELECT COUNT(*) INTO v_competition_rounds
       FROM scorecards sc
       JOIN rounds r ON sc.round_id = r.id
-      JOIN competitions c ON r.competition_id = c.id
       WHERE sc.player_id = v_player.id
         AND sc.status IN ('completed', 'confirmed')
-        AND c.is_practice = FALSE;
+        AND r.competition_id IS NOT NULL;
 
       -- Upsert progress for round achievements
       IF v_total_rounds > 0 THEN
@@ -248,7 +246,12 @@ BEGIN
         SELECT
           sc.id AS scorecard_id,
           (hole_data.value->>'strokes')::INTEGER AS strokes,
-          COALESCE((hole_data.value->>'par')::INTEGER, c.par) AS par
+          COALESCE(
+            (hole_data.value->>'par')::INTEGER,
+            (SELECT (h->>'par')::INTEGER
+             FROM jsonb_array_elements(c.holes) h
+             WHERE (h->>'holeNumber')::INTEGER = hole_data.hole_num::INTEGER)
+          ) AS par
         FROM scorecards sc
         JOIN rounds r ON sc.round_id = r.id
         JOIN courses c ON r.course_id = c.id
@@ -399,15 +402,15 @@ BEGIN
             last_updated = NOW();
       END IF;
 
-      -- Count rounds at home venue
-      IF v_player.home_venue_id IS NOT NULL THEN
+      -- Count rounds at home club
+      IF v_player.home_club_id IS NOT NULL THEN
         SELECT COUNT(*) INTO v_home_venue_rounds
         FROM scorecards sc
         JOIN rounds r ON sc.round_id = r.id
         JOIN courses c ON r.course_id = c.id
         WHERE sc.player_id = v_player.id
           AND sc.status IN ('completed', 'confirmed')
-          AND c.venue_id = v_player.home_venue_id;
+          AND c.club_id = v_player.home_club_id;
 
         IF v_home_venue_rounds > 0 THEN
           INSERT INTO achievement_progress (player_id, achievement_code, current_value)

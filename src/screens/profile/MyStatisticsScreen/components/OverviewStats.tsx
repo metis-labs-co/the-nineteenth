@@ -17,7 +17,7 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, shadows, borderRadius } from '@/constants/theme';
 import { SectionHeader } from '@/components/social';
 import { StatCard, RecentRoundRow } from '@/components/statistics';
-import { formatDateAustralian } from '@/utils/formatting';
+import { formatDateLong } from '@/utils/formatting';
 import { GAME_TYPE_LABELS } from '@/constants/statusConfig';
 import { GAME_TYPE_DESCRIPTIONS } from '@/constants/gameTypeDescriptions';
 import type { GameType } from '@/types/database/enums';
@@ -57,12 +57,6 @@ export const OverviewStats = React.memo(function OverviewStats({ stats }: Overvi
           value={stats.roundsPlayed}
           icon="flag-checkered"
           iconColor={colors.primary}
-        />
-        <StatCard
-          title="Competitions"
-          value={stats.competitionsEntered}
-          icon="trophy-outline"
-          iconColor={colors.warning}
         />
         <StatCard
           title="Wins"
@@ -186,14 +180,16 @@ export const OverviewStats = React.memo(function OverviewStats({ stats }: Overvi
             {stats.recentRounds.map((round, index) => (
               <RecentRoundRow
                 key={round.roundId}
-                date={formatDateAustralian(round.date)}
+                date={formatDateLong(round.date)}
                 courseName={round.courseName}
+                clubName={round.clubName}
                 competitionName={round.competitionName}
                 totalGross={round.totalGross}
                 totalPoints={round.totalPoints}
                 gameType={round.gameType}
                 isLast={index === stats.recentRounds.length - 1}
                 isPracticeRound={round.isPracticeRound}
+                isHandicapRound={round.isHandicapRound}
                 onPress={() => handleCoursePress(round.courseId, round.courseName)}
               />
             ))}

@@ -23,6 +23,17 @@ interface AddPlayersStepProps {
   onSkip?: () => void;
   /** Maximum players per competition based on subscription tier */
   maxPlayersPerCompetition?: number;
+  /**
+   * Whether the organizer is playing in this competition. When false, the
+   * current user is not auto-added and the step can be completed with zero
+   * players (the comp is set up entirely for others, who join via invite).
+   */
+  organizerIsPlayer?: boolean;
+  /**
+   * Optional slot capacity set in Step 1. When set, the step shows
+   * "X of N filled" and prevents adding more than N players.
+   */
+  competitionMaxPlayers?: number | null;
 }
 
 // Convert a Player/Friend to PlayerFormData
@@ -41,6 +52,8 @@ export default function AddPlayersStep({
   onBack,
   onSkip,
   maxPlayersPerCompetition,
+  organizerIsPlayer = true,
+  competitionMaxPlayers,
 }: AddPlayersStepProps) {
   const insets = useSafeAreaInsets();
   const colors = useThemeColors();
@@ -57,9 +70,18 @@ export default function AddPlayersStep({
   // Modal state for adding placeholder/guest players
   const [showAddPlaceholderModal, setShowAddPlaceholderModal] = useState(false);
 
-  // Determine effective max players (default to 40 for unlimited/-1 or if not provided)
-  const effectiveMaxPlayers =
+  // Determine effective max players (default to 40 for unlimited/-1 or if not provided),
+  // further capped by the organizer-set slot capacity from Step 1 (if any).
+  const tierMax =
     !maxPlayersPerCompetition || maxPlayersPerCompetition < 0 ? 40 : maxPlayersPerCompetition;
+  const effectiveMaxPlayers =
+    competitionMaxPlayers && competitionMaxPlayers > 0
+      ? Math.min(tierMax, competitionMaxPlayers)
+      : tierMax;
+  // Minimum players to finish the wizard:
+  // - 1 if organizer is playing (they auto-count)
+  // - 0 if organizer is not playing (anyone can join via invite later)
+  const minPlayers = organizerIsPlayer ? 1 : 0;
 
   // Filter to show accepted and pending-sent friends (friends where current user sent the request)
   const selectableFriends = useMemo(
@@ -91,8 +113,8 @@ export default function AddPlayersStep({
       });
     }
 
-    // Always ensure current user is included
-    if (currentPlayer && !players.some((p) => p.id === currentPlayer.id)) {
+    // Auto-include organizer only when they're playing.
+    if (organizerIsPlayer && currentPlayer && !players.some((p) => p.id === currentPlayer.id)) {
       players.unshift({
         id: currentPlayer.id,
         name: currentPlayer.name,
@@ -105,8 +127,9 @@ export default function AddPlayersStep({
     return players;
   });
 
-  // Auto-add current user on mount
+  // Auto-add current user on mount (only when organizer is playing)
   useEffect(() => {
+    if (!organizerIsPlayer) return;
     if (currentPlayer && !selectedPlayers.some((p) => p.id === currentPlayer.id)) {
       setSelectedPlayers((prev) => [
         {
@@ -119,13 +142,13 @@ export default function AddPlayersStep({
         ...prev,
       ]);
     }
-  }, [currentPlayer, selectedPlayers]);
+  }, [organizerIsPlayer, currentPlayer, selectedPlayers]);
 
   // Handle selection changes from FriendSelector
   const handleSelectionChange = useCallback(
     (players: SelectedPlayer[]) => {
-      // Don't allow removing current user
-      if (user?.id && !players.some((p) => p.id === user.id)) {
+      // When organizer is playing, they cannot be removed from the player list.
+      if (organizerIsPlayer && user?.id && !players.some((p) => p.id === user.id)) {
         showAlert('Cannot Remove', 'You must be included in the competition.');
         return;
       }
@@ -141,7 +164,7 @@ export default function AddPlayersStep({
 
       setSelectedPlayers(players);
     },
-    [user?.id, effectiveMaxPlayers, showAlert]
+    [organizerIsPlayer, user?.id, effectiveMaxPlayers, showAlert]
   );
 
   // Handle add friend button press
@@ -187,10 +210,12 @@ export default function AddPlayersStep({
 
   // Proceed to next step
   const handleNext = useCallback(() => {
-    if (selectedPlayers.length < 2) {
+    if (selectedPlayers.length < minPlayers) {
       showAlert(
         'Not Enough Players',
-        'Please select at least 1 friend to add to the competition (minimum 2 players total).'
+        organizerIsPlayer
+          ? 'You must be included in the competition.'
+          : 'Add at least one player or skip to invite players later.'
       );
       return;
     }
@@ -205,7 +230,7 @@ export default function AddPlayersStep({
     // Convert selected players to form data
     const playersData = selectedPlayers.map(playerToFormData);
     onComplete(playersData);
-  }, [selectedPlayers, effectiveMaxPlayers, showAlert, onComplete]);
+  }, [selectedPlayers, minPlayers, organizerIsPlayer, effectiveMaxPlayers, showAlert, onComplete]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -216,8 +241,13 @@ export default function AddPlayersStep({
       >
         {/* Step Description */}
         <Text style={[styles.description, { color: colors.textSecondary }]}>
-          Select players for your competition. You are automatically included.
-          {onSkip && ' You can skip this step and add players later.'}
+          {organizerIsPlayer
+            ? 'Select players for your competition. You are automatically included.'
+            : 'Add players or skip to share the invite code after creation.'}
+          {competitionMaxPlayers && competitionMaxPlayers > 0
+            ? ` ${selectedPlayers.length} of ${competitionMaxPlayers} slots filled.`
+            : ''}
+          {onSkip ? ' You can skip this step and add players later.' : ''}
         </Text>
 
         {/* Friend Selector */}
@@ -230,8 +260,8 @@ export default function AddPlayersStep({
           onSearchQueryChange={setSearchQuery}
           limits={{
             max: effectiveMaxPlayers,
-            min: 2,
-            includeCurrentUser: true,
+            min: minPlayers,
+            includeCurrentUser: organizerIsPlayer,
           }}
           limitIndicator={{
             show: true,
@@ -305,7 +335,7 @@ export default function AddPlayersStep({
         >
           <Text style={[styles.buttonLabel, { color: colors.textSecondary }]}>Back</Text>
         </TouchableOpacity>
-        {onSkip && selectedPlayers.length < 2 ? (
+        {onSkip && selectedPlayers.length <= minPlayers ? (
           <TouchableOpacity
             onPress={onSkip}
             style={[styles.skipButton, { borderColor: colors.gray300, borderWidth: 1 }]}
@@ -317,10 +347,14 @@ export default function AddPlayersStep({
         ) : (
           <TouchableOpacity
             onPress={handleNext}
-            style={[styles.nextButton, { backgroundColor: colors.primary }, selectedPlayers.length < 2 && { opacity: 0.5 }]}
+            style={[
+              styles.nextButton,
+              { backgroundColor: colors.primary },
+              selectedPlayers.length < minPlayers && { opacity: 0.5 },
+            ]}
             activeOpacity={0.8}
             accessibilityRole="button"
-            disabled={selectedPlayers.length < 2}
+            disabled={selectedPlayers.length < minPlayers}
           >
             <Text style={[styles.buttonLabel, { color: colors.white }]}>Next ({selectedPlayers.length} players)</Text>
           </TouchableOpacity>

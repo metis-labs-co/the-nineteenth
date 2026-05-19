@@ -292,6 +292,21 @@ export function maskEmail(email: string): string {
 }
 
 /**
+ * Format a date as e.g. "Fri, 23rd April, 2026" (long form with ordinal day).
+ *
+ * @example
+ * formatDateLong('2026-04-23') // 'Thu, 23rd April, 2026'
+ */
+export function formatDateLong(dateString: string | null): string {
+  if (!dateString) return 'TBD';
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(dateString)
+    ? parseLocalDateString(dateString)
+    : new Date(dateString);
+  if (!isValid(date)) return 'TBD';
+  return format(date, "eee, do MMMM, yyyy");
+}
+
+/**
  * Format date with weekday for round display
  *
  * @param dateString - ISO date string (YYYY-MM-DD) or null

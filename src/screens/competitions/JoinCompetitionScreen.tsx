@@ -51,6 +51,8 @@ interface CompetitionPreview {
   playerCount: number;
   handicapSystem: string;
   status: string;
+  maxPlayers: number | null;
+  lockAtCapacity: boolean;
 }
 
 /** Format date to Australian format (DD/MM/YYYY) */
@@ -162,6 +164,8 @@ export default function JoinCompetitionScreen({ navigation }: Props) {
           handicap_system,
           status,
           organizer_id,
+          max_players,
+          lock_at_capacity,
           players:competition_players(count)
         `)
         .eq('invite_code', trimmedCode)
@@ -197,6 +201,8 @@ export default function JoinCompetitionScreen({ navigation }: Props) {
         handicap_system: HandicapSystem;
         status: CompetitionStatus;
         organizer_id: string;
+        max_players: number | null;
+        lock_at_capacity: boolean | null;
         players: { count: number }[];
       };
 
@@ -235,6 +241,8 @@ export default function JoinCompetitionScreen({ navigation }: Props) {
         playerCount: compLookup.players?.[0]?.count ?? 0,
         handicapSystem: compLookup.handicap_system,
         status: compLookup.status,
+        maxPlayers: compLookup.max_players ?? null,
+        lockAtCapacity: compLookup.lock_at_capacity !== false,
       });
     } catch (err) {
       console.error('Error looking up competition:', err);
@@ -257,30 +265,68 @@ export default function JoinCompetitionScreen({ navigation }: Props) {
       return;
     }
 
+    // Capacity check: block when locked and at limit
+    if (
+      competition.maxPlayers != null &&
+      competition.maxPlayers > 0 &&
+      competition.lockAtCapacity &&
+      competition.playerCount >= competition.maxPlayers
+    ) {
+      setJoinError('This competition is full.');
+      return;
+    }
+
     setIsJoining(true);
     setJoinError(null);
 
     try {
-      // Add player to competition
-      const { error: insertError } = await supabase
-        .from('competition_players')
-        .insert({
-          competition_id: competition.id,
-          player_id: user.id,
-          status: 'accepted' as InvitationStatus,
-          invited_at: new Date().toISOString(),
-          responded_at: new Date().toISOString(),
-        } as unknown as never);
+      // If the comp was set up with auto-filled placeholder slots, swap the
+      // joining user into the next unclaimed placeholder rather than inserting
+      // a new row (which would otherwise hit the capacity trigger). The RPC
+      // returns the claimed placeholder id, or NULL if no slot was available.
+      const { data: claimedId, error: claimError } = await supabase.rpc(
+        'claim_competition_placeholder' as never,
+        { p_competition_id: competition.id } as never
+      );
 
-      if (insertError) {
-        if (insertError.code === '23505') {
-          // Unique constraint violation - already a member
+      if (claimError) {
+        // "already joined" surfaces here as a raised exception — surface it
+        // nicely; everything else falls through to the plain insert path.
+        if (claimError.message?.toLowerCase().includes('already joined')) {
           setJoinError('You have already joined this competition.');
-        } else {
-          setJoinError('Unable to join competition. Please try again.');
-          console.error('Join competition error:', insertError);
+          return;
         }
-        return;
+        // Otherwise log and continue; we'll try the regular insert below.
+        console.warn('Placeholder claim attempt failed:', claimError.message);
+      }
+
+      // If no placeholder was available (claim returned null), fall back to
+      // a regular insert. The capacity trigger will block this if the comp
+      // is at its cap.
+      if (claimError || !claimedId) {
+        const { error: insertError } = await supabase
+          .from('competition_players')
+          .insert({
+            competition_id: competition.id,
+            player_id: user.id,
+            status: 'accepted' as InvitationStatus,
+            invited_at: new Date().toISOString(),
+            responded_at: new Date().toISOString(),
+          } as unknown as never);
+
+        if (insertError) {
+          if (insertError.code === '23505') {
+            // Unique constraint violation - already a member
+            setJoinError('You have already joined this competition.');
+          } else if (insertError.message?.toLowerCase().includes('competition is full')) {
+            // Trigger-enforced capacity check (race condition)
+            setJoinError('This competition is full.');
+          } else {
+            setJoinError('Unable to join competition. Please try again.');
+            console.error('Join competition error:', insertError);
+          }
+          return;
+        }
       }
 
       // Check for competition-related achievements
@@ -421,7 +467,9 @@ export default function JoinCompetitionScreen({ navigation }: Props) {
                     <View style={[styles.detailItem, { borderTopColor: colors.borderLight }]}>
                       <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Players</Text>
                       <Text style={[styles.detailValue, { color: colors.textPrimary }]}>
-                        {competition.playerCount} {competition.playerCount === 1 ? 'player' : 'players'}
+                        {competition.maxPlayers
+                          ? `${competition.playerCount} of ${competition.maxPlayers}`
+                          : `${competition.playerCount} ${competition.playerCount === 1 ? 'player' : 'players'}`}
                       </Text>
                     </View>
 
@@ -444,32 +492,50 @@ export default function JoinCompetitionScreen({ navigation }: Props) {
               )}
 
               {/* Join Button */}
-              <TouchableOpacity
-                onPress={handleJoin}
-                disabled={isJoining || competition.status === 'completed' || competition.status === 'cancelled'}
-                style={[
-                  styles.joinButton,
-                  styles.joinButtonContent,
-                  { backgroundColor: colors.success },
-                  (isJoining || competition.status === 'completed' || competition.status === 'cancelled') && styles.buttonDisabled,
-                ]}
-                activeOpacity={0.8}
-                accessibilityRole="button"
-                accessibilityLabel="Join competition"
-                accessibilityHint={`Join ${competition.name} competition`}
-              >
-                {isJoining && <ActivityIndicator size="small" color={colors.white} />}
-                <Text style={[styles.buttonLabel, { color: colors.white }]}>
-                  {isJoining ? 'Joining...' : 'Join Competition'}
-                </Text>
-              </TouchableOpacity>
+              {(() => {
+                const isFull =
+                  competition.maxPlayers != null &&
+                  competition.maxPlayers > 0 &&
+                  competition.lockAtCapacity &&
+                  competition.playerCount >= competition.maxPlayers;
+                const isClosed =
+                  competition.status === 'completed' || competition.status === 'cancelled';
+                const disabled = isJoining || isClosed || isFull;
+                return (
+                  <>
+                    <TouchableOpacity
+                      onPress={handleJoin}
+                      disabled={disabled}
+                      style={[
+                        styles.joinButton,
+                        styles.joinButtonContent,
+                        { backgroundColor: colors.success },
+                        disabled && styles.buttonDisabled,
+                      ]}
+                      activeOpacity={0.8}
+                      accessibilityRole="button"
+                      accessibilityLabel="Join competition"
+                      accessibilityHint={`Join ${competition.name} competition`}
+                    >
+                      {isJoining && <ActivityIndicator size="small" color={colors.white} />}
+                      <Text style={[styles.buttonLabel, { color: colors.white }]}>
+                        {isJoining ? 'Joining...' : isFull ? 'Competition Full' : 'Join Competition'}
+                      </Text>
+                    </TouchableOpacity>
 
-              {/* Warning for non-joinable competitions */}
-              {(competition.status === 'completed' || competition.status === 'cancelled') && (
-                <Text style={[styles.warningText, { color: colors.warning }]}>
-                  This competition is {competition.status} and cannot be joined.
-                </Text>
-              )}
+                    {isClosed && (
+                      <Text style={[styles.warningText, { color: colors.warning }]}>
+                        This competition is {competition.status} and cannot be joined.
+                      </Text>
+                    )}
+                    {!isClosed && isFull && (
+                      <Text style={[styles.warningText, { color: colors.warning }]}>
+                        This competition has reached its player limit.
+                      </Text>
+                    )}
+                  </>
+                );
+              })()}
             </View>
           )}
 

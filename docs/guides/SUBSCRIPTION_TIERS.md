@@ -40,7 +40,7 @@ Tier hierarchy (low → high): `free < social < premium < enterprise < super_adm
 | Players per competition | 4 | 12 | 40 | 100 | No limit | No limit |
 | **Game Types** | | | | | | |
 | Stableford | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Stroke Play | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Stroke Play | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Match Play | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Ambrose/Best Ball/Scramble | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
 | Team formats | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |

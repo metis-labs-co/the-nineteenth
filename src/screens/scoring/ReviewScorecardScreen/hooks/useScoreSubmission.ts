@@ -28,13 +28,89 @@ import { submitLogger } from '@/utils/debugLogger';
 import { useCheckAchievements } from '@/hooks/achievements/useCheckAchievements';
 import { useAchievementToast } from '@/context/AchievementToastContext';
 import { useAuth } from '@/hooks/useAuth';
-import type { AchievementEventData } from '@/types/database/achievement.types';
+import type {
+  AchievementDefinition,
+  AchievementEventData,
+} from '@/types/database/achievement.types';
+import type { CosmeticDefinition } from '@/types/database/cosmetic.types';
+import { useScorecardStore } from '@/store/scorecardStore';
+import { isSingleBallScore } from '@/types/database/base';
+import type { Hole, Scorecard } from '@/types';
 import { useQueryClient } from '@tanstack/react-query';
 import { roundKeys, scorecardKeys } from '@/hooks/queryKeys';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import type { IncompleteHole } from './useScoreReview';
 import { useRoundFinalization } from './useRoundFinalization';
+
+// =====================================================
+// SCORE STATISTICS FOR ACHIEVEMENTS
+// =====================================================
+
+/**
+ * Counts birdies, eagles, pars, etc. for the player's submitted scorecard.
+ * Used to populate AchievementEventData for round/scorecard/score-type events.
+ */
+function calculateScoreStats(
+  scorecard: Scorecard,
+  holes: Hole[]
+): {
+  birdies: number;
+  eagles: number;
+  pars: number;
+  bogeys: number;
+  doubleBogeys: number;
+  albatross: number;
+  holeInOne: boolean;
+  totalGross: number;
+  holesPlayed: number;
+} {
+  let birdies = 0;
+  let eagles = 0;
+  let pars = 0;
+  let bogeys = 0;
+  let doubleBogeys = 0;
+  let albatross = 0;
+  let holeInOne = false;
+  let totalGross = 0;
+  let holesPlayed = 0;
+
+  for (const hole of holes) {
+    const holeScore = scorecard.scores[hole.number];
+    if (!holeScore) continue;
+
+    const strokes = isSingleBallScore(holeScore)
+      ? holeScore.strokes
+      : holeScore.balls?.[0]?.strokes;
+
+    if (!strokes || strokes === 0) continue;
+
+    holesPlayed++;
+    totalGross += strokes;
+    const diff = strokes - hole.par;
+
+    if (strokes === 1) holeInOne = true;
+
+    if (diff <= -3) albatross++;
+    else if (diff === -2) eagles++;
+    else if (diff === -1) birdies++;
+    else if (diff === 0) pars++;
+    else if (diff === 1) bogeys++;
+    else doubleBogeys++;
+  }
+
+  return {
+    birdies,
+    eagles,
+    pars,
+    bogeys,
+    doubleBogeys,
+    albatross,
+    holeInOne,
+    totalGross,
+    holesPlayed,
+  };
+}
 
 interface UseScoreSubmissionParams {
   isOnline: boolean;
@@ -176,6 +252,108 @@ export function useScoreSubmission({
       submitLogger.warn('Failed to refresh partner status', { error });
     }
   }, [currentRoundId, currentUserId, holeCount]);
+
+  // Round / scorecard / score-type achievement checks. Fires events that
+  // increment NINE_HOLE_SPECIALIST, ROUND_VETERAN, 18_HOLES_OF_GLORY,
+  // STABLEFORD_SPECIALIST, BIRDIE_HUNTER, COURSE_EXPLORER, etc. for BOTH
+  // standalone and competition rounds. Non-blocking — never throws.
+  const checkRoundAchievements = useCallback(
+    async (roundId: string) => {
+      if (!achievementPlayerId || !isAchievementReady) return;
+
+      try {
+        const {
+          holes: storeHoles,
+          gameType: storeGameType,
+          groupScorecards: storeScorecards,
+        } = useScorecardStore.getState();
+        const userScorecard = storeScorecards.get(achievementPlayerId);
+
+        if (!userScorecard || storeHoles.length === 0) return;
+
+        const scoreStats = calculateScoreStats(userScorecard, storeHoles);
+
+        let courseIdForEvent: string | undefined;
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
+          const { data: roundData } = await (supabase as any)
+            .from('rounds')
+            .select('course_id')
+            .eq('id', roundId)
+            .single();
+          courseIdForEvent = roundData?.course_id || undefined;
+        } catch (error) {
+          submitLogger.warn('Failed to fetch course_id for achievements (non-blocking)', { error });
+        }
+
+        const eventData: AchievementEventData = {
+          round_id: roundId,
+          game_type: storeGameType || 'stableford',
+          course_id: courseIdForEvent,
+          is_competition: !!competitionId && competitionId !== 'standalone',
+          hole_count: scoreStats.holesPlayed,
+          gross_score: scoreStats.totalGross,
+          net_score: userScorecard.totalNet || undefined,
+          birdies: scoreStats.birdies,
+          eagles: scoreStats.eagles,
+          albatrosses: scoreStats.albatross,
+          pars: scoreStats.pars,
+          bogeys: scoreStats.bogeys,
+          double_bogeys: scoreStats.doubleBogeys,
+          hole_in_one: scoreStats.holeInOne,
+        };
+
+        const newAchievements: AchievementDefinition[] = [];
+        const newCosmetics: CosmeticDefinition[] = [];
+
+        const r1 = await checkAndAward('scorecard_submitted', eventData);
+        newAchievements.push(...r1.newAchievements);
+        newCosmetics.push(...r1.newCosmetics);
+
+        const r2 = await checkAndAward('round_completed', eventData);
+        newAchievements.push(...r2.newAchievements);
+        newCosmetics.push(...r2.newCosmetics);
+
+        if (scoreStats.birdies > 0) {
+          const r = await checkAndAward('birdie_recorded', { birdies: scoreStats.birdies });
+          newAchievements.push(...r.newAchievements);
+          newCosmetics.push(...r.newCosmetics);
+        }
+        if (scoreStats.eagles > 0) {
+          const r = await checkAndAward('eagle_recorded', { eagles: scoreStats.eagles });
+          newAchievements.push(...r.newAchievements);
+          newCosmetics.push(...r.newCosmetics);
+        }
+        if (scoreStats.albatross > 0) {
+          const r = await checkAndAward('albatross_recorded', { albatrosses: scoreStats.albatross });
+          newAchievements.push(...r.newAchievements);
+          newCosmetics.push(...r.newCosmetics);
+        }
+        if (scoreStats.holeInOne) {
+          const r = await checkAndAward('ace_recorded', { hole_in_one: true });
+          newAchievements.push(...r.newAchievements);
+          newCosmetics.push(...r.newCosmetics);
+        }
+        if (scoreStats.pars > 0) {
+          const r = await checkAndAward('par_recorded', { pars: scoreStats.pars });
+          newAchievements.push(...r.newAchievements);
+          newCosmetics.push(...r.newCosmetics);
+        }
+        if (courseIdForEvent) {
+          const r = await checkAndAward('course_played', { course_id: courseIdForEvent });
+          newAchievements.push(...r.newAchievements);
+          newCosmetics.push(...r.newCosmetics);
+        }
+
+        if (newAchievements.length > 0 || newCosmetics.length > 0) {
+          showMultipleToasts(newAchievements, newCosmetics);
+        }
+      } catch (error) {
+        submitLogger.warn('Round achievement check failed (non-blocking)', { error });
+      }
+    },
+    [achievementPlayerId, isAchievementReady, competitionId, checkAndAward, showMultipleToasts]
+  );
 
   const navigateAfterSubmit = useCallback((roundId: string | null | undefined) => {
     // Round is fully submitted — clear the resume-on-launch session so the
@@ -406,6 +584,10 @@ export function useScoreSubmission({
           // Finalize round results (calculate positions and competition points)
           await finalizeRoundResults(roundId);
 
+          // Round / scorecard / score-type achievement check (fires for both
+          // standalone and competition rounds). Non-blocking.
+          await checkRoundAchievements(roundId);
+
           // Check competition achievements after finalization (non-blocking)
           if (achievementPlayerId && isAchievementReady && competitionId && competitionId !== 'standalone') {
             try {
@@ -563,6 +745,7 @@ export function useScoreSubmission({
     achievementPlayerId,
     isAchievementReady,
     checkAndAward,
+    checkRoundAchievements,
     showMultipleToasts,
     queryClient,
     user?.id,
@@ -600,6 +783,10 @@ export function useScoreSubmission({
 
           // Finalize round results (calculate positions and competition points)
           await finalizeRoundResults(roundId);
+
+          // Round / scorecard / score-type achievement check (fires for both
+          // standalone and competition rounds). Non-blocking.
+          await checkRoundAchievements(roundId);
 
           // Check competition achievements after finalization (non-blocking)
           if (achievementPlayerId && isAchievementReady && competitionId && competitionId !== 'standalone') {
@@ -705,6 +892,7 @@ export function useScoreSubmission({
     achievementPlayerId,
     isAchievementReady,
     checkAndAward,
+    checkRoundAchievements,
     showMultipleToasts,
     queryClient,
     user?.id,

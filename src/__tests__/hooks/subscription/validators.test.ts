@@ -33,7 +33,7 @@ const createFreeTierLimits = (): TierLimits => ({
   maxRoundsPlayed: 20,
   maxLeaguesOwned: 1,
   canJoinLeague: true,
-  allowedGameTypes: ['stableford'] as GameType[],
+  allowedGameTypes: ['stableford', 'stroke'] as GameType[],
   canUseTeamFormats: false,
   canUseScoringPairs: false,
   canExportData: false,
@@ -243,8 +243,8 @@ describe('getRequiredTierForGameType', () => {
     expect(getRequiredTierForGameType('stableford')).toBe('free');
   });
 
-  it('should return social for stroke play', () => {
-    expect(getRequiredTierForGameType('stroke')).toBe('social');
+  it('should return free for stroke play', () => {
+    expect(getRequiredTierForGameType('stroke')).toBe('free');
   });
 
   it('should return premium for match-play', () => {

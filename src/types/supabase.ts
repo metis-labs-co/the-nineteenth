@@ -556,8 +556,11 @@ export type Database = {
           id: string
           invite_code: string
           knockout_config: Json | null
+          lock_at_capacity: boolean
+          max_players: number | null
           name: string
           organizer_id: string
+          organizer_is_player: boolean
           point_system: Json
           start_date: string
           status: string | null
@@ -565,6 +568,7 @@ export type Database = {
           team_size: number | null
           updated_at: string | null
           visibility: string
+          whatsapp_group_invite_url: string | null
         }
         Insert: {
           competition_type?: string
@@ -577,8 +581,11 @@ export type Database = {
           id?: string
           invite_code: string
           knockout_config?: Json | null
+          lock_at_capacity?: boolean
+          max_players?: number | null
           name: string
           organizer_id: string
+          organizer_is_player?: boolean
           point_system?: Json
           start_date: string
           status?: string | null
@@ -586,6 +593,7 @@ export type Database = {
           team_size?: number | null
           updated_at?: string | null
           visibility?: string
+          whatsapp_group_invite_url?: string | null
         }
         Update: {
           competition_type?: string
@@ -598,8 +606,11 @@ export type Database = {
           id?: string
           invite_code?: string
           knockout_config?: Json | null
+          lock_at_capacity?: boolean
+          max_players?: number | null
           name?: string
           organizer_id?: string
+          organizer_is_player?: boolean
           point_system?: Json
           start_date?: string
           status?: string | null
@@ -607,6 +618,7 @@ export type Database = {
           team_size?: number | null
           updated_at?: string | null
           visibility?: string
+          whatsapp_group_invite_url?: string | null
         }
         Relationships: []
       }

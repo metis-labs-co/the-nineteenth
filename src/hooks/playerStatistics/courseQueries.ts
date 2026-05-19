@@ -71,16 +71,22 @@ export function useCourseStatistics(
             course_id,
             date,
             game_type,
+            handicap_source,
             status,
             courses!inner (
               id,
               name,
-              holes
+              holes,
+              clubs (
+                id,
+                name
+              )
             ),
             competitions (
               id,
               name,
-              status
+              status,
+              handicap_source
             )
           )
         `
@@ -174,7 +180,14 @@ export function useCourseStatistics(
         if (!round || !course) return;
 
         courseName = course.name;
-        const isPracticeRound = !competition;
+        const isStandaloneRound = !competition;
+        // Mirror the logic in queries.ts: a standalone round is a "handicap
+        // round" when its effective handicap source isn't 'none', otherwise
+        // it's a "practice round". Competition rounds fall into neither.
+        const effectiveHandicapSource =
+          round.handicap_source ?? competition?.handicap_source ?? 'profile';
+        const isHandicapRound = isStandaloneRound && effectiveHandicapSource !== 'none';
+        const isPracticeRound = isStandaloneRound && effectiveHandicapSource === 'none';
         const holes = parseAndTransformHoles(course.holes);
         const scores = scorecard.scores as Record<string, HoleScore>;
 
@@ -291,14 +304,18 @@ export function useCourseStatistics(
           roundId: round.id,
           courseId: course.id,
           competitionId: competition?.id ?? null,
-          competitionName: competition?.name ?? 'Practice Round',
+          competitionName:
+            competition?.name ?? (isHandicapRound ? 'Handicap Round' : 'Practice Round'),
           courseName: course.name,
+          clubName: course.clubs?.name ?? null,
           date: round.date || scorecard.submitted_at || '',
           totalGross: scorecard.total_gross || 0,
           totalPoints: scorecard.total_points || 0,
           holesPlayed: holesInScorecard,
           isPracticeRound,
+          isHandicapRound,
           gameType: round.game_type,
+          roundStatus: round.status,
         });
 
         // Per-round stats collection
@@ -397,8 +414,10 @@ export function useCourseStatistics(
       const par4Stats = calculateParTypeStats(allHoleScores, 4);
       const par5Stats = calculateParTypeStats(allHoleScores, 5);
 
-      // Recent rounds (last 5)
+      // Recent rounds (last 5) — exclude rounds still in-progress/upcoming
+      // so the activity list only reflects finished play.
       const recentRounds = [...roundSummaries]
+        .filter((r) => r.roundStatus === 'completed')
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
         .slice(0, 5);
 

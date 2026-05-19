@@ -118,6 +118,17 @@ const competitionDetailsBaseSchema = z.object({
     .optional(),
   // Simplified team toggle - full team config done in EditCompetitionScreen
   enableTeams: z.boolean(),
+  // Optional player slot capacity (NULL/undefined = unlimited).
+  maxPlayers: z
+    .number()
+    .int()
+    .min(2, 'Player limit must be at least 2')
+    .nullable()
+    .optional(),
+  // When true (default) and maxPlayers is set, joins are blocked once capacity is reached.
+  lockAtCapacity: z.boolean().optional(),
+  // When false, the organizer is not auto-added as a player. Defaults to true.
+  organizerIsPlayer: z.boolean().optional(),
 });
 
 // Step 1: Competition Details - Full schema with cross-field validation

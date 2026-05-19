@@ -170,6 +170,7 @@ export function createTestCompetition(overrides: Partial<Competition> = {}): Com
     },
     per_round_rules_enabled: false,
     knockout_config: null,
+    whatsapp_group_invite_url: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     deleted_at: null,

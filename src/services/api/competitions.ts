@@ -23,7 +23,7 @@ import type {
 import type { RoundCreateInput } from './types';
 import { generateInviteCode, formatDateForDB, formatTimeForDB, isValidUUID } from './helpers';
 import { mapTeamModeToDb, mapTeamModeFromDb, convertPointSystemToConfig, convertPointSystemFromConfig, DEFAULT_POINT_SYSTEM } from './mappers';
-import { checkCompetitionCreationPermission } from './permissions';
+import { checkCompetitionCreationPermission, checkMaxPlayersWithinTier } from './permissions';
 
 /**
  * Create a new competition with rounds and players
@@ -40,6 +40,12 @@ export async function createCompetition(
   const permissionCheck = await checkCompetitionCreationPermission();
   if (!permissionCheck.allowed) {
     throw new Error(permissionCheck.error || 'You cannot create more competitions with your current plan');
+  }
+
+  // Validate organizer-chosen slot capacity against tier limit
+  const capacityCheck = checkMaxPlayersWithinTier(input.maxPlayers);
+  if (!capacityCheck.allowed) {
+    throw new Error(capacityCheck.error || 'Player limit exceeds your plan');
   }
 
   // Get current user
@@ -62,22 +68,12 @@ export async function createCompetition(
   // team_size must be null when team_mode is 'none' (database constraint)
   const teamSize = dbTeamMode === 'none' ? null : (input.teamSize || null);
 
+  // Slot capacity + organizer-not-playing settings
+  const maxPlayers = input.maxPlayers != null && input.maxPlayers > 0 ? input.maxPlayers : null;
+  const lockAtCapacity = input.lockAtCapacity !== false;
+  const organizerIsPlayer = input.organizerIsPlayer !== false;
+
   // Create competition in Supabase
-  const insertPayload = {
-    name: input.name,
-    description: input.description || null,
-    competition_type: input.competitionType || 'event',
-    start_date: formatDateForDB(input.startDate),
-    end_date: input.endDate ? formatDateForDB(input.endDate) : null,
-    handicap_system: input.handicapSystem,
-    visibility: input.visibility || 'private',
-    invite_code: inviteCode,
-    organizer_id: user.id,
-    status: 'upcoming',
-    team_mode: dbTeamMode,
-    team_size: teamSize,
-    point_system: pointSystemConfig,
-  };
   const { data: competition, error: compError } = await supabase
     .from('competitions')
     .insert({
@@ -96,6 +92,10 @@ export async function createCompetition(
       team_mode: dbTeamMode,
       team_size: teamSize,
       point_system: pointSystemConfig,
+      // Slot capacity + organizer-not-playing
+      max_players: maxPlayers,
+      lock_at_capacity: lockAtCapacity,
+      organizer_is_player: organizerIsPlayer,
     } as unknown as never)
     .select()
     .single();
@@ -184,19 +184,21 @@ export async function createCompetition(
     });
   }
 
-  // Add the organizer as a player in the competition
-  const { error: orgPlayerError } = await supabase
-    .from('competition_players')
-    .insert({
-      competition_id: comp.id,
-      player_id: user.id,
-      status: 'accepted',
-      invited_at: new Date().toISOString(),
-    } as unknown as never);
+  // Add the organizer as a player only when they're playing in this competition.
+  if (organizerIsPlayer) {
+    const { error: orgPlayerError } = await supabase
+      .from('competition_players')
+      .insert({
+        competition_id: comp.id,
+        player_id: user.id,
+        status: 'accepted',
+        invited_at: new Date().toISOString(),
+      } as unknown as never);
 
-  if (orgPlayerError) {
-    console.warn('[API] Could not add organizer as player:', orgPlayerError.message);
-    // Don't fail the whole operation if this fails
+    if (orgPlayerError) {
+      console.warn('[API] Could not add organizer as player:', orgPlayerError.message);
+      // Don't fail the whole operation if this fails
+    }
   }
 
   // Add existing players (those with valid IDs) to competition_players
@@ -205,7 +207,7 @@ export async function createCompetition(
 
   if (existingPlayers.length > 0) {
     const competitionPlayersData = existingPlayers
-      .filter((p) => p.id !== user.id) // Don't add organizer twice (already added above)
+      .filter((p) => !organizerIsPlayer || p.id !== user.id) // Avoid duplicating organizer when they're already added above
       .map((player) => ({
         competition_id: comp.id,
         player_id: player.id,
@@ -220,6 +222,62 @@ export async function createCompetition(
         .insert(competitionPlayersData as unknown as never);
 
       // playersError is non-fatal - players can still join via invite code
+    }
+  }
+
+  // Auto-fill remaining slots with placeholder players when a capacity is set.
+  // This lets the organizer configure teams, pairings, and 2v2 round types
+  // before any real players join — real players replace placeholders on join
+  // via the claim_competition_placeholder RPC.
+  if (maxPlayers != null && maxPlayers > 0) {
+    const { count: currentCount, error: countError } = await supabase
+      .from('competition_players')
+      .select('*', { count: 'exact', head: true })
+      .eq('competition_id', comp.id)
+      .eq('status', 'accepted');
+
+    if (!countError) {
+      const slotsToFill = Math.max(0, maxPlayers - (currentCount ?? 0));
+      for (let i = 0; i < slotsToFill; i++) {
+        const slotNumber = (currentCount ?? 0) + i + 1;
+        const { data: placeholderId, error: createError } = await supabase.rpc(
+          'create_placeholder_player' as never,
+          {
+            p_name: `Player ${slotNumber}`,
+            p_handicap: null,
+          } as never
+        );
+
+        if (createError || !placeholderId) {
+          console.warn(
+            '[API] Could not create placeholder slot',
+            slotNumber,
+            createError?.message
+          );
+          break;
+        }
+
+        const { error: joinError } = await supabase
+          .from('competition_players')
+          .insert({
+            competition_id: comp.id,
+            player_id: placeholderId as unknown as string,
+            status: 'accepted' as const,
+            invited_at: new Date().toISOString(),
+            responded_at: new Date().toISOString(),
+          } as unknown as never);
+
+        if (joinError) {
+          console.warn(
+            '[API] Could not attach placeholder slot',
+            slotNumber,
+            joinError.message
+          );
+          // Stop trying — the placeholder row remains in players but un-attached;
+          // it won't affect the competition.
+          break;
+        }
+      }
     }
   }
 
@@ -240,6 +298,10 @@ export async function createCompetition(
       teamMode: mapTeamModeFromDb(comp.team_mode),
       teamSize: comp.team_size ?? undefined,
       pointSystem: convertPointSystemFromConfig(comp.point_system),
+      // Slot capacity + organizer-not-playing
+      maxPlayers: comp.max_players ?? null,
+      lockAtCapacity: comp.lock_at_capacity ?? true,
+      organizerIsPlayer: comp.organizer_is_player ?? true,
       createdAt: new Date(comp.created_at),
       updatedAt: new Date(comp.updated_at),
     },
@@ -288,6 +350,10 @@ export async function getCompetitions(): Promise<Competition[]> {
     teamMode: mapTeamModeFromDb(c.team_mode),
     teamSize: c.team_size ?? undefined,
     pointSystem: convertPointSystemFromConfig(c.point_system),
+    // Slot capacity + organizer-not-playing
+    maxPlayers: c.max_players ?? null,
+    lockAtCapacity: c.lock_at_capacity ?? true,
+    organizerIsPlayer: c.organizer_is_player ?? true,
     createdAt: new Date(c.created_at),
     updatedAt: new Date(c.updated_at),
   }));
@@ -331,6 +397,10 @@ export async function getCompetition(id: string): Promise<Competition | null> {
     teamMode: mapTeamModeFromDb(c.team_mode),
     teamSize: c.team_size ?? undefined,
     pointSystem: convertPointSystemFromConfig(c.point_system),
+    // Slot capacity + organizer-not-playing
+    maxPlayers: c.max_players ?? null,
+    lockAtCapacity: c.lock_at_capacity ?? true,
+    organizerIsPlayer: c.organizer_is_player ?? true,
     createdAt: new Date(c.created_at),
     updatedAt: new Date(c.updated_at),
   };
