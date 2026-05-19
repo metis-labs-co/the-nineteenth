@@ -20,6 +20,7 @@ import {
   MiniLeaderboardSection,
   SettingsSection,
   PrizePoolSection,
+  WhatsAppGroupSection,
 } from './sections';
 
 export interface DetailsTabProps {
@@ -125,6 +126,11 @@ export const DetailsTab = React.memo(function DetailsTab({
           onOpenLeaderboard={onOpenLeaderboard ?? (() => {})}
         />
       )}
+
+      <WhatsAppGroupSection
+        whatsappUrl={competition.whatsapp_group_invite_url}
+        isPlayer={isPlayer}
+      />
 
       <SettingsSection
         competition={competition}
