@@ -122,9 +122,17 @@ export function RoundTypeSheet({
 
   // Teams for the competition — needed to generate split sub-matches and
   // to grey-out team presets when the round has no teams configured.
+  //
+  // Load teams whenever a team source could back a team preset: a
+  // competition (teams exist independent of the round's current format) or
+  // a round already in team mode (standalone team_config). Gating on the
+  // round's *current* is_team_round would wrongly return no teams when
+  // switching an individual round back to a team format — the sub-match
+  // preview then can't generate and Save stays disabled.
+  const hasTeamSource = !!competitionId || round.is_team_round;
   const { teams } = useRoundTeams(
     competitionId ?? undefined,
-    round.is_team_round,
+    hasTeamSource,
     roundId
   );
 

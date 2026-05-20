@@ -35,6 +35,7 @@ jest.mock('@/hooks/rounds', () => ({
     mockUseUpdateSubMatchResult(roundId),
   useUpdateSubMatchTeeTime: (roundId: string | undefined) =>
     mockUseUpdateSubMatchTeeTime(roundId),
+  useReplaceSubMatches: () => ({ mutateAsync: jest.fn(), isPending: false }),
   // New hooks introduced by the "Groups" mode — split-mode tests don't
   // exercise these paths, so stub them with no-op data.
   usePairings: () => ({ data: [], isLoading: false, refetch: jest.fn() }),
@@ -327,6 +328,85 @@ describe('SubMatchesTab', () => {
       );
 
       expect(screen.getByTestId('groups-shuffle-button')).toBeTruthy();
+    });
+
+    describe('Shuffle sub-matches (split team rounds)', () => {
+      const twoTeams = {
+        teams: [
+          { id: 't1', name: 'Team A', members: [{ player_id: 'p1' }, { player_id: 'p2' }] },
+          { id: 't2', name: 'Team B', members: [{ player_id: 'p3' }, { player_id: 'p4' }] },
+        ],
+        isLoading: false,
+        error: null,
+        getPlayerTeam: () => undefined,
+        refetch: jest.fn(),
+      };
+
+      it('shows an enabled button for an upcoming split team round (organizer)', () => {
+        mockUseSubMatches.mockReturnValue({ data: [makeSubMatch()], isLoading: false });
+        mockUseRoundTeams.mockReturnValue(twoTeams);
+
+        render(
+          <SubMatchesTab
+            roundId="round-1"
+            isOrganizer
+            isSplitRound
+            isTeamRound
+            teamFormat="best-ball"
+            gameType="stableford"
+            roundStatus="upcoming"
+          />
+        );
+
+        const btn = screen.getByTestId('sub-matches-shuffle-button');
+        expect(btn.props.accessibilityState).toEqual(
+          expect.objectContaining({ disabled: false })
+        );
+      });
+
+      it('hides the button for non-organizers', () => {
+        mockUseSubMatches.mockReturnValue({ data: [makeSubMatch()], isLoading: false });
+        mockUseRoundTeams.mockReturnValue(twoTeams);
+
+        render(
+          <SubMatchesTab
+            roundId="round-1"
+            isOrganizer={false}
+            isSplitRound
+            isTeamRound
+            teamFormat="best-ball"
+            gameType="stableford"
+            roundStatus="upcoming"
+          />
+        );
+
+        expect(screen.queryByTestId('sub-matches-shuffle-button')).toBeNull();
+      });
+
+      it('disables the button once the round is in-progress', () => {
+        mockUseSubMatches.mockReturnValue({
+          data: [makeSubMatch({ status: 'in-progress' })],
+          isLoading: false,
+        });
+        mockUseRoundTeams.mockReturnValue(twoTeams);
+
+        render(
+          <SubMatchesTab
+            roundId="round-1"
+            isOrganizer
+            isSplitRound
+            isTeamRound
+            teamFormat="best-ball"
+            gameType="stableford"
+            roundStatus="in-progress"
+          />
+        );
+
+        const btn = screen.getByTestId('sub-matches-shuffle-button');
+        expect(btn.props.accessibilityState).toEqual(
+          expect.objectContaining({ disabled: true })
+        );
+      });
     });
 
     it('no longer renders the Scoring pairs action button', () => {

@@ -33,6 +33,7 @@ import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import {
   usePairings,
   useSubMatches,
+  useReplaceSubMatches,
   useUpdateSubMatchResult,
   useUpdateSubMatchTeeTime,
   useUpdatePairing,
@@ -48,10 +49,12 @@ import { useAuth } from '@/hooks/useAuth';
 import { useCompetitionLeaderboard } from '@/hooks/competitions';
 import {
   formatTeeTimeForDisplay,
+  generateSubMatches,
   generateTeamBalancedGroups,
   generateTeamTogetherGroups,
   pickGroupingStrategy,
 } from '@/utils/pairingAlgorithm';
+import type { PairingPlayer } from '@/types';
 import { ScoringPairsSection } from '@/components/rounds/ViewRound/RoundDetailsTab/components';
 import { getTeamColorHex } from '@/utils/teamColor';
 import { calculateStablefordPoints } from '@/utils/scoring';
@@ -206,6 +209,8 @@ export function SubMatchesTab({
   );
   const { mutateAsync: updateSubMatchResult } = useUpdateSubMatchResult(roundId);
   const { mutateAsync: updateSubMatchTeeTime } = useUpdateSubMatchTeeTime(roundId);
+  const { mutateAsync: replaceSubMatches, isPending: isReplacingSubMatches } =
+    useReplaceSubMatches();
   const { mutateAsync: updatePairing } = useUpdatePairing();
   const { mutateAsync: autoGeneratePairings, isPending: isShufflingPairings } =
     useAutoGeneratePairings();
@@ -588,6 +593,137 @@ export function SubMatchesTab({
     isReplacingPairings ||
     isRegeneratingScoringPairs;
 
+  // Whether any sub-match has moved past 'upcoming'. Regenerating would
+  // wipe in-flight scoring, so the shuffle action is blocked in that case
+  // (mirrors the RoundTypeSheet guard).
+  const hasInProgressSubMatches = useMemo(
+    () => (subMatches ?? []).some((sm) => sm.status !== 'upcoming'),
+    [subMatches]
+  );
+
+  // Rebuild the split round's sub-matches from the current team rosters.
+  // Needed when team membership changes after the round was created (e.g.
+  // players added to the competition) — the stored sub-matches don't
+  // auto-update, so this is the organiser's way to refresh them.
+  const runShuffleSubMatches = useCallback(async () => {
+    if (teams.length < 2) {
+      Alert.alert(
+        'Teams not ready',
+        'This round needs two teams with players before sub-matches can be generated.'
+      );
+      return;
+    }
+
+    const startTime = (roundTeeTime ?? '07:00:00').substring(0, 5);
+    const toPairingPlayers = (
+      memberList: (typeof teams)[number]['members']
+    ): PairingPlayer[] =>
+      (memberList || [])
+        .filter((m) => m.player_id)
+        .map((m) => ({
+          id: m.player_id,
+          name: m.player?.name ?? 'Unknown',
+          handicap: m.player?.handicap ?? null,
+          handicapIndex: m.player?.handicap_index ?? null,
+          gender: m.player?.gender ?? null,
+          photoUrl: m.player?.photo_url ?? null,
+        }));
+
+    try {
+      const { subMatches: generated } = generateSubMatches({
+        teamAPlayers: toPairingPlayers(teams[0].members),
+        teamBPlayers: toPairingPlayers(teams[1].members),
+        subMatchSize: subMatchSize ?? 2,
+        startTime,
+        intervalMinutes: DEFAULT_SHUFFLE_INTERVAL_MINUTES,
+      });
+
+      if (generated.length === 0) {
+        Alert.alert(
+          'Unable to generate sub-matches',
+          'Not enough players on both teams to form sub-matches.'
+        );
+        return;
+      }
+
+      const newSubMatches = generated.map((sm) => ({
+        sortOrder: sm.sortOrder,
+        teamAPlayerIds: sm.teamAPlayerIds,
+        teamBPlayerIds: sm.teamBPlayerIds,
+        teeTime: sm.teeTime,
+        pairingId: null,
+      }));
+
+      await replaceSubMatches({ roundId, subMatches: newSubMatches });
+
+      // Realign scoring-pair markers to the new sub-matches when the round
+      // uses them. Non-blocking — a failed regen never undoes the shuffle.
+      if (scoringPairsEnabled) {
+        setIsRegeneratingScoringPairs(true);
+        try {
+          await regenerateScoringPairsForRound({
+            roundId,
+            isTeamRound: true,
+            teamsWithMembers: teams.map((t) => ({
+              name: t.name,
+              players: toPairingPlayers(t.members).map((p) => ({
+                id: p.id,
+                name: p.name,
+                handicap: p.handicap,
+              })),
+            })),
+            pairings: [],
+            subMatches: newSubMatches.map((sm) => ({
+              teamAPlayerIds: sm.teamAPlayerIds,
+              teamBPlayerIds: sm.teamBPlayerIds,
+            })),
+            players: (players ?? []).map((p) => ({ id: p.id })),
+            logTag: 'SubMatchesTab.shuffleSubMatches',
+          });
+        } catch (err) {
+          console.warn(
+            '[SubMatchesTab] Shuffle sub-matches: scoring pair regen failed',
+            err
+          );
+        } finally {
+          setIsRegeneratingScoringPairs(false);
+        }
+      }
+
+      refetchSubMatches();
+    } catch (err) {
+      Alert.alert(
+        'Unable to shuffle sub-matches',
+        err instanceof Error ? err.message : 'Please try again.'
+      );
+    }
+  }, [
+    teams,
+    roundTeeTime,
+    subMatchSize,
+    replaceSubMatches,
+    roundId,
+    scoringPairsEnabled,
+    players,
+    refetchSubMatches,
+  ]);
+
+  const handleShuffleSubMatches = useCallback(() => {
+    showDialog({
+      title: 'Shuffle sub-matches?',
+      message:
+        'This rebuilds every sub-match from the current team rosters and replaces the existing pairings. Use it after adding or removing players.',
+      confirmLabel: 'Shuffle',
+      icon: 'shuffle-variant',
+      onConfirm: () => {
+        dismissDialog();
+        runShuffleSubMatches();
+      },
+    });
+  }, [showDialog, dismissDialog, runShuffleSubMatches]);
+
+  const isShufflingSubMatches = isReplacingSubMatches || isRegeneratingScoringPairs;
+
   // Auto-shuffle on first visit: when the organizer lands on the Groups
   // tab and no pairings exist yet, silently run a shuffle so the tab is
   // immediately useful. Gated by a ref so it only fires once per mount —
@@ -758,8 +894,47 @@ export function SubMatchesTab({
         {activeGroupsSubTab === 'groups' && (
           <>
             {(canEditPairings ||
-              (!isSplitRound && isOrganizer && showShuffleButton)) && (
+              (!isSplitRound && isOrganizer && showShuffleButton) ||
+              (isSplitRound && isTeamRound && isOrganizer)) && (
               <View style={styles.actionRow}>
+                {isSplitRound && isTeamRound && isOrganizer && (() => {
+                  const isLocked =
+                    roundStatus !== 'upcoming' || hasInProgressSubMatches;
+                  const isDisabled =
+                    isShufflingSubMatches || isLocked || teams.length < 2;
+                  return (
+                    <TouchableOpacity
+                      style={[
+                        styles.actionButton,
+                        styles.actionButtonPrimary,
+                        {
+                          backgroundColor: isDisabled
+                            ? colors.gray300
+                            : colors.primary,
+                          opacity: isShufflingSubMatches ? 0.8 : 1,
+                        },
+                      ]}
+                      onPress={handleShuffleSubMatches}
+                      disabled={isDisabled}
+                      accessibilityRole="button"
+                      accessibilityLabel="Shuffle sub-matches"
+                      accessibilityHint={
+                        isLocked
+                          ? 'Disabled — round has already started'
+                          : teams.length < 2
+                            ? 'Disabled — needs two teams'
+                            : undefined
+                      }
+                      accessibilityState={{ disabled: isDisabled }}
+                      testID="sub-matches-shuffle-button"
+                    >
+                      <Icon source="shuffle-variant" size={16} color={colors.white} />
+                      <Text style={[styles.actionButtonLabel, { color: colors.white }]}>
+                        {isShufflingSubMatches ? 'Shuffling…' : 'Shuffle sub-matches'}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })()}
                 {canEditPairings && (
                   <TouchableOpacity
                     style={[

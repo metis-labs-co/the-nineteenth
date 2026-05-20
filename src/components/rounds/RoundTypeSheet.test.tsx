@@ -38,14 +38,15 @@ jest.mock('@/services/rounds/applyPresetToRound', () => ({
   applyPresetToRound: (...args: unknown[]) => mockApplyPresetToRound(...args),
 }));
 
+const mockUseRoundTeams = jest.fn(() => ({
+  teams: [],
+  isLoading: false,
+  error: null,
+  getPlayerTeam: () => undefined,
+  refetch: jest.fn(),
+}));
 jest.mock('@/hooks/scorecard/useRoundTeams', () => ({
-  useRoundTeams: () => ({
-    teams: [],
-    isLoading: false,
-    error: null,
-    getPlayerTeam: () => undefined,
-    refetch: jest.fn(),
-  }),
+  useRoundTeams: (...args: unknown[]) => mockUseRoundTeams(...(args as [])),
 }));
 
 jest.mock('@/hooks/rounds', () => ({
@@ -97,6 +98,22 @@ describe('RoundTypeSheet', () => {
     jest.clearAllMocks();
     mockUseTier.mockReturnValue('free');
     mockApplyPresetToRound.mockResolvedValue(undefined);
+  });
+
+  it('loads competition teams even when the round is currently individual', () => {
+    // Regression: switching an individual round back to a team split preset
+    // (e.g. 2v2 better ball) must still load the competition's teams so the
+    // sub-match preview can generate and Save becomes enabled. Gating the
+    // teams fetch on the round's current is_team_round broke this.
+    render(
+      <RoundTypeSheet
+        {...defaultProps}
+        competitionId="comp-1"
+        round={makeRound({ is_team_round: false })}
+      />
+    );
+
+    expect(mockUseRoundTeams).toHaveBeenCalledWith('comp-1', true, 'round-1');
   });
 
   it('pre-selects the currently-saved preset', () => {

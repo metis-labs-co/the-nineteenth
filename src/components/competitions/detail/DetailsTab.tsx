@@ -10,7 +10,7 @@
 
 import React, { useMemo } from 'react';
 import { View } from 'react-native';
-import type { Competition, GameType } from '@/types/database.types';
+import type { Competition, GameType, TeamWithMembers } from '@/types/database.types';
 import type { CompetitionPrizePool, PrizePoolPlacement } from '@/types';
 import type { MiniLeaderboardData } from '@/utils/miniLeaderboard';
 import { type RoundWithCourse } from './types';
@@ -27,6 +27,8 @@ export interface DetailsTabProps {
   competition: Competition;
   rounds: RoundWithCourse[];
   playerCount: number;
+  /** Competition teams — used to show the actual team size on the settings card. */
+  teams?: TeamWithMembers[];
   /** True when the current user is a player in this competition */
   isPlayer: boolean;
   /** 3-row individual mini-leaderboard window, or null to hide */
@@ -64,6 +66,7 @@ export const DetailsTab = React.memo(function DetailsTab({
   competition,
   rounds,
   playerCount: _playerCount,
+  teams,
   isPlayer,
   miniIndividual,
   miniTeam,
@@ -136,6 +139,7 @@ export const DetailsTab = React.memo(function DetailsTab({
         competition={competition}
         isOrganizer={isOrganizer}
         hasStartedRound={hasStartedRound}
+        teams={teams}
         onViewTeams={onViewTeams}
       />
 

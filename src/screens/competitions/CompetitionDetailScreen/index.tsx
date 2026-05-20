@@ -393,6 +393,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
             competition={competition}
             rounds={rounds}
             playerCount={players.length}
+            teams={teams || []}
             isPlayer={isPlayer}
             miniIndividual={miniIndividual}
             miniTeam={miniTeam}
