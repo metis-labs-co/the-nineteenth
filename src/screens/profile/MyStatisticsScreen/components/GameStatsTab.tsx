@@ -22,6 +22,7 @@ import {
   HazardStatsSection,
 } from '@/components/statistics';
 import { FeatureLock } from '@/components/subscription';
+import { useStatsVisibilityWithTier } from '@/hooks/subscription/statsVisibility';
 import type { PlayerStatistics } from '@/hooks/usePlayerStatistics';
 
 // =====================================================
@@ -41,6 +42,8 @@ export const GameStatsTab = React.memo(function GameStatsTab({
   stats,
   onUpgradePress,
 }: GameStatsTabProps) {
+  const { showBunkerShots, showHazards } = useStatsVisibilityWithTier();
+
   return (
     <>
       {/* Driving - FIR% is Social+, miss direction diagram is Premium */}
@@ -68,13 +71,13 @@ export const GameStatsTab = React.memo(function GameStatsTab({
       {/* Bunker Stats - Premium tier */}
       <View style={styles.sectionGap} />
       <FeatureLock feature="advanced_stats" onUpgradePress={onUpgradePress}>
-        <BunkerStatsSection bunkerStats={stats.bunkerStats} />
+        <BunkerStatsSection bunkerStats={stats.bunkerStats} trackingEnabled={showBunkerShots} />
       </FeatureLock>
 
       {/* Hazard Stats - Premium tier */}
       <View style={styles.sectionGap} />
       <FeatureLock feature="advanced_stats" onUpgradePress={onUpgradePress}>
-        <HazardStatsSection hazardStats={stats.hazardStats} />
+        <HazardStatsSection hazardStats={stats.hazardStats} trackingEnabled={showHazards} />
       </FeatureLock>
     </>
   );

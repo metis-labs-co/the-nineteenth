@@ -22,6 +22,7 @@ import {
   BunkerStatsSection,
   HazardStatsSection,
 } from '@/components/statistics';
+import { useStatsVisibilityWithTier } from '@/hooks/subscription/statsVisibility';
 import type { CourseStatisticsData } from '@/hooks/playerStatistics';
 
 interface CourseGameStatsTabProps {
@@ -32,6 +33,7 @@ export const CourseGameStatsTab = React.memo(function CourseGameStatsTab({
   stats,
 }: CourseGameStatsTabProps) {
   const colors = useThemeColors();
+  const { showBunkerShots, showHazards } = useStatsVisibilityWithTier();
 
   const hasFairwayData = stats.fairwayPercentage !== null && stats.fairwayOpportunities > 0;
   const hasMissData = stats.fairwayMissDirection.totalMisses > 0;
@@ -128,11 +130,11 @@ export const CourseGameStatsTab = React.memo(function CourseGameStatsTab({
 
       {/* Bunkers */}
       <View style={styles.sectionGap} />
-      <BunkerStatsSection bunkerStats={stats.bunkerStats} />
+      <BunkerStatsSection bunkerStats={stats.bunkerStats} trackingEnabled={showBunkerShots} />
 
       {/* Hazards */}
       <View style={styles.sectionGap} />
-      <HazardStatsSection hazardStats={stats.hazardStats} />
+      <HazardStatsSection hazardStats={stats.hazardStats} trackingEnabled={showHazards} />
     </>
   );
 });

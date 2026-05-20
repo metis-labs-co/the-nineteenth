@@ -5,16 +5,15 @@
  * Tests for the TeamCard component including:
  * - Rendering with various props
  * - Team statistics calculation (average and total handicap)
- * - Member list expansion/collapse
- * - Editable mode with edit button
+ * - Always-visible member list
+ * - Editable mode (team name is tappable to edit)
  * - Player avatar display (image vs initials)
  * - Accessibility features
  * - Edge cases (empty members, null handicaps)
  */
 
 import React from 'react';
-import { LayoutAnimation } from 'react-native';
-import { render, screen, fireEvent, waitFor } from '@/__tests__/utils/renderHelpers';
+import { render, screen, fireEvent } from '@/__tests__/utils/renderHelpers';
 import { TeamCard } from './TeamCard';
 import type { Player, TeamWithMembers } from '@/types/database.types';
 import { createTestPlayer, createTeamWithMembers } from '@/__tests__/utils/testFixtures';
@@ -22,15 +21,6 @@ import { createTestPlayer, createTeamWithMembers } from '@/__tests__/utils/testF
 // =====================================================
 // MOCKS
 // =====================================================
-
-// Mock icons
-jest.mock('@tabler/icons-react-native', () => {
-  const { View } = require('react-native');
-  return {
-    IconChevronDown: (props: any) => <View testID="icon-chevron-down" {...props} />,
-    IconChevronUp: (props: any) => <View testID="icon-chevron-up" {...props} />,
-  };
-});
 
 // Mock react-native-paper components
 jest.mock('react-native-paper', () => {
@@ -135,25 +125,11 @@ jest.mock('react-native-paper', () => {
       </Text>
     ),
     Avatar,
-    IconButton: ({ icon, size: _size, onPress, accessibilityLabel, accessibilityHint, style, ...props }: any) => (
-      <TouchableOpacity
-        testID={`icon-button-${icon}`}
-        onPress={onPress}
-        accessibilityLabel={accessibilityLabel}
-        accessibilityHint={accessibilityHint}
-        accessibilityRole="button"
-        style={style}
-        {...props}
-      />
-    ),
     Divider: ({ style, ...props }: any) => (
       <View style={[{ height: 1, backgroundColor: '#ccc' }, style]} {...props} />
     ),
   };
 });
-
-// Spy on LayoutAnimation
-jest.spyOn(LayoutAnimation, 'configureNext').mockImplementation(() => {});
 
 // =====================================================
 // TEST FIXTURES
@@ -250,13 +226,13 @@ describe('TeamCard', () => {
       expect(screen.getByTestId('team-card')).toBeTruthy();
     });
 
-    it('renders average handicap badge', () => {
+    it('renders average handicap stat', () => {
       render(<TeamCard {...defaultProps} />);
       expect(screen.getByText('Avg HC')).toBeTruthy();
       expect(screen.getByText('20.0')).toBeTruthy(); // (15 + 25) / 2 = 20
     });
 
-    it('renders total handicap badge', () => {
+    it('renders total handicap stat', () => {
       render(<TeamCard {...defaultProps} />);
       expect(screen.getByText('Total HC')).toBeTruthy();
       expect(screen.getByText('40.0')).toBeTruthy(); // 15 + 25 = 40
@@ -270,16 +246,6 @@ describe('TeamCard', () => {
     it('renders member count correctly for 1 member (singular)', () => {
       render(<TeamCard team={singleMemberTeam} />);
       expect(screen.getByText('1 member')).toBeTruthy();
-    });
-
-    it('renders show members toggle button', () => {
-      render(<TeamCard {...defaultProps} />);
-      expect(screen.getByText('Show members')).toBeTruthy();
-    });
-
-    it('renders chevron down icon when collapsed', () => {
-      render(<TeamCard {...defaultProps} />);
-      expect(screen.getByTestId('icon-chevron-down')).toBeTruthy();
     });
   });
 
@@ -347,71 +313,18 @@ describe('TeamCard', () => {
   });
 
   // ===========================================================================
-  // EXPAND/COLLAPSE TESTS
+  // MEMBER LIST TESTS (always visible)
   // ===========================================================================
 
-  describe('Expand/Collapse', () => {
-    it('does not show member list initially when collapsed', () => {
+  describe('Member List', () => {
+    it('always shows the member list without interaction', () => {
       render(<TeamCard {...defaultProps} />);
-      expect(screen.queryByText('John Smith')).toBeNull();
-    });
-
-    it('shows member list when initiallyExpanded is true', () => {
-      render(<TeamCard {...defaultProps} initiallyExpanded />);
       expect(screen.getByText('John Smith')).toBeTruthy();
       expect(screen.getByText('Jane Doe')).toBeTruthy();
     });
 
-    it('expands member list when toggle is pressed', async () => {
-      render(<TeamCard {...defaultProps} />);
-
-      fireEvent.press(screen.getByText('Show members'));
-
-      await waitFor(() => {
-        expect(screen.getByText('John Smith')).toBeTruthy();
-        expect(screen.getByText('Jane Doe')).toBeTruthy();
-      });
-    });
-
-    it('shows hide members text when expanded', async () => {
-      render(<TeamCard {...defaultProps} />);
-
-      fireEvent.press(screen.getByText('Show members'));
-
-      await waitFor(() => {
-        expect(screen.getByText('Hide members')).toBeTruthy();
-      });
-    });
-
-    it('shows chevron up icon when expanded', async () => {
-      render(<TeamCard {...defaultProps} />);
-
-      fireEvent.press(screen.getByText('Show members'));
-
-      await waitFor(() => {
-        expect(screen.getByTestId('icon-chevron-up')).toBeTruthy();
-      });
-    });
-
-    it('collapses member list when toggle is pressed again', async () => {
-      render(<TeamCard {...defaultProps} />);
-
-      // Expand
-      fireEvent.press(screen.getByText('Show members'));
-      await waitFor(() => {
-        expect(screen.getByText('John Smith')).toBeTruthy();
-      });
-
-      // Collapse
-      fireEvent.press(screen.getByText('Hide members'));
-      await waitFor(() => {
-        expect(screen.queryByText('John Smith')).toBeNull();
-        expect(screen.getByText('Show members')).toBeTruthy();
-      });
-    });
-
-    it('shows empty state message when expanded with no members', () => {
-      render(<TeamCard team={emptyTeam} initiallyExpanded />);
+    it('shows empty state message when there are no members', () => {
+      render(<TeamCard team={emptyTeam} />);
       expect(screen.getByText('No members in this team')).toBeTruthy();
     });
   });
@@ -422,62 +335,73 @@ describe('TeamCard', () => {
 
   describe('Member Rows', () => {
     it('shows player names in member list', () => {
-      render(<TeamCard {...defaultProps} initiallyExpanded />);
+      render(<TeamCard {...defaultProps} />);
       expect(screen.getByText('John Smith')).toBeTruthy();
       expect(screen.getByText('Jane Doe')).toBeTruthy();
     });
 
     it('shows player handicaps in member list', () => {
-      render(<TeamCard {...defaultProps} initiallyExpanded />);
+      render(<TeamCard {...defaultProps} />);
       expect(screen.getAllByText('HC:').length).toBe(2);
       expect(screen.getByText('15')).toBeTruthy();
       expect(screen.getByText('25')).toBeTruthy();
     });
 
     it('shows N/A for null handicap', () => {
-      render(<TeamCard team={teamWithNullHandicaps} initiallyExpanded />);
+      render(<TeamCard team={teamWithNullHandicaps} />);
       expect(screen.getByText('N/A')).toBeTruthy();
     });
 
     it('shows avatar image when player has photo_url', () => {
-      render(<TeamCard team={teamWithPhotos} initiallyExpanded />);
+      render(<TeamCard team={teamWithPhotos} />);
       // Avatar images are rendered - we can't easily test the image source
       // but we can verify the component renders
       expect(screen.getByText('John Smith')).toBeTruthy();
     });
 
     it('shows initials avatar when player has no photo', () => {
-      render(<TeamCard {...defaultProps} initiallyExpanded />);
+      render(<TeamCard {...defaultProps} />);
       // Initials are computed from player name
       // For "John Smith" → "JS", "Jane Doe" → "JD"
       expect(screen.getByText('John Smith')).toBeTruthy();
     });
 
     it('renders correct number of member rows', () => {
-      render(<TeamCard team={fourPlayerTeam} initiallyExpanded />);
+      render(<TeamCard team={fourPlayerTeam} />);
       expect(screen.getByText('John Smith')).toBeTruthy();
       expect(screen.getByText('Jane Doe')).toBeTruthy();
       expect(screen.getByText('Bob Wilson')).toBeTruthy();
       expect(screen.getByText('Alice Brown')).toBeTruthy();
     });
+
+    it('calls onMemberPress when a member row is pressed', () => {
+      const onMemberPress = jest.fn();
+      render(<TeamCard {...defaultProps} onMemberPress={onMemberPress} />);
+
+      fireEvent.press(screen.getByLabelText(/Move John Smith/));
+      expect(onMemberPress).toHaveBeenCalledTimes(1);
+      expect(onMemberPress).toHaveBeenCalledWith(
+        expect.objectContaining({ name: 'John Smith' })
+      );
+    });
   });
 
   // ===========================================================================
-  // EDITABLE MODE TESTS
+  // EDITABLE MODE TESTS (team name is tappable to edit)
   // ===========================================================================
 
   describe('Editable Mode', () => {
-    it('does not show edit button by default', () => {
+    it('does not make the name editable by default', () => {
       render(<TeamCard {...defaultProps} />);
       expect(screen.queryByLabelText('Edit team name')).toBeNull();
     });
 
-    it('shows edit button when isEditable is true', () => {
+    it('makes the team name tappable when isEditable is true', () => {
       render(<TeamCard {...defaultProps} isEditable />);
       expect(screen.getByLabelText('Edit team name')).toBeTruthy();
     });
 
-    it('calls onEdit when edit button is pressed', () => {
+    it('calls onEdit when the team name is pressed', () => {
       const onEdit = jest.fn();
       render(<TeamCard {...defaultProps} isEditable onEdit={onEdit} />);
 
@@ -485,7 +409,7 @@ describe('TeamCard', () => {
       expect(onEdit).toHaveBeenCalledWith(twoPlayerTeam);
     });
 
-    it('does not show edit button when isEditable is false', () => {
+    it('does not make the name tappable when isEditable is false', () => {
       const onEdit = jest.fn();
       render(<TeamCard {...defaultProps} isEditable={false} onEdit={onEdit} />);
       expect(screen.queryByLabelText('Edit team name')).toBeNull();
@@ -525,8 +449,8 @@ describe('TeamCard', () => {
       expect(card).toBeTruthy();
     });
 
-    it('has accessible role on card', () => {
-      render(<TeamCard {...defaultProps} />);
+    it('has accessible button role on a pressable card', () => {
+      render(<TeamCard {...defaultProps} onPress={jest.fn()} />);
       const card = screen.getByRole('button');
       expect(card).toBeTruthy();
     });
@@ -544,34 +468,17 @@ describe('TeamCard', () => {
       expect(card.props.accessibilityHint).toBeUndefined();
     });
 
-    it('has accessible expand toggle button', () => {
-      render(<TeamCard {...defaultProps} />);
-      const toggle = screen.getByLabelText('Expand member list');
-      expect(toggle.props.accessibilityRole).toBe('button');
-      expect(toggle.props.accessibilityState).toEqual({ expanded: false });
-    });
-
-    it('updates accessibility state when expanded', async () => {
-      render(<TeamCard {...defaultProps} />);
-
-      fireEvent.press(screen.getByText('Show members'));
-
-      await waitFor(() => {
-        const toggle = screen.getByLabelText('Collapse member list');
-        expect(toggle.props.accessibilityState).toEqual({ expanded: true });
-      });
-    });
-
     it('has accessible member rows', () => {
-      render(<TeamCard {...defaultProps} initiallyExpanded />);
+      render(<TeamCard {...defaultProps} />);
       const memberRow = screen.getByLabelText('John Smith, Handicap: 15');
       expect(memberRow.props.accessibilityRole).toBe('text');
     });
 
-    it('has accessible edit button', () => {
+    it('has accessible edit affordance on the team name', () => {
       render(<TeamCard {...defaultProps} isEditable />);
-      const editButton = screen.getByLabelText('Edit team name');
-      expect(editButton.props.accessibilityHint).toBe('Opens dialog to edit team name');
+      const editName = screen.getByLabelText('Edit team name');
+      expect(editName.props.accessibilityHint).toBe('Opens dialog to edit team name');
+      expect(editName.props.accessibilityRole).toBe('button');
     });
   });
 
@@ -607,7 +514,7 @@ describe('TeamCard', () => {
         { id: 'team-lp', name: 'Team', competition_id: 'comp-1' },
         [createTestPlayer({ id: 'p1', name: 'A Very Long Player Name That Should Be Truncated', handicap: 15 })]
       );
-      render(<TeamCard team={longPlayerNameTeam} initiallyExpanded />);
+      render(<TeamCard team={longPlayerNameTeam} />);
       expect(screen.getByText('A Very Long Player Name That Should Be Truncated')).toBeTruthy();
     });
 
@@ -705,7 +612,7 @@ describe('TeamCard', () => {
         { id: 'team-init', name: 'Team Init', competition_id: 'comp-1' },
         [createTestPlayer({ id: 'p1', name: 'John Smith', handicap: 15 })]
       );
-      render(<TeamCard team={team} initiallyExpanded />);
+      render(<TeamCard team={team} />);
       // "John Smith" → "JS"
       expect(screen.getByText('John Smith')).toBeTruthy();
     });
@@ -715,7 +622,7 @@ describe('TeamCard', () => {
         { id: 'team-single-name', name: 'Team Single', competition_id: 'comp-1' },
         [createTestPlayer({ id: 'p1', name: 'Madonna', handicap: 15 })]
       );
-      render(<TeamCard team={team} initiallyExpanded />);
+      render(<TeamCard team={team} />);
       // "Madonna" → "M"
       expect(screen.getByText('Madonna')).toBeTruthy();
     });
@@ -725,39 +632,9 @@ describe('TeamCard', () => {
         { id: 'team-multi', name: 'Team Multi', competition_id: 'comp-1' },
         [createTestPlayer({ id: 'p1', name: 'Jean Claude Van Damme', handicap: 15 })]
       );
-      render(<TeamCard team={team} initiallyExpanded />);
+      render(<TeamCard team={team} />);
       // "Jean Claude Van Damme" → "JC" (first two initials)
       expect(screen.getByText('Jean Claude Van Damme')).toBeTruthy();
-    });
-  });
-
-  // ===========================================================================
-  // LAYOUT ANIMATION TESTS
-  // ===========================================================================
-
-  describe('Layout Animation', () => {
-    it('triggers layout animation when expanding', async () => {
-      render(<TeamCard {...defaultProps} />);
-
-      fireEvent.press(screen.getByText('Show members'));
-
-      await waitFor(() => {
-        expect(LayoutAnimation.configureNext).toHaveBeenCalledWith(
-          LayoutAnimation.Presets.easeInEaseOut
-        );
-      });
-    });
-
-    it('triggers layout animation when collapsing', async () => {
-      render(<TeamCard {...defaultProps} initiallyExpanded />);
-
-      fireEvent.press(screen.getByText('Hide members'));
-
-      await waitFor(() => {
-        expect(LayoutAnimation.configureNext).toHaveBeenCalledWith(
-          LayoutAnimation.Presets.easeInEaseOut
-        );
-      });
     });
   });
 });

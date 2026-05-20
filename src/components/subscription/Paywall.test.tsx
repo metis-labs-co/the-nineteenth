@@ -333,7 +333,7 @@ describe('Paywall', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Up to 8 competitions')).toBeTruthy();
-        expect(screen.getByText('Up to 16 players per competition')).toBeTruthy();
+        expect(screen.getByText('Up to 12 players per competition')).toBeTruthy();
         expect(screen.getByText('Stroke Play & Match Play')).toBeTruthy();
       });
     });
@@ -342,7 +342,7 @@ describe('Paywall', () => {
       render(<Paywall {...defaultProps} initialTier="premium" />);
 
       await waitFor(() => {
-        expect(screen.getByText('Unlimited competitions')).toBeTruthy();
+        expect(screen.getByText('Up to 50 competitions')).toBeTruthy();
         expect(screen.getByText('Up to 40 players per competition')).toBeTruthy();
         expect(screen.getByText('All game types including team formats')).toBeTruthy();
         expect(screen.getByText('Priority support')).toBeTruthy();

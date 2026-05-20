@@ -28,6 +28,13 @@ import type { BunkerStats } from '@/hooks/playerStatistics';
 export interface BunkerStatsSectionProps {
   /** Bunker aggregate statistics */
   bunkerStats: BunkerStats;
+  /**
+   * Whether bunker tracking is currently enabled for the user.
+   * When tracking is on but no data has been recorded, the empty state shows a
+   * neutral "no data" message instead of wrongly prompting to enable settings.
+   * @default true
+   */
+  trackingEnabled?: boolean;
 }
 
 // =====================================================
@@ -36,10 +43,14 @@ export interface BunkerStatsSectionProps {
 
 export const BunkerStatsSection = React.memo(function BunkerStatsSection({
   bunkerStats,
+  trackingEnabled = true,
 }: BunkerStatsSectionProps) {
   const colors = useThemeColors();
 
   const hasData = bunkerStats.totalHolesTracked > 0;
+  const emptyStateText = trackingEnabled
+    ? 'No bunker shots recorded for these rounds yet'
+    : 'Enable bunker tracking in Settings to see bunker stats';
 
   return (
     <FeatureLock feature="score_distribution">
@@ -131,7 +142,7 @@ export const BunkerStatsSection = React.memo(function BunkerStatsSection({
             <View style={styles.emptyState}>
               <Icon source="information-outline" size={20} color={colors.textSecondary} />
               <Text style={[styles.emptyStateText, { color: colors.textSecondary }]}>
-                Enable bunker tracking in Settings to see bunker stats
+                {emptyStateText}
               </Text>
             </View>
           )}

@@ -19,8 +19,13 @@ import type { NineType } from '@/types/database/enums';
 import type { BallCount } from '@/types/multiball.types';
 import type { MultiBallHoleScore, BallTotals } from '@/types/database/base';
 import { isSingleBallScore } from '@/types/database/base';
-import { saveScorecard, saveHoles } from '@/services/offline/database';
-import { queueScorecardSync, subscribeSyncState, getIsOnline } from '@/services/offline/sync';
+import { saveScorecard, saveHoles, markScorecardsAsSynced } from '@/services/offline/database';
+import {
+  queueScorecardSync,
+  syncScorecard,
+  subscribeSyncState,
+  getIsOnline,
+} from '@/services/offline/sync';
 import { storeLogger, logScorecardSummary } from '@/utils/debugLogger';
 import { calculatePlayerTotals } from './utils/scorecardCalculations';
 import * as multiBall from './multiBallSlice';
@@ -315,7 +320,23 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
           storeLogger.debug('Submitting scorecard', logScorecardSummary(updatedScorecard));
           newScorecards.set(playerId, updatedScorecard);
           await saveScorecard(updatedScorecard);
-          await queueScorecardSync(updatedScorecard, 'update');
+
+          if (getIsOnline()) {
+            // Push to Supabase synchronously and wait for confirmation. The
+            // round status is set by a separate *direct* server write right
+            // after submission resolves; if we only fired a background queue
+            // sync (fire-and-forget), the round could be marked completed while
+            // the scorecard never reaches the server — leaving it scoreless and
+            // missing from handicap history / stats. Throwing on failure keeps
+            // the round un-completed and therefore recoverable.
+            await syncScorecard(updatedScorecard, { skipServerCheck: true });
+            await markScorecardsAsSynced([updatedScorecard.id]);
+          } else {
+            // Offline: queue for durable retry on reconnect. The submission
+            // flow leaves the round status unchanged while offline, so no
+            // round/scorecard divergence can occur.
+            await queueScorecardSync(updatedScorecard, 'update');
+          }
           successCount++;
         } catch (error) {
           errorCount++;

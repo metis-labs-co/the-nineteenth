@@ -414,7 +414,6 @@ export const TeamsTab = React.memo(function TeamsTab({
                   ? (player) => handleMemberPress(team, player)
                   : undefined
               }
-              initiallyExpanded
               currentUserId={currentUserId}
               testID={`team-card-${team.id}`}
             />

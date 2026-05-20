@@ -16,10 +16,14 @@ import {
 } from '@/store/settingsStore';
 import { useStatsVisibilityWithTier } from '@/hooks/useStatsVisibilityWithTier';
 
-// Mock SubscriptionContext's useIsPremium
+// Mock SubscriptionContext's useIsPremium / useTier.
+// useStatsVisibilityWithTier reads both: useTier() drives the Social+ gate for
+// FIR/GIR, useIsPremium() the advanced-stats gate. Keep the mocked tier
+// consistent with the premium flag so a single toggle controls both.
 const mockIsPremium = jest.fn();
 jest.mock('@/context/SubscriptionContext', () => ({
   useIsPremium: () => mockIsPremium(),
+  useTier: () => (mockIsPremium() ? 'premium' : 'free'),
 }));
 
 // Mock AsyncStorage

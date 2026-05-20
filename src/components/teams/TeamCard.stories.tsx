@@ -231,7 +231,7 @@ export const Default: Story = {
 export const Expanded: Story = {
   render: () => (
     <StoryWrapper>
-      <TeamCard team={twoPlayerTeam} initiallyExpanded />
+      <TeamCard team={twoPlayerTeam} />
     </StoryWrapper>
   ),
 };
@@ -242,7 +242,7 @@ export const Expanded: Story = {
 export const ThreeMembers: Story = {
   render: () => (
     <StoryWrapper>
-      <TeamCard team={threePlayerTeam} initiallyExpanded />
+      <TeamCard team={threePlayerTeam} />
     </StoryWrapper>
   ),
 };
@@ -253,7 +253,7 @@ export const ThreeMembers: Story = {
 export const FourMembers: Story = {
   render: () => (
     <StoryWrapper>
-      <TeamCard team={fourPlayerTeam} initiallyExpanded />
+      <TeamCard team={fourPlayerTeam} />
     </StoryWrapper>
   ),
 };
@@ -264,7 +264,7 @@ export const FourMembers: Story = {
 export const SingleMember: Story = {
   render: () => (
     <StoryWrapper>
-      <TeamCard team={singleMemberTeam} initiallyExpanded />
+      <TeamCard team={singleMemberTeam} />
     </StoryWrapper>
   ),
 };
@@ -275,7 +275,7 @@ export const SingleMember: Story = {
 export const EmptyTeam: Story = {
   render: () => (
     <StoryWrapper>
-      <TeamCard team={emptyTeam} initiallyExpanded />
+      <TeamCard team={emptyTeam} />
     </StoryWrapper>
   ),
 };
@@ -293,9 +293,7 @@ export const Editable: Story = {
       <TeamCard
         team={twoPlayerTeam}
         isEditable
-        onEdit={defaultHandlers.onEdit}
-        initiallyExpanded
-      />
+        onEdit={defaultHandlers.onEdit}      />
     </StoryWrapper>
   ),
 };
@@ -310,9 +308,7 @@ export const EditableWithAllActions: Story = {
         team={fourPlayerTeam}
         isEditable
         onEdit={defaultHandlers.onEdit}
-        onDelete={defaultHandlers.onDelete}
-        initiallyExpanded
-      />
+        onDelete={defaultHandlers.onDelete}      />
     </StoryWrapper>
   ),
 };
@@ -323,7 +319,7 @@ export const EditableWithAllActions: Story = {
 export const ReadOnly: Story = {
   render: () => (
     <StoryWrapper>
-      <TeamCard team={twoPlayerTeam} isEditable={false} initiallyExpanded />
+      <TeamCard team={twoPlayerTeam} isEditable={false} />
     </StoryWrapper>
   ),
 };
@@ -353,9 +349,7 @@ export const PressableAndEditable: Story = {
         team={twoPlayerTeam}
         isEditable
         onEdit={defaultHandlers.onEdit}
-        onPress={defaultHandlers.onPress}
-        initiallyExpanded
-      />
+        onPress={defaultHandlers.onPress}      />
     </StoryWrapper>
   ),
 };
@@ -370,7 +364,7 @@ export const PressableAndEditable: Story = {
 export const ScratchGolfers: Story = {
   render: () => (
     <StoryWrapper>
-      <TeamCard team={scratchTeam} initiallyExpanded />
+      <TeamCard team={scratchTeam} />
     </StoryWrapper>
   ),
 };
@@ -381,7 +375,7 @@ export const ScratchGolfers: Story = {
 export const PlusHandicaps: Story = {
   render: () => (
     <StoryWrapper>
-      <TeamCard team={plusHandicapTeam} initiallyExpanded />
+      <TeamCard team={plusHandicapTeam} />
     </StoryWrapper>
   ),
 };
@@ -392,7 +386,7 @@ export const PlusHandicaps: Story = {
 export const HighHandicaps: Story = {
   render: () => (
     <StoryWrapper>
-      <TeamCard team={highHandicapTeam} initiallyExpanded />
+      <TeamCard team={highHandicapTeam} />
     </StoryWrapper>
   ),
 };
@@ -403,7 +397,7 @@ export const HighHandicaps: Story = {
 export const VariedHandicaps: Story = {
   render: () => (
     <StoryWrapper>
-      <TeamCard team={variedHandicapTeam} initiallyExpanded />
+      <TeamCard team={variedHandicapTeam} />
     </StoryWrapper>
   ),
 };
@@ -414,7 +408,7 @@ export const VariedHandicaps: Story = {
 export const NullHandicaps: Story = {
   render: () => (
     <StoryWrapper>
-      <TeamCard team={teamWithNullHandicaps} initiallyExpanded />
+      <TeamCard team={teamWithNullHandicaps} />
     </StoryWrapper>
   ),
 };
@@ -429,7 +423,7 @@ export const NullHandicaps: Story = {
 export const WithPhotos: Story = {
   render: () => (
     <StoryWrapper>
-      <TeamCard team={teamWithPhotos} initiallyExpanded />
+      <TeamCard team={teamWithPhotos} />
     </StoryWrapper>
   ),
 };
@@ -440,7 +434,7 @@ export const WithPhotos: Story = {
 export const WithInitials: Story = {
   render: () => (
     <StoryWrapper>
-      <TeamCard team={twoPlayerTeam} initiallyExpanded />
+      <TeamCard team={twoPlayerTeam} />
     </StoryWrapper>
   ),
 };
@@ -457,7 +451,7 @@ export const MixedAvatars: Story = {
     ]);
     return (
       <StoryWrapper>
-        <TeamCard team={mixedTeam} initiallyExpanded />
+        <TeamCard team={mixedTeam} />
       </StoryWrapper>
     );
   },
@@ -473,7 +467,7 @@ export const MixedAvatars: Story = {
 export const LongNames: Story = {
   render: () => (
     <StoryWrapper>
-      <TeamCard team={longNameTeam} initiallyExpanded />
+      <TeamCard team={longNameTeam} />
     </StoryWrapper>
   ),
 };
@@ -490,7 +484,7 @@ export const SingleWordNames: Story = {
     ]);
     return (
       <StoryWrapper>
-        <TeamCard team={singleWordTeam} initiallyExpanded />
+        <TeamCard team={singleWordTeam} />
       </StoryWrapper>
     );
   },
@@ -507,7 +501,7 @@ export const DecimalHandicaps: Story = {
     ]);
     return (
       <StoryWrapper>
-        <TeamCard team={decimalTeam} initiallyExpanded />
+        <TeamCard team={decimalTeam} />
       </StoryWrapper>
     );
   },
@@ -523,7 +517,7 @@ export const DecimalHandicaps: Story = {
 export const WithTestID: Story = {
   render: () => (
     <StoryWrapper>
-      <TeamCard team={twoPlayerTeam} testID="team-card-test" initiallyExpanded />
+      <TeamCard team={twoPlayerTeam} testID="team-card-test" />
     </StoryWrapper>
   ),
 };
@@ -551,9 +545,9 @@ export const MultipleTeams: Story = {
 export const MultipleTeamsExpanded: Story = {
   render: () => (
     <ScrollWrapper>
-      <TeamCard team={twoPlayerTeam} initiallyExpanded />
-      <TeamCard team={threePlayerTeam} initiallyExpanded />
-      <TeamCard team={fourPlayerTeam} initiallyExpanded />
+      <TeamCard team={twoPlayerTeam} />
+      <TeamCard team={threePlayerTeam} />
+      <TeamCard team={fourPlayerTeam} />
     </ScrollWrapper>
   ),
 };
@@ -597,7 +591,7 @@ export const CompetitionView: Story = {
 export const DarkModeContext: Story = {
   render: () => (
     <View style={[styles.wrapper, { backgroundColor: '#121212' }]}>
-      <TeamCard team={twoPlayerTeam} initiallyExpanded />
+      <TeamCard team={twoPlayerTeam} />
     </View>
   ),
 };
@@ -607,7 +601,7 @@ export const DarkModeContext: Story = {
 // ===========================================================================
 
 /**
- * Interactive: expand/collapse demo
+ * Members are always visible (no expand/collapse)
  */
 export const Interactive: Story = {
   render: () => (
@@ -618,7 +612,7 @@ export const Interactive: Story = {
   parameters: {
     docs: {
       description: {
-        story: 'Click "Show members" to expand and see all team members.',
+        story: 'The member list is always shown; tap the team name (when editable) to rename.',
       },
     },
   },
@@ -635,9 +629,7 @@ export const AllFeatures: Story = {
         isEditable
         onEdit={defaultHandlers.onEdit}
         onDelete={defaultHandlers.onDelete}
-        onPress={defaultHandlers.onPress}
-        initiallyExpanded
-        testID="all-features-card"
+        onPress={defaultHandlers.onPress}        testID="all-features-card"
       />
     </StoryWrapper>
   ),

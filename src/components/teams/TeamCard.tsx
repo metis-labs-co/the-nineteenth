@@ -1,25 +1,12 @@
 // src/components/teams/TeamCard.tsx
-import React, { useState, useCallback } from 'react';
-import {
-  View,
-  StyleSheet,
-  TouchableOpacity,
-  LayoutAnimation,
-  Platform,
-  UIManager,
-} from 'react-native';
-import { Card, Text, IconButton, Divider } from 'react-native-paper';
+import React, { useCallback } from 'react';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { Card, Text, Divider } from 'react-native-paper';
 import { PlayerAvatar } from '@/components/common';
-import { IconChevronDown, IconChevronUp } from '@tabler/icons-react-native';
-import { spacing, typography, borderRadius, shadows, layout, type ColorPalette } from '@/constants/theme';
+import { spacing, typography, borderRadius, shadows, type ColorPalette } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { getTeamColorHex } from '@/utils/teamColor';
 import type { TeamWithMembers, Player } from '@/types/database.types';
-
-// Enable LayoutAnimation on Android
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 /**
  * Calculate team statistics
@@ -94,11 +81,6 @@ export interface TeamCardProps {
   onMemberPress?: (player: Player) => void;
 
   /**
-   * Whether member list is initially expanded
-   */
-  initiallyExpanded?: boolean;
-
-  /**
    * The currently logged-in user's player ID. When provided:
    *   - Member rows for this player display a "You" pill next to the name.
    *   - The card itself gets a primary-coloured border to visually
@@ -116,9 +98,9 @@ export interface TeamCardProps {
  * TeamCard - Display team with members and statistics
  *
  * @description
- * Shows team name (editable if isEditable), member list with avatars,
- * and team statistics (average and total handicap). Supports
- * expandable/collapsible member details.
+ * Shows team name (tappable to edit when isEditable), the average/total team
+ * handicap in the header's top-right, and the full member list (always
+ * visible) with avatars and per-player handicaps.
  *
  * @example
  * ```tsx
@@ -126,8 +108,6 @@ export interface TeamCardProps {
  *   team={teamWithMembers}
  *   isEditable={isOrganizer}
  *   onEdit={(team) => handleEditTeam(team)}
- *   onDelete={(team) => handleDeleteTeam(team)}
- *   onNameChange={(teamId, name) => updateTeamName(teamId, name)}
  * />
  * ```
  */
@@ -139,26 +119,19 @@ export const TeamCard = React.memo(function TeamCard({
   onNameChange,
   onPress,
   onMemberPress,
-  initiallyExpanded = false,
   currentUserId,
   testID,
 }: TeamCardProps) {
   const colors = useThemeColors();
-  const [isExpanded, setIsExpanded] = useState(initiallyExpanded);
 
   const { averageHandicap, totalHandicap } = calculateTeamStats(team.members);
-  const memberCount = team.members?.length ?? 0;
+  const members = team.members ?? [];
+  const memberCount = members.length;
 
   // Highlight the user's own team with a primary-colour border so it
   // stands out at a glance among many teams.
-  const isUsersTeam = !!currentUserId && (team.members ?? []).some(
-    (m) => m.player_id === currentUserId
-  );
-
-  const handleToggleExpand = useCallback(() => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setIsExpanded((prev) => !prev);
-  }, []);
+  const isUsersTeam =
+    !!currentUserId && members.some((m) => m.player_id === currentUserId);
 
   const handleEditPress = useCallback(() => {
     onEdit?.(team);
@@ -172,6 +145,20 @@ export const TeamCard = React.memo(function TeamCard({
   const _handleNameChange = onNameChange; // Suppress unused warning
 
   const styles = createStyles(colors);
+
+  const nameRow = (
+    <>
+      <View
+        style={[
+          styles.colorDot,
+          { backgroundColor: getTeamColorHex(team.color, 0, colors) },
+        ]}
+      />
+      <Text style={styles.teamName} numberOfLines={1} ellipsizeMode="tail">
+        {team.name}
+      </Text>
+    </>
+  );
 
   return (
     <Card
@@ -190,95 +177,65 @@ export const TeamCard = React.memo(function TeamCard({
       accessibilityHint={onPress ? 'Double tap to view team details' : undefined}
     >
       <Card.Content style={styles.content}>
-        {/* Header: Team Name + Edit Action */}
+        {/* Header: tappable team name (left) + handicap stats (top-right) */}
         <View style={styles.header}>
           <View style={styles.nameContainer}>
-            <View
-              style={[
-                styles.colorDot,
-                { backgroundColor: getTeamColorHex(team.color, 0, colors) },
-              ]}
-            />
-            <Text style={styles.teamName} numberOfLines={1} ellipsizeMode="tail">
-              {team.name}
-            </Text>
-          </View>
-
-          {isEditable && (
-            <IconButton
-              icon="pencil"
-              size={20}
-              onPress={handleEditPress}
-              accessibilityLabel="Edit team name"
-              accessibilityHint="Opens dialog to edit team name"
-              style={styles.actionButton}
-            />
-          )}
-        </View>
-
-        {/* Stats Row: Average HC + Total HC Badges */}
-        <View style={styles.statsRow}>
-          <View style={[styles.statBadge, { backgroundColor: colors.primaryLighter }]}>
-            <Text style={[styles.statLabel, { color: colors.primaryDark }]}>Avg HC</Text>
-            <Text style={[styles.statValue, { color: colors.primaryDark }]}>
-              {averageHandicap.toFixed(1)}
-            </Text>
-          </View>
-          <View style={[styles.statBadge, { backgroundColor: colors.gray200 }]}>
-            <Text style={[styles.statLabel, { color: colors.gray700 }]}>Total HC</Text>
-            <Text style={[styles.statValue, { color: colors.gray700 }]}>
-              {totalHandicap.toFixed(1)}
-            </Text>
-          </View>
-          <View style={styles.memberCountBadge}>
-            <Text style={[styles.memberCountText, { color: colors.textSecondary }]}>
+            {isEditable ? (
+              <TouchableOpacity
+                style={styles.nameButton}
+                onPress={handleEditPress}
+                activeOpacity={0.6}
+                accessibilityRole="button"
+                accessibilityLabel="Edit team name"
+                accessibilityHint="Opens dialog to edit team name"
+              >
+                {nameRow}
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.nameButton}>{nameRow}</View>
+            )}
+            <Text style={styles.memberCountText}>
               {memberCount} {memberCount === 1 ? 'member' : 'members'}
             </Text>
+          </View>
+
+          <View style={styles.statsColumn}>
+            <View style={styles.statItem}>
+              <Text style={styles.statLabel}>Avg HC</Text>
+              <Text style={[styles.statValue, { color: colors.primaryDark }]}>
+                {averageHandicap.toFixed(1)}
+              </Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={styles.statLabel}>Total HC</Text>
+              <Text style={[styles.statValue, { color: colors.textSecondary }]}>
+                {totalHandicap.toFixed(1)}
+              </Text>
+            </View>
           </View>
         </View>
 
         <Divider style={[styles.divider, { backgroundColor: colors.border }]} />
 
-        {/* Expandable Member List Toggle */}
-        <TouchableOpacity
-          style={styles.expandToggle}
-          onPress={handleToggleExpand}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          accessibilityLabel={`${isExpanded ? 'Collapse' : 'Expand'} member list`}
-          accessibilityState={{ expanded: isExpanded }}
-        >
-          <Text style={[styles.expandToggleText, { color: colors.textSecondary }]}>
-            {isExpanded ? 'Hide members' : 'Show members'}
-          </Text>
-          {isExpanded ? (
-            <IconChevronUp size={20} color={colors.textSecondary} />
+        {/* Member list — always visible */}
+        <View style={styles.memberList}>
+          {memberCount > 0 ? (
+            members.map((member, index) => (
+              <MemberRow
+                key={member.player_id}
+                player={member.player}
+                isLast={index === memberCount - 1}
+                colors={colors}
+                onPress={onMemberPress}
+                isCurrentUser={!!currentUserId && member.player_id === currentUserId}
+              />
+            ))
           ) : (
-            <IconChevronDown size={20} color={colors.textSecondary} />
+            <Text style={[styles.emptyText, { color: colors.textTertiary }]}>
+              No members in this team
+            </Text>
           )}
-        </TouchableOpacity>
-
-        {/* Member List (Expandable) */}
-        {isExpanded && (
-          <View style={styles.memberList}>
-            {team.members && team.members.length > 0 ? (
-              team.members.map((member, index) => (
-                <MemberRow
-                  key={member.player_id}
-                  player={member.player}
-                  isLast={index === team.members.length - 1}
-                  colors={colors}
-                  onPress={onMemberPress}
-                  isCurrentUser={!!currentUserId && member.player_id === currentUserId}
-                />
-              ))
-            ) : (
-              <Text style={[styles.emptyText, { color: colors.textTertiary }]}>
-                No members in this team
-              </Text>
-            )}
-          </View>
-        )}
+        </View>
       </Card.Content>
     </Card>
   );
@@ -382,21 +339,23 @@ const createStyles = (colors: ColorPalette) =>
       ...shadows.sm,
     },
     content: {
-      padding: spacing.lg,
+      padding: spacing.md,
     },
     header: {
       flexDirection: 'row',
-      alignItems: 'center',
+      alignItems: 'flex-start',
       justifyContent: 'space-between',
-      marginBottom: spacing.md,
-      minHeight: layout.iconButtonSize,
+      gap: spacing.md,
     },
     nameContainer: {
       flex: 1,
-      marginRight: spacing.sm,
+    },
+    nameButton: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: spacing.sm,
+      alignSelf: 'flex-start',
+      maxWidth: '100%',
     },
     colorDot: {
       width: 12,
@@ -406,56 +365,33 @@ const createStyles = (colors: ColorPalette) =>
     teamName: {
       ...typography.h4,
       color: colors.textPrimary,
-      flex: 1,
+      flexShrink: 1,
     },
-    actionButton: {
-      margin: 0,
+    memberCountText: {
+      ...typography.caption,
+      color: colors.textSecondary,
+      marginTop: spacing.xxs,
     },
-    statsRow: {
+    statsColumn: {
+      alignItems: 'flex-end',
+      gap: spacing.xxs,
+    },
+    statItem: {
       flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: spacing.md,
-      flexWrap: 'wrap',
-      gap: spacing.sm,
-    },
-    statBadge: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.xs,
-      borderRadius: borderRadius.full,
+      alignItems: 'baseline',
       gap: spacing.xs,
     },
     statLabel: {
       ...typography.caption,
-      fontWeight: '500',
+      color: colors.textTertiary,
     },
     statValue: {
       ...typography.smallBold,
     },
-    memberCountBadge: {
-      marginLeft: 'auto',
-    },
-    memberCountText: {
-      ...typography.small,
-    },
     divider: {
-      marginBottom: spacing.sm,
+      marginVertical: spacing.sm,
     },
-    expandToggle: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: spacing.sm,
-      minHeight: layout.iconButtonSize,
-    },
-    expandToggleText: {
-      ...typography.small,
-      marginRight: spacing.xs,
-    },
-    memberList: {
-      marginTop: spacing.sm,
-    },
+    memberList: {},
     emptyText: {
       ...typography.small,
       textAlign: 'center',

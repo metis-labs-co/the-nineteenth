@@ -24,8 +24,9 @@ import {
   getScorecardsByRound,
   saveHoles,
   getHoles,
+  markScorecardsAsSynced,
 } from '@/services/offline/database';
-import { queueScorecardSync } from '@/services/offline/sync';
+import { queueScorecardSync, syncScorecard, getIsOnline } from '@/services/offline/sync';
 import { storeLogger } from '@/utils/debugLogger';
 
 // Helper to get store state
@@ -54,11 +55,13 @@ jest.mock('@/services/offline/database', () => ({
   getScorecardsByRound: jest.fn(() => Promise.resolve([])),
   saveHoles: jest.fn(() => Promise.resolve()),
   getHoles: jest.fn(() => Promise.resolve([])),
+  markScorecardsAsSynced: jest.fn(() => Promise.resolve()),
 }));
 
 // Mock the sync service
 jest.mock('@/services/offline/sync', () => ({
   queueScorecardSync: jest.fn(() => Promise.resolve()),
+  syncScorecard: jest.fn(() => Promise.resolve()),
   subscribeSyncState: jest.fn((callback) => {
     callback({ status: 'idle', pendingCount: 0, error: null });
     return jest.fn();
@@ -66,16 +69,56 @@ jest.mock('@/services/offline/sync', () => ({
   getIsOnline: jest.fn(() => true),
 }));
 
+// Mock the Supabase client. loadFromOffline reads the round's metadata
+// (nine_type, game_type, etc.) and bails out early unless nine_type is known,
+// so the mocked `rounds` row must supply it.
+jest.mock('@/services/supabase/client', () => {
+  const roundsResult = {
+    data: {
+      game_type: 'stableford',
+      handicap_source: 'profile',
+      nine_type: 'full',
+      selected_tee: null,
+      course_id: null,
+    },
+    error: null,
+  };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test mock chain
+  const makeChain = (result: any) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- self-referential chain
+    const chain: any = {
+      select: jest.fn(() => chain),
+      eq: jest.fn(() => chain),
+      maybeSingle: jest.fn(() => Promise.resolve(result)),
+      single: jest.fn(() => Promise.resolve(result)),
+    };
+    return chain;
+  };
+  return {
+    supabase: {
+      from: jest.fn((table: string) =>
+        makeChain(table === 'rounds' ? roundsResult : { data: null, error: null })
+      ),
+    },
+    getCurrentUser: jest.fn(() => Promise.resolve({ id: 'test-user-id' })),
+  };
+});
+
 // Mock the debug logger
-jest.mock('@/utils/debugLogger', () => ({
-  storeLogger: {
+jest.mock('@/utils/debugLogger', () => {
+  const makeLogger = () => ({
     info: jest.fn(),
     debug: jest.fn(),
     warn: jest.fn(),
     error: jest.fn(),
-  },
-  logScorecardSummary: jest.fn((sc) => ({ id: sc?.id })),
-}));
+  });
+  return {
+    storeLogger: makeLogger(),
+    syncLogger: makeLogger(),
+    createModuleLogger: jest.fn(() => makeLogger()),
+    logScorecardSummary: jest.fn((sc) => ({ id: sc?.id })),
+  };
+});
 
 describe('ScorecardStore', () => {
   // Test data setup
@@ -670,13 +713,43 @@ describe('ScorecardStore', () => {
       }
     });
 
-    it('queues all for sync', async () => {
+    it('uploads each scorecard to the server (awaited) when online', async () => {
       jest.clearAllMocks();
+      (getIsOnline as jest.Mock).mockReturnValue(true);
+
+      const store = getStore();
+      await store.submitScorecards();
+
+      // Online submit must push directly and wait for confirmation, so the
+      // round can't be marked completed while a scorecard is still local-only.
+      expect(syncScorecard).toHaveBeenCalledTimes(testPlayers.length);
+      expect(markScorecardsAsSynced).toHaveBeenCalledTimes(testPlayers.length);
+      // It must NOT rely on the fire-and-forget background queue when online.
+      expect(queueScorecardSync).not.toHaveBeenCalled();
+    });
+
+    it('throws when an online upload fails so the round is not marked completed', async () => {
+      jest.clearAllMocks();
+      (getIsOnline as jest.Mock).mockReturnValue(true);
+      (syncScorecard as jest.Mock).mockRejectedValueOnce(new Error('network down'));
+
+      const store = getStore();
+
+      await expect(store.submitScorecards()).rejects.toThrow(/Failed to submit/);
+    });
+
+    it('queues for durable retry when offline (no direct upload)', async () => {
+      jest.clearAllMocks();
+      (getIsOnline as jest.Mock).mockReturnValue(false);
 
       const store = getStore();
       await store.submitScorecards();
 
       expect(queueScorecardSync).toHaveBeenCalledTimes(testPlayers.length);
+      expect(syncScorecard).not.toHaveBeenCalled();
+
+      // Restore default for subsequent tests
+      (getIsOnline as jest.Mock).mockReturnValue(true);
     });
 
     it('throws error if roundId not set', async () => {
@@ -876,16 +949,13 @@ describe('ScorecardStore', () => {
 
       it('warns and returns when scorecard not found', async () => {
         const store = getStore();
-        const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
 
         // Use a valid UUID that doesn't exist in the store
         await store.updatePlayerHoleScore('99999999-9999-4999-a999-999999999999', 1, { strokes: 4 });
 
-        expect(consoleSpy).toHaveBeenCalledWith(
-          '[ScorecardStore] Scorecard not found for player:',
-          '99999999-9999-4999-a999-999999999999'
-        );
-        consoleSpy.mockRestore();
+        expect(storeLogger.warn).toHaveBeenCalledWith('Scorecard not found for player', {
+          playerId: '99999999-9999-4999-a999-999999999999',
+        });
       });
 
       it('handles saveHoleScore failure gracefully', async () => {

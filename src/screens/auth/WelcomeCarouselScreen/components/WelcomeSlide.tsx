@@ -8,8 +8,8 @@ import { spacing, typography } from '@/constants/theme';
 interface WelcomeSlideProps {
   /** Rendered above the headline — icon, illustration, logo, etc. */
   illustration: React.ReactNode;
-  /** Short slide title. */
-  headline: string;
+  /** Short slide title. Omit for illustration-only slides (e.g. the logo intro). */
+  headline?: string;
   /** Supporting copy below the headline. */
   body: string;
   /** Optional CTA/footer area rendered above the dots on the final slide. */

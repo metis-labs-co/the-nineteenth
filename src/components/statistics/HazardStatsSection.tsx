@@ -29,6 +29,13 @@ import type { HazardStats } from '@/hooks/playerStatistics';
 export interface HazardStatsSectionProps {
   /** Hazard aggregate statistics */
   hazardStats: HazardStats;
+  /**
+   * Whether hazard tracking is currently enabled for the user.
+   * When tracking is on but no data has been recorded, the empty state shows a
+   * neutral "no data" message instead of wrongly prompting to enable settings.
+   * @default true
+   */
+  trackingEnabled?: boolean;
 }
 
 interface HazardRowProps {
@@ -75,10 +82,14 @@ const HazardRow = React.memo(function HazardRow({
 
 export const HazardStatsSection = React.memo(function HazardStatsSection({
   hazardStats,
+  trackingEnabled = true,
 }: HazardStatsSectionProps) {
   const colors = useThemeColors();
 
   const hasData = hazardStats.totalHolesTracked > 0;
+  const emptyStateText = trackingEnabled
+    ? 'No hazards recorded for these rounds yet'
+    : 'Enable hazard tracking in Settings to see hazard stats';
 
   return (
     <FeatureLock feature="score_distribution">
@@ -152,7 +163,7 @@ export const HazardStatsSection = React.memo(function HazardStatsSection({
             <View style={styles.emptyState}>
               <Icon source="information-outline" size={20} color={colors.textSecondary} />
               <Text style={[styles.emptyStateText, { color: colors.textSecondary }]}>
-                Enable hazard tracking in Settings to see hazard stats
+                {emptyStateText}
               </Text>
             </View>
           )}
