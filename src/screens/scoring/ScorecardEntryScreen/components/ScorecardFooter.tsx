@@ -21,6 +21,8 @@ export interface ScorecardFooterProps {
   canGoNext: boolean;
   /** Whether all holes have been scored */
   isAllComplete?: boolean;
+  /** When provided, renders a camera button that opens the round's photos. */
+  onAddPhotos?: () => void;
 }
 
 export function ScorecardFooter({
@@ -31,6 +33,7 @@ export function ScorecardFooter({
   canGoPrevious,
   canGoNext,
   isAllComplete = false,
+  onAddPhotos,
 }: ScorecardFooterProps) {
   const colors = useThemeColors();
 
@@ -73,6 +76,22 @@ export function ScorecardFooter({
         >
           <Icon source="clipboard-list-outline" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
+
+        {onAddPhotos ? (
+          <TouchableOpacity
+            onPress={onAddPhotos}
+            style={[
+              styles.iconNavButton,
+              styles.navButtonContent,
+              { borderWidth: 1, borderColor: colors.border },
+            ]}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Add round photos"
+          >
+            <Icon source="camera-plus-outline" size={24} color={colors.textPrimary} />
+          </TouchableOpacity>
+        ) : null}
 
         <TouchableOpacity
           onPress={onNextHole}
