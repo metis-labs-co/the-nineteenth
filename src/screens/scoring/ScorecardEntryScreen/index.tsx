@@ -752,6 +752,7 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
         canGoPrevious={nav.canGoPrevious}
         canGoNext={nav.canGoNext}
         isAllComplete={getCompletedHolesCount() === holes.length && holes.length > 0}
+        onAddPhotos={() => navigation.navigate('RoundPhotos', { roundId })}
       />
 
       <ScorecardDialogs
