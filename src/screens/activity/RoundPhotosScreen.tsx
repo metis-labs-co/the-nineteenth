@@ -17,7 +17,9 @@ import type { RootStackScreenProps } from '@/navigation/types';
 type Props = RootStackScreenProps<'RoundPhotos'>;
 
 export default function RoundPhotosScreen({ navigation, route }: Props) {
-  const { roundId } = route.params;
+  // canAdd defaults to true: the score-entry entry point is always a round
+  // participant. A read-only caller (e.g. ViewRound) can pass canAdd={false}.
+  const { roundId, canAdd = true } = route.params;
   const colors = useThemeColors();
 
   return (
@@ -29,7 +31,7 @@ export default function RoundPhotosScreen({ navigation, route }: Props) {
         onBack={() => navigation.goBack()}
       />
       <ScrollView contentContainerStyle={styles.content}>
-        <RoundPhotoAlbum roundId={roundId} canAdd />
+        <RoundPhotoAlbum roundId={roundId} canAdd={canAdd} />
       </ScrollView>
     </View>
   );

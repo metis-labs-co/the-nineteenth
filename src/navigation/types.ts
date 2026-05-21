@@ -171,7 +171,7 @@ export type RootStackParamList = {
   // Activity Feed
   Activity: undefined;
   RoundActivity: { roundId: string }; // Likes/comments/photos for a single round
-  RoundPhotos: { roundId: string }; // Shared photo album for a single round
+  RoundPhotos: { roundId: string; canAdd?: boolean }; // Shared photo album for a single round (canAdd defaults true)
 
   // Leagues
   LeagueDetail: { id: string };
