@@ -30,26 +30,24 @@ describe('extFromAsset', () => {
 });
 
 describe('pickImageFromLibrary', () => {
-  it('returns null and alerts when permission denied', async () => {
-    mockPicker.requestMediaLibraryPermissionsAsync.mockResolvedValue({ granted: false } as never);
-    expect(await pickImageFromLibrary()).toBeNull();
-    expect(Alert.alert).toHaveBeenCalled();
-    expect(mockPicker.launchImageLibraryAsync).not.toHaveBeenCalled();
-  });
-
-  it('returns null when the user cancels', async () => {
-    mockPicker.requestMediaLibraryPermissionsAsync.mockResolvedValue({ granted: true } as never);
-    mockPicker.launchImageLibraryAsync.mockResolvedValue({ canceled: true, assets: [] } as never);
-    expect(await pickImageFromLibrary()).toBeNull();
-  });
-
-  it('returns the picked image meta on success', async () => {
-    mockPicker.requestMediaLibraryPermissionsAsync.mockResolvedValue({ granted: true } as never);
+  it('launches the library picker directly without requesting media-library permission', async () => {
+    // The system photo picker (iOS PHPicker / Android Photo Picker) needs no
+    // media-library permission; gating on one wrongly blocks the picker.
     mockPicker.launchImageLibraryAsync.mockResolvedValue({
       canceled: false,
       assets: [{ uri: 'file:///a.jpg', fileName: 'a.jpg', mimeType: 'image/jpeg' }],
     } as never);
-    expect(await pickImageFromLibrary()).toEqual({ uri: 'file:///a.jpg', ext: 'jpg', mimeType: 'image/jpeg' });
+
+    const result = await pickImageFromLibrary();
+
+    expect(mockPicker.requestMediaLibraryPermissionsAsync).not.toHaveBeenCalled();
+    expect(mockPicker.launchImageLibraryAsync).toHaveBeenCalled();
+    expect(result).toEqual({ uri: 'file:///a.jpg', ext: 'jpg', mimeType: 'image/jpeg' });
+  });
+
+  it('returns null when the user cancels', async () => {
+    mockPicker.launchImageLibraryAsync.mockResolvedValue({ canceled: true, assets: [] } as never);
+    expect(await pickImageFromLibrary()).toBeNull();
   });
 });
 

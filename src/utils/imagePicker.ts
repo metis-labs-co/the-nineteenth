@@ -1,9 +1,10 @@
 /**
  * imagePicker - shared helpers for picking/capturing a square profile image.
  *
- * Both helpers request the relevant permission (alerting on denial), launch the
- * picker with a 1:1 crop and light compression, and return the picked image's
- * uri/ext/mimeType, or null if denied or cancelled.
+ * Both helpers launch the picker with a 1:1 crop and light compression and
+ * return the picked image's uri/ext/mimeType, or null if cancelled. The library
+ * picker needs no permission; the camera helper requests camera permission and
+ * alerts on denial.
  */
 
 import { Alert } from 'react-native';
@@ -40,13 +41,14 @@ function toPickedImage(result: ImagePicker.ImagePickerResult): PickedImage | nul
   return { uri: asset.uri, ext: extFromAsset(asset), mimeType: asset.mimeType ?? undefined };
 }
 
-/** Pick an existing image from the photo library. */
+/**
+ * Pick an existing image from the photo library.
+ *
+ * The system photo picker (iOS PHPicker / Android Photo Picker) needs no
+ * media-library permission. Requesting one caused false-negative blocks
+ * (e.g. "limited" access) where the picker never opened, so launch directly.
+ */
 export async function pickImageFromLibrary(): Promise<PickedImage | null> {
-  const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-  if (!permission.granted) {
-    Alert.alert('Permission needed', 'Allow photo library access to choose a profile photo.');
-    return null;
-  }
   return toPickedImage(await ImagePicker.launchImageLibraryAsync(PICK_OPTIONS));
 }
 
