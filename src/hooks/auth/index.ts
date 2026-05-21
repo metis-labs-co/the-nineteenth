@@ -13,11 +13,14 @@ export { useAuthMutations } from './useAuthMutations';
 export { useSocialAuth } from './useSocialAuth';
 export { usePasswordReset } from './usePasswordReset';
 export { useProfileMutations } from './useProfileMutations';
+export { useAvatarUpload } from './useAvatarUpload';
 
 // Utilities
 export { ensurePlayerProfile } from './utils';
 
 // Types
+export type { UploadAvatarInput } from './useAvatarUpload';
+
 export type {
   AuthState,
   LoginCredentials,
