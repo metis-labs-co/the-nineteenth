@@ -10,6 +10,7 @@ import { View, StyleSheet, ScrollView } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
+import { getScoreColor } from '@/utils/scoring';
 import type { EclecticBestScore, EclecticScoring } from '@/types/database';
 
 interface CourseHole {
@@ -53,15 +54,6 @@ export default React.memo(function EclecticScorecardView({
 
   const holesCompleted = bestScores.length;
 
-  const getScoreColor = (gross: number, par: number) => {
-    const diff = gross - par;
-    if (diff <= -2) return colors.birdie;
-    if (diff === -1) return colors.birdie;
-    if (diff === 0) return colors.par;
-    if (diff === 1) return colors.bogey;
-    return colors.doubleBogey;
-  };
-
   const renderHoleRow = (hole: CourseHole) => {
     const bestScore = scoreMap.get(hole.hole_number);
     const hasScore = !!bestScore;
@@ -94,11 +86,11 @@ export default React.memo(function EclecticScorecardView({
           {hasScore ? (
             <View style={[
               styles.scoreBadge,
-              { backgroundColor: getScoreColor(bestScore.best_gross, hole.par) + '20' },
+              { backgroundColor: getScoreColor(bestScore.best_gross, hole.par, colors) + '20' },
             ]}>
               <Text style={[
                 styles.scoreText,
-                { color: getScoreColor(bestScore.best_gross, hole.par) },
+                { color: getScoreColor(bestScore.best_gross, hole.par, colors) },
               ]}>
                 {bestScore.best_gross}
               </Text>
@@ -126,7 +118,7 @@ export default React.memo(function EclecticScorecardView({
           {hasScore ? (
             <Text style={[
               styles.vsParText,
-              { color: getScoreColor(bestScore.best_gross, hole.par) },
+              { color: getScoreColor(bestScore.best_gross, hole.par, colors) },
             ]}>
               {bestScore.best_gross - hole.par === 0
                 ? 'E'

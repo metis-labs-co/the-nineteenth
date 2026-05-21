@@ -12,7 +12,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import { wolfKeys } from '@/hooks/queryKeys';
 import { CACHE_TIMES, GC_TIMES } from '@/constants/cacheConfig';
-import { createError } from './helpers';
+import { createError } from '@/services/errors';
 import type {
   WolfPlayerStatistics,
   WolfGameHistoryEntry,

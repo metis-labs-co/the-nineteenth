@@ -9,7 +9,6 @@ export {
   type SaveRoundResultInput,
   type RoundResultWithParticipant,
   type CompetitionResults,
-  type RoundResultsServiceError,
 } from './roundResultsService';
 
 export { updateRound, type UpdateRoundFields } from './updateRound';

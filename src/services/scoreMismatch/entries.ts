@@ -6,7 +6,8 @@
 
 import type { HoleScore } from '@/types';
 import { createModuleLogger } from '@/utils/debugLogger';
-import { fromTable, createError } from './types';
+import { fromTable } from './types';
+import { createError } from '@/services/errors';
 import type { ScoreEntry } from './types';
 
 const logger = createModuleLogger('ScoreMismatchService');

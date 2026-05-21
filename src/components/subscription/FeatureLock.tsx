@@ -43,6 +43,7 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import type { FeatureId, FeatureAccess } from '@/types/subscription.types';
 import type { FeatureCheckContext } from '@/hooks/useSubscription';
+import { formatTierName } from './tierConfig';
 
 // ============================================================================
 // TYPES
@@ -247,25 +248,6 @@ export const FeatureLock = React.memo(function FeatureLock({
     </View>
   );
 });
-
-// ============================================================================
-// HELPER FUNCTIONS
-// ============================================================================
-
-/**
- * Format tier name for display
- */
-function formatTierName(tier: string): string {
-  const names: Record<string, string> = {
-    free: 'Free',
-    social: 'Social',
-    premium: 'Premium',
-    enterprise: 'Enterprise',
-    super_admin: 'Super Admin',
-    developer: 'Developer',
-  };
-  return names[tier] || tier;
-}
 
 // ============================================================================
 // STYLES

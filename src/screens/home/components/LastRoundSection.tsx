@@ -13,6 +13,7 @@ import type { RootStackParamList } from '@/navigation/types';
 import type { RoundItem } from '@/screens/rounds/RoundListScreen/types';
 import { formatUserScore } from '@/components/rounds/RoundListCard/types';
 import { SectionHeader } from './SectionHeader';
+import { formatDisplayDate } from '@/utils/locale';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -24,11 +25,7 @@ function formatDate(date: string | Date | null | undefined): string {
   if (!date) return '';
   const d = typeof date === 'string' ? new Date(date) : date;
   if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleDateString('en-AU', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
+  return formatDisplayDate(d);
 }
 
 export const LastRoundSection = React.memo(function LastRoundSection({

@@ -62,19 +62,6 @@ export interface ScoringPairFormationInlineProps {
 // =====================================================
 
 /**
- * Get initials for avatar fallback
- * Note: Not currently used - PlayerAvatar component handles initials internally
- */
-const _getInitials = (name: string): string => {
-  return name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
-};
-
-/**
  * Get first name from full name
  */
 const getFirstName = (name: string): string => {

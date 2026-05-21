@@ -56,6 +56,7 @@ import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import type { FeatureId, SubscriptionTier } from '@/types/subscription.types';
+import { TIER_DISPLAY_NAMES } from './tierConfig';
 
 // ============================================================================
 // TYPES
@@ -127,18 +128,6 @@ interface UpgradePromptProps {
 // ============================================================================
 // CONSTANTS
 // ============================================================================
-
-/**
- * Display names for tiers (for button text)
- */
-const TIER_DISPLAY_NAMES: Record<SubscriptionTier, string> = {
-  free: 'Free',
-  social: 'Social',
-  premium: 'Premium',
-  enterprise: 'Enterprise',
-  super_admin: 'Super Admin',
-  developer: 'Developer',
-};
 
 /**
  * Tier colors for gradient/accent (matches TierBadge)

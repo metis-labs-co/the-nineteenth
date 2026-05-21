@@ -15,6 +15,7 @@ import { useSkinsSummary } from '@/hooks/useSkins';
 import { useWolfSummary } from '@/hooks/wolf';
 import { calculateFinalPayouts } from '@/utils/skins/payouts';
 import { calculateWolfPayouts } from '@/utils/wolf/payouts';
+import { getNetResultColor } from '@/utils/displayHelpers';
 import {
   calculateCombinedPayouts,
   buildCombinedShareMessage,
@@ -179,12 +180,6 @@ function PayoutsTabContentLoaded({
     }
   }, [standings, debts, skinsSummary, wolfSummary, playerNameMap, mode, titleText]);
 
-  const getNetColor = (value: number): string => {
-    if (value > 0) return colors.success;
-    if (value < 0) return colors.error;
-    return colors.textSecondary;
-  };
-
   return (
     <ScrollView
       style={styles.scrollView}
@@ -274,7 +269,7 @@ function PayoutsTabContentLoaded({
                   style={[
                     styles.valueText,
                     styles.skinsCol,
-                    { color: item.in_skins ? getNetColor(item.skins_net) : colors.textSecondary },
+                    { color: item.in_skins ? getNetResultColor(item.skins_net, colors) : colors.textSecondary },
                   ]}
                 >
                   {item.in_skins ? formatNetResult(item.skins_net) : '--'}
@@ -285,7 +280,7 @@ function PayoutsTabContentLoaded({
                   style={[
                     styles.valueText,
                   styles.wolfCol,
-                  { color: item.in_wolf ? getNetColor(item.wolf_net) : colors.textSecondary },
+                  { color: item.in_wolf ? getNetResultColor(item.wolf_net, colors) : colors.textSecondary },
                 ]}
               >
                 {item.in_wolf ? formatNetResult(item.wolf_net) : '--'}
@@ -295,7 +290,7 @@ function PayoutsTabContentLoaded({
                 style={[
                   styles.valueText,
                   styles.totalCol,
-                  { fontWeight: '600', color: getNetColor(item.total_net) },
+                  { fontWeight: '600', color: getNetResultColor(item.total_net, colors) },
                 ]}
               >
                 {formatNetResult(item.total_net)}

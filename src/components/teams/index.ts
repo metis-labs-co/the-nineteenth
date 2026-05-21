@@ -8,7 +8,6 @@ export {
   calculateTeamHandicap,
   calculateHandicapSpread,
   getBalanceQuality,
-  getInitials,
   areAllPlayersAssigned,
   swapPlayers,
 } from './teamAlgorithms';
@@ -19,3 +18,6 @@ export type { EditTeamModalProps } from './EditTeamModal';
 
 export { MoveToTeamSheet } from './MoveToTeamSheet';
 export type { MoveToTeamSheetProps } from './MoveToTeamSheet';
+
+export { AddPlayersToTeamSheet } from './AddPlayersToTeamSheet';
+export type { AddPlayersToTeamSheetProps, AssignablePlayer } from './AddPlayersToTeamSheet';

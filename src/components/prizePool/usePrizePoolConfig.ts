@@ -77,17 +77,9 @@ const DEFAULT_CONFIG: PrizePoolConfig = {
 // HELPERS
 // ============================================================================
 
-/** Format a number as currency string */
-export function formatCurrency(amount: number): string {
-  return `$${amount.toFixed(2)}`;
-}
-
-/** Ordinal suffix for position labels */
-export function getOrdinal(n: number): string {
-  const suffixes = ['th', 'st', 'nd', 'rd'];
-  const v = n % 100;
-  return `${n}${suffixes[(v - 20) % 10] || suffixes[v] || suffixes[0]}`;
-}
+// Currency + ordinal formatting live in the shared utils; re-exported for existing import paths.
+export { formatCurrency } from '@/utils/currency';
+export { formatPosition as getOrdinal } from '@/utils/formatting';
 
 // ============================================================================
 // HOOK

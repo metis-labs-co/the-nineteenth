@@ -26,6 +26,7 @@ import {
   shadows,
   skinsColor,
 } from '@/constants/theme';
+import { formatCurrency } from '@/utils/currency';
 import { LoadingSpinner } from '@/components/common';
 import {
   useCompetitionSkinsGames,
@@ -364,10 +365,6 @@ function buildSummary(cards: CompetitionSkinsCard[]) {
     topName,
     topAmount,
   };
-}
-
-function formatCurrency(amount: number): string {
-  return `$${amount.toFixed(2)}`;
 }
 
 function formatNet(net: number): string {

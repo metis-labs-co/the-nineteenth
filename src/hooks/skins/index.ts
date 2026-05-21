@@ -28,7 +28,6 @@
 
 // Re-export types
 export type {
-  SkinsServiceError,
   ProcessSkinsHoleInput,
   ProcessTeamSkinsHoleInput,
   ProcessSkinsInput,

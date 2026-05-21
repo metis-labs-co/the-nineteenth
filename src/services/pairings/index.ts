@@ -15,5 +15,3 @@ export {
   roundHasPairings,
   getPlayerPairing,
 } from './pairingService';
-
-export type { PairingServiceError } from './pairingService';

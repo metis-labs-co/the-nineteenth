@@ -11,6 +11,7 @@
  */
 
 import { supabase } from '@/services/supabase/client';
+import { createError } from '@/services/errors';
 import {
   autoGenerateScoringPairs,
   generateCrossTeamPairs,
@@ -49,28 +50,8 @@ interface PlayerToScoreQueryRow {
 }
 
 // =====================================================
-// TYPES
-// =====================================================
-
-export interface ScoringPairsServiceError extends Error {
-  code: 'NOT_FOUND' | 'VALIDATION' | 'DATABASE' | 'UNKNOWN';
-}
-
-// =====================================================
 // HELPER FUNCTIONS
 // =====================================================
-
-/**
- * Creates a typed ScoringPairsServiceError
- */
-function createError(
-  message: string,
-  code: ScoringPairsServiceError['code']
-): ScoringPairsServiceError {
-  const error = new Error(message) as ScoringPairsServiceError;
-  error.code = code;
-  return error;
-}
 
 /**
  * Convert database Player to app Player format

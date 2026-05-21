@@ -6,7 +6,6 @@
  *
  * This module is organized into:
  * - types.ts: Type definitions
- * - helpers.ts: Shared helper functions
  * - queries.ts: Query hooks for fetching data
  * - mutations.ts: Mutation hooks for modifying data
  *
@@ -21,10 +20,7 @@
  */
 
 // Re-export types
-export type {
-  PrizePoolServiceError,
-  PoolTransactionsOptions,
-} from './types';
+export type { PoolTransactionsOptions } from './types';
 
 // Re-export query hooks
 export {

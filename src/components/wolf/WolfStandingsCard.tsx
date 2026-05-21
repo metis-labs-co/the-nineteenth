@@ -20,6 +20,7 @@ import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, borderRadius, typography, shadows, wolfColor, medalColors } from '@/constants/theme';
 import { formatWolfNetResult } from '@/utils/wolf';
+import { getNetResultColor } from '@/utils/displayHelpers';
 import type { WolfStandingEntry } from '@/types/database/wolf.types';
 
 // ============================================================================
@@ -76,7 +77,7 @@ const StandingRow = React.memo(function StandingRow({
   const medalColor = MEDAL_COLORS[rank as keyof typeof MEDAL_COLORS];
 
   const netResult = entry.net_result ?? 0;
-  const netResultColor = netResult > 0 ? colors.success : netResult < 0 ? colors.error : colors.textSecondary;
+  const netResultColor = getNetResultColor(netResult, colors);
 
   // Get first initial for leader indicator
   const initial = entry.name.charAt(0).toUpperCase();

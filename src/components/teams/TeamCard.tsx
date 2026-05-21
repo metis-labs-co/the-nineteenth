@@ -31,18 +31,6 @@ const calculateTeamStats = (
   };
 };
 
-/**
- * Get initials for avatar fallback
- */
-const getInitials = (name: string): string => {
-  return name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
-};
-
 export interface TeamCardProps {
   /**
    * Team data with members populated
@@ -231,8 +219,8 @@ export const TeamCard = React.memo(function TeamCard({
               />
             ))
           ) : (
-            <Text style={[styles.emptyText, { color: colors.textTertiary }]}>
-              No members in this team
+            <Text style={[styles.emptyText, { color: onPress ? colors.primary : colors.textTertiary }]}>
+              {onPress ? 'Tap to add players' : 'No members in this team'}
             </Text>
           )}
         </View>
@@ -263,8 +251,6 @@ const MemberRow = React.memo(function MemberRow({
     return null;
   }
 
-  // Note: initials calculated but not used - PlayerAvatar handles this internally
-  const _initials = getInitials(player.name);
   const styles = createMemberStyles(colors);
 
   const rowContent = (

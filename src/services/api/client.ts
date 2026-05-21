@@ -6,14 +6,14 @@
  *
  * For direct function imports, use the domain-specific modules:
  * - @/services/api/competitions
- * - @/services/api/teams
  * - @/services/api/rounds
  * - @/services/api/permissions
+ *
+ * Team operations live in @/services/teams.
  */
 
 import * as permissions from './permissions';
 import * as competitions from './competitions';
-import * as teams from './teams';
 import * as rounds from './rounds';
 
 // Re-export types
@@ -73,45 +73,6 @@ class ApiClient {
    * Get a single competition by ID
    */
   getCompetition = competitions.getCompetition;
-
-  // =====================================================
-  // TEAM METHODS
-  // =====================================================
-
-  /**
-   * Create a new team in a competition
-   */
-  createTeam = teams.createTeam;
-
-  /**
-   * Get all teams for a competition
-   */
-  getTeams = teams.getTeams;
-
-  /**
-   * Get a single team by ID
-   */
-  getTeam = teams.getTeam;
-
-  /**
-   * Update a team's name
-   */
-  updateTeam = teams.updateTeam;
-
-  /**
-   * Delete a team
-   */
-  deleteTeam = teams.deleteTeam;
-
-  /**
-   * Add a member to a team
-   */
-  addTeamMember = teams.addTeamMember;
-
-  /**
-   * Remove a member from a team
-   */
-  removeTeamMember = teams.removeTeamMember;
 
   // =====================================================
   // ROUND METHODS

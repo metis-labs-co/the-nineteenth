@@ -8,6 +8,7 @@
  */
 
 import { supabase } from '@/services/supabase/client';
+import { createError } from '@/services/errors';
 import {
   calculateCompetitionPoints,
   calculateMatchPlayPoints,
@@ -119,25 +120,9 @@ export interface CompetitionResults {
   }[];
 }
 
-/**
- * Service error with typed code
- */
-export interface RoundResultsServiceError extends Error {
-  code: 'NOT_FOUND' | 'VALIDATION' | 'DATABASE' | 'CALCULATION' | 'UNKNOWN';
-}
-
 // =====================================================
 // HELPER FUNCTIONS
 // =====================================================
-
-function createError(
-  message: string,
-  code: RoundResultsServiceError['code']
-): RoundResultsServiceError {
-  const error = new Error(message) as RoundResultsServiceError;
-  error.code = code;
-  return error;
-}
 
 function configToRules(config: PointSystemConfig): PointSystemRules {
   return rulesFromPositionMap(config.rules, config.matchPlay);

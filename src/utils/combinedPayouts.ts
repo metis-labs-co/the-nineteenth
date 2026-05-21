@@ -6,6 +6,8 @@
  */
 
 import { roundCurrency, formatCurrency, formatNetResult } from './currency';
+import { simplifyDebts, type NetPosition } from './debtSettlement';
+import { getRankMedal } from './formatting';
 
 // ============================================================================
 // TYPES
@@ -127,48 +129,21 @@ function simplifyCombinedDebts(
 ): CombinedDebtTransaction[] {
   if (standings.length < 2) return [];
 
-  const transactions: CombinedDebtTransaction[] = [];
-
   // Normalize to zero-sum by subtracting the average.
   // This handles mid-game scenarios where skins carryover makes everyone negative.
   const totalNet = standings.reduce((sum, s) => sum + s.total_net, 0);
   const average = totalNet / standings.length;
 
-  // Create mutable positions relative to average
-  const positions = standings.map((s) => ({
-    player_id: s.player_id,
-    net_amount: roundCurrency(s.total_net - average),
+  const positions: NetPosition[] = standings.map((s) => ({
+    id: s.player_id,
+    netAmount: roundCurrency(s.total_net - average),
   }));
 
-  const creditors = positions.filter((p) => p.net_amount > 0.01);
-  const debtors = positions.filter((p) => p.net_amount < -0.01);
-
-  // Sort: largest first
-  creditors.sort((a, b) => b.net_amount - a.net_amount);
-  debtors.sort((a, b) => a.net_amount - b.net_amount);
-
-  for (const debtor of debtors) {
-    let remaining = Math.abs(debtor.net_amount);
-
-    for (const creditor of creditors) {
-      if (remaining <= 0.01) break;
-      if (creditor.net_amount <= 0.01) continue;
-
-      const amount = Math.min(remaining, creditor.net_amount);
-      if (amount > 0.01) {
-        transactions.push({
-          from_player_id: debtor.player_id,
-          to_player_id: creditor.player_id,
-          amount: roundCurrency(amount),
-        });
-      }
-
-      remaining -= amount;
-      creditor.net_amount -= amount;
-    }
-  }
-
-  return transactions;
+  return simplifyDebts(positions).map((t) => ({
+    from_player_id: t.fromId,
+    to_player_id: t.toId,
+    amount: t.amount,
+  }));
 }
 
 /**
@@ -210,7 +185,7 @@ export function buildCombinedShareMessage(
 
   message += '\nStandings:\n';
   for (const s of standings) {
-    const medal = s.rank === 1 ? '🥇' : s.rank === 2 ? '🥈' : s.rank === 3 ? '🥉' : `${s.rank}.`;
+    const medal = getRankMedal(s.rank);
     if (mode === 'combined') {
       const skinsStr = s.in_skins ? formatNetResult(s.skins_net) : '--';
       const wolfStr = s.in_wolf ? formatNetResult(s.wolf_net) : '--';

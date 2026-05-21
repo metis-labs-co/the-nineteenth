@@ -26,7 +26,6 @@ import {
   determineWolfForHole,
 } from '@/utils/wolf';
 import {
-  createError,
   wolfGamesTable,
   wolfDecisionsTable,
   wolfPayoutsTable,
@@ -34,6 +33,7 @@ import {
   castArrayResult,
 } from './helpers';
 import type { RawWolfGame, RawWolfHoleDecision } from './helpers';
+import { createError } from '@/services/errors';
 import type {
   WolfGame,
   WolfHoleDecision,

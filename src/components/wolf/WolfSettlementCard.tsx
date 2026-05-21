@@ -31,6 +31,8 @@ import {
   formatWolfNetResult,
   simplifyWolfDebts,
 } from '@/utils/wolf';
+import { getNetResultColor } from '@/utils/displayHelpers';
+import { getRankMedal } from '@/utils/formatting';
 import type { WolfPayoutWithPlayer } from '@/types/database/wolf.types';
 
 // ============================================================================
@@ -98,7 +100,7 @@ export const WolfSettlementCard = React.memo(function WolfSettlementCard({
 
     message += `Results:\n`;
     sortedPayouts.forEach((p, index) => {
-      const prefix = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
+      const prefix = getRankMedal(index + 1);
       message += `${prefix} ${p.player.name} - ${p.total_points} pts, ${formatWolfNetResult(p.net_result)}\n`;
     });
 
@@ -130,13 +132,6 @@ export const WolfSettlementCard = React.memo(function WolfSettlementCard({
       }
     }
   }, [buildShareMessage, showAlert]);
-
-  // Get color for net result
-  const getNetResultColor = (value: number): string => {
-    if (value > 0) return colors.success;
-    if (value < 0) return colors.error;
-    return colors.textSecondary;
-  };
 
   return (
     <View
@@ -215,7 +210,7 @@ export const WolfSettlementCard = React.memo(function WolfSettlementCard({
                   styles.tableCellText,
                   styles.netColumn,
                   styles.netValue,
-                  { color: getNetResultColor(payout.net_result) },
+                  { color: getNetResultColor(payout.net_result, colors) },
                 ]}
               >
                 {formatWolfNetResult(payout.net_result)}

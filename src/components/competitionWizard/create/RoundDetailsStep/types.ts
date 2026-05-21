@@ -26,15 +26,7 @@ export const TEE_COLORS: Record<string, string> = {
   purple: '#9C27B0',
 };
 
-export const GAME_TYPE_LABELS: Record<GameType, string> = {
-  stableford: 'Stableford',
-  stroke: 'Stroke Play',
-  par: 'Par',
-  'match-play': 'Match Play',
-  'best-ball': 'Best Ball',
-  scramble: 'Scramble',
-  shamble: 'Shamble',
-};
+export { GAME_TYPE_LABELS } from '@/constants/statusConfig';
 
 /** Individual game types (non-team formats) */
 export const INDIVIDUAL_GAME_TYPES: GameTypeOption[] = [

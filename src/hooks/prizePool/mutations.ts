@@ -5,7 +5,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import { prizePoolKeys, competitionKeys } from '@/hooks/queryKeys';
-import { createError } from './helpers';
+import { createError } from '@/services/errors';
 import type {
   CompetitionPrizePool,
   CreatePrizePoolInput,

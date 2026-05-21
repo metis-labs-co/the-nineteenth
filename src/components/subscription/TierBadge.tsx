@@ -24,6 +24,7 @@ import { useTier, useTierLimits } from '@/context/SubscriptionContext';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import type { SubscriptionTier } from '@/types/subscription.types';
+import { TIER_DISPLAY_NAMES } from './tierConfig';
 
 // ============================================================================
 // TYPES
@@ -77,18 +78,6 @@ const TIER_ICONS: Record<SubscriptionTier, string> = {
   enterprise: 'domain',
   super_admin: 'shield-crown-outline',
   developer: 'code-tags',
-};
-
-/**
- * Fallback display names if limits not loaded
- */
-const TIER_DISPLAY_NAMES: Record<SubscriptionTier, string> = {
-  free: 'Free',
-  social: 'Social',
-  premium: 'Premium',
-  enterprise: 'Enterprise',
-  super_admin: 'Super Admin',
-  developer: 'Developer',
 };
 
 /**

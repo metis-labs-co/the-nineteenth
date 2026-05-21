@@ -14,6 +14,7 @@ import { FeatureLockCompact } from '@/components/subscription/FeatureLockCompact
 import { isSingleBallScore } from '@/types/database/base';
 import { splitHolesByNine, generateDefaultHoles } from '@/utils/scorecardCalculations';
 import { filterHolesByNineType } from '@/utils/holeTransformers';
+import { getScoreColor } from '@/utils/scoring';
 import type { Hole, Player } from '@/types';
 import type { ScorecardWithPlayer, RoundPlayer } from '@/hooks/useRoundDetails';
 import type { CourseWithClub } from '@/hooks/useRoundDetails';
@@ -141,13 +142,7 @@ export function StatsTab({ displayPlayers: displayPlayersProp, scorecards, round
   const getStatColor = (value: string, statKey: string, hole?: Hole): string => {
     if (value === '-') return colors.textDisabled;
     if (statKey === 'score' && hole) {
-      const strokes = Number(value);
-      const diff = strokes - hole.par;
-      if (diff <= -2) return colors.eagle;
-      if (diff === -1) return colors.birdie;
-      if (diff === 0) return colors.par;
-      if (diff === 1) return colors.bogey;
-      return colors.doubleBogey;
+      return getScoreColor(Number(value), hole.par, colors);
     }
     if (statKey === 'fir' || statKey === 'gir') {
       return value === '\u2713' ? colors.success : colors.error;

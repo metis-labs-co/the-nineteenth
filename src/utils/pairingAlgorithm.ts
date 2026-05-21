@@ -10,6 +10,7 @@ import type {
   GeneratePairingsResult,
 } from '@/types';
 import type { TeamFormat } from '@/types/database.types';
+import { formatTime } from './formatting';
 
 /**
  * The grouping shape that a round type implies.
@@ -314,13 +315,7 @@ export function getOptimalGroupSizes(
  * @returns Formatted time string (e.g., "7:00 AM")
  */
 export function formatTeeTimeForDisplay(teeTime: string | null): string {
-  if (!teeTime) return 'TBD';
-
-  const [hours, minutes] = teeTime.split(':').map(Number);
-  const period = hours >= 12 ? 'PM' : 'AM';
-  const displayHours = hours % 12 || 12;
-
-  return `${displayHours}:${String(minutes).padStart(2, '0')} ${period}`;
+  return formatTime(teeTime) ?? 'TBD';
 }
 
 /**

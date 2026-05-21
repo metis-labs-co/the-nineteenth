@@ -10,6 +10,7 @@
  */
 
 import { supabase } from '@/services/supabase/client';
+import { createError } from '@/services/errors';
 import { getCurrentTier, hasPremiumAccess } from '@/store/subscriptionStore';
 import { createModuleLogger } from '@/utils/debugLogger';
 import type { FeatureAccess } from '@/types/subscription.types';
@@ -20,10 +21,6 @@ const cpsLogger = createModuleLogger('CompetitionPlayersService');
 // =====================================================
 // TYPES
 // =====================================================
-
-export interface CompetitionPlayersServiceError extends Error {
-  code: 'NOT_FOUND' | 'VALIDATION' | 'DATABASE' | 'UNAUTHORIZED' | 'UNKNOWN';
-}
 
 /**
  * Information about a player's scoring pair assignments
@@ -56,22 +53,6 @@ export interface PlayerRemovalCheck {
   scoringPairInfo: PlayerScoringPairInfo | null;
   /** Warning message to display (if any) */
   warningMessage: string | null;
-}
-
-// =====================================================
-// HELPER FUNCTIONS
-// =====================================================
-
-/**
- * Creates a typed CompetitionPlayersServiceError
- */
-function createError(
-  message: string,
-  code: CompetitionPlayersServiceError['code']
-): CompetitionPlayersServiceError {
-  const error = new Error(message) as CompetitionPlayersServiceError;
-  error.code = code;
-  return error;
 }
 
 // =====================================================

@@ -3,7 +3,6 @@
  */
 
 export {
-  getInitials,
   pairsToInputFormat,
   getCoverageQuality,
   getPlayerById,

@@ -12,6 +12,7 @@
  */
 
 import { supabase } from '@/services/supabase/client';
+import { createError } from '@/services/errors';
 import { useSubscriptionStore } from '@/store/subscriptionStore';
 import { isUnlimited, isNoLimit, mapDBTierLimits } from '@/types/subscription.types';
 import type { SubscriptionTier, TierLimits } from '@/types/subscription.types';
@@ -87,23 +88,6 @@ export interface OverLimitCompetition {
   reason: 'rounds' | 'players' | 'index';
   currentValue: number;
   limitValue: number;
-}
-
-// =====================================================
-// ERROR TYPES
-// =====================================================
-
-export interface GrandfatheringServiceError extends Error {
-  code: 'NOT_FOUND' | 'VALIDATION' | 'DATABASE' | 'UNAUTHORIZED' | 'UNKNOWN';
-}
-
-function createError(
-  message: string,
-  code: GrandfatheringServiceError['code']
-): GrandfatheringServiceError {
-  const error = new Error(message) as GrandfatheringServiceError;
-  error.code = code;
-  return error;
 }
 
 // =====================================================

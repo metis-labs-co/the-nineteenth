@@ -16,5 +16,3 @@ export {
   deleteScoringPairs,
   hasScoringPairs,
 } from './scoringPairsService';
-
-export type { ScoringPairsServiceError } from './scoringPairsService';

@@ -8,19 +8,7 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { formatDateAustralian, formatTime } from '@/utils/formatting';
 import { StatusBadge, type StatusVariant } from '@/components/common/StatusBadge';
 import type { RoundStatus, GameType } from '@/types/database.types';
-
-/**
- * Game type display labels
- */
-const GAME_TYPE_LABELS: Record<GameType, string> = {
-  stroke: 'Stroke Play',
-  stableford: 'Stableford',
-  par: 'Par',
-  'match-play': 'Match Play',
-  'best-ball': 'Best Ball',
-  scramble: 'Scramble',
-  shamble: 'Shamble',
-};
+import { GAME_TYPE_LABELS } from '@/constants/statusConfig';
 
 export interface RoundCardProps {
   /**

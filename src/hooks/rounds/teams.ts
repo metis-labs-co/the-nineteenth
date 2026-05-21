@@ -19,6 +19,7 @@ import {
   createTeam,
   updateTeamMembers,
   updateTeamMetadata,
+  clearTeamMembers,
   deleteTeam,
   autoGenerateTeams,
 } from '@/services/teams';
@@ -208,6 +209,44 @@ export function useUpdateTeam() {
 
     onError: (error) => {
       console.error('[useUpdateTeam] Failed to update team:', error);
+    },
+  });
+}
+
+/**
+ * Mutation hook to clear all members from one or more teams.
+ *
+ * Empties the given teams without deleting the team rows, so organizers can
+ * wipe every assignment and reassign players manually. Invalidates the teams
+ * list for the competition on success.
+ *
+ * @example
+ * ```tsx
+ * const { mutate: clearTeams, isPending } = useClearTeamMembers();
+ * clearTeams({ competitionId, teamIds: teams.map((t) => t.id) });
+ * ```
+ */
+export function useClearTeamMembers() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      teamIds,
+    }: {
+      competitionId: string;
+      teamIds: string[];
+    }): Promise<void> => {
+      return clearTeamMembers(teamIds);
+    },
+
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: teamKeys.list(variables.competitionId),
+      });
+    },
+
+    onError: (error) => {
+      console.error('[useClearTeamMembers] Failed to clear teams:', error);
     },
   });
 }

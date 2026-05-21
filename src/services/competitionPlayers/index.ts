@@ -12,7 +12,6 @@ export {
 } from './competitionPlayersService';
 
 export type {
-  CompetitionPlayersServiceError,
   PlayerScoringPairInfo,
   PlayerRemovalCheck,
 } from './competitionPlayersService';

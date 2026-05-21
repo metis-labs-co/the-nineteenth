@@ -14,8 +14,9 @@ import type {
 } from '@/types/database.types';
 import type { Player as AppPlayer } from '@/types';
 import { createModuleLogger } from '@/utils/debugLogger';
-import { createError, toAppPlayer } from './types';
+import { toAppPlayer } from './types';
 import type { CompetitionPlayerQueryRow } from './types';
+import { createError } from '@/services/errors';
 import { getCompetitionTeams, getTeamWithMembers } from './teamQueries';
 import { createTeam, deleteTeam, updateTeamMembers } from './teamMutations';
 

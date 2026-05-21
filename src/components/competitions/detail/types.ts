@@ -8,8 +8,6 @@ import type {
   Round,
   Course,
   RoundStatus,
-  HandicapSystem,
-  GameType,
   SkinsConfig,
 } from '@/types/database.types';
 
@@ -76,27 +74,8 @@ export interface CompetitionData {
   players: CompetitionPlayer[];
 }
 
-/**
- * Handicap system display labels
- */
-export const HANDICAP_SYSTEM_LABELS: Record<HandicapSystem, string> = {
-  'honor': 'Honour System',
-  whs: 'World Handicap System',
-  'gross-only': 'Gross Only',
-};
-
-/**
- * Game type display labels
- */
-export const GAME_TYPE_LABELS: Record<GameType, string> = {
-  'stableford': 'Stableford',
-  'stroke': 'Stroke Play',
-  'par': 'Par',
-  'match-play': 'Match Play',
-  'best-ball': 'Best Ball',
-  'scramble': 'Scramble',
-  'shamble': 'Shamble',
-};
+// Display labels live in the canonical source; re-exported for existing import paths.
+export { HANDICAP_SYSTEM_LABELS, GAME_TYPE_LABELS } from '@/constants/statusConfig';
 
 /**
  * Round status config for styling

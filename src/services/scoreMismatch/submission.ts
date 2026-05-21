@@ -7,7 +7,8 @@
 
 import { supabase } from '@/services/supabase/client';
 import { createModuleLogger } from '@/utils/debugLogger';
-import { fromTable, createError } from './types';
+import { fromTable } from './types';
+import { createError } from '@/services/errors';
 import type {
   ScoreSubmissionStatus,
   SubmissionReadiness,

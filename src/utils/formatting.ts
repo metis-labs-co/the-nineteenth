@@ -230,6 +230,20 @@ export function formatPosition(position: number): string {
 }
 
 /**
+ * Medal emoji for a 1-based rank, falling back to "{rank}." beyond third place.
+ *
+ * @example
+ * getRankMedal(1) // '🥇'
+ * getRankMedal(4) // '4.'
+ */
+export function getRankMedal(rank: number): string {
+  if (rank === 1) return '🥇';
+  if (rank === 2) return '🥈';
+  if (rank === 3) return '🥉';
+  return `${rank}.`;
+}
+
+/**
  * Format relative score to par (e.g., "+2", "-1", "E")
  *
  * @param score - Score relative to par
@@ -341,12 +355,7 @@ export function formatDateWithWeekday(dateString: string | null): string {
  * formatTeeTime(null) // 'TBD'
  */
 export function formatTeeTime(timeString: string | null): string {
-  if (!timeString) return 'TBD';
-  const [hours, minutes] = timeString.split(':');
-  const hour = parseInt(hours, 10);
-  const ampm = hour >= 12 ? 'PM' : 'AM';
-  const displayHour = hour % 12 || 12;
-  return `${displayHour}:${minutes} ${ampm}`;
+  return formatTime(timeString) ?? 'TBD';
 }
 
 // ============================================================================

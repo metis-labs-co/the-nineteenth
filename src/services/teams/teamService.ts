@@ -17,7 +17,7 @@
  */
 
 // Re-export types
-export type { CreateTeamInput, TeamServiceError } from './types';
+export type { CreateTeamInput } from './types';
 
 // Re-export queries
 export { getCompetitionTeams, getTeamWithMembers } from './teamQueries';
@@ -27,6 +27,7 @@ export {
   createTeam,
   updateTeamMembers,
   updateTeamMetadata,
+  clearTeamMembers,
   deleteTeam,
   addTeamMember,
   removeTeamMember,
@@ -41,6 +42,7 @@ import {
   createTeam,
   updateTeamMembers,
   updateTeamMetadata,
+  clearTeamMembers,
   deleteTeam,
   addTeamMember,
   removeTeamMember,
@@ -60,6 +62,7 @@ export const teamService = {
   getTeamWithMembers,
   updateTeamMembers,
   updateTeamMetadata,
+  clearTeamMembers,
   deleteTeam,
   autoGenerateTeams,
   addTeamMember,

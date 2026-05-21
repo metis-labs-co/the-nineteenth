@@ -84,6 +84,22 @@ export const PlayersTab = React.memo(function PlayersTab({
           </Text>
         </View>
       )}
+      {/* Add Players Button — top of the list for quick access */}
+      {isOrganizer && (
+        <TouchableOpacity
+          style={[
+            styles.addPlayersButton,
+            { borderColor: colors.primary },
+          ]}
+          onPress={onAddPlayers}
+          accessibilityLabel="Add players"
+          accessibilityRole="button"
+          activeOpacity={0.7}
+        >
+          <Icon source="account-plus" size={20} color={colors.primary} />
+          <Text style={[styles.addPlayersButtonText, { color: colors.primary }]}>Add players</Text>
+        </TouchableOpacity>
+      )}
       {players.length === 0 ? (
         <EmptyState
           title="No players yet"
@@ -195,23 +211,6 @@ export const PlayersTab = React.memo(function PlayersTab({
           </View>
         </View>
       )}
-
-      {/* Add Players Button */}
-      {isOrganizer && (
-        <TouchableOpacity
-          style={[
-            styles.addPlayersButton,
-            { borderColor: colors.primary },
-          ]}
-          onPress={onAddPlayers}
-          accessibilityLabel="Add players"
-          accessibilityRole="button"
-          activeOpacity={0.7}
-        >
-          <Icon source="account-plus" size={20} color={colors.primary} />
-          <Text style={[styles.addPlayersButtonText, { color: colors.primary }]}>Add players</Text>
-        </TouchableOpacity>
-      )}
     </View>
   );
 });
@@ -231,7 +230,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
-    marginTop: spacing.lg,
+    marginBottom: spacing.lg,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
     borderWidth: 2,

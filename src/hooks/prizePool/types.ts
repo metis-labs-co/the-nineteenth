@@ -5,17 +5,6 @@
  */
 
 // =====================================================
-// ERROR TYPES
-// =====================================================
-
-/**
- * Error type for prize pool service operations
- */
-export interface PrizePoolServiceError extends Error {
-  code: 'NOT_FOUND' | 'VALIDATION' | 'DATABASE' | 'PERMISSION' | 'LOCKED' | 'UNKNOWN';
-}
-
-// =====================================================
 // OPTIONS TYPES
 // =====================================================
 

@@ -8,17 +8,6 @@ import type { TeamFormat } from '@/types/database/enums';
 import type { SkinsHoleScores, SkinsTeamHoleScores, SkinsScoringType } from '@/types/database/skins.types';
 
 // =====================================================
-// ERROR TYPES
-// =====================================================
-
-/**
- * Error type for skins service operations
- */
-export interface SkinsServiceError extends Error {
-  code: 'NOT_FOUND' | 'VALIDATION' | 'DATABASE' | 'PERMISSION' | 'UNKNOWN';
-}
-
-// =====================================================
 // INPUT TYPES
 // =====================================================
 

@@ -465,6 +465,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
             teams={teams || []}
             teamMode={competition.team_mode}
             playerCount={players.filter((p) => p.status === 'accepted').length}
+            players={players}
             isLoading={isLoadingTeams}
             isOrganizer={isOrganizer}
             canEditTeamNames={isOrganizer}

@@ -10,6 +10,7 @@ import { Text, Divider, Chip } from 'react-native-paper';
 import { IconTrophy } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
+import { formatCurrency } from '@/utils/currency';
 import { ReviewItem } from './ReviewItem';
 import type { PrizePoolConfigFormData } from '@/schemas/competition';
 
@@ -27,10 +28,6 @@ export function PrizePoolSection({ prizePoolData, title = 'Prize Pool' }: PrizeP
 
   const fundingLabel =
     prizePoolData.fundingType === 'per_player' ? 'Per Player' : 'Fixed Total';
-
-  const formatCurrency = (amount: number) => {
-    return `$${amount.toFixed(2)}`;
-  };
 
   return (
     <View style={[styles.section, { backgroundColor: colors.surface }]}>

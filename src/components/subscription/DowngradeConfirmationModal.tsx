@@ -43,7 +43,7 @@ import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import type { SubscriptionTier } from '@/types/subscription.types';
-import { TIER_CONFIGS, type PaywallTier } from './tierConfig';
+import { TIER_CONFIGS, TIER_DISPLAY_NAMES, type PaywallTier } from './tierConfig';
 
 // ============================================================================
 // TYPES
@@ -84,18 +84,6 @@ interface DowngradeConfirmationModalProps {
 // ============================================================================
 // CONSTANTS
 // ============================================================================
-
-/**
- * Display names for tiers
- */
-const TIER_DISPLAY_NAMES: Record<SubscriptionTier, string> = {
-  free: 'Free',
-  social: 'Social',
-  premium: 'Premium',
-  enterprise: 'Enterprise',
-  super_admin: 'Super Admin',
-  developer: 'Developer',
-};
 
 /**
  * Tier colors (matches TierBadge and UpgradePrompt)

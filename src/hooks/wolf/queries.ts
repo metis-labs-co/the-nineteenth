@@ -26,7 +26,7 @@ import {
   getSortedStandings,
   calculateWolfPayouts,
 } from '@/utils/wolf';
-import { createError } from './helpers';
+import { createError } from '@/services/errors';
 import type {
   WolfGame,
   WolfGameWithParticipants,

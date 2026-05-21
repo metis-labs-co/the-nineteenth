@@ -13,6 +13,7 @@ import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, skinsColor } from '@/constants/theme';
 import { formatCurrency, formatNetResult } from '@/utils/skins';
+import { getNetResultColor } from '@/utils/displayHelpers';
 import type { SkinsPayoutWithPlayer, SkinsResultWithWinner, SkinsResultWithTeamWinner } from '@/types/database/skins.types';
 
 export interface SkinsCompletedViewProps {
@@ -31,12 +32,6 @@ export function SkinsCompletedView({
   skinsResults,
 }: SkinsCompletedViewProps) {
   const colors = useThemeColors();
-
-  const getNetResultColor = (value: number): string => {
-    if (value > 0) return colors.success;
-    if (value < 0) return colors.error;
-    return colors.textSecondary;
-  };
 
   return (
     <>
@@ -130,7 +125,7 @@ export function SkinsCompletedView({
                     styles.payoutsCell,
                     styles.netColumn,
                     styles.netValue,
-                    { color: getNetResultColor(payout.net_result) },
+                    { color: getNetResultColor(payout.net_result, colors) },
                   ]}
                 >
                   {formatNetResult(payout.net_result)}

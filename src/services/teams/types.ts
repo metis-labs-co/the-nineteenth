@@ -54,25 +54,9 @@ export interface CreateTeamInput {
   color?: string;
 }
 
-export interface TeamServiceError extends Error {
-  code: 'NOT_FOUND' | 'DUPLICATE' | 'VALIDATION' | 'DATABASE' | 'UNKNOWN';
-}
-
 // =====================================================
 // HELPER FUNCTIONS
 // =====================================================
-
-/**
- * Creates a typed TeamServiceError
- */
-export function createError(
-  message: string,
-  code: TeamServiceError['code']
-): TeamServiceError {
-  const error = new Error(message) as TeamServiceError;
-  error.code = code;
-  return error;
-}
 
 /**
  * Convert database Player to app Player format

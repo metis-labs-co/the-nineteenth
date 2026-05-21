@@ -39,6 +39,7 @@ import {
   type TeamNameMap,
   type TeamPayoutParticipant,
 } from '@/utils/skins';
+import { getNetResultColor as getNetResultColorUtil } from '@/utils/displayHelpers';
 import type { SkinsPayoutWithPlayer, SkinsPayoutWithTeam, SkinsGame } from '@/types';
 import { SettlementTotalsTable } from './SettlementTotalsTable';
 import { DebtTransactionsList } from './DebtTransactionsList';
@@ -210,11 +211,10 @@ export const SkinsSettlementCard = React.memo(function SkinsSettlementCard({
   }, [buildShareMessage, showAlert]);
 
   // Get color for net result
-  const getNetResultColor = useCallback((value: number): string => {
-    if (value > 0) return colors.success;
-    if (value < 0) return colors.error;
-    return colors.textSecondary;
-  }, [colors.success, colors.error, colors.textSecondary]);
+  const getNetResultColor = useCallback(
+    (value: number): string => getNetResultColorUtil(value, colors),
+    [colors]
+  );
 
   return (
     <View

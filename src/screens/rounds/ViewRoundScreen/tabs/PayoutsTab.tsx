@@ -13,6 +13,8 @@ import { ConfirmationDialog } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, borderRadius, typography, shadows, medalColors } from '@/constants/theme';
 import { formatCurrency, formatNetResult } from '@/utils/currency';
+import { getNetResultColor } from '@/utils/displayHelpers';
+import { getRankMedal } from '@/utils/formatting';
 import { calculateFinalPayouts } from '@/utils/skins/payouts';
 import { calculateWolfPayouts } from '@/utils/wolf/payouts';
 import {
@@ -53,7 +55,7 @@ const RankBadge = React.memo(function RankBadge({ rank }: { rank: number }) {
     return (
       <View style={[styles.rankBadge, { backgroundColor: `${medalColor}20` }]}>
         <Text style={[styles.rankText, { color: medalColor }]}>
-          {rank === 1 ? '🥇' : rank === 2 ? '🥈' : '🥉'}
+          {getRankMedal(rank)}
         </Text>
       </View>
     );
@@ -80,12 +82,6 @@ const StandingRow = React.memo(function StandingRow({
   const colors = useThemeColors();
   const isCombined = mode === 'combined';
 
-  const getNetColor = (value: number): string => {
-    if (value > 0) return colors.success;
-    if (value < 0) return colors.error;
-    return colors.textSecondary;
-  };
-
   return (
     <View
       style={[
@@ -109,7 +105,7 @@ const StandingRow = React.memo(function StandingRow({
           style={[
             styles.valueText,
             styles.skinsColumn,
-            { color: item.in_skins ? getNetColor(item.skins_net) : colors.textSecondary },
+            { color: item.in_skins ? getNetResultColor(item.skins_net, colors) : colors.textSecondary },
           ]}
         >
           {item.in_skins ? formatNetResult(item.skins_net) : '--'}
@@ -120,7 +116,7 @@ const StandingRow = React.memo(function StandingRow({
           style={[
             styles.valueText,
             styles.wolfColumn,
-            { color: item.in_wolf ? getNetColor(item.wolf_net) : colors.textSecondary },
+            { color: item.in_wolf ? getNetResultColor(item.wolf_net, colors) : colors.textSecondary },
           ]}
         >
           {item.in_wolf ? formatNetResult(item.wolf_net) : '--'}
@@ -131,7 +127,7 @@ const StandingRow = React.memo(function StandingRow({
           styles.valueText,
           styles.totalColumn,
           styles.totalValue,
-          { color: getNetColor(item.total_net) },
+          { color: getNetResultColor(item.total_net, colors) },
         ]}
       >
         {formatNetResult(item.total_net)}

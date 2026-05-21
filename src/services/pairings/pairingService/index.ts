@@ -12,7 +12,7 @@
  */
 
 // Re-export types
-export type { PairingServiceError, PairingQueryRow, PlayerLookup } from './types';
+export type { PairingQueryRow, PlayerLookup } from './types';
 
 // Re-export CRUD operations
 export {

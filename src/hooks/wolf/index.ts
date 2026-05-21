@@ -27,7 +27,6 @@
 
 // Re-export hook-specific types
 export type {
-  WolfServiceError,
   ProcessWolfDecisionResult,
   ProcessWolfHoleResultResponse,
   WolfStandingsDisplayEntry,
@@ -41,7 +40,7 @@ export type {
 } from './types';
 
 // Re-export helpers
-export { isWolfServiceError, getWolfErrorMessage } from './helpers';
+export { getWolfErrorMessage } from './helpers';
 
 // Re-export query hooks
 export {

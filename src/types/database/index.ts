@@ -89,7 +89,6 @@ export type {
   // Enums
   WolfScoringType,
   WolfGameStatus,
-  WolfServiceErrorCode,
   // Point values
   WolfPointValues,
   // Score data types
@@ -117,8 +116,6 @@ export type {
   WolfDebtTransaction,
   // Summary types
   WolfGameSummary,
-  // Service error
-  WolfServiceError,
 } from './wolf.types';
 export { WOLF_POINTS } from './wolf.types';
 

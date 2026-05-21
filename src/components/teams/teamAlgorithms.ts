@@ -45,18 +45,6 @@ export const getBalanceQuality = (spread: number): BalanceQuality => {
 };
 
 /**
- * Get initials for avatar fallback
- */
-export const getInitials = (name: string): string => {
-  return name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
-};
-
-/**
  * Check if all players are assigned to teams
  */
 export const areAllPlayersAssigned = (teams: TeamWithMembers[], totalPlayers: number): boolean => {

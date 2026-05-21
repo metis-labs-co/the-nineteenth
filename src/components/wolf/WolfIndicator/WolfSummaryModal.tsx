@@ -17,6 +17,7 @@ import {
 import { Text, Icon, ActivityIndicator, Divider } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, borderRadius, typography, shadows, wolfColor } from '@/constants/theme';
+import { getRankMedal } from '@/utils/formatting';
 import type { WolfHoleDecision } from '@/types/database/wolf.types';
 
 // ============================================================================
@@ -112,7 +113,7 @@ const StandingRowItem = React.memo(function StandingRowItem({
     <View style={styles.standingRow}>
       <View style={styles.standingLeft}>
         <Text style={[styles.standingRank, { color: colors.textSecondary }]}>
-          {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`}
+          {getRankMedal(index + 1)}
         </Text>
         <Text
           style={[styles.standingName, { color: colors.textPrimary }]}

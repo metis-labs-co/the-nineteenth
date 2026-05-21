@@ -9,18 +9,6 @@ import { getTeamColorHex } from '@/utils/teamColor';
 import type { CoverageQuality } from '../types';
 
 /**
- * Get initials for avatar fallback
- */
-export const getInitials = (name: string): string => {
-  return name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
-};
-
-/**
  * Convert ScoringPairWithPlayers to ScoringPairCreateInput
  */
 export const pairsToInputFormat = (pairs: ScoringPairWithPlayers[]): ScoringPairCreateInput[] => {

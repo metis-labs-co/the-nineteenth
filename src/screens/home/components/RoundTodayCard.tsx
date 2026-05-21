@@ -10,6 +10,7 @@ import { WeatherStrip } from './WeatherStrip';
 import { SectionHeader } from './SectionHeader';
 import type { RootStackParamList } from '@/navigation/types';
 import type { RoundWithCourse } from '@/components/competitions/detail/types';
+import { formatDisplayDate } from '@/utils/locale';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -45,7 +46,7 @@ function formatDayLabel(dateIso: string | null): string {
   const tomorrow = localDateStr(new Date(Date.now() + 24 * 60 * 60 * 1000));
   if (dateIso === tomorrow) return 'Tomorrow';
   const d = new Date(`${dateIso}T00:00:00`);
-  return d.toLocaleDateString('en-AU', { weekday: 'long' });
+  return formatDisplayDate(d, { weekday: 'long' });
 }
 
 export const RoundTodayCard = React.memo(function RoundTodayCard({

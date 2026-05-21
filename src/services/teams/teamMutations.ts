@@ -14,7 +14,7 @@ import type {
   TeamWithMembers,
 } from '@/types/database.types';
 import { createModuleLogger } from '@/utils/debugLogger';
-import { createError } from './types';
+import { createError } from '@/services/errors';
 import type { CreateTeamInput } from './types';
 import { getTeamWithMembers } from './teamQueries';
 
@@ -178,6 +178,35 @@ export async function updateTeamMembers(
 
   // Return updated team
   return getTeamWithMembers(teamId);
+}
+
+/**
+ * Clear all members from one or more teams without deleting the team rows.
+ *
+ * Unlike `updateTeamMembers`, this accepts the result of emptying a team —
+ * used by the Teams tab's "Clear" action so organizers can wipe every
+ * assignment and then reassign players manually via the add-players sheet.
+ *
+ * @param teamIds - Team UUIDs to empty
+ * @throws TeamServiceError if deletion fails
+ */
+export async function clearTeamMembers(teamIds: string[]): Promise<void> {
+  if (!teamIds || teamIds.length === 0) {
+    return;
+  }
+
+  const { error } = await supabase
+    .from('team_members')
+    .delete()
+    .in('team_id', teamIds);
+
+  if (error) {
+    logger.error('Failed to clear team members', error);
+    throw createError(
+      `Failed to clear teams: ${error.message}`,
+      'DATABASE'
+    );
+  }
 }
 
 /**

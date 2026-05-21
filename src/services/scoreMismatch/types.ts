@@ -93,19 +93,3 @@ export interface PartnerProgress {
   progress: { completed: number; total: number };
 }
 
-// ============================================================================
-// ERROR HANDLING
-// ============================================================================
-
-export interface ScoreMismatchServiceError extends Error {
-  code: 'NOT_FOUND' | 'VALIDATION' | 'DATABASE' | 'UNKNOWN';
-}
-
-export function createError(
-  message: string,
-  code: ScoreMismatchServiceError['code']
-): ScoreMismatchServiceError {
-  const error = new Error(message) as ScoreMismatchServiceError;
-  error.code = code;
-  return error;
-}

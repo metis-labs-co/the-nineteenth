@@ -13,7 +13,7 @@ import type {
   PairingPlayer,
   GeneratePairingsResult,
 } from '@/types';
-import { createError } from './types';
+import { createError } from '@/services/errors';
 import {
   getPairingsForRound,
   createPairings,

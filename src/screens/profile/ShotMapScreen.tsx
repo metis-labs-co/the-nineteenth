@@ -31,6 +31,7 @@ import {
 import { CLUBS_BY_KEY } from '@/constants/clubs';
 import { calculateDistance, metersToYards } from '@/utils/gpsCalculations';
 import { holeOrientedCamera } from '@/utils/holeOrientation';
+import { formatDisplayDate } from '@/utils/locale';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useShotLog, useUpdateShot } from '@/hooks/shots';
 import { useHoleCoordinatesByHole } from '@/hooks/coordinates';
@@ -83,11 +84,7 @@ function formatPlayedAt(iso: string | null): string | null {
   if (!iso) return null;
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleDateString('en-AU', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
+  return formatDisplayDate(d, { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 export default function ShotMapScreen(props: Props) {

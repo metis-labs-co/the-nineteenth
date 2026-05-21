@@ -30,23 +30,6 @@ export type ScoreIndicatorType =
 // =====================================================
 
 /**
- * Get the color for a score relative to par
- *
- * @param strokes Gross strokes for the hole
- * @param par Par for the hole
- * @returns Color hex string
- */
-export function getScoreDisplayColor(strokes: number, par: number): string {
-  const diff = strokes - par;
-
-  if (diff <= -2) return colors.eagle;
-  if (diff === -1) return colors.birdie;
-  if (diff === 0) return colors.par;
-  if (diff === 1) return colors.bogey;
-  return colors.doubleBogey;
-}
-
-/**
  * Get background color for a score cell based on score vs par
  *
  * @param strokes Gross strokes
@@ -269,4 +252,13 @@ export function formatPercentage(value: number, decimals: number = 0): string {
  */
 export function formatRatio(numerator: number, denominator: number): string {
   return `${numerator}/${denominator}`;
+}
+
+/**
+ * Color for a monetary net result: positive = success, negative = error, zero = neutral.
+ */
+export function getNetResultColor(value: number, themeColors: ColorPalette = colors): string {
+  if (value > 0) return themeColors.success;
+  if (value < 0) return themeColors.error;
+  return themeColors.textSecondary;
 }

@@ -5,6 +5,8 @@
  * Contains tier features, colors, descriptions, and display metadata.
  */
 
+import type { SubscriptionTier } from '@/types/subscription.types';
+
 // ============================================================================
 // TYPES
 // ============================================================================
@@ -108,6 +110,29 @@ export const TIER_CONFIGS: Record<PaywallTier, TierConfig> = {
     ],
   },
 } as const;
+
+// ============================================================================
+// TIER DISPLAY NAMES (full SubscriptionTier set)
+// ============================================================================
+
+/**
+ * Human-readable display names for every subscription tier.
+ */
+export const TIER_DISPLAY_NAMES: Record<SubscriptionTier, string> = {
+  free: 'Free',
+  social: 'Social',
+  premium: 'Premium',
+  enterprise: 'Enterprise',
+  super_admin: 'Super Admin',
+  developer: 'Developer',
+};
+
+/**
+ * Format a tier identifier for display, falling back to the raw value.
+ */
+export function formatTierName(tier: string): string {
+  return TIER_DISPLAY_NAMES[tier as SubscriptionTier] ?? tier;
+}
 
 // ============================================================================
 // HELPER FUNCTIONS

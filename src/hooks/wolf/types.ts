@@ -5,19 +5,6 @@
  * Core Wolf types are defined in @/types/database/wolf.types.ts
  */
 
-import type { WolfServiceErrorCode } from '@/types/database/wolf.types';
-
-// =====================================================
-// ERROR TYPES
-// =====================================================
-
-/**
- * Error type for Wolf service operations
- */
-export interface WolfServiceError extends Error {
-  code: WolfServiceErrorCode;
-}
-
 // =====================================================
 // HOOK RESULT TYPES
 // =====================================================

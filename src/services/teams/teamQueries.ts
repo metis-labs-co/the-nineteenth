@@ -9,7 +9,7 @@
 import { supabase } from '@/services/supabase/client';
 import type { TeamWithMembers } from '@/types/database.types';
 import { createModuleLogger } from '@/utils/debugLogger';
-import { createError } from './types';
+import { createError } from '@/services/errors';
 import type { TeamQueryRow, TeamMemberQueryRow } from './types';
 
 const logger = createModuleLogger('TeamService');

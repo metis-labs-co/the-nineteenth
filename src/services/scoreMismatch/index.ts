@@ -18,7 +18,6 @@ export type {
   ScoreSubmissionStatus,
   SubmissionReadiness,
   PartnerProgress,
-  ScoreMismatchServiceError,
 } from './types';
 
 // Score Entries

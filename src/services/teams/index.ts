@@ -13,10 +13,11 @@ export {
   getTeamWithMembers,
   updateTeamMembers,
   updateTeamMetadata,
+  clearTeamMembers,
   deleteTeam,
   autoGenerateTeams,
   addTeamMember,
   removeTeamMember,
 } from './teamService';
 
-export type { CreateTeamInput, TeamServiceError } from './teamService';
+export type { CreateTeamInput } from './teamService';

@@ -12,7 +12,8 @@ import {
   calculateStablefordPointsNet,
 } from '@/utils/scoring';
 import { createModuleLogger } from '@/utils/debugLogger';
-import { fromTable, createError } from './types';
+import { fromTable } from './types';
+import { createError } from '@/services/errors';
 
 const logger = createModuleLogger('ScoreMismatchService');
 

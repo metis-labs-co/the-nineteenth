@@ -24,7 +24,7 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { useCheckAchievements } from '@/hooks/achievements/useCheckAchievements';
 import { useAchievementToast } from '@/context/AchievementToastContext';
-import { createError } from './helpers';
+import { createError } from '@/services/errors';
 import { backfillSkinsResults } from './backfillSkins';
 import type { ProcessSkinsHoleInput, ProcessTeamSkinsHoleInput } from './types';
 import type {

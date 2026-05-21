@@ -28,6 +28,8 @@ import {
 } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius, shadows, featureColors } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
+import { formatCurrency } from '@/utils/currency';
+import { formatPosition as getOrdinal } from '@/utils/formatting';
 import type { CompetitionPrizePool, PrizePoolPlacement } from '@/types';
 
 // ============================================================================
@@ -77,15 +79,6 @@ const getMedalColor = (position: number): string => {
   }
 };
 
-/** Get ordinal suffix for a position (1st, 2nd, 3rd, 4th...) */
-const getOrdinal = (position: number): string => {
-  const suffixes = ['th', 'st', 'nd', 'rd'];
-  const remainder = position % 100;
-  const suffix =
-    suffixes[(remainder - 20) % 10] || suffixes[remainder] || suffixes[0];
-  return `${position}${suffix}`;
-};
-
 // ============================================================================
 // COMPONENT
 // ============================================================================
@@ -101,7 +94,6 @@ export const PrizePoolSummaryCard = memo(function PrizePoolSummaryCard({
   const colors = useThemeColors();
 
   // Format currency helper
-  const formatCurrency = (amount: number) => `$${amount.toFixed(2)}`;
 
   // Determine if edit should be shown
   const showEdit = onEditPress && !isLocked;
@@ -213,7 +205,6 @@ const PlacementRow = memo(function PlacementRow({
 }: PlacementRowProps) {
   const medalColor = getMedalColor(placement.position);
   const isSettled = placement.paid_at !== null;
-  const formatCurrency = (amount: number) => `$${amount.toFixed(2)}`;
 
   const teamMeta =
     isTeamPool && placement.team_id ? teamLookup?.get(placement.team_id) : undefined;

@@ -34,6 +34,14 @@ export type ErrorCode =
   | 'CONFLICT' // Resource conflict (duplicate, race condition)
   | 'RATE_LIMIT' // Rate limit exceeded
   | 'AUTH' // Authentication failure
+  // Domain-specific codes (carried over from per-domain error types during
+  // consolidation). 'DUPLICATE' overlaps with 'CONFLICT' and 'UNAUTHORIZED'
+  // with 'AUTH' — kept distinct for now to preserve exact code strings.
+  | 'LOCKED' // Resource locked (e.g. prize pool after round start)
+  | 'TIE' // Tie/no-winner outcome (wolf)
+  | 'DUPLICATE' // Duplicate resource (teams, pairings)
+  | 'UNAUTHORIZED' // Caller not authorized (competition players, grandfathering)
+  | 'CALCULATION' // Calculation failure (round results)
   | 'UNKNOWN'; // Unclassified error
 
 /**

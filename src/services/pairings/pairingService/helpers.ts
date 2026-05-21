@@ -9,7 +9,7 @@ import type { PairingWithPlayers, PairingPlayer } from '@/types';
 import type { Player } from '@/types/database.types';
 import { createModuleLogger } from '@/utils/debugLogger';
 import type { PairingQueryRow, PlayerLookup } from './types';
-import { createError } from './types';
+import { createError } from '@/services/errors';
 
 const logger = createModuleLogger('PairingService');
 

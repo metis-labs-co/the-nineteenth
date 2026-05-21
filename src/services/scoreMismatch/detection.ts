@@ -5,7 +5,8 @@
  */
 
 import { createModuleLogger } from '@/utils/debugLogger';
-import { fromTable, createError } from './types';
+import { fromTable } from './types';
+import { createError } from '@/services/errors';
 import type { ScoreEntry, ScoreMismatch } from './types';
 import { getRoundScoreEntries } from './entries';
 

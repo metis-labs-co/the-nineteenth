@@ -48,7 +48,6 @@ export type {
   GrandfatheringAction,
   CompetitionWithCounts,
   OverLimitCompetition,
-  GrandfatheringServiceError,
 } from './grandfathering';
 
 // Webhook handlers for RevenueCat IAP events

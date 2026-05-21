@@ -92,8 +92,8 @@ export const TeamBalanceIndicator = React.memo(function TeamBalanceIndicator({
 const createStyles = (colors: ColorPalette) =>
   StyleSheet.create({
     container: {
-      marginHorizontal: spacing.lg,
       marginTop: spacing.md,
+      marginBottom: spacing.md,
       padding: spacing.md,
       borderRadius: borderRadius.md,
       backgroundColor: colors.surfaceVariant,

@@ -29,6 +29,7 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import type { FeatureId, FeatureAccess } from '@/types/subscription.types';
 import type { FeatureCheckContext } from '@/hooks/useSubscription';
+import { formatTierName } from './tierConfig';
 
 // ============================================================================
 // TYPES
@@ -49,22 +50,6 @@ interface FeatureLockToggleProps {
 
   /** Test ID for testing */
   testID?: string;
-}
-
-// ============================================================================
-// HELPER
-// ============================================================================
-
-function formatTierName(tier: string): string {
-  const names: Record<string, string> = {
-    free: 'Free',
-    social: 'Social',
-    premium: 'Premium',
-    enterprise: 'Enterprise',
-    super_admin: 'Super Admin',
-    developer: 'Developer',
-  };
-  return names[tier] || tier;
 }
 
 // ============================================================================

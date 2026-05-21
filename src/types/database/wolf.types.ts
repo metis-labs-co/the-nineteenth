@@ -14,25 +14,6 @@ export type WolfScoringType = 'gross' | 'net';
 export type WolfGameStatus = 'active' | 'completed' | 'cancelled';
 
 // =====================================================
-// ERROR TYPES
-// =====================================================
-
-/** Error codes for Wolf service operations */
-export type WolfServiceErrorCode =
-  | 'NOT_FOUND'
-  | 'VALIDATION'
-  | 'DATABASE'
-  | 'PERMISSION'
-  | 'TIE'
-  | 'UNKNOWN';
-
-/** Structured error for Wolf service operations */
-export interface WolfServiceError {
-  code: WolfServiceErrorCode;
-  message: string;
-}
-
-// =====================================================
 // POINT VALUES
 // =====================================================
 

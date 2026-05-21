@@ -15,6 +15,7 @@ import { usePerClubStats, type ShotWithContext } from '@/hooks/queries/usePerClu
 import { useSettingsStore } from '@/store/settingsStore';
 import { CLUBS_BY_KEY } from '@/constants/clubs';
 import { metersToYards } from '@/utils/gpsCalculations';
+import { formatDisplayDate } from '@/utils/locale';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type ScreenRouteProp = RouteProp<RootStackParamList, 'ClubDistanceDetail'>;
@@ -23,11 +24,7 @@ function formatPlayedAt(iso: string | null): string {
   if (!iso) return 'Unknown date';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return 'Unknown date';
-  return d.toLocaleDateString('en-AU', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
+  return formatDisplayDate(d, { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 export default function ClubDistanceDetailScreen() {

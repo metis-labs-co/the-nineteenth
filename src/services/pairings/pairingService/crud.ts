@@ -11,7 +11,7 @@ import type {
 } from '@/types';
 import { createModuleLogger } from '@/utils/debugLogger';
 import type { PairingQueryRow } from './types';
-import { createError } from './types';
+import { createError } from '@/services/errors';
 import { enrichPairingsWithPlayers } from './helpers';
 
 const logger = createModuleLogger('PairingService');

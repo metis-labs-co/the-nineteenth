@@ -16,7 +16,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Text, Icon } from 'react-native-paper';
+import { Text, Icon, ActivityIndicator } from 'react-native-paper';
 import { LoadingSpinner, EmptyState, ConfirmationDialog } from '@/components/common';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import type { ColorPalette } from '@/context/ThemeContext';
@@ -25,11 +25,16 @@ import { EditTeamModal } from '@/components/teams/EditTeamModal';
 import { MoveToTeamSheet } from '@/components/teams/MoveToTeamSheet';
 import { TeamBalanceIndicator } from '@/components/teams/TeamBalanceIndicator';
 import {
+  AddPlayersToTeamSheet,
+  type AssignablePlayer,
+} from '@/components/teams/AddPlayersToTeamSheet';
+import {
   calculateHandicapSpread,
   getBalanceQuality,
 } from '@/components/teams/teamAlgorithms';
-import { useAutoGenerateTeams } from '@/hooks/rounds/teams';
+import { useAutoGenerateTeams, useClearTeamMembers } from '@/hooks/rounds/teams';
 import type { Competition, Player, TeamWithMembers } from '@/types/database.types';
+import type { CompetitionPlayer } from './types';
 
 // Minimum players per team so derived sizes stay in [2, 4]
 const MIN_TEAM_SIZE = 2;
@@ -41,6 +46,11 @@ export interface TeamsTabProps {
   teamMode: Competition['team_mode'];
   /** Accepted player count — used to clamp the team-count stepper. */
   playerCount: number;
+  /**
+   * Full competition player list. Accepted players are offered in the
+   * add-players sheet when an organizer taps a team card.
+   */
+  players: CompetitionPlayer[];
   isLoading: boolean;
   isOrganizer: boolean;
   /** Whether the organizer can edit team names (requires premium+ subscription) */
@@ -105,6 +115,7 @@ export const TeamsTab = React.memo(function TeamsTab({
   teams,
   teamMode,
   playerCount,
+  players,
   isLoading,
   isOrganizer,
   canEditTeamNames = false,
@@ -140,6 +151,7 @@ export const TeamsTab = React.memo(function TeamsTab({
   const clampedCount = Math.max(minTeams, Math.min(maxTeams, desiredCount));
 
   const { mutate: generateTeams, isPending: isGenerating } = useAutoGenerateTeams();
+  const { mutate: clearTeams, isPending: isClearing } = useClearTeamMembers();
 
   // Edit team modal (name + colour)
   const [editingTeam, setEditingTeam] = useState<TeamWithMembers | null>(null);
@@ -148,8 +160,34 @@ export const TeamsTab = React.memo(function TeamsTab({
   // Move player sheet
   const [movingPlayer, setMovingPlayer] = useState<{ player: Player; currentTeamId: string } | null>(null);
 
-  // Destructive-regenerate confirm dialog
-  const [showRebuildConfirm, setShowRebuildConfirm] = useState(false);
+  // Add-players-to-team sheet
+  const [addingToTeam, setAddingToTeam] = useState<TeamWithMembers | null>(null);
+
+  // Regenerate confirm dialog
+  const [showRegenConfirm, setShowRegenConfirm] = useState(false);
+
+  // Clear-all-teams confirm dialog
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+
+  // Accepted players offered in the add-players sheet
+  const assignablePlayers = useMemo<AssignablePlayer[]>(
+    () =>
+      players
+        .filter((p) => p.status === 'accepted' && p.player)
+        .map((p) => ({
+          id: p.player!.id,
+          name: p.player!.name,
+          handicap: p.player!.handicap,
+          photo_url: p.player!.photo_url,
+        })),
+    [players]
+  );
+
+  // True when any team currently has at least one member (enables Clear)
+  const hasAnyMembers = useMemo(
+    () => teams.some((t) => t.members.length > 0),
+    [teams]
+  );
 
   // Balance metrics (organizer view only)
   const handicapSpread = useMemo(() => calculateHandicapSpread(teams), [teams]);
@@ -180,24 +218,41 @@ export const TeamsTab = React.memo(function TeamsTab({
     [generateTeams, competitionId, clampedCount]
   );
 
+  // A regenerate that changes the team count rebuilds from scratch and loses
+  // custom team names; an unchanged count is a non-destructive reshuffle.
+  const isRebuild = teams.length > 0 && clampedCount !== teams.length;
+
   const handleRegeneratePress = useCallback(() => {
     if (teams.length === 0) {
-      // First-time generation — destructive path, no confirmation needed
+      // First-time generation — nothing to disrupt, generate immediately
       runGenerate(false);
       return;
     }
-    if (clampedCount === teams.length) {
-      // Same count → non-destructive reshuffle
-      runGenerate(true);
-    } else {
-      setShowRebuildConfirm(true);
-    }
-  }, [teams.length, clampedCount, runGenerate]);
+    // Always confirm once teams exist (the icon button is easy to mis-tap)
+    setShowRegenConfirm(true);
+  }, [teams.length, runGenerate]);
 
-  const handleConfirmRebuild = useCallback(() => {
-    setShowRebuildConfirm(false);
-    runGenerate(false);
-  }, [runGenerate]);
+  const handleConfirmRegen = useCallback(() => {
+    setShowRegenConfirm(false);
+    runGenerate(!isRebuild);
+  }, [runGenerate, isRebuild]);
+
+  const handleClearPress = useCallback(() => {
+    setShowClearConfirm(true);
+  }, []);
+
+  const handleConfirmClear = useCallback(() => {
+    setShowClearConfirm(false);
+    clearTeams({ competitionId, teamIds: teams.map((t) => t.id) });
+  }, [clearTeams, competitionId, teams]);
+
+  const handleTeamPress = useCallback((team: TeamWithMembers) => {
+    setAddingToTeam(team);
+  }, []);
+
+  const handleCloseAddSheet = useCallback(() => {
+    setAddingToTeam(null);
+  }, []);
 
   const handleEditTeam = useCallback((team: TeamWithMembers) => {
     setEditingTeam(team);
@@ -295,15 +350,18 @@ export const TeamsTab = React.memo(function TeamsTab({
         </View>
       )}
 
-      {/* Organizer controls */}
+      {/* Organizer controls — compact: stepper + regenerate + clear inline */}
       {isOrganizer && !teamsLocked && (
         <View style={[styles.controlsCard, shadows.sm, { backgroundColor: colors.surface }]}>
           <View style={styles.controlsHeader}>
-            <View style={{ flex: 1 }}>
+            <View style={styles.controlsLabelGroup}>
               <Text style={[styles.controlsLabel, { color: colors.textSecondary }]}>
                 Number of teams
               </Text>
-              <Text style={[styles.controlsHint, { color: colors.textTertiary }]}>
+              <Text
+                style={[styles.controlsHint, { color: colors.textTertiary }]}
+                numberOfLines={2}
+              >
                 {cannotGenerate
                   ? `Need at least ${MIN_TEAM_SIZE * 2} players`
                   : `${playerCount} players • range ${minTeams}–${maxTeams}`}
@@ -329,35 +387,37 @@ export const TeamsTab = React.memo(function TeamsTab({
                 accessibilityLabel="Increase team count"
               />
             </View>
+
+            <ActionIconButton
+              icon="shuffle-variant"
+              variant="primary"
+              onPress={handleRegeneratePress}
+              disabled={cannotGenerate || isGenerating || isClearing}
+              loading={isGenerating}
+              colors={colors}
+              accessibilityLabel={
+                teams.length === 0
+                  ? 'Generate balanced teams'
+                  : 'Regenerate balanced teams'
+              }
+            />
+            <ActionIconButton
+              icon="account-multiple-remove-outline"
+              variant="danger"
+              onPress={handleClearPress}
+              disabled={!hasAnyMembers || isGenerating || isClearing}
+              loading={isClearing}
+              colors={colors}
+              accessibilityLabel="Clear all teams"
+            />
           </View>
 
           {!cannotGenerate && (
             <Text style={[styles.distributionText, { color: colors.textTertiary }]}>
-              {playerCount} players → {clampedCount} teams of {describeSizes(playerCount, clampedCount)}
+              {playerCount} players → {clampedCount} teams of{' '}
+              {describeSizes(playerCount, clampedCount)}
             </Text>
           )}
-
-          <TouchableOpacity
-            style={[
-              styles.regenerateButton,
-              {
-                backgroundColor: cannotGenerate || isGenerating ? colors.gray300 : colors.primary,
-              },
-            ]}
-            onPress={handleRegeneratePress}
-            disabled={cannotGenerate || isGenerating}
-            accessibilityRole="button"
-            accessibilityLabel="Regenerate balanced teams"
-          >
-            <Icon source="shuffle-variant" size={20} color={colors.white} />
-            <Text style={[styles.regenerateButtonText, { color: colors.white }]}>
-              {isGenerating
-                ? 'Generating…'
-                : teams.length === 0
-                  ? 'Generate balanced teams'
-                  : 'Regenerate balanced teams'}
-            </Text>
-          </TouchableOpacity>
         </View>
       )}
 
@@ -379,7 +439,7 @@ export const TeamsTab = React.memo(function TeamsTab({
         >
           <Icon source="alert-circle-outline" size={18} color={colors.warningDark} />
           <Text style={[styles.warningText, { color: colors.warningDark }]}>
-            Team sizes are uneven. Tap Regenerate to rebalance.
+            Team sizes are uneven. Tap the shuffle icon to rebalance.
           </Text>
         </View>
       )}
@@ -392,7 +452,7 @@ export const TeamsTab = React.memo(function TeamsTab({
             isOrganizer
               ? cannotGenerate
                 ? 'Add more players to generate teams.'
-                : 'Pick a team count and tap Generate.'
+                : 'Pick a team count and tap the shuffle icon to generate teams.'
               : "Teams haven't been created yet."
           }
           icon="account-group-outline"
@@ -409,6 +469,11 @@ export const TeamsTab = React.memo(function TeamsTab({
               team={team}
               isEditable={canEditTeamNames}
               onEdit={handleEditTeam}
+              onPress={
+                isOrganizer && !teamsLocked
+                  ? () => handleTeamPress(team)
+                  : undefined
+              }
               onMemberPress={
                 isOrganizer && !teamsLocked
                   ? (player) => handleMemberPress(team, player)
@@ -442,17 +507,44 @@ export const TeamsTab = React.memo(function TeamsTab({
         competitionId={competitionId}
       />
 
-      {/* Destructive rebuild confirmation */}
+      {/* Add-players-to-team bottom sheet */}
+      <AddPlayersToTeamSheet
+        visible={!!addingToTeam}
+        onClose={handleCloseAddSheet}
+        team={addingToTeam}
+        teams={teams}
+        players={assignablePlayers}
+        competitionId={competitionId}
+      />
+
+      {/* Regenerate confirmation — destructive only when the count changed */}
       <ConfirmationDialog
-        visible={showRebuildConfirm}
-        title="Rebuild all teams?"
-        message="Changing the number of teams will rebuild every team from scratch. Any custom team names will be lost."
-        confirmLabel="Rebuild"
-        confirmVariant="destructive"
-        icon="alert"
-        onConfirm={handleConfirmRebuild}
-        onCancel={() => setShowRebuildConfirm(false)}
+        visible={showRegenConfirm}
+        title={isRebuild ? 'Rebuild all teams?' : 'Regenerate teams?'}
+        message={
+          isRebuild
+            ? 'Changing the number of teams will rebuild every team from scratch. Any custom team names will be lost.'
+            : 'This will reshuffle all players into new balanced teams. Team names are kept.'
+        }
+        confirmLabel={isRebuild ? 'Rebuild' : 'Regenerate'}
+        confirmVariant={isRebuild ? 'destructive' : 'primary'}
+        icon={isRebuild ? 'alert' : 'shuffle-variant'}
+        onConfirm={handleConfirmRegen}
+        onCancel={() => setShowRegenConfirm(false)}
         loading={isGenerating}
+      />
+
+      {/* Clear-all-teams confirmation */}
+      <ConfirmationDialog
+        visible={showClearConfirm}
+        title="Clear all teams?"
+        message="This removes every player from all teams. The empty teams remain so you can assign players manually."
+        confirmLabel="Clear"
+        confirmVariant="destructive"
+        icon="account-multiple-remove-outline"
+        onConfirm={handleConfirmClear}
+        onCancel={() => setShowClearConfirm(false)}
+        loading={isClearing}
       />
     </View>
   );
@@ -496,6 +588,66 @@ function StepperButton({ icon, onPress, disabled, colors, accessibilityLabel }: 
 }
 
 // ---------------------------------------------------------------------------
+// ActionIconButton — icon-only action (regenerate / clear) shown inline with
+// the team-count stepper to keep the controls compact.
+// ---------------------------------------------------------------------------
+
+interface ActionIconButtonProps {
+  icon: string;
+  variant: 'primary' | 'danger';
+  onPress: () => void;
+  disabled: boolean;
+  loading?: boolean;
+  colors: ColorPalette;
+  accessibilityLabel: string;
+}
+
+function ActionIconButton({
+  icon,
+  variant,
+  onPress,
+  disabled,
+  loading = false,
+  colors,
+  accessibilityLabel,
+}: ActionIconButtonProps) {
+  const isPrimary = variant === 'primary';
+
+  const backgroundColor = disabled
+    ? colors.gray200
+    : isPrimary
+      ? colors.primary
+      : 'transparent';
+  const borderColor = disabled
+    ? colors.gray300
+    : isPrimary
+      ? colors.primary
+      : colors.error;
+  const iconColor = disabled
+    ? colors.gray500
+    : isPrimary
+      ? colors.white
+      : colors.error;
+
+  return (
+    <TouchableOpacity
+      style={[styles.actionButton, { backgroundColor, borderColor }]}
+      onPress={onPress}
+      disabled={disabled || loading}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityState={{ disabled: disabled || loading }}
+    >
+      {loading ? (
+        <ActivityIndicator size={18} color={iconColor} />
+      ) : (
+        <Icon source={icon} size={20} color={iconColor} />
+      )}
+    </TouchableOpacity>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // STYLES
 // ---------------------------------------------------------------------------
 
@@ -507,15 +659,17 @@ const styles = StyleSheet.create({
   },
 
   controlsCard: {
-    padding: spacing.lg,
+    padding: spacing.md,
     borderRadius: borderRadius.lg,
     marginBottom: spacing.md,
   },
   controlsHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.sm,
+    gap: spacing.sm,
+  },
+  controlsLabelGroup: {
+    flex: 1,
   },
   controlsLabel: {
     ...typography.captionBold,
@@ -529,7 +683,7 @@ const styles = StyleSheet.create({
   stepper: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
+    gap: spacing.xs,
   },
   stepperButton: {
     width: 36,
@@ -541,26 +695,20 @@ const styles = StyleSheet.create({
   },
   stepperValue: {
     ...typography.h3,
-    minWidth: 28,
+    minWidth: 24,
     textAlign: 'center',
+  },
+  actionButton: {
+    width: 36,
+    height: 36,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   distributionText: {
     ...typography.caption,
-    marginBottom: spacing.md,
-  },
-  regenerateButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: borderRadius.lg,
-    minHeight: 48,
-    ...shadows.sm,
-  },
-  regenerateButtonText: {
-    ...typography.bodyBold,
+    marginTop: spacing.sm,
   },
 
   warningBanner: {

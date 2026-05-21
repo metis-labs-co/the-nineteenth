@@ -11,20 +11,11 @@
  */
 
 import { supabase } from '@/services/supabase/client';
+import { createError } from '@/services/errors';
 import { createModuleLogger } from '@/utils/debugLogger';
 import type { SubMatch, SubMatchResult, SubMatchStatus } from '@/types';
 
 const logger = createModuleLogger('SubMatchService');
-
-export class SubMatchServiceError extends Error {
-  constructor(
-    message: string,
-    public readonly code: 'VALIDATION' | 'DATABASE' | 'NOT_FOUND'
-  ) {
-    super(message);
-    this.name = 'SubMatchServiceError';
-  }
-}
 
 export interface SubMatchInput {
   sortOrder: number;
@@ -87,7 +78,7 @@ const rowToSubMatch = (r: Row): SubMatch => ({
  */
 export async function listSubMatchesForRound(roundId: string): Promise<SubMatch[]> {
   if (!roundId) {
-    throw new SubMatchServiceError('Round ID is required', 'VALIDATION');
+    throw createError('Round ID is required', 'VALIDATION');
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- supabase.ts not regenerated for sub_matches yet
@@ -98,7 +89,7 @@ export async function listSubMatchesForRound(roundId: string): Promise<SubMatch[
 
   if (error) {
     logger.error('Failed to fetch sub-matches', error);
-    throw new SubMatchServiceError(`Failed to fetch sub-matches: ${error.message}`, 'DATABASE');
+    throw createError(`Failed to fetch sub-matches: ${error.message}`, 'DATABASE');
   }
 
   return ((data as Row[]) || []).map(rowToSubMatch);
@@ -113,22 +104,22 @@ export async function listSubMatchesForRound(roundId: string): Promise<SubMatch[
 export async function replaceSubMatches(input: ReplaceSubMatchesInput): Promise<SubMatch[]> {
   const { roundId, subMatches } = input;
   if (!roundId) {
-    throw new SubMatchServiceError('Round ID is required', 'VALIDATION');
+    throw createError('Round ID is required', 'VALIDATION');
   }
   if (!subMatches || subMatches.length === 0) {
-    throw new SubMatchServiceError('At least one sub-match is required', 'VALIDATION');
+    throw createError('At least one sub-match is required', 'VALIDATION');
   }
   // Validate sub-team sizes. Kept in sync with the DB check constraint on
   // sub_matches.team_a/b_player_ids (1..10).
   subMatches.forEach((sm, i) => {
     if (sm.teamAPlayerIds.length < 1 || sm.teamAPlayerIds.length > 10) {
-      throw new SubMatchServiceError(
+      throw createError(
         `Sub-match ${i + 1} team A must have 1–10 players`,
         'VALIDATION'
       );
     }
     if (sm.teamBPlayerIds.length < 1 || sm.teamBPlayerIds.length > 10) {
-      throw new SubMatchServiceError(
+      throw createError(
         `Sub-match ${i + 1} team B must have 1–10 players`,
         'VALIDATION'
       );
@@ -144,7 +135,7 @@ export async function replaceSubMatches(input: ReplaceSubMatchesInput): Promise<
 
   if (delError) {
     logger.error('Failed to clear existing sub-matches', delError);
-    throw new SubMatchServiceError(
+    throw createError(
       `Failed to clear sub-matches: ${delError.message}`,
       'DATABASE'
     );
@@ -167,7 +158,7 @@ export async function replaceSubMatches(input: ReplaceSubMatchesInput): Promise<
 
   if (error) {
     logger.error('Failed to insert sub-matches', error);
-    throw new SubMatchServiceError(`Failed to insert sub-matches: ${error.message}`, 'DATABASE');
+    throw createError(`Failed to insert sub-matches: ${error.message}`, 'DATABASE');
   }
 
   return ((data as Row[]) || []).map(rowToSubMatch);
@@ -189,7 +180,7 @@ export async function updateSubMatchResult(
   } = input;
 
   if (!subMatchId) {
-    throw new SubMatchServiceError('Sub-match ID is required', 'VALIDATION');
+    throw createError('Sub-match ID is required', 'VALIDATION');
   }
 
   const patch: Record<string, unknown> = { status };
@@ -207,10 +198,10 @@ export async function updateSubMatchResult(
 
   if (error) {
     if (error.code === 'PGRST116') {
-      throw new SubMatchServiceError(`Sub-match not found: ${subMatchId}`, 'NOT_FOUND');
+      throw createError(`Sub-match not found: ${subMatchId}`, 'NOT_FOUND');
     }
     logger.error('Failed to update sub-match result', error);
-    throw new SubMatchServiceError(`Failed to update sub-match: ${error.message}`, 'DATABASE');
+    throw createError(`Failed to update sub-match: ${error.message}`, 'DATABASE');
   }
 
   return rowToSubMatch(data as Row);
@@ -234,7 +225,7 @@ export async function updateSubMatchTeeTime(
 ): Promise<SubMatch> {
   const { subMatchId, teeTime } = input;
   if (!subMatchId) {
-    throw new SubMatchServiceError('Sub-match ID is required', 'VALIDATION');
+    throw createError('Sub-match ID is required', 'VALIDATION');
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- supabase.ts not regenerated for sub_matches yet
@@ -246,10 +237,10 @@ export async function updateSubMatchTeeTime(
 
   if (error) {
     if (error.code === 'PGRST116') {
-      throw new SubMatchServiceError(`Sub-match not found: ${subMatchId}`, 'NOT_FOUND');
+      throw createError(`Sub-match not found: ${subMatchId}`, 'NOT_FOUND');
     }
     logger.error('Failed to update sub-match tee time', error);
-    throw new SubMatchServiceError(
+    throw createError(
       `Failed to update sub-match tee time: ${error.message}`,
       'DATABASE'
     );
@@ -264,7 +255,7 @@ export async function updateSubMatchTeeTime(
  */
 export async function deleteAllSubMatchesForRound(roundId: string): Promise<void> {
   if (!roundId) {
-    throw new SubMatchServiceError('Round ID is required', 'VALIDATION');
+    throw createError('Round ID is required', 'VALIDATION');
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -274,7 +265,7 @@ export async function deleteAllSubMatchesForRound(roundId: string): Promise<void
 
   if (error) {
     logger.error('Failed to delete sub-matches', error);
-    throw new SubMatchServiceError(
+    throw createError(
       `Failed to delete sub-matches: ${error.message}`,
       'DATABASE'
     );

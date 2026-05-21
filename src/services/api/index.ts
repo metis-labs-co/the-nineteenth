@@ -38,6 +38,5 @@ export {
 
 // Export individual domain modules for direct imports
 export * as competitionsApi from './competitions';
-export * as teamsApi from './teams';
 export * as roundsApi from './rounds';
 export * as permissionsApi from './permissions';
