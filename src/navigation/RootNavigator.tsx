@@ -89,6 +89,9 @@ import FriendsScreen from '@/screens/social/FriendsScreen';
 import PlayerDetailScreen from '@/screens/social/PlayerDetailScreen';
 import CompareStatsScreen from '@/screens/social/CompareStatsScreen';
 
+// Activity Feed Screens
+import { ActivityScreen, RoundActivityScreen, RoundPhotosScreen } from '@/screens/activity';
+
 // Course & Club Screens
 import ClubScreen from '@/screens/courses/ClubScreen';
 import CourseDetailScreen from '@/screens/courses/CourseDetailScreen';
@@ -746,6 +749,33 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
               component={CompareStatsScreen}
               options={{
                 title: 'Compare Stats',
+                headerShown: false,
+              }}
+            />
+
+            {/* Activity Feed Screens */}
+            <Stack.Screen
+              name="Activity"
+              component={ActivityScreen}
+              options={{
+                title: 'Activity',
+                headerShown: false,
+              }}
+            />
+
+            <Stack.Screen
+              name="RoundActivity"
+              component={RoundActivityScreen}
+              options={{
+                title: 'Round',
+                headerShown: false,
+              }}
+            />
+            <Stack.Screen
+              name="RoundPhotos"
+              component={RoundPhotosScreen}
+              options={{
+                title: 'Round Photos',
                 headerShown: false,
               }}
             />

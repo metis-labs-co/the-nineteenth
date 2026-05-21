@@ -168,6 +168,11 @@ export type RootStackParamList = {
   // Friends
   Friends: { fromProfile?: boolean } | undefined;
 
+  // Activity Feed
+  Activity: undefined;
+  RoundActivity: { roundId: string }; // Likes/comments/photos for a single round
+  RoundPhotos: { roundId: string }; // Shared photo album for a single round
+
   // Leagues
   LeagueDetail: { id: string };
   CreateLeague: undefined;
