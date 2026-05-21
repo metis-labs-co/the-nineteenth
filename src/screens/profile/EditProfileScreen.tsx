@@ -23,6 +23,7 @@ import {
   FormSection,
   PlayerAvatar,
   AvatarSelectionModal,
+  AvatarSourceMenu,
 } from '@/components/common';
 import { Text, Icon, Snackbar } from 'react-native-paper';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -34,9 +35,18 @@ import type { RootStackParamList } from '@/navigation/types';
 import { useAuth } from '@/hooks/useAuth';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
-import { formatAvatarUrl } from '@/constants/avatars';
+import { formatAvatarUrl, isAvatarId } from '@/constants/avatars';
+import { useAvatarUpload } from '@/hooks/auth/useAvatarUpload';
+import { pickImageFromLibrary, takePhotoWithCamera } from '@/utils/imagePicker';
+import { isAppError } from '@/services/errors';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+
+type PendingAvatar =
+  | null
+  | { type: 'preset'; avatarId: string }
+  | { type: 'photo'; uri: string; ext: string; mimeType?: string }
+  | { type: 'remove' };
 
 // Helper to split a full name into first/last parts
 function splitName(fullName: string): { firstName: string; lastName: string } {
@@ -102,7 +112,9 @@ export default function EditProfileScreen() {
 
   // Avatar selection state
   const [avatarModalVisible, setAvatarModalVisible] = useState(false);
-  const [pendingAvatarId, setPendingAvatarId] = useState<string | null>(null);
+  const [pendingAvatar, setPendingAvatar] = useState<PendingAvatar>(null);
+  const [avatarMenuVisible, setAvatarMenuVisible] = useState(false);
+  const uploadAvatar = useAvatarUpload();
 
   // Gender selection state
   const [selectedGender, setSelectedGender] = useState<PlayerGender | null>(player?.gender ?? null);
@@ -177,10 +189,22 @@ export default function EditProfileScreen() {
       const handicapChanged = data.handicap !== (player?.handicap?.toString() || '');
       const newHandicap = data.handicap ? parseFloat(data.handicap) : player?.handicap ?? 0;
 
-      // Build photoUrl only if avatar was changed
-      const photoUrl = pendingAvatarId !== null
-        ? formatAvatarUrl(pendingAvatarId)
-        : undefined;
+      // Resolve the pending avatar choice into a photoUrl (uploading if needed).
+      let photoUrl: string | undefined;
+      if (pendingAvatar !== null) {
+        if (pendingAvatar.type === 'preset') {
+          photoUrl = formatAvatarUrl(pendingAvatar.avatarId);
+        } else if (pendingAvatar.type === 'remove') {
+          photoUrl = ''; // updateProfile maps '' -> null
+        } else {
+          photoUrl = await uploadAvatar.mutateAsync({
+            uri: pendingAvatar.uri,
+            ext: pendingAvatar.ext,
+            mimeType: pendingAvatar.mimeType,
+            previousPhotoUrl: player?.photo_url,
+          });
+        }
+      }
 
       // Pass all form fields - empty strings will be converted to null by the hook
       await updateProfile({
@@ -197,7 +221,7 @@ export default function EditProfileScreen() {
       });
 
       // Reset pending avatar and gender states after successful save
-      setPendingAvatarId(null);
+      setPendingAvatar(null);
       setGenderChanged(false);
 
       setSnackbarMessage('Profile updated successfully');
@@ -209,7 +233,14 @@ export default function EditProfileScreen() {
       }, 1000);
     } catch (error) {
       console.error('Failed to update profile:', error);
-      setSnackbarMessage('Failed to update profile. Please try again.');
+      // Surface the specific failure (e.g. "Failed to upload photo: ...") when it's
+      // a typed AppError; both upload and update messages start with "Failed" so the
+      // snackbar still styles as an error.
+      const message =
+        isAppError(error) && error.code !== 'UNKNOWN'
+          ? error.message
+          : 'Failed to update profile. Please try again.';
+      setSnackbarMessage(message);
       setSnackbarVisible(true);
     } finally {
       setIsSubmitting(false);
@@ -226,7 +257,7 @@ export default function EditProfileScreen() {
   }, [navigation]);
 
   // Check if there are unsaved changes (form, avatar, or gender)
-  const hasUnsavedChanges = isDirty || pendingAvatarId !== null || genderChanged;
+  const hasUnsavedChanges = isDirty || pendingAvatar !== null || genderChanged;
 
   // Handle cancel/back - show confirmation if form is dirty
   const handleCancel = useCallback(() => {
@@ -245,7 +276,7 @@ export default function EditProfileScreen() {
 
   // Handle avatar selection
   const handleAvatarSelect = useCallback((avatarId: string) => {
-    setPendingAvatarId(avatarId);
+    setPendingAvatar({ type: 'preset', avatarId });
     setAvatarModalVisible(false);
   }, []);
 
@@ -254,6 +285,44 @@ export default function EditProfileScreen() {
     setSelectedGender(gender);
     setGenderChanged(gender !== (player?.gender ?? null));
   }, [player?.gender]);
+
+  // Resolve what the avatar preview should show from pending state or saved photo.
+  const previewPhotoUrl =
+    pendingAvatar === null
+      ? player?.photo_url ?? null
+      : pendingAvatar.type === 'preset'
+        ? formatAvatarUrl(pendingAvatar.avatarId)
+        : pendingAvatar.type === 'photo'
+          ? pendingAvatar.uri
+          : null; // 'remove'
+
+  // Remove only makes sense when the preview is a real photo (not a preset/default).
+  const canRemovePhoto = !!previewPhotoUrl && !isAvatarId(previewPhotoUrl);
+
+  const handleTakePhoto = useCallback(async () => {
+    setAvatarMenuVisible(false);
+    const picked = await takePhotoWithCamera();
+    if (picked) setPendingAvatar({ type: 'photo', ...picked });
+  }, []);
+
+  const handleChooseFromLibrary = useCallback(async () => {
+    setAvatarMenuVisible(false);
+    const picked = await pickImageFromLibrary();
+    if (picked) setPendingAvatar({ type: 'photo', ...picked });
+  }, []);
+
+  const handleChooseAvatarOption = useCallback(() => {
+    setAvatarMenuVisible(false);
+    // Let the menu close before the preset grid opens (matches existing 150ms pattern).
+    setTimeout(() => setAvatarModalVisible(true), 150);
+  }, []);
+
+  const handleRemovePhoto = useCallback(() => {
+    setAvatarMenuVisible(false);
+    setPendingAvatar({ type: 'remove' });
+  }, []);
+
+  const handleAvatarMenuClose = useCallback(() => setAvatarMenuVisible(false), []);
 
   // Gender options for the selector
   const genderOptions = useMemo(() => [
@@ -326,14 +395,14 @@ export default function EditProfileScreen() {
         {/* Avatar Section */}
         <View style={styles.avatarSection}>
           <TouchableOpacity
-            onPress={() => setAvatarModalVisible(true)}
+            onPress={() => setAvatarMenuVisible(true)}
             style={styles.avatarContainer}
             activeOpacity={0.7}
             accessibilityRole="button"
-            accessibilityLabel="Change avatar"
+            accessibilityLabel="Change profile photo"
           >
             <PlayerAvatar
-              photoUrl={pendingAvatarId ? formatAvatarUrl(pendingAvatarId) : player?.photo_url}
+              photoUrl={previewPhotoUrl}
               name={player?.name}
               size={100}
             />
@@ -342,7 +411,7 @@ export default function EditProfileScreen() {
             </View>
           </TouchableOpacity>
           <Text style={[styles.avatarHint, { color: colors.textSecondary }]}>
-            Tap to change avatar
+            Tap to change photo
           </Text>
         </View>
 
@@ -543,12 +612,25 @@ export default function EditProfileScreen() {
         {snackbarMessage}
       </Snackbar>
 
+      {/* Avatar Source Action Menu */}
+      <AvatarSourceMenu
+        visible={avatarMenuVisible}
+        onClose={handleAvatarMenuClose}
+        onTakePhoto={handleTakePhoto}
+        onChooseFromLibrary={handleChooseFromLibrary}
+        onChooseAvatar={handleChooseAvatarOption}
+        onRemovePhoto={handleRemovePhoto}
+        canRemove={canRemovePhoto}
+      />
+
       {/* Avatar Selection Modal */}
       <AvatarSelectionModal
         visible={avatarModalVisible}
         onClose={() => setAvatarModalVisible(false)}
         onSelect={handleAvatarSelect}
-        currentAvatarUrl={pendingAvatarId ? formatAvatarUrl(pendingAvatarId) : player?.photo_url}
+        currentAvatarUrl={
+          pendingAvatar?.type === 'preset' ? formatAvatarUrl(pendingAvatar.avatarId) : player?.photo_url
+        }
       />
     </View>
   );
