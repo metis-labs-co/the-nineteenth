@@ -7,7 +7,7 @@
  */
 
 import React, { useCallback, useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, Image, Alert, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Image, Alert, ActivityIndicator, Linking } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import * as ImagePicker from 'expo-image-picker';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -85,7 +85,10 @@ export function RoundPhotoAlbum({ roundId, canAdd }: RoundPhotoAlbumProps) {
     setMenuVisible(false);
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert('Permission needed', 'Allow camera access to take photos.');
+      Alert.alert('Camera access needed', 'Allow camera access in Settings to take photos.', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Open Settings', onPress: () => Linking.openSettings() },
+      ]);
       return;
     }
     // Full-frame capture (no square crop) — round photos are not avatars.

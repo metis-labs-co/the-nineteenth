@@ -1,4 +1,5 @@
 import React from 'react';
+import { Alert } from 'react-native';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { RoundPhotoAlbum } from './RoundPhotoAlbum';
@@ -55,6 +56,7 @@ const asset = {
 beforeEach(() => {
   jest.clearAllMocks();
   mockMutateAsync.mockResolvedValue(undefined);
+  jest.spyOn(Alert, 'alert').mockImplementation(() => {});
 });
 
 describe('RoundPhotoAlbum camera + library', () => {
@@ -93,6 +95,11 @@ describe('RoundPhotoAlbum camera + library', () => {
     await waitFor(() => expect(ImagePicker.requestCameraPermissionsAsync).toHaveBeenCalled());
     expect(ImagePicker.launchCameraAsync).not.toHaveBeenCalled();
     expect(mockMutateAsync).not.toHaveBeenCalled();
+    expect(Alert.alert).toHaveBeenCalledWith(
+      expect.stringContaining('Camera access'),
+      expect.any(String),
+      expect.arrayContaining([expect.objectContaining({ text: 'Open Settings' })])
+    );
   });
 
   it('chooses from the library and uploads', async () => {
@@ -107,6 +114,19 @@ describe('RoundPhotoAlbum camera + library', () => {
       expect(mockMutateAsync).toHaveBeenCalledWith(
         expect.objectContaining({ roundId: 'r1', uri: 'file://p.jpg' })
       )
+    );
+  });
+
+  it('alerts when an upload fails', async () => {
+    (ImagePicker.launchImageLibraryAsync as jest.Mock).mockResolvedValue({ canceled: false, assets: [asset] });
+    mockMutateAsync.mockRejectedValue(new Error('network'));
+
+    render(<RoundPhotoAlbum roundId="r1" canAdd />);
+    fireEvent.press(screen.getByLabelText('Add photos'));
+    fireEvent.press(screen.getByTestId('choose-library'));
+
+    await waitFor(() =>
+      expect(Alert.alert).toHaveBeenCalledWith('Upload failed', expect.any(String))
     );
   });
 });
