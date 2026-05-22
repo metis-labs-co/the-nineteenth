@@ -94,6 +94,8 @@ export { AvatarSelectionModal } from './AvatarSelectionModal';
 export type { AvatarSelectionModalProps } from './AvatarSelectionModal';
 export { AvatarSourceMenu } from './AvatarSourceMenu';
 export type { AvatarSourceMenuProps } from './AvatarSourceMenu';
+export { PhotoSourceMenu } from './PhotoSourceMenu';
+export type { PhotoSourceMenuProps } from './PhotoSourceMenu';
 export { ConfirmationDialog } from './ConfirmationDialog';
 export type { ConfirmationDialogProps } from './ConfirmationDialog';
 
