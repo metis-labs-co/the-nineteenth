@@ -90,5 +90,3 @@ const styles = StyleSheet.create({
 });
 
 export const PhotoSourceMenu = React.memo(PhotoSourceMenuComponent);
-
-export default PhotoSourceMenu;
