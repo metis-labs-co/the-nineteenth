@@ -31,7 +31,7 @@
         "webcredentials:thenineteenth.golf"
       ],
       "infoPlist": {
-        "NSCameraUsageDescription": "Allow The Nineteenth to take photos for your profile picture.",
+        "NSCameraUsageDescription": "Allow The Nineteenth to take photos for your profile and rounds.",
         "NSPhotoLibraryUsageDescription": "Allow The Nineteenth to access your photos for your profile picture.",
         "NSPhotoLibraryAddUsageDescription": "Allow The Nineteenth to save photos to your library.",
         "NSFaceIDUsageDescription": "Allow The Nineteenth to unlock the app with Face ID for quick and secure access.",
@@ -116,13 +116,13 @@
         "expo-image-picker",
         {
           "photosPermission": "Allow The Nineteenth to access your photos for your profile picture.",
-          "cameraPermission": "Allow The Nineteenth to take photos for your profile picture."
+          "cameraPermission": "Allow The Nineteenth to take photos for your profile and rounds."
         }
       ],
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow The Nineteenth to take photos for your profile picture."
+          "cameraPermission": "Allow The Nineteenth to take photos for your profile and rounds."
         }
       ],
       "expo-apple-authentication",
