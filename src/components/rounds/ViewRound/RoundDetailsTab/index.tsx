@@ -238,6 +238,11 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
     }
   };
 
+  // Navigate to the round's photo album
+  const handlePhotosPress = () => {
+    navigation.navigate('RoundPhotos', { roundId: round.id, canAdd: canAddPhotos });
+  };
+
   return (
     <View style={styles.container}>
       {/* Course Header Card (round photos sit flush at the top as a cover) */}
@@ -247,11 +252,7 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
         disabled={!round.course}
         activeOpacity={0.7}
       >
-        <RoundPhotoBanner
-          roundId={round.id}
-          rounded={false}
-          onPress={() => navigation.navigate('RoundPhotos', { roundId: round.id, canAdd: canAddPhotos })}
-        />
+        <RoundPhotoBanner roundId={round.id} rounded={false} onPress={handlePhotosPress} />
         <View style={styles.headerTop}>
           <RoundCoverPhotoButton
             roundId={round.id}

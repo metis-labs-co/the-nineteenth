@@ -74,9 +74,11 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
   const colors = useThemeColors();
   const { user } = useAuth();
   const { showSuccessToast } = useToast();
-  const roundPhotos = useAddRoundPhotos(roundId, {
-    onUploaded: (n) => showSuccessToast(n === 1 ? 'Photo added' : `${n} photos added`),
-  });
+  const handlePhotosUploaded = useCallback(
+    (n: number) => showSuccessToast(n === 1 ? 'Photo added' : `${n} photos added`),
+    [showSuccessToast]
+  );
+  const roundPhotos = useAddRoundPhotos(roundId, { onUploaded: handlePhotosUploaded });
   const isStandaloneRound = competitionId === 'standalone';
 
   // Diagnostic: log every time the screen mounts. Combined with the
