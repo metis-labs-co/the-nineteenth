@@ -67,7 +67,7 @@ export function RoundPhotoAlbum({ roundId, canAdd }: RoundPhotoAlbumProps) {
                 onLongPress={isOwn ? () => confirmDelete(photo.id, photo.storage_path) : undefined}
                 accessibilityRole="image"
                 accessibilityLabel="Round photo"
-                accessibilityHint={isOwn ? 'Long press to delete' : undefined}
+                accessibilityHint={isOwn ? 'Long press or use the remove button to delete' : undefined}
                 style={[styles.thumb, { backgroundColor: colors.surfaceVariant }]}
               >
                 {photo.url ? (
@@ -81,7 +81,7 @@ export function RoundPhotoAlbum({ roundId, canAdd }: RoundPhotoAlbumProps) {
                   onPress={() => confirmDelete(photo.id, photo.storage_path)}
                   accessibilityRole="button"
                   accessibilityLabel="Remove photo"
-                  hitSlop={8}
+                  hitSlop={12}
                   style={styles.removeBadge}
                 >
                   <Icon source="close" size={14} color={colors.white} />

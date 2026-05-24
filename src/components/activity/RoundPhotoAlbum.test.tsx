@@ -61,8 +61,8 @@ describe('RoundPhotoAlbum', () => {
   it('deletes a photo when the remove badge is confirmed', () => {
     render(<RoundPhotoAlbum roundId="r1" canAdd />);
     fireEvent.press(screen.getByLabelText('Remove photo'));
-    const [, , buttons] = (Alert.alert as jest.Mock).mock.calls[0];
-    const del = buttons.find((b: { text: string }) => b.text === 'Delete');
+    const call = (Alert.alert as jest.Mock).mock.calls.find(([title]) => title === 'Delete photo');
+    const del = call[2].find((b: { text: string }) => b.text === 'Delete');
     del.onPress();
     expect(mockDeleteMutate).toHaveBeenCalledWith({
       photoId: 'p1',
