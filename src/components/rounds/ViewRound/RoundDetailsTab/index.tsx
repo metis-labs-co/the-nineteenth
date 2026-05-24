@@ -28,6 +28,7 @@ import { useCompetitionInfo } from '@/hooks/competitions';
 import { StatusBadge, type StatusVariant } from '@/components/common/StatusBadge';
 import { Pill } from '@/components/common/Pill';
 import { getTeeColor } from '@/components/common/TeeSelector';
+import { RoundCoverPhotoButton, RoundPhotoBanner } from '@/components/activity';
 import { formatDateWithWeekday, formatTeeTime } from '@/utils/formatting';
 import { useSettingsStore } from '@/store/settingsStore';
 import type { RootStackParamList } from '@/navigation/types';
@@ -62,6 +63,7 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 export const RoundDetailsTab = React.memo(function RoundDetailsTab({
   round,
   isOrganizer = false,
+  canAddPhotos = false,
   onCourseSelectPress,
   onUpgradePress,
 }: RoundDetailsTabProps) {
@@ -238,17 +240,25 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
 
   return (
     <View style={styles.container}>
-      {/* Course Header Card */}
+      {/* Course Header Card (round photos sit flush at the top as a cover) */}
       <TouchableOpacity
         style={[styles.headerCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
         onPress={handleCoursePress}
         disabled={!round.course}
         activeOpacity={0.7}
       >
+        <RoundPhotoBanner
+          roundId={round.id}
+          rounded={false}
+          onPress={() => navigation.navigate('RoundPhotos', { roundId: round.id, canAdd: canAddPhotos })}
+        />
         <View style={styles.headerTop}>
-          <View style={[styles.courseIconLarge, { backgroundColor: courseIconBackground }]}>
-            <Icon source="golf" size={32} color={colors.primary} />
-          </View>
+          <RoundCoverPhotoButton
+            roundId={round.id}
+            canAdd={canAddPhotos}
+            size={64}
+            backgroundColor={courseIconBackground}
+          />
           <View style={styles.headerInfo}>
             <Text style={[styles.courseName, { color: colors.textPrimary }]}>
               {round.course?.name || 'Course TBD'}

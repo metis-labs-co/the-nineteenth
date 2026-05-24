@@ -21,7 +21,7 @@ import { useNetInfo } from '@react-native-community/netinfo';
 import { useFocusEffect } from '@react-navigation/native';
 import { activeRoundSession } from '@/services/activeRoundSession';
 import { pushDiagnostic } from '@/services/diagnostics';
-import { LoadingSpinner, ConfirmationDialog } from '@/components/common';
+import { LoadingSpinner, ConfirmationDialog, PhotoSourceMenu } from '@/components/common';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { useStatsVisibilityWithTier } from '@/hooks/useStatsVisibilityWithTier';
@@ -41,6 +41,8 @@ import { WolfDecisionModal } from '@/components/wolf';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useAuth } from '@/hooks';
+import { useToast } from '@/context/ToastContext';
+import { useAddRoundPhotos } from '@/hooks/activity';
 import type { RootStackScreenProps } from '@/navigation/types';
 import type { Hole } from '@/types';
 import { isSingleBallScore } from '@/types/database';
@@ -71,6 +73,10 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
   const { roundId, competitionId, isBuildAsYouPlay: isBuildAsYouPlayParam } = route.params;
   const colors = useThemeColors();
   const { user } = useAuth();
+  const { showSuccessToast } = useToast();
+  const roundPhotos = useAddRoundPhotos(roundId, {
+    onUploaded: (n) => showSuccessToast(n === 1 ? 'Photo added' : `${n} photos added`),
+  });
   const isStandaloneRound = competitionId === 'standalone';
 
   // Diagnostic: log every time the screen mounts. Combined with the
@@ -752,7 +758,14 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
         canGoPrevious={nav.canGoPrevious}
         canGoNext={nav.canGoNext}
         isAllComplete={getCompletedHolesCount() === holes.length && holes.length > 0}
-        onAddPhotos={() => navigation.navigate('RoundPhotos', { roundId })}
+        onAddPhotos={roundPhotos.openMenu}
+      />
+
+      <PhotoSourceMenu
+        visible={roundPhotos.menuVisible}
+        onClose={roundPhotos.closeMenu}
+        onTakePhoto={roundPhotos.handleTakePhoto}
+        onChooseFromLibrary={roundPhotos.handleChooseFromLibrary}
       />
 
       <ScorecardDialogs

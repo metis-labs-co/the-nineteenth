@@ -314,7 +314,22 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
-      <PageHeader title="Scorecard" showBack onBack={handleGoBack} />
+      <PageHeader
+        title="Scorecard"
+        showBack
+        onBack={handleGoBack}
+        rightActions={
+          roundId
+            ? [
+                {
+                  icon: 'image-multiple',
+                  onPress: () => navigation.navigate('RoundPhotos', { roundId }),
+                  accessibilityLabel: 'Round photos',
+                },
+              ]
+            : undefined
+        }
+      />
 
       {/* Offline Indicator */}
       <OfflineIndicator
