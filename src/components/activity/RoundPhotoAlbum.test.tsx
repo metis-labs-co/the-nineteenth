@@ -1,132 +1,73 @@
-import React from 'react';
 import { Alert } from 'react-native';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
-import * as ImagePicker from 'expo-image-picker';
+import { render, screen, fireEvent } from '@testing-library/react-native';
 import { RoundPhotoAlbum } from './RoundPhotoAlbum';
+
+const mockOpenMenu = jest.fn();
+const mockDeleteMutate = jest.fn();
 
 jest.mock('@/context/ThemeContext', () => ({
   useThemeColors: () => ({
     surface: '#FFF', surfaceVariant: '#EEE', textPrimary: '#111',
-    textSecondary: '#666', primary: '#1E7F5E', border: '#E0E0E0',
+    textSecondary: '#666', primary: '#1E7F5E', border: '#E0E0E0', white: '#FFF',
   }),
 }));
 
-const mockMutateAsync = jest.fn();
 jest.mock('@/hooks/activity', () => ({
-  useRoundPhotos: () => ({ data: [], isLoading: false }),
-  useUploadRoundPhoto: () => ({ mutateAsync: mockMutateAsync }),
-  useDeleteRoundPhoto: () => ({ mutate: jest.fn() }),
+  useRoundPhotos: () => ({
+    data: [
+      { id: 'p1', uploader_id: 'u1', storage_path: 'rounds/r1/u1/p1.jpg', url: 'http://x/p1.jpg' },
+      { id: 'p2', uploader_id: 'u2', storage_path: 'rounds/r1/u2/p2.jpg', url: 'http://x/p2.jpg' },
+    ],
+    isLoading: false,
+  }),
+  useDeleteRoundPhoto: () => ({ mutate: mockDeleteMutate }),
+  useAddRoundPhotos: () => ({
+    menuVisible: false,
+    openMenu: mockOpenMenu,
+    closeMenu: jest.fn(),
+    handleTakePhoto: jest.fn(),
+    handleChooseFromLibrary: jest.fn(),
+    uploading: false,
+  }),
 }));
 
-jest.mock('@/hooks/useAuth', () => ({
-  useAuth: () => ({ user: { id: 'u1' } }),
-}));
+jest.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1' } }) }));
 
-// SectionHeader is irrelevant here; PhotoSourceMenu is covered by its own test,
-// so stub it to expose its two actions as press targets.
 jest.mock('@/components/common', () => {
-  const { View, TouchableOpacity, Text } = require('react-native');
+  const { View } = require('react-native');
   return {
     SectionHeader: () => null,
-    PhotoSourceMenu: ({ visible, onTakePhoto, onChooseFromLibrary }: any) =>
-      visible ? (
-        <View>
-          <TouchableOpacity testID="take-photo" onPress={onTakePhoto}>
-            <Text>Take Photo</Text>
-          </TouchableOpacity>
-          <TouchableOpacity testID="choose-library" onPress={onChooseFromLibrary}>
-            <Text>Choose from Library</Text>
-          </TouchableOpacity>
-        </View>
-      ) : null,
+    PhotoSourceMenu: () => <View testID="photo-source-menu" />,
   };
 });
 
-jest.mock('expo-image-picker', () => ({
-  launchImageLibraryAsync: jest.fn(),
-  launchCameraAsync: jest.fn(),
-  requestCameraPermissionsAsync: jest.fn(),
-}));
-
-const asset = {
-  uri: 'file://p.jpg', width: 100, height: 100,
-  mimeType: 'image/jpeg', fileName: 'p.jpg',
-};
-
 beforeEach(() => {
   jest.clearAllMocks();
-  mockMutateAsync.mockResolvedValue(undefined);
   jest.spyOn(Alert, 'alert').mockImplementation(() => {});
 });
 
-describe('RoundPhotoAlbum camera + library', () => {
+describe('RoundPhotoAlbum', () => {
   it('opens the source menu when Add is pressed', () => {
     render(<RoundPhotoAlbum roundId="r1" canAdd />);
-    expect(screen.queryByTestId('take-photo')).toBeNull();
     fireEvent.press(screen.getByLabelText('Add photos'));
-    expect(screen.getByTestId('take-photo')).toBeTruthy();
-    expect(screen.getByTestId('choose-library')).toBeTruthy();
+    expect(mockOpenMenu).toHaveBeenCalled();
   });
 
-  it('takes a photo with the camera and uploads it', async () => {
-    (ImagePicker.requestCameraPermissionsAsync as jest.Mock).mockResolvedValue({ granted: true });
-    (ImagePicker.launchCameraAsync as jest.Mock).mockResolvedValue({ canceled: false, assets: [asset] });
-
+  it('shows a remove badge only on the user’s own photos', () => {
     render(<RoundPhotoAlbum roundId="r1" canAdd />);
-    fireEvent.press(screen.getByLabelText('Add photos'));
-    fireEvent.press(screen.getByTestId('take-photo'));
-
-    await waitFor(() => expect(ImagePicker.launchCameraAsync).toHaveBeenCalled());
-    expect(ImagePicker.requestCameraPermissionsAsync).toHaveBeenCalled();
-    await waitFor(() =>
-      expect(mockMutateAsync).toHaveBeenCalledWith(
-        expect.objectContaining({ roundId: 'r1', uri: 'file://p.jpg' })
-      )
-    );
+    expect(screen.getAllByLabelText('Remove photo')).toHaveLength(1);
   });
 
-  it('does not launch the camera when permission is denied', async () => {
-    (ImagePicker.requestCameraPermissionsAsync as jest.Mock).mockResolvedValue({ granted: false });
-
+  it('deletes a photo when the remove badge is confirmed', () => {
     render(<RoundPhotoAlbum roundId="r1" canAdd />);
-    fireEvent.press(screen.getByLabelText('Add photos'));
-    fireEvent.press(screen.getByTestId('take-photo'));
-
-    await waitFor(() => expect(ImagePicker.requestCameraPermissionsAsync).toHaveBeenCalled());
-    expect(ImagePicker.launchCameraAsync).not.toHaveBeenCalled();
-    expect(mockMutateAsync).not.toHaveBeenCalled();
-    expect(Alert.alert).toHaveBeenCalledWith(
-      expect.stringContaining('Camera access'),
-      expect.any(String),
-      expect.arrayContaining([expect.objectContaining({ text: 'Open Settings' })])
-    );
-  });
-
-  it('chooses from the library and uploads', async () => {
-    (ImagePicker.launchImageLibraryAsync as jest.Mock).mockResolvedValue({ canceled: false, assets: [asset] });
-
-    render(<RoundPhotoAlbum roundId="r1" canAdd />);
-    fireEvent.press(screen.getByLabelText('Add photos'));
-    fireEvent.press(screen.getByTestId('choose-library'));
-
-    await waitFor(() => expect(ImagePicker.launchImageLibraryAsync).toHaveBeenCalled());
-    await waitFor(() =>
-      expect(mockMutateAsync).toHaveBeenCalledWith(
-        expect.objectContaining({ roundId: 'r1', uri: 'file://p.jpg' })
-      )
-    );
-  });
-
-  it('alerts when an upload fails', async () => {
-    (ImagePicker.launchImageLibraryAsync as jest.Mock).mockResolvedValue({ canceled: false, assets: [asset] });
-    mockMutateAsync.mockRejectedValue(new Error('network'));
-
-    render(<RoundPhotoAlbum roundId="r1" canAdd />);
-    fireEvent.press(screen.getByLabelText('Add photos'));
-    fireEvent.press(screen.getByTestId('choose-library'));
-
-    await waitFor(() =>
-      expect(Alert.alert).toHaveBeenCalledWith('Upload failed', expect.any(String))
-    );
+    fireEvent.press(screen.getByLabelText('Remove photo'));
+    const [, , buttons] = (Alert.alert as jest.Mock).mock.calls[0];
+    const del = buttons.find((b: { text: string }) => b.text === 'Delete');
+    del.onPress();
+    expect(mockDeleteMutate).toHaveBeenCalledWith({
+      photoId: 'p1',
+      roundId: 'r1',
+      storagePath: 'rounds/r1/u1/p1.jpg',
+    });
   });
 });
