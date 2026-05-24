@@ -69,4 +69,15 @@ describe('useAddRoundPhotos', () => {
     expect(ImagePicker.launchImageLibraryAsync).toHaveBeenCalled();
     expect(mockMutateAsync).toHaveBeenCalledWith(expect.objectContaining({ roundId: 'r1', uri: 'file://p.jpg' }));
   });
+
+  it('alerts and resets uploading when the upload fails', async () => {
+    mockMutateAsync.mockRejectedValue(new Error('Storage quota exceeded'));
+    (ImagePicker.launchImageLibraryAsync as jest.Mock).mockResolvedValue({ canceled: false, assets: [asset] });
+
+    const { result } = renderHook(() => useAddRoundPhotos('r1'));
+    await act(async () => { await result.current.handleChooseFromLibrary(); });
+
+    expect(Alert.alert).toHaveBeenCalledWith('Upload failed', 'Storage quota exceeded');
+    expect(result.current.uploading).toBe(false);
+  });
 });

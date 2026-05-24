@@ -34,7 +34,10 @@ export function useAddRoundPhotos(
   roundId: string,
   options?: UseAddRoundPhotosOptions
 ): UseAddRoundPhotosResult {
-  const uploadPhoto = useUploadRoundPhoto();
+  // Pull `mutateAsync` out of the mutation object: TanStack Query returns a new
+  // result object each render but a stable `mutateAsync`, so depending on the
+  // function (not the object) keeps the callbacks below referentially stable.
+  const { mutateAsync } = useUploadRoundPhoto();
   const [uploading, setUploading] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
   const onUploaded = options?.onUploaded;
@@ -47,7 +50,7 @@ export function useAddRoundPhotos(
       try {
         setUploading(true);
         for (const asset of assets) {
-          await uploadPhoto.mutateAsync({
+          await mutateAsync({
             roundId,
             uri: asset.uri,
             width: asset.width,
@@ -63,7 +66,7 @@ export function useAddRoundPhotos(
         setUploading(false);
       }
     },
-    [roundId, uploadPhoto, onUploaded]
+    [roundId, mutateAsync, onUploaded]
   );
 
   const handleChooseFromLibrary = useCallback(async () => {
@@ -80,6 +83,8 @@ export function useAddRoundPhotos(
   }, [uploadAssets]);
 
   const handleTakePhoto = useCallback(async () => {
+    // Dismiss the source menu before the permission prompt / camera so the
+    // sheet doesn't linger behind the system UI.
     setMenuVisible(false);
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
