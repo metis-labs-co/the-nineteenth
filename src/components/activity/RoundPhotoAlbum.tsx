@@ -10,6 +10,7 @@ import React, { useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity, Image, Alert, ActivityIndicator } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
+import { useToast } from '@/context/ToastContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { SectionHeader, PhotoSourceMenu } from '@/components/common';
 import { useAuth } from '@/hooks/useAuth';
@@ -26,6 +27,7 @@ export interface RoundPhotoAlbumProps {
 export function RoundPhotoAlbum({ roundId, canAdd }: RoundPhotoAlbumProps) {
   const colors = useThemeColors();
   const { user } = useAuth();
+  const { showSuccessToast, showErrorToast } = useToast();
   const { data: photos, isLoading } = useRoundPhotos(roundId);
   const deletePhoto = useDeleteRoundPhoto();
   const {
@@ -37,6 +39,23 @@ export function RoundPhotoAlbum({ roundId, canAdd }: RoundPhotoAlbumProps) {
     uploading,
   } = useAddRoundPhotos(roundId);
 
+  const handleDelete = useCallback(
+    async (photoId: string, storagePath: string) => {
+      try {
+        const removed = await deletePhoto.mutateAsync({ photoId, roundId, storagePath });
+        if (removed > 0) {
+          showSuccessToast('Photo removed');
+        } else {
+          // Update succeeded with no error but changed nothing — RLS/ownership.
+          showErrorToast('Could not remove photo', 'No matching photo — you may not be the uploader.');
+        }
+      } catch (err) {
+        showErrorToast('Could not remove photo', err instanceof Error ? err.message : undefined);
+      }
+    },
+    [deletePhoto, roundId, showSuccessToast, showErrorToast]
+  );
+
   const confirmDelete = useCallback(
     (photoId: string, storagePath: string) => {
       Alert.alert('Delete photo', 'Remove this photo from the round?', [
@@ -44,11 +63,11 @@ export function RoundPhotoAlbum({ roundId, canAdd }: RoundPhotoAlbumProps) {
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: () => deletePhoto.mutate({ photoId, roundId, storagePath }),
+          onPress: () => handleDelete(photoId, storagePath),
         },
       ]);
     },
-    [deletePhoto, roundId]
+    [handleDelete]
   );
 
   const items = photos ?? [];

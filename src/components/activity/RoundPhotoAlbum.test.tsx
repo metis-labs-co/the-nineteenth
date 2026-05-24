@@ -3,7 +3,9 @@ import { render, screen, fireEvent } from '@testing-library/react-native';
 import { RoundPhotoAlbum } from './RoundPhotoAlbum';
 
 const mockOpenMenu = jest.fn();
-const mockDeleteMutate = jest.fn();
+const mockDeleteMutateAsync = jest.fn();
+const mockShowSuccessToast = jest.fn();
+const mockShowErrorToast = jest.fn();
 
 jest.mock('@/context/ThemeContext', () => ({
   useThemeColors: () => ({
@@ -20,7 +22,7 @@ jest.mock('@/hooks/activity', () => ({
     ],
     isLoading: false,
   }),
-  useDeleteRoundPhoto: () => ({ mutate: mockDeleteMutate }),
+  useDeleteRoundPhoto: () => ({ mutateAsync: mockDeleteMutateAsync }),
   useAddRoundPhotos: () => ({
     menuVisible: false,
     openMenu: mockOpenMenu,
@@ -33,6 +35,10 @@ jest.mock('@/hooks/activity', () => ({
 
 jest.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1' } }) }));
 
+jest.mock('@/context/ToastContext', () => ({
+  useToast: () => ({ showSuccessToast: mockShowSuccessToast, showErrorToast: mockShowErrorToast }),
+}));
+
 jest.mock('@/components/common', () => {
   const { View } = require('react-native');
   return {
@@ -43,6 +49,7 @@ jest.mock('@/components/common', () => {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockDeleteMutateAsync.mockResolvedValue(1);
   jest.spyOn(Alert, 'alert').mockImplementation(() => {});
 });
 
@@ -58,16 +65,36 @@ describe('RoundPhotoAlbum', () => {
     expect(screen.getAllByLabelText('Remove photo')).toHaveLength(1);
   });
 
-  it('deletes a photo when the remove badge is confirmed', () => {
-    render(<RoundPhotoAlbum roundId="r1" canAdd />);
+  function pressDelete() {
     fireEvent.press(screen.getByLabelText('Remove photo'));
     const call = (Alert.alert as jest.Mock).mock.calls.find(([title]) => title === 'Delete photo');
     const del = call[2].find((b: { text: string }) => b.text === 'Delete');
-    del.onPress();
-    expect(mockDeleteMutate).toHaveBeenCalledWith({
+    return del.onPress();
+  }
+
+  it('deletes a photo and shows a success toast when confirmed', async () => {
+    render(<RoundPhotoAlbum roundId="r1" canAdd />);
+    await pressDelete();
+    expect(mockDeleteMutateAsync).toHaveBeenCalledWith({
       photoId: 'p1',
       roundId: 'r1',
       storagePath: 'rounds/r1/u1/p1.jpg',
     });
+    expect(mockShowSuccessToast).toHaveBeenCalledWith('Photo removed');
+  });
+
+  it('shows an error toast when the delete affects no rows', async () => {
+    mockDeleteMutateAsync.mockResolvedValue(0);
+    render(<RoundPhotoAlbum roundId="r1" canAdd />);
+    await pressDelete();
+    expect(mockShowErrorToast).toHaveBeenCalledWith('Could not remove photo', expect.any(String));
+    expect(mockShowSuccessToast).not.toHaveBeenCalled();
+  });
+
+  it('shows an error toast when the delete throws', async () => {
+    mockDeleteMutateAsync.mockRejectedValue(new Error('permission denied'));
+    render(<RoundPhotoAlbum roundId="r1" canAdd />);
+    await pressDelete();
+    expect(mockShowErrorToast).toHaveBeenCalledWith('Could not remove photo', 'permission denied');
   });
 });
