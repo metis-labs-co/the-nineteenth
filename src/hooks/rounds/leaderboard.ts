@@ -135,6 +135,7 @@ async function fetchRoundLeaderboard(roundId: string): Promise<RoundLeaderboardR
     `
     )
     .eq('id', roundId)
+    .is('deleted_at', null)
     .single();
 
   if (roundError) {

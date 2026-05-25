@@ -150,6 +150,7 @@ export function useRoundList(): UseRoundListReturn {
         `)
         .eq('user_id', user.id)
         .is('competition_id', null)
+        .is('deleted_at', null)
         .order('date', { ascending: false });
 
       // Collect standalone round IDs to fetch their players
@@ -247,6 +248,7 @@ export function useRoundList(): UseRoundListReturn {
           `)
           .eq('player_id', user.id)
           .is('round.competition_id', null)
+          .is('round.deleted_at', null)
           .neq('round.user_id', user.id); // Exclude rounds user owns (already fetched above)
 
         if (participantError) {

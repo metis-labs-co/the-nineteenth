@@ -54,7 +54,8 @@ async function fetchCompetition(competitionId: string): Promise<CompetitionWithC
   const { data: rounds, error: roundError } = await supabase
     .from('rounds')
     .select('id, status')
-    .eq('competition_id', competitionId);
+    .eq('competition_id', competitionId)
+    .is('deleted_at', null);
 
   if (roundError) {
     console.warn('Failed to fetch rounds:', roundError);
