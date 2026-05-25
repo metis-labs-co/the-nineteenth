@@ -143,6 +143,7 @@ jest.mock('@/services/supabase/client', () => ({
         return {
           select: jest.fn().mockReturnThis(),
           eq: jest.fn().mockReturnThis(),
+          is: jest.fn().mockReturnThis(),
           single: jest.fn(() => {
             if (mockShouldThrowError) {
               return Promise.resolve({
