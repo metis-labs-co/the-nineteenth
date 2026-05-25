@@ -99,6 +99,7 @@ export function useUpcomingRounds() {
         .select(ROUND_SELECT)
         .eq('status', 'upcoming')
         .gte('date', today)
+        .is('deleted_at', null)
         .order('date', { ascending: true })
         .order('tee_time', { ascending: true });
 

@@ -53,6 +53,7 @@ export interface SimpleToastItem extends BaseToastItem {
   title: string;
   message?: string;
   icon?: string;
+  action?: { label: string; onPress: () => void };
 }
 
 export type ToastItem = NotificationToastItem | AchievementToastItem | SimpleToastItem;

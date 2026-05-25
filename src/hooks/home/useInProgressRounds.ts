@@ -58,6 +58,7 @@ export function useInProgressRounds() {
       let query = (supabase.from('rounds') as any)
         .select(ROUND_SELECT)
         .eq('status', 'in-progress')
+        .is('deleted_at', null)
         .order('updated_at', { ascending: false });
 
       if (competitionIds.length > 0) {

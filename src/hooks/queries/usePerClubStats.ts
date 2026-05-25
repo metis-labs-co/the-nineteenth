@@ -88,9 +88,10 @@ async function fetchRawPerClubStatsData(
   //    matching tee coordinate AND have round/course context for the
   //    Club Distance Detail screen.
   const { data, error } = await shotLogTable()
-    .select('*, rounds(course_id, date, courses(name))')
+    .select('*, rounds!inner(course_id, date, courses(name))')
     .eq('player_id', playerId)
     .not('club_used', 'is', null)
+    .is('rounds.deleted_at', null)
     .order('round_id', { ascending: true })
     .order('hole_number', { ascending: true })
     .order('sequence', { ascending: true });

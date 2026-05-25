@@ -130,6 +130,7 @@ export function usePlayerStatistics(
         `
         )
         .eq('player_id', playerId)
+        .is('rounds.deleted_at', null)
         .in('status', ['completed', 'confirmed']);
 
       // Apply filters
@@ -553,6 +554,7 @@ export function usePlayerStatistics(
           `
           )
           .in('rounds.competition_id', completedCompetitionIds)
+          .is('rounds.deleted_at', null)
           .in('status', ['completed', 'confirmed']);
 
         if (allCompScorecards && allCompScorecards.length > 0) {

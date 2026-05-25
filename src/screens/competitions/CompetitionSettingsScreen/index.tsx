@@ -457,8 +457,7 @@ export default function CompetitionSettingsScreen({ navigation, route }: Props) 
             </Text>
           </TouchableOpacity>
           <Text style={[styles.deleteHint, { color: colors.textSecondary }]}>
-            All rounds, scores, and player data will be permanently removed. This action
-            cannot be undone.
+            The competition is hidden immediately and permanently removed after 90 days. You can undo right after deleting.
           </Text>
         </View>
       </ScrollView>
@@ -466,7 +465,7 @@ export default function CompetitionSettingsScreen({ navigation, route }: Props) 
       <ConfirmationDialog
         visible={showDeleteDialog}
         title="Delete Competition"
-        message="Are you sure you want to delete this competition? All rounds, scores, and player data will be permanently removed. This action cannot be undone."
+        message="Delete this competition? It's hidden right away and permanently removed after 90 days — you can undo immediately after."
         confirmLabel="Delete"
         cancelLabel="Cancel"
         confirmVariant="destructive"

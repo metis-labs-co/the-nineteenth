@@ -20,8 +20,9 @@ import {
 } from '@/hooks/queryKeys';
 import { recalculateScorecardDifferential } from '@/services/handicap/recalculateScorecardDifferential';
 import { refinalizeRoundResults } from '@/services/rounds/refinalizeRoundResults';
-import { getScorecardsByRound, markScorecardsAsSynced } from '@/services/offline/database';
+import { getScorecardsByRound, markScorecardsAsSynced, deleteScorecardsByRound } from '@/services/offline/database';
 import { syncScorecard } from '@/services/offline/sync';
+import { useToast } from '@/context/ToastContext';
 import type { TeeBox } from '@/types';
 import type { CompetitionData, RoundWithCourse } from '@/components/competitions/detail';
 
@@ -46,45 +47,87 @@ export interface DeleteRoundResult {
 // =====================================================
 
 /**
- * Delete a round and all related data
+ * Soft-delete a round via the `soft_delete_round` RPC.
  *
- * This will cascade delete:
- * - Scorecards for this round
- * - Hole scores for this round
- * - Pairings for this round
- * - Scoring pairs for this round
- * - Round results for this round
- * - Skins games for this round (via cascade)
+ * The round is flagged `deleted_at = now()` on the server and can be
+ * recovered for up to 90 days via `restoreRound`. After soft-deletion,
+ * any locally-cached scorecards are removed from SQLite so offline reads
+ * don't resurrect stale data.
  */
 async function deleteRound(
   roundId: string,
 ): Promise<DeleteRoundResult> {
-  // Delete the round - cascading deletes handle related records
-  // based on ON DELETE CASCADE foreign key constraints
-  const { error } = await supabase
-    .from('rounds')
-    .delete()
-    .eq('id', roundId);
+  const { error } = await supabase.rpc('soft_delete_round' as never, {
+    p_round_id: roundId,
+  } as never);
 
   if (error) {
-    console.error('[deleteRound] Failed to delete round:', error);
+    console.error('[deleteRound] Failed to soft-delete round:', error);
     throw new Error(`Failed to delete round: ${error.message}`);
   }
 
-  return {
-    success: true,
-    roundId,
-  };
+  // Clear locally-cached scorecards so offline reads don't resurrect them.
+  try {
+    await deleteScorecardsByRound(roundId);
+  } catch (e) {
+    console.warn('[deleteRound] local scorecard cleanup failed (non-fatal):', e);
+  }
+
+  return { success: true, roundId };
+}
+
+async function restoreRound(roundId: string): Promise<DeleteRoundResult> {
+  const { error } = await supabase.rpc('restore_round' as never, {
+    p_round_id: roundId,
+  } as never);
+
+  if (error) {
+    console.error('[restoreRound] Failed to restore round:', error);
+    throw new Error(`Failed to restore round: ${error.message}`);
+  }
+
+  return { success: true, roundId };
 }
 
 // =====================================================
 // HOOK
 // =====================================================
 
+/** Shared cache invalidation after a round delete or restore. */
+function invalidateRoundCaches(
+  queryClient: ReturnType<typeof useQueryClient>,
+  variables: DeleteRoundInput,
+) {
+  queryClient.invalidateQueries({ queryKey: scorecardKeys.list({ roundId: variables.roundId }) });
+  queryClient.invalidateQueries({ queryKey: skinsKeys.gamesByRound(variables.roundId) });
+  if (variables.competitionId) {
+    queryClient.invalidateQueries({ queryKey: roundKeys.list(variables.competitionId) });
+    queryClient.invalidateQueries({ queryKey: competitionKeys.detail(variables.competitionId) });
+    queryClient.invalidateQueries({ queryKey: skinsKeys.all });
+  }
+  queryClient.invalidateQueries({ queryKey: roundKeys.lists() });
+}
+
+/**
+ * Mutation hook to restore a soft-deleted round.
+ *
+ * Calls the `restore_round` RPC and invalidates the same caches as deletion
+ * so lists and detail views reflect the restored round immediately.
+ */
+export function useRestoreRound() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: DeleteRoundInput) => restoreRound(input.roundId),
+    onSuccess: (_, variables) => invalidateRoundCaches(queryClient, variables),
+    onError: (error) => console.error('[useRestoreRound] Failed:', error),
+  });
+}
+
 /**
  * Mutation hook to delete a round
  *
- * Handles deletion and cache invalidation for rounds and related data.
+ * Soft-deletes the round via RPC (recoverable for 90 days) and shows an
+ * Undo toast so the user can immediately reverse the action.
  *
  * @returns Mutation result with deleteRound function
  *
@@ -118,6 +161,7 @@ async function deleteRound(
  */
 export function useDeleteRound() {
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
 
   return useMutation({
     mutationFn: async (input: DeleteRoundInput): Promise<DeleteRoundResult> => {
@@ -126,41 +170,36 @@ export function useDeleteRound() {
 
     onSuccess: (_, variables) => {
       // Remove the specific round from cache
-      queryClient.removeQueries({
-        queryKey: roundKeys.detail(variables.roundId),
-      });
+      queryClient.removeQueries({ queryKey: roundKeys.detail(variables.roundId) });
 
-      // Invalidate scorecards for this round
-      queryClient.invalidateQueries({
-        queryKey: scorecardKeys.list({ roundId: variables.roundId }),
-      });
+      // Invalidate all related caches
+      invalidateRoundCaches(queryClient, variables);
 
-      // Invalidate skins queries (game may have been cancelled)
-      queryClient.invalidateQueries({
-        queryKey: skinsKeys.gamesByRound(variables.roundId),
-      });
-
-      // If this was a competition round, invalidate competition-related queries
-      if (variables.competitionId) {
-        // Invalidate rounds list for this competition
-        queryClient.invalidateQueries({
-          queryKey: roundKeys.list(variables.competitionId),
-        });
-
-        // Invalidate the competition detail to reflect updated round count
-        queryClient.invalidateQueries({
-          queryKey: competitionKeys.detail(variables.competitionId),
-        });
-
-        // Invalidate skins queries (games may have been cascade deleted)
-        queryClient.invalidateQueries({
-          queryKey: skinsKeys.all,
-        });
-      }
-
-      // Invalidate all rounds lists (for standalone rounds)
-      queryClient.invalidateQueries({
-        queryKey: roundKeys.lists(),
+      // Show Undo toast — user can reverse the soft-delete within 6 s.
+      // The deleting screen usually navigates away on success, so the Undo
+      // handler must NOT rely on a component-scoped mutation (its onSuccess
+      // wouldn't fire after unmount). Call the module-level restore + invalidate
+      // via the app-global queryClient, both of which survive unmount.
+      showToast({
+        variant: 'success',
+        title: 'Round deleted',
+        autoDismissMs: 6000,
+        action: {
+          label: 'Undo',
+          onPress: async () => {
+            try {
+              await restoreRound(variables.roundId);
+              invalidateRoundCaches(queryClient, variables);
+            } catch (error) {
+              console.error('[useDeleteRound] Undo restore failed:', error);
+              showToast({
+                variant: 'error',
+                title: "Couldn't undo",
+                message: 'Please try again.',
+              });
+            }
+          },
+        },
       });
     },
 

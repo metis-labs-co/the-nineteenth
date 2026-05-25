@@ -126,6 +126,8 @@ function renderVariant(toast: ToastItem, dismissToast: () => void) {
           title={toast.title}
           message={toast.message}
           icon={toast.icon}
+          action={toast.action}
+          onDismiss={dismissToast}
         />
       );
   }

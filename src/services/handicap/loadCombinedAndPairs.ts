@@ -222,6 +222,7 @@ export async function fetchCombinableNinePairs(
     )
     .eq('player_id', playerId)
     .in('status', ['completed', 'confirmed'])
+    .is('rounds.deleted_at', null)
     .in('rounds.nine_type', ['front9', 'back9'])
     .order('submitted_at', { ascending: false })
     .limit(50);

@@ -4,12 +4,9 @@
 
 import { useState, useCallback } from 'react';
 import { useNavigation } from '@react-navigation/native';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { supabase } from '@/services/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
+import { useDeleteRound } from '@/hooks/rounds/mutations';
 import { useConfirmationDialog, type DialogConfig } from '@/hooks';
-import { skinsKeys, prizePoolKeys, roundKeys } from '@/hooks/queryKeys';
 import type { RootStackParamList } from '@/navigation/types';
 import type { RoundItem, UseRoundActionsReturn } from '../types';
 
@@ -20,8 +17,6 @@ export function useRoundActions(): UseRoundActionsReturn & {
   dismissDialog: () => void;
 } {
   const navigation = useNavigation<NavigationProp>();
-  const { user } = useAuth();
-  const queryClient = useQueryClient();
 
   // Dialog state for error alerts
   const { dialogConfig, showAlert, dismissDialog } = useConfirmationDialog();
@@ -29,46 +24,8 @@ export function useRoundActions(): UseRoundActionsReturn & {
   const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
   const [roundToDelete, setRoundToDelete] = useState<RoundItem | null>(null);
 
-  // Delete round mutation
-  const deleteRoundMutation = useMutation({
-    mutationFn: async (round: RoundItem) => {
-      const roundId = round.id;
-      const competitionId = round.competition?.id;
-
-      // Step 1: Delete related records (round_players, scoring_pairs, scorecards)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from('round_players') as any).delete().eq('round_id', roundId);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from('scoring_pairs') as any).delete().eq('round_id', roundId);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from('scorecards') as any).delete().eq('round_id', roundId);
-
-      // Step 2: Delete the round itself
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase.from('rounds') as any)
-        .delete()
-        .eq('id', roundId)
-        .eq('user_id', user?.id); // Only allow deleting own rounds
-
-      if (error) throw error;
-
-      return { roundId, competitionId };
-    },
-    onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ['rounds', user?.id] });
-
-      // Invalidate skins and prize pool queries
-      if (result?.competitionId) {
-        queryClient.invalidateQueries({ queryKey: skinsKeys.all });
-        queryClient.invalidateQueries({ queryKey: prizePoolKeys.pool(result.competitionId) });
-        queryClient.invalidateQueries({ queryKey: roundKeys.list(result.competitionId) });
-      }
-    },
-    onError: (error) => {
-      console.error('Error deleting round:', error);
-      showAlert('Error', 'Failed to delete round. Please try again.');
-    },
-  });
+  // Delete round via shared soft-delete hook (RPC handles auth + cache invalidation + undo toast)
+  const deleteRoundMutation = useDeleteRound();
 
   const handleScoreRound = useCallback(
     (round: RoundItem) => {
@@ -119,11 +76,16 @@ export function useRoundActions(): UseRoundActionsReturn & {
 
   const handleConfirmDelete = useCallback(() => {
     if (roundToDelete) {
-      deleteRoundMutation.mutate(roundToDelete);
+      deleteRoundMutation.mutate(
+        { roundId: roundToDelete.id, competitionId: roundToDelete.competition?.id },
+        {
+          onError: () => showAlert('Error', 'Failed to delete round. Please try again.'),
+        }
+      );
       setDeleteDialogVisible(false);
       setRoundToDelete(null);
     }
-  }, [roundToDelete, deleteRoundMutation]);
+  }, [roundToDelete, deleteRoundMutation, showAlert]);
 
   const handleCancelDelete = useCallback(() => {
     setDeleteDialogVisible(false);

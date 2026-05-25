@@ -93,6 +93,7 @@ export function useCourseStatistics(
         )
         .eq('player_id', playerId)
         .eq('rounds.course_id', courseId)
+        .is('rounds.deleted_at', null)
         .in('status', ['completed', 'confirmed']);
 
       if (error) {

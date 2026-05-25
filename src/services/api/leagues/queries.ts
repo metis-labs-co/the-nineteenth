@@ -240,6 +240,7 @@ export async function getEligibleScorecards(
     `)
     .eq('player_id', user.id)
     .in('status', ['completed', 'confirmed'])
+    .is('rounds.deleted_at', null)
     .order('created_at', { ascending: false });
 
   if (taggedIds.length > 0) {

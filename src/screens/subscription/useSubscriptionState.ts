@@ -244,7 +244,8 @@ export function useSubscriptionState() {
         .select('round_id, rounds!inner(competition_id)', { count: 'exact', head: true })
         .eq('player_id', user.id)
         .in('status', ['completed', 'confirmed'])
-        .is('rounds.competition_id', null);
+        .is('rounds.competition_id', null)
+        .is('rounds.deleted_at', null);
 
       if (countError) {
         console.error('Error fetching standalone rounds played count:', countError);

@@ -118,6 +118,7 @@ async function fetchHandicapHistory(playerId: string): Promise<HandicapSummary> 
     .eq('player_id', playerId)
     .in('status', ['completed', 'confirmed'])
     .not('handicap_differential', 'is', null)
+    .is('rounds.deleted_at', null)
     .eq('rounds.nine_type', 'full')
     .order('submitted_at', { ascending: false })
     .limit(20);
@@ -173,6 +174,7 @@ async function fetchHandicapHistory(playerId: string): Promise<HandicapSummary> 
         .eq('player_id', playerId)
         .in('status', ['completed', 'confirmed'])
         .not('handicap_differential', 'is', null)
+        .is('rounds.deleted_at', null)
         .eq('rounds.nine_type', 'full')
         .order('submitted_at', { ascending: false })
         .limit(20);

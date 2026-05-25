@@ -91,6 +91,7 @@ async function fetchRoundDetails(roundId: string): Promise<RoundWithCourse> {
       competitions (id, name, competition_type, status, start_date, end_date, handicap_source, team_mode)
     `)
     .eq('id', roundId)
+    .is('deleted_at', null)
     .single();
 
   if (error) {

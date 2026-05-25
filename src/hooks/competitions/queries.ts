@@ -238,6 +238,7 @@ export async function fetchCompetitionDetails(competitionId: string): Promise<Co
       )
     `)
     .eq('competition_id', competitionId)
+    .is('deleted_at', null)
     .order('display_order', { ascending: true })
     .order('round_number', { ascending: true });
 
