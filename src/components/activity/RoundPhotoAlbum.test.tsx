@@ -47,6 +47,14 @@ jest.mock('@/components/common', () => {
   };
 });
 
+jest.mock('./RoundPhotoViewer', () => {
+  const { View } = require('react-native');
+  return {
+    RoundPhotoViewer: ({ index }: { index: number | null }) =>
+      index != null ? <View testID="photo-viewer" /> : null,
+  };
+});
+
 beforeEach(() => {
   jest.clearAllMocks();
   mockDeleteMutateAsync.mockResolvedValue(1);
@@ -63,6 +71,13 @@ describe('RoundPhotoAlbum', () => {
   it('shows a remove badge only on the user’s own photos', () => {
     render(<RoundPhotoAlbum roundId="r1" canAdd />);
     expect(screen.getAllByLabelText('Remove photo')).toHaveLength(1);
+  });
+
+  it('opens the full-screen viewer when a photo is tapped', () => {
+    render(<RoundPhotoAlbum roundId="r1" canAdd />);
+    expect(screen.queryByTestId('photo-viewer')).toBeNull();
+    fireEvent.press(screen.getAllByLabelText('Round photo')[0]);
+    expect(screen.getByTestId('photo-viewer')).toBeTruthy();
   });
 
   function pressDelete() {

@@ -14,19 +14,16 @@ import {
   TouchableOpacity,
   Image,
   FlatList,
-  Modal,
-  useWindowDimensions,
   type NativeSyntheticEvent,
   type NativeScrollEvent,
   type LayoutChangeEvent,
 } from 'react-native';
-import { Icon, Text } from 'react-native-paper';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Text } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { borderRadius, spacing, typography } from '@/constants/theme';
-import { SystemModalTheme } from '@/components/common';
 import { useRoundPhotos } from '@/hooks/activity';
 import type { RoundPhoto } from '@/hooks/activity';
+import { RoundPhotoViewer } from './RoundPhotoViewer';
 
 const ASPECT = 16 / 9;
 
@@ -137,70 +134,8 @@ export function RoundPhotoBanner({ roundId, rounded = true, onPress }: RoundPhot
         </View>
       )}
 
-      <PhotoViewerModal
-        photos={items}
-        index={viewerIndex}
-        onClose={() => setViewerIndex(null)}
-      />
+      <RoundPhotoViewer photos={items} index={viewerIndex} onClose={() => setViewerIndex(null)} />
     </View>
-  );
-}
-
-function PhotoViewerModal({
-  photos,
-  index,
-  onClose,
-}: {
-  photos: (RoundPhoto & { url: string })[];
-  index: number | null;
-  onClose: () => void;
-}) {
-  const { width, height } = useWindowDimensions();
-  const insets = useSafeAreaInsets();
-  const visible = index !== null;
-
-  return (
-    <Modal
-      visible={visible}
-      transparent={false}
-      animationType="fade"
-      onRequestClose={onClose}
-      statusBarTranslucent
-    >
-      {visible ? (
-        <SystemModalTheme>
-          <View style={styles.viewer}>
-            <FlatList
-              data={photos}
-              keyExtractor={(item) => item.id}
-              horizontal
-              pagingEnabled
-              showsHorizontalScrollIndicator={false}
-              initialScrollIndex={index ?? 0}
-              getItemLayout={(_, i) => ({ length: width, offset: width * i, index: i })}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  activeOpacity={1}
-                  onPress={onClose}
-                  style={{ width, height, alignItems: 'center', justifyContent: 'center' }}
-                >
-                  <Image source={{ uri: item.url }} style={{ width, height }} resizeMode="contain" />
-                </TouchableOpacity>
-              )}
-            />
-            <TouchableOpacity
-              onPress={onClose}
-              style={[styles.close, { top: insets.top + spacing.sm }]}
-              accessibilityRole="button"
-              accessibilityLabel="Close photo viewer"
-              hitSlop={8}
-            >
-              <Icon source="close" size={26} color="#fff" />
-            </TouchableOpacity>
-          </View>
-        </SystemModalTheme>
-      ) : null}
-    </Modal>
   );
 }
 
@@ -241,19 +176,5 @@ const styles = StyleSheet.create({
     ...typography.caption,
     fontWeight: '700',
     color: '#fff',
-  },
-  viewer: {
-    flex: 1,
-    backgroundColor: '#000',
-  },
-  close: {
-    position: 'absolute',
-    right: spacing.md,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.4)',
   },
 });

@@ -15,6 +15,7 @@ import { spacing, typography, borderRadius } from '@/constants/theme';
 import { SectionHeader, PhotoSourceMenu } from '@/components/common';
 import { useAuth } from '@/hooks/useAuth';
 import { useRoundPhotos, useDeleteRoundPhoto, useAddRoundPhotos } from '@/hooks/activity';
+import { RoundPhotoViewer } from './RoundPhotoViewer';
 
 const THUMB_SIZE = 100;
 
@@ -31,6 +32,7 @@ export function RoundPhotoAlbum({ roundId, canAdd }: RoundPhotoAlbumProps) {
   const { data: photos, isLoading } = useRoundPhotos(roundId);
   const deletePhoto = useDeleteRoundPhoto();
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const {
     menuVisible,
     openMenu,
@@ -79,6 +81,12 @@ export function RoundPhotoAlbum({ roundId, canAdd }: RoundPhotoAlbumProps) {
   );
 
   const items = photos ?? [];
+  // Photos resolved to a signed URL, in display order — the set the full-screen
+  // viewer can page through. Thumbnails without a URL aren't viewable.
+  const viewable = items
+    .filter((p) => !!p.url)
+    .map((p) => ({ id: p.id, url: p.url as string }));
+
   if (!canAdd && items.length === 0 && !isLoading) return null;
 
   return (
@@ -91,14 +99,23 @@ export function RoundPhotoAlbum({ roundId, canAdd }: RoundPhotoAlbumProps) {
           return (
             <View key={photo.id} style={styles.thumbWrap}>
               <TouchableOpacity
-                activeOpacity={isOwn ? 0.7 : 1}
+                activeOpacity={photo.url ? 0.7 : 1}
+                onPress={
+                  photo.url
+                    ? () => setViewerIndex(viewable.findIndex((v) => v.id === photo.id))
+                    : undefined
+                }
                 onLongPress={
                   isOwn && !isDeleting ? () => confirmDelete(photo.id, photo.storage_path) : undefined
                 }
                 disabled={isDeleting}
-                accessibilityRole="image"
+                accessibilityRole="imagebutton"
                 accessibilityLabel="Round photo"
-                accessibilityHint={isOwn ? 'Long press or use the remove button to delete' : undefined}
+                accessibilityHint={
+                  isOwn
+                    ? 'Tap to view full screen; long press or use the remove button to delete'
+                    : 'Tap to view full screen'
+                }
                 style={[styles.thumb, { backgroundColor: colors.surfaceVariant }]}
               >
                 {photo.url ? (
@@ -153,6 +170,11 @@ export function RoundPhotoAlbum({ roundId, canAdd }: RoundPhotoAlbumProps) {
         onClose={closeMenu}
         onTakePhoto={handleTakePhoto}
         onChooseFromLibrary={handleChooseFromLibrary}
+      />
+      <RoundPhotoViewer
+        photos={viewable}
+        index={viewerIndex}
+        onClose={() => setViewerIndex(null)}
       />
     </View>
   );
