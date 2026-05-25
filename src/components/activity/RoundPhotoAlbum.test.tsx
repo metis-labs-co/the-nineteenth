@@ -1,5 +1,5 @@
 import { Alert } from 'react-native';
-import { render, screen, fireEvent } from '@testing-library/react-native';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 import { RoundPhotoAlbum } from './RoundPhotoAlbum';
 
 const mockOpenMenu = jest.fn();
@@ -96,5 +96,25 @@ describe('RoundPhotoAlbum', () => {
     render(<RoundPhotoAlbum roundId="r1" canAdd />);
     await pressDelete();
     expect(mockShowErrorToast).toHaveBeenCalledWith('Could not remove photo', 'permission denied');
+  });
+
+  it('shows a deleting overlay while the delete is in flight, then clears it', async () => {
+    let resolveDelete: (v: number) => void = () => {};
+    mockDeleteMutateAsync.mockReturnValue(
+      new Promise<number>((res) => {
+        resolveDelete = res;
+      })
+    );
+
+    render(<RoundPhotoAlbum roundId="r1" canAdd />);
+    expect(screen.queryByLabelText('Deleting photo')).toBeNull();
+
+    // Press delete but leave the mutation pending.
+    pressDelete();
+    await waitFor(() => expect(screen.getByLabelText('Deleting photo')).toBeTruthy());
+
+    // Resolving the delete clears the overlay.
+    resolveDelete(1);
+    await waitFor(() => expect(screen.queryByLabelText('Deleting photo')).toBeNull());
   });
 });

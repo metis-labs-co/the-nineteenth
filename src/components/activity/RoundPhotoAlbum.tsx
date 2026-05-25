@@ -6,7 +6,7 @@
  * the ✕ badge or long-press.
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Image, Alert, ActivityIndicator } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -30,6 +30,7 @@ export function RoundPhotoAlbum({ roundId, canAdd }: RoundPhotoAlbumProps) {
   const { showSuccessToast, showErrorToast } = useToast();
   const { data: photos, isLoading } = useRoundPhotos(roundId);
   const deletePhoto = useDeleteRoundPhoto();
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
   const {
     menuVisible,
     openMenu,
@@ -41,6 +42,7 @@ export function RoundPhotoAlbum({ roundId, canAdd }: RoundPhotoAlbumProps) {
 
   const handleDelete = useCallback(
     async (photoId: string, storagePath: string) => {
+      setDeletingIds((prev) => new Set(prev).add(photoId));
       try {
         const removed = await deletePhoto.mutateAsync({ photoId, roundId, storagePath });
         if (removed > 0) {
@@ -51,6 +53,12 @@ export function RoundPhotoAlbum({ roundId, canAdd }: RoundPhotoAlbumProps) {
         }
       } catch (err) {
         showErrorToast('Could not remove photo', err instanceof Error ? err.message : undefined);
+      } finally {
+        setDeletingIds((prev) => {
+          const next = new Set(prev);
+          next.delete(photoId);
+          return next;
+        });
       }
     },
     [deletePhoto, roundId, showSuccessToast, showErrorToast]
@@ -79,11 +87,15 @@ export function RoundPhotoAlbum({ roundId, canAdd }: RoundPhotoAlbumProps) {
       <View style={styles.grid}>
         {items.map((photo) => {
           const isOwn = photo.uploader_id === user?.id;
+          const isDeleting = deletingIds.has(photo.id);
           return (
             <View key={photo.id} style={styles.thumbWrap}>
               <TouchableOpacity
                 activeOpacity={isOwn ? 0.7 : 1}
-                onLongPress={isOwn ? () => confirmDelete(photo.id, photo.storage_path) : undefined}
+                onLongPress={
+                  isOwn && !isDeleting ? () => confirmDelete(photo.id, photo.storage_path) : undefined
+                }
+                disabled={isDeleting}
                 accessibilityRole="image"
                 accessibilityLabel="Round photo"
                 accessibilityHint={isOwn ? 'Long press or use the remove button to delete' : undefined}
@@ -95,7 +107,11 @@ export function RoundPhotoAlbum({ roundId, canAdd }: RoundPhotoAlbumProps) {
                   <Icon source="image-off-outline" size={24} color={colors.textSecondary} />
                 )}
               </TouchableOpacity>
-              {isOwn ? (
+              {isDeleting ? (
+                <View style={styles.deletingOverlay} accessible accessibilityLabel="Deleting photo">
+                  <ActivityIndicator color={colors.white} />
+                </View>
+              ) : isOwn ? (
                 <TouchableOpacity
                   onPress={() => confirmDelete(photo.id, photo.storage_path)}
                   accessibilityRole="button"
@@ -177,6 +193,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(0,0,0,0.6)',
+  },
+  deletingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    // Red scrim so the spinner reads as a destructive in-progress action.
+    backgroundColor: 'rgba(220,38,38,0.55)',
   },
   addTile: {
     width: THUMB_SIZE,
