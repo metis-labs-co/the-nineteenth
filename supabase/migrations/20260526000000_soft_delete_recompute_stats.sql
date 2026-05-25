@@ -9,6 +9,7 @@ CREATE OR REPLACE FUNCTION recompute_skins_player_statistics(p_player_ids UUID[]
 RETURNS INTEGER
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_player_id UUID;
@@ -86,6 +87,7 @@ CREATE OR REPLACE FUNCTION recompute_wolf_player_statistics(p_player_ids UUID[])
 RETURNS INTEGER
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_player_id UUID;

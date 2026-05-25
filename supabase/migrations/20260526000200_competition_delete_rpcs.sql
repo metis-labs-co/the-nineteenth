@@ -4,6 +4,7 @@ CREATE OR REPLACE FUNCTION soft_delete_competition(p_competition_id UUID)
 RETURNS BOOLEAN
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_now TIMESTAMPTZ := NOW();
@@ -67,6 +68,7 @@ CREATE OR REPLACE FUNCTION restore_competition(p_competition_id UUID)
 RETURNS BOOLEAN
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_deleted_at TIMESTAMPTZ;
