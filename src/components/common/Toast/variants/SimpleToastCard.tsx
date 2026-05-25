@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
@@ -17,6 +17,8 @@ interface SimpleToastCardProps {
   title: string;
   message?: string;
   icon?: string;
+  action?: { label: string; onPress: () => void };
+  onDismiss?: () => void;
 }
 
 const DEFAULT_ICONS: Record<SimpleToastVariant, string> = {
@@ -30,6 +32,8 @@ export const SimpleToastCard = React.memo(function SimpleToastCard({
   title,
   message,
   icon,
+  action,
+  onDismiss,
 }: SimpleToastCardProps) {
   const colors = useThemeColors();
 
@@ -80,6 +84,23 @@ export const SimpleToastCard = React.memo(function SimpleToastCard({
           </Text>
         )}
       </View>
+
+      {action && (
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => {
+            action.onPress();
+            onDismiss?.();
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={action.label}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Text style={[styles.actionLabel, { color: iconColor }]}>
+            {action.label}
+          </Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 });
@@ -110,5 +131,13 @@ const styles = StyleSheet.create({
   message: {
     ...typography.small,
     marginTop: spacing.xs,
+  },
+  actionButton: {
+    marginLeft: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  actionLabel: {
+    ...typography.smallBold,
   },
 });
