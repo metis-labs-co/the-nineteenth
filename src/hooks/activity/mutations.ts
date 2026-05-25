@@ -221,24 +221,21 @@ export function useDeleteRoundPhoto() {
   return useMutation({
     mutationFn: async ({ photoId, storagePath }: DeleteRoundPhotoInput): Promise<number> => {
       if (!user?.id) throw createError('You must be signed in', 'AUTH');
-      // `count: 'exact'` reports the number of rows actually affected. Unlike
-      // `.select()`, it is NOT hidden by the SELECT RLS policy (deleted_at IS
-      // NULL), which would otherwise exclude the just-soft-deleted row from any
-      // RETURNING result and make success indistinguishable from a no-op.
-      const { error, count } = await sb
-        .from('round_photos')
-        .update({ deleted_at: new Date().toISOString() }, { count: 'exact' })
-        .eq('id', photoId)
-        .eq('uploader_id', user.id);
+      // Soft-delete via a SECURITY DEFINER RPC. A direct table UPDATE is rejected
+      // by the round_photos SELECT RLS policy (deleted_at IS NULL) the moment the
+      // row is marked deleted ("new row violates row-level security policy"). The
+      // RPC runs as definer and enforces ownership internally (uploader_id =
+      // auth.uid()); it returns TRUE only when a row was actually soft-deleted.
+      const { data, error } = await sb.rpc('delete_round_photo', { p_photo_id: photoId });
       if (error) throw createError(`Failed to delete photo: ${error.message}`, 'DATABASE');
 
-      const affected = count ?? 0;
+      const removed = data === true;
       // Only remove the object when a row was actually soft-deleted, so a no-op
-      // update (RLS / ownership mismatch) never orphans the row by deleting its file.
-      if (affected > 0 && storagePath) {
+      // (already deleted / not the uploader) never orphans the row by deleting its file.
+      if (removed && storagePath) {
         await sb.storage.from(PHOTO_BUCKET).remove([storagePath]);
       }
-      return affected;
+      return removed ? 1 : 0;
     },
     onSuccess: (_count, { roundId }) => {
       qc.invalidateQueries({ queryKey: activityKeys.photos(roundId) });
