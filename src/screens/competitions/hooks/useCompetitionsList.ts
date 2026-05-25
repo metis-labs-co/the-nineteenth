@@ -8,6 +8,7 @@ import { getCompetitionsOverLimit } from '@/services/subscription/grandfathering
 import { isUnlimited, isNoLimit } from '@/types/subscription.types';
 import { fetchCompetitionWinner } from '@/services/competitions/winnerService';
 import type { CompetitionWinnerInfo } from '@/components/competitions/CompetitionListCard';
+import { useToast } from '@/context/ToastContext';
 
 export type TabValue = 'my' | 'joined';
 export type StatusFilter = 'active' | 'completed';
@@ -59,6 +60,8 @@ export function useCompetitionsList() {
   const [legacyCompetitionIds, setLegacyCompetitionIds] = useState<Set<string>>(
     new Set()
   );
+
+  const { showToast } = useToast();
 
   // Delete state
   const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
@@ -358,36 +361,45 @@ export function useCompetitionsList() {
 
   const handleConfirmDelete = useCallback(async () => {
     if (!competitionToDelete || !user?.id) return;
-
+    const target = competitionToDelete;
     setIsDeleting(true);
     try {
-      // Soft delete - set deleted_at timestamp
-      const { error } = await (
-        supabase.from('competitions') as ReturnType<typeof supabase.from>
-      )
-        .update({ deleted_at: new Date().toISOString() } as Record<
-          string,
-          string
-        >)
-        .eq('id', competitionToDelete.id)
-        .eq('organizer_id', user.id);
-
+      const { error } = await supabase.rpc('soft_delete_competition' as never, {
+        p_competition_id: target.id,
+      } as never);
       if (error) {
         console.error('Error deleting competition:', error);
         setIsDeleting(false);
         return;
       }
-
-      // Success - close dialog and refetch
       setDeleteDialogVisible(false);
       setCompetitionToDelete(null);
       refetchMy();
+      showToast({
+        variant: 'success',
+        title: 'Competition deleted',
+        autoDismissMs: 6000,
+        action: {
+          label: 'Undo',
+          onPress: async () => {
+            const { error: restoreError } = await supabase.rpc('restore_competition' as never, {
+              p_competition_id: target.id,
+            } as never);
+            if (restoreError) {
+              console.error('Error restoring competition:', restoreError);
+              showToast({ variant: 'error', title: "Couldn't undo", message: 'Please try again.' });
+              return;
+            }
+            refetchMy();
+          },
+        },
+      });
     } catch (err) {
       console.error('Error deleting competition:', err);
     } finally {
       setIsDeleting(false);
     }
-  }, [competitionToDelete, user?.id, refetchMy]);
+  }, [competitionToDelete, user?.id, refetchMy, showToast]);
 
   const handleCancelDelete = useCallback(() => {
     setDeleteDialogVisible(false);
