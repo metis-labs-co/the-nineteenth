@@ -195,6 +195,11 @@ and `GRANT EXECUTE ... TO authenticated`.
 - Soft-deleting leaf tables individually (Approach A handles them via parent).
 - Path D internal hard-deletes (creation rollback, knockout regeneration).
 - Reworking the live player-stats computation beyond adding `deleted_at` filters.
+- **Single-round by-id reads inside active flows** (scoring engine, finalization,
+  offline sync, knockout regeneration, skins/wolf processors). These are
+  intentionally left unfiltered: a soft-deleted round is unreachable from those
+  flows (you cannot navigate to score/finalize it), and several are write or
+  processing paths. Filtering them would add noise without closing a real leak.
 
 ## Risks / notes
 
@@ -206,3 +211,43 @@ and `GRANT EXECUTE ... TO authenticated`.
   via the soft-deleted games join — pick one explicitly in implementation.
 - pg_cron schedule must be idempotent and safe to run when there is nothing to
   purge.
+
+## Implementation follow-ups (discovered during build)
+
+These were surfaced by code review during implementation and are deliberately
+deferred — they are out of scope for this change but should be tracked:
+
+1. **Physical round-photo file cleanup.** `purge_soft_deleted()` does NOT delete
+   the physical blobs from the `round-photos` storage bucket. A raw
+   `DELETE FROM storage.objects` only removes the metadata row (never the backing
+   file) and would lose the reference needed to find the orphan later, so the SQL
+   purge intentionally leaves `storage.objects` intact. Real cleanup needs a
+   Storage-API job (an Edge Function, invokable via `pg_net`) that scans for
+   `round-photos` objects with no matching `round_photos` row and removes both the
+   file and the row through the Storage service. (Note: today's pre-existing
+   behaviour already orphaned these files, so this is no regression.)
+
+2. **Eclectic league best-scores not reversed on delete.** `eclectic_best_scores`
+   is a persisted per-hole aggregate (same class as skins/wolf stats) populated
+   for eclectic-format leagues. `soft_delete_round` / `soft_delete_competition`
+   do NOT recompute it, so a deleted round's hole bests can persist in the
+   eclectic leaderboard. A `recompute_eclectic_best_scores(league_id, player_id)`
+   wired into the delete/restore RPCs would close this, mirroring the skins/wolf
+   recompute pattern. Affects only eclectic leagues.
+
+3. **Embedded-aggregate count filters need dev verification.** The competition
+   round-count badges filter soft-deleted rounds via PostgREST embedded-aggregate
+   filters (`rounds:rounds(count)` + `.is('rounds.deleted_at', null)`). The
+   top-level form (My competitions, grandfathering) is standard; the **nested**
+   form on the Joined-competitions query
+   (`.is('competition.rounds.deleted_at', null)`) is the highest-risk and must be
+   verified on dev — if PostgREST silently ignores it, the Joined badge count
+   stays inflated. Each site carries a `// NOTE: ... verify on dev ...` comment.
+   Fallback: fetch unfiltered and subtract soft-deleted client-side, or use an RPC.
+
+4. **Live DB verification pending.** The local Supabase stack would not start
+   cleanly in the build environment (seed/achievement step errored), so the SQL
+   migrations were schema-verified and peer-reviewed but not applied to a running
+   DB. Apply the `20260526*` migrations to the dev project and run
+   `supabase/tests/soft_delete_verify.sql`, plus confirm the partnership_rounds
+   FK `confdeltype = 'c'` (cascade) and the embedded-count behaviour in item 3.
