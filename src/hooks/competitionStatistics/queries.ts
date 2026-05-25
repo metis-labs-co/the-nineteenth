@@ -89,7 +89,8 @@ async function fetchCompetitionStatisticsData(
   const { data: roundsData, error: roundsError } = await supabase
     .from('rounds')
     .select('id, game_type')
-    .eq('competition_id', competitionId);
+    .eq('competition_id', competitionId)
+    .is('deleted_at', null);
 
   if (roundsError) throw roundsError;
 
@@ -128,6 +129,7 @@ async function fetchCompetitionStatisticsData(
     `
     )
     .eq('rounds.competition_id', competitionId)
+    .is('rounds.deleted_at', null)
     .in('status', ['completed', 'confirmed']);
 
   if (scorecardsError) throw scorecardsError;

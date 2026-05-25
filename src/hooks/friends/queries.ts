@@ -373,6 +373,7 @@ export function useFriendStats(friendId: string) {
           )
         `)
         .eq('player_id', friendId)
+        .is('round.deleted_at', null)
         .in('status', ['completed', 'confirmed']);
 
       if (error) {
