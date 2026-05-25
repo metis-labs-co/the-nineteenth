@@ -94,6 +94,8 @@ export function useCompetitionsList() {
         )
         .eq('organizer_id', user.id)
         .is('deleted_at', null)
+        // NOTE: filters soft-deleted rounds from the embedded count; verify on dev that the count excludes them (PostgREST embedded-aggregate filter).
+        .is('rounds.deleted_at', null)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -158,7 +160,9 @@ export function useCompetitionsList() {
         )
         .eq('player_id', user.id)
         .eq('status', 'accepted')
-        .is('competition.deleted_at', null);
+        .is('competition.deleted_at', null)
+        // NOTE: filters soft-deleted rounds from the embedded count; verify on dev that the count excludes them (PostgREST embedded-aggregate filter).
+        .is('competition.rounds.deleted_at', null);
 
       if (error) {
         console.error('Error fetching joined competitions:', error);

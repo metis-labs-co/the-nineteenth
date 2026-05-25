@@ -94,6 +94,7 @@ export default function TagPartnershipRoundScreen() {
           .in('player_id', playerIds)
           .in('status', ['completed', 'confirmed'])
           .not('total_gross', 'is', null)
+          .is('rounds.deleted_at', null)
           .order('created_at', { ascending: false });
 
         if (error) throw error;

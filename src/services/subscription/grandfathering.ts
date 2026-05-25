@@ -268,6 +268,8 @@ export async function applyGracefulDegradation(
     `
     )
     .eq('id', competitionId)
+    // NOTE: filters soft-deleted rounds from the embedded count; verify on dev that the count excludes them (PostgREST embedded-aggregate filter).
+    .is('rounds.deleted_at', null)
     .single();
 
   if (compError) {
@@ -409,6 +411,8 @@ export async function getCompetitionsOverLimit(
     )
     .eq('organizer_id', userId)
     .not('status', 'in', '("completed","cancelled")')
+    // NOTE: filters soft-deleted rounds from the embedded count; verify on dev that the count excludes them (PostgREST embedded-aggregate filter).
+    .is('rounds.deleted_at', null)
     .order('created_at', { ascending: true });
 
   if (error) {
