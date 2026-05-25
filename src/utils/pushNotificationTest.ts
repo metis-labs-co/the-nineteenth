@@ -122,6 +122,14 @@ const MOCK_NOTIFICATION_DATA: Record<NotificationType, Omit<NotificationData, 't
     competitionId: 'test-comp-123',
     roundId: 'test-round-789',
   },
+  round_liked: {
+    roundId: 'test-round-789',
+    playerId: 'test-player-456',
+  },
+  round_commented: {
+    roundId: 'test-round-789',
+    playerId: 'test-player-456',
+  },
 };
 
 /**
@@ -150,6 +158,8 @@ const MOCK_NOTIFICATION_TITLES: Record<NotificationType, string> = {
   wolf_game_cancelled: 'Wolf Game Cancelled',
   prize_pool_settled: 'Prize Pool Settled',
   tee_time_reminder: 'Tee time in 30 min',
+  round_liked: 'New like',
+  round_commented: 'New comment',
 };
 
 /**
@@ -178,6 +188,8 @@ const MOCK_NOTIFICATION_BODIES: Record<NotificationType, string> = {
   wolf_game_cancelled: 'Wolf game for Round 1 of Test Competition has been cancelled',
   prize_pool_settled: 'Prize pool for Test Competition has been settled',
   tee_time_reminder: 'Test Competition at Test Course · 08:45 AM',
+  round_liked: 'Test Player liked your round at Test Course',
+  round_commented: 'Test Player commented on your round at Test Course',
 };
 
 // =====================================================

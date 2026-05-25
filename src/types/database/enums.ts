@@ -140,7 +140,9 @@ export type NotificationType =
   | 'wolf_game_completed'
   | 'wolf_game_cancelled'
   | 'prize_pool_settled'
-  | 'tee_time_reminder';
+  | 'tee_time_reminder'
+  | 'round_liked'
+  | 'round_commented';
 
 // Feature enums
 export type TierFeature =

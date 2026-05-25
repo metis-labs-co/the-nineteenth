@@ -33,6 +33,7 @@ import { useProfileData } from './hooks';
 import {
   ProfileHeader,
   HomeClubSection,
+  ActivitySection,
   HomeClubModal,
   ProfileMenuSection,
   ProfileCustomizeSheet,
@@ -174,6 +175,9 @@ export default function ProfileScreen() {
           homeClub={homeClub ?? null}
           onPress={() => setShowClubModal(true)}
         />
+
+        {/* Activity Feed */}
+        <ActivitySection onPress={() => navigation.navigate('Activity')} />
 
         {/* Menu Sections */}
         <ProfileMenuSection

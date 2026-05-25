@@ -238,8 +238,18 @@ export default function ViewRoundScreen(props: Props) {
         variant="centered"
         showBack
         onBack={vm.handleBack}
-        rightActions={
-          vm.isOrganizer
+        rightActions={[
+          ...(round.status === 'completed'
+            ? [
+                {
+                  icon: 'comment-outline',
+                  onPress: () =>
+                    props.navigation.navigate('RoundActivity', { roundId: round.id }),
+                  accessibilityLabel: 'Likes and comments',
+                },
+              ]
+            : []),
+          ...(vm.isOrganizer
             ? [
                 {
                   icon: 'cog-outline',
@@ -247,8 +257,8 @@ export default function ViewRoundScreen(props: Props) {
                   accessibilityLabel: 'Round settings',
                 },
               ]
-            : undefined
-        }
+            : []),
+        ]}
       />
 
       {/* Score Round Button */}
@@ -347,6 +357,7 @@ export default function ViewRoundScreen(props: Props) {
           <RoundDetailsTab
             round={round}
             isOrganizer={vm.isOrganizer}
+            canAddPhotos={vm.isUserPlaying}
             onCourseSelectPress={vm.handleCourseSelectPress}
             onUpgradePress={vm.handleNavigateToSubscription}
           />

@@ -219,6 +219,18 @@ const notificationConfig: Record<NotificationType, NotificationConfig> = {
       return time ? `${prefix} · ${time}` : prefix;
     },
   },
+  round_liked: {
+    icon: 'heart',
+    getTitle: () => 'New like',
+    getMessage: (data) =>
+      `${data.actor_name || 'Someone'} liked your round${data.course_name ? ` at ${data.course_name}` : ''}`,
+  },
+  round_commented: {
+    icon: 'comment-outline',
+    getTitle: () => 'New comment',
+    getMessage: (data) =>
+      `${data.actor_name || 'Someone'} commented on your round${data.comment_preview ? `: "${data.comment_preview}"` : ''}`,
+  },
 };
 
 function getNotificationConfig(type: NotificationType): NotificationConfig {

@@ -1,5 +1,6 @@
 export { ProfileHeader } from './ProfileHeader';
 export { HomeClubSection, HomeVenueSection } from './HomeClubSection';
+export { ActivitySection } from './ActivitySection';
 export { HomeClubModal, HomeVenueModal } from './HomeClubModal';
 export { ProfileMenuSection } from './ProfileMenuSection';
 export { ProfileCustomizeSheet } from './ProfileCustomizeSheet';

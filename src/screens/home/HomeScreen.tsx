@@ -49,6 +49,7 @@ import {
   HeaderWeatherChip,
   RoundTodayCard,
   HomeTileGrid,
+  FriendActivitySection,
 } from './components';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -288,6 +289,8 @@ export default function HomeScreen() {
               ) : null}
 
               <PendingActionsSection actions={home.pendingActions} />
+
+              <FriendActivitySection />
 
               <BagSummarySection />
 

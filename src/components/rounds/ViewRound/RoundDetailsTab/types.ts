@@ -9,6 +9,8 @@ import type { RoundStatus } from '@/types/database/enums';
 export interface RoundDetailsTabProps {
   round: RoundWithCourse;
   isOrganizer?: boolean;
+  /** Whether the current user may add round photos (i.e. is a participant). */
+  canAddPhotos?: boolean;
   onCourseSelectPress?: () => void;
   /** Navigation target for upgrade prompts opened from per-field sheets. */
   onUpgradePress?: () => void;

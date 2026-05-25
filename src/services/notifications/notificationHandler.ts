@@ -110,6 +110,10 @@ const NOTIFICATION_SCREEN_MAP: Record<NotificationType, keyof RootStackParamList
 
   // Tee-time reminder -> ViewRound
   tee_time_reminder: 'ViewRound',
+
+  // Activity feed engagement -> RoundActivity
+  round_liked: 'RoundActivity',
+  round_commented: 'RoundActivity',
 };
 
 // =====================================================
@@ -210,6 +214,10 @@ function isOnRelevantScreen(
       // On view round for the same round
       return params?.roundId === data.roundId;
 
+    case 'RoundActivity':
+      // On the round-activity detail for the same round
+      return params?.roundId === data.roundId;
+
     case 'LeagueDetail':
       // On league detail for the same league
       return params?.id === data.leagueId;
@@ -297,6 +305,15 @@ export function handleNotificationResponse(
 
     case 'Friends':
       navigation.navigate('Friends', { fromProfile: true });
+      break;
+
+    case 'RoundActivity':
+      if (roundId) {
+        navigation.navigate('RoundActivity', { roundId });
+      } else {
+        logger.warn('Round activity notification without roundId');
+        navigation.navigate('Notifications');
+      }
       break;
 
     default:
@@ -624,6 +641,12 @@ export function buildNavigationParams(
       return {
         screen: 'Friends',
         params: { fromProfile: true },
+      };
+
+    case 'RoundActivity':
+      return {
+        screen: 'RoundActivity',
+        params: { roundId: data.roundId || '' },
       };
 
     default:
