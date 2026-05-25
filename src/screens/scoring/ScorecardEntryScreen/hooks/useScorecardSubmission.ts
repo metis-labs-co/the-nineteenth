@@ -9,10 +9,9 @@
  */
 
 import { useCallback } from 'react';
-import { supabase } from '@/services/supabase/client';
 import { useConfirmationDialog } from '@/hooks/useConfirmationDialog';
 import type { DialogConfig } from '@/hooks/useConfirmationDialog';
-import { deleteScorecardsByRound } from '@/services/offline/database';
+import { useDeleteRound } from '@/hooks/rounds/mutations';
 import { activeRoundSession } from '@/services/activeRoundSession';
 import { scoringLogger } from '@/utils/debugLogger';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -58,6 +57,9 @@ export function useScorecardSubmission({
 }: UseScorecardSubmissionParams): UseScorecardSubmissionReturn {
   // Confirmation dialog hook
   const { dialogConfig, showDialog, showAlert, dismissDialog } = useConfirmationDialog();
+
+  // Shared soft-delete mutation (handles RPC, local cleanup, and Undo toast)
+  const deleteRoundMutation = useDeleteRound();
 
   // Perform the actual submission (navigates to review screen)
   // Note: Skins finalization happens only when submitting from ReviewScorecard
@@ -114,23 +116,15 @@ export function useScorecardSubmission({
   // Perform the actual delete operation
   const performDelete = useCallback(async () => {
     try {
-      const { error } = await supabase.from('rounds').delete().eq('id', roundId);
-
-      if (error) {
-        console.error('[ScorecardEntryScreen] Failed to delete round:', error);
-        showAlert('Error', 'Failed to delete round. Please try again.');
-        return;
-      }
-
-      await deleteScorecardsByRound(roundId);
+      await deleteRoundMutation.mutateAsync({ roundId });
       await activeRoundSession.clear();
       resetRound();
       navigation.goBack();
     } catch (error) {
       console.error('[ScorecardEntryScreen] Error deleting round:', error);
-      showAlert('Error', 'An unexpected error occurred. Please try again.');
+      showAlert('Error', 'Failed to delete round. Please try again.');
     }
-  }, [roundId, navigation, resetRound, showAlert]);
+  }, [roundId, deleteRoundMutation, navigation, resetRound, showAlert]);
 
   // Delete a standalone round
   const handleDeleteRound = useCallback(() => {
