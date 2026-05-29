@@ -46,7 +46,7 @@ export const FAQ_DATA: FAQItem[] = [
     id: '2',
     question: 'How do I join a competition?',
     answer:
-      'You\'ll need an invite code from the organiser (it looks like "COMP-12345"). Open the Competitions tab, tap "Join" in the top right, enter the code, and tap "Look Up". You\'ll see a preview of the competition before confirming.',
+      'You\'ll need a 6-character invite code from the organiser (e.g. "AB12CD"). Open the Competitions tab, tap "Join" in the top right, enter the code, and tap "Look Up". You\'ll see a preview of the competition before confirming.',
     category: 'getting-started',
   },
   {
@@ -81,7 +81,7 @@ export const FAQ_DATA: FAQItem[] = [
     id: '7',
     question: 'How do I add friends?',
     answer:
-      'Open Profile and tap "Friends", then tap "Add Friends". Search by name (at least 2 characters) and send a friend request. Once they accept, you can compare stats, see each other\'s scores, and easily add them to competitions. Free users can have up to 5 friends; Social adds 15, and Premium is unlimited.',
+      'Open Profile and tap "Friends", then tap "Add Friends". Search by name (at least 2 characters) and send a friend request. Once they accept, you can compare stats, see each other\'s scores, and easily add them to competitions. Free users can have up to 5 friends; Social raises this to 15, and Premium is unlimited.',
     category: 'getting-started',
   },
   {

@@ -11,6 +11,7 @@ import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, borderRadius, typography, shadows } from '@/constants/theme';
 import { FeatureLockCompact } from '@/components/subscription/FeatureLockCompact';
+import { EmptyState } from '@/components/common/EmptyState';
 import { isSingleBallScore } from '@/types/database/base';
 import { splitHolesByNine, generateDefaultHoles } from '@/utils/scorecardCalculations';
 import { filterHolesByNineType } from '@/utils/holeTransformers';
@@ -108,7 +109,16 @@ export function StatsTab({ displayPlayers: displayPlayersProp, scorecards, round
   }, [statsVisibility]);
 
   const selectedPlayer = displayPlayers[selectedPlayerIndex] || displayPlayers[0];
-  if (!selectedPlayer) return null;
+  if (!selectedPlayer) {
+    return (
+      <EmptyState
+        icon="chart-bar"
+        title="No stats yet"
+        message="Detailed stats will appear here once scores are entered for this round."
+        compact
+      />
+    );
+  }
 
   const scores = selectedPlayer.scores;
 

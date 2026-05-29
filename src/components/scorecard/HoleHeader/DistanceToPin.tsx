@@ -14,7 +14,7 @@
  */
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { View, TouchableOpacity, StyleSheet, Animated, Easing } from 'react-native';
+import { Platform, View, TouchableOpacity, StyleSheet, Animated, Easing } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import type { NavigationProp } from '@react-navigation/native';
@@ -26,6 +26,17 @@ import { useHasCoordinates, useDistanceToGreen } from '@/hooks/useHoleCoordinate
 import { useCoordinateBackfill } from '@/hooks/useCoordinateBackfill';
 import { useFormattedDistance, useSettingsStore } from '@/store/settingsStore';
 import type { RootStackParamList } from '@/navigation/types';
+
+// Metres. Above this the distance reading isn't trustworthy for club selection,
+// so we fall back to the "acquiring" state rather than show a misleading number.
+const ACCURACY_THRESHOLD_M = 15;
+
+// When iOS Precise Location is OFF, fixes come back with accuracy ~1500m+.
+// If we're stuck above this for long enough, the user almost certainly has
+// reduced-accuracy mode on (or terrible signal) — prompt them rather than
+// pulsing forever.
+const REDUCED_ACCURACY_THRESHOLD_M = 100;
+const REDUCED_ACCURACY_TIMEOUT_MS = 15000;
 
 // =====================================================
 // TYPES
@@ -102,6 +113,9 @@ export const DistanceToPin = React.memo(function DistanceToPin({
 
   // Modal state for no-GPS info
   const [showNoGpsModal, setShowNoGpsModal] = useState(false);
+  const [showPoorAccuracyHint, setShowPoorAccuracyHint] = useState(false);
+  const [showPoorAccuracyModal, setShowPoorAccuracyModal] = useState(false);
+  const poorAccuracyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleNoGpsPress = useCallback(() => {
     setShowNoGpsModal(true);
@@ -120,6 +134,7 @@ export const DistanceToPin = React.memo(function DistanceToPin({
   // User location hook
   const {
     location,
+    accuracy,
     permissionStatus,
     isLoading: isLoadingPermission,
     isWatching,
@@ -127,6 +142,11 @@ export const DistanceToPin = React.memo(function DistanceToPin({
     requestPermission,
     startWatching,
   } = useUserLocation();
+
+  // Suppress the distance badge when the fix is too coarse to be useful.
+  // expo-location may return null accuracy on some platforms — treat unknown
+  // as acceptable rather than hiding indefinitely.
+  const isAccuracyAcceptable = accuracy == null || accuracy <= ACCURACY_THRESHOLD_M;
 
   // Calculate distance to green
   const { data: distance, isLoading: isLoadingDistance } = useDistanceToGreen(
@@ -142,6 +162,37 @@ export const DistanceToPin = React.memo(function DistanceToPin({
       startWatching();
     }
   }, [permissionStatus, hasCoordinates, isWatching, startWatching]);
+
+  // If accuracy is poor for long enough, surface a hint instead of pulsing
+  // forever. Clears immediately once the fix tightens up.
+  useEffect(() => {
+    const isPoor = accuracy != null && accuracy > REDUCED_ACCURACY_THRESHOLD_M;
+
+    if (!isPoor) {
+      setShowPoorAccuracyHint(false);
+      if (poorAccuracyTimerRef.current) {
+        clearTimeout(poorAccuracyTimerRef.current);
+        poorAccuracyTimerRef.current = null;
+      }
+      return;
+    }
+
+    // Already running or already showing — don't restart.
+    if (poorAccuracyTimerRef.current || showPoorAccuracyHint) return;
+
+    poorAccuracyTimerRef.current = setTimeout(() => {
+      setShowPoorAccuracyHint(true);
+      poorAccuracyTimerRef.current = null;
+    }, REDUCED_ACCURACY_TIMEOUT_MS);
+  }, [accuracy, showPoorAccuracyHint]);
+
+  useEffect(() => {
+    return () => {
+      if (poorAccuracyTimerRef.current) {
+        clearTimeout(poorAccuracyTimerRef.current);
+      }
+    };
+  }, []);
 
   // Handle enable GPS press
   const handleEnablePress = async () => {
@@ -224,8 +275,45 @@ export const DistanceToPin = React.memo(function DistanceToPin({
     );
   }
 
-  // State 5: Loading/acquiring location - show pulsing icon
-  if (!location || isLoadingDistance) {
+  // State 5a: Fix is stuck at poor accuracy — likely iOS Precise Location is
+  // off, or the user has very poor signal. Surface an actionable hint rather
+  // than pulsing indefinitely.
+  if (location && showPoorAccuracyHint && !isAccuracyAcceptable) {
+    const message = Platform.OS === 'ios'
+      ? "GPS isn't precise enough to show distances. Enable Precise Location in Settings → Privacy & Security → Location Services → The Nineteenth."
+      : "GPS isn't precise enough to show distances. Move to an area with a clearer view of the sky.";
+
+    return (
+      <>
+        <TouchableOpacity
+          style={styles.noGpsContainer}
+          onPress={() => setShowPoorAccuracyModal(true)}
+          activeOpacity={0.7}
+          accessibilityLabel="GPS signal is weak"
+          accessibilityHint="Tap for help improving GPS accuracy"
+          accessibilityRole="button"
+        >
+          <Icon source="crosshairs-question" size={18} color={colors.warning} />
+        </TouchableOpacity>
+
+        <ConfirmationDialog
+          visible={showPoorAccuracyModal}
+          title="GPS Signal Weak"
+          message={message}
+          confirmLabel="OK"
+          cancelLabel=""
+          onConfirm={() => setShowPoorAccuracyModal(false)}
+          onCancel={() => setShowPoorAccuracyModal(false)}
+        />
+      </>
+    );
+  }
+
+  // State 5: Loading/acquiring location - show pulsing icon. Also covers the
+  // case where we have a fix but it's still too coarse (e.g. cold start
+  // before the GNSS lock tightens) — better to look like we're still working
+  // than to show a number that could be off by 50m+.
+  if (!location || isLoadingDistance || !isAccuracyAcceptable) {
     return (
       <View style={styles.container}>
         <PulsingGpsIcon />
