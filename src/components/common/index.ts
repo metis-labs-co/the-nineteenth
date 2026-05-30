@@ -156,6 +156,8 @@ export { FeatureButton } from './FeatureButton';
 
 // === Avatar & Identity Components ===
 // Player avatars, icons, and branding
+export { AppImage } from './AppImage';
+export type { AppImageProps } from './AppImage';
 export { PlayerAvatar } from './PlayerAvatar';
 export type { PlayerAvatarProps } from './PlayerAvatar';
 export { GolferIcon } from './GolferIcon';
