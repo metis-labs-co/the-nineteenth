@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, StyleSheet, StyleProp, ViewStyle } from 'react-native';
-import { Avatar } from 'react-native-paper';
 import { GolferIcon } from './GolferIcon';
+import { AppImage } from './AppImage';
+import { transformPublicUrl } from '@/utils/imageTransform';
 import {
   isAvatarId,
   getAvatarId,
@@ -28,7 +29,7 @@ export interface PlayerAvatarProps {
  *
  * Handles three types of avatar sources:
  * 1. Bundled avatars (format: "avatar:avatar-blue") - renders GolferIcon with colour palette
- * 2. Remote URLs (format: "https://...") - renders Avatar.Image with remote source
+ * 2. Remote URLs (format: "https://...") - renders AppImage at display size via transformed URL
  * 3. Null/undefined - renders default green GolferIcon
  *
  * @example
@@ -73,11 +74,11 @@ function PlayerAvatarComponent({
     // Case 2: Remote URL
     if (photoUrl) {
       return (
-        <Avatar.Image
-          size={size}
-          source={{ uri: photoUrl }}
-          style={styles.image}
-          testID="avatar-image"
+        <AppImage
+          uri={transformPublicUrl(photoUrl, 'AVATAR_SM')}
+          style={{ width: size, height: size, borderRadius: size / 2 }}
+          contentFit="cover"
+          accessibilityLabel={accessibilityLabel}
         />
       );
     }
@@ -117,9 +118,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  image: {
-    // Avatar.Image handles its own sizing
   },
 });
 
