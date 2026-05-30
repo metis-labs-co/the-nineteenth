@@ -7,12 +7,12 @@
  */
 
 import React, { useCallback, useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, Image, Alert, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
-import { SectionHeader, PhotoSourceMenu } from '@/components/common';
+import { SectionHeader, PhotoSourceMenu, AppImage } from '@/components/common';
 import { useAuth } from '@/hooks/useAuth';
 import { useRoundPhotos, useDeleteRoundPhoto, useAddRoundPhotos } from '@/hooks/activity';
 import { RoundPhotoViewer } from './RoundPhotoViewer';
@@ -119,7 +119,7 @@ export function RoundPhotoAlbum({ roundId, canAdd }: RoundPhotoAlbumProps) {
                 style={[styles.thumb, { backgroundColor: colors.surfaceVariant }]}
               >
                 {photo.url ? (
-                  <Image source={{ uri: photo.url }} style={styles.thumbImage} />
+                  <AppImage uri={photo.url} style={styles.thumbImage} contentFit="cover" />
                 ) : (
                   <Icon source="image-off-outline" size={24} color={colors.textSecondary} />
                 )}

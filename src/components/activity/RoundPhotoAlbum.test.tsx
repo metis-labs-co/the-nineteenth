@@ -44,6 +44,7 @@ jest.mock('@/components/common', () => {
   return {
     SectionHeader: () => null,
     PhotoSourceMenu: () => <View testID="photo-source-menu" />,
+    AppImage: () => null,
   };
 });
 

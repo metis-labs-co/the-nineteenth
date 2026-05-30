@@ -5,7 +5,10 @@ jest.mock('@/context/ThemeContext', () => ({ useThemeColors: () => ({ white: '#f
 jest.mock('@/hooks/activity', () => ({
   useRoundPhotos: () => ({ data: [{ id: 'p1', url: 'http://x/p1.jpg' }] }),
 }));
-jest.mock('@/components/common', () => ({ SystemModalTheme: ({ children }: { children: React.ReactNode }) => children }));
+jest.mock('@/components/common', () => ({
+  SystemModalTheme: ({ children }: { children: React.ReactNode }) => children,
+  AppImage: () => null,
+}));
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));

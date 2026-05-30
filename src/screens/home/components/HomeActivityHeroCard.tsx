@@ -5,11 +5,11 @@
  */
 
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useThemeColors, useIsDark } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
-import { PlayerAvatar } from '@/components/common';
+import { PlayerAvatar, AppImage } from '@/components/common';
 import type { HomeActivityPreviewCard } from '@/hooks/activity';
 
 const MAX_AVATARS = 3;
@@ -126,9 +126,10 @@ export const HomeActivityHeroCard = React.memo(function HomeActivityHeroCard({
         </View>
 
         {card.coverPhotoUrl ? (
-          <Image
-            source={{ uri: card.coverPhotoUrl }}
+          <AppImage
+            uri={card.coverPhotoUrl}
             style={[styles.thumb, { backgroundColor: colors.surfaceVariant }]}
+            contentFit="cover"
             accessibilityLabel="Round photo"
           />
         ) : null}

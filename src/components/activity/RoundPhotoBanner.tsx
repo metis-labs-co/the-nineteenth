@@ -12,7 +12,6 @@ import {
   View,
   StyleSheet,
   TouchableOpacity,
-  Image,
   FlatList,
   type NativeSyntheticEvent,
   type NativeScrollEvent,
@@ -20,6 +19,7 @@ import {
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
+import { AppImage } from '@/components/common';
 import { borderRadius, spacing, typography } from '@/constants/theme';
 import { useRoundPhotos } from '@/hooks/activity';
 import type { RoundPhoto } from '@/hooks/activity';
@@ -87,7 +87,7 @@ export function RoundPhotoBanner({ roundId, rounded = true, onPress }: RoundPhot
           accessibilityRole="imagebutton"
           accessibilityLabel="View round photo"
         >
-          <Image source={{ uri: items[0].url }} style={styles.image} resizeMode="cover" />
+          <AppImage uri={items[0].url} style={styles.image} contentFit="cover" />
         </TouchableOpacity>
       ) : (
         <View style={[styles.frame, { borderRadius: radius }]}>
@@ -111,7 +111,7 @@ export function RoundPhotoBanner({ roundId, rounded = true, onPress }: RoundPhot
                 accessibilityRole="imagebutton"
                 accessibilityLabel={`View photo ${index + 1} of ${items.length}`}
               >
-                <Image source={{ uri: item.url }} style={styles.image} resizeMode="cover" />
+                <AppImage uri={item.url} style={styles.image} contentFit="cover" />
               </TouchableOpacity>
             )}
           />
