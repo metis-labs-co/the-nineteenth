@@ -21,6 +21,7 @@ export {
   useRoundFeedCard,
   useRoundComments,
   useRoundPhotos,
+  signFullPhotos,
   ACTIVITY_PAGE_SIZE,
 } from './queries';
 

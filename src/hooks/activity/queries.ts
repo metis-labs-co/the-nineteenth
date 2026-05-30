@@ -60,6 +60,17 @@ async function signThumb(
 /** Test-only export. */
 export const __signThumbForTest = signThumb;
 
+/** Batch-sign full-resolution urls (no transform). path -> signed url. */
+export async function signFullPhotos(paths: string[]): Promise<Map<string, string>> {
+  if (paths.length === 0) return new Map();
+  const { data } = await sb.storage
+    .from('round-photos')
+    .createSignedUrls(paths, SIGNED_URL_TTL_SECONDS);
+  const map = new Map<string, string>();
+  for (const s of data ?? []) if (s.path && s.signedUrl) map.set(s.path, s.signedUrl);
+  return map;
+}
+
 /**
  * Infinite activity feed. Cursor is the previous page's last `activity_at`.
  */
