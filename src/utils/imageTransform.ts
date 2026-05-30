@@ -60,10 +60,10 @@ export function transformPublicUrl(url: string, preset: ImagePreset): string {
   if (!t) return url;
   const base = url.replace(marker, '/storage/v1/render/image/public/');
   const params = new URLSearchParams();
-  if (t.width) params.set('width', String(t.width));
-  if (t.height) params.set('height', String(t.height));
-  if (t.resize) params.set('resize', t.resize);
-  if (t.quality) params.set('quality', String(t.quality));
+  if (t.width != null) params.set('width', String(t.width));
+  if (t.height != null) params.set('height', String(t.height));
+  if (t.resize != null) params.set('resize', t.resize);
+  if (t.quality != null) params.set('quality', String(t.quality));
   const sep = base.includes('?') ? '&' : '?';
   return `${base}${sep}${params.toString()}`;
 }

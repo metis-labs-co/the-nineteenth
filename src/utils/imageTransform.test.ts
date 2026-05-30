@@ -34,4 +34,10 @@ describe('transformPublicUrl', () => {
     expect(transformPublicUrl('avatar:avatar-blue', 'AVATAR_SM')).toBe('avatar:avatar-blue');
     expect(transformPublicUrl('https://x.test/y.png', 'AVATAR_SM')).toBe('https://x.test/y.png');
   });
+
+  it('appends params with & when the URL already has a query string', () => {
+    const out = transformPublicUrl(publicUrl + '?download=1', 'AVATAR_SM');
+    expect(out).toContain('?download=1&');
+    expect(out).toContain('width=');
+  });
 });
