@@ -3,7 +3,10 @@ import { RoundPhotoBanner } from './RoundPhotoBanner';
 
 jest.mock('@/context/ThemeContext', () => ({ useThemeColors: () => ({ white: '#fff' }) }));
 jest.mock('@/hooks/activity', () => ({
-  useRoundPhotos: () => ({ data: [{ id: 'p1', url: 'http://x/p1.jpg' }] }),
+  useRoundPhotos: () => ({
+    data: [{ id: 'p1', storage_path: 'rounds/r1/u1/p1.jpg', url: 'http://x/p1.jpg' }],
+  }),
+  signFullPhotos: jest.fn(() => Promise.resolve(new Map())),
 }));
 jest.mock('@/components/common', () => ({
   SystemModalTheme: ({ children }: { children: React.ReactNode }) => children,

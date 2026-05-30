@@ -134,7 +134,11 @@ export function RoundPhotoBanner({ roundId, rounded = true, onPress }: RoundPhot
         </View>
       )}
 
-      <RoundPhotoViewer photos={items} index={viewerIndex} onClose={() => setViewerIndex(null)} />
+      <RoundPhotoViewer
+        photos={items.map((p) => ({ id: p.id, storagePath: p.storage_path, thumbUrl: p.url }))}
+        index={viewerIndex}
+        onClose={() => setViewerIndex(null)}
+      />
     </View>
   );
 }

@@ -22,6 +22,7 @@ jest.mock('@/hooks/activity', () => ({
     ],
     isLoading: false,
   }),
+  signFullPhotos: jest.fn(() => Promise.resolve(new Map())),
   useDeleteRoundPhoto: () => ({ mutateAsync: mockDeleteMutateAsync }),
   useAddRoundPhotos: () => ({
     menuVisible: false,

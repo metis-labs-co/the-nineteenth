@@ -85,7 +85,7 @@ export function RoundPhotoAlbum({ roundId, canAdd }: RoundPhotoAlbumProps) {
   // viewer can page through. Thumbnails without a URL aren't viewable.
   const viewable = items
     .filter((p) => !!p.url)
-    .map((p) => ({ id: p.id, url: p.url as string }));
+    .map((p) => ({ id: p.id, storagePath: p.storage_path, thumbUrl: p.url }));
 
   if (!canAdd && items.length === 0 && !isLoading) return null;
 

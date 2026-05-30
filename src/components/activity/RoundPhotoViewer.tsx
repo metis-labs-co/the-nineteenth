@@ -4,14 +4,17 @@
  * Opens at `index` (null = closed). Tapping a photo or the close button
  * dismisses it. Wrapped in SystemModalTheme so the system modal window keeps
  * the app's solid surfaces. Shared by RoundPhotoBanner and RoundPhotoAlbum.
+ *
+ * Full-resolution urls are signed on demand (current photo + immediate
+ * neighbors) only once the viewer opens; the cached thumbnail shows as a
+ * placeholder until the full-res image loads.
  */
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   StyleSheet,
   TouchableOpacity,
-  Image,
   FlatList,
   Modal,
   useWindowDimensions,
@@ -19,11 +22,15 @@ import {
 import { Icon } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { spacing } from '@/constants/theme';
-import { SystemModalTheme } from '@/components/common';
+import { SystemModalTheme, AppImage } from '@/components/common';
+import { signFullPhotos } from '@/hooks/activity';
 
 export interface RoundPhotoViewerPhoto {
   id: string;
-  url: string;
+  /** Storage path used to sign the full-resolution url on demand. */
+  storagePath: string;
+  /** Cached thumbnail url, shown as a placeholder while full-res loads. */
+  thumbUrl: string | null;
 }
 
 export interface RoundPhotoViewerProps {
@@ -37,6 +44,29 @@ export function RoundPhotoViewer({ photos, index, onClose }: RoundPhotoViewerPro
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const visible = index !== null;
+
+  const [fullByPath, setFullByPath] = useState<Map<string, string>>(new Map());
+
+  useEffect(() => {
+    if (index === null) return;
+    const want = [index - 1, index, index + 1]
+      .filter((i) => i >= 0 && i < photos.length)
+      .map((i) => photos[i].storagePath)
+      .filter((p) => !fullByPath.has(p));
+    if (want.length === 0) return;
+    let cancelled = false;
+    signFullPhotos(want).then((signed) => {
+      if (cancelled) return;
+      setFullByPath((prev) => {
+        const next = new Map(prev);
+        for (const [k, v] of signed) next.set(k, v);
+        return next;
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [index, photos, fullByPath]);
 
   return (
     <Modal
@@ -63,7 +93,13 @@ export function RoundPhotoViewer({ photos, index, onClose }: RoundPhotoViewerPro
                   onPress={onClose}
                   style={{ width, height, alignItems: 'center', justifyContent: 'center' }}
                 >
-                  <Image source={{ uri: item.url }} style={{ width, height }} resizeMode="contain" />
+                  <AppImage
+                    uri={fullByPath.get(item.storagePath) ?? item.thumbUrl}
+                    placeholder={item.thumbUrl}
+                    style={{ width, height }}
+                    contentFit="contain"
+                    accessibilityLabel="Round photo"
+                  />
                 </TouchableOpacity>
               )}
             />
