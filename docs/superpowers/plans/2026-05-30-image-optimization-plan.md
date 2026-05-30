@@ -658,10 +658,27 @@ export async function signFullPhotos(paths: string[]): Promise<Map<string, strin
 Run: `pnpm test activity/queries`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: Export from the activity barrel**
+
+In `src/hooks/activity/index.ts`, add `signFullPhotos` to the existing `queries`
+export block:
+
+```typescript
+export {
+  useActivityFeed,
+  useHomeActivityPreview,
+  useRoundFeedCard,
+  useRoundComments,
+  useRoundPhotos,
+  signFullPhotos,
+  ACTIVITY_PAGE_SIZE,
+} from './queries';
+```
+
+- [ ] **Step 6: Commit**
 
 ```bash
-git add src/hooks/activity/queries.ts src/hooks/activity/queries.test.ts
+git add src/hooks/activity/queries.ts src/hooks/activity/queries.test.ts src/hooks/activity/index.ts
 git commit -m "feat: on-demand full-res signing for round photo viewer"
 ```
 
