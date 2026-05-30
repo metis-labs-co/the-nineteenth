@@ -29,4 +29,13 @@ describe('signThumb', () => {
     const map = await __signThumbForTest(['a/1.jpg'], 'THUMB');
     expect(map.has('a/1.jpg')).toBe(false);
   });
+
+  it('survives a single rejected signing without dropping the rest', async () => {
+    mockCreateSignedUrl
+      .mockRejectedValueOnce(new Error('network'))
+      .mockResolvedValueOnce({ data: { signedUrl: 'https://s/2?thumb' }, error: null });
+    const map = await __signThumbForTest(['a/1.jpg', 'a/2.jpg'], 'THUMB');
+    expect(map.has('a/1.jpg')).toBe(false);
+    expect(map.get('a/2.jpg')).toBe('https://s/2?thumb');
+  });
 });

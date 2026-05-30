@@ -35,7 +35,7 @@ async function signThumb(
   preset: ImagePreset
 ): Promise<Map<string, string>> {
   const transform = buildTransform(preset);
-  const entries = await Promise.all(
+  const results = await Promise.allSettled(
     paths.map(async (path) => {
       const { data } = await sb.storage
         .from('round-photos')
@@ -48,7 +48,12 @@ async function signThumb(
     })
   );
   const map = new Map<string, string>();
-  for (const [p, u] of entries) if (u) map.set(p, u);
+  for (const r of results) {
+    if (r.status === 'fulfilled') {
+      const [path, url] = r.value;
+      if (url) map.set(path, url);
+    }
+  }
   return map;
 }
 
@@ -83,7 +88,7 @@ export function useActivityFeed() {
 
 /**
  * Compact feed preview for the Home screen. Fetches a small batch and
- * pre-signs each card's cover photo (first photo) in one batched call so the
+ * pre-signs each card's cover photo (first photo) at thumbnail size so the
  * Home hero cards can show a thumbnail without per-card fetches.
  */
 export function useHomeActivityPreview(limit = 8) {
@@ -100,21 +105,13 @@ export function useHomeActivityPreview(limit = 8) {
 
       const cards = (data ?? []) as ActivityFeedCard[];
 
-      // Batch-sign the first photo of each card (cover thumbnail).
+      // Sign the first photo of each card (cover thumbnail).
       const coverPaths = cards
         .map((c) => c.photos?.[0]?.storage_path)
         .filter((p): p is string => !!p);
 
-      const urlByPath = new Map<string, string>();
-      if (coverPaths.length > 0) {
-        const { data: signed } = await sb.storage
-          .from('round-photos')
-          .createSignedUrls(coverPaths, SIGNED_URL_TTL_SECONDS);
-        // Photos are an enhancement — ignore signing errors silently.
-        for (const s of signed ?? []) {
-          if (s.path && s.signedUrl) urlByPath.set(s.path, s.signedUrl);
-        }
-      }
+      const urlByPath =
+        coverPaths.length > 0 ? await signThumb(coverPaths, 'COVER') : new Map<string, string>();
 
       return cards.map((c) => {
         const coverPath = c.photos?.[0]?.storage_path;
@@ -214,18 +211,9 @@ export function useRoundPhotos(roundId: string | undefined) {
       const rows = (data ?? []) as FeedPhoto[];
       if (rows.length === 0) return [] as RoundPhoto[];
 
-      const { data: signed, error: signError } = await sb.storage
-        .from('round-photos')
-        .createSignedUrls(
-          rows.map((r) => r.storage_path),
-          SIGNED_URL_TTL_SECONDS
-        );
-      if (signError) {
-        throw createError(`Failed to sign photo URLs: ${signError.message}`, 'DATABASE');
-      }
-
-      const urlByPath = new Map(
-        (signed ?? []).map((s) => [s.path ?? '', s.signedUrl])
+      const urlByPath = await signThumb(
+        rows.map((r) => r.storage_path),
+        'THUMB'
       );
 
       return rows.map(
