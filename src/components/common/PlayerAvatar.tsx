@@ -79,6 +79,7 @@ function PlayerAvatarComponent({
           style={{ width: size, height: size, borderRadius: size / 2 }}
           contentFit="cover"
           accessibilityLabel={accessibilityLabel}
+          testID="avatar-image"
         />
       );
     }

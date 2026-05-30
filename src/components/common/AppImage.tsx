@@ -11,6 +11,7 @@ export interface AppImageProps {
   recyclingKey?: string;
   transition?: number;
   accessibilityLabel?: string;
+  testID?: string;
 }
 
 /** Shared image renderer: disk+memory cache and fade-in via expo-image. */
@@ -22,6 +23,7 @@ export function AppImage({
   recyclingKey,
   transition = 200,
   accessibilityLabel,
+  testID,
 }: AppImageProps) {
   return (
     <Image
@@ -33,6 +35,7 @@ export function AppImage({
       recyclingKey={recyclingKey}
       cachePolicy="memory-disk"
       accessibilityLabel={accessibilityLabel}
+      testID={testID}
     />
   );
 }
