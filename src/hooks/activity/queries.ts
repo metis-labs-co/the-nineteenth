@@ -14,6 +14,7 @@ import { supabase } from '@/services/supabase/client';
 import { activityKeys } from '@/hooks/queryKeys';
 import { CACHE_TIMES, GC_TIMES } from '@/constants/cacheConfig';
 import { createError } from '@/services/errors';
+import { buildTransform, type ImagePreset } from '@/utils/imageTransform';
 import type {
   ActivityFeedCard,
   RoundComment,
@@ -27,6 +28,32 @@ const sb = supabase as unknown as SupabaseClient;
 
 export const ACTIVITY_PAGE_SIZE = 20;
 const SIGNED_URL_TTL_SECONDS = 60 * 60; // 1 hour
+
+/** Sign each path at a transform preset size (parallel). path -> signed url. */
+async function signThumb(
+  paths: string[],
+  preset: ImagePreset
+): Promise<Map<string, string>> {
+  const transform = buildTransform(preset);
+  const entries = await Promise.all(
+    paths.map(async (path) => {
+      const { data } = await sb.storage
+        .from('round-photos')
+        .createSignedUrl(
+          path,
+          SIGNED_URL_TTL_SECONDS,
+          transform ? { transform } : undefined
+        );
+      return [path, data?.signedUrl ?? null] as const;
+    })
+  );
+  const map = new Map<string, string>();
+  for (const [p, u] of entries) if (u) map.set(p, u);
+  return map;
+}
+
+/** Test-only export. */
+export const __signThumbForTest = signThumb;
 
 /**
  * Infinite activity feed. Cursor is the previous page's last `activity_at`.
