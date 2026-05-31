@@ -45,38 +45,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const GPS_PERMISSION_ASKED_KEY = '@gps_permission_asked';
 
-// On-course rangefinder needs sub-10m fixes; Balanced gave ~100m readings
-// from cell/wifi triangulation. Highest forces a GNSS fix.
+// Tight watch config so the distance updates step-by-step like dedicated
+// rangefinder apps. BestForNavigation uses inertial sensors alongside GNSS,
+// 1s/1m triggers fire on every step of movement. Battery cost is ~3–4× a
+// "Balanced" watch — acceptable while a scoring screen is mounted, but this
+// hook should not be left running app-wide.
 const WATCH_CONFIG: Location.LocationOptions = {
-  accuracy: Location.Accuracy.Highest,
-  timeInterval: 10000, // 10 seconds
-  distanceInterval: 20, // 20 meters
+  accuracy: Location.Accuracy.BestForNavigation,
+  timeInterval: 1000, // 1 second
+  distanceInterval: 1, // 1 meter
 };
-
-// Rolling median of the last N fixes — kills GPS jitter when the user is
-// standing still (typical scoring posture). Small buffer to keep lag low when
-// the user starts walking; with distanceInterval=20m the buffer fully refreshes
-// after ~60m of movement.
-const SMOOTHING_BUFFER_SIZE = 3;
-
-interface Fix {
-  latitude: number;
-  longitude: number;
-  accuracy: number | null;
-}
-
-function median(values: number[]): number {
-  const sorted = [...values].sort((a, b) => a - b);
-  return sorted[Math.floor(sorted.length / 2)];
-}
-
-function smoothFixes(buffer: Fix[]): { latitude: number; longitude: number; accuracy: number | null } {
-  const lat = median(buffer.map((f) => f.latitude));
-  const lng = median(buffer.map((f) => f.longitude));
-  const accuracies = buffer.map((f) => f.accuracy).filter((a): a is number => a != null);
-  const acc = accuracies.length > 0 ? median(accuracies) : null;
-  return { latitude: lat, longitude: lng, accuracy: acc };
-}
 
 // =====================================================
 // TYPES
@@ -174,7 +152,6 @@ export function useUserLocation(): UseUserLocationReturn {
   const watchSubscriptionRef = useRef<Location.LocationSubscription | null>(null);
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
   const shouldWatchRef = useRef(false);
-  const fixBufferRef = useRef<Fix[]>([]);
 
   // =====================================================
   // PERMISSION CHECKING
@@ -259,18 +236,11 @@ export function useUserLocation(): UseUserLocationReturn {
       const subscription = await Location.watchPositionAsync(
         WATCH_CONFIG,
         (newLocation) => {
-          const fix: Fix = {
+          setLocation({
             latitude: newLocation.coords.latitude,
             longitude: newLocation.coords.longitude,
-            accuracy: newLocation.coords.accuracy,
-          };
-
-          const next = [...fixBufferRef.current, fix].slice(-SMOOTHING_BUFFER_SIZE);
-          fixBufferRef.current = next;
-
-          const smoothed = smoothFixes(next);
-          setLocation({ latitude: smoothed.latitude, longitude: smoothed.longitude });
-          setAccuracy(smoothed.accuracy);
+          });
+          setAccuracy(newLocation.coords.accuracy);
         }
       );
 
@@ -291,7 +261,6 @@ export function useUserLocation(): UseUserLocationReturn {
       watchSubscriptionRef.current.remove();
       watchSubscriptionRef.current = null;
       setIsWatching(false);
-      fixBufferRef.current = [];
     }
   }, []);
 

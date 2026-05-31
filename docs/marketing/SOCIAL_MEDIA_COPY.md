@@ -260,12 +260,12 @@
 
 ### Hashtag Campaigns
 
-**Primary hashtag:** #TheNineteenthApp
+**Primary hashtag:** #TheNineteenthGolf
 **Secondary:** #GolfCompsMadeSimple
 
 ### UGC Prompts
 
-> Show us your leaderboard! Tag @TheNineteenthApp and #TheNineteenthApp for a chance to be featured.
+> Show us your leaderboard! Tag @the.nineteenth.golf and #TheNineteenthGolf for a chance to be featured.
 
 > Who's running a comp this weekend? Drop your competition name below 👇
 

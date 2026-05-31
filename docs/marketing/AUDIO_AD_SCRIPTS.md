@@ -58,7 +58,7 @@ All-speech, host-read scripts for Spotify Ad Studio and podcast placements. No m
 **Alternate CTAs:**
 - *Platform-agnostic (default):* "Search 'The Nineteenth' wherever you get your apps." — covers iOS + Android (Spotify's audience is split)
 - *iOS-only:* "Search 'The Nineteenth' on the App Store — it's free."
-- *With landing page:* "Search 'The Nineteenth', or head to [URL]." — **confirm the real domain first** (`marketing/CLAUDE.md` lists `theninetenth.app`, missing an "i")
+- *With landing page:* "Search 'The Nineteenth', or head to **thenineteenth-dot-golf**." — the `.golf` TLD reads especially well in audio: short, on-theme, hard to mishear. Say "dot golf" rather than running it together.
 - *With promo code:* "Use code POD at sign-up." — only if a code/offer actually exists in-app
 
 ---

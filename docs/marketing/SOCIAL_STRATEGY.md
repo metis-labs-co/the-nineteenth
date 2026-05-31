@@ -71,7 +71,7 @@ Every post should map to **one pillar**. If it doesn't, don't post it.
 **Hashtag set (mix of size):** Use 12–15 per post.
 - Tier A (large, broad): `#golf` `#golfaustralia` `#golflife` `#golfaddict`
 - Tier B (mid, on-niche): `#socialgolf` `#weekendgolf` `#golfmates` `#golfcompetition` `#golfdays`
-- Tier C (small, owned): `#TheNineteenthApp` `#GolfCompsMadeSimple`
+- Tier C (small, owned): `#TheNineteenthGolf` `#GolfCompsMadeSimple`
 - Geo (rotate): `#melbournegolf` `#sydneygolf` `#brisbanegolf` `#golfvic` `#golfnsw`
 
 **Engagement rule:** Spend 15 min/day commenting on accounts in Tier B hashtags **before** posting. Comment > follow > like, in that order.

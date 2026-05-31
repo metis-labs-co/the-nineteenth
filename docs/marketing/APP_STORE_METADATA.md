@@ -7,8 +7,8 @@ Use this file to prepare your App Store Connect and Google Play submissions.
 ## App Information
 
 **App Name:** The Nineteenth
-**Bundle ID (iOS):** com.thenineteenth.app
-**Package Name (Android):** com.thenineteenth.app
+**Bundle ID (iOS):** com.the.nineteenth.golf
+**Package Name (Android):** com.the.nineteenth.golf
 
 ---
 
@@ -90,7 +90,7 @@ golf,scorecard,competition,tournament,handicap,stableford,leaderboard,scoring,ma
 ## Privacy Policy URL
 
 ```
-https://thenineteenth.app/privacy
+https://thenineteenth.golf/privacy
 ```
 
 *(You need to create this page)*
@@ -100,7 +100,7 @@ https://thenineteenth.app/privacy
 ## Support URL
 
 ```
-https://thenineteenth.app/support
+https://thenineteenth.golf/support
 ```
 
 *(You need to create this page)*
@@ -110,7 +110,7 @@ https://thenineteenth.app/support
 ## Marketing URL (Optional)
 
 ```
-https://thenineteenth.app
+https://thenineteenth.golf
 ```
 
 ---
@@ -160,7 +160,7 @@ Version 1.0.0 - Initial Release
 
 ```
 Test Account:
-Email: reviewer@thenineteenth.app
+Email: reviewer@thenineteenth.golf
 Password: [Create a test account for reviewers]
 
 To test the main features:

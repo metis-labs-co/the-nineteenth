@@ -260,17 +260,17 @@ Marketing copy is available in the following files (copy from the mobile app rep
 # .env.example
 
 # Site URL (for canonical URLs, OG images)
-SITE_URL=https://theninetenth.app
+SITE_URL=https://thenineteenth.golf
 
 # App Store Links
 APP_STORE_URL=https://apps.apple.com/app/the-nineteenth/id...
 PLAY_STORE_URL=https://play.google.com/store/apps/details?id=...
 
 # Analytics (Plausible)
-PLAUSIBLE_DOMAIN=theninetenth.app
+PLAUSIBLE_DOMAIN=thenineteenth.golf
 
 # Contact Form (optional - if using external service)
-CONTACT_EMAIL=hello@theninetenth.app
+CONTACT_EMAIL=hello@thenineteenth.golf
 
 # Feature Flags
 ENABLE_BLOG=false
@@ -416,7 +416,7 @@ Use official badges:
 
 Plausible (privacy-focused, GDPR-compliant):
 ```html
-<script defer data-domain="theninetenth.app" src="https://plausible.io/js/script.js"></script>
+<script defer data-domain="thenineteenth.golf" src="https://plausible.io/js/script.js"></script>
 ```
 
 ### Contact Form

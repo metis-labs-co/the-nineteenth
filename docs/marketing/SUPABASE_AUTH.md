@@ -64,7 +64,7 @@ SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_PUBLISHABLE_KEY=your_publishable_key_here
 
 # Site URL (for OAuth redirects, email links)
-SITE_URL=https://thenineteenth.app
+SITE_URL=https://thenineteenth.golf
 
 # Cookie settings
 SESSION_SECRET=your-session-secret-min-32-chars
@@ -1174,10 +1174,10 @@ Configure email templates in Supabase Dashboard > Authentication > Email Templat
 
 Configure in Supabase Dashboard > Authentication > URL Configuration:
 
-- **Site URL**: `https://thenineteenth.app`
+- **Site URL**: `https://thenineteenth.golf`
 - **Redirect URLs**:
-  - `https://thenineteenth.app/auth/callback`
-  - `https://thenineteenth.app/auth/reset-password`
+  - `https://thenineteenth.golf/auth/callback`
+  - `https://thenineteenth.golf/auth/reset-password`
   - `http://localhost:3000/auth/callback` (development)
   - `thenineteenth://auth/*` (mobile app deep links)
 
@@ -1229,7 +1229,7 @@ Remix handles CSRF automatically for form submissions. For API routes, verify th
 export async function action({ request }: ActionFunctionArgs) {
   // Verify origin for non-form requests
   const origin = request.headers.get('Origin');
-  if (origin && !origin.includes('thenineteenth.app')) {
+  if (origin && !origin.includes('thenineteenth.golf')) {
     return json({ error: 'Invalid origin' }, { status: 403 });
   }
   // ...
@@ -1315,10 +1315,10 @@ export type Player = Database['public']['Tables']['players']['Row'];
 Use these test accounts (create in Supabase Dashboard):
 
 ```
-Email: test@thenineteenth.app
+Email: test@thenineteenth.golf
 Password: TestPassword123!
 
-Email: premium@thenineteenth.app
+Email: premium@thenineteenth.golf
 Password: TestPassword123!
 (Premium tier for testing upgrade flows)
 ```
