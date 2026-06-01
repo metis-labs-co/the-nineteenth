@@ -37,6 +37,7 @@ import {
   SubscriptionProduct,
 } from '@/services/subscription/SubscriptionService';
 import { DEFAULT_PRICING_AUD, FREE_TRIAL_DAYS, PRODUCT_IDS } from '@/constants/products';
+import type { BillingPeriod } from '@/constants/products';
 import type { SubscriptionTier } from '@/types/subscription.types';
 import { TierCard } from './TierCard';
 import { FeaturesList } from './FeaturesList';
@@ -58,7 +59,6 @@ export interface PaywallProps {
   initialTier?: PaywallTier;
 }
 
-type BillingPeriod = 'monthly' | 'yearly' | 'lifetime';
 
 // ============================================================================
 // CONSTANTS
@@ -115,18 +115,15 @@ export function Paywall({
 
   // Get the selected product
   const selectedProduct = useMemo(() => {
-    const productId =
-      billingPeriod === 'lifetime'
-        ? selectedTier === 'social'
-          ? PRODUCT_IDS.SOCIAL_LIFETIME
-          : PRODUCT_IDS.PREMIUM_LIFETIME
-        : selectedTier === 'social'
-          ? billingPeriod === 'monthly'
-            ? PRODUCT_IDS.SOCIAL_MONTHLY
-            : PRODUCT_IDS.SOCIAL_YEARLY
-          : billingPeriod === 'monthly'
-            ? PRODUCT_IDS.PREMIUM_MONTHLY
-            : PRODUCT_IDS.PREMIUM_YEARLY;
+    // Two-axis lookup: billing period × tier. The paywall only offers social
+    // and premium, so any non-social selection maps to the premium product.
+    const tierKey = selectedTier === 'social' ? 'social' : 'premium';
+    const PRODUCT_MAP = {
+      monthly: { social: PRODUCT_IDS.SOCIAL_MONTHLY, premium: PRODUCT_IDS.PREMIUM_MONTHLY },
+      yearly: { social: PRODUCT_IDS.SOCIAL_YEARLY, premium: PRODUCT_IDS.PREMIUM_YEARLY },
+      lifetime: { social: PRODUCT_IDS.SOCIAL_LIFETIME, premium: PRODUCT_IDS.PREMIUM_LIFETIME },
+    } as const;
+    const productId = PRODUCT_MAP[billingPeriod][tierKey];
 
     const fetchedProduct = products.find((p) => p.id === productId);
     if (fetchedProduct) return fetchedProduct;
@@ -311,7 +308,7 @@ export function Paywall({
             onPress={handlePurchase}
             disabled={isPurchasing || isLoadingProducts}
             accessibilityRole="button"
-            accessibilityLabel={`Subscribe to ${selectedTier}`}
+            accessibilityLabel={isLifetime ? `Buy lifetime ${selectedTier}` : `Subscribe to ${selectedTier}`}
           >
             {isPurchasing ? (
               <ActivityIndicator size="small" color={colors.white} />
