@@ -132,7 +132,7 @@ round is live.
 
 ### 4. Now-playing (root)
 
-- Competition name, "Round in progress", `Hole N of 18`, quick navigation to the other
+- Competition name, "Round in progress", `Hole N of M` (M = 18 or 9), quick navigation to the other
   three screens. This is the **complication's tap target**.
 - No active round → "No round in progress — start one on your phone."
 
@@ -152,8 +152,9 @@ Sent on round start and on change; carries a monotonic `rev`. Two logical parts:
 - **Static round config** (rarely changes): `roundId`, competition name, units,
   `isPremium`, enabled per-stat flags, scoring-pair players `[{id, name}]`, and the
   **full hole list** `[{hole, par, strokeIndex, green:{center, front, back} as
-  lat/lng}]`. Pushing all 18 holes' coords up front lets the watch compute distance and
-  score for **any** hole with **zero round-trips** when the phone drifts out of range.
+  lat/lng}]`. Pushing **every hole's** coords up front (18- or 9-hole rounds) lets the
+  watch compute distance and score for **any** hole with **zero round-trips** when the
+  phone drifts out of range.
 - **Live state** (changes often): each pair-player's currently-recorded score+stats per
   hole, the phone's "current hole" hint, and a trimmed **leaderboard snapshot**
   `[{rank, name, toPar, thru}]`.
