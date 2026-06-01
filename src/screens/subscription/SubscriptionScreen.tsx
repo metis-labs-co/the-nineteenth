@@ -181,13 +181,16 @@ export default function SubscriptionScreen({ navigation }: Props) {
         <View style={[styles.section, styles.tierBadgeSection]}>
           <TierBadge size="large" />
           {isLifetime && (
-            <View style={styles.trialBadgeContainer}>
-              <View style={[styles.lifetimeChip, { backgroundColor: colors.surfaceVariant }]}>
-                <Icon source="infinity" size={16} color={colors.textPrimary} />
-                <Text style={[styles.lifetimeChipText, { color: colors.textPrimary }]}>
-                  Lifetime access
-                </Text>
-              </View>
+            <View
+              style={[styles.lifetimeChip, { backgroundColor: colors.surfaceVariant }]}
+              accessible
+              accessibilityRole="text"
+              accessibilityLabel="Lifetime access"
+            >
+              <Icon source="infinity" size={16} color={colors.textPrimary} />
+              <Text style={[styles.lifetimeChipText, { color: colors.textPrimary }]}>
+                Lifetime access
+              </Text>
             </View>
           )}
           {isOnTrial && trialDaysRemaining !== null && (
@@ -313,6 +316,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
+    marginTop: spacing.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     borderRadius: borderRadius.full,
