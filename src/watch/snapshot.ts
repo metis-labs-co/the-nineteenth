@@ -83,7 +83,7 @@ export function buildWatchSnapshot(input: BuildSnapshotInput): WatchSnapshot {
   }));
   const scores: Record<string, HoleScore> = {};
   for (const p of input.pairPlayers) {
-    for (const [hole, hs] of Object.entries(p.scores)) scores[`${p.playerId}:${hole}`] = hs;
+    for (const [hole, hs] of Object.entries(p.scores)) scores[`${p.playerId}:${Number(hole)}`] = hs;
   }
   return {
     rev: input.rev,

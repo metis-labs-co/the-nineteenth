@@ -11,6 +11,16 @@ describe('groupGreenCoords', () => {
     expect(out.get(1)).toEqual({ center: { latitude: 1, longitude: 2 }, front: { latitude: 3, longitude: 4 } });
     expect(out.get(2)).toEqual({ back: { latitude: 5, longitude: 6 } });
   });
+  it('returns an empty map for empty input', () => {
+    expect(groupGreenCoords([]).size).toBe(0);
+  });
+  it('last write wins for a duplicate poi type on the same hole', () => {
+    const out = groupGreenCoords([
+      { hole: 1, poiType: 'green_center', latitude: 1, longitude: 1 },
+      { hole: 1, poiType: 'green_center', latitude: 2, longitude: 2 },
+    ]);
+    expect(out.get(1)).toEqual({ center: { latitude: 2, longitude: 2 } });
+  });
 });
 
 describe('trimLeaderboard', () => {
@@ -30,7 +40,29 @@ describe('trimLeaderboard', () => {
   it('returns just the top 3 when the user is absent', () => {
     const out = trimLeaderboard(board.slice(0, 3), 'ghost');
     expect(out.map((r) => r.name)).toEqual(['A', 'B', 'C']);
-    expect(out.every((r) => !r.isCurrentUser)).toBe(true);
+    expect(out.every((r) => r.isCurrentUser === false)).toBe(true);
+  });
+  it('returns an empty array for an empty board', () => {
+    expect(trimLeaderboard([], 'me')).toEqual([]);
+  });
+  it('returns all rows when the board is smaller than 3', () => {
+    const out = trimLeaderboard(board.slice(0, 2), 'me');
+    expect(out.map((r) => r.name)).toEqual(['A', 'B']);
+  });
+  it('handles the current user being inside the top 3 (overlapping windows, no duplicates)', () => {
+    const out = trimLeaderboard(board, 'b'); // rank 2
+    expect(out.map((r) => r.name)).toEqual(['A', 'B', 'C']);
+    expect(out.find((r) => r.name === 'B')?.isCurrentUser).toBe(true);
+  });
+  it('keeps both entries when two players share a rank in the top 3', () => {
+    const tied = [
+      { rank: 1, name: 'A', detail: '1', playerId: 'a' },
+      { rank: 2, name: 'B', detail: '2', playerId: 'b' },
+      { rank: 2, name: 'C', detail: '3', playerId: 'c' },
+      { rank: 4, name: 'D', detail: '4', playerId: 'd' },
+    ];
+    const out = trimLeaderboard(tied, 'ghost');
+    expect(out.map((r) => r.name).sort()).toEqual(['A', 'B', 'C']);
   });
 });
 
@@ -66,5 +98,23 @@ describe('buildWatchSnapshot', () => {
   it('trims the leaderboard and marks the current user', () => {
     const snap = buildWatchSnapshot(baseInput());
     expect(snap.leaderboard).toEqual([{ rank: 1, name: 'You', detail: 'E', isCurrentUser: true }]);
+  });
+  it('omits green for a hole that has no coords', () => {
+    const input = baseInput();
+    input.coords = [];
+    const snap = buildWatchSnapshot(input);
+    expect(snap.holes[0].green).toEqual({});
+  });
+  it('produces an empty scores map when a player has no scores', () => {
+    const input = baseInput();
+    input.pairPlayers = [{ playerId: 'me', name: 'You', scores: {} }];
+    const snap = buildWatchSnapshot(input);
+    expect(snap.scores).toEqual({});
+  });
+  it('normalises a zero-padded hole key to an integer string', () => {
+    const input = baseInput();
+    input.pairPlayers = [{ playerId: 'me', name: 'You', scores: { '07': { strokes: 4 } } }];
+    const snap = buildWatchSnapshot(input);
+    expect(snap.scores['me:7']).toEqual({ strokes: 4 });
   });
 });
