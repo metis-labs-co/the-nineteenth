@@ -81,9 +81,15 @@ interface WebhookResult {
 const PRODUCT_ID_TO_TIER: Record<string, SubscriptionTier> = {
   'the.nineteenth.social.monthly': 'social',
   'the.nineteenth.social.yearly': 'social',
+  'the.nineteenth.social.lifetime': 'social',
   'the.nineteenth.premium.monthly': 'premium',
   'the.nineteenth.premium.yearly': 'premium',
+  'the.nineteenth.premium.lifetime': 'premium',
 };
+
+function isLifetimeProduct(productId: string): boolean {
+  return productId.endsWith('.lifetime');
+}
 
 function mapProductToTier(productId: string): SubscriptionTier {
   // Direct lookup
@@ -233,6 +239,25 @@ async function handleInitialPurchase(
   });
 }
 
+async function handleNonRenewingPurchase(
+  supabase: ReturnType<typeof createClient>,
+  event: RevenueCatWebhookEvent['event']
+): Promise<WebhookResult> {
+  const tier = mapProductToTier(event.product_id);
+
+  // One-time lifetime purchase: never expires.
+  return updateSubscription(supabase, event.app_user_id, {
+    tier,
+    status: 'active',
+    external_id: event.original_transaction_id,
+    product_id: event.product_id,
+    expires_at: null,
+    cancelled_at: null,
+    trial_started_at: null,
+    trial_ends_at: null,
+  });
+}
+
 async function handleRenewal(
   supabase: ReturnType<typeof createClient>,
   event: RevenueCatWebhookEvent['event']
@@ -256,6 +281,17 @@ async function handleCancellation(
   supabase: ReturnType<typeof createClient>,
   event: RevenueCatWebhookEvent['event']
 ): Promise<WebhookResult> {
+  // Refund/cancellation of a one-time lifetime purchase: revoke access now.
+  if (isLifetimeProduct(event.product_id)) {
+    return updateSubscription(supabase, event.app_user_id, {
+      tier: 'free',
+      status: 'expired',
+      expires_at: new Date().toISOString(),
+      cancelled_at: new Date().toISOString(),
+    });
+  }
+
+  // Auto-renewing sub: user turned off renewal but keeps access until expiry.
   return updateSubscription(supabase, event.app_user_id, {
     status: 'cancelled',
     cancelled_at: new Date().toISOString(),
@@ -356,6 +392,8 @@ async function handleWebhook(
       };
 
     case 'NON_RENEWING_PURCHASE':
+      return handleNonRenewingPurchase(supabase, event);
+
     case 'SUBSCRIBER_ALIAS':
     case 'TRANSFER':
       console.log(`[Webhook] Event ${event.type} acknowledged`);
