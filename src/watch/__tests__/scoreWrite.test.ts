@@ -67,4 +67,12 @@ describe('applyWatchScoreWrite — guards', () => {
     await applyWatchScoreWrite(write({ stat: { putts: 2 } }), ctx);
     expect((ctx as any)._applied[0].holeScore).toEqual({ strokes: 4, scoredBy: 'me' });
   });
+  it('treats a re-sent write as a duplicate after the first apply succeeds (idempotency round-trip)', async () => {
+    const ctx = makeCtx();
+    const first = await applyWatchScoreWrite(write(), ctx);
+    const second = await applyWatchScoreWrite(write(), ctx);
+    expect(first.status).toBe('applied');
+    expect(second.status).toBe('duplicate');
+    expect((ctx as any)._applied).toHaveLength(1);
+  });
 });
