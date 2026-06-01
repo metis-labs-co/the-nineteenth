@@ -41,7 +41,8 @@ export const IOS_PRODUCT_IDS = {
   ENTERPRISE_MONTHLY: `${BUNDLE_ID}.enterprise.monthly`,
   ENTERPRISE_YEARLY: `${BUNDLE_ID}.enterprise.yearly`,
 
-  // Lifetime (one-time, non-consumable)
+  // Lifetime (one-time, non-consumable) — Social and Premium only.
+  // Enterprise is B2B/manual, so it has no self-serve lifetime product.
   SOCIAL_LIFETIME: `${BUNDLE_ID}.social.lifetime`,
   PREMIUM_LIFETIME: `${BUNDLE_ID}.premium.lifetime`,
 } as const;
@@ -63,7 +64,8 @@ export const ANDROID_PRODUCT_IDS = {
   ENTERPRISE_MONTHLY: `${BUNDLE_ID}.enterprise.monthly`,
   ENTERPRISE_YEARLY: `${BUNDLE_ID}.enterprise.yearly`,
 
-  // Lifetime (one-time, non-consumable)
+  // Lifetime (one-time, non-consumable) — Social and Premium only.
+  // Enterprise is B2B/manual, so it has no self-serve lifetime product.
   SOCIAL_LIFETIME: `${BUNDLE_ID}.social.lifetime`,
   PREMIUM_LIFETIME: `${BUNDLE_ID}.premium.lifetime`,
 } as const;
@@ -85,7 +87,8 @@ export const PRODUCT_IDS = {
   ENTERPRISE_MONTHLY: `${BUNDLE_ID}.enterprise.monthly`,
   ENTERPRISE_YEARLY: `${BUNDLE_ID}.enterprise.yearly`,
 
-  // Lifetime (one-time, non-consumable)
+  // Lifetime (one-time, non-consumable) — Social and Premium only.
+  // Enterprise is B2B/manual, so it has no self-serve lifetime product.
   SOCIAL_LIFETIME: `${BUNDLE_ID}.social.lifetime`,
   PREMIUM_LIFETIME: `${BUNDLE_ID}.premium.lifetime`,
 } as const;

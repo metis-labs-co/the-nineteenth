@@ -31,6 +31,10 @@ describe('lifetime products', () => {
     expect(getBillingPeriod('the.nineteenth.social.monthly')).toBe('monthly');
   });
 
+  it('returns null for an unrecognised product ID', () => {
+    expect(getBillingPeriod('the.nineteenth.social.quarterly')).toBeNull();
+  });
+
   it('has fallback pricing for lifetime products', () => {
     expect(DEFAULT_PRICING_AUD[PRODUCT_IDS.SOCIAL_LIFETIME].price).toBe(119.99);
     expect(DEFAULT_PRICING_AUD[PRODUCT_IDS.PREMIUM_LIFETIME].price).toBe(249.99);
