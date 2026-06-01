@@ -90,6 +90,17 @@ export function useWatchBridge(opts: UseWatchBridgeOptions = {}) {
   const scoresFor = (playerId: string): Record<string, HoleScore> =>
     (groupScorecards.get(playerId)?.scores as Record<string, HoleScore> | undefined) ?? {};
 
+  // Refs mirroring the latest render values so the (stable) inbound-write
+  // subscription can build a fresh ScoreWriteContext per message instead of
+  // closing over stale authorization / premium / scorecard data. Assigned on
+  // every render — NOT inside an effect — so they always reflect current state.
+  const allowedIdsRef = useRef<string[]>([]);
+  allowedIdsRef.current = allowedIds;
+  const groupScorecardsRef = useRef(groupScorecards);
+  groupScorecardsRef.current = groupScorecards;
+  const isPremiumRef = useRef(isPremium);
+  isPremiumRef.current = isPremium;
+
   // ── Effect 1: push snapshot whenever inputs change ────────────────────────
   useEffect(() => {
     if (!transport.isSupported() || !roundId || !user) return;
@@ -142,26 +153,35 @@ export function useWatchBridge(opts: UseWatchBridgeOptions = {}) {
   ]);
 
   // ── Effect 2: apply inbound writes and ack ────────────────────────────────
+  // The subscription is stable (created once per supported+round+user). The
+  // ScoreWriteContext is rebuilt FRESH inside the onMessage callback on every
+  // inbound message, reading current values from refs, so authorization /
+  // premium / scorecard data can never go stale mid-round.
   useEffect(() => {
     if (!transport.isSupported() || !roundId || !user) return;
 
-    const ctx: ScoreWriteContext = {
-      currentUserId: user.id,
-      allowedPlayerIds: new Set(allowedIds),
-      isPremium,
-      getExisting: (playerId, hole) => scoresFor(playerId)[String(hole)],
-      getLastEditedRev: (playerId, hole) =>
-        lastEditedRef.current.get(`${playerId}:${hole}`) ?? -1,
-      seen: seenRef.current,
-      applyHoleScore: async (playerId, hole, holeScore) => {
-        await updatePlayerHoleScore(playerId, hole, holeScore);
-      },
-      markEdited: (playerId, hole, rev) =>
-        lastEditedRef.current.set(`${playerId}:${hole}`, rev),
-      nextRev: () => ++revRef.current,
-    };
-
     const off = transport.onMessage(async (msg: WatchScoreWrite) => {
+      const ctx: ScoreWriteContext = {
+        currentUserId: user.id,
+        allowedPlayerIds: new Set(
+          allowedIdsRef.current.length ? allowedIdsRef.current : user ? [user.id] : [],
+        ),
+        isPremium: isPremiumRef.current,
+        getExisting: (playerId, hole) =>
+          (groupScorecardsRef.current.get(playerId)?.scores as
+            | Record<string, HoleScore>
+            | undefined)?.[String(hole)],
+        getLastEditedRev: (playerId, hole) =>
+          lastEditedRef.current.get(`${playerId}:${hole}`) ?? -1,
+        seen: seenRef.current,
+        applyHoleScore: async (playerId, hole, holeScore) => {
+          await updatePlayerHoleScore(playerId, hole, holeScore);
+        },
+        markEdited: (playerId, hole, rev) =>
+          lastEditedRef.current.set(`${playerId}:${hole}`, rev),
+        nextRev: () => ++revRef.current,
+      };
+
       const res = await applyWatchScoreWrite(msg, ctx);
       transport.sendAck({
         clientWriteId: res.clientWriteId,
@@ -170,6 +190,5 @@ export function useWatchBridge(opts: UseWatchBridgeOptions = {}) {
       });
     });
     return off;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [transport, roundId, user, isPremium, groupScorecards, updatePlayerHoleScore]);
+  }, [transport, roundId, user, updatePlayerHoleScore]);
 }
