@@ -1,2 +1,5 @@
 ignoredBuiltDependencies:
   - sharp
+
+patchedDependencies:
+  expo-constants@18.0.12: patches/expo-constants@18.0.12.patch

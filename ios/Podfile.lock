@@ -2480,7 +2480,7 @@ PODS:
 DEPENDENCIES:
   - "EASClient (from `../node_modules/.pnpm/expo-eas-client@1.0.8/node_modules/expo-eas-client/ios`)"
   - "EXApplication (from `../node_modules/.pnpm/expo-application@7.0.8_expo@54.0.30/node_modules/expo-application/ios`)"
-  - "EXConstants (from `../node_modules/.pnpm/expo-constants@18.0.12_expo@54.0.30_react-native@0.81.5_@babel+core@7.28.5_@react-nativ_7250392737020be07765d6e83514e003/node_modules/expo-constants/ios`)"
+  - "EXConstants (from `../node_modules/.pnpm/expo-constants@18.0.12_patch_hash=149e9b6d1604bef546f3a3c2916aa12c0f6a8a7b0c09e2def9c56_ea5795633e63de017aaad5d324dcbb84/node_modules/expo-constants/ios`)"
   - "EXImageLoader (from `../node_modules/.pnpm/expo-image-loader@6.0.0_expo@54.0.30/node_modules/expo-image-loader/ios`)"
   - "EXJSONUtils (from `../node_modules/.pnpm/expo-json-utils@0.15.0/node_modules/expo-json-utils/ios`)"
   - "EXManifests (from `../node_modules/.pnpm/expo-manifests@1.0.10_expo@54.0.30/node_modules/expo-manifests/ios`)"
@@ -2627,7 +2627,7 @@ EXTERNAL SOURCES:
   EXApplication:
     :path: "../node_modules/.pnpm/expo-application@7.0.8_expo@54.0.30/node_modules/expo-application/ios"
   EXConstants:
-    :path: "../node_modules/.pnpm/expo-constants@18.0.12_expo@54.0.30_react-native@0.81.5_@babel+core@7.28.5_@react-nativ_7250392737020be07765d6e83514e003/node_modules/expo-constants/ios"
+    :path: "../node_modules/.pnpm/expo-constants@18.0.12_patch_hash=149e9b6d1604bef546f3a3c2916aa12c0f6a8a7b0c09e2def9c56_ea5795633e63de017aaad5d324dcbb84/node_modules/expo-constants/ios"
   EXImageLoader:
     :path: "../node_modules/.pnpm/expo-image-loader@6.0.0_expo@54.0.30/node_modules/expo-image-loader/ios"
   EXJSONUtils:
@@ -3010,6 +3010,6 @@ SPEC CHECKSUMS:
   Yoga: 5934998fbeaef7845dbf698f698518695ab4cd1a
   ZXingObjC: 8898711ab495761b2dbbdec76d90164a6d7e14c5
 
-PODFILE CHECKSUM: 5d2f4750f940dc09745716ecc1d5a41a5fefea75
+PODFILE CHECKSUM: cc08ab5115765c121227a9062c1d0322eec484a8
 
 COCOAPODS: 1.16.2
