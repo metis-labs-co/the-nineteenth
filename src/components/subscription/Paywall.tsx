@@ -356,7 +356,7 @@ export function Paywall({
               {`The Nineteenth ${selectedProduct.name} Lifetime: ${selectedProduct.price} (one-time). `}
               Payment will be charged to your Apple ID account at the confirmation of purchase. This is a
               one-time, non-renewing purchase that grants permanent access — there is no subscription and
-              nothing to cancel. If you reinstall the app, use &ldquo;Restore Purchases&rdquo; to regain access.
+              nothing to cancel. If you reinstall the app, use “Restore Purchases” to regain access.
             </Text>
           ) : (
             <Text style={[styles.subscriptionInfo, { color: colors.textSecondary }]}>
