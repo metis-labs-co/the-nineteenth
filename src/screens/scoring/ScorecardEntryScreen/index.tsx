@@ -831,6 +831,7 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
             visible={!!detailedStatsPlayerId}
             onClose={() => setDetailedStatsPlayerId(null)}
             holeNumber={currentHole}
+            holePar={getHoleInfo(currentHole)?.par}
             playerName={activePlayer?.name || 'Player'}
             score={singleScore}
             onStatsUpdate={(updates) => {

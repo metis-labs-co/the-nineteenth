@@ -161,6 +161,64 @@ describe('Fairway in regulation section', () => {
     expect(screen.queryByText('FAIRWAY IN REGULATION')).toBeNull();
   });
 
+  it('hides fairway section on a par 3 hole', () => {
+    render(
+      <DetailedStatsSheet
+        {...defaultProps}
+        holePar={3}
+        score={{ ...baseScore, fairwayHit: false }}
+        showFairwayMissDirection={true}
+        showGreenMissDirection={false}
+        showBunkerShots={false}
+        showHazards={false}
+      />
+    );
+    expect(screen.queryByText('FAIRWAY IN REGULATION')).toBeNull();
+  });
+
+  it('shows fairway section on par 4 and par 5 holes', () => {
+    const { rerender } = render(
+      <DetailedStatsSheet
+        {...defaultProps}
+        holePar={4}
+        score={{ ...baseScore, fairwayHit: false }}
+        showFairwayMissDirection={true}
+        showGreenMissDirection={false}
+        showBunkerShots={false}
+        showHazards={false}
+      />
+    );
+    expect(screen.getByText('FAIRWAY IN REGULATION')).toBeTruthy();
+
+    rerender(
+      <DetailedStatsSheet
+        {...defaultProps}
+        holePar={5}
+        score={{ ...baseScore, fairwayHit: false }}
+        showFairwayMissDirection={true}
+        showGreenMissDirection={false}
+        showBunkerShots={false}
+        showHazards={false}
+      />
+    );
+    expect(screen.getByText('FAIRWAY IN REGULATION')).toBeTruthy();
+  });
+
+  it('shows fairway section when par is unknown (holePar undefined)', () => {
+    render(
+      <DetailedStatsSheet
+        {...defaultProps}
+        holePar={undefined}
+        score={{ ...baseScore, fairwayHit: false }}
+        showFairwayMissDirection={true}
+        showGreenMissDirection={false}
+        showBunkerShots={false}
+        showHazards={false}
+      />
+    );
+    expect(screen.getByText('FAIRWAY IN REGULATION')).toBeTruthy();
+  });
+
   it('renders all five fairway buttons (Hit / Left / Right / Long / Short)', () => {
     render(
       <DetailedStatsSheet

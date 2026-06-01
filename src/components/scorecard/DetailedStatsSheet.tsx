@@ -45,6 +45,8 @@ interface DetailedStatsSheetProps {
   onClose: () => void;
   /** Current hole number for display */
   holeNumber: number;
+  /** Par for the current hole (FIR is hidden on par 3s) */
+  holePar?: number;
   /** Player name for display */
   playerName: string;
   /** Current hole score data */
@@ -62,6 +64,7 @@ export function DetailedStatsSheet({
   visible,
   onClose,
   holeNumber,
+  holePar,
   playerName,
   score,
   onStatsUpdate,
@@ -177,8 +180,9 @@ export function DetailedStatsSheet({
         ? greenDir
         : null;
 
-  // Determine which sections to show
-  const showFairwaySection = showFairwayMissDirection;
+  // Determine which sections to show.
+  // FIR doesn't apply to par 3s — hide it when par is known to be < 4.
+  const showFairwaySection = showFairwayMissDirection && (holePar == null || holePar >= 4);
   const showGreenSection = showGreenMissDirection;
   const hasAnySections = showFairwaySection || showGreenSection || showBunkerShots || showHazards;
 
