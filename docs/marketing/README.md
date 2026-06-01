@@ -67,7 +67,7 @@ This folder contains ready-to-use marketing copy extracted from the project docu
 
 ## Hashtags
 
-- Primary: #TheNineteenthApp
+- Primary: #TheNineteenthGolf
 - Secondary: #GolfCompsMadeSimple
 - General: #golf #golfaustralia #socialgolf #golfapp
 

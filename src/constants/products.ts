@@ -40,6 +40,11 @@ export const IOS_PRODUCT_IDS = {
   // Enterprise tier
   ENTERPRISE_MONTHLY: `${BUNDLE_ID}.enterprise.monthly`,
   ENTERPRISE_YEARLY: `${BUNDLE_ID}.enterprise.yearly`,
+
+  // Lifetime (one-time, non-consumable) — Social and Premium only.
+  // Enterprise is B2B/manual, so it has no self-serve lifetime product.
+  SOCIAL_LIFETIME: `${BUNDLE_ID}.social.lifetime`,
+  PREMIUM_LIFETIME: `${BUNDLE_ID}.premium.lifetime`,
 } as const;
 
 /**
@@ -58,6 +63,11 @@ export const ANDROID_PRODUCT_IDS = {
   // Enterprise tier
   ENTERPRISE_MONTHLY: `${BUNDLE_ID}.enterprise.monthly`,
   ENTERPRISE_YEARLY: `${BUNDLE_ID}.enterprise.yearly`,
+
+  // Lifetime (one-time, non-consumable) — Social and Premium only.
+  // Enterprise is B2B/manual, so it has no self-serve lifetime product.
+  SOCIAL_LIFETIME: `${BUNDLE_ID}.social.lifetime`,
+  PREMIUM_LIFETIME: `${BUNDLE_ID}.premium.lifetime`,
 } as const;
 
 /**
@@ -76,6 +86,11 @@ export const PRODUCT_IDS = {
   // Enterprise tier products
   ENTERPRISE_MONTHLY: `${BUNDLE_ID}.enterprise.monthly`,
   ENTERPRISE_YEARLY: `${BUNDLE_ID}.enterprise.yearly`,
+
+  // Lifetime (one-time, non-consumable) — Social and Premium only.
+  // Enterprise is B2B/manual, so it has no self-serve lifetime product.
+  SOCIAL_LIFETIME: `${BUNDLE_ID}.social.lifetime`,
+  PREMIUM_LIFETIME: `${BUNDLE_ID}.premium.lifetime`,
 } as const;
 
 /**
@@ -104,6 +119,8 @@ export const PRODUCT_ID_TO_TIER: Record<ProductId, SubscriptionTier> = {
   [PRODUCT_IDS.PREMIUM_YEARLY]: 'premium',
   [PRODUCT_IDS.ENTERPRISE_MONTHLY]: 'enterprise',
   [PRODUCT_IDS.ENTERPRISE_YEARLY]: 'enterprise',
+  [PRODUCT_IDS.SOCIAL_LIFETIME]: 'social',
+  [PRODUCT_IDS.PREMIUM_LIFETIME]: 'premium',
 };
 
 /**
@@ -115,8 +132,8 @@ export const TIER_TO_PRODUCT_IDS: Record<
   Exclude<SubscriptionTier, 'free' | 'super_admin' | 'developer'>,
   readonly ProductId[]
 > = {
-  social: [PRODUCT_IDS.SOCIAL_MONTHLY, PRODUCT_IDS.SOCIAL_YEARLY],
-  premium: [PRODUCT_IDS.PREMIUM_MONTHLY, PRODUCT_IDS.PREMIUM_YEARLY],
+  social: [PRODUCT_IDS.SOCIAL_MONTHLY, PRODUCT_IDS.SOCIAL_YEARLY, PRODUCT_IDS.SOCIAL_LIFETIME],
+  premium: [PRODUCT_IDS.PREMIUM_MONTHLY, PRODUCT_IDS.PREMIUM_YEARLY, PRODUCT_IDS.PREMIUM_LIFETIME],
   enterprise: [PRODUCT_IDS.ENTERPRISE_MONTHLY, PRODUCT_IDS.ENTERPRISE_YEARLY],
 };
 
@@ -127,7 +144,7 @@ export const TIER_TO_PRODUCT_IDS: Record<
 /**
  * Billing period types
  */
-export type BillingPeriod = 'monthly' | 'yearly';
+export type BillingPeriod = 'monthly' | 'yearly' | 'lifetime';
 
 /**
  * Extract billing period from product ID
@@ -135,6 +152,7 @@ export type BillingPeriod = 'monthly' | 'yearly';
 export function getBillingPeriod(productId: string): BillingPeriod | null {
   if (productId.endsWith('.monthly')) return 'monthly';
   if (productId.endsWith('.yearly')) return 'yearly';
+  if (productId.endsWith('.lifetime')) return 'lifetime';
   return null;
 }
 
@@ -234,6 +252,16 @@ export const DEFAULT_PRICING_AUD = {
     currency: 'AUD',
     displayPrice: '$249.99/year',
     savings: '17%', // vs monthly
+  },
+  [PRODUCT_IDS.SOCIAL_LIFETIME]: {
+    price: 119.99,
+    currency: 'AUD',
+    displayPrice: '$119.99',
+  },
+  [PRODUCT_IDS.PREMIUM_LIFETIME]: {
+    price: 249.99,
+    currency: 'AUD',
+    displayPrice: '$249.99',
   },
 } as const;
 

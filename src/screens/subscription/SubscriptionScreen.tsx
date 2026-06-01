@@ -75,6 +75,7 @@ export default function SubscriptionScreen({ navigation }: Props) {
     // Computed state
     trialDaysRemaining,
     isOnTrial,
+    isLifetime,
     usageItems,
     upgradeConfig,
     isDevSimulationMode,
@@ -179,6 +180,19 @@ export default function SubscriptionScreen({ navigation }: Props) {
         {/* Tier Badge Section */}
         <View style={[styles.section, styles.tierBadgeSection]}>
           <TierBadge size="large" />
+          {isLifetime && (
+            <View
+              style={[styles.lifetimeChip, { backgroundColor: colors.surfaceVariant }]}
+              accessible
+              accessibilityRole="text"
+              accessibilityLabel="Lifetime access"
+            >
+              <Icon source="infinity" size={16} color={colors.textPrimary} />
+              <Text style={[styles.lifetimeChipText, { color: colors.textPrimary }]}>
+                Lifetime access
+              </Text>
+            </View>
+          )}
           {isOnTrial && trialDaysRemaining !== null && (
             <View style={styles.trialBadgeContainer}>
               <TrialBadge daysRemaining={trialDaysRemaining} />
@@ -297,6 +311,19 @@ const styles = StyleSheet.create({
   },
   trialBadgeContainer: {
     marginTop: spacing.md,
+  },
+  lifetimeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+  },
+  lifetimeChipText: {
+    ...typography.small,
+    fontWeight: '600',
   },
   debugSection: {
     marginTop: spacing.lg,

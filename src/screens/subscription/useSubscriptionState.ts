@@ -78,6 +78,20 @@ function getTrialDaysRemaining(trialEndsAt: Date | null): number | null {
 }
 
 /**
+ * A lifetime purchase is an active, paid subscription that never expires
+ * (expires_at is NULL). Free tier also has no expiry, so it is excluded.
+ */
+export function computeIsLifetime(
+  subscription: { status: string; expiresAt: Date | string | null } | null | undefined,
+  tier: SubscriptionTier
+): boolean {
+  if (!subscription) return false;
+  if (subscription.status !== 'active') return false;
+  if (subscription.expiresAt != null) return false;
+  return tier === 'social' || tier === 'premium' || tier === 'enterprise';
+}
+
+/**
  * Build plan features array for PlanComparisonCard
  */
 export function buildPlanFeatures(tierLimits: {
@@ -263,6 +277,11 @@ export function useSubscriptionState() {
   }, [subscription?.trialEndsAt]);
 
   const isOnTrial = subscription?.status === 'trial' && trialDaysRemaining !== null && trialDaysRemaining > 0;
+
+  const isLifetime = useMemo(
+    () => computeIsLifetime(subscription, tier),
+    [subscription, tier]
+  );
 
   // Build usage items for UsageSection
   const usageItems: UsageItem[] = useMemo(() => [
@@ -466,6 +485,7 @@ export function useSubscriptionState() {
     // Computed state
     trialDaysRemaining,
     isOnTrial,
+    isLifetime,
     usageItems,
     upgradeConfig,
     isDevSimulationMode,
