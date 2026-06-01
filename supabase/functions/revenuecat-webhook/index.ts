@@ -88,7 +88,7 @@ const PRODUCT_ID_TO_TIER: Record<string, SubscriptionTier> = {
 };
 
 function isLifetimeProduct(productId: string): boolean {
-  return productId.endsWith('.lifetime');
+  return productId.endsWith('.lifetime') && productId in PRODUCT_ID_TO_TIER;
 }
 
 function mapProductToTier(productId: string): SubscriptionTier {
@@ -243,6 +243,15 @@ async function handleNonRenewingPurchase(
   supabase: ReturnType<typeof createClient>,
   event: RevenueCatWebhookEvent['event']
 ): Promise<WebhookResult> {
+  if (!(event.product_id in PRODUCT_ID_TO_TIER)) {
+    console.warn(`[Webhook] NON_RENEWING_PURCHASE: unknown product_id "${event.product_id}" — ignoring`);
+    return {
+      success: true,
+      message: 'Unknown product, no action taken',
+      userId: event.app_user_id,
+    };
+  }
+
   const tier = mapProductToTier(event.product_id);
 
   // One-time lifetime purchase: never expires.
@@ -283,11 +292,12 @@ async function handleCancellation(
 ): Promise<WebhookResult> {
   // Refund/cancellation of a one-time lifetime purchase: revoke access now.
   if (isLifetimeProduct(event.product_id)) {
+    const now = new Date().toISOString();
     return updateSubscription(supabase, event.app_user_id, {
       tier: 'free',
       status: 'expired',
-      expires_at: new Date().toISOString(),
-      cancelled_at: new Date().toISOString(),
+      expires_at: now,
+      cancelled_at: now,
     });
   }
 
@@ -305,6 +315,16 @@ async function handleExpiration(
   supabase: ReturnType<typeof createClient>,
   event: RevenueCatWebhookEvent['event']
 ): Promise<WebhookResult> {
+  // Non-consumables don't normally expire; never revoke a lifetime grant on EXPIRATION.
+  if (isLifetimeProduct(event.product_id)) {
+    console.warn(`[Webhook] EXPIRATION received for lifetime product "${event.product_id}" — ignoring`);
+    return {
+      success: true,
+      message: 'Lifetime product EXPIRATION ignored',
+      userId: event.app_user_id,
+    };
+  }
+
   return updateSubscription(supabase, event.app_user_id, {
     tier: 'free',
     status: 'expired',
