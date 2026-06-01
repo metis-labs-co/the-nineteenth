@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import WatchConnectivity
+import WidgetKit
 
 /// WCSession client. Receives the phone's `applicationContext` (decoded into a
 /// `WatchSnapshot`) and sends score writes back via `transferUserInfo`
@@ -55,7 +56,20 @@ final class ConnectivityClient: NSObject, ObservableObject, WCSessionDelegate {
             self.snapshot = decoded
             self.hasReceivedContext = true
             self.lastContextSummary = decoded.competitionName
+            self.publishComplicationState(decoded)
         }
+    }
+
+    /// Mirror the live round into the App Group so the complication can show it,
+    /// then ask WidgetKit to refresh.
+    private func publishComplicationState(_ snapshot: WatchSnapshot) {
+        WatchSharedState.write(.init(
+            active: true,
+            hole: snapshot.currentHole,
+            holeCount: snapshot.holes.count,
+            name: snapshot.competitionName
+        ))
+        WidgetCenter.shared.reloadAllTimelines()
     }
 
     func session(
