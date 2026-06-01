@@ -1,4 +1,4 @@
-import { groupGreenCoords, trimLeaderboard } from '../snapshot';
+import { groupGreenCoords, trimLeaderboard, buildWatchSnapshot, BuildSnapshotInput } from '../snapshot';
 
 describe('groupGreenCoords', () => {
   it('groups green coords by hole and type, ignoring any tee poi', () => {
@@ -31,5 +31,40 @@ describe('trimLeaderboard', () => {
     const out = trimLeaderboard(board.slice(0, 3), 'ghost');
     expect(out.map((r) => r.name)).toEqual(['A', 'B', 'C']);
     expect(out.every((r) => !r.isCurrentUser)).toBe(true);
+  });
+});
+
+const baseInput = (): BuildSnapshotInput => ({
+  rev: 7,
+  roundId: 'r1',
+  competitionName: 'Saturday Medal',
+  unit: 'metres',
+  isPremium: true,
+  statFlags: { putts: true, fairways: true, gir: false, penalties: false, bunker: true },
+  currentHole: 7,
+  currentUserId: 'me',
+  holes: [{ hole: 7, par: 4, strokeIndex: 5 }],
+  coords: [{ hole: 7, poiType: 'green_center', latitude: 1, longitude: 2 }],
+  pairPlayers: [{ playerId: 'me', name: 'You', scores: { '7': { strokes: 4, putts: 2 } } }],
+  leaderboard: [{ rank: 1, name: 'You', detail: 'E', playerId: 'me' }],
+});
+
+describe('buildWatchSnapshot', () => {
+  it('builds holes with grouped green coords and a scores map keyed playerId:hole', () => {
+    const snap = buildWatchSnapshot(baseInput());
+    expect(snap.rev).toBe(7);
+    expect(snap.unit).toBe('metres');
+    expect(snap.holes[0].green.center).toEqual({ latitude: 1, longitude: 2 });
+    expect(snap.scores['me:7']).toEqual({ strokes: 4, putts: 2 });
+    expect(snap.pairPlayers).toEqual([{ playerId: 'me', name: 'You' }]);
+  });
+  it('passes through the already-resolved stat flags and isPremium', () => {
+    const snap = buildWatchSnapshot(baseInput());
+    expect(snap.isPremium).toBe(true);
+    expect(snap.statFlags).toEqual({ putts: true, fairways: true, gir: false, penalties: false, bunker: true });
+  });
+  it('trims the leaderboard and marks the current user', () => {
+    const snap = buildWatchSnapshot(baseInput());
+    expect(snap.leaderboard).toEqual([{ rank: 1, name: 'You', detail: 'E', isCurrentUser: true }]);
   });
 });
