@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 import WatchConnectivity
 
 /// Minimal WCSession client for the M0 spike: receives an applicationContext from
