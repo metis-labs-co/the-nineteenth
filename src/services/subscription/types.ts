@@ -57,7 +57,7 @@ export interface SubscriptionProduct {
   description: string;
   price: string;
   currency: string;
-  period: 'monthly' | 'yearly';
+  period: 'monthly' | 'yearly' | 'lifetime';
 }
 
 /**
