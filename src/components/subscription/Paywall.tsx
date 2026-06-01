@@ -58,7 +58,7 @@ export interface PaywallProps {
   initialTier?: PaywallTier;
 }
 
-type BillingPeriod = 'monthly' | 'yearly';
+type BillingPeriod = 'monthly' | 'yearly' | 'lifetime';
 
 // ============================================================================
 // CONSTANTS
@@ -116,13 +116,17 @@ export function Paywall({
   // Get the selected product
   const selectedProduct = useMemo(() => {
     const productId =
-      selectedTier === 'social'
-        ? billingPeriod === 'monthly'
-          ? PRODUCT_IDS.SOCIAL_MONTHLY
-          : PRODUCT_IDS.SOCIAL_YEARLY
-        : billingPeriod === 'monthly'
-          ? PRODUCT_IDS.PREMIUM_MONTHLY
-          : PRODUCT_IDS.PREMIUM_YEARLY;
+      billingPeriod === 'lifetime'
+        ? selectedTier === 'social'
+          ? PRODUCT_IDS.SOCIAL_LIFETIME
+          : PRODUCT_IDS.PREMIUM_LIFETIME
+        : selectedTier === 'social'
+          ? billingPeriod === 'monthly'
+            ? PRODUCT_IDS.SOCIAL_MONTHLY
+            : PRODUCT_IDS.SOCIAL_YEARLY
+          : billingPeriod === 'monthly'
+            ? PRODUCT_IDS.PREMIUM_MONTHLY
+            : PRODUCT_IDS.PREMIUM_YEARLY;
 
     const fetchedProduct = products.find((p) => p.id === productId);
     if (fetchedProduct) return fetchedProduct;
@@ -138,6 +142,8 @@ export function Paywall({
       period: billingPeriod,
     } as SubscriptionProduct;
   }, [selectedTier, billingPeriod, products]);
+
+  const isLifetime = billingPeriod === 'lifetime';
 
   // Handle purchase
   const handlePurchase = useCallback(async () => {
@@ -232,10 +238,12 @@ export function Paywall({
           contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + spacing.xxl }]}
         >
           {/* Free Trial Badge */}
-          <View style={[styles.trialBadge, { backgroundColor: colors.successBackground }]}>
-            <Icon source="gift-outline" size={20} color={colors.success} />
-            <Text style={[styles.trialText, { color: colors.success }]}>{FREE_TRIAL_DAYS}-day free trial</Text>
-          </View>
+          {!isLifetime && (
+            <View style={[styles.trialBadge, { backgroundColor: colors.successBackground }]}>
+              <Icon source="gift-outline" size={20} color={colors.success} />
+              <Text style={[styles.trialText, { color: colors.success }]}>{FREE_TRIAL_DAYS}-day free trial</Text>
+            </View>
+          )}
 
           {/* Tier Selection */}
           <View style={styles.tierSelection}>
@@ -268,6 +276,16 @@ export function Paywall({
                 <Text style={[styles.saveBadgeText, { color: colors.white }]}>Save 33%</Text>
               </View>
             </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.periodOption, billingPeriod === 'lifetime' && { backgroundColor: colors.surface, ...shadows.sm }]}
+              onPress={() => setBillingPeriod('lifetime')}
+              accessibilityRole="button"
+              accessibilityState={{ selected: billingPeriod === 'lifetime' }}
+            >
+              <Text style={[styles.periodText, { color: billingPeriod === 'lifetime' ? colors.textPrimary : colors.textSecondary }]}>
+                Lifetime
+              </Text>
+            </TouchableOpacity>
           </View>
 
           {/* Features List */}
@@ -281,7 +299,7 @@ export function Paywall({
               <>
                 <Text style={[styles.price, { color: colors.textPrimary }]}>{selectedProduct.price}</Text>
                 <Text style={[styles.priceSubtext, { color: colors.textSecondary }]}>
-                  per {billingPeriod === 'monthly' ? 'month' : 'year'}
+                  {isLifetime ? 'one-time payment' : `per ${billingPeriod === 'monthly' ? 'month' : 'year'}`}
                 </Text>
               </>
             )}
@@ -298,13 +316,17 @@ export function Paywall({
             {isPurchasing ? (
               <ActivityIndicator size="small" color={colors.white} />
             ) : (
-              <Text style={[styles.purchaseButtonText, { color: colors.white }]}>Start Free Trial</Text>
+              <Text style={[styles.purchaseButtonText, { color: colors.white }]}>
+                {isLifetime ? 'Buy Lifetime' : 'Start Free Trial'}
+              </Text>
             )}
           </TouchableOpacity>
 
-          <Text style={[styles.trialNote, { color: colors.textSecondary }]}>
-            Cancel anytime during your {FREE_TRIAL_DAYS}-day free trial
-          </Text>
+          {!isLifetime && (
+            <Text style={[styles.trialNote, { color: colors.textSecondary }]}>
+              Cancel anytime during your {FREE_TRIAL_DAYS}-day free trial
+            </Text>
+          )}
 
           <Divider style={[styles.divider, { backgroundColor: colors.border }]} />
 
@@ -328,15 +350,24 @@ export function Paywall({
             </TouchableOpacity>
           </View>
 
-          {/* Subscription Info */}
-          <Text style={[styles.subscriptionInfo, { color: colors.textSecondary }]}>
-            {`The Nineteenth ${selectedProduct.name} (${billingPeriod === 'monthly' ? '1 month' : '1 year'}): ${selectedProduct.price}/${billingPeriod === 'monthly' ? 'month' : 'year'}. `}
-            Includes a {FREE_TRIAL_DAYS}-day free trial. Payment will be charged to your Apple ID account at the
-            confirmation of purchase. Subscription automatically renews unless it is cancelled at least 24 hours before
-            the end of the current period. Your account will be charged for renewal within 24 hours prior to the end of
-            the current period. You can manage and cancel your subscriptions by going to your account settings on the
-            App Store after purchase.
-          </Text>
+          {/* Subscription / Purchase Info */}
+          {isLifetime ? (
+            <Text style={[styles.subscriptionInfo, { color: colors.textSecondary }]}>
+              {`The Nineteenth ${selectedProduct.name} Lifetime: ${selectedProduct.price} (one-time). `}
+              Payment will be charged to your Apple ID account at the confirmation of purchase. This is a
+              one-time, non-renewing purchase that grants permanent access — there is no subscription and
+              nothing to cancel. If you reinstall the app, use &ldquo;Restore Purchases&rdquo; to regain access.
+            </Text>
+          ) : (
+            <Text style={[styles.subscriptionInfo, { color: colors.textSecondary }]}>
+              {`The Nineteenth ${selectedProduct.name} (${billingPeriod === 'monthly' ? '1 month' : '1 year'}): ${selectedProduct.price}/${billingPeriod === 'monthly' ? 'month' : 'year'}. `}
+              Includes a {FREE_TRIAL_DAYS}-day free trial. Payment will be charged to your Apple ID account at the
+              confirmation of purchase. Subscription automatically renews unless it is cancelled at least 24 hours before
+              the end of the current period. Your account will be charged for renewal within 24 hours prior to the end of
+              the current period. You can manage and cancel your subscriptions by going to your account settings on the
+              App Store after purchase.
+            </Text>
+          )}
         </ScrollView>
 
         {/* Confirmation/Error Dialog */}
