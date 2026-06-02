@@ -58,10 +58,15 @@ final class ConnectivityClient: NSObject, ObservableObject, WCSessionDelegate {
         applySnapshotContext(applicationContext)
     }
 
-    /// The phone acks each applied write via `sendMessage`. Surface genuine
-    /// rejections (unauthorized / error) as a retry hint; duplicate/superseded
-    /// are benign and ignored.
-    func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
+    /// The phone acks each write via `sendMessage` (always sent WITH a reply
+    /// handler by react-native-watch-connectivity), so it lands here, not in
+    /// the no-reply variant. Always invoke `replyHandler` to satisfy the phone's
+    /// pending reply; surface genuine rejections (unauthorized / error) as a
+    /// retry hint. duplicate/superseded are benign and ignored.
+    func session(_ session: WCSession,
+                 didReceiveMessage message: [String: Any],
+                 replyHandler: @escaping ([String: Any]) -> Void) {
+        replyHandler([:])
         guard let status = message["status"] as? String else { return }
         if status == "unauthorized" || status == "error" {
             DispatchQueue.main.async { self.saveState = .failed }
@@ -81,6 +86,8 @@ final class ConnectivityClient: NSObject, ObservableObject, WCSessionDelegate {
             return
         }
         DispatchQueue.main.async {
+            // A fresh authoritative snapshot supersedes any prior retry hint.
+            if self.saveState == .failed { self.saveState = .idle }
             self.snapshot = decoded
             self.hasReceivedContext = true
             self.lastContextSummary = decoded.competitionName
