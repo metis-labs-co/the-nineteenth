@@ -16,6 +16,10 @@ export interface WatchPairPlayer { playerId: string; name: string; }
 
 export interface WatchStatFlags {
   putts: boolean; fairways: boolean; gir: boolean; penalties: boolean; bunker: boolean;
+  /** Show fairway miss direction (Premium); when false, fairway is hit/miss only. */
+  fairwayDirection: boolean;
+  /** Show green miss direction (Premium); when false, green is hit/miss only. */
+  greenDirection: boolean;
 }
 
 export interface WatchLeaderboardRow {

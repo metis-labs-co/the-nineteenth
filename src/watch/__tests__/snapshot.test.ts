@@ -72,7 +72,7 @@ const baseInput = (): BuildSnapshotInput => ({
   competitionName: 'Saturday Medal',
   unit: 'metres',
   isPremium: true,
-  statFlags: { putts: true, fairways: true, gir: false, penalties: false, bunker: true },
+  statFlags: { putts: true, fairways: true, gir: false, penalties: false, bunker: true, fairwayDirection: false, greenDirection: false },
   currentHole: 7,
   currentUserId: 'me',
   holes: [{ hole: 7, par: 4, strokeIndex: 5 }],
@@ -93,7 +93,14 @@ describe('buildWatchSnapshot', () => {
   it('passes through the already-resolved stat flags and isPremium', () => {
     const snap = buildWatchSnapshot(baseInput());
     expect(snap.isPremium).toBe(true);
-    expect(snap.statFlags).toEqual({ putts: true, fairways: true, gir: false, penalties: false, bunker: true });
+    expect(snap.statFlags).toEqual({ putts: true, fairways: true, gir: false, penalties: false, bunker: true, fairwayDirection: false, greenDirection: false });
+  });
+  it('passes through the fairway/green miss-direction stat flags', () => {
+    const input = baseInput();
+    input.statFlags = { ...input.statFlags, fairwayDirection: true, greenDirection: true };
+    const snap = buildWatchSnapshot(input);
+    expect(snap.statFlags.fairwayDirection).toBe(true);
+    expect(snap.statFlags.greenDirection).toBe(true);
   });
   it('trims the leaderboard and marks the current user', () => {
     const snap = buildWatchSnapshot(baseInput());

@@ -83,6 +83,8 @@ export function useWatchBridge(opts: UseWatchBridgeOptions = {}) {
     gir: vis.showGreenInRegulation,
     penalties: vis.showHazards,
     bunker: vis.showBunkerShots,
+    fairwayDirection: vis.showFairwayMissDirection,
+    greenDirection: vis.showGreenMissDirection,
   };
 
   // Players the current user is allowed to score. When no scoring pairs are
