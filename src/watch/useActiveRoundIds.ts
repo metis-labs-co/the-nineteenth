@@ -28,15 +28,20 @@ export function useActiveRoundIds(roundId: string | null | undefined): ActiveRou
     // Round course/competition never change once started; cache aggressively.
     staleTime: Infinity,
     queryFn: async (): Promise<ActiveRoundIds> => {
-      const { data, error } = await supabase
+      // The generated select-string typing resolves this row to `never`, so cast
+      // the result to the columns we asked for (mirrors useRoundMetadata's pattern).
+      const { data, error } = (await supabase
         .from('rounds')
         .select('course_id, competition_id')
         .eq('id', roundId as string)
-        .single();
+        .single()) as {
+        data: { course_id: string | null; competition_id: string | null } | null;
+        error: { message: string } | null;
+      };
       if (error) throw error;
       return {
-        courseId: (data?.course_id as string | null) ?? null,
-        competitionId: (data?.competition_id as string | null) ?? null,
+        courseId: data?.course_id ?? null,
+        competitionId: data?.competition_id ?? null,
       };
     },
   });
