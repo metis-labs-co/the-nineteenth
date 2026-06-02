@@ -146,6 +146,10 @@ private struct PlayerScorePage: View {
             : (existing?.fairwayMissDirection ?? (existing?.fairwayHit == false ? "miss" : nil))
         gir = existing?.greenInRegulation == true ? "hit"
             : (existing?.greenMissDirection ?? (existing?.greenInRegulation == false ? "miss" : nil))
+        // If direction mode is off, collapse any stored directional miss to a
+        // plain "miss" so the loaded value matches the hit/miss-only options.
+        if let f = fairway, flags.fairwayDirection != true, f != "hit", f != "miss" { fairway = "miss" }
+        if let g = gir, flags.greenDirection != true, g != "hit", g != "miss" { gir = "miss" }
         hazards = Set((existing?.hazards ?? []).map { $0.type })
     }
 
