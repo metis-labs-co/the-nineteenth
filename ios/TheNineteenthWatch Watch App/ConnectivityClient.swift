@@ -58,6 +58,16 @@ final class ConnectivityClient: NSObject, ObservableObject, WCSessionDelegate {
         applySnapshotContext(applicationContext)
     }
 
+    /// The phone acks each applied write via `sendMessage`. Surface genuine
+    /// rejections (unauthorized / error) as a retry hint; duplicate/superseded
+    /// are benign and ignored.
+    func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
+        guard let status = message["status"] as? String else { return }
+        if status == "unauthorized" || status == "error" {
+            DispatchQueue.main.async { self.saveState = .failed }
+        }
+    }
+
     /// The phone may also use `updateApplicationContext` while reachable; both
     /// land here. Decode into a WatchSnapshot; ignore unrelated dictionaries.
     private func applySnapshotContext(_ context: [String: Any]) {
