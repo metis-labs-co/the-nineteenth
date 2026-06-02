@@ -44,18 +44,25 @@ private struct PlayerScorePage: View {
         ScrollView {
             VStack(spacing: 10) {
                 grossSection
-                if snapshot.isPremium {
-                    if flags.putts { stepperSection(title: "Putts", value: $putts) { commit() } }
-                    if flags.fairways, let hole, hole.par >= 4 {
-                        SegmentSection(title: "Fairway", options: ["hit", "left", "right", "short", "long"], selection: $fairway) { commit() }
-                    }
-                    if flags.gir {
-                        SegmentSection(title: "Green", options: ["hit", "left", "right", "short", "long"], selection: $gir) { commit() }
-                    }
-                    if flags.bunker { stepperSection(title: "Bunker", value: $bunkerShots) { commit() } }
-                    if flags.penalties {
-                        MultiSelectSection(title: "Penalties", options: ["water", "ob", "lateral", "lost_ball"], selection: $hazards) { commit() }
-                    }
+                savedIndicator
+                if flags.putts { stepperSection(title: "Putts", value: $putts) { commit() } }
+                if flags.fairways, let hole, hole.par >= 4 {
+                    SegmentSection(title: "Fairway",
+                                   options: flags.fairwayDirection == true
+                                     ? ["hit", "left", "right", "short", "long"]
+                                     : ["hit", "miss"],
+                                   selection: $fairway) { commit() }
+                }
+                if flags.gir {
+                    SegmentSection(title: "Green",
+                                   options: flags.greenDirection == true
+                                     ? ["hit", "left", "right", "short", "long"]
+                                     : ["hit", "miss"],
+                                   selection: $gir) { commit() }
+                }
+                if flags.bunker { stepperSection(title: "Bunker", value: $bunkerShots) { commit() } }
+                if flags.penalties {
+                    MultiSelectSection(title: "Penalties", options: ["water", "ob", "lateral", "lost_ball"], selection: $hazards) { commit() }
                 }
             }
             .padding(.horizontal)
@@ -94,6 +101,24 @@ private struct PlayerScorePage: View {
         }
     }
 
+    private var savedIndicator: some View {
+        Group {
+            switch connectivity.saveState {
+            case .saved:
+                Label("Saved", systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+            case .failed:
+                Label("Retry", systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+            case .idle:
+                Color.clear
+            }
+        }
+        .font(.caption2)
+        .frame(height: 16) // fixed slot so the layout never reflows
+        .animation(.easeInOut(duration: 0.2), value: connectivity.saveState)
+    }
+
     private func stepperSection(title: String, value: Binding<Int>, onChange: @escaping () -> Void) -> some View {
         VStack(spacing: 4) {
             Text(title).font(.headline)
@@ -117,26 +142,32 @@ private struct PlayerScorePage: View {
         strokes = existing?.strokes ?? hole.par
         putts = existing?.putts ?? 0
         bunkerShots = existing?.bunkerShots ?? 0
-        fairway = existing?.fairwayHit == true ? "hit" : existing?.fairwayMissDirection
-        gir = existing?.greenInRegulation == true ? "hit" : existing?.greenMissDirection
+        fairway = existing?.fairwayHit == true ? "hit"
+            : (existing?.fairwayMissDirection ?? (existing?.fairwayHit == false ? "miss" : nil))
+        gir = existing?.greenInRegulation == true ? "hit"
+            : (existing?.greenMissDirection ?? (existing?.greenInRegulation == false ? "miss" : nil))
         hazards = Set((existing?.hazards ?? []).map { $0.type })
     }
 
     private func buildStat() -> WatchScoreStat? {
-        guard snapshot.isPremium else { return nil }
         var stat = WatchScoreStat()
         if flags.putts { stat.putts = putts }
         if flags.bunker { stat.bunkerShots = bunkerShots }
         if flags.fairways, let fairway {
             stat.fairwayHit = (fairway == "hit")
-            stat.fairwayMissDirection = fairway == "hit" ? nil : fairway
+            stat.fairwayMissDirection =
+                (flags.fairwayDirection == true && fairway != "hit") ? fairway : nil
         }
         if flags.gir, let gir {
             stat.greenInRegulation = (gir == "hit")
-            stat.greenMissDirection = gir == "hit" ? nil : gir
+            stat.greenMissDirection =
+                (flags.greenDirection == true && gir != "hit") ? gir : nil
         }
         if flags.penalties { stat.hazards = hazards.sorted().map { WatchHazard(type: $0) } }
-        return stat
+        // Nil only when no stat category is enabled at all.
+        let empty = stat.putts == nil && stat.bunkerShots == nil && stat.fairwayHit == nil
+            && stat.greenInRegulation == nil && (stat.hazards?.isEmpty ?? true)
+        return empty ? nil : stat
     }
 
     private func commit() {
@@ -225,6 +256,7 @@ private struct SegmentSection: View {
         case "right": return "R"
         case "short": return "S"
         case "long": return "Lo"
+        case "miss": return "✗"
         default: return option
         }
     }
