@@ -16,6 +16,7 @@
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
 		6BA53EEB487046BFA66B9FAF /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 4DD2160D8302474DBB479FD3 /* PrivacyInfo.xcprivacy */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
+		BE2DB7787C5D2C61A5C60AA8 /* TheNineteenthWatch Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 17142D692FCD384B00B49425 /* TheNineteenthWatch Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
 		F1C1D73CD4B934573C80B734 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FE02996BFA20AFD3A8F9F3A /* ExpoModulesProvider.swift */; };
 /* End PBXBuildFile section */
@@ -27,6 +28,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 17142DC52FCD693E00B49425;
 			remoteInfo = TheNineteenthWatchComplicationExtension;
+		};
+		3D6A50880FC55DD181DC94CD /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 83CBB9F71A601CBA00E9B192 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 17142D682FCD384B00B49425;
+			remoteInfo = "TheNineteenthWatch Watch App";
 		};
 /* End PBXContainerItemProxy section */
 
@@ -40,6 +48,17 @@
 				17142DD92FCD693F00B49425 /* TheNineteenthWatchComplicationExtension.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		29B0D2460AE439B447449045 /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				BE2DB7787C5D2C61A5C60AA8 /* TheNineteenthWatch Watch App.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
@@ -238,10 +257,12 @@
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
 				9B9C7A12C79AE619B2B9BE84 /* [CP] Embed Pods Frameworks */,
+				29B0D2460AE439B447449045 /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				26A7C8AA824213BFD71851A5 /* PBXTargetDependency */,
 			);
 			name = TheNineteenth;
 			productName = TheNineteenth;
@@ -578,6 +599,12 @@
 			isa = PBXTargetDependency;
 			target = 17142DC52FCD693E00B49425 /* TheNineteenthWatchComplicationExtension */;
 			targetProxy = 17142DD72FCD693F00B49425 /* PBXContainerItemProxy */;
+		};
+		26A7C8AA824213BFD71851A5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = "TheNineteenthWatch Watch App";
+			target = 17142D682FCD384B00B49425 /* TheNineteenthWatch Watch App */;
+			targetProxy = 3D6A50880FC55DD181DC94CD /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 

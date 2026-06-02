@@ -34,12 +34,13 @@ import type { HoleScore } from '@/types/database/base';
 import { buildWatchSnapshot } from './snapshot';
 import { applyWatchScoreWrite, type ScoreWriteContext } from './scoreWrite';
 import { createWatchConnectivityTransport } from './transport';
+import { useActiveRoundIds } from './useActiveRoundIds';
 import type { WatchScoreWrite, WatchStatFlags } from './types';
 
 export interface UseWatchBridgeOptions {
-  /** Active competition id (enables the leaderboard query when present). */
+  /** Active competition id override (otherwise resolved from the active round). */
   competitionId?: string;
-  /** Active course id (enables the GPS coordinate query when present). */
+  /** Active course id override (otherwise resolved from the active round). */
   courseId?: string;
 }
 
@@ -63,10 +64,17 @@ export function useWatchBridge(opts: UseWatchBridgeOptions = {}) {
   const vis = useStatsVisibilityWithTier();
   const isPremium = useIsPremium();
 
+  // Resolve the active round's course/competition ids so distance-to-green and
+  // leaderboard populate without the caller threading ids through. Explicit
+  // opts win when provided.
+  const resolvedIds = useActiveRoundIds(roundId);
+  const competitionId = opts.competitionId ?? resolvedIds.competitionId ?? '';
+  const courseId = opts.courseId ?? resolvedIds.courseId ?? '';
+
   // Disabled (returns undefined) when ids are absent; defaulted to [].
   const { data: playersToScore = [] } = usePlayersToScore(roundId ?? '', user?.id ?? '');
-  const { data: leaderboard = [] } = useCompetitionLeaderboard(opts.competitionId ?? '');
-  const { data: coords = [] } = useHoleCoordinates(opts.courseId ?? '');
+  const { data: leaderboard = [] } = useCompetitionLeaderboard(competitionId);
+  const { data: coords = [] } = useHoleCoordinates(courseId);
 
   // Map the app's tier-resolved stat visibility to the watch's flag shape.
   const statFlags: WatchStatFlags = {

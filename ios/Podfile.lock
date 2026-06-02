@@ -2553,7 +2553,7 @@ DEPENDENCIES:
   - "React-logger (from `../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.28.5_@react-native-community+cli@12.3.0_@types+react@19.1.17_react@19.1.0/node_modules/react-native/ReactCommon/logger`)"
   - "React-Mapbuffer (from `../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.28.5_@react-native-community+cli@12.3.0_@types+react@19.1.17_react@19.1.0/node_modules/react-native/ReactCommon`)"
   - "React-microtasksnativemodule (from `../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.28.5_@react-native-community+cli@12.3.0_@types+react@19.1.17_react@19.1.0/node_modules/react-native/ReactCommon/react/nativemodule/microtasks`)"
-  - "react-native-google-maps (from `/Users/samkay/Documents/Metis Co/Dev/the-nineteenth/node_modules/.pnpm/react-native-maps@1.20.1_react-native-web@0.21.2_react-dom@19.1.0_react@19.1.0__react@1_ce96a332fac411f2e508b47c074c4a7f/node_modules/react-native-maps`)"
+  - "react-native-google-maps (from `/Users/samkay/Documents/MetisCo/Dev/the-nineteenth/node_modules/.pnpm/react-native-maps@1.20.1_react-native-web@0.21.2_react-dom@19.1.0_react@19.1.0__react@1_ce96a332fac411f2e508b47c074c4a7f/node_modules/react-native-maps`)"
   - "react-native-maps (from `../node_modules/.pnpm/react-native-maps@1.20.1_react-native-web@0.21.2_react-dom@19.1.0_react@19.1.0__react@1_ce96a332fac411f2e508b47c074c4a7f/node_modules/react-native-maps`)"
   - "react-native-netinfo (from `../node_modules/.pnpm/@react-native-community+netinfo@11.4.1_react-native@0.81.5_@babel+core@7.28.5_@react-na_0279da54bd93a3c3f9b9024fb102445a/node_modules/@react-native-community/netinfo`)"
   - "react-native-safe-area-context (from `../node_modules/.pnpm/react-native-safe-area-context@5.6.2_react-native@0.81.5_@babel+core@7.28.5_@react-nati_ab15ec1fb914b1b731f098dbb2cf7e9c/node_modules/react-native-safe-area-context`)"
@@ -2772,7 +2772,7 @@ EXTERNAL SOURCES:
   React-microtasksnativemodule:
     :path: "../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.28.5_@react-native-community+cli@12.3.0_@types+react@19.1.17_react@19.1.0/node_modules/react-native/ReactCommon/react/nativemodule/microtasks"
   react-native-google-maps:
-    :path: "/Users/samkay/Documents/Metis Co/Dev/the-nineteenth/node_modules/.pnpm/react-native-maps@1.20.1_react-native-web@0.21.2_react-dom@19.1.0_react@19.1.0__react@1_ce96a332fac411f2e508b47c074c4a7f/node_modules/react-native-maps"
+    :path: "/Users/samkay/Documents/MetisCo/Dev/the-nineteenth/node_modules/.pnpm/react-native-maps@1.20.1_react-native-web@0.21.2_react-dom@19.1.0_react@19.1.0__react@1_ce96a332fac411f2e508b47c074c4a7f/node_modules/react-native-maps"
   react-native-maps:
     :path: "../node_modules/.pnpm/react-native-maps@1.20.1_react-native-web@0.21.2_react-dom@19.1.0_react@19.1.0__react@1_ce96a332fac411f2e508b47c074c4a7f/node_modules/react-native-maps"
   react-native-netinfo:
