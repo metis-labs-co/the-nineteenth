@@ -1,11 +1,11 @@
 import { PICKUP_SCORE } from '@/constants/scoring';
 import type { HoleScore } from '@/types/database/base';
-import type { WatchScoreWrite, WatchWriteResult } from './types';
+import type { WatchScoreWrite, WatchWriteResult, WatchStatFlags } from './types';
 
 export interface ScoreWriteContext {
   currentUserId: string;
   allowedPlayerIds: Set<string>;
-  isPremium: boolean;
+  statFlags: WatchStatFlags;
   getExisting: (playerId: string, hole: number) => HoleScore | undefined;
   getLastEditedRev: (playerId: string, hole: number) => number; // -1 if never
   seen: Set<string>;
@@ -26,15 +26,16 @@ export async function applyWatchScoreWrite(
   const existing = ctx.getExisting(write.playerId, write.hole) ?? ({} as HoleScore);
   const strokes = write.strokes === 'pickup' ? PICKUP_SCORE : write.strokes;
   const next: HoleScore = { ...existing, strokes, scoredBy: ctx.currentUserId };
-  if (ctx.isPremium && write.stat) {
+  if (write.stat) {
     const s = write.stat;
-    if (s.putts !== undefined) next.putts = s.putts;
-    if (s.fairwayHit !== undefined) next.fairwayHit = s.fairwayHit;
-    if (s.fairwayMissDirection !== undefined) next.fairwayMissDirection = s.fairwayMissDirection;
-    if (s.greenInRegulation !== undefined) next.greenInRegulation = s.greenInRegulation;
-    if (s.greenMissDirection !== undefined) next.greenMissDirection = s.greenMissDirection;
-    if (s.bunkerShots !== undefined) next.bunkerShots = s.bunkerShots;
-    if (s.hazards !== undefined) next.hazards = s.hazards;
+    const f = ctx.statFlags;
+    if (f.putts && s.putts !== undefined) next.putts = s.putts;
+    if (f.fairways && s.fairwayHit !== undefined) next.fairwayHit = s.fairwayHit;
+    if (f.fairwayDirection && s.fairwayMissDirection !== undefined) next.fairwayMissDirection = s.fairwayMissDirection;
+    if (f.gir && s.greenInRegulation !== undefined) next.greenInRegulation = s.greenInRegulation;
+    if (f.greenDirection && s.greenMissDirection !== undefined) next.greenMissDirection = s.greenMissDirection;
+    if (f.bunker && s.bunkerShots !== undefined) next.bunkerShots = s.bunkerShots;
+    if (f.penalties && s.hazards !== undefined) next.hazards = s.hazards;
   }
   await ctx.applyHoleScore(write.playerId, write.hole, next);
   const rev = ctx.nextRev();

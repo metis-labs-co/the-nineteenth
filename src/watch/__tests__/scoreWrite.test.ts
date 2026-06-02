@@ -8,7 +8,7 @@ function makeCtx(over: Partial<ScoreWriteContext> = {}) {
   const ctx: ScoreWriteContext = {
     currentUserId: 'me',
     allowedPlayerIds: new Set(['me', 'p2']),
-    isPremium: true,
+    statFlags: { putts: true, fairways: true, gir: true, penalties: true, bunker: true, fairwayDirection: true, greenDirection: true },
     getExisting: () => undefined,
     getLastEditedRev: () => -1,
     seen: new Set<string>(),
@@ -62,10 +62,17 @@ describe('applyWatchScoreWrite — guards', () => {
       strokes: 4, putts: 2, bunkerShots: 1, hazards: [{ type: 'water' }], scoredBy: 'me',
     });
   });
-  it('drops stat fields entirely when not premium', async () => {
-    const ctx = makeCtx({ isPremium: false });
+  it('drops every stat field when all stat flags are off', async () => {
+    const ctx = makeCtx({ statFlags: { putts: false, fairways: false, gir: false, penalties: false, bunker: false, fairwayDirection: false, greenDirection: false } });
     await applyWatchScoreWrite(write({ stat: { putts: 2 } }), ctx);
     expect((ctx as any)._applied[0].holeScore).toEqual({ strokes: 4, scoredBy: 'me' });
+  });
+  it('persists Social-tier stats (putts/FIR/GIR) but drops Premium-only fields', async () => {
+    const ctx = makeCtx({ statFlags: { putts: true, fairways: true, gir: true, penalties: false, bunker: false, fairwayDirection: false, greenDirection: false } });
+    await applyWatchScoreWrite(write({ stat: { putts: 2, fairwayHit: true, greenInRegulation: false, bunkerShots: 1, hazards: [{ type: 'water' }] } }), ctx);
+    expect((ctx as any)._applied[0].holeScore).toEqual({
+      strokes: 4, putts: 2, fairwayHit: true, greenInRegulation: false, scoredBy: 'me',
+    });
   });
   it('treats a re-sent write as a duplicate after the first apply succeeds (idempotency round-trip)', async () => {
     const ctx = makeCtx();

@@ -108,8 +108,8 @@ export function useWatchBridge(opts: UseWatchBridgeOptions = {}) {
   allowedIdsRef.current = allowedIds;
   const groupScorecardsRef = useRef(groupScorecards);
   groupScorecardsRef.current = groupScorecards;
-  const isPremiumRef = useRef(isPremium);
-  isPremiumRef.current = isPremium;
+  const statFlagsRef = useRef(statFlags);
+  statFlagsRef.current = statFlags;
 
   // ── Effect 1: push snapshot whenever inputs change ────────────────────────
   useEffect(() => {
@@ -176,7 +176,7 @@ export function useWatchBridge(opts: UseWatchBridgeOptions = {}) {
         allowedPlayerIds: new Set(
           allowedIdsRef.current.length ? allowedIdsRef.current : user ? [user.id] : [],
         ),
-        isPremium: isPremiumRef.current,
+        statFlags: statFlagsRef.current,
         getExisting: (playerId, hole) =>
           (groupScorecardsRef.current.get(playerId)?.scores as
             | Record<string, HoleScore>
