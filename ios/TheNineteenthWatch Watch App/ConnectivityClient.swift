@@ -2,6 +2,7 @@ import Foundation
 import Combine
 import WatchConnectivity
 import WidgetKit
+import WatchKit
 
 /// WCSession client. Receives the phone's `applicationContext` (decoded into a
 /// `WatchSnapshot`) and sends score writes back via `transferUserInfo`
@@ -17,6 +18,13 @@ final class ConnectivityClient: NSObject, ObservableObject, WCSessionDelegate {
     /// Kept for the M0 spike screen; harmless once real views take over.
     @Published var lastContextSummary: String = "Waiting for phone…"
 
+    /// Transient outcome of the most recent score write, for UI feedback.
+    enum SaveState: Equatable { case idle, saved(Date), failed }
+    @Published var saveState: SaveState = .idle
+
+    /// Bumped on each send so a stale auto-reset can't clear a newer "saved".
+    private var saveGeneration = 0
+
     private override init() {
         super.init()
         if WCSession.isSupported() {
@@ -28,10 +36,20 @@ final class ConnectivityClient: NSObject, ObservableObject, WCSessionDelegate {
     // MARK: - Sending
 
     /// Send a score write to the phone. Uses `transferUserInfo` for guaranteed
-    /// FIFO delivery that survives disconnects.
+    /// FIFO delivery that survives disconnects. Confirms optimistically — the
+    /// write is queued for delivery even when the phone is unreachable.
     func send(write: WatchScoreWrite) {
         guard let dict = write.asDictionary() else { return }
         WCSession.default.transferUserInfo(dict)
+        DispatchQueue.main.async {
+            self.saveGeneration += 1
+            let gen = self.saveGeneration
+            self.saveState = .saved(Date())
+            WKInterfaceDevice.current().play(.success)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                if self.saveGeneration == gen { self.saveState = .idle }
+            }
+        }
     }
 
     // MARK: - Receiving
