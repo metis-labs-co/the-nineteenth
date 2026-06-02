@@ -32,6 +32,10 @@ struct WatchStatFlags: Codable, Equatable {
     let gir: Bool
     let penalties: Bool
     let bunker: Bool
+    // Optional for backward-compatible decode of older cached snapshots
+    // (missing key -> nil -> treated as false at the call site).
+    let fairwayDirection: Bool?
+    let greenDirection: Bool?
 }
 
 struct WatchLeaderboardRow: Codable, Equatable {
