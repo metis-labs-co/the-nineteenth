@@ -1,52 +1,79 @@
 import SwiftUI
 
-/// Score entry for the players in the user's scoring-pair. Horizontal paging
-/// switches players; vertical scroll reveals optional Premium stat sections.
+/// Score entry. Horizontal paging = holes (kept in sync with the phone's current
+/// hole). Each hole page: a top player picker (for scoring pairs) over a
+/// vertical-scroll gross + stat sections.
 struct ScoreView: View {
     @ObservedObject var connectivity: ConnectivityClient
-    @State private var playerIndex = 0
+    @State private var holeIndex = 0
+    @State private var selectedPlayerIndex = 0
+    @State private var didInitHole = false
 
     private var snapshot: WatchSnapshot? { connectivity.snapshot }
 
     var body: some View {
-        if let snapshot, !snapshot.pairPlayers.isEmpty {
-            TabView(selection: $playerIndex) {
-                ForEach(Array(snapshot.pairPlayers.enumerated()), id: \.element.playerId) { index, player in
-                    PlayerScorePage(connectivity: connectivity, snapshot: snapshot, player: player)
+        if let snapshot, !snapshot.holes.isEmpty, !snapshot.pairPlayers.isEmpty {
+            TabView(selection: $holeIndex) {
+                ForEach(Array(snapshot.holes.enumerated()), id: \.element.hole) { index, hole in
+                    HoleScorePage(connectivity: connectivity, snapshot: snapshot,
+                                  hole: hole, selectedPlayerIndex: $selectedPlayerIndex)
                         .tag(index)
                 }
             }
-            .tabViewStyle(.verticalPage)
+            .tabViewStyle(.page) // horizontal paging = holes
             .navigationTitle("Score")
+            .onAppear {
+                guard !didInitHole else { return }
+                didInitHole = true
+                holeIndex = snapshot.holes.firstIndex { $0.hole == snapshot.currentHole } ?? 0
+            }
+            .onChange(of: snapshot.currentHole) { _, newHole in
+                // Follow phone-initiated navigation.
+                if let i = snapshot.holes.firstIndex(where: { $0.hole == newHole }), i != holeIndex {
+                    holeIndex = i
+                }
+            }
+            .onChange(of: holeIndex) { _, newIndex in
+                // Watch-initiated navigation -> drive the phone (skip the echo
+                // when we just followed the phone).
+                guard snapshot.holes.indices.contains(newIndex) else { return }
+                let hole = snapshot.holes[newIndex].hole
+                if hole != snapshot.currentHole { connectivity.navigate(toHole: hole) }
+            }
         } else {
-            Text("No players to score").foregroundStyle(.secondary)
+            Text("No round to score").foregroundStyle(.secondary)
         }
     }
 }
 
-/// One scrollable page for a single player: gross + optional stat sections.
-private struct PlayerScorePage: View {
+/// One hole's scrollable page: player picker (pairs only) + gross + stat sections.
+private struct HoleScorePage: View {
     @ObservedObject var connectivity: ConnectivityClient
     let snapshot: WatchSnapshot
-    let player: WatchPairPlayer
+    let hole: WatchHole
+    @Binding var selectedPlayerIndex: Int
 
     @State private var strokes: Int? = nil // nil = "—" (not entered)
     @State private var putts: Int = 0
     @State private var bunkerShots: Int = 0
-    @State private var fairway: String? // "hit"|"left"|"right"|"short"|"long"
+    @State private var fairway: String? // "hit"|"left"|"right"|"short"|"long"|"miss"
     @State private var gir: String?
     @State private var hazards: Set<String> = []
 
-    private var hole: WatchHole? { snapshot.currentHoleObject }
     private var flags: WatchStatFlags { snapshot.statFlags }
+    private var player: WatchPairPlayer {
+        let i = min(max(selectedPlayerIndex, 0), snapshot.pairPlayers.count - 1)
+        return snapshot.pairPlayers[i]
+    }
 
     var body: some View {
         ScrollView {
             VStack(spacing: 10) {
+                if snapshot.pairPlayers.count > 1 { playerPicker }
                 grossSection
                 savedIndicator
                 if flags.putts { stepperSection(title: "Putts", value: $putts) { commit() } }
-                if flags.fairways, let hole, hole.par >= 4 {
+                if flags.fairways, hole.par >= 4 {
                     SegmentSection(title: "Fairway",
                                    options: flags.fairwayDirection == true
                                      ? ["hit", "left", "right", "short", "long"]
@@ -69,17 +96,27 @@ private struct PlayerScorePage: View {
             .padding(.vertical, 8)
         }
         .onAppear(perform: loadExisting)
+        .onChange(of: selectedPlayerIndex) { _, _ in loadExisting() }
     }
 
     // MARK: Sections
 
+    private var playerPicker: some View {
+        HStack(spacing: 6) {
+            ForEach(Array(snapshot.pairPlayers.enumerated()), id: \.offset) { i, p in
+                Button(p.name) { selectedPlayerIndex = i }
+                    .font(.caption2)
+                    .lineLimit(1)
+                    .buttonStyle(.bordered)
+                    .tint(selectedPlayerIndex == i ? .brandPrimary : .secondary)
+            }
+        }
+    }
+
     private var grossSection: some View {
         VStack(spacing: 6) {
-            if let hole {
-                Text("Hole \(hole.hole) · Par \(hole.par)")
-                    .font(.caption2).foregroundStyle(.secondary)
-            }
-            Text("Marking: \(player.name)").font(.caption2)
+            Text("Hole \(hole.hole) · Par \(hole.par)")
+                .font(.caption2).foregroundStyle(.secondary)
             HStack(spacing: 12) {
                 StepButton(symbol: "minus") {
                     if let s = strokes { strokes = max(1, s - 1); commit() }
@@ -88,16 +125,14 @@ private struct PlayerScorePage: View {
                     .font(.system(size: 44, weight: .bold))
                     .monospacedDigit()
                     .frame(minWidth: 44)
-                    .foregroundStyle(strokes.flatMap { s in hole.map { Color.score(strokes: s, par: $0.par) } } ?? .primary)
+                    .foregroundStyle(strokes.map { Color.score(strokes: $0, par: hole.par) } ?? .primary)
                 StepButton(symbol: "plus") {
                     strokes = (strokes ?? 0) + 1; commit()
                 }
             }
             HStack(spacing: 8) {
                 QuickButton(label: "Pick up") { commitPickup() }
-                QuickButton(label: "Par", tinted: true) {
-                    if let hole { strokes = hole.par; commit() }
-                }
+                QuickButton(label: "Par", tinted: true) { strokes = hole.par; commit() }
             }
         }
     }
@@ -138,7 +173,6 @@ private struct PlayerScorePage: View {
     // MARK: Load / commit
 
     private func loadExisting() {
-        guard let hole else { return }
         let existing = snapshot.score(playerId: player.playerId, hole: hole.hole)
         strokes = existing?.strokes // nil -> "—"; no par fallback
         putts = existing?.putts ?? 0
@@ -169,7 +203,6 @@ private struct PlayerScorePage: View {
                 (flags.greenDirection == true && gir != "hit") ? gir : nil
         }
         if flags.penalties { stat.hazards = hazards.sorted().map { WatchHazard(type: $0) } }
-        // Nil only when no stat category is enabled at all.
         let empty = stat.putts == nil && stat.bunkerShots == nil && stat.fairwayHit == nil
             && stat.greenInRegulation == nil && (stat.hazards?.isEmpty ?? true)
         return empty ? nil : stat
@@ -185,7 +218,6 @@ private struct PlayerScorePage: View {
     }
 
     private func send(strokes: StrokesValue) {
-        guard let hole else { return }
         let write = WatchScoreWrite(
             clientWriteId: UUID().uuidString,
             ts: Date().timeIntervalSince1970,
