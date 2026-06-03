@@ -17,6 +17,7 @@ struct ScoreView: View {
                 ForEach(Array(snapshot.holes.enumerated()), id: \.element.hole) { index, hole in
                     HoleScorePage(connectivity: connectivity, snapshot: snapshot,
                                   hole: hole, selectedPlayerIndex: $selectedPlayerIndex)
+                        // selection (holeIndex) is positional; tag mirrors the enumeration order
                         .tag(index)
                 }
             }
@@ -62,6 +63,7 @@ private struct HoleScorePage: View {
 
     private var flags: WatchStatFlags { snapshot.statFlags }
     private var player: WatchPairPlayer {
+        // Safe: HoleScorePage is only built when pairPlayers is non-empty (parent guard).
         let i = min(max(selectedPlayerIndex, 0), snapshot.pairPlayers.count - 1)
         return snapshot.pairPlayers[i]
     }
@@ -97,6 +99,9 @@ private struct HoleScorePage: View {
         }
         .onAppear(perform: loadExisting)
         .onChange(of: selectedPlayerIndex) { _, _ in loadExisting() }
+        // Retained neighbor pages don't re-onAppear; resync when this hole's
+        // stored score changes (another scorer / the phone updated it).
+        .onChange(of: snapshot.score(playerId: player.playerId, hole: hole.hole)) { _, _ in loadExisting() }
     }
 
     // MARK: Sections
