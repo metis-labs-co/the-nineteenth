@@ -52,6 +52,19 @@ final class ConnectivityClient: NSObject, ObservableObject, WCSessionDelegate {
         }
     }
 
+    /// Tell the phone to move the active hole. Real-time, so prefer `sendMessage`
+    /// when reachable; fall back to `transferUserInfo` for guaranteed delivery.
+    func navigate(toHole hole: Int) {
+        let msg: [String: Any] = ["type": "navigate", "hole": hole]
+        if WCSession.default.isReachable {
+            WCSession.default.sendMessage(msg, replyHandler: nil) { _ in
+                WCSession.default.transferUserInfo(msg)
+            }
+        } else {
+            WCSession.default.transferUserInfo(msg)
+        }
+    }
+
     // MARK: - Receiving
 
     func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
