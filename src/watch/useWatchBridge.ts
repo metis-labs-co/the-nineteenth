@@ -59,6 +59,7 @@ export function useWatchBridge(opts: UseWatchBridgeOptions = {}) {
   const holes = useScorecardStore((s) => s.holes);
   const groupScorecards = useScorecardStore((s) => s.groupScorecards);
   const updatePlayerHoleScore = useScorecardStore((s) => s.updatePlayerHoleScore);
+  const setCurrentHole = useScorecardStore((s) => s.setCurrentHole);
 
   const unit = useSettingsStore((s) => s.distanceUnit);
   const vis = useStatsVisibilityWithTier();
@@ -201,4 +202,13 @@ export function useWatchBridge(opts: UseWatchBridgeOptions = {}) {
     });
     return off;
   }, [transport, roundId, user, updatePlayerHoleScore]);
+
+  // ── Effect 3: apply inbound hole-navigation from the watch ────────────────
+  useEffect(() => {
+    if (!transport.isSupported() || !roundId || !user) return;
+    const off = transport.onNavigate((nav) => {
+      setCurrentHole(nav.hole);
+    });
+    return off;
+  }, [transport, roundId, user, setCurrentHole]);
 }
