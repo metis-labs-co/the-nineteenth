@@ -38,6 +38,7 @@ import { AchievementToastProvider } from '@/context/AchievementToastContext';
 import { UnifiedToastDisplay } from '@/components/common/Toast';
 import { lightColors, darkColors } from '@/constants/theme';
 import { activeBrand } from '@/config/brands';
+import { useWatchBridge } from '@/watch/useWatchBridge';
 
 const darkBackdrop = require('./assets/images/dark-backdrop-bg.png');
 const lightBackdrop = require('./assets/images/light-backdrop-bg.png');
@@ -167,6 +168,10 @@ const CombinedDarkTheme = {
 
 function AppContent() {
   const { isDark, backdropStyle } = useTheme();
+
+  // Apple Watch companion bridge. No-op on Android / when no watch is paired
+  // (transport.isSupported() === false). Mounted once below all providers.
+  useWatchBridge({});
   const showBackgroundImage = backdropStyle === 'image';
   const backdropSource = isDark ? darkBackdrop : lightBackdrop;
   const fallbackBackground = isDark

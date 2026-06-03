@@ -1,0 +1,20 @@
+[
+  {
+    "name": "same point",
+    "from": { "latitude": -37.8136, "longitude": 144.9631 },
+    "to": { "latitude": -37.8136, "longitude": 144.9631 },
+    "metres": 0
+  },
+  {
+    "name": "~100m north",
+    "from": { "latitude": -37.8136, "longitude": 144.9631 },
+    "to": { "latitude": -37.81270, "longitude": 144.9631 },
+    "metres": 100
+  },
+  {
+    "name": "~150m",
+    "from": { "latitude": -37.8136, "longitude": 144.9631 },
+    "to": { "latitude": -37.81495, "longitude": 144.9631 },
+    "metres": 150
+  }
+]
