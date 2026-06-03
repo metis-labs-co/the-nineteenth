@@ -1,10 +1,19 @@
 import { Platform } from 'react-native';
-import type { WatchSnapshot, WatchScoreWrite, WatchAck } from './types';
+import type { WatchSnapshot, WatchScoreWrite, WatchAck, WatchNavigate } from './types';
+
+export function isWatchNavigate(msg: unknown): msg is WatchNavigate {
+  return (
+    typeof msg === 'object' && msg !== null &&
+    (msg as { type?: unknown }).type === 'navigate' &&
+    typeof (msg as { hole?: unknown }).hole === 'number'
+  );
+}
 
 export interface WatchTransport {
   isSupported(): boolean;
   updateContext(snapshot: WatchSnapshot): void;          // applicationContext
   onMessage(handler: (msg: WatchScoreWrite) => void): () => void; // transferUserInfo + message
+  onNavigate(handler: (nav: WatchNavigate) => void): () => void;
   sendAck(ack: WatchAck): void;                           // sendMessage when reachable
 }
 
@@ -13,6 +22,7 @@ export function createNullTransport(): WatchTransport {
     isSupported: () => false,
     updateContext: () => {},
     onMessage: () => () => {},
+    onNavigate: () => () => {},
     sendAck: () => {},
   };
 }
@@ -24,8 +34,15 @@ export function createWatchConnectivityTransport(): WatchTransport {
     isSupported: () => true,
     updateContext: (snapshot) => rnwc.updateApplicationContext(snapshot as any),
     onMessage: (handler) => {
-      const a = rnwc.watchEvents.addListener('message', (m: any) => handler(m as WatchScoreWrite));
-      const b = rnwc.watchEvents.addListener('user-info', (m: any) => handler(m as WatchScoreWrite));
+      const fwd = (m: any) => { if (!isWatchNavigate(m)) handler(m as WatchScoreWrite); };
+      const a = rnwc.watchEvents.addListener('message', fwd);
+      const b = rnwc.watchEvents.addListener('user-info', fwd);
+      return () => { a(); b(); };
+    },
+    onNavigate: (handler) => {
+      const fwd = (m: any) => { if (isWatchNavigate(m)) handler(m as WatchNavigate); };
+      const a = rnwc.watchEvents.addListener('message', fwd);
+      const b = rnwc.watchEvents.addListener('user-info', fwd);
       return () => { a(); b(); };
     },
     sendAck: (ack) => {

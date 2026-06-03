@@ -65,3 +65,9 @@ export type WatchWriteStatus =
   | 'applied' | 'duplicate' | 'superseded' | 'unauthorized' | 'error';
 export interface WatchWriteResult { status: WatchWriteStatus; clientWriteId: string; rev?: number; }
 export interface WatchAck { clientWriteId: string; status: WatchWriteStatus; rev: number; }
+
+/** Watch → phone: move the active hole. Discriminated from score writes by `type`. */
+export interface WatchNavigate {
+  type: 'navigate';
+  hole: number;
+}
