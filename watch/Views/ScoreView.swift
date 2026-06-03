@@ -30,7 +30,7 @@ private struct PlayerScorePage: View {
     let snapshot: WatchSnapshot
     let player: WatchPairPlayer
 
-    @State private var strokes: Int = 0
+    @State private var strokes: Int? = nil // nil = "—" (not entered)
     @State private var putts: Int = 0
     @State private var bunkerShots: Int = 0
     @State private var fairway: String? // "hit"|"left"|"right"|"short"|"long"
@@ -82,15 +82,15 @@ private struct PlayerScorePage: View {
             Text("Marking: \(player.name)").font(.caption2)
             HStack(spacing: 12) {
                 StepButton(symbol: "minus") {
-                    strokes = max(1, strokes - 1); commit()
+                    if let s = strokes { strokes = max(1, s - 1); commit() }
                 }
-                Text("\(strokes)")
+                Text(strokes.map(String.init) ?? "—")
                     .font(.system(size: 44, weight: .bold))
                     .monospacedDigit()
                     .frame(minWidth: 44)
-                    .foregroundStyle(hole.map { Color.score(strokes: strokes, par: $0.par) } ?? .primary)
+                    .foregroundStyle(strokes.flatMap { s in hole.map { Color.score(strokes: s, par: $0.par) } } ?? .primary)
                 StepButton(symbol: "plus") {
-                    strokes += 1; commit()
+                    strokes = (strokes ?? 0) + 1; commit()
                 }
             }
             HStack(spacing: 8) {
@@ -140,7 +140,7 @@ private struct PlayerScorePage: View {
     private func loadExisting() {
         guard let hole else { return }
         let existing = snapshot.score(playerId: player.playerId, hole: hole.hole)
-        strokes = existing?.strokes ?? hole.par
+        strokes = existing?.strokes // nil -> "—"; no par fallback
         putts = existing?.putts ?? 0
         bunkerShots = existing?.bunkerShots ?? 0
         fairway = existing?.fairwayHit == true ? "hit"
@@ -176,7 +176,8 @@ private struct PlayerScorePage: View {
     }
 
     private func commit() {
-        send(strokes: .number(strokes))
+        guard let s = strokes else { return }
+        send(strokes: .number(s))
     }
 
     private func commitPickup() {
