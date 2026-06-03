@@ -22,7 +22,7 @@ struct LeaderboardView: View {
                         Spacer()
                         Text(row.detail).monospacedDigit()
                     }
-                    .foregroundStyle(row.isCurrentUser ? Color.green : Color.primary)
+                    .foregroundStyle(row.isCurrentUser ? Color.brandPrimary : Color.primary)
                 }
             }
         }

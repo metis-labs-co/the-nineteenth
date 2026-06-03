@@ -88,6 +88,7 @@ private struct PlayerScorePage: View {
                     .font(.system(size: 44, weight: .bold))
                     .monospacedDigit()
                     .frame(minWidth: 44)
+                    .foregroundStyle(hole.map { Color.score(strokes: strokes, par: $0.par) } ?? .primary)
                 StepButton(symbol: "plus") {
                     strokes += 1; commit()
                 }
@@ -106,10 +107,10 @@ private struct PlayerScorePage: View {
             switch connectivity.saveState {
             case .saved:
                 Label("Saved", systemImage: "checkmark.circle.fill")
-                    .foregroundStyle(.green)
+                    .foregroundStyle(Color.brandSuccess)
             case .failed:
                 Label("Retry", systemImage: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(Color.brandWarning)
             case .idle:
                 Color.clear
             }
@@ -211,7 +212,7 @@ private struct StepButton: View {
                 .frame(width: 44, height: 44)
         }
         .buttonStyle(.borderedProminent)
-        .tint(tinted ? .green : .gray)
+        .tint(tinted ? .brandPrimary : .gray)
         .clipShape(RoundedRectangle(cornerRadius: 13))
     }
 }
@@ -225,7 +226,7 @@ private struct QuickButton: View {
             Text(label).font(.caption).frame(maxWidth: .infinity)
         }
         .buttonStyle(.bordered)
-        .tint(tinted ? .green : .secondary)
+        .tint(tinted ? .brandPrimary : .secondary)
     }
 }
 
@@ -247,7 +248,7 @@ private struct SegmentSection: View {
                     }
                     .font(.caption2)
                     .buttonStyle(.bordered)
-                    .tint(selection == option ? .green : .secondary)
+                    .tint(selection == option ? .brandPrimary : .secondary)
                 }
             }
         }
@@ -284,7 +285,7 @@ private struct MultiSelectSection: View {
                     }
                     .font(.caption2)
                     .buttonStyle(.bordered)
-                    .tint(selection.contains(option) ? .orange : .secondary)
+                    .tint(selection.contains(option) ? .brandWarning : .secondary)
                 }
             }
         }
