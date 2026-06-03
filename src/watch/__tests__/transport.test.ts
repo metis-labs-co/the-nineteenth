@@ -23,4 +23,8 @@ describe('isWatchNavigate', () => {
     expect(isWatchNavigate({ type: 'navigate' })).toBe(false); // missing hole
     expect(isWatchNavigate({ type: 'other', hole: 1 })).toBe(false);
   });
+  it('returns false for a non-integer hole', () => {
+    expect(isWatchNavigate({ type: 'navigate', hole: 1.5 })).toBe(false);
+    expect(isWatchNavigate({ type: 'navigate', hole: NaN })).toBe(false);
+  });
 });

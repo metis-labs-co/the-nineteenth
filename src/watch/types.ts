@@ -51,6 +51,8 @@ export interface WatchScoreStat {
 }
 
 export interface WatchScoreWrite {
+  /** Discriminant: score writes never carry a `type`; see WatchNavigate. */
+  type?: never;
   clientWriteId: string;
   ts: number;
   baseRev: number; // rev of the snapshot the watch edited from
