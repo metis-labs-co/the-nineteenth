@@ -35,12 +35,21 @@ final class ConnectivityClient: NSObject, ObservableObject, WCSessionDelegate {
 
     // MARK: - Sending
 
-    /// Send a score write to the phone. Uses `transferUserInfo` for guaranteed
-    /// FIFO delivery that survives disconnects. Confirms optimistically — the
-    /// write is queued for delivery even when the phone is unreachable.
+    /// Send a score write to the phone. Prefer `sendMessage` when reachable for
+    /// immediate delivery (live scoring); fall back to `transferUserInfo` for
+    /// guaranteed FIFO delivery that survives disconnects. `transferUserInfo`
+    /// alone is a background/queued transfer that is not delivered in the watchOS
+    /// simulator and can lag on device, so it is the offline fallback, not the
+    /// primary path. Confirms optimistically.
     func send(write: WatchScoreWrite) {
         guard let dict = write.asDictionary() else { return }
-        WCSession.default.transferUserInfo(dict)
+        if WCSession.default.isReachable {
+            WCSession.default.sendMessage(dict, replyHandler: nil) { _ in
+                WCSession.default.transferUserInfo(dict)
+            }
+        } else {
+            WCSession.default.transferUserInfo(dict)
+        }
         DispatchQueue.main.async {
             self.saveGeneration += 1
             let gen = self.saveGeneration
