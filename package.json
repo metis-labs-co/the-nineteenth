@@ -20,7 +20,9 @@
     "storybook": "STORYBOOK_ENABLED=true expo start",
     "storybook:ios": "STORYBOOK_ENABLED=true expo run:ios",
     "storybook:android": "STORYBOOK_ENABLED=true expo run:android",
-    "generate-icons": "node scripts/generate-icons.js"
+    "generate-icons": "node scripts/generate-icons.js",
+    "inject-maps-key": "node scripts/inject-maps-key.js",
+    "eas-build-post-install": "node scripts/inject-maps-key.js"
   },
   "dependencies": {
     "@expo/metro-runtime": "^6.1.2",

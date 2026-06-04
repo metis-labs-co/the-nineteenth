@@ -62,7 +62,10 @@ docs/
 !README.md
 
 # Development tools
-scripts/
+# Exclude scripts/ EXCEPT the build-time secret injector, which the
+# eas-build-post-install hook runs on the builder.
+scripts/*
+!scripts/inject-maps-key.js
 .vscode/
 .idea/
 *.iml
