@@ -95,8 +95,11 @@ Fetches the competition's scorecards and course data via existing queries, calls
 
 ### 4. Navigation
 
-Add a route to the relevant navigator (`src/navigation/types.ts`) and an entry
-point from the competition detail screen.
+Add a route to the relevant navigator (`src/navigation/types.ts`). Two entry
+points:
+
+- A **tab** on the competition (alongside the existing leaderboard / rounds tabs).
+- A **button / link** on the competition detail screen.
 
 ## Edge cases
 
