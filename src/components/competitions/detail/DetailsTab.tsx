@@ -136,13 +136,17 @@ export const DetailsTab = React.memo(function DetailsTab({
       {onViewRinger && (
         <TouchableOpacity
           onPress={onViewRinger}
-          style={[styles.ringerCta, shadows.sm, { backgroundColor: colors.surface }]}
+          style={[
+            styles.ringerCta,
+            shadows.sm,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+          ]}
           accessibilityRole="button"
           accessibilityLabel="View ringer board"
         >
           <Icon source="trophy-outline" size={22} color={colors.primary} />
           <View style={styles.ringerCtaText}>
-            <Text style={[typography.body, { color: colors.textPrimary, fontWeight: '600' }]}>
+            <Text style={[typography.body, styles.ringerCtaTitle, { color: colors.textPrimary }]}>
               Ringer Board
             </Text>
             <Text style={[typography.caption, { color: colors.textSecondary }]}>
@@ -192,10 +196,14 @@ const styles = StyleSheet.create({
     minHeight: 44,
     padding: spacing.md,
     borderRadius: borderRadius.lg,
+    borderWidth: 1,
     marginBottom: spacing.md,
   },
   ringerCtaText: {
     flex: 1,
+  },
+  ringerCtaTitle: {
+    fontWeight: '600',
   },
 });
 
