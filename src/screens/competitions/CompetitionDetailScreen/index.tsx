@@ -38,6 +38,7 @@ import {
   PayoutsTab,
   SkinsTab,
 } from '@/components/competitions/detail';
+import { RingerBoard } from '@/components/competitions/ringer';
 import { useCompetitionSkinsGames } from '@/hooks/skins';
 import { BracketTab } from '@/components/knockout';
 import { PointsBreakdownModal, LeaderboardViewToggle } from '@/components/leaderboard';
@@ -59,7 +60,8 @@ type TabValue =
   | 'bracket'
   | 'stats'
   | 'payouts'
-  | 'skins';
+  | 'skins'
+  | 'ringer';
 
 export default function CompetitionDetailScreen({ navigation, route }: Props) {
   const colors = useThemeColors();
@@ -231,6 +233,15 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
     );
   }, [competitionData]);
 
+  // Ringer board needs at least one non-scramble round to draw from.
+  const showRingerTab = useMemo(
+    () =>
+      (competitionData?.rounds ?? []).some(
+        (r) => r.team_format !== 'scramble' && r.game_type !== 'scramble'
+      ),
+    [competitionData]
+  );
+
   // Once the competition is live, surface standings earlier — leaderboard (or
   // bracket for knockouts) jumps to the 3rd tab so players can see results
   // without scrolling past Players/Teams/Stats.
@@ -335,6 +346,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
           { key: 'players', label: 'Players', count: players.length },
           ...(competition.team_mode !== 'none' ? [{ key: 'teams' as const, label: 'Teams' }] : []),
           ...(showStatsTab ? [{ key: 'stats' as const, label: 'Stats' }] : []),
+          ...(showRingerTab ? [{ key: 'ringer' as const, label: 'Ringer' }] : []),
           ...(!promoteLeaderboard
             ? [
                 competition.competition_type === 'knockout'
@@ -415,6 +427,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
             onViewTeams={
               competition.team_mode !== 'none' ? () => setActiveTab('teams') : undefined
             }
+            onViewRinger={showRingerTab ? () => setActiveTab('ringer') : undefined}
             onScoreRound={handleScoreRound}
             onViewRound={handleViewRound}
           />
@@ -519,6 +532,10 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
 
         {activeTab === 'skins' && hasSkinsGames && (
           <SkinsTab competitionId={id} />
+        )}
+
+        {activeTab === 'ringer' && showRingerTab && (
+          <RingerBoard competitionId={id} />
         )}
       </ScrollView>
 
