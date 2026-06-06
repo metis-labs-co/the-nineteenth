@@ -1,5 +1,5 @@
 // src/components/competitions/ringer/RingerBoard.tsx
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { View, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { ErrorState } from '@/components/common';
@@ -31,8 +31,11 @@ export function RingerBoard({ competitionId }: RingerBoardProps) {
     return map;
   }, [board]);
 
-  const shortNameFor = (playerId: string | null) =>
-    playerId ? (shortNameById.get(playerId) ?? '—') : '—';
+  const shortNameFor = useCallback(
+    (playerId: string | null) =>
+      playerId ? (shortNameById.get(playerId) ?? '—') : '—',
+    [shortNameById]
+  );
 
   if (isLoading) {
     return (
@@ -177,5 +180,3 @@ const styles = StyleSheet.create({
   position: { width: 32 },
   name: { flex: 1 },
 });
-
-export default RingerBoard;

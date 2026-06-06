@@ -83,5 +83,3 @@ const styles = StyleSheet.create({
     maxWidth: 52,
   },
 });
-
-export default RingerScorecard;
