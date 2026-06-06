@@ -60,7 +60,14 @@ cached scores.
 
 ## Components
 
-### 1. Pure computation — `src/utils/scoring/ringer.ts`
+> **As-built note (2026-06-06):** implemented under `src/utils/ringer/` (not
+> `src/utils/scoring/ringer.ts`). The UI is an in-tab component
+> (`src/components/competitions/ringer/RingerBoard.tsx`) rendered inside the
+> existing competition detail screen, plus a CTA button — **no standalone screen
+> or new navigation route was needed.** Source tags use a `sourceRoundLabel`
+> string (e.g. `R2`) rather than `sourceRoundId`.
+
+### 1. Pure computation — `src/utils/ringer/computeRingerBoard.ts`
 
 A pure function `computeRingerBoard` taking the competition's scorecards + course
 data (par / stroke index per hole) and returning both boards plus per-hole source
@@ -105,8 +112,11 @@ points:
 
 - **Picked-up / unplayed hole** in a round → 0 points; simply won't win that hole.
 - **Player missed a round** → only their played rounds are pooled.
-- **Rounds in progress** → board is live and updates as scores sync; UI indicates
-  which rounds are currently included.
+- **Rounds in progress** → the board includes only **completed/confirmed**
+  scorecards. (Rationale: `daily_handicap_used` — the per-round strokes received —
+  is only populated when a scorecard is finished; an in-progress card would
+  otherwise score at scratch.) So the board updates as each round is *finished*,
+  not per-hole as scores sync.
 - **Ties** → shared position, consistent with existing leaderboards.
 
 ## Testing
