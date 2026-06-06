@@ -72,3 +72,14 @@ export const scoreMismatchKeys = {
   submissionStatus: (roundId: string, playerId: string) =>
     [...scoreMismatchKeys.all, 'submission', roundId, playerId] as const,
 } as const;
+
+// =====================================================
+// RINGER BOARD
+// =====================================================
+
+export const ringerKeys = {
+  all: ['ringer'] as const,
+  competition: (competitionId: string) => [...ringerKeys.all, 'competition', competitionId] as const,
+  roundHoles: (roundId: string) => [...ringerKeys.all, 'roundHoles', roundId] as const,
+  teams: (competitionId: string) => [...ringerKeys.all, 'teams', competitionId] as const,
+} as const;
