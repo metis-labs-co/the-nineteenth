@@ -27,7 +27,11 @@ export interface RingerTeamInput {
 /** A single hole of a composite ringer round. */
 export interface RingerHole {
   hole: number; // 1..18
-  /** Best Stableford points for this hole (0 if the participant has no score). */
+  /**
+   * Best Stableford points for this hole (0 if the participant has no score).
+   * Check `sourceRoundLabel === null` to distinguish a genuine 0 net points
+   * from a hole where no score was recorded.
+   */
   points: number;
   /** Which round the best came from, e.g. 'R2'; null when no score exists. */
   sourceRoundLabel: string | null;
@@ -58,6 +62,13 @@ export interface RingerBoardResult {
   holeNumbers: number[];
 }
 
+/**
+ * Input for building individual and team ringer boards.
+ *
+ * Note: rounds are expected to cover the same set of holes; `holeNumbers` in
+ * the result is their union, so a participant with no score on a hole gets
+ * 0 points and a null `sourceRoundLabel`.
+ */
 export interface ComputeRingerBoardInput {
   rounds: RingerRoundInput[];
   players: RingerPlayerMeta[];

@@ -82,18 +82,18 @@ export function computeRingerBoard(input: ComputeRingerBoardInput): RingerBoardR
 
   const individuals: RingerEntry[] = players.map((player) => {
     const holes: RingerHole[] = holeNumbers.map((holeNumber) => {
-      let best = -1;
+      let best: number | null = null;
       let sourceRoundLabel: string | null = null;
       for (const ctx of roundCtxs) {
         const pts = pointsForPlayer(ctx, player.playerId, holeNumber);
-        if (pts !== null && pts > best) {
+        if (pts !== null && (best === null || pts > best)) {
           best = pts;
           sourceRoundLabel = ctx.round.roundLabel;
         }
       }
       return {
         hole: holeNumber,
-        points: best < 0 ? 0 : best,
+        points: best ?? 0,
         sourceRoundLabel,
         sourcePlayerId: sourceRoundLabel ? player.playerId : null,
       };
@@ -112,20 +112,20 @@ export function computeRingerBoard(input: ComputeRingerBoardInput): RingerBoardR
 
   const teamEntries: RingerEntry[] = teams.map((team) => {
     const holes: RingerHole[] = holeNumbers.map((holeNumber) => {
-      let best = -1;
+      let best: number | null = null;
       let sourceRoundLabel: string | null = null;
       let sourcePlayerId: string | null = null;
       for (const ctx of roundCtxs) {
         for (const memberId of team.memberPlayerIds) {
           const pts = pointsForPlayer(ctx, memberId, holeNumber);
-          if (pts !== null && pts > best) {
+          if (pts !== null && (best === null || pts > best)) {
             best = pts;
             sourceRoundLabel = ctx.round.roundLabel;
             sourcePlayerId = memberId;
           }
         }
       }
-      return { hole: holeNumber, points: best < 0 ? 0 : best, sourceRoundLabel, sourcePlayerId };
+      return { hole: holeNumber, points: best ?? 0, sourceRoundLabel, sourcePlayerId };
     });
     return {
       participantId: team.teamId,
