@@ -4,19 +4,24 @@ import SwiftUI
 struct TheNineteenthWatchApp: App {
     @StateObject private var connectivity = ConnectivityClient.shared
     @StateObject private var location = LocationProvider()
+    @StateObject private var workout = WorkoutController()
 
     var body: some Scene {
         WindowGroup {
-            RootView(connectivity: connectivity, location: location)
+            RootView(connectivity: connectivity, location: location, workout: workout)
         }
     }
 }
 
 /// When a round is live, open straight to Distance (the most-used screen) with a
 /// toolbar button to the round menu. Otherwise show the empty state.
+///
+/// A live round also runs a workout session (`WorkoutController`) to keep the app
+/// foregrounded for the duration of play instead of returning to the clock face.
 struct RootView: View {
     @ObservedObject var connectivity: ConnectivityClient
     @ObservedObject var location: LocationProvider
+    @ObservedObject var workout: WorkoutController
 
     var body: some View {
         NavigationStack {
@@ -34,6 +39,11 @@ struct RootView: View {
             } else {
                 NowPlayingView(connectivity: connectivity, location: location)
             }
+        }
+        // Keep the app alive while a round is live; release it when the round ends.
+        .onAppear { if connectivity.snapshot != nil { workout.start() } }
+        .onChange(of: connectivity.snapshot != nil) { _, live in
+            if live { workout.start() } else { workout.stop() }
         }
     }
 }
