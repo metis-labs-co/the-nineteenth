@@ -123,6 +123,7 @@ export const allQueryKeys = [
   skinsKeys.all,
   wolfKeys.all,
   scoreMismatchKeys.all,
+  ringerKeys.all,
   knockoutKeys.all,
   leagueKeys.all,
   shotLogKeys.all,
