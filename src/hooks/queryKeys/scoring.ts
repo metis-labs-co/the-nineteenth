@@ -81,5 +81,6 @@ export const ringerKeys = {
   all: ['ringer'] as const,
   competition: (competitionId: string) => [...ringerKeys.all, 'competition', competitionId] as const,
   roundHoles: (roundId: string) => [...ringerKeys.all, 'roundHoles', roundId] as const,
+  scorecards: (roundId: string) => [...ringerKeys.all, 'scorecards', roundId] as const,
   teams: (competitionId: string) => [...ringerKeys.all, 'teams', competitionId] as const,
 } as const;

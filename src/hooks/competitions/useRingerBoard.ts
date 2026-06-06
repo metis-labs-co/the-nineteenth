@@ -23,7 +23,9 @@ function isScramble(round: { team_format?: string | null; game_type?: string }):
 }
 
 /**
- * Fetch completed scorecards for a round from Supabase.
+ * Fetch only finished (completed/confirmed) scorecards for a round from Supabase.
+ * In-progress scorecards are excluded because `daily_handicap_used` is only
+ * populated once a scorecard is finished; incomplete cards would score at scratch.
  * Returns DB-typed scorecards (snake_case) so fields like
  * `player_id` and `daily_handicap_used` are present for the ringer engine.
  */
@@ -31,7 +33,8 @@ async function fetchRingerScorecards(roundId: string): Promise<DBScorecard[]> {
   const { data, error } = await supabase
     .from('scorecards')
     .select('*')
-    .eq('round_id', roundId);
+    .eq('round_id', roundId)
+    .in('status', ['completed', 'confirmed']);
 
   if (error) {
     throw new Error(`Failed to fetch scorecards for round ${roundId}: ${error.message}`);
@@ -65,7 +68,7 @@ export function useRingerBoard(competitionId: string | undefined): UseRingerBoar
 
   const scorecardResults = useQueries({
     queries: qualifyingRounds.map((r) => ({
-      queryKey: [...ringerKeys.all, 'scorecards', r.id] as const,
+      queryKey: ringerKeys.scorecards(r.id),
       queryFn: () => fetchRingerScorecards(r.id),
       staleTime: 1000 * 60 * 5,
       gcTime: 1000 * 60 * 30,
@@ -118,7 +121,7 @@ export function useRingerBoard(competitionId: string | undefined): UseRingerBoar
 
     const players = (compData?.players ?? []).map((cp) => ({
       playerId: cp.player_id,
-      name: (cp as { player?: { name?: string } | null }).player?.name ?? 'Unknown',
+      name: cp.player?.name ?? 'Unknown',
     }));
 
     const teamInputs = (teams ?? []).map((t) => ({
@@ -141,8 +144,8 @@ export function useRingerBoard(competitionId: string | undefined): UseRingerBoar
   ]);
 
   const refetch = () => {
-    refetchComp?.();
-    refetchTeams?.();
+    refetchComp();
+    refetchTeams();
     scorecardResults.forEach((q) => q.refetch());
     holeResults.forEach((q) => q.refetch());
   };
