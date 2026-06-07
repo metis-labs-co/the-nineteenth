@@ -75,8 +75,11 @@ export const ProfileMenuSection = React.memo(function ProfileMenuSection({
   const checkFeature = useCheckFeature();
   const { isSuperAdmin } = useSubscription();
 
-  // Check which features are locked for current tier
-  const isHandicapHistoryLocked = !checkFeature('handicap_history').allowed;
+  // Check which features are locked for current tier.
+  // Handicap History is intentionally not gated here: the current Social
+  // Handicap Index is available on all tiers, so every user can open the
+  // screen. The deeper round history/trend chart inside it stays gated by
+  // the `handicap_history` FeatureLock on the screen itself.
   const isManageGuestsLocked = !checkFeature('manage_guests').allowed;
   const isDetailedStatsLocked = !checkFeature('detailed_stats').allowed;
   const isGameResultsLocked = !checkFeature('skins_game').allowed;
@@ -126,8 +129,7 @@ export const ProfileMenuSection = React.memo(function ProfileMenuSection({
           <MenuItemRow
             icon="chart-timeline-variant"
             title="Handicap History"
-            onPress={isHandicapHistoryLocked ? onSubscription : onHandicapHistory}
-            rightContent={isHandicapHistoryLocked ? renderLockBadge('handicap_history') : undefined}
+            onPress={onHandicapHistory}
             testID="menu-handicap-history"
           />
           <MenuItemRow

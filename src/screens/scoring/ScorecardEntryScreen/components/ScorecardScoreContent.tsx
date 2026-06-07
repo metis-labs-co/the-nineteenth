@@ -41,7 +41,7 @@ import { useSettingsStore } from '@/store/settingsStore';
 export interface PlayerHandicapDisplay {
   /** Effective HC used for scoring calculations */
   playingHandicap: number;
-  /** Rounded daily handicap (null if not applied -- Free tier or no tee data) */
+  /** Rounded daily handicap (null if not applied -- no tee/rating data) */
   dailyHandicap: number | null;
   /** Raw decimal base value (profile HC or social index) */
   baseHandicap: number;
@@ -104,7 +104,7 @@ export interface ScorecardScoreContentProps {
    *  Drives whether the best-ball compact view shows its per-player stats
    *  button. */
   anyStatsVisible?: boolean;
-  // Playing handicap display info (daily HC for Social+, raw HC for Free)
+  // Playing handicap display info (daily HC when tee/rating data is available)
   playerHandicapMap?: Map<string, PlayerHandicapDisplay>;
   // Tee dot indicators (shown when players play from different tees)
   showTeeDots?: boolean;
@@ -168,7 +168,7 @@ export function ScorecardScoreContent({
   showFIR = false,
   showGIR = false,
   anyStatsVisible = false,
-  // Playing handicap display info (daily HC for Social+, raw HC for Free)
+  // Playing handicap display info (daily HC when tee/rating data is available)
   playerHandicapMap,
   // Tee dot indicators
   showTeeDots = false,
@@ -239,7 +239,7 @@ export function ScorecardScoreContent({
     [handleShotContributionsChange]
   );
 
-  // Helper: get the playing handicap for a player (daily HC if Social+, raw otherwise)
+  // Helper: get the playing handicap for a player (daily HC when tee data is available, raw otherwise)
   const getHandicap = useCallback(
     (player: Player): number => playerHandicapMap?.get(player.id)?.playingHandicap ?? player.handicap ?? 0,
     [playerHandicapMap]
