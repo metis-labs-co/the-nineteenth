@@ -67,7 +67,8 @@ Tier hierarchy (low → high): `free < social < premium < enterprise < super_adm
 | Basic stats (rounds, points) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Detailed stats (par type, putting, short game) | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Score distribution | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Handicap history | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Social Handicap Index (current value) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Handicap history (round-by-round + trend chart) | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Achievement leaderboard | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Advanced analytics & trends | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
 | **AI Features** | | | | | | |

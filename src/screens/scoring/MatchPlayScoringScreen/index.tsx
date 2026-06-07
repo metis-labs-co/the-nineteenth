@@ -168,7 +168,7 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
 
   const currentHoleData = safeHoles[currentHole - 1];
 
-  // Calculate playing handicap + display info for both players (daily HC if Social tier+)
+  // Calculate playing handicap + display info for both players (daily HC when tee/rating data is available)
   const teeData = storeTeeData || selectedTeeBox;
   const baseLabel = handicapSource === 'calculated' ? 'SHC' : 'HC';
 

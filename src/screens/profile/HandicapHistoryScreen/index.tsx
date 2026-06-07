@@ -125,13 +125,6 @@ export default function HandicapHistoryScreen({ navigation }: Props) {
 
     return (
       <View>
-        {/* Handicap Index Card */}
-        <HandicapIndexCard
-          handicapIndex={summary.handicapIndex}
-          totalRounds={summary.totalRounds}
-          qualifyingCount={summary.qualifyingRoundsCount}
-        />
-
         {/* Differential trend chart */}
         {summary.rounds.length > 0 && (
           <HandicapTrendChart rounds={summary.rounds} />
@@ -215,6 +208,18 @@ export default function HandicapHistoryScreen({ navigation }: Props) {
         ]}
       />
 
+      {/* Current Social Handicap Index — available on all tiers. The index is
+          calculated from app rounds regardless of subscription; only the deeper
+          round-by-round history, trend chart and combinable pairs are gated. */}
+      <View style={styles.indexCardWrapper}>
+        <HandicapIndexCard
+          handicapIndex={summary.handicapIndex}
+          totalRounds={summary.totalRounds}
+          qualifyingCount={summary.qualifyingRoundsCount}
+        />
+      </View>
+
+      {/* Round history, trend chart & combinable pairs — Social tier and above */}
       <FeatureLock feature="handicap_history" onUpgradePress={() => navigation.navigate('Subscription')}>
         <FlatList
           data={summary.rounds}
@@ -244,6 +249,10 @@ export default function HandicapHistoryScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  indexCardWrapper: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
   },
   listContent: {
     padding: spacing.lg,
