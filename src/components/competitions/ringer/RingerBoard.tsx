@@ -8,6 +8,7 @@ import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useRingerBoard } from '@/hooks/competitions/useRingerBoard';
 import type { RingerEntry } from '@/utils/ringer';
 import { RingerScorecard } from './RingerScorecard';
+import { RingerTeamCard } from './RingerTeamCard';
 
 interface RingerBoardProps {
   competitionId: string;
@@ -138,7 +139,12 @@ export function RingerBoard({ competitionId }: RingerBoardProps) {
                   color={colors.textSecondary}
                 />
               </TouchableOpacity>
-              {expanded && <RingerScorecard entry={entry} shortNameFor={shortNameFor} />}
+              {expanded &&
+                (view === 'teams' ? (
+                  <RingerTeamCard entry={entry} shortNameFor={shortNameFor} />
+                ) : (
+                  <RingerScorecard entry={entry} shortNameFor={shortNameFor} />
+                ))}
             </View>
           );
         })
