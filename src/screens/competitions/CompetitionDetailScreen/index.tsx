@@ -427,7 +427,6 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
             onViewTeams={
               competition.team_mode !== 'none' ? () => setActiveTab('teams') : undefined
             }
-            onViewRinger={showRingerTab ? () => setActiveTab('ringer') : undefined}
             onScoreRound={handleScoreRound}
             onViewRound={handleViewRound}
           />

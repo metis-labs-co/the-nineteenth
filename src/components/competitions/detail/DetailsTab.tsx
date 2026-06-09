@@ -9,10 +9,7 @@
  */
 
 import React, { useMemo } from 'react';
-import { View, TouchableOpacity, StyleSheet } from 'react-native';
-import { Text, Icon } from 'react-native-paper';
-import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { View } from 'react-native';
 import type { Competition, GameType, TeamWithMembers } from '@/types/database.types';
 import type { CompetitionPrizePool, PrizePoolPlacement } from '@/types';
 import type { MiniLeaderboardData } from '@/utils/miniLeaderboard';
@@ -59,8 +56,6 @@ export interface DetailsTabProps {
   onViewPrizePoolTransactions?: () => void;
   /** Called when the Team Size row is pressed — switches to the Teams tab. */
   onViewTeams?: () => void;
-  /** Switches to the Ringer tab. Omitted when no qualifying rounds exist. */
-  onViewRinger?: () => void;
   /** Open the scorecard for a round (used by the In Progress quick link). */
   onScoreRound?: (roundId: string, gameType: GameType, isTeamRound: boolean) => void;
   /** Open the round detail screen (used by the In Progress quick link). */
@@ -88,11 +83,9 @@ export const DetailsTab = React.memo(function DetailsTab({
   onManagePrizePools,
   onViewPrizePoolTransactions,
   onViewTeams,
-  onViewRinger,
   onScoreRound,
   onViewRound,
 }: DetailsTabProps) {
-  const colors = useThemeColors();
   const showMiniLeaderboard =
     isPlayer &&
     competition.competition_type !== 'knockout' &&
@@ -133,30 +126,6 @@ export const DetailsTab = React.memo(function DetailsTab({
         isPlayer={isPlayer}
       />
 
-      {onViewRinger && (
-        <TouchableOpacity
-          onPress={onViewRinger}
-          style={[
-            styles.ringerCta,
-            shadows.sm,
-            { backgroundColor: colors.surface, borderColor: colors.border },
-          ]}
-          accessibilityRole="button"
-          accessibilityLabel="View ringer board"
-        >
-          <Icon source="trophy-outline" size={22} color={colors.primary} />
-          <View style={styles.ringerCtaText}>
-            <Text style={[typography.body, styles.ringerCtaTitle, { color: colors.textPrimary }]}>
-              Ringer Board
-            </Text>
-            <Text style={[typography.caption, { color: colors.textSecondary }]}>
-              Best score on each hole across the rounds
-            </Text>
-          </View>
-          <Icon source="chevron-right" size={22} color={colors.textSecondary} />
-        </TouchableOpacity>
-      )}
-
       {showMiniLeaderboard && (
         <MiniLeaderboardSection
           individual={miniIndividual}
@@ -186,25 +155,6 @@ export const DetailsTab = React.memo(function DetailsTab({
       />
     </View>
   );
-});
-
-const styles = StyleSheet.create({
-  ringerCta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    minHeight: 44,
-    padding: spacing.md,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    marginBottom: spacing.md,
-  },
-  ringerCtaText: {
-    flex: 1,
-  },
-  ringerCtaTitle: {
-    fontWeight: '600',
-  },
 });
 
 export default DetailsTab;
