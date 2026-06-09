@@ -124,4 +124,14 @@ describe('buildWatchSnapshot', () => {
     const snap = buildWatchSnapshot(input);
     expect(snap.scores['me:7']).toEqual({ strokes: 4 });
   });
+  it('passes wind through when provided', () => {
+    const input = baseInput();
+    input.wind = { speedKph: 18, fromDeg: 220 };
+    const snap = buildWatchSnapshot(input);
+    expect(snap.wind).toEqual({ speedKph: 18, fromDeg: 220 });
+  });
+  it('omits the wind key entirely when absent', () => {
+    const snap = buildWatchSnapshot(baseInput());
+    expect('wind' in snap).toBe(false);
+  });
 });

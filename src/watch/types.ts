@@ -26,6 +26,11 @@ export interface WatchLeaderboardRow {
   rank: number; name: string; detail: string; isCurrentUser: boolean;
 }
 
+/** Course wind, sourced from the phone's weather fetch. `fromDeg` is the
+ *  meteorological bearing the wind blows FROM (true north), as Open-Meteo
+ *  reports it; the watch converts to "blows to" at render. */
+export interface WatchWind { speedKph: number; fromDeg: number; }
+
 export interface WatchSnapshot {
   rev: number;
   roundId: string;
@@ -38,6 +43,8 @@ export interface WatchSnapshot {
   currentHole: number;
   scores: Record<string, HoleScore>; // key `${playerId}:${hole}`; absent = not entered
   leaderboard: WatchLeaderboardRow[];
+  /** Optional so older cached snapshots (and the Swift decoder) stay compatible. */
+  wind?: WatchWind;
 }
 
 export interface WatchScoreStat {

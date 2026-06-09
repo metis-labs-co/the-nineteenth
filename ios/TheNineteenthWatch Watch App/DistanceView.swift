@@ -1,5 +1,43 @@
 import SwiftUI
 
+/// On-screen rotation (clockwise from up) for the wind arrow. Mirrors
+/// `windArrowDegrees` in src/watch/windArrow.ts (kept in sync; unit-tested there).
+/// `+180` turns "wind from" into "wind blows to"; `- heading` makes it head-up.
+func windArrowDegrees(fromDeg: Double, heading: Double) -> Double {
+    let v = fromDeg + 180 - heading
+    return (v.truncatingRemainder(dividingBy: 360) + 360).truncatingRemainder(dividingBy: 360)
+}
+
+/// km/h for metres, mph for yards (follows the user's distance unit).
+func windSpeedText(_ kph: Double, unit: String?) -> String {
+    if unit == "yards" { return "\(Int((kph * 0.621371).rounded()))" }
+    return "\(Int(kph.rounded()))"
+}
+
+/// Top-corner wind indicator: an arrow pointing the way the wind blows TO, rotated
+/// head-up so it tracks the wind as the user turns, plus the speed.
+/// `headingDegrees == nil` → north-up fallback with an "N" marker.
+struct WindIndicator: View {
+    let wind: WatchWind
+    let unit: String?
+    let headingDegrees: Double?
+
+    var body: some View {
+        let angle = windArrowDegrees(fromDeg: wind.fromDeg, heading: headingDegrees ?? 0)
+        HStack(spacing: 1) {
+            Image(systemName: "arrow.up")
+                .rotationEffect(.degrees(angle))
+                .animation(.easeOut(duration: 0.3), value: angle)
+            Text(windSpeedText(wind.speedKph, unit: unit)).monospacedDigit()
+            if headingDegrees == nil {
+                Text("N").font(.system(size: 8, weight: .semibold))
+            }
+        }
+        .font(.caption2)
+        .foregroundStyle(.secondary)
+    }
+}
+
 /// Live distance to the green, computed on-watch from its own GPS against the
 /// cached green coords. Default screen once a round is live.
 ///
@@ -53,18 +91,27 @@ struct DistanceView: View {
     }
 }
 
-/// One hole's distance readout: centre (big), front/back below.
+/// One hole's distance readout: centre (big), front/back below, wind in the corner.
 private struct HoleDistancePage: View {
     let hole: WatchHole
     @ObservedObject var connectivity: ConnectivityClient
     @ObservedObject var location: LocationProvider
+
+    private var wind: WatchWind? { connectivity.snapshot?.wind }
+    private var unit: String? { connectivity.snapshot?.unit }
+
+    /// True heading when valid, else magnetic; nil when no compass fix yet.
+    private var headingDegrees: Double? {
+        guard let h = location.heading else { return nil }
+        return h.trueHeading >= 0 ? h.trueHeading : h.magneticHeading
+    }
 
     private func distance(to point: LatLng?) -> String {
         guard
             let point,
             let loc = location.current,
             DistanceEngine.isAccurate(loc.horizontalAccuracy),
-            let unit = connectivity.snapshot?.unit
+            let unit
         else { return "—" }
         let here = LatLng(latitude: loc.coordinate.latitude, longitude: loc.coordinate.longitude)
         return "\(DistanceEngine.display(DistanceEngine.metres(from: here, to: point), unit: unit))"
@@ -91,5 +138,11 @@ private struct HoleDistancePage: View {
             .monospacedDigit()
         }
         .padding(.horizontal)
+        .overlay(alignment: .topTrailing) {
+            if let wind {
+                WindIndicator(wind: wind, unit: unit, headingDegrees: headingDegrees)
+                    .padding(.trailing, 2)
+            }
+        }
     }
 }

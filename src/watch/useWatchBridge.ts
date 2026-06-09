@@ -29,6 +29,7 @@ import { useStatsVisibilityWithTier } from '@/hooks/subscription/statsVisibility
 import { useIsPremium } from '@/context/SubscriptionContext';
 import { useCompetitionLeaderboard } from '@/hooks/competitions/leaderboard';
 import { useHoleCoordinates } from '@/hooks/coordinates';
+import { useWeather } from '@/hooks/weather';
 import { useAuth } from '@/hooks/useAuth';
 import type { HoleScore } from '@/types/database/base';
 import { buildWatchSnapshot } from './snapshot';
@@ -76,6 +77,29 @@ export function useWatchBridge(opts: UseWatchBridgeOptions = {}) {
   const { data: playersToScore = [] } = usePlayersToScore(roundId ?? '', user?.id ?? '');
   const { data: leaderboard = [] } = useCompetitionLeaderboard(competitionId);
   const { data: coords = [] } = useHoleCoordinates(courseId);
+
+  // Course location for the wind fetch: the current hole's green centre, else any
+  // green centre, else any coord. Open-Meteo rounds to ~0.01° so course-level
+  // precision is plenty and the query key stays stable across holes.
+  const weatherCoord = useMemo(() => {
+    if (!coords.length) return null;
+    const pick =
+      coords.find((c) => c.hole_number === currentHole && c.poi_type === 'green_center') ??
+      coords.find((c) => c.poi_type === 'green_center') ??
+      coords[0];
+    return { lat: pick.latitude, lng: pick.longitude };
+  }, [coords, currentHole]);
+
+  const { data: weather } = useWeather(
+    weatherCoord ? { kind: 'current', lat: weatherCoord.lat, lng: weatherCoord.lng } : null,
+  );
+
+  // Stable while the (React Query–cached) weather value is stable, so it can be a
+  // snapshot-effect dependency without re-pushing every render.
+  const wind = useMemo(
+    () => (weather ? { speedKph: weather.windKph, fromDeg: weather.windDirDeg } : undefined),
+    [weather],
+  );
 
   // Map the app's tier-resolved stat visibility to the watch's flag shape.
   const statFlags: WatchStatFlags = {
@@ -146,6 +170,7 @@ export function useWatchBridge(opts: UseWatchBridgeOptions = {}) {
           detail: String(e.totalPoints),
           playerId: e.participantId,
         })),
+        wind,
       }),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -161,6 +186,7 @@ export function useWatchBridge(opts: UseWatchBridgeOptions = {}) {
     currentPlayers,
     groupScorecards,
     leaderboard,
+    wind,
   ]);
 
   // ── Effect 2: apply inbound writes and ack ────────────────────────────────

@@ -45,6 +45,14 @@ struct WatchLeaderboardRow: Codable, Equatable {
     let isCurrentUser: Bool
 }
 
+/// Course wind from the phone's weather fetch. `fromDeg` is the meteorological
+/// bearing the wind blows FROM (true north); the Distance view converts to
+/// "blows to" at render. Optional on the snapshot for backward-compatible decode.
+struct WatchWind: Codable, Equatable {
+    let speedKph: Double
+    let fromDeg: Double
+}
+
 /// One hazard incident, mirroring `HazardEntry` in the RN model.
 struct WatchHazard: Codable, Equatable {
     let type: String // "water" | "ob" | "lateral" | "lost_ball"
@@ -76,6 +84,8 @@ struct WatchSnapshot: Codable, Equatable {
     /// Keyed `"playerId:hole"`; absent means no score entered yet.
     let scores: [String: WatchHoleScore]
     let leaderboard: [WatchLeaderboardRow]
+    /// Optional: missing from older snapshots / when the phone has no weather.
+    let wind: WatchWind?
 
     /// Convenience: the hole object for the current hole, if present.
     var currentHoleObject: WatchHole? {

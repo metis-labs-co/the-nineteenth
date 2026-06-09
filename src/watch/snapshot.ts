@@ -5,6 +5,7 @@ import type {
   WatchSnapshot,
   WatchStatFlags,
   WatchUnit,
+  WatchWind,
 } from './types';
 
 // ─── groupGreenCoords ────────────────────────────────────────────────────────
@@ -74,6 +75,7 @@ export interface BuildSnapshotInput {
   coords: SnapshotCoord[];
   pairPlayers: SnapshotPlayer[];
   leaderboard: SnapshotLeaderboardEntry[];
+  wind?: WatchWind;
 }
 
 export function buildWatchSnapshot(input: BuildSnapshotInput): WatchSnapshot {
@@ -97,5 +99,8 @@ export function buildWatchSnapshot(input: BuildSnapshotInput): WatchSnapshot {
     currentHole: input.currentHole,
     scores,
     leaderboard: trimLeaderboard(input.leaderboard, input.currentUserId),
+    // Omit the key entirely when absent so the snapshot stays compact and the
+    // optional decodes cleanly on the watch.
+    ...(input.wind ? { wind: input.wind } : {}),
   };
 }
