@@ -37,16 +37,19 @@ export const RingerTeamCard = React.memo(function RingerTeamCard({
   return (
     <View style={styles.container}>
       {contributions.length > 0 && (
-        <View style={[styles.contrib, { backgroundColor: colors.surfaceVariant }]}>
+        <View
+          style={[styles.contrib, { backgroundColor: colors.surfaceVariant }]}
+          accessibilityLabel={`Hole contributions: ${contributions
+            .map((c) => `${c.name} ${c.count}`)
+            .join(', ')}`}
+        >
           <Text style={[typography.caption, styles.contribTitle, { color: colors.textSecondary }]}>
             Hole contributions
           </Text>
           <View style={styles.contribRow}>
             {contributions.map((c) => (
               <View key={c.playerId} style={styles.contribItem}>
-                <Text style={[typography.small, styles.contribName, { color: colors.textPrimary }]}>
-                  {c.name}
-                </Text>
+                <Text style={[typography.smallBold, { color: colors.textPrimary }]}>{c.name}</Text>
                 <Text style={[typography.small, { color: colors.primary }]}>{c.count}</Text>
               </View>
             ))}
@@ -85,14 +88,17 @@ export const RingerTeamCard = React.memo(function RingerTeamCard({
         </View>
       ))}
 
-      <View style={[styles.row, styles.totalRow, { borderTopColor: colors.border }]}>
+      <View
+        style={[styles.row, styles.totalRow, { borderTopColor: colors.border }]}
+        accessibilityLabel={`Total ${entry.total} points`}
+      >
         <Text style={[styles.colHole, typography.body, { color: colors.textPrimary }]}>Tot</Text>
-        <Text style={[styles.colPar, typography.body, { color: colors.textSecondary }]}>{''}</Text>
-        <Text style={[styles.colPlayer, typography.body, { color: colors.textSecondary }]}>{''}</Text>
+        <View style={styles.colPar} />
+        <View style={styles.colPlayer} />
         <Text style={[styles.colPts, typography.body, styles.bold, { color: colors.primary }]}>
           {entry.total}
         </Text>
-        <Text style={[styles.colShots, typography.body, { color: colors.textSecondary }]}>{''}</Text>
+        <View style={styles.colShots} />
       </View>
     </View>
   );
@@ -120,9 +126,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-  },
-  contribName: {
-    fontWeight: '600',
   },
   row: {
     flexDirection: 'row',
