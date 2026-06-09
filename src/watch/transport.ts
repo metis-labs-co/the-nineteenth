@@ -29,7 +29,25 @@ export function createNullTransport(): WatchTransport {
 
 export function createWatchConnectivityTransport(): WatchTransport {
   if (Platform.OS !== 'ios') return createNullTransport();
-  const rnwc = require('react-native-watch-connectivity'); // lazy: never loaded on Android/test
+  // Lazy require: never loaded on Android/test. The library reads its native
+  // module at import time via TurboModuleRegistry.getEnforcing('WatchConnectivity'),
+  // which throws when that module isn't in the binary — notably Expo Go, which
+  // can't load custom native modules. Catch it and fall back to the no-op
+  // transport so the app runs in Expo Go; the watch bridge only works in a dev
+  // client / native build.
+  let rnwc: any;
+  try {
+    rnwc = require('react-native-watch-connectivity');
+  } catch {
+    if (__DEV__) {
+      console.warn(
+        '[watch] react-native-watch-connectivity native module unavailable ' +
+          '(expected in Expo Go) — watch bridge disabled. Use a dev client or ' +
+          'native build to test the Apple Watch companion.',
+      );
+    }
+    return createNullTransport();
+  }
   const subscribe = (predicate: (m: any) => boolean, cb: (m: any) => void) => {
     const fwd = (m: any) => { if (predicate(m)) cb(m); };
     const a = rnwc.watchEvents.addListener('message', fwd);
