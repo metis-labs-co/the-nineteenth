@@ -132,7 +132,8 @@
       "expo-secure-store",
       "expo-web-browser",
       "expo-localization",
-      "expo-video"
+      "expo-video",
+      "./plugins/withWearOs"
     ],
     "runtimeVersion": "1.12.7",
     "owner": "sam-metislabs",
