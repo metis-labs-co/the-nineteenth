@@ -38,12 +38,23 @@ function buildRoundCtx(round: RingerRoundInput): RoundCtx {
   return { round, holeByNumber, cardByPlayer };
 }
 
-function pointsForPlayer(ctx: RoundCtx, playerId: string, holeNumber: number): number | null {
+interface HolePlay {
+  points: number;
+  strokes: number;
+  par: number;
+}
+
+function playForPlayer(ctx: RoundCtx, playerId: string, holeNumber: number): HolePlay | null {
   const sc = ctx.cardByPlayer.get(playerId);
   if (!sc) return null;
   const hole = ctx.holeByNumber.get(holeNumber);
   if (!hole) return null;
-  return holeStablefordPoints(sc, hole);
+  const points = holeStablefordPoints(sc, hole);
+  if (points === null) return null;
+  // points !== null guarantees a single-ball score with strokes > 0.
+  const raw = sc.scores[String(hole.number)];
+  const strokes = isSingleBallScore(raw) ? raw.strokes : 0;
+  return { points, strokes, par: hole.par };
 }
 
 /** Sort entries by total desc and assign shared positions + tie flags in place. */
@@ -82,18 +93,20 @@ export function computeRingerBoard(input: ComputeRingerBoardInput): RingerBoardR
 
   const individuals: RingerEntry[] = players.map((player) => {
     const holes: RingerHole[] = holeNumbers.map((holeNumber) => {
-      let best: number | null = null;
+      let best: HolePlay | null = null;
       let sourceRoundLabel: string | null = null;
       for (const ctx of roundCtxs) {
-        const pts = pointsForPlayer(ctx, player.playerId, holeNumber);
-        if (pts !== null && (best === null || pts > best)) {
-          best = pts;
+        const play = playForPlayer(ctx, player.playerId, holeNumber);
+        if (play !== null && (best === null || play.points > best.points)) {
+          best = play;
           sourceRoundLabel = ctx.round.roundLabel;
         }
       }
       return {
         hole: holeNumber,
-        points: best ?? 0,
+        points: best?.points ?? 0,
+        par: best?.par ?? null,
+        strokes: best?.strokes ?? null,
         sourceRoundLabel,
         sourcePlayerId: sourceRoundLabel ? player.playerId : null,
       };
@@ -112,20 +125,27 @@ export function computeRingerBoard(input: ComputeRingerBoardInput): RingerBoardR
 
   const teamEntries: RingerEntry[] = teams.map((team) => {
     const holes: RingerHole[] = holeNumbers.map((holeNumber) => {
-      let best: number | null = null;
+      let best: HolePlay | null = null;
       let sourceRoundLabel: string | null = null;
       let sourcePlayerId: string | null = null;
       for (const ctx of roundCtxs) {
         for (const memberId of team.memberPlayerIds) {
-          const pts = pointsForPlayer(ctx, memberId, holeNumber);
-          if (pts !== null && (best === null || pts > best)) {
-            best = pts;
+          const play = playForPlayer(ctx, memberId, holeNumber);
+          if (play !== null && (best === null || play.points > best.points)) {
+            best = play;
             sourceRoundLabel = ctx.round.roundLabel;
             sourcePlayerId = memberId;
           }
         }
       }
-      return { hole: holeNumber, points: best ?? 0, sourceRoundLabel, sourcePlayerId };
+      return {
+        hole: holeNumber,
+        points: best?.points ?? 0,
+        par: best?.par ?? null,
+        strokes: best?.strokes ?? null,
+        sourceRoundLabel,
+        sourcePlayerId,
+      };
     });
     return {
       participantId: team.teamId,

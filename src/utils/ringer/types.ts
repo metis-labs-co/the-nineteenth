@@ -33,6 +33,10 @@ export interface RingerHole {
    * from a hole where no score was recorded.
    */
   points: number;
+  /** Par of the hole in the source round; null when no score was recorded. */
+  par: number | null;
+  /** The contributing player's gross strokes on the hole; null when no score. */
+  strokes: number | null;
   /** Which round the best came from, e.g. 'R2'; null when no score exists. */
   sourceRoundLabel: string | null;
   /** Contributing player (the player themselves for individuals; the best member for teams). */

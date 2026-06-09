@@ -130,3 +130,49 @@ describe('computeRingerBoard - teams', () => {
     expect(team.color).toBe('avatar-green');
   });
 });
+
+describe('computeRingerBoard - par and strokes', () => {
+  it('carries par and the winning round strokes for an individual hole', () => {
+    const board = computeRingerBoard({
+      rounds: [flatRound('r1', 'R1', { p1: 4 }), flatRound('r2', 'R2', { p1: 3 })],
+      players: [{ playerId: 'p1', name: 'Pat' }],
+      teams: [],
+    });
+    const h = board.individuals[0].holes[0];
+    expect(h.points).toBe(3);
+    expect(h.par).toBe(4);
+    expect(h.strokes).toBe(3);
+  });
+
+  it('sets par and strokes to null for a hole with no score', () => {
+    const board = computeRingerBoard({
+      rounds: [{ roundId: 'r1', roundLabel: 'R1', holes: holes18(), scorecards: [] }],
+      players: [{ playerId: 'p1', name: 'Pat' }],
+      teams: [],
+    });
+    const h = board.individuals[0].holes[0];
+    expect(h.points).toBe(0);
+    expect(h.par).toBeNull();
+    expect(h.strokes).toBeNull();
+    expect(h.sourceRoundLabel).toBeNull();
+  });
+
+  it('reflects the winning member card for a team hole', () => {
+    const board = computeRingerBoard({
+      rounds: [
+        flatRound('r1', 'R1', { p1: 4, p2: 3 }),
+        flatRound('r2', 'R2', { p1: 2, p2: 4 }),
+      ],
+      players: [
+        { playerId: 'p1', name: 'Pat' },
+        { playerId: 'p2', name: 'Sam' },
+      ],
+      teams: [{ teamId: 't1', name: 'Team A', color: null, memberPlayerIds: ['p1', 'p2'] }],
+    });
+    const h = board.teams[0].holes[0];
+    expect(h.points).toBe(4);
+    expect(h.strokes).toBe(2);
+    expect(h.par).toBe(4);
+    expect(h.sourcePlayerId).toBe('p1');
+  });
+});
