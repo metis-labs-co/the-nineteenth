@@ -34,7 +34,7 @@ import { useAuth } from '@/hooks/useAuth';
 import type { HoleScore } from '@/types/database/base';
 import { buildWatchSnapshot } from './snapshot';
 import { applyWatchScoreWrite, type ScoreWriteContext } from './scoreWrite';
-import { createWatchConnectivityTransport } from './transport';
+import { createWatchTransport } from './transport';
 import { useActiveRoundIds } from './useActiveRoundIds';
 import type { WatchScoreWrite, WatchStatFlags } from './types';
 
@@ -46,7 +46,7 @@ export interface UseWatchBridgeOptions {
 }
 
 export function useWatchBridge(opts: UseWatchBridgeOptions = {}) {
-  const transport = useMemo(() => createWatchConnectivityTransport(), []);
+  const transport = useMemo(() => createWatchTransport(), []);
   const revRef = useRef(0);
   const seenRef = useRef(new Set<string>());
   const lastEditedRef = useRef(new Map<string, number>());

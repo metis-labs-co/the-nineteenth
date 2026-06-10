@@ -14,6 +14,10 @@ expo-env.d.ts
 # ios/ is committed because it contains the hand-managed watchOS target,
 # but generated/derived subdirs stay out of git.
 android/
+# ...but the wear-bridge local Expo module's native source is committed (it is
+# not part of the generated android/ project; it's autolinked from modules/).
+!modules/wear-bridge/android/
+!modules/wear-bridge/android/**
 ios/Pods/
 ios/build/
 ios/DerivedData/

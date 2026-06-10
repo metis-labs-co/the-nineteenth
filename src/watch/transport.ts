@@ -64,3 +64,50 @@ export function createWatchConnectivityTransport(): WatchTransport {
     },
   };
 }
+
+export function createWearTransport(): WatchTransport {
+  if (Platform.OS !== 'android') return createNullTransport();
+  // Lazy require of the local Expo module: only loaded on Android, and never
+  // imported on iOS (where the native module is absent). Missing native module
+  // (e.g. Expo Go) → no-op transport, same as the iOS path.
+  let bridge: any;
+  try {
+    bridge = require('../../modules/wear-bridge').default;
+  } catch {
+    if (__DEV__) {
+      console.warn(
+        '[watch] wear-bridge native module unavailable (expected in Expo Go) — ' +
+          'Wear bridge disabled. Use a dev client or native build to test the watch.',
+      );
+    }
+    return createNullTransport();
+  }
+  const subscribe = (predicate: (m: any) => boolean, cb: (m: any) => void) => {
+    const sub = bridge.addListener('onMessage', (e: { json: string }) => {
+      let msg: any;
+      try { msg = JSON.parse(e.json); } catch { return; }
+      if (predicate(msg)) cb(msg);
+    });
+    return () => sub.remove();
+  };
+  return {
+    isSupported: () => {
+      try { return bridge.isSupported(); } catch { return false; }
+    },
+    updateContext: (snapshot) => { bridge.updateData(JSON.stringify(snapshot)); },
+    onMessage: (handler) => subscribe((m) => !isWatchNavigate(m), (m) => handler(m as WatchScoreWrite)),
+    onNavigate: (handler) => subscribe(isWatchNavigate, (m) => handler(m as WatchNavigate)),
+    sendAck: (ack) => { bridge.sendMessage(JSON.stringify(ack)); },
+  };
+}
+
+/**
+ * Platform-selecting transport factory. iOS → WatchConnectivity, Android → Wear
+ * Data Layer, anything else → no-op. The whole src/watch pipeline above this is
+ * platform-agnostic; only this line differs per OS.
+ */
+export function createWatchTransport(): WatchTransport {
+  if (Platform.OS === 'ios') return createWatchConnectivityTransport();
+  if (Platform.OS === 'android') return createWearTransport();
+  return createNullTransport();
+}

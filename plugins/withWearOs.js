@@ -21,7 +21,12 @@ const path = require('path');
 // Must match the kotlinVersion resolved by expo-root-project (see the generated
 // android build). Keep in sync on Expo SDK upgrades.
 const KOTLIN_VERSION = '2.0.21';
-const COMPOSE_CLASSPATH = `classpath('org.jetbrains.kotlin:compose-compiler-gradle-plugin:${KOTLIN_VERSION}')`;
+// Plugins the :wear module needs that the RN app doesn't pull in. Added to the
+// root buildscript classpath so the wear module can `apply` them.
+const WEAR_CLASSPATHS = [
+  `classpath('org.jetbrains.kotlin:compose-compiler-gradle-plugin:${KOTLIN_VERSION}')`,
+  `classpath('org.jetbrains.kotlin:kotlin-serialization:${KOTLIN_VERSION}')`,
+];
 
 function copyDirSync(src, dest) {
   fs.mkdirSync(dest, { recursive: true });
@@ -56,17 +61,20 @@ const withWearSettingsInclude = (config) =>
     return cfg;
   });
 
-const withComposeCompilerClasspath = (config) =>
+const withWearBuildscriptClasspaths = (config) =>
   withProjectBuildGradle(config, (cfg) => {
-    if (!cfg.modResults.contents.includes('compose-compiler-gradle-plugin')) {
+    const missing = WEAR_CLASSPATHS.filter(
+      (line) => !cfg.modResults.contents.includes(line),
+    );
+    if (missing.length) {
       // Insert into the first buildscript dependencies block.
       cfg.modResults.contents = cfg.modResults.contents.replace(
         /(buildscript\s*\{[\s\S]*?dependencies\s*\{)/,
-        `$1\n    ${COMPOSE_CLASSPATH}`,
+        `$1\n    ${missing.join('\n    ')}`,
       );
     }
     return cfg;
   });
 
 module.exports = (config) =>
-  withComposeCompilerClasspath(withWearSettingsInclude(withWearModuleSource(config)));
+  withWearBuildscriptClasspaths(withWearSettingsInclude(withWearModuleSource(config)));
