@@ -8,9 +8,14 @@ import com.google.android.gms.wearable.DataEventBuffer
 import com.google.android.gms.wearable.DataMapItem
 import com.google.android.gms.wearable.MessageClient
 import com.google.android.gms.wearable.Wearable
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 
@@ -31,6 +36,16 @@ class WearDataRepository(context: Context) : DataClient.OnDataChangedListener,
 
     private val _snapshot = MutableStateFlow<WatchSnapshot?>(null)
     val snapshot: StateFlow<WatchSnapshot?> = _snapshot.asStateFlow()
+
+    /** Transient outcome of the most recent score write, for the Saved/Retry UI. */
+    enum class SaveState { IDLE, SAVED, FAILED }
+
+    private val _saveState = MutableStateFlow(SaveState.IDLE)
+    val saveState: StateFlow<SaveState> = _saveState.asStateFlow()
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    // Bumped per send so a stale auto-reset can't clear a newer state.
+    private var saveGeneration = 0
 
     fun start() {
         dataClient.addListener(this)
@@ -66,9 +81,32 @@ class WearDataRepository(context: Context) : DataClient.OnDataChangedListener,
     }
 
     override fun onMessageReceived(event: com.google.android.gms.wearable.MessageEvent) {
-        // Phone -> watch acks land here (Spec 3 uses them for save feedback).
-        if (event.path == PATH_ACK) {
-            Log.d(TAG, "ack: ${String(event.data)}")
+        if (event.path != PATH_ACK) return
+        val ack = try {
+            WatchJson.decodeFromString<WatchAck>(String(event.data))
+        } catch (e: Exception) {
+            Log.w(TAG, "bad ack", e); return
+        }
+        // We optimistically show Saved on send; only surface genuine rejections.
+        if (ack.status == "unauthorized" || ack.status == "error") {
+            setSaveState(SaveState.FAILED)
+        }
+    }
+
+    /** Watch -> phone: a score-write JSON payload (built by ScoreWriteBuilder). */
+    fun sendScoreWrite(json: String) {
+        sendToNodes(PATH_SCORE_WRITE, json)
+        setSaveState(SaveState.SAVED)
+    }
+
+    private fun setSaveState(state: SaveState) {
+        _saveState.value = state
+        if (state == SaveState.IDLE) return
+        saveGeneration += 1
+        val gen = saveGeneration
+        scope.launch {
+            delay(1500)
+            if (saveGeneration == gen) _saveState.value = SaveState.IDLE
         }
     }
 
@@ -76,9 +114,6 @@ class WearDataRepository(context: Context) : DataClient.OnDataChangedListener,
     fun sendNavigate(hole: Int) {
         sendToNodes(PATH_NAVIGATE, WatchJson.encodeToString(WatchNavigate(hole = hole)))
     }
-
-    /** Watch -> phone: a raw score-write JSON payload (built in Spec 3). */
-    fun sendScoreWrite(json: String) = sendToNodes(PATH_SCORE_WRITE, json)
 
     /** DEBUG only: render a snapshot without a paired phone. */
     fun injectForPreview(json: String) = decodeAndPublish(json)

@@ -16,26 +16,38 @@ import androidx.wear.compose.navigation.SwipeDismissableNavHost
 import androidx.wear.compose.navigation.composable
 import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
 import com.the.nineteenth.golf.wear.data.WatchSnapshot
+import com.the.nineteenth.golf.wear.data.WearDataRepository.SaveState
 
 /**
- * Root navigation scaffold. Distance is home; a stub `menu` route reserves the
- * slot for Score/Leaderboard/menu (Spec 3b–3c). Swipe-to-dismiss returns home.
+ * Root navigation scaffold. Distance is home; Score is a route reachable in DEBUG
+ * via [startDestination] (the production entry point — the menu — lands in Spec
+ * 3c). Swipe-to-dismiss returns home.
  */
 @Composable
 fun WearApp(
     snapshot: WatchSnapshot?,
     location: Location?,
     heading: Float?,
+    saveState: SaveState,
     onNavigate: (Int) -> Unit,
+    onSendScore: (String) -> Unit,
+    startDestination: String = ROUTE_DISTANCE,
 ) {
     MaterialTheme {
         val navController = rememberSwipeDismissableNavController()
-        SwipeDismissableNavHost(navController = navController, startDestination = ROUTE_DISTANCE) {
+        SwipeDismissableNavHost(navController = navController, startDestination = startDestination) {
             composable(ROUTE_DISTANCE) {
                 if (snapshot != null && snapshot.holes.isNotEmpty()) {
                     DistanceScreen(snapshot, location, heading, onNavigate)
                 } else {
                     Placeholder(title = "The Nineteenth", subtitle = "Wear · waiting for phone…")
+                }
+            }
+            composable(ROUTE_SCORE) {
+                if (snapshot != null && snapshot.holes.isNotEmpty()) {
+                    ScoreScreen(snapshot, saveState, onNavigate, onSendScore)
+                } else {
+                    Placeholder(title = "Score", subtitle = "Waiting for phone…")
                 }
             }
             composable(ROUTE_MENU) {
@@ -66,5 +78,6 @@ private fun Placeholder(title: String, subtitle: String) {
     }
 }
 
-private const val ROUTE_DISTANCE = "distance"
+const val ROUTE_DISTANCE = "distance"
+const val ROUTE_SCORE = "score"
 private const val ROUTE_MENU = "menu"

@@ -12,6 +12,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.the.nineteenth.golf.wear.data.WearDataRepository
 import com.the.nineteenth.golf.wear.distance.HeadingProvider
 import com.the.nineteenth.golf.wear.distance.WearLocationProvider
+import com.the.nineteenth.golf.wear.ui.ROUTE_DISTANCE
+import com.the.nineteenth.golf.wear.ui.ROUTE_SCORE
 import com.the.nineteenth.golf.wear.ui.WearApp
 
 /// Entry point. Owns the Data Layer repository and the GPS/compass providers,
@@ -35,11 +37,15 @@ class MainActivity : ComponentActivity() {
             val snapshot by repo.snapshot.collectAsStateWithLifecycle()
             val loc by location.location.collectAsStateWithLifecycle()
             val hdg by heading.heading.collectAsStateWithLifecycle()
+            val save by repo.saveState.collectAsStateWithLifecycle()
             WearApp(
                 snapshot = snapshot,
                 location = loc,
                 heading = hdg,
+                saveState = save,
                 onNavigate = repo::sendNavigate,
+                onSendScore = repo::sendScoreWrite,
+                startDestination = if (BuildConfig.DEBUG && WEAR_PREVIEW) WEAR_PREVIEW_START else ROUTE_DISTANCE,
             )
         }
     }
@@ -69,18 +75,22 @@ class MainActivity : ComponentActivity() {
 }
 
 // Flip true to preview a sample snapshot on the emulator (no paired phone). Off
-// by default so dev builds show real Data Layer state.
+// by default so dev builds show real Data Layer state. WEAR_PREVIEW_START picks
+// which screen to land on while previewing.
 private const val WEAR_PREVIEW = false
+private const val WEAR_PREVIEW_START = ROUTE_SCORE
 
 private const val SAMPLE_SNAPSHOT_JSON = """
 {"rev":1,"roundId":"demo","competitionName":"Saturday Medal","unit":"metres",
 "isPremium":true,"statFlags":{"putts":true,"fairways":true,"gir":true,
-"penalties":false,"bunker":false},"currentHole":7,
+"penalties":true,"bunker":true},"currentHole":7,
 "holes":[
   {"hole":6,"par":3,"strokeIndex":11,"green":{"center":{"latitude":-37.81360,"longitude":144.9631}}},
   {"hole":7,"par":4,"strokeIndex":5,"green":{"center":{"latitude":-37.81270,"longitude":144.9631},
     "front":{"latitude":-37.81285,"longitude":144.9631},"back":{"latitude":-37.81255,"longitude":144.9631}}},
   {"hole":8,"par":5,"strokeIndex":1,"green":{"center":{"latitude":-37.81180,"longitude":144.9631}}}
 ],
-"pairPlayers":[],"leaderboard":[],"wind":{"speedKph":18.0,"fromDeg":225.0}}
+"pairPlayers":[{"playerId":"me","name":"You"}],
+"scores":{"me:7":{"strokes":4,"putts":2}},
+"leaderboard":[],"wind":{"speedKph":18.0,"fromDeg":225.0}}
 """

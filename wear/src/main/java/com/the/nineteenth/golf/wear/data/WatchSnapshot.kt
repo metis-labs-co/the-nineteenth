@@ -3,7 +3,6 @@ package com.the.nineteenth.golf.wear.data
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonElement
 
 /**
  * Kotlin mirror of the bridge types in `src/watch/types.ts`. The phone sends the
@@ -66,14 +65,17 @@ data class WatchSnapshot(
     val pairPlayers: List<WatchPairPlayer> = emptyList(),
     val holes: List<WatchHole> = emptyList(),
     val currentHole: Int,
-    // Per-hole scores are not rendered yet (Spec 3); decode permissively for now.
-    val scores: Map<String, JsonElement> = emptyMap(),
+    /** Keyed "{playerId}:{hole}"; absent means no score entered yet. */
+    val scores: Map<String, WatchHoleScore> = emptyMap(),
     val leaderboard: List<WatchLeaderboardRow> = emptyList(),
     val wind: WatchWind? = null,
 ) {
     /** The hole object for the current hole, if present. */
     val currentHoleObject: WatchHole?
         get() = holes.firstOrNull { it.hole == currentHole }
+
+    /** Stored score for a player on a hole, if any. */
+    fun score(playerId: String, hole: Int): WatchHoleScore? = scores["$playerId:$hole"]
 }
 
 /** Watch -> phone: move the active hole. Mirrors `WatchNavigate` in types.ts. */
