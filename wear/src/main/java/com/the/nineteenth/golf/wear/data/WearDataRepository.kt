@@ -1,7 +1,13 @@
 package com.the.nineteenth.golf.wear.data
 
+import android.content.ComponentName
 import android.content.Context
 import android.util.Log
+import androidx.wear.tiles.TileService
+import androidx.wear.watchface.complications.datasource.ComplicationDataSourceUpdateRequester
+import com.the.nineteenth.golf.wear.glance.RoundComplicationService
+import com.the.nineteenth.golf.wear.glance.RoundTileService
+import com.the.nineteenth.golf.wear.glance.WearSharedState
 import com.google.android.gms.wearable.DataClient
 import com.google.android.gms.wearable.DataEvent
 import com.google.android.gms.wearable.DataEventBuffer
@@ -130,9 +136,31 @@ class WearDataRepository(context: Context) : DataClient.OnDataChangedListener,
     private fun decodeAndPublish(json: String?) {
         if (json == null) return
         try {
-            _snapshot.value = WatchJson.decodeFromString<WatchSnapshot>(json)
+            val snapshot = WatchJson.decodeFromString<WatchSnapshot>(json)
+            _snapshot.value = snapshot
+            publishGlance(snapshot)
         } catch (e: Exception) {
             Log.w(TAG, "failed to decode snapshot", e)
+        }
+    }
+
+    /** Mirror the live round into shared state so the Tile + complication can show
+     *  it, then nudge both to refresh (analog of iOS publishComplicationState). */
+    private fun publishGlance(snapshot: WatchSnapshot) {
+        WearSharedState.write(
+            appContext,
+            active = true,
+            hole = snapshot.currentHole,
+            holeCount = snapshot.holes.size,
+            name = snapshot.competitionName,
+        )
+        try {
+            TileService.getUpdater(appContext).requestUpdate(RoundTileService::class.java)
+            ComplicationDataSourceUpdateRequester
+                .create(appContext, ComponentName(appContext, RoundComplicationService::class.java))
+                .requestUpdateAll()
+        } catch (e: Exception) {
+            Log.w(TAG, "glance update request failed", e)
         }
     }
 

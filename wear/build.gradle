@@ -63,6 +63,13 @@ dependencies {
     implementation 'androidx.wear:wear-ongoing:1.0.0'
     implementation 'androidx.core:core-ktx:1.13.1'
 
+    // Glanceable surfaces: Tile + watch-face complication.
+    implementation 'androidx.wear.tiles:tiles:1.4.1'
+    implementation 'androidx.wear.protolayout:protolayout:1.2.1'
+    implementation 'androidx.wear.protolayout:protolayout-material:1.2.1'
+    implementation 'androidx.wear.watchface:watchface-complications-data-source-ktx:1.2.1'
+    implementation 'androidx.concurrent:concurrent-futures:1.2.0'
+
     // Phone<->watch Data Layer + snapshot (de)serialization.
     implementation 'com.google.android.gms:play-services-wearable:18.2.0'
     implementation 'org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3'
