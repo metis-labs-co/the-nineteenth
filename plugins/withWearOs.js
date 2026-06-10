@@ -14,7 +14,11 @@
  * intentionally NOT wired here — it needs matching signing and is a later,
  * release-focused concern; for dev the wear APK is installed via adb.
  */
-const { withDangerousMod, withSettingsGradle, withProjectBuildGradle } = require('@expo/config-plugins');
+// Import via `expo/config-plugins` (re-export) rather than `@expo/config-plugins`
+// directly: `expo` is a direct dependency so it always resolves from this file,
+// whereas `@expo/config-plugins` is not declared in package.json and pnpm's
+// strict node_modules won't symlink it at the project root (breaks EAS builds).
+const { withDangerousMod, withSettingsGradle, withProjectBuildGradle } = require('expo/config-plugins');
 const fs = require('fs');
 const path = require('path');
 
