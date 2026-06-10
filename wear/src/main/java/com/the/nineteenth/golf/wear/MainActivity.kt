@@ -13,7 +13,6 @@ import com.the.nineteenth.golf.wear.data.WearDataRepository
 import com.the.nineteenth.golf.wear.distance.HeadingProvider
 import com.the.nineteenth.golf.wear.distance.WearLocationProvider
 import com.the.nineteenth.golf.wear.ui.ROUTE_DISTANCE
-import com.the.nineteenth.golf.wear.ui.ROUTE_SCORE
 import com.the.nineteenth.golf.wear.ui.WearApp
 
 /// Entry point. Owns the Data Layer repository and the GPS/compass providers,
@@ -78,7 +77,7 @@ class MainActivity : ComponentActivity() {
 // by default so dev builds show real Data Layer state. WEAR_PREVIEW_START picks
 // which screen to land on while previewing.
 private const val WEAR_PREVIEW = false
-private const val WEAR_PREVIEW_START = ROUTE_SCORE
+private const val WEAR_PREVIEW_START = ROUTE_DISTANCE
 
 private const val SAMPLE_SNAPSHOT_JSON = """
 {"rev":1,"roundId":"demo","competitionName":"Saturday Medal","unit":"metres",
@@ -92,5 +91,10 @@ private const val SAMPLE_SNAPSHOT_JSON = """
 ],
 "pairPlayers":[{"playerId":"me","name":"You"}],
 "scores":{"me:7":{"strokes":4,"putts":2}},
-"leaderboard":[],"wind":{"speedKph":18.0,"fromDeg":225.0}}
+"leaderboard":[
+  {"rank":1,"name":"Alex","detail":"34","isCurrentUser":false},
+  {"rank":2,"name":"You","detail":"31","isCurrentUser":true},
+  {"rank":3,"name":"Sam","detail":"29","isCurrentUser":false}
+],
+"wind":{"speedKph":18.0,"fromDeg":225.0}}
 """

@@ -38,7 +38,22 @@ fun WearApp(
         SwipeDismissableNavHost(navController = navController, startDestination = startDestination) {
             composable(ROUTE_DISTANCE) {
                 if (snapshot != null && snapshot.holes.isNotEmpty()) {
-                    DistanceScreen(snapshot, location, heading, onNavigate)
+                    DistanceScreen(
+                        snapshot, location, heading, onNavigate,
+                        onOpenMenu = { navController.navigate(ROUTE_MENU) },
+                    )
+                } else {
+                    Placeholder(title = "The Nineteenth", subtitle = "Wear · waiting for phone…")
+                }
+            }
+            composable(ROUTE_MENU) {
+                if (snapshot != null) {
+                    MenuScreen(
+                        snapshot,
+                        onDistance = { navController.navigate(ROUTE_DISTANCE) },
+                        onScore = { navController.navigate(ROUTE_SCORE) },
+                        onLeaderboard = { navController.navigate(ROUTE_LEADERBOARD) },
+                    )
                 } else {
                     Placeholder(title = "The Nineteenth", subtitle = "Wear · waiting for phone…")
                 }
@@ -50,9 +65,12 @@ fun WearApp(
                     Placeholder(title = "Score", subtitle = "Waiting for phone…")
                 }
             }
-            composable(ROUTE_MENU) {
-                // Stub — filled in Spec 3c (Score / Leaderboard / round menu).
-                Placeholder(title = "Menu", subtitle = "Coming soon")
+            composable(ROUTE_LEADERBOARD) {
+                if (snapshot != null) {
+                    LeaderboardScreen(snapshot)
+                } else {
+                    Placeholder(title = "Leaderboard", subtitle = "Waiting for phone…")
+                }
             }
         }
     }
@@ -80,4 +98,5 @@ private fun Placeholder(title: String, subtitle: String) {
 
 const val ROUTE_DISTANCE = "distance"
 const val ROUTE_SCORE = "score"
-private const val ROUTE_MENU = "menu"
+const val ROUTE_MENU = "menu"
+const val ROUTE_LEADERBOARD = "leaderboard"
