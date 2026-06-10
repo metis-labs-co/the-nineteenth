@@ -59,6 +59,9 @@ dependencies {
 
     // Watch GPS for distance-to-green.
     implementation 'com.google.android.gms:play-services-location:21.3.0'
+    // Keep-alive foreground service + return-to-app chip.
+    implementation 'androidx.wear:wear-ongoing:1.0.0'
+    implementation 'androidx.core:core-ktx:1.13.1'
 
     // Phone<->watch Data Layer + snapshot (de)serialization.
     implementation 'com.google.android.gms:play-services-wearable:18.2.0'

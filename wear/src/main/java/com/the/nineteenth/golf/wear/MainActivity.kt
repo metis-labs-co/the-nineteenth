@@ -2,16 +2,19 @@ package com.the.nineteenth.golf.wear
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.the.nineteenth.golf.wear.data.WearDataRepository
 import com.the.nineteenth.golf.wear.distance.HeadingProvider
 import com.the.nineteenth.golf.wear.distance.WearLocationProvider
+import com.the.nineteenth.golf.wear.keepalive.RoundKeepAliveService
 import com.the.nineteenth.golf.wear.ui.ROUTE_DISTANCE
 import com.the.nineteenth.golf.wear.ui.WearApp
 
@@ -27,6 +30,10 @@ class MainActivity : ComponentActivity() {
             if (granted) location.start()
         }
 
+    // Result ignored: keep-alive still runs if denied, just without a visible chip.
+    private val notificationPermission =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         repo = WearDataRepository(this)
@@ -37,6 +44,16 @@ class MainActivity : ComponentActivity() {
             val loc by location.location.collectAsStateWithLifecycle()
             val hdg by heading.heading.collectAsStateWithLifecycle()
             val save by repo.saveState.collectAsStateWithLifecycle()
+            // Keep-alive mirrors the iOS WorkoutController: run a foreground
+            // service while a round is live, stop it when the round clears.
+            LaunchedEffect(snapshot?.roundId, snapshot?.currentHole) {
+                val s = snapshot
+                if (s != null && s.holes.isNotEmpty()) {
+                    RoundKeepAliveService.start(this@MainActivity, s.competitionName, s.currentHole, s.holes.size)
+                } else {
+                    RoundKeepAliveService.stop(this@MainActivity)
+                }
+            }
             WearApp(
                 snapshot = snapshot,
                 location = loc,
@@ -57,6 +74,12 @@ class MainActivity : ComponentActivity() {
             location.start()
         } else {
             locationPermission.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
         if (BuildConfig.DEBUG && WEAR_PREVIEW) repo.injectForPreview(SAMPLE_SNAPSHOT_JSON)
     }
