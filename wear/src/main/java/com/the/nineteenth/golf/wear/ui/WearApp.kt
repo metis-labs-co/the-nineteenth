@@ -33,7 +33,7 @@ fun WearApp(
     onSendScore: (String) -> Unit,
     startDestination: String = ROUTE_DISTANCE,
 ) {
-    MaterialTheme {
+    MaterialTheme(colors = WearColors) {
         val navController = rememberSwipeDismissableNavController()
         SwipeDismissableNavHost(navController = navController, startDestination = startDestination) {
             composable(ROUTE_DISTANCE) {

@@ -110,6 +110,7 @@ private fun HoleScorePage(
     var hazards by remember(player.playerId, hole.hole) {
         mutableStateOf(stored?.hazards?.map { it.type }?.toSet() ?: emptySet())
     }
+    var pickedUp by remember(player.playerId, hole.hole) { mutableStateOf(false) }
 
     fun send(value: StrokesValue) {
         onSendScore(
@@ -143,15 +144,20 @@ private fun HoleScorePage(
         }
         item {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                StepButton("−") { strokes?.let { strokes = (it - 1).coerceAtLeast(1); commit() } }
-                Text(strokes?.toString() ?: "—", fontSize = 40.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colors.onSurface)
-                StepButton("+") { strokes = (strokes ?: 0) + 1; commit() }
+                StepButton("−") { strokes?.let { strokes = (it - 1).coerceAtLeast(1); pickedUp = false; commit() } }
+                Text(
+                    if (pickedUp) "P" else strokes?.toString() ?: "—",
+                    fontSize = 40.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colors.onSurface,
+                )
+                StepButton("+") { strokes = (strokes ?: 0) + 1; pickedUp = false; commit() }
             }
         }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Chip("Pick up", false) { send(StrokesValue.Pickup) }
-                Chip("Par", true) { strokes = hole.par; commit() }
+                Chip("Pick up", pickedUp) { pickedUp = true; send(StrokesValue.Pickup) }
+                Chip("Par", !pickedUp && strokes == hole.par) { pickedUp = false; strokes = hole.par; commit() }
             }
         }
         item { SavedIndicator(saveState) }
