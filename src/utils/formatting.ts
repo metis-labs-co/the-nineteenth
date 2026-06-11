@@ -5,7 +5,7 @@
  * to ensure consistent formatting across the application.
  */
 
-import { format, parse, isValid } from 'date-fns';
+import { format, parse, isValid, startOfWeek, endOfWeek } from 'date-fns';
 
 // ============================================================================
 // TIMEZONE-SAFE DATE HELPERS
@@ -46,6 +46,26 @@ export function getLocalDateString(date: Date = new Date()): string {
 export function parseLocalDateString(dateString: string): Date {
   const [year, month, day] = dateString.split('-').map(Number);
   return new Date(year, month - 1, day);
+}
+
+/**
+ * Get the Monday–Sunday range of the week containing `date`, as local
+ * YYYY-MM-DD strings (inclusive). Used to filter "this week" content
+ * against `rounds.date` (a local calendar date string).
+ *
+ * @param date - Date object (defaults to now)
+ * @returns Object with `start` and `end` as YYYY-MM-DD strings (local timezone)
+ *
+ * @example
+ * // On Thursday 11 June 2026:
+ * getWeekRange(new Date(2026, 5, 11)) // { start: '2026-06-08', end: '2026-06-14' }
+ * getWeekRange()                      // same as above when called on that day
+ */
+export function getWeekRange(date: Date = new Date()): { start: string; end: string } {
+  return {
+    start: format(startOfWeek(date, { weekStartsOn: 1 }), 'yyyy-MM-dd'),
+    end: format(endOfWeek(date, { weekStartsOn: 1 }), 'yyyy-MM-dd'),
+  };
 }
 
 // ============================================================================

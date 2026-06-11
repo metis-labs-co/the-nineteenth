@@ -20,6 +20,8 @@ export const friendsKeys = {
   sentRequests: () => [...friendsKeys.requests(), 'sent'] as const,
   search: (query: string) => [...friendsKeys.all, 'search', query] as const,
   detail: (friendId: string) => [...friendsKeys.all, 'detail', friendId] as const,
+  matesThisWeek: (userId?: string, weekStart?: string) =>
+    [...friendsKeys.all, 'mates-this-week', userId, weekStart] as const,
 } as const;
 
 // =====================================================
