@@ -14,6 +14,11 @@ import HealthKit
 final class WorkoutController: NSObject, ObservableObject {
     @Published private(set) var isActive = false
 
+    /// The instant the live workout session began, or `nil` when no session is
+    /// running. This is the clock the on-watch workout timer counts from, and the
+    /// anchor for the 5-hour round-duration reminder.
+    @Published private(set) var startDate: Date?
+
     private let healthStore = HKHealthStore()
     private var session: HKWorkoutSession?
     private var builder: HKLiveWorkoutBuilder?
@@ -39,7 +44,7 @@ final class WorkoutController: NSObject, ObservableObject {
 
     /// End the round session and finalize the workout. Safe to call when inactive.
     func stop() {
-        guard let session else { isActive = false; return }
+        guard let session else { isActive = false; startDate = nil; return }
         session.end()
         builder?.endCollection(withEnd: Date()) { [weak self] _, _ in
             self?.builder?.finishWorkout { _, _ in }
@@ -47,6 +52,7 @@ final class WorkoutController: NSObject, ObservableObject {
         self.session = nil
         self.builder = nil
         isActive = false
+        startDate = nil
     }
 
     private func beginSession() {
@@ -69,6 +75,7 @@ final class WorkoutController: NSObject, ObservableObject {
 
             self.session = session
             self.builder = builder
+            startDate = start
             isActive = true
         } catch {
             // Session couldn't start (e.g. simulator limitation / unauthorized).
@@ -76,6 +83,7 @@ final class WorkoutController: NSObject, ObservableObject {
             session = nil
             builder = nil
             isActive = false
+            startDate = nil
         }
     }
 }
