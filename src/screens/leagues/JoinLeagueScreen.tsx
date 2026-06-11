@@ -44,7 +44,8 @@ export default function JoinLeagueScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearch = useDebouncedValue(searchQuery, 300);
   const { data: publicLeagues, isLoading: isLoadingPublic } = usePublicLeagues(
-    debouncedSearch || undefined
+    debouncedSearch || undefined,
+    mode === 'public'
   );
 
   // Private invite code
@@ -64,6 +65,7 @@ export default function JoinLeagueScreen() {
   const handleJoin = useCallback(async () => {
     if (!canJoin) return;
     setError(null);
+
     try {
       const league = await joinLeague.mutateAsync(inviteCode.trim());
       navigation.replace('LeagueDetail', { id: league.id });

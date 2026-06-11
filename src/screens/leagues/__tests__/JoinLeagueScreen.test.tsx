@@ -51,14 +51,6 @@ jest.mock('@/components/leagues', () => ({
   },
 }));
 
-// Mock PageHeader to avoid safe-area and other dependencies (mirrors CompeteScreen.test.tsx)
-jest.mock('@/components/common/PageHeader', () => {
-  const { Text } = require('react-native');
-  return {
-    PageHeader: ({ title }: any) => <Text>{title}</Text>,
-  };
-});
-
 // Mock SegmentedButton to render simple touchable buttons by label (mirrors CompeteScreen.test.tsx)
 jest.mock('@/components/common/SegmentedButton', () => {
   const { TouchableOpacity, Text } = require('react-native');

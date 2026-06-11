@@ -68,10 +68,11 @@ export function useLeague(id: string, enabled = true) {
   });
 }
 
-export function usePublicLeagues(search?: string) {
+export function usePublicLeagues(search?: string, enabled = true) {
   return useQuery({
     queryKey: leagueKeys.publicList(search),
     queryFn: () => getPublicLeagues(search),
+    enabled,
     staleTime: CACHE_TIMES.MODERATE,
   });
 }
