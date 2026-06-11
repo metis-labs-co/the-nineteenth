@@ -47,7 +47,22 @@ export interface RoundWithCourse extends Round {
    * playing group. Empty/undefined for competition rounds, which surface
    * players via the dedicated competition Players tab.
    */
-  players?: { id: string; name: string }[];
+  players?: { id: string; name: string; photo_url?: string | null }[];
+  /**
+   * Live scoring progress for the signed-in user — populated by Home's
+   * useInProgressRounds so the carousel card can show "Hole 7 · +2 · 21 pts".
+   * Null/undefined when the user hasn't started scoring this round.
+   */
+  user_progress?: {
+    /** Holes the user has entered a score for */
+    holesScored: number;
+    /** The hole to resume on (1-based) */
+    currentHole: number;
+    /** Gross strokes relative to par across scored holes; null when not computable (e.g. multi-ball team scores) */
+    toPar: number | null;
+    /** Stableford points so far; null for non-stableford formats */
+    points: number | null;
+  } | null;
 }
 
 /**

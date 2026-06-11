@@ -10,11 +10,11 @@ import {
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import {
-  IconBolt,
   IconDice,
   IconDog,
+  IconPlayerPlayFilled,
+  IconTarget,
   IconTrophy,
-  IconUsers,
 } from '@tabler/icons-react-native';
 import { useThemeColors } from '@/context/ThemeContext';
 import {
@@ -22,10 +22,8 @@ import {
   typography,
   borderRadius,
   shadows,
-  skinsColor,
-  wolfColor,
 } from '@/constants/theme';
-import { Pill, StatusBadge } from '@/components/common';
+import { PlayerAvatar } from '@/components/common';
 import type { GameType } from '@/types/database.types';
 import { inferPresetIdFromRound, ROUND_PRESETS } from '@/constants/roundPresets';
 import { GAME_TYPE_LABELS, type RoundWithCourse } from '../types';
@@ -47,6 +45,26 @@ const PARENT_HORIZONTAL_PADDING = spacing.lg;
 const CARD_GAP = spacing.sm;
 /** How much of the next card peeks into view, signaling "swipe for more". */
 const NEXT_CARD_PEEK = 32;
+
+/**
+ * Fixed "ink" + accent colours for the lime resume card. The card keeps the
+ * same lime-surface / dark-ink contrast in both themes (the lime background
+ * comes from colors.primaryLighter and stays light in dark mode), so these
+ * are static like skinsColor/wolfColor rather than palette-driven.
+ */
+const CARD_INK = '#1e2b15';
+const CARD_INK_SOFT = 'rgba(30, 43, 21, 0.65)';
+const CARD_INK_BORDER = 'rgba(30, 43, 21, 0.25)';
+const CARD_DIVIDER = 'rgba(30, 43, 21, 0.14)';
+const LIVE_DOT = '#e0795f';
+/** Most companion avatars shown before collapsing into the "with N" count. */
+const MAX_AVATARS = 3;
+
+/** Format gross-to-par golf style: +2 / E / -1. */
+function formatToPar(toPar: number): string {
+  if (toPar === 0) return 'E';
+  return toPar > 0 ? `+${toPar}` : `${toPar}`;
+}
 
 interface RoundCardProps {
   round: RoundWithCourse;
@@ -71,10 +89,7 @@ function RoundCard({
   const isStandalone = !round.competition_id;
   const standaloneRoundName =
     isStandalone && round.name?.trim() ? round.name.trim() : null;
-  const playerNames =
-    isStandalone && round.players?.length
-      ? round.players.map((p) => p.name).join(', ')
-      : null;
+  const players = isStandalone ? (round.players ?? []) : [];
   const hasSkins = round.has_skins ?? false;
   const hasWolf = round.has_wolf ?? false;
 
@@ -90,129 +105,129 @@ function RoundCard({
     (presetId && ROUND_PRESETS[presetId]?.title) ??
     GAME_TYPE_LABELS[round.game_type];
 
+  // "Hole 7 · +2 · 21 pts" when scoring has started; otherwise fall back to
+  // the round name / club so the line is never empty.
+  const progress = round.user_progress;
+  const progressParts: string[] = [];
+  if (progress && progress.holesScored > 0) {
+    progressParts.push(`Hole ${progress.currentHole}`);
+    if (progress.toPar !== null) progressParts.push(formatToPar(progress.toPar));
+    if (progress.points !== null) progressParts.push(`${progress.points} pts`);
+  }
+  const subtitle =
+    progressParts.length > 0
+      ? progressParts.join(' · ')
+      : (standaloneRoundName ?? clubName ?? 'Ready to score');
+
   return (
-    <View
+    <TouchableOpacity
       style={[
         styles.card,
         shadows.sm,
-        { backgroundColor: colors.surface, borderColor: colors.border },
+        { backgroundColor: colors.primaryLighter },
         width !== undefined && { width },
       ]}
+      onPress={() => onViewRound(round.id)}
+      accessibilityRole="button"
+      accessibilityLabel={`View round ${number} — ${formatLabel}, in progress at ${courseName}${
+        progressParts.length > 0 ? `, ${progressParts.join(', ')}` : ''
+      }`}
+      activeOpacity={0.85}
     >
-      <TouchableOpacity
-        style={styles.body}
-        onPress={() => onViewRound(round.id)}
-        accessibilityRole="button"
-        accessibilityLabel={`View round ${number} — ${formatLabel}, in progress at ${courseName}`}
-        activeOpacity={0.7}
-      >
-        <View style={styles.topRow}>
-          <View style={styles.topRowLeft}>
-            <StatusBadge status="in-progress" size="sm" />
-            <StatusBadge
-              status="custom"
-              label={formatLabel}
-              size="sm"
-              backgroundColor={colors.gray100}
-            />
-            {hasSkins && (
-              <View
-                style={[
-                  styles.featureBadge,
-                  { backgroundColor: `${skinsColor}20` },
-                ]}
-                accessibilityLabel="Skins game enabled"
-              >
-                <IconDice size={12} color={skinsColor} />
-                <Text style={[styles.featureBadgeText, { color: skinsColor }]}>
-                  Skins
-                </Text>
-              </View>
-            )}
-            {hasWolf && (
-              <View
-                style={[
-                  styles.featureBadge,
-                  { backgroundColor: `${wolfColor}20` },
-                ]}
-                accessibilityLabel="Wolf game enabled"
-              >
-                <IconDog size={12} color={wolfColor} />
-                <Text style={[styles.featureBadgeText, { color: wolfColor }]}>
-                  Wolf
-                </Text>
-              </View>
-            )}
-          </View>
-          <Pill label={`Round ${number}`} size="sm" />
+      <View style={styles.topRow}>
+        <View style={styles.liveDot} />
+        <View style={styles.titleBlock}>
+          <Text style={styles.title} numberOfLines={1}>
+            Resume · {courseName}
+          </Text>
+          <Text style={styles.subtitle} numberOfLines={1}>
+            {subtitle}
+          </Text>
         </View>
+        <TouchableOpacity
+          style={styles.resumeButton}
+          onPress={() =>
+            onScoreRound(round.id, round.game_type, round.is_team_round)
+          }
+          accessibilityRole="button"
+          accessibilityLabel={`Resume scoring round ${number} at ${courseName}`}
+          activeOpacity={0.8}
+        >
+          <IconPlayerPlayFilled size={14} color={colors.primaryLighter} />
+          <Text style={[styles.resumeLabel, { color: colors.primaryLighter }]}>
+            Resume
+          </Text>
+        </TouchableOpacity>
+      </View>
 
+      <View style={styles.divider} />
+
+      <View style={styles.chipsRow}>
+        <View style={[styles.chip, styles.outlineChip]}>
+          <IconTarget size={14} color={CARD_INK} />
+          <Text style={styles.chipLabel} numberOfLines={1}>
+            {formatLabel}
+          </Text>
+        </View>
         {competitionName && (
-          <View style={styles.competitionRow}>
-            <IconTrophy size={14} color={colors.textSecondary} />
+          <View style={[styles.chip, styles.filledChip]}>
+            <IconTrophy size={14} color={colors.primaryLighter} />
             <Text
-              style={[styles.competitionName, { color: colors.textSecondary }]}
+              style={[styles.chipLabel, { color: colors.primaryLighter }]}
               numberOfLines={1}
             >
               {competitionName}
             </Text>
           </View>
         )}
-
-        {standaloneRoundName && (
-          <Text
-            style={[styles.roundName, { color: colors.textPrimary }]}
-            numberOfLines={1}
+        {hasSkins && (
+          <View
+            style={[styles.chip, styles.outlineChip]}
+            accessibilityLabel="Skins game enabled"
           >
-            {standaloneRoundName}
-          </Text>
-        )}
-
-        <View style={styles.titleRow}>
-          <Text
-            style={[styles.title, { color: colors.textPrimary }]}
-            numberOfLines={1}
-          >
-            {courseName}
-          </Text>
-          {clubName && (
-            <Text
-              style={[styles.subtitle, { color: colors.textSecondary }]}
-              numberOfLines={1}
-            >
-              {` · ${clubName}`}
-            </Text>
-          )}
-        </View>
-
-        {playerNames && (
-          <View style={styles.playersRow}>
-            <IconUsers size={14} color={colors.textSecondary} />
-            <Text
-              style={[styles.playersText, { color: colors.textSecondary }]}
-              numberOfLines={1}
-            >
-              {playerNames}
-            </Text>
+            <IconDice size={14} color={CARD_INK} />
+            <Text style={styles.chipLabel}>Skins</Text>
           </View>
         )}
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={[styles.scoreButton, { backgroundColor: colors.primary }]}
-        onPress={() =>
-          onScoreRound(round.id, round.game_type, round.is_team_round)
-        }
-        accessibilityRole="button"
-        accessibilityLabel={`Score round ${number}`}
-        activeOpacity={0.8}
-      >
-        <IconBolt size={16} color={colors.white} />
-        <Text style={[styles.scoreButtonLabel, { color: colors.white }]}>
-          Continue Scoring
-        </Text>
-      </TouchableOpacity>
-    </View>
+        {hasWolf && (
+          <View
+            style={[styles.chip, styles.outlineChip]}
+            accessibilityLabel="Wolf game enabled"
+          >
+            <IconDog size={14} color={CARD_INK} />
+            <Text style={styles.chipLabel}>Wolf</Text>
+          </View>
+        )}
+        {players.length > 0 && (
+          <View
+            style={styles.playersGroup}
+            accessibilityLabel={`Playing with ${players.length}: ${players
+              .map((p) => p.name)
+              .join(', ')}`}
+          >
+            <View style={styles.avatarStack}>
+              {players.slice(0, MAX_AVATARS).map((player, index) => (
+                <View
+                  key={player.id}
+                  style={[
+                    styles.avatarRing,
+                    { borderColor: colors.primaryLighter },
+                    index > 0 && styles.avatarOverlap,
+                  ]}
+                >
+                  <PlayerAvatar
+                    photoUrl={player.photo_url ?? null}
+                    name={player.name}
+                    size={22}
+                  />
+                </View>
+              ))}
+            </View>
+            <Text style={styles.withLabel}>with {players.length}</Text>
+          </View>
+        )}
+      </View>
+    </TouchableOpacity>
   );
 }
 
@@ -321,93 +336,102 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   card: {
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    padding: spacing.md,
-    gap: spacing.sm,
-    // Fixed min height keeps the Continue Scoring button bottom-aligned
-    // across cards regardless of optional content (competition row, etc.).
-    minHeight: 180,
-  },
-  body: {
-    flex: 1,
-    gap: spacing.xs,
+    borderRadius: borderRadius.xxl,
+    padding: spacing.lg,
+    gap: spacing.md,
+    // Fixed min height keeps cards aligned across the carousel regardless of
+    // optional content (competition chip, avatars, etc.).
+    minHeight: 136,
+    justifyContent: 'center',
   },
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     gap: spacing.sm,
   },
-  topRowLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    flexShrink: 1,
-    flexWrap: 'wrap',
+  liveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: LIVE_DOT,
   },
-  featureBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    paddingHorizontal: spacing.xs + 2,
-    paddingVertical: 2,
-    borderRadius: borderRadius.sm,
-  },
-  featureBadgeText: {
-    ...typography.caption,
-    fontWeight: '600',
-  },
-  competitionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    marginTop: spacing.xs,
-  },
-  competitionName: {
-    ...typography.smallBold,
-    flexShrink: 1,
-  },
-  roundName: {
-    ...typography.smallBold,
-    marginTop: spacing.xs,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-  },
-  playersRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    marginTop: spacing.xs,
-  },
-  playersText: {
-    ...typography.small,
-    flexShrink: 1,
-    minWidth: 0,
+  titleBlock: {
+    flex: 1,
+    gap: 2,
   },
   title: {
-    ...typography.bodyBold,
-    flexShrink: 1,
+    ...typography.h4,
+    color: CARD_INK,
   },
   subtitle: {
-    ...typography.body,
-    flexShrink: 1,
-    minWidth: 0,
+    ...typography.small,
+    fontWeight: '600',
+    color: CARD_INK_SOFT,
   },
-  scoreButton: {
+  resumeButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.xs,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.md,
-    minHeight: 40,
+    height: 44,
+    paddingHorizontal: spacing.lg,
+    borderRadius: borderRadius.full,
+    backgroundColor: CARD_INK,
   },
-  scoreButtonLabel: {
+  resumeLabel: {
+    ...typography.bodyBold,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: CARD_DIVIDER,
+  },
+  chipsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    flexWrap: 'wrap',
+  },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    height: 32,
+    paddingHorizontal: spacing.md - 2,
+    borderRadius: borderRadius.full,
+    flexShrink: 1,
+  },
+  outlineChip: {
+    borderWidth: 1,
+    borderColor: CARD_INK_BORDER,
+  },
+  filledChip: {
+    backgroundColor: CARD_INK,
+  },
+  chipLabel: {
     ...typography.smallBold,
+    color: CARD_INK,
+    flexShrink: 1,
+  },
+  playersGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginLeft: 'auto',
+  },
+  avatarStack: {
+    flexDirection: 'row',
+  },
+  avatarRing: {
+    borderWidth: 2,
+    borderRadius: borderRadius.full,
+    overflow: 'hidden',
+  },
+  avatarOverlap: {
+    marginLeft: -spacing.sm,
+  },
+  withLabel: {
+    ...typography.smallBold,
+    color: CARD_INK,
   },
   dotsRow: {
     flexDirection: 'row',
