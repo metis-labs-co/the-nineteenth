@@ -234,13 +234,10 @@ export function useCompetitionGroups() {
 
   // Grouped sections with legacy flag applied to organizer comps
   const groups = useMemo(() => {
-    const flaggedMy =
-      legacyCompetitionIds.size > 0
-        ? myCompetitions?.map((comp) => ({
-            ...comp,
-            isLegacy: legacyCompetitionIds.has(comp.id),
-          }))
-        : myCompetitions;
+    const flaggedMy = myCompetitions?.map((comp) => ({
+      ...comp,
+      isLegacy: legacyCompetitionIds.has(comp.id),
+    }));
     return groupCompetitions(flaggedMy, joinedCompetitions);
   }, [myCompetitions, joinedCompetitions, legacyCompetitionIds]);
 
