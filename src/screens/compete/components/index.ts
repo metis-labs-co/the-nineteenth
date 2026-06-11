@@ -1,0 +1,1 @@
+export { CompsContent } from './CompsContent';
