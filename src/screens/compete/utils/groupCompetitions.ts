@@ -23,12 +23,29 @@ export interface CompetitionGroups {
 const STARTED_STATUSES = new Set(['active', 'in_progress', 'in-progress']);
 
 /**
- * Return the UTC day boundary (midnight UTC) for a given date, as a timestamp.
- * Using UTC consistently avoids timezone-dependent behaviour when the date string
- * is parsed as UTC midnight (e.g. '2026-06-11' → 2026-06-11T00:00:00Z).
+ * Convert a date to a compact integer representing the local calendar day
+ * (YYYYMMDD), using local-timezone components.  Useful for comparing calendar
+ * days without worrying about time-of-day or UTC offsets.
  */
-function utcDayStart(date: Date): number {
-  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+function localDayNumber(date: Date): number {
+  return date.getFullYear() * 10000 + (date.getMonth() + 1) * 100 + date.getDate();
+}
+
+/**
+ * Parse a date-only string ('YYYY-MM-DD') or full ISO timestamp and return a
+ * compact YYYYMMDD integer for the **calendar date named in the string**, not
+ * the local wall-clock interpretation of it.
+ *
+ * Supabase `date` columns arrive as bare 'YYYY-MM-DD' strings.  Passing such a
+ * string to `new Date()` yields UTC midnight, so we read its *UTC* components
+ * to recover the intended calendar date.  For full ISO timestamps we do the
+ * same (take the first 10 chars) so the function stays consistent.
+ */
+function startDateDayNumber(startDate: string): number {
+  // Extract the YYYY-MM-DD portion robustly.
+  const datePart = startDate.length >= 10 ? startDate.slice(0, 10) : startDate;
+  const d = new Date(datePart); // parsed as UTC midnight
+  return d.getUTCFullYear() * 10000 + (d.getUTCMonth() + 1) * 100 + d.getUTCDate();
 }
 
 function byStartDateAsc(a: CompetitionItem, b: CompetitionItem): number {
@@ -70,7 +87,7 @@ export function groupCompetitions(
   const active: CompetitionItem[] = [];
   const upcoming: CompetitionItem[] = [];
   const completed: CompetitionItem[] = [];
-  const todayUtcStart = utcDayStart(now);
+  const todayLocalDay = localDayNumber(now);
 
   for (const comp of byId.values()) {
     const status = comp.status?.toLowerCase() ?? 'draft';
@@ -81,7 +98,7 @@ export function groupCompetitions(
     }
     const hasStarted =
       STARTED_STATUSES.has(status) ||
-      (comp.startDate !== null && utcDayStart(new Date(comp.startDate)) <= todayUtcStart);
+      (comp.startDate !== null && startDateDayNumber(comp.startDate) <= todayLocalDay);
     if (hasStarted) {
       active.push(comp);
     } else {

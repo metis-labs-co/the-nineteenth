@@ -94,4 +94,31 @@ describe('groupCompetitions', () => {
     const result = groupCompetitions(undefined, undefined, NOW);
     expect(result).toEqual({ active: [], upcoming: [], completed: [] });
   });
+
+  /**
+   * Regression: on Australian devices (UTC+10/+11) the local morning of a start
+   * date falls on the *previous* UTC day.  The comp must be classified as active
+   * as soon as the local calendar day matches the startDate, not only after UTC
+   * midnight of that date.
+   *
+   * We construct `now` from LOCAL components (new Date(year, month, day, ...)) so
+   * the test is timezone-independent: the local date of NOW_MORNING is always
+   * June 12 regardless of where CI runs.
+   */
+  it('classifies a comp as active on its start day even when local morning precedes UTC midnight (timezone regression)', () => {
+    // Local June 12, 07:00 — on UTC+10 this is 2026-06-11T21:00Z (UTC still June 11)
+    const NOW_MORNING = new Date(2026, 5, 12, 7, 0, 0); // month is 0-indexed
+
+    const result = groupCompetitions(
+      [
+        comp({ id: 'starts-today', status: 'upcoming', startDate: '2026-06-12' }),
+        comp({ id: 'starts-tomorrow', status: 'upcoming', startDate: '2026-06-13' }),
+      ],
+      [],
+      NOW_MORNING
+    );
+
+    expect(result.active.map((c) => c.id)).toEqual(['starts-today']);
+    expect(result.upcoming.map((c) => c.id)).toEqual(['starts-tomorrow']);
+  });
 });
