@@ -1,14 +1,21 @@
 import SwiftUI
+import WatchKit
 
 @main
 struct TheNineteenthWatchApp: App {
     @StateObject private var connectivity = ConnectivityClient.shared
     @StateObject private var location = LocationProvider()
     @StateObject private var workout = WorkoutController()
+    @StateObject private var durationMonitor = RoundDurationMonitor()
 
     var body: some Scene {
         WindowGroup {
-            RootView(connectivity: connectivity, location: location, workout: workout)
+            RootView(
+                connectivity: connectivity,
+                location: location,
+                workout: workout,
+                durationMonitor: durationMonitor
+            )
         }
     }
 }
@@ -22,6 +29,7 @@ struct RootView: View {
     @ObservedObject var connectivity: ConnectivityClient
     @ObservedObject var location: LocationProvider
     @ObservedObject var workout: WorkoutController
+    @ObservedObject var durationMonitor: RoundDurationMonitor
 
     var body: some View {
         NavigationStack {
@@ -44,6 +52,22 @@ struct RootView: View {
         .onAppear { if connectivity.snapshot != nil { workout.start() } }
         .onChange(of: connectivity.snapshot != nil) { _, live in
             if live { workout.start() } else { workout.stop() }
+        }
+        // Anchor the 5-hour reminder to the workout session start (the clock the
+        // on-watch timer shows). Starts when the session begins, stops when it ends.
+        .onChange(of: workout.startDate) { _, started in
+            if let started { durationMonitor.start(at: started) } else { durationMonitor.stop() }
+        }
+        .alert(
+            "Round running long",
+            isPresented: $durationMonitor.shouldPromptCompletion
+        ) {
+            Button("Got it", role: .cancel) {}
+        } message: {
+            Text("You've been playing over 5 hours. Time to wrap up and submit your scorecard on your phone.")
+        }
+        .onChange(of: durationMonitor.shouldPromptCompletion) { _, prompting in
+            if prompting { WKInterfaceDevice.current().play(.notification) }
         }
     }
 }
