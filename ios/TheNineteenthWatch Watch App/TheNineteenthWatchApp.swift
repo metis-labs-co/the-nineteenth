@@ -55,6 +55,9 @@ struct RootView: View {
         }
         // Anchor the 5-hour reminder to the workout session start (the clock the
         // on-watch timer shows). Starts when the session begins, stops when it ends.
+        // Note: if the watch app is force-relaunched mid-round, the workout session
+        // restarts and this anchor resets to the relaunch time — the keep-alive
+        // session exists precisely to make that rare.
         .onChange(of: workout.startDate) { _, started in
             if let started { durationMonitor.start(at: started) } else { durationMonitor.stop() }
         }
@@ -67,6 +70,7 @@ struct RootView: View {
             Text("You've been playing over 5 hours. Time to wrap up and submit your scorecard on your phone.")
         }
         .onChange(of: durationMonitor.shouldPromptCompletion) { _, prompting in
+            // Rising edge only: haptic on the alert appearing, not on dismissal.
             if prompting { WKInterfaceDevice.current().play(.notification) }
         }
     }
