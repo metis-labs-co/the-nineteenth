@@ -34,7 +34,9 @@ final class RoundDurationMonitor: ObservableObject {
         shouldPromptCompletion = false
 
         let timer = Timer(timeInterval: Self.tickInterval, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.check() }
+            // Added to RunLoop.main below, so the callback always fires on the main
+            // thread — assert the main-actor isolation instead of hopping via a Task.
+            MainActor.assumeIsolated { self?.check() }
         }
         // .common so it keeps firing while the user interacts with the UI.
         RunLoop.main.add(timer, forMode: .common)
@@ -55,6 +57,9 @@ final class RoundDurationMonitor: ObservableObject {
 
     private func check() {
         guard !hasPrompted, let startDate else { return }
+        // Wall-clock Date is intentional: a monotonic clock (CACurrentMediaTime)
+        // pauses while watchOS suspends the app, which would under-count elapsed
+        // time. Date subtraction measures real-world duration across suspensions.
         if Date().timeIntervalSince(startDate) >= Self.limit {
             hasPrompted = true
             shouldPromptCompletion = true
