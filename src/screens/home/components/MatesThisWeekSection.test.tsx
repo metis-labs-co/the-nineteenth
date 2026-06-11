@@ -85,4 +85,17 @@ describe('MatesThisWeekSection', () => {
     fireEvent.press(getByText('See all'));
     expect(mockNavigate).toHaveBeenCalledWith('Activity');
   });
+
+  it('renders nothing on error', () => {
+    mockData(undefined, { isError: true });
+    const { queryByText } = render(wrap(<MatesThisWeekSection />));
+    expect(queryByText('Mates this week')).toBeNull();
+  });
+
+  it('shows only "Leading" when a single mate has played', () => {
+    mockData([entries[0]]);
+    const { getByText, queryByText } = render(wrap(<MatesThisWeekSection />));
+    expect(getByText('Leading')).toBeTruthy();
+    expect(queryByText(/behind/)).toBeNull();
+  });
 });

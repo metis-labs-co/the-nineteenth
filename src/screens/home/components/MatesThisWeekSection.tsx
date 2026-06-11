@@ -29,7 +29,7 @@ interface MateRowProps {
   onPress: (roundId: string) => void;
 }
 
-function MateRow({ entry, position, leaderPoints, onPress }: MateRowProps) {
+const MateRow = React.memo(function MateRow({ entry, position, leaderPoints, onPress }: MateRowProps) {
   const colors = useThemeColors();
   const isDark = useIsDark();
 
@@ -68,7 +68,7 @@ function MateRow({ entry, position, leaderPoints, onPress }: MateRowProps) {
       <Text style={[styles.points, { color: nameColor }]}>{entry.points}</Text>
     </TouchableOpacity>
   );
-}
+});
 
 export const MatesThisWeekSection = React.memo(function MatesThisWeekSection() {
   const colors = useThemeColors();
@@ -92,7 +92,7 @@ export const MatesThisWeekSection = React.memo(function MatesThisWeekSection() {
       <Text style={[styles.caption, { color: colors.textSecondary }]}>
         Stableford points · tap to view
       </Text>
-      <View style={[styles.card, { backgroundColor: colors.surface }, shadows.sm]}>
+      <View style={[styles.card, shadows.sm, { backgroundColor: colors.surface }]}>
         {entries.map((entry, idx) => (
           <MateRow
             key={entry.playerId}
@@ -113,7 +113,6 @@ const styles = StyleSheet.create({
   },
   caption: {
     ...typography.caption,
-    marginTop: -spacing.xs,
     marginBottom: spacing.sm,
   },
   card: {
