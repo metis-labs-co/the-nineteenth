@@ -32,7 +32,6 @@ export type RootStackParamList = {
   MainTabs: NavigatorScreenParams<TabParamList> | undefined;
 
   // Competitions
-  Competitions: undefined;
   CompetitionDetail: { id: string };
   CreateCompetition: { initialState?: import('@/utils/aiToWizardState').WizardState } | undefined;
   AICompetition: undefined;

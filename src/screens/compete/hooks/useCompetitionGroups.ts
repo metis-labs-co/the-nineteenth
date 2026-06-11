@@ -1,9 +1,9 @@
 // src/screens/compete/hooks/useCompetitionGroups.ts
 //
-// Data hook for the Compete screen's Comps mode. Runs the same two TanStack
-// queries as useCompetitionsList but instead of tab/filter state it returns
-// competitions pre-grouped into active / upcoming / completed sections via
-// groupCompetitions().
+// Data hook for the Compete screen's Comps mode. Fetches the user's organized
+// and joined competitions and returns them pre-grouped into active / upcoming /
+// completed sections via groupCompetitions(), plus tier-limit info and the
+// delete flow.
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
