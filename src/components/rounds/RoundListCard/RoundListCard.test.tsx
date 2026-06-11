@@ -26,11 +26,6 @@ import type { RoundListCardData } from './types';
 jest.mock('@tabler/icons-react-native', () => {
   const { View, Text } = require('react-native');
   return {
-    IconChevronRight: (props: any) => (
-      <View testID="icon-chevron-right" {...props}>
-        <Text>ChevronRight</Text>
-      </View>
-    ),
     IconMapPin: (props: any) => (
       <View testID="icon-map-pin" {...props}>
         <Text>MapPin</Text>
@@ -255,12 +250,6 @@ describe('RoundListCard', () => {
       expect(screen.getByText('Stableford')).toBeTruthy();
     });
 
-    it('renders chevron right icon', () => {
-      const round = createRoundData();
-      render(<RoundListCard round={round} onPress={defaultOnPress} />);
-
-      expect(screen.getByTestId('icon-chevron-right')).toBeTruthy();
-    });
   });
 
   // ===========================================================================

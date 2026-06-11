@@ -2,9 +2,6 @@
 
 import React, { useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { IconChevronRight } from '@tabler/icons-react-native';
-import { useThemeColors } from '@/context/ThemeContext';
-import { spacing } from '@/constants/theme';
 import { CardContainer } from '@/components/common';
 import { RoundListCardData, RoundListCardProps } from './types';
 import { RoundCardHeader } from './RoundCardHeader';
@@ -53,8 +50,6 @@ export const RoundListCard = React.memo(function RoundListCard<
   currentUserId,
   testID,
 }: RoundListCardProps<T>) {
-  const colors = useThemeColors();
-
   const handlePress = useCallback(() => {
     onPress(round);
   }, [onPress, round]);
@@ -71,14 +66,9 @@ export const RoundListCard = React.memo(function RoundListCard<
   };
 
   const cardContent = (
-    <View style={styles.contentWrapper}>
-      <View style={styles.content}>
-        <RoundCardHeader round={round} />
-        <RoundCardMeta round={round} currentUserId={currentUserId} />
-      </View>
-      <View style={styles.arrow}>
-        <IconChevronRight size={20} color={colors.gray400} />
-      </View>
+    <View style={styles.content}>
+      <RoundCardHeader round={round} />
+      <RoundCardMeta round={round} currentUserId={currentUserId} />
     </View>
   );
 
@@ -117,15 +107,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  contentWrapper: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
   content: {
     flex: 1,
-  },
-  arrow: {
-    marginLeft: spacing.md,
   },
 });
