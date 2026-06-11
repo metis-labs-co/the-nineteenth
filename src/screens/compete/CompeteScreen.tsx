@@ -6,7 +6,7 @@
  * - Leagues: create/join buttons + my leagues list
  */
 
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { View, ScrollView, StyleSheet, RefreshControl, TouchableOpacity } from 'react-native';
 import { Icon } from 'react-native-paper';
 import { useQueryClient } from '@tanstack/react-query';
@@ -32,10 +32,11 @@ export default function CompeteScreen() {
   const leaguesWelcome = useScreenWelcome('leagues');
   const welcome = mode === 'comps' ? compsWelcome : leaguesWelcome;
 
-  const handleRefresh = async () => {
+  const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     try {
       if (mode === 'comps') {
+        // Prefix-match against useCompetitionGroups' inline ['myCompetitions', userId] keys
         await Promise.all([
           queryClient.refetchQueries({ queryKey: ['myCompetitions'] }),
           queryClient.refetchQueries({ queryKey: ['joinedCompetitions'] }),
@@ -46,7 +47,7 @@ export default function CompeteScreen() {
     } finally {
       setIsRefreshing(false);
     }
-  };
+  }, [mode, queryClient]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
