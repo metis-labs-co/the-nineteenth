@@ -58,7 +58,7 @@ export function LeaguesContent() {
   return (
     <View>
       {/* Create + Join buttons */}
-      <View style={styles.buttonsContainer}>
+      <View style={styles.createButtonsContainer}>
         <View style={styles.featureButtonWrapper}>
           <FeatureLockCompact
             feature="create_league"
@@ -151,7 +151,7 @@ export function LeaguesContent() {
 }
 
 const styles = StyleSheet.create({
-  buttonsContainer: {
+  createButtonsContainer: {
     flexDirection: 'row',
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
