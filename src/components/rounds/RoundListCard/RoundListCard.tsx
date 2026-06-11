@@ -6,6 +6,7 @@ import { CardContainer } from '@/components/common';
 import { RoundListCardData, RoundListCardProps } from './types';
 import { RoundCardHeader } from './RoundCardHeader';
 import { RoundCardMeta } from './RoundCardMeta';
+import { RoundCardScore } from './RoundCardScore';
 
 /**
  * RoundListCard - Displays a round card in a list
@@ -66,9 +67,12 @@ export const RoundListCard = React.memo(function RoundListCard<
   };
 
   const cardContent = (
-    <View style={styles.content}>
-      <RoundCardHeader round={round} />
-      <RoundCardMeta round={round} currentUserId={currentUserId} />
+    <View style={styles.contentWrapper}>
+      <View style={styles.content}>
+        <RoundCardHeader round={round} />
+        <RoundCardMeta round={round} currentUserId={currentUserId} />
+      </View>
+      <RoundCardScore round={round} />
     </View>
   );
 
@@ -104,6 +108,11 @@ export const RoundListCard = React.memo(function RoundListCard<
 
 const styles = StyleSheet.create({
   cardStyle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  contentWrapper: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
   },

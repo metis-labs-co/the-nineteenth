@@ -253,6 +253,85 @@ describe('RoundListCard', () => {
   });
 
   // ===========================================================================
+  // USER SCORE DISPLAY TESTS
+  // ===========================================================================
+
+  describe('User Score Display', () => {
+    it('shows stableford points prominently for completed rounds', () => {
+      const round = createCompletedRound({
+        userScore: { hasScorecard: true, totalPoints: 34 },
+      });
+      render(<RoundListCard round={round} onPress={defaultOnPress} />);
+
+      expect(screen.getByTestId('round-card-score')).toBeTruthy();
+      expect(screen.getByText('34')).toBeTruthy();
+      expect(screen.getByText('pts')).toBeTruthy();
+    });
+
+    it('shows net score for completed stroke rounds', () => {
+      const round = createCompletedRound({
+        gameType: 'stroke',
+        userScore: { hasScorecard: true, totalGross: 84, totalNet: 71 },
+      });
+      render(<RoundListCard round={round} onPress={defaultOnPress} />);
+
+      expect(screen.getByText('71')).toBeTruthy();
+      expect(screen.getByText('net')).toBeTruthy();
+    });
+
+    it('shows match result for completed match-play rounds', () => {
+      const round = createCompletedRound({
+        gameType: 'match-play',
+        userScore: { hasScorecard: true, matchResult: { won: true, margin: '3&2' } },
+      });
+      render(<RoundListCard round={round} onPress={defaultOnPress} />);
+
+      expect(screen.getByText('3&2')).toBeTruthy();
+      expect(screen.getByText('Won')).toBeTruthy();
+    });
+
+    it('shows not submitted pill when no scorecard exists', () => {
+      const round = createCompletedRound({
+        userScore: { hasScorecard: false },
+      });
+      render(<RoundListCard round={round} onPress={defaultOnPress} />);
+
+      expect(screen.getByText('Not submitted')).toBeTruthy();
+      expect(screen.queryByTestId('round-card-score')).toBeNull();
+    });
+
+    it('does not show a score for in-progress rounds', () => {
+      const round = createInProgressRound({
+        userScore: { hasScorecard: true, totalPoints: 20 },
+      });
+      render(<RoundListCard round={round} onPress={defaultOnPress} />);
+
+      expect(screen.queryByTestId('round-card-score')).toBeNull();
+    });
+  });
+
+  // ===========================================================================
+  // TEE SWATCH TESTS
+  // ===========================================================================
+
+  describe('Tee Swatch Display', () => {
+    it('shows a tee colour swatch for standalone rounds with a selected tee', () => {
+      const round = createStandaloneRound({ selectedTeeName: 'White' });
+      render(<RoundListCard round={round} onPress={defaultOnPress} />);
+
+      expect(screen.getByTestId('round-card-tee-swatch')).toBeTruthy();
+      expect(screen.queryByText('White Tees')).toBeNull();
+    });
+
+    it('does not show a tee swatch when no tee is selected', () => {
+      const round = createStandaloneRound({ selectedTeeName: null });
+      render(<RoundListCard round={round} onPress={defaultOnPress} />);
+
+      expect(screen.queryByTestId('round-card-tee-swatch')).toBeNull();
+    });
+  });
+
+  // ===========================================================================
   // COMPETITION ROUND TESTS
   // ===========================================================================
 
@@ -451,43 +530,10 @@ describe('RoundListCard', () => {
   // ===========================================================================
 
   describe('Date and Time Display', () => {
-    it('displays date and tee time', () => {
+    it('does not display the date on round cards', () => {
       const round = createRoundData({
         date: '2025-01-15',
         teeTime: '10:30 AM',
-      });
-      render(<RoundListCard round={round} onPress={defaultOnPress} />);
-
-      expect(screen.getByTestId('datetime-display')).toBeTruthy();
-      expect(screen.getByTestId('date-value')).toBeTruthy();
-      expect(screen.getByTestId('time-value')).toBeTruthy();
-    });
-
-    it('handles Date object for date', () => {
-      const round = createRoundData({
-        date: new Date('2025-01-15T00:00:00Z'),
-        teeTime: '10:30 AM',
-      });
-      render(<RoundListCard round={round} onPress={defaultOnPress} />);
-
-      expect(screen.getByTestId('datetime-display')).toBeTruthy();
-    });
-
-    it('handles null tee time', () => {
-      const round = createRoundData({
-        date: '2025-01-15',
-        teeTime: null,
-      });
-      render(<RoundListCard round={round} onPress={defaultOnPress} />);
-
-      expect(screen.getByTestId('datetime-display')).toBeTruthy();
-      expect(screen.queryByTestId('time-value')).toBeNull();
-    });
-
-    it('does not display date when null', () => {
-      const round = createRoundData({
-        date: null,
-        teeTime: null,
       });
       render(<RoundListCard round={round} onPress={defaultOnPress} />);
 

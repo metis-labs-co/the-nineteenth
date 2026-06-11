@@ -145,6 +145,66 @@ export interface RoundListCardProps<T extends RoundListCardData = RoundListCardD
 // =====================================================
 
 /**
+ * Prominent score display for the right side of a completed round card
+ */
+export interface UserScoreDisplay {
+  /** Headline value (e.g., "34", "71", "3&2") */
+  value: string;
+  /** Caption shown beneath the value (e.g., "pts", "net", "Won") */
+  label?: string;
+  /** Semantic tone for colouring the value */
+  tone: 'primary' | 'success' | 'error';
+}
+
+/**
+ * Builds the prominent score display for a completed round, based on game type
+ * @returns Display data, or null if there is no submitted score to show
+ */
+export const getUserScoreDisplay = (
+  gameType: string,
+  userScore?: UserScoreData
+): UserScoreDisplay | null => {
+  if (!userScore || !userScore.hasScorecard) {
+    return null;
+  }
+
+  switch (gameType) {
+    case 'stableford':
+      if (userScore.totalPoints != null) {
+        return { value: `${userScore.totalPoints}`, label: 'pts', tone: 'primary' };
+      }
+      return null;
+
+    case 'stroke':
+    case 'scramble':
+    case 'fourball_bestball':
+      if (userScore.totalNet != null) {
+        return { value: `${userScore.totalNet}`, label: 'net', tone: 'primary' };
+      }
+      if (userScore.totalGross != null) {
+        return { value: `${userScore.totalGross}`, label: 'gross', tone: 'primary' };
+      }
+      return null;
+
+    case 'match-play':
+      if (userScore.matchResult) {
+        const { won, margin } = userScore.matchResult;
+        return { value: margin, label: won ? 'Won' : 'Lost', tone: won ? 'success' : 'error' };
+      }
+      return null;
+
+    default:
+      if (userScore.totalPoints != null) {
+        return { value: `${userScore.totalPoints}`, label: 'pts', tone: 'primary' };
+      }
+      if (userScore.totalGross != null) {
+        return { value: `${userScore.totalGross}`, label: 'gross', tone: 'primary' };
+      }
+      return null;
+  }
+};
+
+/**
  * Formats user score for display based on game type
  * @param gameType - The type of game (stableford, stroke, match_play, etc.)
  * @param userScore - The user's score data (optional)

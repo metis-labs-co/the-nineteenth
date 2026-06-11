@@ -8,7 +8,8 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, skinsColor, wolfColor } from '@/constants/theme';
 import { Pill, StatusBadge } from '@/components/common';
 import { getGameTypeLabel } from '@/constants/statusConfig';
-import { RoundListCardData, formatUserScore } from './types';
+import { getTeeSwatch } from '@/utils/teeColors';
+import { RoundListCardData } from './types';
 
 interface RoundCardHeaderProps {
   round: RoundListCardData;
@@ -22,11 +23,8 @@ export const RoundCardHeader = React.memo(function RoundCardHeader({
 }: RoundCardHeaderProps) {
   const colors = useThemeColors();
 
-  // Format user score for completed rounds
-  const formattedScore = useMemo(() => {
-    if (round.status !== 'completed') return null;
-    return formatUserScore(round.gameType, round.userScore);
-  }, [round.status, round.gameType, round.userScore]);
+  // Completed rounds where the user never submitted a scorecard
+  const notSubmitted = round.status === 'completed' && !round.userScore?.hasScorecard;
 
   // Detect stale rounds: in-progress but date has passed
   const isStale = useMemo(() => {
@@ -43,11 +41,31 @@ export const RoundCardHeader = React.memo(function RoundCardHeader({
       {/* Top Row: Game Type Pill + Round Pill + Stale Indicator + Score (for completed) */}
       <View style={styles.topRow}>
         <View style={styles.leftSection}>
+          {/* Stale indicator - in-progress rounds past their date */}
+          {isStale && (
+            <StatusBadge status="in-progress" label="Not Completed" size="sm" />
+          )}
+
           <Pill label={getGameTypeLabel(round.gameType)} size="sm" />
 
           {/* Round Pill - only show for competition rounds */}
           {!round.isStandalone && round.totalRounds > 1 && (
             <Pill label={`Round ${round.roundNumber} of ${round.totalRounds}`} size="sm" />
+          )}
+
+          {/* Tee swatch - selected tee shown as its colour */}
+          {round.isStandalone && round.selectedTeeName && (
+            <View
+              style={[
+                styles.teeSwatch,
+                {
+                  backgroundColor: getTeeSwatch(round.selectedTeeName),
+                  borderColor: colors.border,
+                },
+              ]}
+              accessibilityLabel={`${round.selectedTeeName} tees`}
+              testID="round-card-tee-swatch"
+            />
           )}
 
           {/* 9-hole badge */}
@@ -59,16 +77,10 @@ export const RoundCardHeader = React.memo(function RoundCardHeader({
             </View>
           )}
 
-          {/* Stale indicator - in-progress rounds past their date */}
-          {isStale && (
-            <StatusBadge status="in-progress" label="Not Completed" size="sm" />
-          )}
         </View>
 
-        {/* User Score - only show for completed rounds */}
-        {formattedScore && (
-          <Pill label={`You: ${formattedScore}`} size="sm" variant="default" />
-        )}
+        {/* Missing scorecard indicator - score itself renders prominently via RoundCardScore */}
+        {notSubmitted && <Pill label="Not submitted" size="sm" variant="default" />}
       </View>
 
       {/* Title: Game type indicators + Name */}
@@ -130,6 +142,12 @@ const styles = StyleSheet.create({
     borderRadius: 11,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  teeSwatch: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 1,
   },
   badge: {
     paddingHorizontal: spacing.sm,

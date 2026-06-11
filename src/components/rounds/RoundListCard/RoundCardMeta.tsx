@@ -2,12 +2,11 @@
 
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Text, Icon } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 import { IconMapPin, IconUsers } from '@tabler/icons-react-native';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography } from '@/constants/theme';
 import {
-  DateTimeDisplay,
   ProgressBar,
   WinnerRow,
 } from '@/components/common';
@@ -70,23 +69,6 @@ export const RoundCardMeta = React.memo(function RoundCardMeta({
         </Text>
       </View>
 
-      {/* Tee Box (for standalone rounds with tee selected) */}
-      {round.isStandalone && round.selectedTeeName && (
-        <View style={styles.teeRow}>
-          <Icon source="golf-tee" size={14} color={colors.textSecondary} />
-          <Text style={[styles.teeText, { color: colors.textSecondary }]}>
-            {round.selectedTeeName} Tees
-          </Text>
-        </View>
-      )}
-
-      {/* Date */}
-      {round.date && (
-        <View style={styles.detailsRow}>
-          <DateTimeDisplay date={round.date} time={round.teeTime} size="md" />
-        </View>
-      )}
-
       {/* Progress (if in progress) */}
       {round.status === 'in-progress' && (
         <ProgressBar
@@ -148,20 +130,6 @@ const styles = StyleSheet.create({
   },
   courseName: {
     ...typography.small,
-  },
-  teeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    marginBottom: spacing.sm,
-  },
-  teeText: {
-    ...typography.small,
-  },
-  detailsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
   },
   progressRow: {
     marginTop: spacing.sm,
