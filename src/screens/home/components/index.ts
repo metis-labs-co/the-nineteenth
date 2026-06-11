@@ -13,7 +13,7 @@ export { BagSummarySection } from './BagSummarySection';
 export { AchievementProgressSection } from './AchievementProgressSection';
 export { AchievementStatsSection } from './AchievementStatsSection';
 export { LastRoundSection } from './LastRoundSection';
-export { FriendActivitySection } from './FriendActivitySection';
+export { MatesThisWeekSection } from './MatesThisWeekSection';
 export { NewUserFallback } from './NewUserFallback';
 export { HeaderWeatherChip } from './HeaderWeatherChip';
 export { HomeSkeleton } from './HomeSkeleton';
