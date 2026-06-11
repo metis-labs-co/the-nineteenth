@@ -178,7 +178,7 @@ export function useRemoveFriend() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: friendsKeys.list() });
+      queryClient.invalidateQueries({ queryKey: friendsKeys.all });
     },
   });
 }

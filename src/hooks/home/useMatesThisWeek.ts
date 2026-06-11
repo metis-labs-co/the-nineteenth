@@ -62,14 +62,23 @@ export function useMatesThisWeek() {
         throw error;
       }
 
-      return buildMatesLeaderboard(
-        (data ?? []) as unknown as WeeklyScorecardRow[],
-        profiles,
-        userId
+      type RawRow = {
+        player_id: string;
+        total_points: number | null;
+        round_id: string;
+        round: { date: string };
+      };
+      const rows: WeeklyScorecardRow[] = ((data ?? []) as unknown as RawRow[]).map(
+        ({ player_id, total_points, round_id }) => ({ player_id, total_points, round_id })
       );
+
+      return buildMatesLeaderboard(rows, profiles, userId);
     },
     enabled: !!userId && friends !== undefined,
     staleTime: CACHE_TIMES.STANDARD,
     gcTime: GC_TIMES.STANDARD,
+    retry: 2,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: true,
   });
 }
