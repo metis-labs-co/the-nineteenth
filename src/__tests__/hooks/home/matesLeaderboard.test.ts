@@ -48,6 +48,15 @@ describe('buildMatesLeaderboard', () => {
     expect(result.map((e) => e.name)).toEqual(['Jess', 'Mia']);
   });
 
+  it('keeps the first-seen round when a player has two rounds with equal points', () => {
+    const result = buildMatesLeaderboard(
+      [row('f1', 30, 'earlier'), row('f1', 30, 'later')],
+      profiles,
+      'me'
+    );
+    expect(result[0]).toMatchObject({ playerId: 'f1', points: 30, roundId: 'earlier' });
+  });
+
   it('omits players with no rows and skips null points', () => {
     const result = buildMatesLeaderboard([row('me', null, 'r1'), row('f1', 20, 'r2')], profiles, 'me');
     expect(result.map((e) => e.playerId)).toEqual(['f1']);
