@@ -84,10 +84,10 @@ jest.mock('@/context/ThemeContext', () => ({
 jest.mock('@tabler/icons-react-native', () => {
   const { View } = require('react-native');
   return {
-    IconGolf: (props: any) => <View testID="icon-golf" {...props} />,
+    IconHome: (props: any) => <View testID="icon-home" {...props} />,
     IconTrophy: (props: any) => <View testID="icon-trophy" {...props} />,
     IconUser: (props: any) => <View testID="icon-user" {...props} />,
-    IconTournament: (props: any) => <View testID="icon-tournament" {...props} />,
+    IconActivity: (props: any) => <View testID="icon-activity" {...props} />,
     IconMap: (props: any) => <View testID="icon-map" {...props} />,
   };
 });
@@ -109,23 +109,46 @@ const screenRenderHistory: string[] = [];
 const scrollPositions: Record<string, number> = {};
 
 // Mock screen components with state tracking
-jest.mock('@/screens/rounds', () => ({
-  RoundListScreen: function MockRoundListScreen() {
+jest.mock('@/screens/home/HomeScreen', () => {
+  const React = require('react');
+  const { View, Text, ScrollView } = require('react-native');
+  return function MockHomeScreen() {
+    React.useEffect(() => {
+      screenRenderHistory.push('HomeTab');
+    }, []);
+
+    const handleScroll = (event: any) => {
+      scrollPositions['HomeTab'] = event.nativeEvent.contentOffset.y;
+    };
+
+    return (
+      <View testID="home-screen">
+        <Text>Home Screen</Text>
+        <ScrollView testID="home-scroll" onScroll={handleScroll}>
+          <Text>Scrollable content</Text>
+        </ScrollView>
+      </View>
+    );
+  };
+});
+
+jest.mock('@/screens/compete', () => ({
+  CompeteScreen: function MockCompeteScreen() {
     const React = require('react');
     const { View, Text, ScrollView } = require('react-native');
 
     React.useEffect(() => {
-      screenRenderHistory.push('RoundsTab');
+      screenRenderHistory.push('CompeteTab');
     }, []);
 
     const handleScroll = (event: any) => {
-      scrollPositions['RoundsTab'] = event.nativeEvent.contentOffset.y;
+      scrollPositions['CompeteTab'] = event.nativeEvent.contentOffset.y;
     };
 
     return (
-      <View testID="rounds-screen">
-        <Text>Rounds Screen</Text>
-        <ScrollView testID="rounds-scroll" onScroll={handleScroll}>
+      <View testID="compete-screen">
+        <Text>Compete Screen</Text>
+        <ScrollView testID="compete-scroll" onScroll={handleScroll}>
           <Text>Scrollable content</Text>
         </ScrollView>
       </View>
@@ -133,28 +156,29 @@ jest.mock('@/screens/rounds', () => ({
   },
 }));
 
-jest.mock('@/screens/competitions/CompetitionsListScreen', () => {
-  const React = require('react');
-  const { View, Text, ScrollView } = require('react-native');
-  return function MockCompetitionsListScreen() {
+jest.mock('@/screens/activity', () => ({
+  ActivityScreen: function MockActivityScreen() {
+    const React = require('react');
+    const { View, Text, ScrollView } = require('react-native');
+
     React.useEffect(() => {
-      screenRenderHistory.push('CompetitionsTab');
+      screenRenderHistory.push('ActivityTab');
     }, []);
 
     const handleScroll = (event: any) => {
-      scrollPositions['CompetitionsTab'] = event.nativeEvent.contentOffset.y;
+      scrollPositions['ActivityTab'] = event.nativeEvent.contentOffset.y;
     };
 
     return (
-      <View testID="competitions-screen">
-        <Text>Competitions Screen</Text>
-        <ScrollView testID="competitions-scroll" onScroll={handleScroll}>
+      <View testID="activity-screen">
+        <Text>Activity Screen</Text>
+        <ScrollView testID="activity-scroll" onScroll={handleScroll}>
           <Text>Scrollable content</Text>
         </ScrollView>
       </View>
     );
-  };
-});
+  },
+}));
 
 jest.mock('@/screens/courses/CourseListScreen', () => {
   const React = require('react');
@@ -172,29 +196,6 @@ jest.mock('@/screens/courses/CourseListScreen', () => {
       <View testID="courses-screen">
         <Text>Courses Screen</Text>
         <ScrollView testID="courses-scroll" onScroll={handleScroll}>
-          <Text>Scrollable content</Text>
-        </ScrollView>
-      </View>
-    );
-  };
-});
-
-jest.mock('@/screens/leagues/LeagueListScreen', () => {
-  const React = require('react');
-  const { View, Text, ScrollView } = require('react-native');
-  return function MockLeagueListScreen() {
-    React.useEffect(() => {
-      screenRenderHistory.push('LeaguesTab');
-    }, []);
-
-    const handleScroll = (event: any) => {
-      scrollPositions['LeaguesTab'] = event.nativeEvent.contentOffset.y;
-    };
-
-    return (
-      <View testID="leagues-screen">
-        <Text>Leagues Screen</Text>
-        <ScrollView testID="leagues-scroll" onScroll={handleScroll}>
           <Text>Scrollable content</Text>
         </ScrollView>
       </View>
@@ -296,16 +297,16 @@ describe('Tab Navigation', () => {
 
       // Initially should show Rounds screen (initial route)
       await waitFor(() => {
-        expect(screen.getByTestId('rounds-screen')).toBeTruthy();
+        expect(screen.getByTestId('home-screen')).toBeTruthy();
       });
 
       // Press Competitions tab
-      const compsTab = screen.getByLabelText('Navigate to competitions list');
+      const compsTab = screen.getByLabelText('Navigate to competitions and leagues');
       fireEvent.press(compsTab);
 
       // Should now show Competitions screen
       await waitFor(() => {
-        expect(screen.getByTestId('competitions-screen')).toBeTruthy();
+        expect(screen.getByTestId('compete-screen')).toBeTruthy();
       });
 
       // Press Courses tab
@@ -318,12 +319,12 @@ describe('Tab Navigation', () => {
       });
 
       // Press Friends tab
-      const leaguesTab = screen.getByLabelText('Navigate to leagues');
+      const leaguesTab = screen.getByLabelText('Navigate to activity feed');
       fireEvent.press(leaguesTab);
 
       // Should now show Friends screen
       await waitFor(() => {
-        expect(screen.getByTestId('leagues-screen')).toBeTruthy();
+        expect(screen.getByTestId('activity-screen')).toBeTruthy();
       });
 
       // Press Profile tab
@@ -341,7 +342,7 @@ describe('Tab Navigation', () => {
 
       // Initially on Rounds
       await waitFor(() => {
-        expect(screen.getByTestId('rounds-screen')).toBeTruthy();
+        expect(screen.getByTestId('home-screen')).toBeTruthy();
       });
 
       // Go to Profile
@@ -353,11 +354,11 @@ describe('Tab Navigation', () => {
       });
 
       // Go back to Rounds
-      const roundsTab = screen.getByLabelText('Navigate to rounds screen');
+      const roundsTab = screen.getByLabelText('Navigate to home screen');
       fireEvent.press(roundsTab);
 
       await waitFor(() => {
-        expect(screen.getByTestId('rounds-screen')).toBeTruthy();
+        expect(screen.getByTestId('home-screen')).toBeTruthy();
       });
     });
 
@@ -366,23 +367,23 @@ describe('Tab Navigation', () => {
 
       // Initially only Rounds should be in history (lazy loading)
       await waitFor(() => {
-        expect(screen.getByTestId('rounds-screen')).toBeTruthy();
+        expect(screen.getByTestId('home-screen')).toBeTruthy();
       });
 
-      expect(screenRenderHistory).toContain('RoundsTab');
-      expect(screenRenderHistory).not.toContain('CompetitionsTab');
+      expect(screenRenderHistory).toContain('HomeTab');
+      expect(screenRenderHistory).not.toContain('CompeteTab');
       expect(screenRenderHistory).not.toContain('ProfileTab');
 
       // Navigate to Competitions
-      const compsTab = screen.getByLabelText('Navigate to competitions list');
+      const compsTab = screen.getByLabelText('Navigate to competitions and leagues');
       fireEvent.press(compsTab);
 
       await waitFor(() => {
-        expect(screen.getByTestId('competitions-screen')).toBeTruthy();
+        expect(screen.getByTestId('compete-screen')).toBeTruthy();
       });
 
       // Now Competitions should be in history too
-      expect(screenRenderHistory).toContain('CompetitionsTab');
+      expect(screenRenderHistory).toContain('CompeteTab');
     });
   });
 
@@ -392,28 +393,28 @@ describe('Tab Navigation', () => {
 
       // Initially on Rounds
       await waitFor(() => {
-        expect(screen.getByTestId('rounds-screen')).toBeTruthy();
+        expect(screen.getByTestId('home-screen')).toBeTruthy();
       });
 
       // Navigate to Competitions
-      const compsTab = screen.getByLabelText('Navigate to competitions list');
+      const compsTab = screen.getByLabelText('Navigate to competitions and leagues');
       fireEvent.press(compsTab);
 
       await waitFor(() => {
-        expect(screen.getByTestId('competitions-screen')).toBeTruthy();
+        expect(screen.getByTestId('compete-screen')).toBeTruthy();
       });
 
       // Navigate back to Rounds
-      const roundsTab = screen.getByLabelText('Navigate to rounds screen');
+      const roundsTab = screen.getByLabelText('Navigate to home screen');
       fireEvent.press(roundsTab);
 
       await waitFor(() => {
-        expect(screen.getByTestId('rounds-screen')).toBeTruthy();
+        expect(screen.getByTestId('home-screen')).toBeTruthy();
       });
 
       // Check Rounds was only mounted once (preserved)
       const roundsMountCount = screenRenderHistory.filter(
-        (s) => s === 'RoundsTab'
+        (s) => s === 'HomeTab'
       ).length;
       expect(roundsMountCount).toBe(1);
     });
@@ -423,36 +424,36 @@ describe('Tab Navigation', () => {
 
       // Initially on Rounds
       await waitFor(() => {
-        expect(screen.getByTestId('rounds-screen')).toBeTruthy();
+        expect(screen.getByTestId('home-screen')).toBeTruthy();
       });
 
       // Navigate away and back multiple times
-      const compsTab = screen.getByLabelText('Navigate to competitions list');
-      const roundsTab = screen.getByLabelText('Navigate to rounds screen');
+      const compsTab = screen.getByLabelText('Navigate to competitions and leagues');
+      const roundsTab = screen.getByLabelText('Navigate to home screen');
 
       fireEvent.press(compsTab);
       await waitFor(() => {
-        expect(screen.getByTestId('competitions-screen')).toBeTruthy();
+        expect(screen.getByTestId('compete-screen')).toBeTruthy();
       });
 
       fireEvent.press(roundsTab);
       await waitFor(() => {
-        expect(screen.getByTestId('rounds-screen')).toBeTruthy();
+        expect(screen.getByTestId('home-screen')).toBeTruthy();
       });
 
       fireEvent.press(compsTab);
       await waitFor(() => {
-        expect(screen.getByTestId('competitions-screen')).toBeTruthy();
+        expect(screen.getByTestId('compete-screen')).toBeTruthy();
       });
 
       fireEvent.press(roundsTab);
       await waitFor(() => {
-        expect(screen.getByTestId('rounds-screen')).toBeTruthy();
+        expect(screen.getByTestId('home-screen')).toBeTruthy();
       });
 
       // Each screen should only be mounted once due to lazy loading preservation
-      const roundsMounts = screenRenderHistory.filter(s => s === 'RoundsTab').length;
-      const compsMounts = screenRenderHistory.filter(s => s === 'CompetitionsTab').length;
+      const roundsMounts = screenRenderHistory.filter(s => s === 'HomeTab').length;
+      const compsMounts = screenRenderHistory.filter(s => s === 'CompeteTab').length;
 
       expect(roundsMounts).toBe(1);
       expect(compsMounts).toBe(1);
@@ -464,17 +465,17 @@ describe('Tab Navigation', () => {
       renderTabNavigator();
 
       await waitFor(() => {
-        expect(screen.getByTestId('rounds-screen')).toBeTruthy();
+        expect(screen.getByTestId('home-screen')).toBeTruthy();
       });
 
       // Rounds tab should be selected
-      const roundsTab = screen.getByLabelText('Navigate to rounds screen');
+      const roundsTab = screen.getByLabelText('Navigate to home screen');
       expect(roundsTab.props.accessibilityState.selected).toBe(true);
 
       // Other tabs should not be selected
-      const compsTab = screen.getByLabelText('Navigate to competitions list');
+      const compsTab = screen.getByLabelText('Navigate to competitions and leagues');
       const coursesTab = screen.getByLabelText('Navigate to courses list');
-      const leaguesTab = screen.getByLabelText('Navigate to leagues');
+      const leaguesTab = screen.getByLabelText('Navigate to activity feed');
       const profileTab = screen.getByLabelText('Navigate to your profile');
 
       expect(compsTab.props.accessibilityState.selected).toBe(false);
@@ -487,22 +488,22 @@ describe('Tab Navigation', () => {
       renderTabNavigator();
 
       await waitFor(() => {
-        expect(screen.getByTestId('rounds-screen')).toBeTruthy();
+        expect(screen.getByTestId('home-screen')).toBeTruthy();
       });
 
       // Navigate to Competitions
-      const compsTab = screen.getByLabelText('Navigate to competitions list');
+      const compsTab = screen.getByLabelText('Navigate to competitions and leagues');
       fireEvent.press(compsTab);
 
       await waitFor(() => {
-        expect(screen.getByTestId('competitions-screen')).toBeTruthy();
+        expect(screen.getByTestId('compete-screen')).toBeTruthy();
       });
 
       // Competitions should now be selected
       expect(compsTab.props.accessibilityState.selected).toBe(true);
 
       // Rounds should no longer be selected
-      const roundsTab = screen.getByLabelText('Navigate to rounds screen');
+      const roundsTab = screen.getByLabelText('Navigate to home screen');
       expect(roundsTab.props.accessibilityState.selected).toBe(false);
     });
 
@@ -510,14 +511,14 @@ describe('Tab Navigation', () => {
       renderTabNavigator();
 
       await waitFor(() => {
-        expect(screen.getByTestId('rounds-screen')).toBeTruthy();
+        expect(screen.getByTestId('home-screen')).toBeTruthy();
       });
 
       // Navigate through all tabs
       const tabs = [
-        screen.getByLabelText('Navigate to competitions list'),
+        screen.getByLabelText('Navigate to competitions and leagues'),
         screen.getByLabelText('Navigate to courses list'),
-        screen.getByLabelText('Navigate to leagues'),
+        screen.getByLabelText('Navigate to activity feed'),
         screen.getByLabelText('Navigate to your profile'),
       ];
 
@@ -545,13 +546,13 @@ describe('Tab Navigation', () => {
       renderTabNavigator();
 
       await waitFor(() => {
-        expect(screen.getByTestId('rounds-screen')).toBeTruthy();
+        expect(screen.getByTestId('home-screen')).toBeTruthy();
       });
 
-      const roundsTab = screen.getByLabelText('Navigate to rounds screen');
-      const compsTab = screen.getByLabelText('Navigate to competitions list');
+      const roundsTab = screen.getByLabelText('Navigate to home screen');
+      const compsTab = screen.getByLabelText('Navigate to competitions and leagues');
       const coursesTab = screen.getByLabelText('Navigate to courses list');
-      const leaguesTab = screen.getByLabelText('Navigate to leagues');
+      const leaguesTab = screen.getByLabelText('Navigate to activity feed');
       const profileTab = screen.getByLabelText('Navigate to your profile');
 
       // Rapidly press all tabs
@@ -579,10 +580,10 @@ describe('Tab Navigation', () => {
       renderTabNavigator();
 
       await waitFor(() => {
-        expect(screen.getByTestId('rounds-screen')).toBeTruthy();
+        expect(screen.getByTestId('home-screen')).toBeTruthy();
       });
 
-      const compsTab = screen.getByLabelText('Navigate to competitions list');
+      const compsTab = screen.getByLabelText('Navigate to competitions and leagues');
       const profileTab = screen.getByLabelText('Navigate to your profile');
       const coursesTab = screen.getByLabelText('Navigate to courses list');
 
@@ -597,8 +598,8 @@ describe('Tab Navigation', () => {
       });
 
       // Verify all tabs were visited (through render history)
-      expect(screenRenderHistory).toContain('RoundsTab');
-      expect(screenRenderHistory).toContain('CompetitionsTab');
+      expect(screenRenderHistory).toContain('HomeTab');
+      expect(screenRenderHistory).toContain('CompeteTab');
       expect(screenRenderHistory).toContain('ProfileTab');
       expect(screenRenderHistory).toContain('CoursesTab');
     });
@@ -607,15 +608,15 @@ describe('Tab Navigation', () => {
       renderTabNavigator();
 
       await waitFor(() => {
-        expect(screen.getByTestId('rounds-screen')).toBeTruthy();
+        expect(screen.getByTestId('home-screen')).toBeTruthy();
       });
 
       const tabs = [
-        { tab: screen.getByLabelText('Navigate to competitions list'), testId: 'competitions-screen' },
+        { tab: screen.getByLabelText('Navigate to competitions and leagues'), testId: 'compete-screen' },
         { tab: screen.getByLabelText('Navigate to courses list'), testId: 'courses-screen' },
-        { tab: screen.getByLabelText('Navigate to leagues'), testId: 'leagues-screen' },
+        { tab: screen.getByLabelText('Navigate to activity feed'), testId: 'activity-screen' },
         { tab: screen.getByLabelText('Navigate to your profile'), testId: 'profile-screen' },
-        { tab: screen.getByLabelText('Navigate to rounds screen'), testId: 'rounds-screen' },
+        { tab: screen.getByLabelText('Navigate to home screen'), testId: 'home-screen' },
       ];
 
       // Rapid fire 20 random tab presses
@@ -625,12 +626,12 @@ describe('Tab Navigation', () => {
       }
 
       // Press a known tab at the end
-      const leaguesTab = screen.getByLabelText('Navigate to leagues');
+      const leaguesTab = screen.getByLabelText('Navigate to activity feed');
       fireEvent.press(leaguesTab);
 
       // Wait for navigation to settle
       await waitFor(() => {
-        expect(screen.getByTestId('leagues-screen')).toBeTruthy();
+        expect(screen.getByTestId('activity-screen')).toBeTruthy();
       });
 
       // Verify only friends tab is selected
@@ -649,10 +650,10 @@ describe('Tab Navigation', () => {
       renderTabNavigator();
 
       const tabScreenPairs = [
-        { label: 'Navigate to rounds screen', testId: 'rounds-screen' },
-        { label: 'Navigate to competitions list', testId: 'competitions-screen' },
+        { label: 'Navigate to home screen', testId: 'home-screen' },
+        { label: 'Navigate to competitions and leagues', testId: 'compete-screen' },
         { label: 'Navigate to courses list', testId: 'courses-screen' },
-        { label: 'Navigate to leagues', testId: 'leagues-screen' },
+        { label: 'Navigate to activity feed', testId: 'activity-screen' },
         { label: 'Navigate to your profile', testId: 'profile-screen' },
       ];
 
@@ -670,10 +671,10 @@ describe('Tab Navigation', () => {
       renderTabNavigator();
 
       await waitFor(() => {
-        expect(screen.getByTestId('rounds-screen')).toBeTruthy();
+        expect(screen.getByTestId('home-screen')).toBeTruthy();
       });
 
-      const roundsTab = screen.getByLabelText('Navigate to rounds screen');
+      const roundsTab = screen.getByLabelText('Navigate to home screen');
 
       // Press rounds tab multiple times
       fireEvent.press(roundsTab);
@@ -682,7 +683,7 @@ describe('Tab Navigation', () => {
 
       // Should still be on rounds without error
       await waitFor(() => {
-        expect(screen.getByTestId('rounds-screen')).toBeTruthy();
+        expect(screen.getByTestId('home-screen')).toBeTruthy();
         expect(roundsTab.props.accessibilityState.selected).toBe(true);
       });
     });

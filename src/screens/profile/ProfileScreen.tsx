@@ -177,7 +177,7 @@ export default function ProfileScreen() {
         />
 
         {/* Activity Feed */}
-        <ActivitySection onPress={() => navigation.navigate('Activity')} />
+        <ActivitySection onPress={() => navigation.navigate('MainTabs', { screen: 'ActivityTab' })} />
 
         {/* Menu Sections */}
         <ProfileMenuSection

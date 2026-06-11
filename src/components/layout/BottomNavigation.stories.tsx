@@ -25,7 +25,7 @@ const meta: Meta<typeof BottomNavigation> = {
   argTypes: {
     activeTab: {
       control: { type: 'select' },
-      options: ['home', 'competitions', 'courses', 'leagues', 'profile'],
+      options: ['home', 'compete', 'activity', 'courses', 'profile'],
     },
     onTabPress: { action: 'tab pressed' },
   },
@@ -137,7 +137,7 @@ export const RoundsActive: Story = {
 
 export const CompetitionsActive: Story = {
   args: {
-    activeTab: 'competitions',
+    activeTab: 'compete',
   },
   render: (args) => (
     <View style={{ flex: 1 }}>
@@ -161,7 +161,7 @@ export const CoursesActive: Story = {
 
 export const LeaguesActive: Story = {
   args: {
-    activeTab: 'leagues',
+    activeTab: 'activity',
   },
   render: (args) => (
     <View style={{ flex: 1 }}>
@@ -190,7 +190,7 @@ export const ProfileActive: Story = {
 export const WithSingleBadge: Story = {
   args: {
     activeTab: 'home',
-    badges: { leagues: 3 },
+    badges: { activity: 3 },
   },
   render: (args) => (
     <View style={{ flex: 1 }}>
@@ -204,8 +204,8 @@ export const WithMultipleBadges: Story = {
   args: {
     activeTab: 'home',
     badges: {
-      competitions: 2,
-      leagues: 5,
+      compete: 2,
+      activity: 5,
     },
   },
   render: (args) => (
@@ -221,9 +221,9 @@ export const WithAllBadges: Story = {
     activeTab: 'home',
     badges: {
       home: 1,
-      competitions: 2,
+      compete: 2,
       courses: 3,
-      leagues: 4,
+      activity: 4,
       profile: 5,
     },
   },
@@ -238,7 +238,7 @@ export const WithAllBadges: Story = {
 export const WithLargeBadgeCount: Story = {
   args: {
     activeTab: 'home',
-    badges: { leagues: 150 },
+    badges: { activity: 150 },
   },
   render: (args) => (
     <View style={{ flex: 1 }}>
@@ -251,7 +251,7 @@ export const WithLargeBadgeCount: Story = {
 export const WithStringBadge: Story = {
   args: {
     activeTab: 'home',
-    badges: { leagues: 'NEW' },
+    badges: { activity: 'NEW' },
   },
   render: (args) => (
     <View style={{ flex: 1 }}>
@@ -264,7 +264,7 @@ export const WithStringBadge: Story = {
 export const WithZeroBadge: Story = {
   args: {
     activeTab: 'home',
-    badges: { leagues: 0 },
+    badges: { activity: 0 },
   },
   render: (args) => (
     <View style={{ flex: 1 }}>
@@ -279,27 +279,27 @@ export const BadgeVariations: Story = {
     <ScrollView style={{ flex: 1 }}>
       <Section title="Single Digit">
         <View style={{ height: 80 }}>
-          <BottomNavigation activeTab="home" badges={{ leagues: 5 }} />
+          <BottomNavigation activeTab="home" badges={{ activity: 5 }} />
         </View>
       </Section>
       <Section title="Double Digit">
         <View style={{ height: 80 }}>
-          <BottomNavigation activeTab="home" badges={{ leagues: 42 }} />
+          <BottomNavigation activeTab="home" badges={{ activity: 42 }} />
         </View>
       </Section>
       <Section title="Exactly 99">
         <View style={{ height: 80 }}>
-          <BottomNavigation activeTab="home" badges={{ leagues: 99 }} />
+          <BottomNavigation activeTab="home" badges={{ activity: 99 }} />
         </View>
       </Section>
       <Section title="Over 99 (99+)">
         <View style={{ height: 80 }}>
-          <BottomNavigation activeTab="home" badges={{ leagues: 100 }} />
+          <BottomNavigation activeTab="home" badges={{ activity: 100 }} />
         </View>
       </Section>
       <Section title="String Badge">
         <View style={{ height: 80 }}>
-          <BottomNavigation activeTab="home" badges={{ competitions: '!' }} />
+          <BottomNavigation activeTab="home" badges={{ compete: '!' }} />
         </View>
       </Section>
     </ScrollView>
@@ -334,8 +334,8 @@ export const InteractiveWithBadges: Story = {
   render: () => {
     const [activeTab, setActiveTab] = useState<NavigationTab['key']>('home');
     const [badges, setBadges] = useState({
-      leagues: 3,
-      competitions: 1,
+      activity: 3,
+      compete: 1,
     });
 
     const handleTabPress = (tab: NavigationTab) => {
@@ -378,19 +378,19 @@ export const AllTabStates: Story = {
           <BottomNavigation activeTab="home" />
         </View>
       </Section>
-      <Section title="Competitions Active">
+      <Section title="Compete Active">
         <View style={{ height: 80 }}>
-          <BottomNavigation activeTab="competitions" />
+          <BottomNavigation activeTab="compete" />
+        </View>
+      </Section>
+      <Section title="Activity Active">
+        <View style={{ height: 80 }}>
+          <BottomNavigation activeTab="activity" />
         </View>
       </Section>
       <Section title="Courses Active">
         <View style={{ height: 80 }}>
           <BottomNavigation activeTab="courses" />
-        </View>
-      </Section>
-      <Section title="Leagues Active">
-        <View style={{ height: 80 }}>
-          <BottomNavigation activeTab="leagues" />
         </View>
       </Section>
       <Section title="Profile Active">
@@ -410,7 +410,7 @@ export const NewUserExperience: Story = {
   args: {
     activeTab: 'home',
     badges: {
-      leagues: 'NEW',
+      activity: 'NEW',
       profile: '!',
     },
   },
@@ -431,8 +431,8 @@ export const NotificationsState: Story = {
   args: {
     activeTab: 'home',
     badges: {
-      leagues: 5,
-      competitions: 2,
+      activity: 5,
+      compete: 2,
     },
   },
   render: (args) => (
@@ -450,11 +450,11 @@ export const NotificationsState: Story = {
 
 export const BusyState: Story = {
   args: {
-    activeTab: 'competitions',
+    activeTab: 'compete',
     badges: {
       home: 3,
-      competitions: 8,
-      leagues: 12,
+      compete: 8,
+      activity: 12,
     },
   },
   render: (args) => (
@@ -498,9 +498,9 @@ export const InFullAppContext: Story = {
 
     const screenContent = {
       home: 'Your upcoming and past rounds',
-      competitions: 'Manage your golf competitions',
+      compete: 'Manage your golf competitions and leagues',
+      activity: 'Your friends activity feed',
       courses: 'Browse golf courses',
-      leagues: 'Manage your golf leagues',
       profile: 'Your profile and settings',
     };
 
@@ -519,7 +519,7 @@ export const InFullAppContext: Story = {
         <BottomNavigation
           activeTab={activeTab}
           onTabPress={(tab) => setActiveTab(tab.key)}
-          badges={{ leagues: 2 }}
+          badges={{ activity: 2 }}
         />
       </View>
     );
@@ -560,8 +560,8 @@ export const MixedBadgeTypes: Story = {
     activeTab: 'home',
     badges: {
       home: 1,
-      competitions: 'NEW',
-      leagues: 99,
+      compete: 'NEW',
+      activity: 99,
       profile: '!',
     },
   },
@@ -600,7 +600,7 @@ export const AccessibilityDemo: Story = {
           • Touch targets are 48x48 minimum
         </Text>
       </View>
-      <BottomNavigation activeTab="home" badges={{ leagues: 5 }} />
+      <BottomNavigation activeTab="home" badges={{ activity: 5 }} />
     </View>
   ),
 };
@@ -613,7 +613,7 @@ export const Playground: Story = {
   args: {
     activeTab: 'home',
     badges: {
-      leagues: 3,
+      activity: 3,
     },
   },
   render: (args) => (

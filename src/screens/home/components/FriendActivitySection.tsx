@@ -112,7 +112,7 @@ export const FriendActivitySection = React.memo(function FriendActivitySection()
           ) : null}
         </View>
         <TouchableOpacity
-          onPress={() => navigation.navigate('Activity')}
+          onPress={() => navigation.navigate('MainTabs', { screen: 'ActivityTab' })}
           accessibilityRole="link"
           accessibilityLabel="See all activity"
         >

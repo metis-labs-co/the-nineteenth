@@ -39,10 +39,10 @@ const linkingConfig = {
       // Authenticated screens (nested navigator)
       MainTabs: {
         screens: {
-          RoundsTab: 'rounds',
-          CompetitionsTab: 'competitions',
+          HomeTab: 'home',
+          CompeteTab: 'compete',
+          ActivityTab: 'activity',
           CoursesTab: 'courses',
-          LeaguesTab: 'leagues',
           ProfileTab: 'profile',
         },
       },

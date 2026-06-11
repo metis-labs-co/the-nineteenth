@@ -10,9 +10,9 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 
 import HomeScreen from '@/screens/home/HomeScreen';
-import CompetitionsListScreen from '@/screens/competitions/CompetitionsListScreen';
+import { CompeteScreen } from '@/screens/compete';
+import { ActivityScreen } from '@/screens/activity';
 import CourseListScreen from '@/screens/courses/CourseListScreen';
-import LeagueListScreen from '@/screens/leagues/LeagueListScreen';
 import ProfileScreen from '@/screens/profile/ProfileScreen';
 
 import { BottomNavigation } from '@/components/layout';
@@ -27,9 +27,9 @@ const Tab = createBottomTabNavigator<TabParamList>();
  */
 const routeToTabKey: Record<string, NavigationTab['key']> = {
   HomeTab: 'home',
-  CompetitionsTab: 'competitions',
+  CompeteTab: 'compete',
+  ActivityTab: 'activity',
   CoursesTab: 'courses',
-  LeaguesTab: 'leagues',
   ProfileTab: 'profile',
 };
 
@@ -95,10 +95,17 @@ export default function MainTabNavigator() {
         }}
       />
       <Tab.Screen
-        name="CompetitionsTab"
-        component={CompetitionsListScreen}
+        name="CompeteTab"
+        component={CompeteScreen}
         options={{
-          title: 'Competitions',
+          title: 'Compete',
+        }}
+      />
+      <Tab.Screen
+        name="ActivityTab"
+        component={ActivityScreen}
+        options={{
+          title: 'Activity',
         }}
       />
       <Tab.Screen
@@ -106,13 +113,6 @@ export default function MainTabNavigator() {
         component={CourseListScreen}
         options={{
           title: 'Courses',
-        }}
-      />
-      <Tab.Screen
-        name="LeaguesTab"
-        component={LeagueListScreen}
-        options={{
-          title: 'Leagues',
         }}
       />
       <Tab.Screen

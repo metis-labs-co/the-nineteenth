@@ -15,7 +15,7 @@ import React, { useCallback } from 'react';
 import { StyleSheet, TouchableOpacity, Platform, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { IconHome, IconTrophy, IconUser, IconTournament, IconMap } from '@tabler/icons-react-native';
+import { IconHome, IconTrophy, IconUser, IconActivity, IconMap } from '@tabler/icons-react-native';
 import { spacing, typography, shadows, layout } from '@/constants/theme';
 import { useThemeColors, type ColorPalette } from '@/context/ThemeContext';
 
@@ -24,7 +24,7 @@ import { useThemeColors, type ColorPalette } from '@/context/ThemeContext';
  */
 export interface NavigationTab {
   /** Unique identifier for the tab */
-  key: 'home' | 'competitions' | 'courses' | 'leagues' | 'profile';
+  key: 'home' | 'compete' | 'activity' | 'courses' | 'profile';
   /** Display label */
   label: string;
   /** Route name for navigation */
@@ -63,22 +63,22 @@ const NAVIGATION_TABS: NavigationTab[] = [
     accessibilityLabel: 'Navigate to home screen',
   },
   {
-    key: 'competitions',
-    label: 'Comps',
-    route: 'CompetitionsTab',
-    accessibilityLabel: 'Navigate to competitions list',
+    key: 'compete',
+    label: 'Compete',
+    route: 'CompeteTab',
+    accessibilityLabel: 'Navigate to competitions and leagues',
+  },
+  {
+    key: 'activity',
+    label: 'Activity',
+    route: 'ActivityTab',
+    accessibilityLabel: 'Navigate to activity feed',
   },
   {
     key: 'courses',
     label: 'Courses',
     route: 'CoursesTab',
     accessibilityLabel: 'Navigate to courses list',
-  },
-  {
-    key: 'leagues',
-    label: 'Leagues',
-    route: 'LeaguesTab',
-    accessibilityLabel: 'Navigate to leagues',
   },
   {
     key: 'profile',
@@ -102,12 +102,12 @@ const getTabIcon = (
   switch (key) {
     case 'home':
       return <IconHome size={iconSize} color={iconColor} />;
-    case 'competitions':
+    case 'compete':
       return <IconTrophy size={iconSize} color={iconColor} />;
+    case 'activity':
+      return <IconActivity size={iconSize} color={iconColor} />;
     case 'courses':
       return <IconMap size={iconSize} color={iconColor} />;
-    case 'leagues':
-      return <IconTournament size={iconSize} color={iconColor} />;
     case 'profile':
       return <IconUser size={iconSize} color={iconColor} />;
     default:

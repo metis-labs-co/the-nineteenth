@@ -56,12 +56,7 @@ export default function ActivityScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <PageHeader
-        variant="centered"
-        title="Activity"
-        showBack
-        onBack={() => navigation.goBack()}
-      />
+      <PageHeader variant="centered" title="Activity" />
 
       {isLoading ? (
         <View style={styles.centered}>
