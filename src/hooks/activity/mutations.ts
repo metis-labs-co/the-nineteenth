@@ -32,7 +32,7 @@ const PHOTO_BUCKET = 'round-photos';
 
 /**
  * Apply an update to a round's card across every cache that holds it:
- * the infinite feed, the Home preview, and the single-round card.
+ * the infinite feed and the single-round card.
  */
 function patchFeedCaches(
   qc: QueryClient,
@@ -50,10 +50,6 @@ function patchFeedCaches(
       : old
   );
 
-  qc.setQueryData<ActivityFeedCard[]>(activityKeys.preview(), (old) =>
-    old ? old.map((c) => (c.round_id === roundId ? update(c) : c)) : old
-  );
-
   qc.setQueryData<ActivityFeedCard | null>(activityKeys.round(roundId), (old) =>
     old ? update(old) : old
   );
@@ -62,7 +58,6 @@ function patchFeedCaches(
 function resyncRound(qc: QueryClient, roundId: string): void {
   qc.invalidateQueries({ queryKey: activityKeys.round(roundId) });
   qc.invalidateQueries({ queryKey: activityKeys.feed() });
-  qc.invalidateQueries({ queryKey: activityKeys.preview() });
 }
 
 export function useLikeRound() {

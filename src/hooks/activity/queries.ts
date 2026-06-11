@@ -2,7 +2,6 @@
  * Activity Feed - Query Hooks
  *
  * - useActivityFeed: infinite, keyset-paginated feed of friends' rounds
- * - useHomeActivityPreview: top 3 cards for the Home preview section
  * - useRoundFeedCard: single round card (detail / deep link)
  * - useRoundComments: flat comment thread for a round
  * - useRoundPhotos: round photo album resolved to signed URLs
@@ -20,7 +19,6 @@ import type {
   RoundComment,
   RoundPhoto,
   FeedPhoto,
-  HomeActivityPreviewCard,
 } from './types';
 
 // Activity-feed tables/RPCs are not yet in the generated Database types.
@@ -92,46 +90,6 @@ export function useActivityFeed() {
       lastPage.length === ACTIVITY_PAGE_SIZE
         ? lastPage[lastPage.length - 1]?.activity_at
         : undefined,
-    staleTime: CACHE_TIMES.SHORT,
-    gcTime: GC_TIMES.STANDARD,
-  });
-}
-
-/**
- * Compact feed preview for the Home screen. Fetches a small batch and
- * pre-signs each card's cover photo (first photo) at thumbnail size so the
- * Home hero cards can show a thumbnail without per-card fetches.
- */
-export function useHomeActivityPreview(limit = 8) {
-  return useQuery({
-    queryKey: activityKeys.preview(),
-    queryFn: async (): Promise<HomeActivityPreviewCard[]> => {
-      const { data, error } = await sb.rpc('get_activity_feed', {
-        p_limit: limit,
-        p_before: null,
-      });
-      if (error) {
-        throw createError(`Failed to load activity preview: ${error.message}`, 'DATABASE');
-      }
-
-      const cards = (data ?? []) as ActivityFeedCard[];
-
-      // Sign the first photo of each card (cover thumbnail).
-      const coverPaths = cards
-        .map((c) => c.photos?.[0]?.storage_path)
-        .filter((p): p is string => !!p);
-
-      const urlByPath =
-        coverPaths.length > 0 ? await signThumb(coverPaths, 'COVER') : new Map<string, string>();
-
-      return cards.map((c) => {
-        const coverPath = c.photos?.[0]?.storage_path;
-        return {
-          ...c,
-          coverPhotoUrl: coverPath ? urlByPath.get(coverPath) ?? null : null,
-        };
-      });
-    },
     staleTime: CACHE_TIMES.SHORT,
     gcTime: GC_TIMES.STANDARD,
   });

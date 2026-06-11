@@ -8,7 +8,6 @@ export type {
   FeedPhoto,
   RoundComment,
   RoundPhoto,
-  HomeActivityPreviewCard,
   AddCommentInput,
   DeleteCommentInput,
   UploadRoundPhotoInput,
@@ -17,7 +16,6 @@ export type {
 
 export {
   useActivityFeed,
-  useHomeActivityPreview,
   useRoundFeedCard,
   useRoundComments,
   useRoundPhotos,

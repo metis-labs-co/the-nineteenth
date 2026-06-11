@@ -62,12 +62,6 @@ export interface RoundPhoto extends FeedPhoto {
   url: string | null;
 }
 
-/** A feed card for the Home preview, with its cover photo pre-signed. */
-export interface HomeActivityPreviewCard extends ActivityFeedCard {
-  /** Signed URL for the round's first photo, or null when there are none. */
-  coverPhotoUrl: string | null;
-}
-
 export interface AddCommentInput {
   roundId: string;
   body: string;
