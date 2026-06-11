@@ -16,7 +16,7 @@ describe('getWeekRange', () => {
     });
   });
 
-  it('keeps Sunday in the preceding week (week starts Monday)', () => {
+  it('treats Sunday as the last day of its week, not the first of the next', () => {
     expect(getWeekRange(new Date(2026, 5, 14))).toEqual({
       start: '2026-06-08',
       end: '2026-06-14',
@@ -28,6 +28,14 @@ describe('getWeekRange', () => {
     expect(getWeekRange(new Date(2026, 6, 1))).toEqual({
       start: '2026-06-29',
       end: '2026-07-05',
+    });
+  });
+
+  it('spans year boundaries', () => {
+    // Thursday 31 December 2026
+    expect(getWeekRange(new Date(2026, 11, 31))).toEqual({
+      start: '2026-12-28',
+      end: '2027-01-03',
     });
   });
 });
