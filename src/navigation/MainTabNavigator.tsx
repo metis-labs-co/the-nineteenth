@@ -2,7 +2,7 @@
  * MainTabNavigator - Bottom tab navigation for main app screens
  *
  * Uses React Navigation's bottom tabs with a custom tab bar component
- * for Rounds, Competitions, and Profile screens.
+ * for Home, Compete, Activity, Courses, and Profile screens.
  */
 
 import React, { useCallback, useMemo } from 'react';
@@ -74,7 +74,7 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
 /**
  * MainTabNavigator component
  *
- * Provides bottom tab navigation between Rounds, Competitions, and Profile.
+ * Provides bottom tab navigation between Home, Compete, Activity, Courses, and Profile.
  */
 export default function MainTabNavigator() {
   return (
