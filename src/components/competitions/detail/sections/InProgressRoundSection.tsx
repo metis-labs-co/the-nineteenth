@@ -17,12 +17,7 @@ import {
   IconTrophy,
 } from '@tabler/icons-react-native';
 import { useThemeColors } from '@/context/ThemeContext';
-import {
-  spacing,
-  typography,
-  borderRadius,
-  shadows,
-} from '@/constants/theme';
+import { spacing, typography, borderRadius } from '@/constants/theme';
 import { PlayerAvatar } from '@/components/common';
 import type { GameType } from '@/types/database.types';
 import { inferPresetIdFromRound, ROUND_PRESETS } from '@/constants/roundPresets';
@@ -46,16 +41,7 @@ const CARD_GAP = spacing.sm;
 /** How much of the next card peeks into view, signaling "swipe for more". */
 const NEXT_CARD_PEEK = 32;
 
-/**
- * Fixed "ink" + accent colours for the lime resume card. The card keeps the
- * same lime-surface / dark-ink contrast in both themes (the lime background
- * comes from colors.primaryLighter and stays light in dark mode), so these
- * are static like skinsColor/wolfColor rather than palette-driven.
- */
-const CARD_INK = '#1e2b15';
-const CARD_INK_SOFT = 'rgba(30, 43, 21, 0.65)';
-const CARD_INK_BORDER = 'rgba(30, 43, 21, 0.25)';
-const CARD_DIVIDER = 'rgba(30, 43, 21, 0.14)';
+/** Coral "live round" indicator dot — fixed accent in both themes. */
 const LIVE_DOT = '#e0795f';
 /** Most companion avatars shown before collapsing into the "with N" count. */
 const MAX_AVATARS = 3;
@@ -117,14 +103,13 @@ function RoundCard({
   const subtitle =
     progressParts.length > 0
       ? progressParts.join(' · ')
-      : (standaloneRoundName ?? clubName ?? 'Ready to score');
+      : (standaloneRoundName ?? 'Ready to score');
 
   return (
     <TouchableOpacity
       style={[
         styles.card,
-        shadows.sm,
-        { backgroundColor: colors.primaryLighter },
+        { backgroundColor: colors.surface, borderColor: colors.borderLight },
         width !== undefined && { width },
       ]}
       onPress={() => onViewRound(round.id)}
@@ -137,15 +122,29 @@ function RoundCard({
       <View style={styles.topRow}>
         <View style={styles.liveDot} />
         <View style={styles.titleBlock}>
-          <Text style={styles.title} numberOfLines={1}>
-            Resume · {courseName}
+          <Text
+            style={[styles.title, { color: colors.textPrimary }]}
+            numberOfLines={1}
+          >
+            {courseName}
           </Text>
-          <Text style={styles.subtitle} numberOfLines={1}>
+          {clubName && (
+            <Text
+              style={[styles.clubName, { color: colors.textSecondary }]}
+              numberOfLines={1}
+            >
+              {clubName}
+            </Text>
+          )}
+          <Text
+            style={[styles.subtitle, { color: colors.textSecondary }]}
+            numberOfLines={1}
+          >
             {subtitle}
           </Text>
         </View>
         <TouchableOpacity
-          style={styles.resumeButton}
+          style={[styles.resumeButton, { backgroundColor: colors.primary }]}
           onPress={() =>
             onScoreRound(round.id, round.game_type, round.is_team_round)
           }
@@ -153,27 +152,32 @@ function RoundCard({
           accessibilityLabel={`Resume scoring round ${number} at ${courseName}`}
           activeOpacity={0.8}
         >
-          <IconPlayerPlayFilled size={14} color={colors.primaryLighter} />
-          <Text style={[styles.resumeLabel, { color: colors.primaryLighter }]}>
+          <IconPlayerPlayFilled size={14} color={colors.textOnColored} />
+          <Text style={[styles.resumeLabel, { color: colors.textOnColored }]}>
             Resume
           </Text>
         </TouchableOpacity>
       </View>
 
-      <View style={styles.divider} />
+      <View style={[styles.divider, { backgroundColor: colors.borderLight }]} />
 
       <View style={styles.chipsRow}>
-        <View style={[styles.chip, styles.outlineChip]}>
-          <IconTarget size={14} color={CARD_INK} />
-          <Text style={styles.chipLabel} numberOfLines={1}>
+        <View
+          style={[styles.chip, styles.outlineChip, { borderColor: colors.border }]}
+        >
+          <IconTarget size={14} color={colors.textSecondary} />
+          <Text
+            style={[styles.chipLabel, { color: colors.textPrimary }]}
+            numberOfLines={1}
+          >
             {formatLabel}
           </Text>
         </View>
         {competitionName && (
-          <View style={[styles.chip, styles.filledChip]}>
-            <IconTrophy size={14} color={colors.primaryLighter} />
+          <View style={[styles.chip, { backgroundColor: colors.primary }]}>
+            <IconTrophy size={14} color={colors.textOnColored} />
             <Text
-              style={[styles.chipLabel, { color: colors.primaryLighter }]}
+              style={[styles.chipLabel, { color: colors.textOnColored }]}
               numberOfLines={1}
             >
               {competitionName}
@@ -182,20 +186,24 @@ function RoundCard({
         )}
         {hasSkins && (
           <View
-            style={[styles.chip, styles.outlineChip]}
+            style={[styles.chip, styles.outlineChip, { borderColor: colors.border }]}
             accessibilityLabel="Skins game enabled"
           >
-            <IconDice size={14} color={CARD_INK} />
-            <Text style={styles.chipLabel}>Skins</Text>
+            <IconDice size={14} color={colors.textSecondary} />
+            <Text style={[styles.chipLabel, { color: colors.textPrimary }]}>
+              Skins
+            </Text>
           </View>
         )}
         {hasWolf && (
           <View
-            style={[styles.chip, styles.outlineChip]}
+            style={[styles.chip, styles.outlineChip, { borderColor: colors.border }]}
             accessibilityLabel="Wolf game enabled"
           >
-            <IconDog size={14} color={CARD_INK} />
-            <Text style={styles.chipLabel}>Wolf</Text>
+            <IconDog size={14} color={colors.textSecondary} />
+            <Text style={[styles.chipLabel, { color: colors.textPrimary }]}>
+              Wolf
+            </Text>
           </View>
         )}
         {players.length > 0 && (
@@ -211,7 +219,7 @@ function RoundCard({
                   key={player.id}
                   style={[
                     styles.avatarRing,
-                    { borderColor: colors.primaryLighter },
+                    { borderColor: colors.surface },
                     index > 0 && styles.avatarOverlap,
                   ]}
                 >
@@ -223,7 +231,9 @@ function RoundCard({
                 </View>
               ))}
             </View>
-            <Text style={styles.withLabel}>with {players.length}</Text>
+            <Text style={[styles.withLabel, { color: colors.textSecondary }]}>
+              with {players.length}
+            </Text>
           </View>
         )}
       </View>
@@ -336,7 +346,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   card: {
-    borderRadius: borderRadius.xxl,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
     padding: spacing.lg,
     gap: spacing.md,
     // Fixed min height keeps cards aligned across the carousel regardless of
@@ -361,12 +372,13 @@ const styles = StyleSheet.create({
   },
   title: {
     ...typography.h4,
-    color: CARD_INK,
+  },
+  clubName: {
+    ...typography.small,
   },
   subtitle: {
     ...typography.small,
     fontWeight: '600',
-    color: CARD_INK_SOFT,
   },
   resumeButton: {
     flexDirection: 'row',
@@ -376,14 +388,12 @@ const styles = StyleSheet.create({
     height: 44,
     paddingHorizontal: spacing.lg,
     borderRadius: borderRadius.full,
-    backgroundColor: CARD_INK,
   },
   resumeLabel: {
     ...typography.bodyBold,
   },
   divider: {
     height: 1,
-    backgroundColor: CARD_DIVIDER,
   },
   chipsRow: {
     flexDirection: 'row',
@@ -402,14 +412,9 @@ const styles = StyleSheet.create({
   },
   outlineChip: {
     borderWidth: 1,
-    borderColor: CARD_INK_BORDER,
-  },
-  filledChip: {
-    backgroundColor: CARD_INK,
   },
   chipLabel: {
     ...typography.smallBold,
-    color: CARD_INK,
     flexShrink: 1,
   },
   playersGroup: {
@@ -431,7 +436,6 @@ const styles = StyleSheet.create({
   },
   withLabel: {
     ...typography.smallBold,
-    color: CARD_INK,
   },
   dotsRow: {
     flexDirection: 'row',
