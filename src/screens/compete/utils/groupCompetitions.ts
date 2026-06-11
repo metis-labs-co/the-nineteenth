@@ -50,15 +50,16 @@ function startDateDayNumber(startDate: string): number {
 
 function byStartDateAsc(a: CompetitionItem, b: CompetitionItem): number {
   if (!a.startDate && !b.startDate) return 0;
-  if (!a.startDate) return 1;
+  if (!a.startDate) return 1; // nulls last
   if (!b.startDate) return -1;
-  return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
+  return startDateDayNumber(a.startDate) - startDateDayNumber(b.startDate);
 }
 
 function byStartDateDesc(a: CompetitionItem, b: CompetitionItem): number {
-  const timeA = a.startDate ? new Date(a.startDate).getTime() : 0;
-  const timeB = b.startDate ? new Date(b.startDate).getTime() : 0;
-  return timeB - timeA;
+  if (!a.startDate && !b.startDate) return 0;
+  if (!a.startDate) return 1; // nulls last
+  if (!b.startDate) return -1;
+  return startDateDayNumber(b.startDate) - startDateDayNumber(a.startDate);
 }
 
 /**

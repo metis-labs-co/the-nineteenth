@@ -1,6 +1,6 @@
 import { groupCompetitions, type CompetitionItem } from '../groupCompetitions';
 
-const NOW = new Date('2026-06-11T10:00:00Z');
+const NOW = new Date(2026, 5, 11, 10, 0, 0);
 
 function comp(overrides: Partial<CompetitionItem>): CompetitionItem {
   return {
@@ -93,6 +93,28 @@ describe('groupCompetitions', () => {
   it('handles undefined inputs', () => {
     const result = groupCompetitions(undefined, undefined, NOW);
     expect(result).toEqual({ active: [], upcoming: [], completed: [] });
+  });
+
+  it("puts 'in-progress' status variant in active even with a future startDate", () => {
+    const result = groupCompetitions(
+      [comp({ id: 'ip', status: 'in-progress', startDate: '2026-09-01' })],
+      [],
+      NOW
+    );
+    expect(result.active.map((c) => c.id)).toEqual(['ip']);
+    expect(result.upcoming).toEqual([]);
+    expect(result.completed).toEqual([]);
+  });
+
+  it('puts an unrecognized status with no startDate in upcoming', () => {
+    const result = groupCompetitions(
+      [comp({ id: 'pr', status: 'pending_review', startDate: null })],
+      [],
+      NOW
+    );
+    expect(result.upcoming.map((c) => c.id)).toEqual(['pr']);
+    expect(result.active).toEqual([]);
+    expect(result.completed).toEqual([]);
   });
 
   /**
