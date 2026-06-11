@@ -63,7 +63,7 @@ Welcome modals: keep the existing `useScreenWelcome` behaviour per mode — comp
 
 `src/screens/leagues/JoinLeagueScreen.tsx` gains a **Public/Private** segmented toggle, defaulting to **Public**:
 
-- **Public:** `SearchBar` with debounced query feeding `usePublicLeagues`; results rendered as `LeagueCard`s. Tapping a league shows a join confirmation (`ConfirmationDialog`), joins via `useJoinLeague`, and navigates to `LeagueDetail` on success.
+- **Public:** `SearchBar` with debounced query feeding `usePublicLeagues`; results rendered as `LeagueCard`s. Tapping a league navigates to `LeagueDetail`, which already provides the public-join flow (`useJoinPublicLeague` with capacity/membership checks) — same behaviour as the old Browse tab. (Amended: `useJoinLeague` is invite-code-based and not suitable here; duplicating the join-confirm logic in the Join screen would diverge from `LeagueDetail`'s existing checks.)
 - **Private:** the existing LGE- invite-code form, unchanged.
 
 ## Cleanup
