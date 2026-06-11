@@ -170,8 +170,9 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xxxl,
     alignItems: 'center',
   },
+  // LeagueCard applies its own marginHorizontal/marginTop, so the wrapper
+  // only needs bottom inset.
   list: {
-    padding: spacing.lg,
-    gap: spacing.md,
+    paddingBottom: spacing.lg,
   },
 });
