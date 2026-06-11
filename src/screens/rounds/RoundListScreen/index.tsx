@@ -27,7 +27,9 @@ import { ScreenWelcomeModal } from '@/components/common/ScreenWelcomeModal';
 import { BottomNavigation, type NavigationTab } from '@/components/layout';
 import { RoundListCard } from '@/components/rounds';
 import { useAuth } from '@/hooks/useAuth';
+import { useInProgressRounds } from '@/hooks/home';
 import { useScreenWelcome } from '@/hooks/useScreenWelcome';
+import type { GameType } from '@/types/database.types';
 import { isUnlimited, isNoLimit } from '@/types/subscription.types';
 import { spacing } from '@/constants/theme';
 import { formatDateWithWeekday } from '@/utils/formatting';
@@ -58,6 +60,21 @@ export default function RoundsScreen() {
   // Hooks for data and state management
   const { rounds, isLoading, isRefetching, refetch, roundsPlayedCount } = useRoundList();
   const { roundTypeFilter, setRoundTypeFilter, filteredHistoryRounds, activeRounds } = useRoundFilters(rounds);
+
+  // In-progress rounds in the RoundWithCourse shape the shared
+  // InProgressRoundSection carousel expects. This screen only lists
+  // standalone rounds, so competition rounds are filtered out.
+  const { data: inProgressData, refetch: refetchInProgress } = useInProgressRounds();
+  const inProgressRounds = useMemo(
+    () => (inProgressData ?? []).filter((r) => !r.competition_id),
+    [inProgressData]
+  );
+
+  // Active rounds not yet started keep the standard list card
+  const upcomingRounds = useMemo(
+    () => activeRounds.filter((r) => r.status !== 'in-progress'),
+    [activeRounds]
+  );
   const {
     handleScoreRound,
     handleDeleteRound,
@@ -92,7 +109,37 @@ export default function RoundsScreen() {
   useFocusEffect(
     useCallback(() => {
       refetch();
-    }, [refetch])
+      refetchInProgress();
+    }, [refetch, refetchInProgress])
+  );
+
+  const handleRefresh = useCallback(() => {
+    refetch();
+    refetchInProgress();
+  }, [refetch, refetchInProgress]);
+
+  // Resume scoring from the in-progress carousel. Mirrors handleScoreRound's
+  // routing for active rounds, keyed off the carousel's callback shape.
+  const handleResumeRound = useCallback(
+    (roundId: string, gameType: GameType, isTeamRound: boolean) => {
+      if (gameType === 'match-play') {
+        if (isTeamRound) {
+          navigation.navigate('TeamMatchPlayScoring', { roundId });
+        } else {
+          navigation.navigate('MatchPlayScoring', { roundId });
+        }
+        return;
+      }
+      navigation.navigate('Scorecard', { roundId, competitionId: 'standalone' });
+    },
+    [navigation]
+  );
+
+  const handleViewRound = useCallback(
+    (roundId: string) => {
+      navigation.navigate('ViewRound', { roundId, competitionId: undefined });
+    },
+    [navigation]
   );
 
   const handleOpenNewRound = useCallback(() => {
@@ -159,9 +206,12 @@ export default function RoundsScreen() {
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           ListHeaderComponent={
             <RoundListSections
-              activeRounds={activeRounds}
+              inProgressRounds={inProgressRounds}
+              upcomingRounds={upcomingRounds}
               roundTypeFilter={roundTypeFilter}
               onRoundTypeFilterChange={setRoundTypeFilter}
+              onResumeRound={handleResumeRound}
+              onViewRound={handleViewRound}
               onScoreRound={handleScoreRound}
               onDeleteRound={handleDeleteRound}
               hasUnlimitedRounds={hasUnlimitedRounds}
@@ -172,7 +222,7 @@ export default function RoundsScreen() {
           }
           ListEmptyComponent={<RoundListEmpty />}
           refreshControl={
-            <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.textPrimary} colors={[colors.textPrimary]} />
+            <RefreshControl refreshing={isRefetching} onRefresh={handleRefresh} tintColor={colors.textPrimary} colors={[colors.textPrimary]} />
           }
           showsVerticalScrollIndicator={false}
         />

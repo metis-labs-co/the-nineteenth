@@ -3,12 +3,15 @@
  * Recent Rounds title, and round type filter pills
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { spacing } from '@/constants/theme';
 import { SectionHeader, FilterPill } from '@/components/common';
 import { LimitIndicator } from '@/components/subscription';
 import { RoundListCard } from '@/components/rounds';
+import { InProgressRoundSection } from '@/components/competitions/detail/sections';
+import type { RoundWithCourse } from '@/components/competitions/detail/types';
+import type { GameType } from '@/types/database.types';
 import type { RoundTypeFilter, RoundItem } from '../types';
 
 const ROUND_TYPE_FILTERS: { key: RoundTypeFilter; label: string }[] = [
@@ -20,9 +23,12 @@ const ROUND_TYPE_FILTERS: { key: RoundTypeFilter; label: string }[] = [
 ];
 
 interface RoundListSectionsProps {
-  activeRounds: RoundItem[];
+  inProgressRounds: RoundWithCourse[];
+  upcomingRounds: RoundItem[];
   roundTypeFilter: RoundTypeFilter;
   onRoundTypeFilterChange: (filter: RoundTypeFilter) => void;
+  onResumeRound: (roundId: string, gameType: GameType, isTeamRound: boolean) => void;
+  onViewRound: (roundId: string) => void;
   onScoreRound: (round: RoundItem) => void;
   onDeleteRound: (round: RoundItem) => void;
   hasUnlimitedRounds: boolean;
@@ -32,9 +38,12 @@ interface RoundListSectionsProps {
 }
 
 export function RoundListSections({
-  activeRounds,
+  inProgressRounds,
+  upcomingRounds,
   roundTypeFilter,
   onRoundTypeFilterChange,
+  onResumeRound,
+  onViewRound,
   onScoreRound,
   onDeleteRound,
   hasUnlimitedRounds,
@@ -42,12 +51,28 @@ export function RoundListSections({
   maxRoundsPlayed,
   currentUserId,
 }: RoundListSectionsProps) {
+  // 1-based display number per round (the contract InProgressRoundSection
+  // expects from CompetitionDetail).
+  const roundDisplayNumbers = useMemo(() => {
+    const map: Record<string, number> = {};
+    inProgressRounds.forEach((r, idx) => {
+      map[r.id] = idx + 1;
+    });
+    return map;
+  }, [inProgressRounds]);
+
   return (
     <>
-      {activeRounds.length > 0 && (
+      {(inProgressRounds.length > 0 || upcomingRounds.length > 0) && (
         <View style={styles.inProgressSection}>
           <SectionHeader title="In Progress" />
-          {activeRounds.map((round) => (
+          <InProgressRoundSection
+            rounds={inProgressRounds}
+            onScoreRound={onResumeRound}
+            onViewRound={onViewRound}
+            roundDisplayNumbers={roundDisplayNumbers}
+          />
+          {upcomingRounds.map((round) => (
             <View key={round.id} style={styles.activeCard}>
               <RoundListCard
                 round={round}
@@ -95,7 +120,7 @@ export function RoundListSections({
 
 const styles = StyleSheet.create({
   inProgressSection: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing.sm,
   },
   activeCard: {
     marginBottom: spacing.md,
