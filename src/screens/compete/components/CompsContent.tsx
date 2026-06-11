@@ -112,7 +112,6 @@ export function CompsContent() {
             icon={<IconPlus size={20} color={colors.white} strokeWidth={2.5} />}
             onPress={canCreateCompetition ? handleCreateCompetition : handleUpgrade}
             backgroundColor={colors.primary}
-            disabled={false}
             accessibilityLabel="Create new competition"
             variant="compact"
             showChevron={false}
@@ -129,7 +128,6 @@ export function CompsContent() {
               icon={<IconSparkles size={20} color={colors.white} strokeWidth={2.5} />}
               onPress={canCreateCompetition ? handleCreateWithAI : handleUpgrade}
               backgroundColor={colors.accent}
-              disabled={false}
               accessibilityLabel="Create competition with AI"
               variant="compact"
               showChevron={false}
@@ -162,7 +160,7 @@ export function CompsContent() {
           title="No Competitions Yet"
           message="Create your first competition to get started, or join one with an invite link."
           actionLabel="Create Competition"
-          onAction={handleCreateCompetition}
+          onAction={canCreateCompetition ? handleCreateCompetition : handleUpgrade}
         />
       ) : (
         <View style={styles.sections}>
