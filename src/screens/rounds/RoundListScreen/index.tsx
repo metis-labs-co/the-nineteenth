@@ -3,7 +3,8 @@
  *
  * Features:
  * - "Score New Round" floating button at top
- * - List of active rounds needing to be scored
+ * - "In Progress" section with rounds needing to be scored
+ * - "Recent Rounds" section with completed rounds and type filters
  * - Links to score entry screen
  * - Pull-to-refresh for updating rounds
  */
@@ -34,7 +35,7 @@ import type { RootStackParamList, TabParamList } from '@/navigation/types';
 import CreateRoundBottomSheet from '../CreateRoundBottomSheet';
 
 import { useRoundList, useRoundFilters, useRoundActions, useStartNewRound, useQuickScoreFlow } from './hooks';
-import { RoundListEmpty, RoundListHeader } from './components';
+import { RoundListEmpty, RoundListHeader, RoundListSections } from './components';
 import type { RoundItem, RoundPlayerInfo } from './types';
 
 export default function RoundsScreen() {
@@ -56,7 +57,7 @@ export default function RoundsScreen() {
 
   // Hooks for data and state management
   const { rounds, isLoading, isRefetching, refetch, roundsPlayedCount } = useRoundList();
-  const { selectedTab, setSelectedTab, roundTypeFilter, setRoundTypeFilter, displayedRounds, activeRounds, historyRounds } = useRoundFilters(rounds);
+  const { roundTypeFilter, setRoundTypeFilter, filteredHistoryRounds, activeRounds } = useRoundFilters(rounds);
   const {
     handleScoreRound,
     handleDeleteRound,
@@ -130,7 +131,7 @@ export default function RoundsScreen() {
       onPress={() => handleScoreRound(item)}
       onDelete={handleDeleteRound}
       swipeEnabled={true}
-      actionLabel={selectedTab === 'active' ? 'Score' : 'View'}
+      actionLabel="View"
       currentUserId={user?.id}
     />
   );
@@ -138,16 +139,7 @@ export default function RoundsScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <RoundListHeader
-        selectedTab={selectedTab}
-        onTabChange={setSelectedTab}
-        roundTypeFilter={roundTypeFilter}
-        onRoundTypeFilterChange={setRoundTypeFilter}
-        activeRounds={activeRounds}
-        historyRounds={historyRounds}
         onOpenNewRound={handleOpenNewRound}
-        hasUnlimitedRounds={hasUnlimitedRounds}
-        roundsPlayedCount={roundsPlayedCount}
-        maxRoundsPlayed={maxRoundsPlayed}
         showInfoIcon={!isFirstVisit}
         onInfoPress={showModal}
         onQuickScore={isSuperAdmin ? quickScore.openRoundPicker : undefined}
@@ -160,12 +152,25 @@ export default function RoundsScreen() {
         <LoadingSpinner size="md" message="Loading rounds..." />
       ) : (
         <FlatList
-          data={displayedRounds}
+          data={filteredHistoryRounds}
           renderItem={renderRoundItem}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
-          ListEmptyComponent={<RoundListEmpty selectedTab={selectedTab} />}
+          ListHeaderComponent={
+            <RoundListSections
+              activeRounds={activeRounds}
+              roundTypeFilter={roundTypeFilter}
+              onRoundTypeFilterChange={setRoundTypeFilter}
+              onScoreRound={handleScoreRound}
+              onDeleteRound={handleDeleteRound}
+              hasUnlimitedRounds={hasUnlimitedRounds}
+              roundsPlayedCount={roundsPlayedCount}
+              maxRoundsPlayed={maxRoundsPlayed}
+              currentUserId={user?.id}
+            />
+          }
+          ListEmptyComponent={<RoundListEmpty />}
           refreshControl={
             <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.textPrimary} colors={[colors.textPrimary]} />
           }

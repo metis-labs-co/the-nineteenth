@@ -1,9 +1,9 @@
 /**
- * useRoundFilters - Manages round filter state (active/history tabs + type filter)
+ * useRoundFilters - Manages round type filter state for the recent rounds list
  */
 
 import { useState, useMemo } from 'react';
-import type { RoundTab, RoundTypeFilter, RoundItem, RoundListData, UseRoundFiltersReturn } from '../types';
+import type { RoundTypeFilter, RoundItem, RoundListData, UseRoundFiltersReturn } from '../types';
 
 function filterByType(rounds: RoundItem[], filter: RoundTypeFilter): RoundItem[] {
   if (filter === 'all') return rounds;
@@ -25,23 +25,20 @@ function filterByType(rounds: RoundItem[], filter: RoundTypeFilter): RoundItem[]
 }
 
 export function useRoundFilters(rounds: RoundListData | undefined): UseRoundFiltersReturn {
-  const [selectedTab, setSelectedTab] = useState<RoundTab>('active');
   const [roundTypeFilter, setRoundTypeFilter] = useState<RoundTypeFilter>('all');
 
   const activeRounds = useMemo(() => rounds?.active || [], [rounds?.active]);
   const historyRounds = useMemo(() => rounds?.history || [], [rounds?.history]);
 
-  const displayedRounds = useMemo(() => {
-    const tabRounds = selectedTab === 'active' ? activeRounds : historyRounds;
-    return filterByType(tabRounds, roundTypeFilter);
-  }, [selectedTab, activeRounds, historyRounds, roundTypeFilter]);
+  const filteredHistoryRounds = useMemo(
+    () => filterByType(historyRounds, roundTypeFilter),
+    [historyRounds, roundTypeFilter]
+  );
 
   return {
-    selectedTab,
-    setSelectedTab,
     roundTypeFilter,
     setRoundTypeFilter,
-    displayedRounds,
+    filteredHistoryRounds,
     activeRounds,
     historyRounds,
   };

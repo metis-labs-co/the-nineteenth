@@ -10,8 +10,6 @@ export interface PlayingPartner {
   handicap?: number;
 }
 
-export type RoundTab = 'active' | 'history';
-
 export type RoundTypeFilter = 'all' | 'practice' | 'match' | 'skins' | 'wolf';
 
 // Player info for round (matches RoundListCard's internal type)
@@ -29,11 +27,9 @@ export interface RoundListData {
 }
 
 export interface UseRoundFiltersReturn {
-  selectedTab: RoundTab;
-  setSelectedTab: (tab: RoundTab) => void;
   roundTypeFilter: RoundTypeFilter;
   setRoundTypeFilter: (filter: RoundTypeFilter) => void;
-  displayedRounds: RoundItem[];
+  filteredHistoryRounds: RoundItem[];
   activeRounds: RoundItem[];
   historyRounds: RoundItem[];
 }
