@@ -15,7 +15,10 @@
 
 import { useEffect, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useClubDetails } from '@/hooks/useClubDetails';
+// Import from the defining module, not the deprecated '@/hooks/useClubDetails'
+// shim — the shim re-exports the clubs barrel, which re-exports this file,
+// creating a runtime require cycle (Metro "Require cycle" warning).
+import { useClubDetails } from './clubDetails';
 import { clubKeys, courseKeys } from '@/hooks/queryKeys';
 import { courseService } from '@/services/courses';
 import { isClubStale, hasApiQuota, canSyncClub } from '@/services/sync';

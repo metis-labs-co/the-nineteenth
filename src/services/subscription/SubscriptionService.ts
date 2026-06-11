@@ -12,6 +12,7 @@
  */
 
 import { Platform } from 'react-native';
+import { isExpoGo } from '@/utils/expoGo';
 import type { SubscriptionProvider } from './providers/SubscriptionProvider';
 import { ManualSubscriptionProvider } from './providers/ManualProvider';
 import { RevenueCatSubscriptionProvider } from './providers/RevenueCatProvider';
@@ -69,6 +70,14 @@ export function createSubscriptionProvider(type: ProviderType): SubscriptionProv
  * Check for iOS key first (primary), then Android
  */
 function getProviderType(): ProviderType {
+  // Expo Go has no native StoreKit/Billing, so react-native-purchases can't
+  // configure there even with a valid API key. Fall back to the manual
+  // (Supabase-backed) provider; IAP requires a dev client or native build.
+  if (isExpoGo) {
+    console.log('[SubscriptionService] Expo Go detected — using manual provider');
+    return 'manual';
+  }
+
   const revenueCatApiKey =
     Platform.OS === 'ios'
       ? process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY

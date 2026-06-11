@@ -16,9 +16,7 @@ import type { SubscriptionTier } from '@/types/subscription.types';
 import type { UpgradePromptConfig } from '@/components/subscription';
 import type { PlanFeature } from '@/components/subscription/PlanComparisonCard';
 import type { UsageItem } from '@/components/subscription/UsageSection';
-import Constants, { ExecutionEnvironment } from 'expo-constants';
-
-const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+import { isExpoGo } from '@/utils/expoGo';
 
 // ============================================================================
 // CONSTANTS

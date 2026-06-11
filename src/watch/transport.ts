@@ -1,5 +1,15 @@
 import { Platform } from 'react-native';
+import { isExpoGo } from '@/utils/expoGo';
 import type { WatchSnapshot, WatchScoreWrite, WatchAck, WatchNavigate } from './types';
+
+function warnUnavailable(module: string): void {
+  if (__DEV__) {
+    console.warn(
+      `[watch] ${module} native module unavailable (expected in Expo Go) — ` +
+        'watch bridge disabled. Use a dev client or native build to test the watch.',
+    );
+  }
+}
 
 export function isWatchNavigate(msg: unknown): msg is WatchNavigate {
   return (
@@ -29,23 +39,28 @@ export function createNullTransport(): WatchTransport {
 
 export function createWatchConnectivityTransport(): WatchTransport {
   if (Platform.OS !== 'ios') return createNullTransport();
-  // Lazy require: never loaded on Android/test. The library reads its native
-  // module at import time via TurboModuleRegistry.getEnforcing('WatchConnectivity'),
-  // which throws when that module isn't in the binary — notably Expo Go, which
-  // can't load custom native modules. Catch it and fall back to the no-op
-  // transport so the app runs in Expo Go; the watch bridge only works in a dev
-  // client / native build.
+  // Expo Go can't load custom native modules, and the failing lazy require is
+  // NOT reliably catchable: the library reads its native module at import time
+  // via TurboModuleRegistry.getEnforcing('WatchConnectivity'), and when that
+  // throws outside the initial bundle load, Metro's guarded require reports it
+  // through ErrorUtils (red LogBox error) and returns undefined instead of
+  // rethrowing into our try/catch. So skip the require entirely in Expo Go;
+  // the watch bridge only works in a dev client / native build.
+  if (isExpoGo) {
+    warnUnavailable('react-native-watch-connectivity');
+    return createNullTransport();
+  }
   let rnwc: any;
   try {
     rnwc = require('react-native-watch-connectivity');
   } catch {
-    if (__DEV__) {
-      console.warn(
-        '[watch] react-native-watch-connectivity native module unavailable ' +
-          '(expected in Expo Go) — watch bridge disabled. Use a dev client or ' +
-          'native build to test the Apple Watch companion.',
-      );
-    }
+    warnUnavailable('react-native-watch-connectivity');
+    return createNullTransport();
+  }
+  // Metro's guarded require can swallow a module-eval error and hand back
+  // undefined (see above) — treat that the same as a failed require.
+  if (!rnwc?.watchEvents) {
+    warnUnavailable('react-native-watch-connectivity');
     return createNullTransport();
   }
   const subscribe = (predicate: (m: any) => boolean, cb: (m: any) => void) => {
@@ -68,18 +83,21 @@ export function createWatchConnectivityTransport(): WatchTransport {
 export function createWearTransport(): WatchTransport {
   if (Platform.OS !== 'android') return createNullTransport();
   // Lazy require of the local Expo module: only loaded on Android, and never
-  // imported on iOS (where the native module is absent). Missing native module
-  // (e.g. Expo Go) → no-op transport, same as the iOS path.
+  // imported on iOS (where the native module is absent). Skipped in Expo Go
+  // (same Metro guarded-require caveat as the iOS path above).
+  if (isExpoGo) {
+    warnUnavailable('wear-bridge');
+    return createNullTransport();
+  }
   let bridge: any;
   try {
     bridge = require('../../modules/wear-bridge').default;
   } catch {
-    if (__DEV__) {
-      console.warn(
-        '[watch] wear-bridge native module unavailable (expected in Expo Go) — ' +
-          'Wear bridge disabled. Use a dev client or native build to test the watch.',
-      );
-    }
+    warnUnavailable('wear-bridge');
+    return createNullTransport();
+  }
+  if (!bridge) {
+    warnUnavailable('wear-bridge');
     return createNullTransport();
   }
   const subscribe = (predicate: (m: any) => boolean, cb: (m: any) => void) => {
