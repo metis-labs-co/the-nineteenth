@@ -359,7 +359,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    minHeight: 32,
+    minHeight: 44,
     paddingVertical: spacing.xs,
   },
   footerLabel: {
