@@ -145,7 +145,7 @@ async function fetchScheduledRound(roundId: string): Promise<ScheduledRoundDetai
   const players: ScheduledRoundPlayer[] = roundPlayersRaw.map((rp) => ({
     player_id: rp.player_id as string,
     added_by: (rp.added_by as string | null) ?? null,
-    invitation_status: (rp.invitation_status as RoundInvitationStatus) ?? 'accepted',
+    invitation_status: (rp.invitation_status as RoundInvitationStatus) ?? 'pending',
     responded_at: (rp.responded_at as string | null) ?? null,
     selected_tee: (rp.selected_tee as TeeBox | null) ?? null,
     player: (rp.players as ScheduledRoundPlayer['player']) ?? null,
@@ -268,9 +268,11 @@ export interface InviteToScheduledRoundInput {
  * existing DB trigger (notify_round_player_invited) fires automatically to
  * push notifications — no notification code needed here.
  *
- * Skips partners who already have a round_players row (upsert would silently
- * overwrite their current status, which is undesirable). The caller should
- * filter already-invited players before calling this hook.
+ * Duplicate inserts (same round_id + player_id) are rejected by the DB:
+ * round_players has UNIQUE(round_id, player_id) (confirmed in migration
+ * 20250131000000_round_players_and_notifications.sql). The caller should
+ * filter already-invited players before calling this hook to get a clear
+ * error rather than a silent no-op.
  *
  * Invalidates detail and all, but NOT ['rounds', user.id] because adding
  * a partner doesn't change the list of rounds the caller can see.
@@ -340,6 +342,10 @@ export function useUpdateScheduledRound() {
 
   return useMutation({
     mutationFn: async ({ roundId, date, teeTime }: UpdateScheduledRoundInput): Promise<void> => {
+      if (!user?.id) {
+        throw new Error('Must be logged in to update a round');
+      }
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase typed client workaround
       const { error } = await (supabase.from('rounds') as any)
         .update({ date, tee_time: teeTime })
@@ -387,6 +393,10 @@ export function useCancelScheduledRound() {
 
   return useMutation({
     mutationFn: async (roundId: string): Promise<void> => {
+      if (!user?.id) {
+        throw new Error('Must be logged in to cancel a round');
+      }
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase typed client workaround
       const { error } = await (supabase.from('rounds') as any)
         .delete()
