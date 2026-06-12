@@ -32,9 +32,12 @@ import {
   FeatureButton,
 } from '@/components/common';
 import { InProgressRoundSection } from '@/components/competitions/detail/sections';
+import type { RoundWithCourse } from '@/components/competitions/detail/types';
 import CreateRoundBottomSheet from '@/screens/rounds/CreateRoundBottomSheet';
 import { useStartNewRound } from '@/screens/rounds/RoundListScreen/hooks';
 import { useHomeData } from '@/hooks/home';
+import { useDeleteRound } from '@/hooks/rounds/mutations';
+import { useConfirmationDialog } from '@/hooks';
 import { useDevFlagsStore } from '@/store/devFlagsStore';
 import type { RootStackParamList } from '@/navigation/types';
 import type { GameType } from '@/types/database.types';
@@ -186,6 +189,39 @@ export default function HomeScreen() {
     [navigation]
   );
 
+  // Swipe-to-delete on the in-progress carousel — same confirm-then-soft-
+  // delete flow as RoundListScreen's useRoundActions.
+  const [roundToDelete, setRoundToDelete] = useState<RoundWithCourse | null>(
+    null
+  );
+  const deleteRoundMutation = useDeleteRound();
+  const {
+    dialogConfig: deleteErrorDialogConfig,
+    showAlert: showDeleteError,
+    dismissDialog: dismissDeleteErrorDialog,
+  } = useConfirmationDialog();
+
+  const handleDeleteRound = useCallback((round: RoundWithCourse) => {
+    setRoundToDelete(round);
+  }, []);
+
+  const handleConfirmDelete = useCallback(() => {
+    if (!roundToDelete) return;
+    deleteRoundMutation.mutate(
+      {
+        roundId: roundToDelete.id,
+        competitionId: roundToDelete.competition_id ?? undefined,
+      },
+      {
+        onError: () =>
+          showDeleteError('Error', 'Failed to delete round. Please try again.'),
+      }
+    );
+    setRoundToDelete(null);
+  }, [roundToDelete, deleteRoundMutation, showDeleteError]);
+
+  const handleCancelDelete = useCallback(() => setRoundToDelete(null), []);
+
   const handleNotificationsPress = useCallback(() => {
     navigation.navigate('Notifications');
   }, [navigation]);
@@ -254,6 +290,7 @@ export default function HomeScreen() {
                     onScoreRound={handleScoreRound}
                     onViewRound={handleViewRound}
                     roundDisplayNumbers={roundDisplayNumbers}
+                    onDeleteRound={handleDeleteRound}
                   />
                   <TouchableOpacity
                     onPress={handleViewAllRounds}
@@ -438,6 +475,24 @@ export default function HomeScreen() {
       <ConfirmationDialog
         {...startRoundDialogConfig}
         onCancel={dismissStartRoundDialog}
+      />
+
+      <ConfirmationDialog
+        visible={roundToDelete !== null}
+        title="Delete Round"
+        message={`Are you sure you want to delete this round at ${roundToDelete?.course?.name ?? 'this course'}? This action cannot be undone.`}
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        confirmVariant="destructive"
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCancelDelete}
+        loading={deleteRoundMutation.isPending}
+        icon="delete"
+      />
+
+      <ConfirmationDialog
+        {...deleteErrorDialogConfig}
+        onCancel={dismissDeleteErrorDialog}
       />
     </View>
   );

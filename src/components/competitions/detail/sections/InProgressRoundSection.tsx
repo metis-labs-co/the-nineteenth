@@ -13,12 +13,12 @@ import {
   IconDice,
   IconDog,
   IconPlayerPlayFilled,
-  IconTarget,
   IconTrophy,
 } from '@tabler/icons-react-native';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
-import { PlayerAvatar } from '@/components/common';
+import { CardContainer, Pill, PlayerAvatar } from '@/components/common';
+import { getTeeSwatch } from '@/utils/teeColors';
 import type { GameType } from '@/types/database.types';
 import { inferPresetIdFromRound, ROUND_PRESETS } from '@/constants/roundPresets';
 import { GAME_TYPE_LABELS, type RoundWithCourse } from '../types';
@@ -32,6 +32,11 @@ export interface InProgressRoundSectionProps {
    * Rounds tab (positional, not round.round_number which can have gaps).
    */
   roundDisplayNumbers: Record<string, number>;
+  /**
+   * Enables swipe-to-delete on standalone rounds (competition rounds never
+   * get the gesture). Omit to disable swiping entirely (e.g. CompetitionDetail).
+   */
+  onDeleteRound?: (round: RoundWithCourse) => void;
 }
 
 /** Horizontal padding the parent ScrollView applies (matches `scrollContent`). */
@@ -58,6 +63,7 @@ interface RoundCardProps {
   width?: number;
   onScoreRound: InProgressRoundSectionProps['onScoreRound'];
   onViewRound: InProgressRoundSectionProps['onViewRound'];
+  onDeleteRound?: InProgressRoundSectionProps['onDeleteRound'];
 }
 
 function RoundCard({
@@ -66,6 +72,7 @@ function RoundCard({
   width,
   onScoreRound,
   onViewRound,
+  onDeleteRound,
 }: RoundCardProps) {
   const colors = useThemeColors();
 
@@ -78,6 +85,7 @@ function RoundCard({
   const players = isStandalone ? (round.players ?? []) : [];
   const hasSkins = round.has_skins ?? false;
   const hasWolf = round.has_wolf ?? false;
+  const selectedTee = round.selected_tee;
 
   const presetId = inferPresetIdFromRound({
     game_type: round.game_type,
@@ -105,19 +113,26 @@ function RoundCard({
       ? progressParts.join(' · ')
       : (standaloneRoundName ?? 'Ready to score');
 
+  // Only standalone rounds can be deleted from the carousel — competition
+  // rounds are managed by the competition organiser.
+  const canDelete = !!onDeleteRound && isStandalone;
+
   return (
-    <TouchableOpacity
-      style={[
-        styles.card,
-        { backgroundColor: colors.surface, borderColor: colors.borderLight },
-        width !== undefined && { width },
-      ]}
+    <CardContainer
       onPress={() => onViewRound(round.id)}
-      accessibilityRole="button"
+      swipeable={canDelete}
+      onDelete={canDelete ? () => onDeleteRound?.(round) : undefined}
+      deleteAccessibilityName={courseName}
       accessibilityLabel={`View round ${number} — ${formatLabel}, in progress at ${courseName}${
         progressParts.length > 0 ? `, ${progressParts.join(', ')}` : ''
       }`}
       activeOpacity={0.85}
+      elevated={false}
+      style={[
+        styles.card,
+        { borderColor: colors.borderLight },
+        width !== undefined && { width },
+      ]}
     >
       <View style={styles.topRow}>
         <View style={styles.liveDot} />
@@ -162,17 +177,23 @@ function RoundCard({
       <View style={[styles.divider, { backgroundColor: colors.borderLight }]} />
 
       <View style={styles.chipsRow}>
-        <View
-          style={[styles.chip, styles.outlineChip, { borderColor: colors.border }]}
-        >
-          <IconTarget size={14} color={colors.textSecondary} />
-          <Text
-            style={[styles.chipLabel, { color: colors.textPrimary }]}
-            numberOfLines={1}
-          >
-            {formatLabel}
-          </Text>
-        </View>
+        {/* Badge defaults to alignSelf flex-start; recenter it in the chips row */}
+        <Pill label={formatLabel} size="sm" style={styles.formatPill} />
+        {selectedTee && (
+          <View
+            style={[
+              styles.teeSwatch,
+              {
+                backgroundColor: getTeeSwatch(
+                  selectedTee.color ?? selectedTee.name
+                ),
+                borderColor: colors.border,
+              },
+            ]}
+            accessibilityLabel={`${selectedTee.name} tees`}
+            testID="round-card-tee-swatch"
+          />
+        )}
         {competitionName && (
           <View style={[styles.chip, { backgroundColor: colors.primary }]}>
             <IconTrophy size={14} color={colors.textOnColored} />
@@ -237,7 +258,7 @@ function RoundCard({
           </View>
         )}
       </View>
-    </TouchableOpacity>
+    </CardContainer>
   );
 }
 
@@ -246,6 +267,7 @@ export function InProgressRoundSection({
   onScoreRound,
   onViewRound,
   roundDisplayNumbers,
+  onDeleteRound,
 }: InProgressRoundSectionProps) {
   const colors = useThemeColors();
   const { width: windowWidth } = useWindowDimensions();
@@ -273,9 +295,10 @@ export function InProgressRoundSection({
         width={cardWidth}
         onScoreRound={onScoreRound}
         onViewRound={onViewRound}
+        onDeleteRound={onDeleteRound}
       />
     ),
-    [cardWidth, onScoreRound, onViewRound, roundDisplayNumbers]
+    [cardWidth, onScoreRound, onViewRound, onDeleteRound, roundDisplayNumbers]
   );
 
   if (rounds.length === 0) return null;
@@ -290,6 +313,7 @@ export function InProgressRoundSection({
           number={roundDisplayNumbers[round.id] ?? round.round_number ?? 0}
           onScoreRound={onScoreRound}
           onViewRound={onViewRound}
+          onDeleteRound={onDeleteRound}
         />
       </View>
     );
@@ -345,10 +369,8 @@ const styles = StyleSheet.create({
   container: {
     marginBottom: spacing.lg,
   },
+  // Radius, border, padding, and surface background come from CardContainer.
   card: {
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    padding: spacing.lg,
     gap: spacing.md,
     // Fixed min height keeps cards aligned across the carousel regardless of
     // optional content (competition chip, avatars, etc.).
@@ -409,6 +431,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md - 2,
     borderRadius: borderRadius.full,
     flexShrink: 1,
+  },
+  formatPill: {
+    alignSelf: 'center',
+  },
+  teeSwatch: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 1,
   },
   outlineChip: {
     borderWidth: 1,
