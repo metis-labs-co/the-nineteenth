@@ -307,7 +307,10 @@ export interface Database {
       };
       round_players: {
         Row: RoundPlayer;
-        Insert: Omit<RoundPlayer, 'id' | 'created_at'>;
+        Insert: Omit<RoundPlayer, 'id' | 'created_at' | 'invitation_status' | 'responded_at'> & {
+          invitation_status?: RoundPlayer['invitation_status'];
+          responded_at?: RoundPlayer['responded_at'];
+        };
         Update: never; // Round players are only inserted or deleted, not updated
         Relationships: [
           {

@@ -11,6 +11,7 @@ import type {
   PairingSource,
   QualifyingMetric,
   RoundFormat,
+  RoundInvitationStatus,
   RoundStatus,
   SubMatchResult,
   SubMatchStatus,
@@ -118,6 +119,9 @@ export interface RoundPlayer {
   added_by: string | null; // UUID, references players(id) - who invited them (NULL if self)
   created_at: string; // ISO timestamp
   selected_tee: TeeBox | null; // Per-player tee override (null = use round default)
+  /** Invitation response for scheduled rounds. Play-now rows default to 'accepted'. */
+  invitation_status: RoundInvitationStatus;
+  responded_at: string | null;
 }
 
 /**

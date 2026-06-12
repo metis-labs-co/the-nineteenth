@@ -22,6 +22,7 @@ export type {
   QualifyingMetric,
   BracketSeedingStyle,
   InvitationStatus,
+  RoundInvitationStatus,
   FriendshipStatus,
   ScorecardStatus,
   AustralianState,

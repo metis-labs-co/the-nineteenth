@@ -85,6 +85,9 @@ const NOTIFICATION_SCREEN_MAP: Record<NotificationType, keyof RootStackParamList
   // Social round invitation -> ViewRound (or CompetitionDetail if no roundId)
   social_round_invitation: 'ViewRound',
 
+  // Social round response -> ViewRound (organiser sees who responded)
+  social_round_response: 'ViewRound',
+
   // League notifications -> LeagueDetail
   league_player_joined: 'LeagueDetail',
   league_player_left: 'LeagueDetail',

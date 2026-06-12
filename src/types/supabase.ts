@@ -2179,21 +2179,27 @@ export type Database = {
           added_by: string | null
           created_at: string
           id: string
+          invitation_status: "pending" | "accepted" | "declined"
           player_id: string
+          responded_at: string | null
           round_id: string
         }
         Insert: {
           added_by?: string | null
           created_at?: string
           id?: string
+          invitation_status?: "pending" | "accepted" | "declined"
           player_id: string
+          responded_at?: string | null
           round_id: string
         }
         Update: {
           added_by?: string | null
           created_at?: string
           id?: string
+          invitation_status?: "pending" | "accepted" | "declined"
           player_id?: string
+          responded_at?: string | null
           round_id?: string
         }
         Relationships: [
