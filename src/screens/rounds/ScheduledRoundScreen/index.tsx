@@ -142,6 +142,7 @@ export default function ScheduledRoundScreen({ route, navigation }: Props) {
   // -------------------------------------------------------------------------
   const [scoringPairsEnabled, setScoringPairsEnabled] = useState(false);
   const [scoringPairs, setScoringPairs] = useState<ScoringPairCreateInput[]>([]);
+  const [scoringPairingType, setScoringPairingType] = useState<'reciprocal' | 'circular'>('reciprocal');
   const [skinsEnabled, setSkinsEnabled] = useState(false);
   const [skinsConfig, setSkinsConfig] = useState<SkinsConfig | null>(null);
   const [wolfEnabled, setWolfEnabled] = useState(false);
@@ -216,7 +217,12 @@ export default function ScheduledRoundScreen({ route, navigation }: Props) {
         dismissDialog();
         respondMutation.mutate(
           { roundId, response: 'declined' },
-          { onSuccess: () => navigation.goBack() }
+          {
+            onSuccess: () => navigation.goBack(),
+            onError: () => {
+              showAlert('Error', 'Could not decline the invitation. Please try again.');
+            },
+          }
         );
       },
     });
@@ -255,7 +261,12 @@ export default function ScheduledRoundScreen({ route, navigation }: Props) {
       icon: 'trash-can-outline',
       onConfirm: () => {
         dismissDialog();
-        cancelMutation.mutate(roundId, { onSuccess: () => navigation.goBack() });
+        cancelMutation.mutate(roundId, {
+          onSuccess: () => navigation.goBack(),
+          onError: () => {
+            showAlert('Error', 'Could not cancel the round. Please try again.');
+          },
+        });
       },
     });
   };
@@ -319,7 +330,7 @@ export default function ScheduledRoundScreen({ route, navigation }: Props) {
     setShowScoringSetup(false);
 
     const scoringPairsConfig: ScoringPairsConfig | undefined = scoringPairsEnabled
-      ? { enabled: true, pairs: scoringPairs, pairingType: 'reciprocal' }
+      ? { enabled: true, pairs: scoringPairs, pairingType: scoringPairingType }
       : undefined;
 
     const skinsConfigFinal: StandaloneSkinsConfig | undefined =
@@ -351,6 +362,7 @@ export default function ScheduledRoundScreen({ route, navigation }: Props) {
     round,
     scoringPairsEnabled,
     scoringPairs,
+    scoringPairingType,
     skinsEnabled,
     skinsConfig,
     wolfEnabled,
@@ -697,7 +709,7 @@ export default function ScheduledRoundScreen({ route, navigation }: Props) {
               scoringPairsEnabled={scoringPairsEnabled}
               scoringPairs={scoringPairs}
               onScoringPairsEnabledChange={setScoringPairsEnabled}
-              onScoringPairsChange={(pairs) => setScoringPairs(pairs)}
+              onScoringPairsChange={(pairs, type) => { setScoringPairs(pairs); setScoringPairingType(type); }}
               teams={teams}
               teamsLocked={false}
               splitIntoTeams={splitIntoTeams}

@@ -38,13 +38,16 @@ export interface ResolvedKeepDrop {
 /**
  * Compute the active participant set after keep/drop decisions.
  *
- * @param rows          All round_players rows for the round
- * @param keptPendingIds IDs the starter has chosen to KEEP (pending rows only)
- * @param isOwner       True if the starter is the round owner (may delete pending rows)
+ * @param rows             All round_players rows for the round
+ * @param droppedPendingIds IDs the starter has chosen to DROP (pending rows only).
+ *                          Pending rows NOT in this set are kept. For non-owners
+ *                          the set is ignored and all pending rows are kept (RLS
+ *                          blocks DELETE on round_players for non-owners).
+ * @param isOwner          True if the starter is the round owner (may delete pending rows)
  */
 export function resolveKeepDrop(
   rows: KeepDropRow[],
-  keptPendingIds: Set<string>,
+  droppedPendingIds: Set<string>,
   isOwner: boolean
 ): ResolvedKeepDrop {
   const activeRows: KeepDropRow[] = [];
@@ -60,13 +63,13 @@ export function resolveKeepDrop(
         // Non-owner starter: keep all pending players (cannot drop)
         activeRows.push(row);
         toKeepPending.push(row.player_id);
-      } else if (keptPendingIds.has(row.player_id)) {
-        // Owner chose to keep this pending player
-        activeRows.push(row);
-        toKeepPending.push(row.player_id);
-      } else {
+      } else if (droppedPendingIds.has(row.player_id)) {
         // Owner chose to drop this pending player
         toDrop.push(row.player_id);
+      } else {
+        // Owner chose to keep this pending player (not in drop set)
+        activeRows.push(row);
+        toKeepPending.push(row.player_id);
       }
     }
     // declined rows: never included
