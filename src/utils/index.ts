@@ -176,3 +176,7 @@ export {
   // Validation
   validatePairingGroups,
 } from './pairingAlgorithm';
+
+// Preset player-count validation utilities
+export { checkPresetPlayerCount } from './presetPlayers';
+export type { PlayerCountCheck } from './presetPlayers';

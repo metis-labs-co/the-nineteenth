@@ -1,6 +1,9 @@
 /**
- * Player-count validation for standalone round presets.
- * partnerCount EXCLUDES the organiser; totals include them.
+ * Preset Player-Count Validation
+ *
+ * Validates partner counts against a standalone round preset's min/max
+ * bounds. `partnerCount` EXCLUDES the organiser; `totalPlayers` includes
+ * them (so minPlayers 4 = organiser + 3 partners).
  */
 import { ROUND_PRESETS, type RoundPresetId } from '@/constants/roundPresets';
 
@@ -17,7 +20,17 @@ export function checkPresetPlayerCount(
   partnerCount: number
 ): PlayerCountCheck {
   const preset = ROUND_PRESETS[presetId];
-  const required = preset.standalone ?? { minPlayers: 1, maxPlayers: 4 };
+  if (!preset.standalone) {
+    // Comp-only preset reached a standalone path — fail closed rather than
+    // silently applying permissive bounds.
+    return {
+      ok: false,
+      required: { minPlayers: 0, maxPlayers: 0 },
+      totalPlayers: partnerCount + 1,
+      message: `${preset.shortTitle} is not available for standalone rounds`,
+    };
+  }
+  const required = preset.standalone;
   const totalPlayers = partnerCount + 1;
 
   if (totalPlayers < required.minPlayers) {

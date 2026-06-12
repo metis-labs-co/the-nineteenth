@@ -29,4 +29,15 @@ describe('checkPresetPlayerCount', () => {
     expect(result.required).toEqual({ minPlayers: 4, maxPlayers: 4 });
     expect(result.totalPlayers).toBe(2);
   });
+
+  it('fails closed for presets that are not standalone-eligible', () => {
+    const result = checkPresetPlayerCount('pairs_better_ball_2v2', 3);
+    expect(result.ok).toBe(false);
+    expect(result.message).toBe('2v2 Better Ball is not available for standalone rounds');
+  });
+
+  it('reports plural missing counts', () => {
+    const result = checkPresetPlayerCount('team_match_play', 0); // 1 of 4
+    expect(result.message).toBe('Team Match Play needs at least 4 players — add 3 more');
+  });
 });
