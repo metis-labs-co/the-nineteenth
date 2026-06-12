@@ -2,7 +2,7 @@
 import React, { useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { IconPlus, IconSparkles } from '@tabler/icons-react-native';
+import { IconPlus, IconSparkles, IconUsersPlus } from '@tabler/icons-react-native';
 import {
   FeatureButton,
   ConfirmationDialog,
@@ -90,6 +90,10 @@ export function CompsContent() {
     navigation.navigate('AICompetition');
   }, [navigation]);
 
+  const handleJoinCompetition = useCallback(() => {
+    navigation.navigate('JoinCompetition');
+  }, [navigation]);
+
   const handleUpgrade = useCallback(() => {
     navigation.navigate('Subscription');
   }, [navigation]);
@@ -133,6 +137,18 @@ export function CompsContent() {
               showChevron={false}
             />
           </FeatureLockCompact>
+        </View>
+        <View style={styles.featureButtonWrapper}>
+          <FeatureButton
+            title="Join"
+            subtitle="Invite code"
+            icon={<IconUsersPlus size={20} color={colors.white} strokeWidth={2.5} />}
+            onPress={handleJoinCompetition}
+            backgroundColor={colors.info}
+            accessibilityLabel="Join competition with invite code"
+            variant="compact"
+            showChevron={false}
+          />
         </View>
       </View>
 
