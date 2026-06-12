@@ -4,6 +4,7 @@
 
 import type { ScoringPairCreateInput, SkinsConfig } from '@/types';
 import type { Club, TeeBox, GameType } from '@/types/database.types';
+import type { RoundPresetId } from '@/constants/roundPresets';
 import type { HandicapSource, Hole } from '@/types/database';
 import type { SubscriptionTier } from '@/types/subscription.types';
 import type { BallCount } from '@/types/multiball.types';
@@ -31,7 +32,7 @@ export interface StandaloneWolfConfig {
 /**
  * Wizard step identifiers
  */
-export type WizardStep = 'course' | 'nineType' | 'matchType' | 'partners' | 'ballCount' | 'scoringSetup' | 'yourSetup';
+export type WizardStep = 'course' | 'nineType' | 'gameFormat' | 'when' | 'partners' | 'ballCount' | 'scoringSetup' | 'yourSetup';
 
 /**
  * Playing partner selected for the round
@@ -107,23 +108,14 @@ export interface TeamConfig {
 }
 
 /**
- * Match type option for display
- */
-export interface MatchTypeOption {
-  value: GameType;
-  label: string;
-  description: string;
-  /** Minimum tier required to use this game type */
-  requiredTier: SubscriptionTier;
-}
-
-/**
  * Complete wizard data state
  */
 export interface WizardData {
   selectedCourse: SelectedCourse | null;
   selectedTee: TeeBox | null;
   selectedMatchType: GameType | null;
+  /** Canonical preset driving game type + player-count requirements. */
+  selectedPresetId: RoundPresetId | null;
   selectedPartners: PlayingPartner[];
   searchQuery: string;
   friendSearchQuery: string;
@@ -152,12 +144,31 @@ export interface WizardData {
   handicapSource: HandicapSource;
   /** Nine type selection for 9-hole rounds */
   nineType: NineType;
+  /** Scheduled round date (YYYY-MM-DD). Null = play now. */
+  scheduledDate: string | null;
+  /** Scheduled tee time (HH:MM:SS). Null = no specific time. */
+  scheduledTeeTime: string | null;
   /**
    * Current user's WHS handicap override for this round. Null means use the
    * profile value as-is. When set, the round-start flow writes this back to
    * `players.handicap` as part of the Start Round transaction.
    */
   currentUserHandicapOverride: number | null;
+}
+
+/**
+ * Arguments passed to onScheduleRound when the user confirms a scheduled round
+ */
+export interface ScheduleRoundArgs {
+  courseId: string;
+  courseName: string;
+  partners: PlayingPartner[];
+  selectedTee?: TeeBox;
+  gameType: GameType;
+  presetId: RoundPresetId;
+  nineType: NineType;
+  date: string;          // YYYY-MM-DD
+  teeTime: string | null; // HH:MM:SS
 }
 
 /**
@@ -190,55 +201,10 @@ export interface CreateRoundBottomSheetProps {
   initialMatchType?: GameType;
   /** Skip the partner selection step entirely — starts the round after tee selection */
   skipPartnerStep?: boolean;
+  /** Called when the user confirms a scheduled round (future date). The round
+   *  is created as 'upcoming' with pending invitations; scoring is deferred. */
+  onScheduleRound?: (args: ScheduleRoundArgs) => void;
 }
-
-/**
- * All available match types with tier requirements
- */
-export const MATCH_TYPES: MatchTypeOption[] = [
-  {
-    value: 'stableford',
-    label: 'Stableford',
-    description: 'Points-based scoring (most common)',
-    requiredTier: 'free',
-  },
-  {
-    value: 'stroke',
-    label: 'Stroke Play',
-    description: 'Lowest total strokes wins',
-    requiredTier: 'social',
-  },
-  {
-    value: 'par',
-    label: 'Par',
-    description: 'Win/lose each hole (+1, 0, -1 scoring)',
-    requiredTier: 'social',
-  },
-  {
-    value: 'match-play',
-    label: 'Match Play',
-    description: 'Hole-by-hole competition',
-    requiredTier: 'social',
-  },
-  {
-    value: 'best-ball',
-    label: 'Best Ball',
-    description: 'Team format - best score counts',
-    requiredTier: 'premium',
-  },
-  {
-    value: 'scramble',
-    label: 'Scramble',
-    description: 'Team format - everyone plays from best shot',
-    requiredTier: 'premium',
-  },
-  {
-    value: 'shamble',
-    label: 'Shamble',
-    description: 'Best drive, then individual play - sum all points',
-    requiredTier: 'premium',
-  },
-];
 
 /**
  * Display names for subscription tiers

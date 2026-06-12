@@ -31,6 +31,8 @@ interface RoundListSectionsProps {
   onViewRound: (roundId: string) => void;
   onDeleteInProgressRound: (round: RoundWithCourse) => void;
   onScoreRound: (round: RoundItem) => void;
+  /** Called when the user taps an upcoming (scheduled) round card. Defaults to onScoreRound. */
+  onUpcomingRoundPress?: (round: RoundItem) => void;
   onDeleteRound: (round: RoundItem) => void;
   hasUnlimitedRounds: boolean;
   roundsPlayedCount: number;
@@ -47,6 +49,7 @@ export function RoundListSections({
   onViewRound,
   onDeleteInProgressRound,
   onScoreRound,
+  onUpcomingRoundPress,
   onDeleteRound,
   hasUnlimitedRounds,
   roundsPlayedCount,
@@ -79,10 +82,10 @@ export function RoundListSections({
             <View key={round.id} style={styles.activeCard}>
               <RoundListCard
                 round={round}
-                onPress={() => onScoreRound(round)}
+                onPress={() => (onUpcomingRoundPress ?? onScoreRound)(round)}
                 onDelete={onDeleteRound}
                 swipeEnabled={true}
-                actionLabel="Score"
+                actionLabel="View"
                 currentUserId={currentUserId}
               />
             </View>

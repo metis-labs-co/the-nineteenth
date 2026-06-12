@@ -21,6 +21,9 @@ export type CompetitionType = 'knockout' | 'event';
 export type GameType = 'stroke' | 'stableford' | 'par' | 'match-play' | 'best-ball' | 'scramble' | 'shamble';
 export type RoundStatus = 'upcoming' | 'in-progress' | 'completed';
 
+/** Response state for a player invited to a scheduled social round. */
+export type RoundInvitationStatus = 'pending' | 'accepted' | 'declined';
+
 /**
  * How team-round scoring is aggregated.
  * - 'combined' — one team match using best-ball across all team members (legacy).
@@ -127,6 +130,7 @@ export type NotificationType =
   | 'friend_request_received'
   | 'friend_request_accepted'
   | 'social_round_invitation'
+  | 'social_round_response'
   | 'league_player_joined'
   | 'league_player_left'
   | 'league_player_removed'

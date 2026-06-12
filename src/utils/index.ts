@@ -176,3 +176,11 @@ export {
   // Validation
   validatePairingGroups,
 } from './pairingAlgorithm';
+
+// Preset player-count validation utilities
+export { checkPresetPlayerCount } from './presetPlayers';
+export type { PlayerCountCheck } from './presetPlayers';
+
+// Invitation summary utilities (scheduled social rounds)
+export { summarizeInvitations, startBlockReason } from './invitationSummary';
+export type { InvitationSummary } from './invitationSummary';

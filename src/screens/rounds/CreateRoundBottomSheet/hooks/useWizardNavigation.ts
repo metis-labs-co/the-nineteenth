@@ -21,11 +21,11 @@ import type {
   StandaloneSkinsConfig,
   StandaloneWolfConfig,
   TeamConfig,
+  ScheduleRoundArgs,
 } from '../types';
 
 interface UseWizardNavigationParams {
   data: WizardData;
-  initialMatchType?: GameType;
   isSocialOrHigher: boolean;
   setCurrentStep: React.Dispatch<React.SetStateAction<WizardStep>>;
   setData: React.Dispatch<React.SetStateAction<WizardData>>;
@@ -46,19 +46,24 @@ interface UseWizardNavigationParams {
     nineType?: NineType,
     currentUserHandicapOverride?: number | null
   ) => void;
+  onScheduleRound?: (args: ScheduleRoundArgs) => void;
   onClose: () => void;
 }
 
 export function useWizardNavigation({
   data,
-  initialMatchType,
   isSocialOrHigher,
   setCurrentStep,
   setData,
   resetState,
   onStartRound,
+  onScheduleRound,
   onClose,
 }: UseWizardNavigationParams) {
+  const handleBackToGameFormat = useCallback(() => {
+    setCurrentStep('gameFormat');
+  }, [setCurrentStep]);
+
   const handleBackToCourse = useCallback(() => {
     setCurrentStep('course');
     setData((prev) => ({
@@ -73,16 +78,9 @@ export function useWizardNavigation({
     setData((prev) => ({ ...prev, friendSearchQuery: '' }));
   }, [setCurrentStep, setData]);
 
-  const handleBackToMatchType = useCallback(() => {
-    if (initialMatchType) {
-      // Match type is locked — go back to nineType (skipping the locked matchType step)
-      setCurrentStep('nineType');
-      setData((prev) => ({ ...prev, friendSearchQuery: '' }));
-    } else {
-      setCurrentStep('matchType');
-      setData((prev) => ({ ...prev, friendSearchQuery: '' }));
-    }
-  }, [initialMatchType, setCurrentStep, setData]);
+  const handleBackToWhen = useCallback(() => {
+    setCurrentStep('when');
+  }, [setCurrentStep]);
 
   const handleBackToPartners = useCallback(() => {
     setCurrentStep('partners');
@@ -208,19 +206,38 @@ export function useWizardNavigation({
     }
   }, [data, onStartRound, resetState]);
 
+  const handleScheduleRound = useCallback(() => {
+    if (!data.selectedCourse || !data.scheduledDate || !data.selectedMatchType || !data.selectedPresetId) return;
+    onScheduleRound?.({
+      courseId: data.selectedCourse.courseId,
+      courseName: data.selectedCourse.courseName,
+      partners: data.selectedPartners,
+      selectedTee: data.selectedTee ?? undefined,
+      gameType: data.selectedMatchType,
+      presetId: data.selectedPresetId,
+      nineType: data.nineType,
+      date: data.scheduledDate,
+      teeTime: data.scheduledTeeTime,
+    });
+    resetState();
+    onClose();
+  }, [data, onScheduleRound, resetState, onClose]);
+
   const handleClose = useCallback(() => {
     resetState();
     onClose();
   }, [onClose, resetState]);
 
   return {
+    handleBackToGameFormat,
     handleBackToCourse,
     handleBackToNineType,
-    handleBackToMatchType,
+    handleBackToWhen,
     handleBackToPartners,
     handleContinueToScoringSetup,
     handleStartSoloRound,
     handleStartScoring,
+    handleScheduleRound,
     handleClose,
   };
 }

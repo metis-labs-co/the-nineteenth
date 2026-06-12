@@ -11,6 +11,18 @@ export const roundKeys = {
 } as const;
 
 /**
+ * Scheduled Round Query Keys
+ *
+ * Separate namespace from roundKeys so invalidation of scheduled-round
+ * detail (e.g. after responding to an invite) doesn't invalidate the full
+ * competition round cache and vice-versa.
+ */
+export const scheduledRoundKeys = {
+  all: ['scheduledRounds'] as const,
+  detail: (roundId: string) => [...scheduledRoundKeys.all, roundId] as const,
+} as const;
+
+/**
  * Sub-Match Query Keys (Ryder-Cup-style split team rounds)
  */
 export const subMatchKeys = {

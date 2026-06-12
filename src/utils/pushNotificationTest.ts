@@ -69,6 +69,10 @@ const MOCK_NOTIFICATION_DATA: Record<NotificationType, Omit<NotificationData, 't
     roundId: 'test-round-789',
     playerId: 'test-player-456',
   },
+  social_round_response: {
+    roundId: 'test-round-789',
+    playerId: 'test-player-456',
+  },
   league_player_joined: {
     leagueId: 'test-league-123',
     playerId: 'test-player-456',
@@ -144,6 +148,7 @@ const MOCK_NOTIFICATION_TITLES: Record<NotificationType, string> = {
   friend_request_accepted: 'Friend Request Accepted',
   scorecard_submitted: 'Scorecard Submitted',
   social_round_invitation: 'Round Invitation',
+  social_round_response: 'Round Response',
   league_player_joined: 'Player Joined League',
   league_player_left: 'Player Left League',
   league_player_removed: 'Removed from League',
@@ -174,6 +179,7 @@ const MOCK_NOTIFICATION_BODIES: Record<NotificationType, string> = {
   friend_request_accepted: 'Test Player accepted your friend request',
   scorecard_submitted: 'Test Player submitted their scorecard for Round 1',
   social_round_invitation: 'Test Player invited you to join a round',
+  social_round_response: 'Test Player responded to your round invitation',
   league_player_joined: 'Test Player joined Test League',
   league_player_left: 'Test Player left Test League',
   league_player_removed: 'You were removed from Test League',

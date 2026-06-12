@@ -72,13 +72,13 @@ No schema changes. Scoring screens already exist per game type and are reused as
 ### Lifecycle
 
 - **Upcoming**: the round appears in the existing Upcoming Rounds section for the organizer and all invitees. A scheduled-round detail view shows course, date/tee time, format, and per-player invitation status, with Accept/Decline for invitees and Edit/Cancel for the organizer.
-- **Organizer edits while upcoming**: change date/tee time (re-notifies accepted + pending invitees), invite additional/replacement friends, cancel (notifies everyone; round removed). If a decline drops the group below the format's `minPlayers`, the organizer is notified and prompted to invite a replacement.
+- **Organizer edits while upcoming**: change date/tee time (re-notifies accepted + pending invitees), invite additional/replacement friends, cancel (notifies everyone; round removed). If a decline drops the group below the format's `minPlayers`, the organizer is notified (decline push) and the detail screen surfaces the below-minimum state with the Invite action available.
 - **Start (on/after the round date)**: organizer or any accepted player taps **Start Round**. If any invitees are still `pending`, the starter gets a per-person **keep or drop** prompt (kept players get scorecards; dropped players are removed). Declined players are excluded automatically. The format's player count is re-validated against the final group; if it no longer fits, the starter must adjust (drop to an individual-compatible format is not automatic — they pick players or change format). Then the existing Scoring Setup step runs (skins, wolf, scoring pairs, teams) and the round flows into the existing scoring screens exactly like a play-now round.
 
 ### Limits, offline, edge cases
 
-- A scheduled round counts toward social-round tier limits at creation time.
-- Creating a scheduled round and responding to invitations require connectivity (server-side invites/notifications). Starting and scoring on the day work offline as today, provided the round has synced to the starting device.
+- Tier limits count rounds when scorecards complete, matching play-now behaviour — an unplayed scheduled round does not consume the allowance; it counts when played. (As built: limits are enforced on completed scorecards, so scheduling cannot be used as a loophole.)
+- Creating a scheduled round, responding to invitations, and **starting** a round (status flip + scorecard creation) require connectivity — the same as starting a play-now round today. Hole-by-hole scoring after the start works offline as today.
 - Declines and cancellations generate notifications via existing notification categories.
 
 ## Testing

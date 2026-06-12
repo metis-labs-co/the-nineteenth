@@ -79,7 +79,8 @@ export function useWizardCourseSelection({
         if (initialMatchType && skipPartnerStep) {
           startRoundWithCurrentState(courseData, course.tees?.[0] ?? null, initialPartners ?? [], initialMatchType);
         } else {
-          setCurrentStep(initialMatchType ? 'partners' : 'matchType');
+          // initialMatchType flows are play-now by definition — skip 'when'
+          setCurrentStep(initialMatchType ? 'partners' : 'when');
         }
       } else if (initialMatchType && skipPartnerStep) {
         startRoundWithCurrentState(courseData, course.tees?.[0] ?? null, initialPartners ?? [], initialMatchType);
@@ -123,7 +124,8 @@ export function useWizardCourseSelection({
         if (initialMatchType && skipPartnerStep) {
           startRoundWithCurrentState(courseData, course.tees?.[0] ?? null, initialPartners ?? [], initialMatchType);
         } else {
-          setCurrentStep(initialMatchType ? 'partners' : 'matchType');
+          // initialMatchType flows are play-now by definition — skip 'when'
+          setCurrentStep(initialMatchType ? 'partners' : 'when');
         }
       } else if (initialMatchType && skipPartnerStep) {
         startRoundWithCurrentState(courseData, course.tees?.[0] ?? null, initialPartners ?? [], initialMatchType);

@@ -150,3 +150,22 @@ export {
   useSubMatchPermissions,
   type SubMatchPermissions,
 } from './useSubMatchPermissions';
+
+// Re-export scheduled round hooks and types
+export {
+  useScheduledRound,
+  useRespondToRoundInvitation,
+  useInviteToScheduledRound,
+  useUpdateScheduledRound,
+  useCancelScheduledRound,
+} from './scheduledRounds';
+
+export type {
+  ScheduledRoundDetail,
+  ScheduledRoundCourse,
+  ScheduledRoundPlayer,
+  RespondToRoundInvitationInput,
+  InvitePartnerInput,
+  InviteToScheduledRoundInput,
+  UpdateScheduledRoundInput,
+} from './scheduledRounds';

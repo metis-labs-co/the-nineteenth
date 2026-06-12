@@ -26,7 +26,9 @@ import type {
   StandaloneWolfConfig,
   InitialCourse,
   TeamConfig,
+  ScheduleRoundArgs,
 } from '../types';
+import type { RoundPresetId } from '@/constants/roundPresets';
 import { useWizardInitialization } from './useWizardInitialization';
 import { useWizardCourseSelection } from './useWizardCourseSelection';
 import { useWizardTeeSelection } from './useWizardTeeSelection';
@@ -60,6 +62,7 @@ interface UseCreateRoundWizardOptions {
     nineType?: NineType,
     currentUserHandicapOverride?: number | null
   ) => void;
+  onScheduleRound?: (args: ScheduleRoundArgs) => void;
   onClose: () => void;
 }
 
@@ -87,8 +90,8 @@ interface UseCreateRoundWizardReturn {
   handleCurrentUserHandicapChange: (value: number) => void;
   handlePartnerHandicapChange: (partnerId: string, value: number) => void;
 
-  // Match type selection
-  handleSelectMatchType: (matchType: GameType) => void;
+  // Preset selection (format-first wizard step 1)
+  handleSelectPreset: (presetId: RoundPresetId) => void;
 
   // Partner selection
   setFriendSearchQuery: (query: string) => void;
@@ -116,10 +119,15 @@ interface UseCreateRoundWizardReturn {
   handleSelectBallCount: (ballCount: BallCount) => void;
   handleStartSoloRound: () => void;
 
+  // When step
+  handlePlayNow: () => void;
+  handleScheduleFor: (date: string, teeTime: string | null) => void;
+
   // Navigation
+  handleBackToGameFormat: () => void;
   handleBackToCourse: () => void;
   handleBackToNineType: () => void;
-  handleBackToMatchType: () => void;
+  handleBackToWhen: () => void;
   handleBackToPartners: () => void;
   handleContinueToScoringSetup: () => void;
 
@@ -131,6 +139,7 @@ interface UseCreateRoundWizardReturn {
 
   // Actions
   handleStartScoring: () => void;
+  handleScheduleRound: () => void;
   handleClose: () => void;
 
   // Direct state update (for course data refresh)
@@ -141,6 +150,7 @@ const initialData: WizardData = {
   selectedCourse: null,
   selectedTee: null,
   selectedMatchType: null,
+  selectedPresetId: null,
   selectedPartners: [],
   searchQuery: '',
   friendSearchQuery: '',
@@ -158,6 +168,8 @@ const initialData: WizardData = {
   isBuildAsYouPlay: false,
   handicapSource: 'profile',
   nineType: 'full' as NineType,
+  scheduledDate: null,
+  scheduledTeeTime: null,
   currentUserHandicapOverride: null,
 };
 
@@ -168,9 +180,10 @@ export function useCreateRoundWizard({
   initialMatchType,
   skipPartnerStep,
   onStartRound,
+  onScheduleRound,
   onClose,
 }: UseCreateRoundWizardOptions): UseCreateRoundWizardReturn {
-  const [currentStep, setCurrentStep] = useState<WizardStep>('course');
+  const [currentStep, setCurrentStep] = useState<WizardStep>('gameFormat');
   const [data, setData] = useState<WizardData>(initialData);
 
   // Subscription tier for multi-ball feature gating
@@ -214,7 +227,7 @@ export function useCreateRoundWizard({
     handleTogglePartner,
     handleRemovePartner,
     isPartnerSelected,
-    handleSelectMatchType,
+    handleSelectPreset,
   } = useWizardPartners({ data, setData, setCurrentStep, skipPartnerStep });
 
   const {
@@ -236,28 +249,43 @@ export function useCreateRoundWizard({
   });
 
   // NineType selection handler
+  // initialMatchType flows are play-now by definition — skip 'when' step.
   const handleSelectNineType = useCallback((nineType: NineType) => {
     setData((prev) => ({ ...prev, nineType }));
-    setCurrentStep(initialMatchType ? 'partners' : 'matchType');
+    setCurrentStep(initialMatchType ? 'partners' : 'when');
   }, [initialMatchType, setData, setCurrentStep]);
 
+  // When step: user chose "Play now"
+  const handlePlayNow = useCallback(() => {
+    setData((prev) => ({ ...prev, scheduledDate: null, scheduledTeeTime: null }));
+    setCurrentStep('partners');
+  }, [setData, setCurrentStep]);
+
+  // When step: user scheduled for a future date/time
+  const handleScheduleFor = useCallback((date: string, teeTime: string | null) => {
+    setData((prev) => ({ ...prev, scheduledDate: date, scheduledTeeTime: teeTime }));
+    setCurrentStep('partners');
+  }, [setData, setCurrentStep]);
+
   const {
+    handleBackToGameFormat,
     handleBackToCourse,
     handleBackToNineType,
-    handleBackToMatchType,
+    handleBackToWhen,
     handleBackToPartners,
     handleContinueToScoringSetup,
     handleStartSoloRound,
     handleStartScoring,
+    handleScheduleRound,
     handleClose,
   } = useWizardNavigation({
     data,
-    initialMatchType,
     isSocialOrHigher,
     setCurrentStep,
     setData,
     resetState,
     onStartRound,
+    onScheduleRound,
     onClose,
   });
 
@@ -271,13 +299,15 @@ export function useCreateRoundWizard({
     handleSelectFavoriteCourse,
     recentCourses,
     handleSelectNineType,
+    handlePlayNow,
+    handleScheduleFor,
     handleSelectTee,
     handleSkipTeeSelection,
     handlePlayerTeeChange,
     handleCurrentUserTeeChange,
     handleCurrentUserHandicapChange,
     handlePartnerHandicapChange,
-    handleSelectMatchType,
+    handleSelectPreset,
     setFriendSearchQuery,
     handleTogglePartner,
     handleRemovePartner,
@@ -292,14 +322,16 @@ export function useCreateRoundWizard({
     setSplitIntoTeams,
     handleSelectBallCount,
     handleStartSoloRound,
+    handleBackToGameFormat,
     handleBackToCourse,
     handleBackToNineType,
-    handleBackToMatchType,
+    handleBackToWhen,
     handleBackToPartners,
     handleContinueToScoringSetup,
     setBuildAsYouPlay,
     setHandicapSource,
     handleStartScoring,
+    handleScheduleRound,
     handleClose,
     setData,
   };

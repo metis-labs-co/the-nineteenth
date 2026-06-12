@@ -16,6 +16,7 @@
 import React from 'react';
 import { fireEvent, render, screen, waitForAsync } from '@/__tests__/utils/renderHelpers';
 import { RoundTypeSheet } from './RoundTypeSheet';
+import { RoundPresetPicker } from './RoundPresetPicker';
 import type { RoundShapeForPresets } from '@/constants/roundPresets';
 
 const mockNavigate = jest.fn();
@@ -125,11 +126,15 @@ describe('RoundTypeSheet', () => {
     );
   });
 
-  it('hides team presets on a standalone round', () => {
+  it('hides comp-only presets on a standalone round', () => {
     render(<RoundTypeSheet {...defaultProps} competitionId={null} />);
 
-    expect(screen.queryByTestId('round-type-preset-team_scramble')).toBeNull();
+    // pairs_better_ball_2v2 and ryder_cup_singles require competition team
+    // rosters — they have no standalone field and must not appear.
     expect(screen.queryByTestId('round-type-preset-pairs_better_ball_2v2')).toBeNull();
+    expect(screen.queryByTestId('round-type-preset-ryder_cup_singles')).toBeNull();
+    // team_scramble IS standalone-eligible and should appear.
+    expect(screen.queryByTestId('round-type-preset-team_scramble')).not.toBeNull();
   });
 
   it('routes to the Subscription screen when a free user taps a premium preset', () => {
@@ -206,5 +211,58 @@ describe('RoundTypeSheet', () => {
     expect(call.presetId).toBe('individual_stroke');
     expect(call.roundId).toBe('round-1');
     expect(call.subMatches).toBeUndefined(); // non-split target
+  });
+});
+
+// =============================================================================
+// RoundPresetPicker — tierAllowsPreset override
+// =============================================================================
+
+describe('RoundPresetPicker — tierAllowsPreset', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    // Default: free tier (individual_stroke would normally be locked)
+    mockUseTier.mockReturnValue('free');
+  });
+
+  it('allows a normally-tier-locked preset when tierAllowsPreset returns true', () => {
+    // individual_stroke requires social tier; free user would normally see it locked.
+    // Passing tierAllowsPreset that always returns true should make it selectable.
+    const onSelect = jest.fn();
+    render(
+      <RoundPresetPicker
+        selectedPresetId={null}
+        onSelect={onSelect}
+        perRoundRulesEnabled={true}
+        isStandalone={false}
+        teamCount={0}
+        tierAllowsPreset={() => true}
+      />
+    );
+
+    fireEvent.press(screen.getByTestId('round-type-preset-individual_stroke'));
+    expect(onSelect).toHaveBeenCalledWith('individual_stroke');
+  });
+
+  it('blocks a normally-allowed preset when tierAllowsPreset returns false', () => {
+    // individual_stableford is free-tier but we override to block it.
+    const onSelect = jest.fn();
+    const onUpgrade = jest.fn();
+    render(
+      <RoundPresetPicker
+        selectedPresetId={null}
+        onSelect={onSelect}
+        perRoundRulesEnabled={true}
+        isStandalone={false}
+        teamCount={0}
+        tierAllowsPreset={() => false}
+        onUpgrade={onUpgrade}
+      />
+    );
+
+    fireEvent.press(screen.getByTestId('round-type-preset-individual_stableford'));
+    // Should call onUpgrade instead of onSelect
+    expect(onSelect).not.toHaveBeenCalled();
+    expect(onUpgrade).toHaveBeenCalled();
   });
 });

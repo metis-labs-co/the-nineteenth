@@ -88,6 +88,12 @@ const notificationConfig: Record<NotificationType, NotificationConfig> = {
     getMessage: (data) =>
       `${data.inviter_name || 'Someone'} invited you to play${data.venue_name ? ` at ${data.venue_name}` : ''}`,
   },
+  social_round_response: {
+    icon: 'golf-tee',
+    getTitle: () => 'Round Response',
+    getMessage: (data) =>
+      `${data.player_name || 'Someone'} responded to your round invitation`,
+  },
   league_player_joined: {
     icon: 'account-group',
     getTitle: () => 'Player Joined League',

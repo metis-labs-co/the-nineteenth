@@ -73,6 +73,12 @@ export interface RoundPresetPickerProps {
   /** Hide the entire `team_combined` and `sub_matches` groups (e.g. for
    *  competitions with `team_mode = 'none'`). */
   hideTeamGroups?: boolean;
+  /**
+   * Override tier gating per preset. When provided, replaces the
+   * tier check from getPresetAvailability (used by the standalone
+   * wizard, which gates by limits.allowedGameTypes instead of preset.tier).
+   */
+  tierAllowsPreset?: (preset: RoundPreset) => boolean;
 }
 
 export function RoundPresetPicker({
@@ -87,18 +93,24 @@ export function RoundPresetPicker({
   disabled = false,
   onUpgrade,
   hideTeamGroups = false,
+  tierAllowsPreset,
 }: RoundPresetPickerProps) {
   const colors = useThemeColors();
   const tier = useTier();
 
   const availabilityFor = useCallback(
-    (preset: RoundPreset): PresetAvailability =>
-      getPresetAvailability(preset, {
+    (preset: RoundPreset): PresetAvailability => {
+      const availability = getPresetAvailability(preset, {
         tier,
         isStandalone,
         perRoundRulesEnabled,
-      }),
-    [tier, isStandalone, perRoundRulesEnabled]
+      });
+      if (tierAllowsPreset) {
+        return { ...availability, tierAllowed: tierAllowsPreset(preset) };
+      }
+      return availability;
+    },
+    [tier, isStandalone, perRoundRulesEnabled, tierAllowsPreset]
   );
 
   const handleSelect = useCallback(

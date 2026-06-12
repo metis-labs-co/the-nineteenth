@@ -49,6 +49,7 @@ import CompetitionSettingsScreen from '@/screens/competitions/CompetitionSetting
 import ViewRoundScreen from '@/screens/rounds/ViewRoundScreen';
 import RoundSettingsScreen from '@/screens/rounds/RoundSettingsScreen';
 import SubMatchDetailScreen from '@/screens/rounds/SubMatchDetailScreen';
+import ScheduledRoundScreen from '@/screens/rounds/ScheduledRoundScreen';
 import { RoundListScreen } from '@/screens/rounds';
 import LeaderboardScreen from '@/screens/competitions/LeaderboardScreen';
 import JoinCompetitionScreen from '@/screens/competitions/JoinCompetitionScreen';
@@ -447,6 +448,15 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
               component={RoundListScreen}
               options={{
                 title: 'All Rounds',
+                headerShown: false,
+              }}
+            />
+
+            <Stack.Screen
+              name="ScheduledRound"
+              component={ScheduledRoundScreen}
+              options={{
+                title: 'Upcoming Round',
                 headerShown: false,
               }}
             />

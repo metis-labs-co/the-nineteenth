@@ -61,8 +61,15 @@ export default function NotificationsScreen() {
       }
 
       // Navigate based on notification data
-      // round_id first: round-specific notifications should land on the round
-      if (notification.round_id) {
+      // Invitation/response types go to the scheduled-round detail screen.
+      if (
+        (notification.type === 'social_round_invitation' ||
+          notification.type === 'social_round_response') &&
+        notification.round_id
+      ) {
+        navigation.navigate('ScheduledRound', { roundId: notification.round_id });
+      } else if (notification.round_id) {
+        // round_id first: round-specific notifications should land on the round
         navigation.navigate('ViewRound', {
           roundId: notification.round_id,
           competitionId: notification.competition_id ?? undefined,

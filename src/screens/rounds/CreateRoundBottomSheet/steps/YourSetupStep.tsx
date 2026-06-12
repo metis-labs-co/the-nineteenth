@@ -22,7 +22,8 @@ import type { HandicapSource } from '@/types/database';
 import type { BallCount } from '@/types/multiball.types';
 import { BALL_COUNT_OPTIONS } from '@/types/multiball.types';
 import type { SelectedCourse } from '../types';
-import { MATCH_TYPES, getTeeColor } from '../types';
+import { getTeeColor } from '../types';
+import { GAME_TYPE_DESCRIPTIONS } from '@/constants/gameTypeDescriptions';
 
 interface YourSetupStepProps {
   selectedCourse: SelectedCourse | null;
@@ -191,7 +192,7 @@ export const YourSetupStep = memo(function YourSetupStep({
                   {' · '}
                 </>
               )}
-              {MATCH_TYPES.find((m) => m.value === selectedMatchType)?.label}
+              {GAME_TYPE_DESCRIPTIONS[selectedMatchType]?.title}
             </Text>
           </View>
         </View>

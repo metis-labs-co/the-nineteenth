@@ -19,8 +19,11 @@ import { HandicapEditSheet } from '@/components/rounds';
 import { usePlaceholderPlayers } from '@/hooks/usePlaceholderPlayers';
 import { useAuth } from '@/hooks/useAuth';
 import type { Friend, TeeBox, GameType, Player } from '@/types/database.types';
+import type { RoundPresetId } from '@/constants/roundPresets';
+import { checkPresetPlayerCount } from '@/utils/presetPlayers';
 import type { SelectedCourse, PlayingPartner } from '../types';
-import { MAX_PARTNERS, MATCH_TYPES, getTeeColor } from '../types';
+import { MAX_PARTNERS, getTeeColor } from '../types';
+import { GAME_TYPE_DESCRIPTIONS } from '@/constants/gameTypeDescriptions';
 import { FriendSelectorBottomSheet } from './FriendSelectorBottomSheet';
 
 /** Identity + effective handicap of the row currently being edited. */
@@ -35,6 +38,7 @@ interface PartnersStepProps {
   selectedTee: TeeBox | null;
   selectedMatchType: GameType;
   selectedPartners: PlayingPartner[];
+  selectedPresetId: RoundPresetId | null;
   friendSearchQuery: string;
   onFriendSearchQueryChange: (query: string) => void;
   friends?: Friend[];
@@ -55,6 +59,13 @@ interface PartnersStepProps {
   currentUserHandicapOverride: number | null;
   onCurrentUserHandicapChange: (value: number) => void;
   onPartnerHandicapChange: (partnerId: string, value: number) => void;
+  /**
+   * When true, the user has chosen a future date — the footer CTA becomes
+   * "Schedule Round" and calls onSchedule instead of onContinue.
+   */
+  isSchedulingMode?: boolean;
+  /** Called instead of onContinue when isSchedulingMode is true. */
+  onSchedule?: () => void;
 }
 
 export const PartnersStep = memo(function PartnersStep({
@@ -62,6 +73,7 @@ export const PartnersStep = memo(function PartnersStep({
   selectedTee,
   selectedMatchType,
   selectedPartners,
+  selectedPresetId,
   friendSearchQuery,
   onFriendSearchQueryChange,
   friends,
@@ -76,6 +88,8 @@ export const PartnersStep = memo(function PartnersStep({
   currentUserHandicapOverride,
   onCurrentUserHandicapChange,
   onPartnerHandicapChange,
+  isSchedulingMode = false,
+  onSchedule,
 }: PartnersStepProps) {
   const colors = useThemeColors();
   const { player } = useAuth();
@@ -238,9 +252,14 @@ export const PartnersStep = memo(function PartnersStep({
 
   const hasTees = availableTees.length > 0;
 
-  // Match play requires at least one opponent
-  const isMatchPlay = selectedMatchType === 'match-play';
-  const canContinue = !isMatchPlay || selectedPartners.length >= 1;
+  const playerCountCheck = useMemo(
+    () =>
+      selectedPresetId
+        ? checkPresetPlayerCount(selectedPresetId, selectedPartners.length)
+        : null,
+    [selectedPresetId, selectedPartners.length]
+  );
+  const canContinue = playerCountCheck?.ok ?? true;
 
   return (
     <View style={styles.container}>
@@ -271,7 +290,7 @@ export const PartnersStep = memo(function PartnersStep({
                   {' · '}
                 </>
               )}
-              {MATCH_TYPES.find((m) => m.value === selectedMatchType)?.label}
+              {GAME_TYPE_DESCRIPTIONS[selectedMatchType]?.title}
             </Text>
           </View>
         </View>
@@ -490,13 +509,13 @@ export const PartnersStep = memo(function PartnersStep({
 
       </ScrollView>
 
-      {/* Continue Button */}
+      {/* Continue / Schedule Button */}
       <View
         style={[styles.buttonContainer, { borderTopColor: colors.border, backgroundColor: colors.surface }]}
       >
-        {isMatchPlay && selectedPartners.length === 0 && (
-          <Text style={[styles.matchPlayHint, { color: colors.warning }]}>
-            Select at least one opponent for Match Play
+        {playerCountCheck && !playerCountCheck.ok && (
+          <Text style={[styles.playerCountHint, { color: colors.warning }]}>
+            {playerCountCheck.message}
           </Text>
         )}
         <TouchableOpacity
@@ -504,12 +523,13 @@ export const PartnersStep = memo(function PartnersStep({
             styles.continueButton,
             { backgroundColor: canContinue ? colors.primary : colors.gray400 },
           ]}
-          onPress={canContinue ? onContinue : undefined}
+          onPress={canContinue ? (isSchedulingMode ? onSchedule : onContinue) : undefined}
           activeOpacity={canContinue ? 0.8 : 1}
           disabled={!canContinue}
+          accessibilityState={{ disabled: !canContinue }}
         >
           <Text style={[styles.continueButtonText, { color: colors.white }]}>
-            Continue
+            {isSchedulingMode ? 'Schedule Round' : 'Continue'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -660,7 +680,7 @@ const styles = StyleSheet.create({
   actionButtonText: {
     ...typography.bodyBold,
   },
-  matchPlayHint: {
+  playerCountHint: {
     ...typography.small,
     textAlign: 'center',
     marginBottom: spacing.sm,

@@ -40,7 +40,7 @@ import CreateRoundBottomSheet from '../CreateRoundBottomSheet';
 import { useLeagues } from '@/hooks/useLeagues';
 import { TagToLeagueBottomSheet } from '@/components/leagues/TagToLeagueBottomSheet';
 
-import { useRoundList, useRoundFilters, useRoundActions, useStartNewRound, useQuickScoreFlow } from './hooks';
+import { useRoundList, useRoundFilters, useRoundActions, useStartNewRound, useScheduleRound, useQuickScoreFlow } from './hooks';
 import { RoundListEmpty, RoundListHeader, RoundListSections } from './components';
 import type { RoundItem, RoundPlayerInfo } from './types';
 
@@ -147,6 +147,14 @@ export default function RoundsScreen() {
     setIsBottomSheetVisible(false);
   });
 
+  const {
+    handleScheduleRound,
+    dialogConfig: scheduleRoundDialogConfig,
+    dismissDialog: dismissScheduleRoundDialog,
+  } = useScheduleRound(() => {
+    setIsBottomSheetVisible(false);
+  });
+
   // Quick Score flow (premium only)
   const quickScore = useQuickScoreFlow();
 
@@ -185,6 +193,15 @@ export default function RoundsScreen() {
   const handleViewRound = useCallback(
     (roundId: string) => {
       navigation.navigate('ViewRound', { roundId, competitionId: undefined });
+    },
+    [navigation]
+  );
+
+  // Upcoming scheduled rounds navigate to the detail/start-day screen.
+  // Only standalone rounds (competition_id IS NULL) appear in this list.
+  const handleUpcomingRoundPress = useCallback(
+    (round: { id: string }) => {
+      navigation.navigate('ScheduledRound', { roundId: round.id });
     },
     [navigation]
   );
@@ -275,6 +292,7 @@ export default function RoundsScreen() {
               onViewRound={handleViewRound}
               onDeleteInProgressRound={handleDeleteInProgressRound}
               onScoreRound={handleScoreRound}
+              onUpcomingRoundPress={handleUpcomingRoundPress}
               onDeleteRound={handleDeleteRound}
               hasUnlimitedRounds={hasUnlimitedRounds}
               roundsPlayedCount={roundsPlayedCount}
@@ -295,6 +313,7 @@ export default function RoundsScreen() {
         visible={isBottomSheetVisible}
         onClose={handleCloseBottomSheet}
         onStartRound={handleStartNewRound}
+        onScheduleRound={handleScheduleRound}
       />
 
       {/* Delete Confirmation Dialog */}
@@ -316,6 +335,9 @@ export default function RoundsScreen() {
 
       {/* Start Round Error Dialog */}
       <ConfirmationDialog {...startRoundDialogConfig} onCancel={dismissStartRoundDialog} />
+
+      {/* Schedule Round Error Dialog */}
+      <ConfirmationDialog {...scheduleRoundDialogConfig} onCancel={dismissScheduleRoundDialog} />
 
       {/* Tag to League Bottom Sheet */}
       {tagScorecardId && (

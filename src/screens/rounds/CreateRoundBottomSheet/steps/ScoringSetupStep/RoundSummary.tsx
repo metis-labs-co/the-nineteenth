@@ -12,7 +12,7 @@ import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import type { TeeBox, GameType } from '@/types/database.types';
 import type { SelectedCourse, PlayingPartner } from '../../types';
-import { MATCH_TYPES } from '../../types';
+import { GAME_TYPE_DESCRIPTIONS } from '@/constants/gameTypeDescriptions';
 
 interface RoundSummaryProps {
   selectedCourse: SelectedCourse | null;
@@ -40,7 +40,7 @@ export const RoundSummary = memo(function RoundSummary({
           )}
         </Text>
         <Text style={[styles.selectedBannerLocation, { color: colors.textSecondary }]}>
-          {MATCH_TYPES.find((m) => m.value === selectedMatchType)?.label}
+          {GAME_TYPE_DESCRIPTIONS[selectedMatchType]?.title}
           {' · '}
           {selectedPartners.length + 1} players
         </Text>
