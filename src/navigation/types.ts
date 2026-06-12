@@ -41,6 +41,7 @@ export type RootStackParamList = {
   Rounds: { competitionId: string };
   RoundDetail: { id: string };
   AllRounds: undefined; // Full standalone-rounds list (formerly the Rounds tab)
+  ScheduledRound: { roundId: string }; // Upcoming scheduled round detail + start-day flow
   AddRound: { competitionId: string };
   EditRound: { roundId: string; competitionId?: string }; // Edit round details (organizers only)
   ViewRound: {
