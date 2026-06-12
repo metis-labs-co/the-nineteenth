@@ -3,12 +3,12 @@
  *
  * Renders the canonical round-preset catalog (shared with competition
  * rounds), filtered to standalone-eligible presets. Tier gating uses
- * limits.allowedGameTypes (DB-driven) rather than preset.tier so Free
- * users keep Stroke Play.
+ * limits.allowedGameTypes (DB-driven) rather than preset.tier, so the
+ * per-tier game-type entitlements in the DB remain the single source of truth.
  */
 import React, { memo, useCallback } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
-import { Text } from 'react-native-paper';
+import { ActivityIndicator, Text } from 'react-native-paper';
 import { spacing, typography } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useSubscription } from '@/hooks/useSubscription';
@@ -29,11 +29,22 @@ export const GameFormatStep = memo(function GameFormatStep({
   const colors = useThemeColors();
   const { limits } = useSubscription();
 
+  // Call useCallback unconditionally (rules-of-hooks). When limits hasn't
+  // resolved yet the body safely falls back via optional chaining so the
+  // early-return loading guard below can handle the null case.
   const tierAllowsPreset = useCallback(
     (preset: RoundPreset) =>
-      (limits?.allowedGameTypes ?? ['stableford']).includes(preset.config.game_type),
-    [limits?.allowedGameTypes]
+      limits?.allowedGameTypes.includes(preset.config.game_type) ?? false,
+    [limits]
   );
+
+  if (!limits) {
+    return (
+      <View style={[styles.container, styles.loadingContainer]}>
+        <ActivityIndicator size="small" color={colors.primary} />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -64,6 +75,7 @@ export const GameFormatStep = memo(function GameFormatStep({
 
 const styles = StyleSheet.create({
   container: { flex: 1, paddingHorizontal: spacing.lg },
+  loadingContainer: { justifyContent: 'center', alignItems: 'center' },
   title: {
     ...typography.smallBold,
     textTransform: 'uppercase',

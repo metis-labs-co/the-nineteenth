@@ -17,7 +17,7 @@ import React from 'react';
 import { fireEvent, render, screen, waitForAsync } from '@/__tests__/utils/renderHelpers';
 import { RoundTypeSheet } from './RoundTypeSheet';
 import { RoundPresetPicker } from './RoundPresetPicker';
-import type { RoundPreset, RoundShapeForPresets } from '@/constants/roundPresets';
+import type { RoundShapeForPresets } from '@/constants/roundPresets';
 
 const mockNavigate = jest.fn();
 const mockUseTier = jest.fn();
@@ -255,7 +255,7 @@ describe('RoundPresetPicker — tierAllowsPreset', () => {
         perRoundRulesEnabled={true}
         isStandalone={false}
         teamCount={0}
-        tierAllowsPreset={(_preset: RoundPreset) => false}
+        tierAllowsPreset={() => false}
         onUpgrade={onUpgrade}
       />
     );
