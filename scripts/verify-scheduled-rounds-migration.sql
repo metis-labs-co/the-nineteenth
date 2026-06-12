@@ -66,7 +66,7 @@ WHERE conrelid = 'notifications'::regclass
   AND conname  = 'notifications_type_check';
 -- Expect: definition includes 'social_round_response'
 
--- 1f. Trigger functions exist
+-- 1f. Trigger functions + RLS/guard helper functions exist
 SELECT
   routine_name,
   routine_type
@@ -74,10 +74,22 @@ FROM information_schema.routines
 WHERE routine_schema = 'public'
   AND routine_name IN (
     'notify_round_invitation_declined',
-    'notify_scheduled_round_cancelled'
+    'notify_scheduled_round_cancelled',
+    'is_accepted_round_participant',     -- NEW: non-recursive RLS helper (Fix 1)
+    'protect_round_ownership_fields'     -- NEW: ownership-guard trigger fn (Fix 2)
   )
 ORDER BY routine_name;
--- Expect: 2 rows, both FUNCTION
+-- Expect: 4 rows, all FUNCTION
+
+-- 1f-i. is_accepted_round_participant is SECURITY DEFINER (required to break 42P17)
+SELECT
+  p.proname,
+  p.prosecdef AS security_definer
+FROM pg_proc p
+JOIN pg_namespace n ON n.oid = p.pronamespace
+WHERE n.nspname = 'public'
+  AND p.proname = 'is_accepted_round_participant';
+-- Expect: 1 row with security_definer = t
 
 -- 1g. Triggers are attached
 SELECT
@@ -89,12 +101,16 @@ FROM information_schema.triggers
 WHERE trigger_schema = 'public'
   AND trigger_name IN (
     'trigger_notify_round_invitation_declined',
-    'trigger_notify_scheduled_round_cancelled'
+    'trigger_notify_scheduled_round_cancelled',
+    'trigger_protect_round_ownership_fields'   -- NEW: ownership guard (Fix 2)
   )
 ORDER BY trigger_name;
 -- Expect:
 --   trigger_notify_round_invitation_declined | round_players | UPDATE | AFTER
 --   trigger_notify_scheduled_round_cancelled | rounds        | DELETE | BEFORE
+--   trigger_protect_round_ownership_fields   | rounds        | UPDATE | BEFORE
+-- NOTE: information_schema.triggers lists one row per timing/event; the
+-- protect/declined triggers appear once each (single UPDATE event).
 
 -- ============================================================
 -- SECTION 2: TRANSACTIONAL SMOKE TEST
@@ -218,9 +234,75 @@ BEGIN;
     END IF;
     RAISE NOTICE 'Test C PASSED: declined invitee correctly excluded from cancellation';
 
-    RAISE NOTICE 'All smoke tests PASSED';
+    -- ── Test D setup: a live round with an ACCEPTED invitee ────────────────────
+    -- Left in place (NOT deleted) so the role-switched recursion check below can
+    -- query it. Ids are stashed in a temp table because the role-switched SQL
+    -- runs outside this DO block's variable scope.
+    INSERT INTO rounds (id, user_id, course_id, date, status, game_type)
+    VALUES (
+      gen_random_uuid(),
+      v_organiser_id,
+      v_course_id,
+      CURRENT_DATE + 21,
+      'upcoming',
+      'stableford'
+    )
+    RETURNING id INTO v_round_id;
+
+    INSERT INTO round_players (round_id, player_id, added_by, invitation_status)
+    VALUES
+      (v_round_id, v_organiser_id, NULL,           'accepted'),
+      (v_round_id, v_invitee_id,   v_organiser_id, 'accepted');
+
+    CREATE TEMP TABLE _verify_rls_ctx (round_id UUID, invitee_id UUID) ON COMMIT DROP;
+    INSERT INTO _verify_rls_ctx VALUES (v_round_id, v_invitee_id);
+
+    RAISE NOTICE 'Test D setup complete: live round + accepted invitee staged for RLS check';
+
+    RAISE NOTICE 'All DO-block smoke tests PASSED';
   END;
   $$;
+
+  -- ── Test D: RLS recursion smoke check (42P17 regression guard) ──────────────
+  -- Exercise the round_players policies AS THE INVITEE (a non-owner). Before
+  -- Fix 1, the "Accepted players can see co-players in their rounds" policy
+  -- self-referenced round_players and raised 42P17 on ANY round_players query.
+  -- We assert the SELECT simply does NOT error.
+  --
+  -- Supabase derives auth.uid() from request.jwt.claims->>'sub'. We set the
+  -- GUC as a JSON string and switch to the 'authenticated' role so RLS applies
+  -- (the role-bypassing table owner / postgres skips RLS entirely).
+  -- Best-effort: GUC handling can differ by Supabase/PostgREST version; if the
+  -- claim shape is wrong auth.uid() just returns NULL (0 rows), still proving
+  -- the policy expansion itself does not recurse.
+  DO $$
+  DECLARE
+    v_round_id   UUID;
+    v_invitee_id UUID;
+    v_count      INT;
+  BEGIN
+    SELECT round_id, invitee_id INTO v_round_id, v_invitee_id FROM _verify_rls_ctx;
+
+    -- Apply the invitee's identity for the duration of this transaction.
+    PERFORM set_config('request.jwt.claims',
+                       json_build_object('sub', v_invitee_id::text)::text,
+                       true);  -- is_local = true → scoped to this transaction
+    EXECUTE format('SET LOCAL role authenticated');
+
+    -- The load-bearing assertion: this must NOT raise 42P17.
+    EXECUTE format(
+      'SELECT count(*) FROM round_players WHERE round_id = %L',
+      v_round_id
+    ) INTO v_count;
+
+    RAISE NOTICE 'Test D PASSED: round_players SELECT as invitee did not recurse (rows visible: %)', v_count;
+  END;
+  $$;
+
+  -- Always drop back to the superuser/owner role before rollback.
+  RESET ROLE;
+
+  SELECT 'All smoke tests PASSED (Tests A–D)' AS result;
 
 ROLLBACK;
 
