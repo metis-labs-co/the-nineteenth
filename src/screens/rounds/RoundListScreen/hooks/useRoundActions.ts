@@ -12,7 +12,7 @@ import type { RoundItem, UseRoundActionsReturn } from '../types';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
-export function useRoundActions(): UseRoundActionsReturn & {
+export function useRoundActions(onDeleteSuccess?: () => void): UseRoundActionsReturn & {
   dialogConfig: DialogConfig;
   dismissDialog: () => void;
 } {
@@ -79,13 +79,14 @@ export function useRoundActions(): UseRoundActionsReturn & {
       deleteRoundMutation.mutate(
         { roundId: roundToDelete.id, competitionId: roundToDelete.competition?.id },
         {
+          onSuccess: () => onDeleteSuccess?.(),
           onError: () => showAlert('Error', 'Failed to delete round. Please try again.'),
         }
       );
       setDeleteDialogVisible(false);
       setRoundToDelete(null);
     }
-  }, [roundToDelete, deleteRoundMutation, showAlert]);
+  }, [roundToDelete, deleteRoundMutation, showAlert, onDeleteSuccess]);
 
   const handleCancelDelete = useCallback(() => {
     setDeleteDialogVisible(false);

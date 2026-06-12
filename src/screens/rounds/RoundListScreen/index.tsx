@@ -30,6 +30,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useInProgressRounds } from '@/hooks/home';
 import { useScreenWelcome } from '@/hooks/useScreenWelcome';
 import type { GameType } from '@/types/database.types';
+import type { RoundWithCourse } from '@/components/competitions/detail/types';
 import { isUnlimited, isNoLimit } from '@/types/subscription.types';
 import { spacing } from '@/constants/theme';
 import { formatDateWithWeekday } from '@/utils/formatting';
@@ -75,6 +76,12 @@ export default function RoundsScreen() {
     () => activeRounds.filter((r) => r.status !== 'in-progress'),
     [activeRounds]
   );
+
+  const handleRefresh = useCallback(() => {
+    refetch();
+    refetchInProgress();
+  }, [refetch, refetchInProgress]);
+
   const {
     handleScoreRound,
     handleDeleteRound,
@@ -85,7 +92,36 @@ export default function RoundsScreen() {
     isDeleting,
     dialogConfig: actionsDialogConfig,
     dismissDialog: dismissActionsDialog,
-  } = useRoundActions();
+  } = useRoundActions(handleRefresh);
+
+  // Bridge the carousel's RoundWithCourse shape into the screen's delete flow.
+  const handleDeleteInProgressRound = useCallback(
+    (round: RoundWithCourse) => {
+      const item = activeRounds.find((r) => r.id === round.id);
+      if (item) {
+        handleDeleteRound(item);
+        return;
+      }
+      // The carousel and list queries load independently; build a minimal
+      // item so the confirm dialog still works if they're briefly out of sync.
+      handleDeleteRound({
+        id: round.id,
+        course: {
+          id: round.course?.id ?? '',
+          name: round.course?.name ?? 'Unknown Course',
+        },
+        competition: round.competition ?? undefined,
+        status: round.status,
+        gameType: round.game_type,
+        isStandalone: true,
+        roundNumber: round.round_number ?? 1,
+        totalRounds: 1,
+        holesCompleted: 0,
+        totalHoles: 18,
+      });
+    },
+    [activeRounds, handleDeleteRound]
+  );
 
   const {
     handleStartNewRound,
@@ -112,11 +148,6 @@ export default function RoundsScreen() {
       refetchInProgress();
     }, [refetch, refetchInProgress])
   );
-
-  const handleRefresh = useCallback(() => {
-    refetch();
-    refetchInProgress();
-  }, [refetch, refetchInProgress]);
 
   // Resume scoring from the in-progress carousel. Mirrors handleScoreRound's
   // routing for active rounds, keyed off the carousel's callback shape.
@@ -212,6 +243,7 @@ export default function RoundsScreen() {
               onRoundTypeFilterChange={setRoundTypeFilter}
               onResumeRound={handleResumeRound}
               onViewRound={handleViewRound}
+              onDeleteInProgressRound={handleDeleteInProgressRound}
               onScoreRound={handleScoreRound}
               onDeleteRound={handleDeleteRound}
               hasUnlimitedRounds={hasUnlimitedRounds}

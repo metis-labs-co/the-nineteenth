@@ -29,6 +29,7 @@ interface RoundListSectionsProps {
   onRoundTypeFilterChange: (filter: RoundTypeFilter) => void;
   onResumeRound: (roundId: string, gameType: GameType, isTeamRound: boolean) => void;
   onViewRound: (roundId: string) => void;
+  onDeleteInProgressRound: (round: RoundWithCourse) => void;
   onScoreRound: (round: RoundItem) => void;
   onDeleteRound: (round: RoundItem) => void;
   hasUnlimitedRounds: boolean;
@@ -44,6 +45,7 @@ export function RoundListSections({
   onRoundTypeFilterChange,
   onResumeRound,
   onViewRound,
+  onDeleteInProgressRound,
   onScoreRound,
   onDeleteRound,
   hasUnlimitedRounds,
@@ -70,6 +72,7 @@ export function RoundListSections({
             rounds={inProgressRounds}
             onScoreRound={onResumeRound}
             onViewRound={onViewRound}
+            onDeleteRound={onDeleteInProgressRound}
             roundDisplayNumbers={roundDisplayNumbers}
           />
           {upcomingRounds.map((round) => (
