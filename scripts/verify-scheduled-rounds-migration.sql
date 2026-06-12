@@ -51,11 +51,13 @@ FROM pg_policies
 WHERE schemaname = 'public'
   AND tablename  = 'rounds'
   AND policyname IN (
-    'Accepted players can update standalone rounds',
-    'Invited players can view their standalone rounds'
+    'Accepted players can update standalone rounds'
   )
 ORDER BY policyname;
--- Expect: 2 rows
+-- Expect: 1 row
+-- NOTE: "Invited players can view their standalone rounds" was removed — SELECT
+-- access for invitees is already granted by the "Users can view rounds" policy
+-- via is_round_participant() (20260412010000_fix_rounds_friend_visibility_recursion.sql).
 
 -- 1e. Notification type constraint includes new type
 SELECT pg_get_constraintdef(oid) AS definition
@@ -119,15 +121,12 @@ BEGIN;
       RAISE EXCEPTION 'No courses found — seed at least one course before running this script';
     END IF;
 
-    -- Create two disposable auth users (using temp UUIDs)
-    v_organiser_id := gen_random_uuid();
-    v_invitee_id   := gen_random_uuid();
-
-    -- Insert minimal player rows (bypass FK to auth.users by inserting directly)
-    INSERT INTO players (id, name, email)
-    VALUES
-      (v_organiser_id, 'Verify Organiser', 'verify-organiser@test.invalid'),
-      (v_invitee_id,   'Verify Invitee',   'verify-invitee@test.invalid');
+    -- Use two existing players (players.id is a FK to auth.users, so we cannot insert disposable rows)
+    SELECT id INTO v_organiser_id FROM players ORDER BY created_at LIMIT 1;
+    SELECT id INTO v_invitee_id   FROM players WHERE id <> v_organiser_id ORDER BY created_at LIMIT 1;
+    IF v_organiser_id IS NULL OR v_invitee_id IS NULL THEN
+      RAISE EXCEPTION 'Smoke test needs at least 2 existing players in the database';
+    END IF;
 
     -- Create an upcoming standalone round
     INSERT INTO rounds (id, user_id, course_id, date, status, game_type)
@@ -137,7 +136,7 @@ BEGIN;
       v_course_id,
       CURRENT_DATE + 7,
       'upcoming',
-      'stroke_play'
+      'stableford'
     )
     RETURNING id INTO v_round_id;
 
@@ -158,7 +157,7 @@ BEGIN;
     WHERE user_id  = v_organiser_id
       AND type     = 'social_round_response'
       AND round_id = v_round_id
-      AND (data->>'decliner_name') = 'Verify Invitee';
+      AND (data->>'player_id') = v_invitee_id::text;
 
     IF v_notif_count <> 1 THEN
       RAISE EXCEPTION 'Test A FAILED: expected 1 decline notification for organiser, got %', v_notif_count;
@@ -196,7 +195,7 @@ BEGIN;
       v_course_id,
       CURRENT_DATE + 14,
       'upcoming',
-      'stroke_play'
+      'stableford'
     )
     RETURNING id INTO v_round_id;
 

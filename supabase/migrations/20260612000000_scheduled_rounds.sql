@@ -48,28 +48,12 @@ CREATE POLICY "Accepted players can update standalone rounds"
   );
 
 -- =====================================================
--- 4. RLS: INVITED PLAYERS CAN VIEW UPCOMING ROUNDS
+-- 4. RLS: CO-PLAYER VISIBILITY FOR ACCEPTED INVITEES
 -- =====================================================
--- The existing "Users can view rounds" policy (20250114000000_standalone_rounds.sql)
--- only covers: round owner (user_id = auth.uid()), competition members, and
--- competition organizers. Invited friends (round_players rows) cannot SELECT
--- the standalone rounds row at all — so we add that here.
---
--- We also extend the round_players SELECT policy so accepted invitees can see
--- co-players (needed to build the group display on ScheduledRoundScreen).
-
--- Allow any round_player to view the standalone round they're invited to
-DROP POLICY IF EXISTS "Invited players can view their standalone rounds" ON rounds;
-CREATE POLICY "Invited players can view their standalone rounds"
-  ON rounds FOR SELECT
-  USING (
-    competition_id IS NULL
-    AND EXISTS (
-      SELECT 1 FROM round_players rp
-      WHERE rp.round_id = rounds.id
-        AND rp.player_id = auth.uid()
-    )
-  );
+-- NOTE: invitee SELECT on the rounds row is already covered by the
+-- "Users can view rounds" policy via is_round_participant()
+-- (20260412010000_fix_rounds_friend_visibility_recursion.sql) — any
+-- round_players row grants visibility regardless of invitation_status.
 
 -- Allow round_players to see co-players in rounds they've accepted
 DROP POLICY IF EXISTS "Accepted players can see co-players in their rounds" ON round_players;
