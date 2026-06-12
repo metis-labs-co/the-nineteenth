@@ -77,6 +77,7 @@ export function useWizardNavigation({
     setData((prev) => ({ ...prev, friendSearchQuery: '' }));
   }, [setCurrentStep, setData]);
 
+  // TODO(format-first cleanup): delete — no longer reachable from resolveBackHandler since the format-first reorder.
   const handleBackToMatchType = useCallback(() => {
     if (initialMatchType) {
       // Match type is locked — go back to nineType (skipping the locked matchType step)

@@ -78,9 +78,7 @@ export function useWizardPartners({
     [data.selectedPartners]
   );
 
-  // Match type selection — update data only; step advancement is now owned
-  // by handleSelectPreset. Kept for backward compat with any call sites that
-  // set the match type without going through the preset catalog.
+  // TODO(format-first cleanup): delete with MatchTypeStep — superseded by handleSelectPreset.
   const handleSelectMatchType = useCallback((matchType: GameType) => {
     setData((prev) => ({ ...prev, selectedMatchType: matchType }));
   }, [setData]);

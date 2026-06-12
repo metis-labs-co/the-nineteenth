@@ -31,6 +31,10 @@ export interface StandaloneWolfConfig {
 
 /**
  * Wizard step identifiers
+ *
+ * NOTE: the 'matchType' key renders as "Game Format" (GameFormatStep) since
+ * the format-first reorder; rename to 'gameFormat' when MatchTypeStep is
+ * deleted.
  */
 export type WizardStep = 'course' | 'nineType' | 'matchType' | 'partners' | 'ballCount' | 'scoringSetup' | 'yourSetup';
 

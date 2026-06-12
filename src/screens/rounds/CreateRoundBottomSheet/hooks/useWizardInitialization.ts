@@ -158,6 +158,10 @@ export function useWizardInitialization({
         // Course is pre-filled, but format is still step 1. If the caller
         // locked the format too (initialMatchType), jump straight to nineType.
         setCurrentStep(initialMatchType ? 'nineType' : 'matchType');
+      } else if (initialMatchType) {
+        // Format is locked but no course was pre-filled — the matchType step
+        // is filtered out, so land on course selection instead.
+        setCurrentStep('course');
       }
     }
   }, [visible, initialCourse, homeClub, initialMatchType, skipPartnerStep, setCurrentStep, setData]);
