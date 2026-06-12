@@ -242,9 +242,6 @@ export const PartnersStep = memo(function PartnersStep({
 
   const hasTees = availableTees.length > 0;
 
-  // Match play requires at least one opponent
-  const isMatchPlay = selectedMatchType === 'match-play';
-
   const playerCountCheck = useMemo(
     () =>
       selectedPresetId
@@ -252,7 +249,7 @@ export const PartnersStep = memo(function PartnersStep({
         : null,
     [selectedPresetId, selectedPartners.length]
   );
-  const canContinue = (playerCountCheck?.ok ?? true) && (!isMatchPlay || selectedPartners.length >= 1);
+  const canContinue = playerCountCheck?.ok ?? true;
 
   return (
     <View style={styles.container}>
@@ -506,13 +503,8 @@ export const PartnersStep = memo(function PartnersStep({
       <View
         style={[styles.buttonContainer, { borderTopColor: colors.border, backgroundColor: colors.surface }]}
       >
-        {isMatchPlay && selectedPartners.length === 0 && (
-          <Text style={[styles.matchPlayHint, { color: colors.warning }]}>
-            Select at least one opponent for Match Play
-          </Text>
-        )}
         {playerCountCheck && !playerCountCheck.ok && (
-          <Text style={[typography.small, { color: colors.warning, textAlign: 'center', marginBottom: spacing.sm }]}>
+          <Text style={[styles.playerCountHint, { color: colors.warning }]}>
             {playerCountCheck.message}
           </Text>
         )}
@@ -524,6 +516,7 @@ export const PartnersStep = memo(function PartnersStep({
           onPress={canContinue ? onContinue : undefined}
           activeOpacity={canContinue ? 0.8 : 1}
           disabled={!canContinue}
+          accessibilityState={{ disabled: !canContinue }}
         >
           <Text style={[styles.continueButtonText, { color: colors.white }]}>
             Continue
@@ -677,7 +670,7 @@ const styles = StyleSheet.create({
   actionButtonText: {
     ...typography.bodyBold,
   },
-  matchPlayHint: {
+  playerCountHint: {
     ...typography.small,
     textAlign: 'center',
     marginBottom: spacing.sm,
