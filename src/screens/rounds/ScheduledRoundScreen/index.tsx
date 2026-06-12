@@ -583,6 +583,20 @@ export default function ScheduledRoundScreen({ route, navigation }: Props) {
           </View>
         )}
 
+        {/* View Round button — shown once the round has been started */}
+        {round.status !== 'upcoming' && (
+          <View style={[styles.startSection, shadows.sm, { backgroundColor: colors.surface }]}>
+            <TouchableOpacity
+              style={[styles.startButton, { backgroundColor: colors.primary }]}
+              onPress={() => navigation.navigate('ViewRound', { roundId: round.id })}
+              accessibilityLabel="View round"
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.startButtonText, { color: colors.white }]}>View Round</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         <View style={styles.bottomPad} />
       </ScrollView>
 

@@ -150,8 +150,14 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       const nav = navigationRef.current;
 
       // Navigate based on notification data (most specific first)
-      // roundId alone is sufficient — standalone rounds have no competitionId
-      if (data.roundId) {
+      // Invitation/response types go to the scheduled-round detail screen.
+      if (
+        (data.type === 'social_round_invitation' || data.type === 'social_round_response') &&
+        data.roundId
+      ) {
+        nav.navigate('ScheduledRound', { roundId: data.roundId });
+      } else if (data.roundId) {
+        // roundId alone is sufficient — standalone rounds have no competitionId
         nav.navigate('ViewRound', {
           roundId: data.roundId,
           competitionId: data.competitionId,
@@ -294,8 +300,15 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       showNotificationToast(notification, () => {
         const nav = navigationRef.current;
         // Navigate based on notification data
-        // round_id first: round-specific notifications should land on the round
-        if (notification.round_id) {
+        // Invitation/response types go to the scheduled-round detail screen.
+        if (
+          (notification.type === 'social_round_invitation' ||
+            notification.type === 'social_round_response') &&
+          notification.round_id
+        ) {
+          nav.navigate('ScheduledRound', { roundId: notification.round_id });
+        } else if (notification.round_id) {
+          // round_id first: round-specific notifications should land on the round
           nav.navigate('ViewRound', {
             roundId: notification.round_id,
             competitionId: notification.competition_id ?? undefined,

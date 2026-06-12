@@ -67,6 +67,12 @@ export interface CurrentScreenInfo {
  * Competition-related -> CompetitionDetail
  * Friend-related -> Friends
  * Scorecard-related -> ViewRound
+ *
+ * NOTE: This map is NOT the live routing path. The live routing paths are the
+ * push-tap handler (navigateToNotificationTarget) and in-app toast handler
+ * (handleNewNotification) in NotificationContext.tsx, plus the
+ * handleNotificationPress in NotificationsScreen.tsx. Any changes to routing
+ * for a notification type must be applied there.
  */
 const NOTIFICATION_SCREEN_MAP: Record<NotificationType, keyof RootStackParamList> = {
   // Competition notifications -> CompetitionDetail
