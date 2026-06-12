@@ -1,11 +1,11 @@
 /**
  * ActivityRoundCard - one grouped-per-round card in the activity feed.
  *
- * Shows the round's photos as a full-width cover (single image or carousel,
- * tap to view full-screen — same treatment as the round screen), the
- * course/club, date, every participant + their score, and an interactive
- * like + comment footer. Tapping the card (or the comment button) opens the
- * round's activity detail.
+ * Player-led layout: headline participant (the viewer if they played,
+ * otherwise the friend whose activity it is) with their score top-right,
+ * then the course row, the round photos inset below, and a like + comment
+ * footer with the remaining participants as stacked avatars. Tapping the
+ * card (or the comment button) opens the round's activity detail.
  */
 
 import React, { useCallback } from 'react';
@@ -16,7 +16,8 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useThemeColors, useIsDark } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { PlayerAvatar } from '@/components/common';
-import { formatDateWithWeekday } from '@/utils/formatting';
+import { formatDateWithWeekday, formatTimeAgo } from '@/utils/formatting';
+import { useAuth } from '@/hooks/useAuth';
 import { useLikeRound, useUnlikeRound } from '@/hooks/activity';
 import type { ActivityFeedCard, FeedParticipant } from '@/hooks/activity';
 import type { RootStackParamList } from '@/navigation/types';
@@ -25,8 +26,8 @@ import { RoundPhotoBanner } from './RoundPhotoBanner';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
-/** Competition rounds can have large fields — cap the inline player list. */
-const MAX_COMPETITION_PARTICIPANTS = 3;
+/** Cap the stacked avatars in the footer; overflow shows a "+N" chip. */
+const MAX_FOOTER_AVATARS = 4;
 
 function participantScoreLabel(p: FeedParticipant, gameType: string): string {
   if (gameType === 'stableford') {
@@ -38,6 +39,15 @@ function participantScoreLabel(p: FeedParticipant, gameType: string): string {
       : `${p.total_gross}`;
   }
   return '–';
+}
+
+/** The viewer if they played in the round, otherwise the first participant. */
+function headlineParticipant(
+  participants: FeedParticipant[],
+  viewerId: string | undefined,
+): FeedParticipant | null {
+  if (participants.length === 0) return null;
+  return participants.find((p) => p.player_id === viewerId) ?? participants[0];
 }
 
 export interface ActivityRoundCardProps {
@@ -54,6 +64,7 @@ export const ActivityRoundCard = React.memo(function ActivityRoundCard({
   // Darker, less glaring "Comp" pill background in dark mode.
   const compPillBackground = isDark ? `${colors.primary}33` : colors.primaryLighter;
   const navigation = useNavigation<Nav>();
+  const { user } = useAuth();
   const likeRound = useLikeRound();
   const unlikeRound = useUnlikeRound();
 
@@ -66,17 +77,22 @@ export const ActivityRoundCard = React.memo(function ActivityRoundCard({
 
   const competitionId = card.competition_id;
   const isCompetition = !!competitionId;
-  const shownParticipants = isCompetition
-    ? card.participants.slice(0, MAX_COMPETITION_PARTICIPANTS)
+
+  const headline = headlineParticipant(card.participants, user?.id);
+  const isViewer = !!headline && headline.player_id === user?.id;
+  const scoreLabel = headline ? participantScoreLabel(headline, card.game_type) : '–';
+  const others = headline
+    ? card.participants.filter((p) => p.player_id !== headline.player_id)
     : card.participants;
-  const hiddenCount = card.participants.length - shownParticipants.length;
+  const stackedAvatars = others.slice(0, MAX_FOOTER_AVATARS);
+  const overflowCount = others.length - stackedAvatars.length;
 
   const handleViewCompetition = useCallback(() => {
     if (competitionId) navigation.navigate('Leaderboard', { competitionId });
   }, [navigation, competitionId]);
 
-  const headerTitle = card.club_name || card.course_name;
-  const subtitle = [formatDateWithWeekday(card.round_date), card.club_location]
+  const courseTitle = card.club_name || card.course_name;
+  const courseSubtitle = [formatDateWithWeekday(card.round_date), card.club_location]
     .filter(Boolean)
     .join(' · ');
 
@@ -88,56 +104,73 @@ export const ActivityRoundCard = React.memo(function ActivityRoundCard({
         { backgroundColor: colors.surface, borderColor: colors.borderLight },
       ]}
     >
-      {/* Round photos as a flush cover (renders nothing when there are none) */}
-      <RoundPhotoBanner roundId={card.round_id} rounded={false} />
-
       <TouchableOpacity
         activeOpacity={0.85}
         onPress={handleOpen}
         style={styles.content}
         accessibilityRole="button"
-        accessibilityLabel={`Round at ${headerTitle}`}
+        accessibilityLabel={`Round at ${courseTitle}`}
       >
-        <View style={styles.headerRow}>
-          <View style={[styles.courseIcon, { backgroundColor: colors.surfaceVariant }]}>
-            <Icon source="golf" size={20} color={colors.primary} />
-          </View>
-          <View style={styles.headerText}>
-            <Text style={[styles.title, { color: colors.textPrimary }]} numberOfLines={1}>
-              {headerTitle}
-            </Text>
-            {!!subtitle && (
+        {headline ? (
+          <View style={styles.playerRow}>
+            <PlayerAvatar photoUrl={headline.photo_url} name={headline.name} size={40} />
+            <View style={styles.playerText}>
+              <View style={styles.nameRow}>
+                <Text
+                  style={[styles.playerName, { color: colors.textPrimary }]}
+                  numberOfLines={1}
+                >
+                  {headline.name}
+                </Text>
+                {isViewer ? (
+                  <View style={[styles.youPill, { borderColor: colors.primary }]}>
+                    <Text style={[styles.youPillText, { color: colors.primary }]}>YOU</Text>
+                  </View>
+                ) : null}
+              </View>
               <Text
                 style={[styles.subtitle, { color: colors.textSecondary }]}
                 numberOfLines={1}
               >
-                {subtitle}
+                played a round · {formatTimeAgo(card.activity_at)}
+              </Text>
+            </View>
+            {scoreLabel !== '–' ? (
+              <Text style={[styles.score, { color: colors.primary }]}>{scoreLabel}</Text>
+            ) : null}
+          </View>
+        ) : null}
+
+        <View style={styles.courseRow}>
+          <View style={[styles.courseIcon, { backgroundColor: colors.surfaceVariant }]}>
+            <Icon source="flag" size={18} color={colors.primary} />
+          </View>
+          <View style={styles.courseText}>
+            <Text style={[styles.courseTitle, { color: colors.textPrimary }]} numberOfLines={1}>
+              {courseTitle}
+            </Text>
+            {!!courseSubtitle && (
+              <Text
+                style={[styles.subtitle, { color: colors.textSecondary }]}
+                numberOfLines={1}
+              >
+                {courseSubtitle}
               </Text>
             )}
           </View>
-          {card.competition_id ? (
+          {isCompetition ? (
             <View style={[styles.tag, { backgroundColor: compPillBackground }]}>
               <Text style={[styles.tagText, { color: colors.primary }]}>Comp</Text>
             </View>
           ) : null}
         </View>
 
-        <View style={styles.participants}>
-          {shownParticipants.map((p) => (
-            <View key={p.player_id} style={styles.participantRow}>
-              <PlayerAvatar photoUrl={p.photo_url} name={p.name} size={26} />
-              <Text
-                style={[styles.participantName, { color: colors.textPrimary }]}
-                numberOfLines={1}
-              >
-                {p.name}
-              </Text>
-              <Text style={[styles.participantScore, { color: colors.textSecondary }]}>
-                {participantScoreLabel(p, card.game_type)}
-              </Text>
-            </View>
-          ))}
-        </View>
+        {/* Inset rounded photo; section collapses when the round has none */}
+        {card.photos.length > 0 ? (
+          <View style={styles.photo}>
+            <RoundPhotoBanner roundId={card.round_id} />
+          </View>
+        ) : null}
       </TouchableOpacity>
 
       {isCompetition ? (
@@ -149,9 +182,7 @@ export const ActivityRoundCard = React.memo(function ActivityRoundCard({
         >
           <Icon source="trophy-outline" size={16} color={colors.primary} />
           <Text style={[styles.compLinkText, { color: colors.primary }]}>
-            {hiddenCount > 0
-              ? `+${hiddenCount} more · View competition leaderboard`
-              : 'View competition leaderboard'}
+            View competition leaderboard
           </Text>
           <Icon source="chevron-right" size={18} color={colors.primary} />
         </TouchableOpacity>
@@ -185,6 +216,41 @@ export const ActivityRoundCard = React.memo(function ActivityRoundCard({
             {card.comment_count > 0 ? String(card.comment_count) : 'Comment'}
           </Text>
         </TouchableOpacity>
+
+        {stackedAvatars.length > 0 ? (
+          <View
+            style={styles.avatarStack}
+            testID="footer-avatar-stack"
+            accessibilityLabel={`Played with ${others.map((p) => p.name).join(', ')}`}
+          >
+            {stackedAvatars.map((p, index) => (
+              <View
+                key={p.player_id}
+                style={[
+                  styles.avatarRing,
+                  { borderColor: colors.surface },
+                  index > 0 && styles.avatarOverlap,
+                ]}
+              >
+                <PlayerAvatar photoUrl={p.photo_url} name={p.name} size={24} />
+              </View>
+            ))}
+            {overflowCount > 0 ? (
+              <View
+                style={[
+                  styles.avatarRing,
+                  styles.avatarOverlap,
+                  styles.overflowChip,
+                  { borderColor: colors.surface, backgroundColor: colors.surfaceVariant },
+                ]}
+              >
+                <Text style={[styles.overflowText, { color: colors.textSecondary }]}>
+                  +{overflowCount}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
       </View>
     </View>
   );
@@ -201,22 +267,54 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingTop: spacing.md,
   },
-  headerRow: {
+  playerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
   },
+  playerText: {
+    flex: 1,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  playerName: {
+    ...typography.bodyBold,
+    flexShrink: 1,
+  },
+  youPill: {
+    borderWidth: 1,
+    borderRadius: borderRadius.full,
+    paddingHorizontal: spacing.xs + 2,
+    paddingVertical: 1,
+  },
+  youPillText: {
+    ...typography.caption,
+    fontWeight: '700',
+  },
+  score: {
+    ...typography.h4,
+    fontWeight: '700',
+  },
+  courseRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
   courseIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: borderRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  headerText: {
+  courseText: {
     flex: 1,
   },
-  title: {
+  courseTitle: {
     ...typography.bodyBold,
   },
   subtitle: {
@@ -232,22 +330,8 @@ const styles = StyleSheet.create({
     ...typography.caption,
     fontWeight: '600',
   },
-  participants: {
+  photo: {
     marginTop: spacing.md,
-    gap: spacing.xs,
-  },
-  participantRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  participantName: {
-    ...typography.small,
-    flex: 1,
-  },
-  participantScore: {
-    ...typography.small,
-    fontWeight: '600',
   },
   compLink: {
     flexDirection: 'row',
@@ -280,6 +364,29 @@ const styles = StyleSheet.create({
   },
   footerLabel: {
     ...typography.small,
+    fontWeight: '600',
+  },
+  avatarStack: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 'auto',
+  },
+  avatarRing: {
+    borderWidth: 2,
+    borderRadius: borderRadius.full,
+    overflow: 'hidden',
+  },
+  avatarOverlap: {
+    marginLeft: -spacing.sm,
+  },
+  overflowChip: {
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  overflowText: {
+    ...typography.caption,
     fontWeight: '600',
   },
 });
