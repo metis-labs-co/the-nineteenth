@@ -59,6 +59,13 @@ interface PartnersStepProps {
   currentUserHandicapOverride: number | null;
   onCurrentUserHandicapChange: (value: number) => void;
   onPartnerHandicapChange: (partnerId: string, value: number) => void;
+  /**
+   * When true, the user has chosen a future date — the footer CTA becomes
+   * "Schedule Round" and calls onSchedule instead of onContinue.
+   */
+  isSchedulingMode?: boolean;
+  /** Called instead of onContinue when isSchedulingMode is true. */
+  onSchedule?: () => void;
 }
 
 export const PartnersStep = memo(function PartnersStep({
@@ -81,6 +88,8 @@ export const PartnersStep = memo(function PartnersStep({
   currentUserHandicapOverride,
   onCurrentUserHandicapChange,
   onPartnerHandicapChange,
+  isSchedulingMode = false,
+  onSchedule,
 }: PartnersStepProps) {
   const colors = useThemeColors();
   const { player } = useAuth();
@@ -500,7 +509,7 @@ export const PartnersStep = memo(function PartnersStep({
 
       </ScrollView>
 
-      {/* Continue Button */}
+      {/* Continue / Schedule Button */}
       <View
         style={[styles.buttonContainer, { borderTopColor: colors.border, backgroundColor: colors.surface }]}
       >
@@ -514,13 +523,13 @@ export const PartnersStep = memo(function PartnersStep({
             styles.continueButton,
             { backgroundColor: canContinue ? colors.primary : colors.gray400 },
           ]}
-          onPress={canContinue ? onContinue : undefined}
+          onPress={canContinue ? (isSchedulingMode ? onSchedule : onContinue) : undefined}
           activeOpacity={canContinue ? 0.8 : 1}
           disabled={!canContinue}
           accessibilityState={{ disabled: !canContinue }}
         >
           <Text style={[styles.continueButtonText, { color: colors.white }]}>
-            Continue
+            {isSchedulingMode ? 'Schedule Round' : 'Continue'}
           </Text>
         </TouchableOpacity>
       </View>

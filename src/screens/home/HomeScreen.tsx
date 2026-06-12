@@ -35,7 +35,7 @@ import {
 import { InProgressRoundSection } from '@/components/competitions/detail/sections';
 import type { RoundWithCourse } from '@/components/competitions/detail/types';
 import CreateRoundBottomSheet from '@/screens/rounds/CreateRoundBottomSheet';
-import { useStartNewRound } from '@/screens/rounds/RoundListScreen/hooks';
+import { useStartNewRound, useScheduleRound } from '@/screens/rounds/RoundListScreen/hooks';
 import { useHomeData } from '@/hooks/home';
 import { useDeleteRound } from '@/hooks/rounds/mutations';
 import { useConfirmationDialog } from '@/hooks';
@@ -79,6 +79,12 @@ export default function HomeScreen() {
     dialogConfig: startRoundDialogConfig,
     dismissDialog: dismissStartRoundDialog,
   } = useStartNewRound(() => setBottomSheetVisible(false));
+
+  const {
+    handleScheduleRound,
+    dialogConfig: scheduleRoundDialogConfig,
+    dismissDialog: dismissScheduleRoundDialog,
+  } = useScheduleRound(() => setBottomSheetVisible(false));
 
   // Refresh data when returning to the screen.
   useFocusEffect(
@@ -375,11 +381,17 @@ export default function HomeScreen() {
         visible={bottomSheetVisible}
         onClose={closeCreateRound}
         onStartRound={handleStartNewRound}
+        onScheduleRound={handleScheduleRound}
       />
 
       <ConfirmationDialog
         {...startRoundDialogConfig}
         onCancel={dismissStartRoundDialog}
+      />
+
+      <ConfirmationDialog
+        {...scheduleRoundDialogConfig}
+        onCancel={dismissScheduleRoundDialog}
       />
 
       <ConfirmationDialog

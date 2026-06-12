@@ -157,6 +157,21 @@ export interface WizardData {
 }
 
 /**
+ * Arguments passed to onScheduleRound when the user confirms a scheduled round
+ */
+export interface ScheduleRoundArgs {
+  courseId: string;
+  courseName: string;
+  partners: PlayingPartner[];
+  selectedTee?: TeeBox;
+  gameType: GameType;
+  presetId: RoundPresetId;
+  nineType: NineType;
+  date: string;          // YYYY-MM-DD
+  teeTime: string | null; // HH:MM:SS
+}
+
+/**
  * Props for the main CreateRoundBottomSheet component
  */
 export interface CreateRoundBottomSheetProps {
@@ -186,6 +201,9 @@ export interface CreateRoundBottomSheetProps {
   initialMatchType?: GameType;
   /** Skip the partner selection step entirely — starts the round after tee selection */
   skipPartnerStep?: boolean;
+  /** Called when the user confirms a scheduled round (future date). The round
+   *  is created as 'upcoming' with pending invitations; scoring is deferred. */
+  onScheduleRound?: (args: ScheduleRoundArgs) => void;
 }
 
 /**

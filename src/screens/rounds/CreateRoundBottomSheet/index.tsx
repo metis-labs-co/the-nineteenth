@@ -68,12 +68,14 @@ export type {
   StandaloneSkinsConfig,
   StandaloneWolfConfig,
   TeamConfig,
+  ScheduleRoundArgs,
 } from './types';
 
 export default function CreateRoundBottomSheet({
   visible,
   onClose,
   onStartRound,
+  onScheduleRound,
   initialCourse,
   initialPartners,
   initialMatchType,
@@ -113,6 +115,7 @@ export default function CreateRoundBottomSheet({
     initialMatchType,
     skipPartnerStep,
     onStartRound,
+    onScheduleRound,
     onClose,
   });
 
@@ -398,11 +401,15 @@ export default function CreateRoundBottomSheet({
   );
 
   // Compute dynamic step list for progress bar
+  const isSchedulingMode = wizard.data.scheduledDate != null;
   const dynamicStepKeys = useMemo(() => {
     let steps: string[];
     if (skipPartnerStep) {
       // Quick-start flows: no 'when' step (play now by definition)
       steps = ['gameFormat', 'course', 'nineType'];
+    } else if (isSchedulingMode) {
+      // Scheduling path: partners is the terminal step — no scoringSetup/yourSetup/ballCount
+      steps = ['gameFormat', 'course', 'nineType', 'when', 'partners'];
     } else if (wizard.data.selectedPartners.length > 0) {
       steps = ['gameFormat', 'course', 'nineType', 'when', 'partners', 'scoringSetup'];
     } else if (wizard.currentStep === 'yourSetup') {
@@ -414,7 +421,7 @@ export default function CreateRoundBottomSheet({
     }
     // initialMatchType flows skip both 'gameFormat' and 'when' (play now by definition)
     return initialMatchType ? steps.filter((s) => s !== 'gameFormat' && s !== 'when') : steps;
-  }, [skipPartnerStep, wizard.data.selectedPartners.length, wizard.currentStep, initialMatchType]);
+  }, [skipPartnerStep, isSchedulingMode, wizard.data.selectedPartners.length, wizard.currentStep, initialMatchType]);
 
   // Wrap close to also reset inline form state and clean up orphan courses
   const handleClose = useCallback(() => {
@@ -740,6 +747,8 @@ export default function CreateRoundBottomSheet({
           currentUserHandicapOverride={wizard.data.currentUserHandicapOverride}
           onCurrentUserHandicapChange={wizard.handleCurrentUserHandicapChange}
           onPartnerHandicapChange={wizard.handlePartnerHandicapChange}
+          isSchedulingMode={isSchedulingMode}
+          onSchedule={wizard.handleScheduleRound}
         />
       )}
 

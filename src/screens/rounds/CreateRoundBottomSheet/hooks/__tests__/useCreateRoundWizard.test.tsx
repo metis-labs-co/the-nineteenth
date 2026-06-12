@@ -13,6 +13,7 @@
  *   9. handlePlayNow → advances to 'partners', clears scheduled fields
  *  10. handleScheduleFor → advances to 'partners', sets scheduledDate + scheduledTeeTime
  *  11. handleClose (resetState) → returns to 'gameFormat', clears data
+ *  12. handleScheduleRound — scheduling path: invokes onScheduleRound with correct args + calls onClose
  */
 
 import { renderHook, act } from '@testing-library/react-native';
@@ -311,6 +312,56 @@ describe('useCreateRoundWizard — step-flow', () => {
     expect(result.current.currentStep).toBe('partners');
     expect(result.current.data.scheduledDate).toBe('2026-07-15');
     expect(result.current.data.scheduledTeeTime).toBe('08:00:00');
+  });
+
+  // --------------------------------------------------------------------------
+  // 12. handleScheduleRound — scheduled path invokes onScheduleRound with
+  //     the right args shape and calls onClose
+  // --------------------------------------------------------------------------
+  it('calls onScheduleRound with correct args and onClose on handleScheduleRound', () => {
+    const onScheduleRound = jest.fn();
+    const onClose = jest.fn();
+    const wrapper = createWrapper();
+    const { result } = renderHook(
+      () =>
+        useCreateRoundWizard({
+          ...BASE_OPTIONS,
+          initialCourse: STUB_INITIAL_COURSE,
+          onScheduleRound,
+          onClose,
+        }),
+      { wrapper }
+    );
+
+    // Navigate to the 'when' step: preset → nineType → handleScheduleFor
+    act(() => result.current.handleSelectPreset('individual_stableford'));
+    act(() => result.current.handleSelectNineType('full'));
+    expect(result.current.currentStep).toBe('when');
+
+    // Schedule for a future date
+    act(() => result.current.handleScheduleFor('2026-08-10', '09:00:00'));
+    expect(result.current.currentStep).toBe('partners');
+    expect(result.current.data.scheduledDate).toBe('2026-08-10');
+
+    // Trigger schedule
+    act(() => result.current.handleScheduleRound());
+
+    // onScheduleRound should have been called with the correct shape
+    expect(onScheduleRound).toHaveBeenCalledTimes(1);
+    const callArgs = onScheduleRound.mock.calls[0][0];
+    expect(callArgs.courseId).toBe('course-1');
+    expect(callArgs.courseName).toBe('Test Course');
+    expect(callArgs.gameType).toBe('stableford');
+    expect(callArgs.presetId).toBe('individual_stableford');
+    expect(callArgs.nineType).toBe('full');
+    expect(callArgs.date).toBe('2026-08-10');
+    expect(callArgs.teeTime).toBe('09:00:00');
+    expect(Array.isArray(callArgs.partners)).toBe(true);
+
+    // Wizard should reset and close
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(result.current.currentStep).toBe('gameFormat');
+    expect(result.current.data.scheduledDate).toBeNull();
   });
 
   // --------------------------------------------------------------------------

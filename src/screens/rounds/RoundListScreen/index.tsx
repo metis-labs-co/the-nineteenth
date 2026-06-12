@@ -40,7 +40,7 @@ import CreateRoundBottomSheet from '../CreateRoundBottomSheet';
 import { useLeagues } from '@/hooks/useLeagues';
 import { TagToLeagueBottomSheet } from '@/components/leagues/TagToLeagueBottomSheet';
 
-import { useRoundList, useRoundFilters, useRoundActions, useStartNewRound, useQuickScoreFlow } from './hooks';
+import { useRoundList, useRoundFilters, useRoundActions, useStartNewRound, useScheduleRound, useQuickScoreFlow } from './hooks';
 import { RoundListEmpty, RoundListHeader, RoundListSections } from './components';
 import type { RoundItem, RoundPlayerInfo } from './types';
 
@@ -144,6 +144,14 @@ export default function RoundsScreen() {
     dialogConfig: startRoundDialogConfig,
     dismissDialog: dismissStartRoundDialog,
   } = useStartNewRound(() => {
+    setIsBottomSheetVisible(false);
+  });
+
+  const {
+    handleScheduleRound,
+    dialogConfig: scheduleRoundDialogConfig,
+    dismissDialog: dismissScheduleRoundDialog,
+  } = useScheduleRound(() => {
     setIsBottomSheetVisible(false);
   });
 
@@ -295,6 +303,7 @@ export default function RoundsScreen() {
         visible={isBottomSheetVisible}
         onClose={handleCloseBottomSheet}
         onStartRound={handleStartNewRound}
+        onScheduleRound={handleScheduleRound}
       />
 
       {/* Delete Confirmation Dialog */}
@@ -316,6 +325,9 @@ export default function RoundsScreen() {
 
       {/* Start Round Error Dialog */}
       <ConfirmationDialog {...startRoundDialogConfig} onCancel={dismissStartRoundDialog} />
+
+      {/* Schedule Round Error Dialog */}
+      <ConfirmationDialog {...scheduleRoundDialogConfig} onCancel={dismissScheduleRoundDialog} />
 
       {/* Tag to League Bottom Sheet */}
       {tagScorecardId && (

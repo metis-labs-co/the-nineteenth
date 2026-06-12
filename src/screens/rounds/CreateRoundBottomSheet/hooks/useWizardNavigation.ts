@@ -21,6 +21,7 @@ import type {
   StandaloneSkinsConfig,
   StandaloneWolfConfig,
   TeamConfig,
+  ScheduleRoundArgs,
 } from '../types';
 
 interface UseWizardNavigationParams {
@@ -45,6 +46,7 @@ interface UseWizardNavigationParams {
     nineType?: NineType,
     currentUserHandicapOverride?: number | null
   ) => void;
+  onScheduleRound?: (args: ScheduleRoundArgs) => void;
   onClose: () => void;
 }
 
@@ -55,6 +57,7 @@ export function useWizardNavigation({
   setData,
   resetState,
   onStartRound,
+  onScheduleRound,
   onClose,
 }: UseWizardNavigationParams) {
   const handleBackToGameFormat = useCallback(() => {
@@ -203,6 +206,23 @@ export function useWizardNavigation({
     }
   }, [data, onStartRound, resetState]);
 
+  const handleScheduleRound = useCallback(() => {
+    if (!data.selectedCourse || !data.scheduledDate || !data.selectedMatchType || !data.selectedPresetId) return;
+    onScheduleRound?.({
+      courseId: data.selectedCourse.courseId,
+      courseName: data.selectedCourse.courseName,
+      partners: data.selectedPartners,
+      selectedTee: data.selectedTee ?? undefined,
+      gameType: data.selectedMatchType,
+      presetId: data.selectedPresetId,
+      nineType: data.nineType,
+      date: data.scheduledDate,
+      teeTime: data.scheduledTeeTime,
+    });
+    resetState();
+    onClose();
+  }, [data, onScheduleRound, resetState, onClose]);
+
   const handleClose = useCallback(() => {
     resetState();
     onClose();
@@ -217,6 +237,7 @@ export function useWizardNavigation({
     handleContinueToScoringSetup,
     handleStartSoloRound,
     handleStartScoring,
+    handleScheduleRound,
     handleClose,
   };
 }

@@ -26,6 +26,7 @@ import type {
   StandaloneWolfConfig,
   InitialCourse,
   TeamConfig,
+  ScheduleRoundArgs,
 } from '../types';
 import type { RoundPresetId } from '@/constants/roundPresets';
 import { useWizardInitialization } from './useWizardInitialization';
@@ -61,6 +62,7 @@ interface UseCreateRoundWizardOptions {
     nineType?: NineType,
     currentUserHandicapOverride?: number | null
   ) => void;
+  onScheduleRound?: (args: ScheduleRoundArgs) => void;
   onClose: () => void;
 }
 
@@ -137,6 +139,7 @@ interface UseCreateRoundWizardReturn {
 
   // Actions
   handleStartScoring: () => void;
+  handleScheduleRound: () => void;
   handleClose: () => void;
 
   // Direct state update (for course data refresh)
@@ -177,6 +180,7 @@ export function useCreateRoundWizard({
   initialMatchType,
   skipPartnerStep,
   onStartRound,
+  onScheduleRound,
   onClose,
 }: UseCreateRoundWizardOptions): UseCreateRoundWizardReturn {
   const [currentStep, setCurrentStep] = useState<WizardStep>('gameFormat');
@@ -272,6 +276,7 @@ export function useCreateRoundWizard({
     handleContinueToScoringSetup,
     handleStartSoloRound,
     handleStartScoring,
+    handleScheduleRound,
     handleClose,
   } = useWizardNavigation({
     data,
@@ -280,6 +285,7 @@ export function useCreateRoundWizard({
     setData,
     resetState,
     onStartRound,
+    onScheduleRound,
     onClose,
   });
 
@@ -325,6 +331,7 @@ export function useCreateRoundWizard({
     setBuildAsYouPlay,
     setHandicapSource,
     handleStartScoring,
+    handleScheduleRound,
     handleClose,
     setData,
   };
