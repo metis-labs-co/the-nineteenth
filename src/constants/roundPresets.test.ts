@@ -203,9 +203,11 @@ describe('getPresetAvailability', () => {
     expect(avail.tierAllowed).toBe(false);
   });
 
-  it('standalone round blocks team presets', () => {
+  it('standalone round blocks comp-only presets (no standalone field)', () => {
+    // pairs_better_ball_2v2 has no standalone field — it requires competition
+    // team rosters to generate sub-match pairings.
     const avail = getPresetAvailability(
-      ROUND_PRESETS.team_scramble,
+      ROUND_PRESETS.pairs_better_ball_2v2,
       context({ tier: 'premium', isStandalone: true })
     );
     expect(avail.contextAllowed).toBe(false);

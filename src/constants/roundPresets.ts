@@ -102,6 +102,12 @@ export interface RoundPreset {
    * fully validated yet, independent of the user's subscription tier.
    */
   comingSoon?: boolean;
+  /**
+   * Standalone (social-round) eligibility and player bounds. Presence of
+   * this object means the preset can be picked in the create-round wizard.
+   * Bounds INCLUDE the organiser (so minPlayers 4 = organiser + 3 partners).
+   */
+  standalone?: { minPlayers: number; maxPlayers: number };
 }
 
 // -----------------------------------------------------------------------------
@@ -126,6 +132,7 @@ export const INDIVIDUAL_STABLEFORD: RoundPreset = {
     sub_match_size: null,
     rules_override: null,
   },
+  standalone: { minPlayers: 1, maxPlayers: 4 },
 };
 
 export const INDIVIDUAL_STROKE: RoundPreset = {
@@ -146,6 +153,7 @@ export const INDIVIDUAL_STROKE: RoundPreset = {
     sub_match_size: null,
     rules_override: null,
   },
+  standalone: { minPlayers: 1, maxPlayers: 4 },
 };
 
 export const INDIVIDUAL_PAR: RoundPreset = {
@@ -166,6 +174,7 @@ export const INDIVIDUAL_PAR: RoundPreset = {
     sub_match_size: null,
     rules_override: null,
   },
+  standalone: { minPlayers: 1, maxPlayers: 4 },
 };
 
 export const INDIVIDUAL_MATCH_PLAY: RoundPreset = {
@@ -189,6 +198,7 @@ export const INDIVIDUAL_MATCH_PLAY: RoundPreset = {
     sub_match_size: 1,
     rules_override: null,
   },
+  standalone: { minPlayers: 2, maxPlayers: 2 },
 };
 
 export const INDIVIDUAL_MATCH_PLAY_SEEDED: RoundPreset = {
@@ -278,6 +288,7 @@ export const TEAM_BEST_BALL: RoundPreset = {
   },
   requiresCompetitionTeams: true,
   comingSoon: true,
+  standalone: { minPlayers: 2, maxPlayers: 4 },
 };
 
 export const TEAM_SHAMBLE: RoundPreset = {
@@ -300,6 +311,7 @@ export const TEAM_SHAMBLE: RoundPreset = {
   },
   requiresCompetitionTeams: true,
   comingSoon: true,
+  standalone: { minPlayers: 2, maxPlayers: 4 },
 };
 
 export const TEAM_SCRAMBLE: RoundPreset = {
@@ -321,6 +333,7 @@ export const TEAM_SCRAMBLE: RoundPreset = {
     rules_override: TEAM_SCRAMBLE_FIXED_POINTS.override,
   },
   requiresCompetitionTeams: true,
+  standalone: { minPlayers: 2, maxPlayers: 4 },
 };
 
 export const TEAM_MATCH_PLAY: RoundPreset = {
@@ -350,6 +363,7 @@ export const TEAM_MATCH_PLAY: RoundPreset = {
   },
   requiresCompetitionTeams: true,
   comingSoon: true,
+  standalone: { minPlayers: 4, maxPlayers: 4 },
 };
 
 // -----------------------------------------------------------------------------
@@ -521,6 +535,29 @@ export function getRoundPreset(id: RoundPresetId): RoundPreset {
   return ROUND_PRESETS[id];
 }
 
+/** Presets selectable in the standalone create-round wizard, in catalog order. */
+export function getStandalonePresets(): RoundPreset[] {
+  return ROUND_PRESET_ORDER.map((id) => ROUND_PRESETS[id]).filter(
+    (p) => p.standalone != null
+  );
+}
+
+/**
+ * Canonical preset for a bare GameType. Used by legacy entry points that
+ * pre-select a game type (league quick-start, initialMatchType prop).
+ */
+export function presetIdForGameType(gameType: GameType): RoundPresetId {
+  switch (gameType) {
+    case 'stableford': return 'individual_stableford';
+    case 'stroke': return 'individual_stroke';
+    case 'par': return 'individual_par';
+    case 'match-play': return 'individual_match_play';
+    case 'best-ball': return 'team_best_ball';
+    case 'scramble': return 'team_scramble';
+    case 'shamble': return 'team_shamble';
+  }
+}
+
 /**
  * Minimal round shape needed to infer a preset. Narrow on purpose so the
  * helper works against RoundWithCourse, Round, and test fixtures without
@@ -623,13 +660,21 @@ export function getPresetAvailability(
   context: PresetAvailabilityContext
 ): PresetAvailability {
   const tierAllowed = isTierAllowed(context.tier, preset.tier);
-  const contextAllowed = !(preset.requiresCompetitionTeams && context.isStandalone);
+  const contextAllowed = context.isStandalone
+    ? preset.standalone != null
+    : true;
   const rulesWouldBeIgnored =
     !context.perRoundRulesEnabled && preset.config.rules_override !== null;
   // Dev builds (Expo Go, simulator, dev client) bypass the "Coming Soon" lock
   // so unfinished formats can be exercised end-to-end in testing. Production
   // bundles keep the lock until the format is fully validated.
-  const comingSoon = preset.comingSoon === true && !__DEV__;
+  // Standalone-eligible presets are also exempt in standalone context: their
+  // game types (e.g. best-ball, shamble) already ship in the social-round
+  // wizard — comingSoon only gates the competition finalization path.
+  const comingSoon =
+    preset.comingSoon === true &&
+    !__DEV__ &&
+    !(context.isStandalone && preset.standalone != null);
 
   return { preset, tierAllowed, contextAllowed, rulesWouldBeIgnored, comingSoon };
 }

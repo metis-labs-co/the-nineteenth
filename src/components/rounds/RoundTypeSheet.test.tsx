@@ -125,11 +125,15 @@ describe('RoundTypeSheet', () => {
     );
   });
 
-  it('hides team presets on a standalone round', () => {
+  it('hides comp-only presets on a standalone round', () => {
     render(<RoundTypeSheet {...defaultProps} competitionId={null} />);
 
-    expect(screen.queryByTestId('round-type-preset-team_scramble')).toBeNull();
+    // pairs_better_ball_2v2 and ryder_cup_singles require competition team
+    // rosters — they have no standalone field and must not appear.
     expect(screen.queryByTestId('round-type-preset-pairs_better_ball_2v2')).toBeNull();
+    expect(screen.queryByTestId('round-type-preset-ryder_cup_singles')).toBeNull();
+    // team_scramble IS standalone-eligible and should appear.
+    expect(screen.queryByTestId('round-type-preset-team_scramble')).not.toBeNull();
   });
 
   it('routes to the Subscription screen when a free user taps a premium preset', () => {
