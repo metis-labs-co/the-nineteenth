@@ -58,6 +58,12 @@ export interface UserScoreData {
     won: boolean;
     margin: string; // e.g., "3&2", "2&1", "1 up"
   } | null;
+  /** Daily handicap the user played off for this round */
+  dailyHandicap?: number | null;
+  /** WHS score differential recorded for this round */
+  differential?: number | null;
+  /** The user's scorecard id (needed for league tagging) */
+  scorecardId?: string | null;
   /** Whether the user has a scorecard for this round */
   hasScorecard: boolean;
 }
@@ -123,6 +129,11 @@ export interface RoundListCardProps<T extends RoundListCardData = RoundListCardD
    * Callback when delete is pressed (only called if swipeEnabled is true)
    */
   onDelete?: (round: T) => void;
+  /**
+   * When provided, the swipe menu shows a "Tag to League" action alongside
+   * Delete (requires swipeEnabled). Callers gate this on league eligibility.
+   */
+  onTagToLeague?: (round: T) => void;
   /**
    * Whether swipe-to-delete gesture is enabled (default: false)
    */

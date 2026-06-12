@@ -37,6 +37,9 @@ import { formatDateWithWeekday } from '@/utils/formatting';
 import type { RootStackParamList, TabParamList } from '@/navigation/types';
 import CreateRoundBottomSheet from '../CreateRoundBottomSheet';
 
+import { useLeagues } from '@/hooks/useLeagues';
+import { TagToLeagueBottomSheet } from '@/components/leagues/TagToLeagueBottomSheet';
+
 import { useRoundList, useRoundFilters, useRoundActions, useStartNewRound, useQuickScoreFlow } from './hooks';
 import { RoundListEmpty, RoundListHeader, RoundListSections } from './components';
 import type { RoundItem, RoundPlayerInfo } from './types';
@@ -57,6 +60,19 @@ export default function RoundsScreen() {
   // Get tier limit for rounds played
   const maxRoundsPlayed = limits?.maxRoundsPlayed ?? 20;
   const hasUnlimitedRounds = isUnlimited(maxRoundsPlayed) || isNoLimit(maxRoundsPlayed);
+
+  // League tagging: the swipe action only shows when the tier permits leagues
+  // and the user actually has an active league to tag into.
+  const maxLeaguesOwned = limits?.maxLeaguesOwned ?? 0;
+  const tierAllowsLeagues =
+    isUnlimited(maxLeaguesOwned) || isNoLimit(maxLeaguesOwned) || maxLeaguesOwned > 0;
+  const { data: leagues } = useLeagues();
+  const hasActiveLeague = useMemo(
+    () => (leagues ?? []).some((l) => l.status === 'active'),
+    [leagues]
+  );
+  const canTagToLeague = tierAllowsLeagues && hasActiveLeague;
+  const [tagScorecardId, setTagScorecardId] = useState<string | null>(null);
 
   // Hooks for data and state management
   const { rounds, isLoading, isRefetching, refetch, roundsPlayedCount } = useRoundList();
@@ -203,16 +219,30 @@ export default function RoundsScreen() {
     [unreadCount]
   );
 
-  const renderRoundItem = ({ item }: { item: RoundItem }) => (
-    <RoundListCard
-      round={item}
-      onPress={() => handleScoreRound(item)}
-      onDelete={handleDeleteRound}
-      swipeEnabled={true}
-      actionLabel="View"
-      currentUserId={user?.id}
-    />
-  );
+  // Tag a completed round to a league from the swipe menu. Per-round
+  // eligibility mirrors ViewRound: a submitted scorecard with a differential.
+  const handleTagToLeague = useCallback((round: RoundItem) => {
+    const scorecardId = round.userScore?.scorecardId;
+    if (scorecardId) setTagScorecardId(scorecardId);
+  }, []);
+
+  const renderRoundItem = ({ item }: { item: RoundItem }) => {
+    const isTaggable =
+      canTagToLeague &&
+      !!item.userScore?.scorecardId &&
+      item.userScore?.differential != null;
+    return (
+      <RoundListCard
+        round={item}
+        onPress={() => handleScoreRound(item)}
+        onDelete={handleDeleteRound}
+        onTagToLeague={isTaggable ? handleTagToLeague : undefined}
+        swipeEnabled={true}
+        actionLabel="View"
+        currentUserId={user?.id}
+      />
+    );
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -286,6 +316,15 @@ export default function RoundsScreen() {
 
       {/* Start Round Error Dialog */}
       <ConfirmationDialog {...startRoundDialogConfig} onCancel={dismissStartRoundDialog} />
+
+      {/* Tag to League Bottom Sheet */}
+      {tagScorecardId && (
+        <TagToLeagueBottomSheet
+          visible={!!tagScorecardId}
+          onClose={() => setTagScorecardId(null)}
+          scorecardId={tagScorecardId}
+        />
+      )}
 
       {/* Welcome Info Modal */}
       <ScreenWelcomeModal

@@ -34,6 +34,11 @@ jest.mock('@tabler/icons-react-native', () => {
         <Text>Dog</Text>
       </View>
     ),
+    IconTrophy: (props: any) => (
+      <View testID="icon-trophy" {...props}>
+        <Text>Trophy</Text>
+      </View>
+    ),
   };
 });
 
@@ -41,7 +46,7 @@ jest.mock('@tabler/icons-react-native', () => {
 jest.mock('@/components/common', () => {
   const { View, Text, TouchableOpacity } = require('react-native');
   return {
-    CardContainer: ({ children, onPress, style, testID, accessibilityLabel, swipeable, onDelete, ...props }: any) => (
+    CardContainer: ({ children, onPress, style, testID, accessibilityLabel, swipeable, onDelete, swipeSecondaryAction, ...props }: any) => (
       <View>
         <TouchableOpacity
           testID={testID || 'card-container'}
@@ -59,6 +64,11 @@ jest.mock('@/components/common', () => {
               <Text>Trash</Text>
             </View>
             <Text>Delete</Text>
+          </TouchableOpacity>
+        )}
+        {swipeable && swipeSecondaryAction && (
+          <TouchableOpacity testID="tag-league-button" onPress={swipeSecondaryAction.onPress}>
+            <Text>{swipeSecondaryAction.label}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -356,6 +366,31 @@ describe('RoundListCard', () => {
 
       expect(screen.queryByTestId('round-card-score')).toBeNull();
     });
+
+    it('shows the round handicap and differential beneath the score', () => {
+      const round = createCompletedRound({
+        userScore: {
+          hasScorecard: true,
+          totalPoints: 34,
+          dailyHandicap: 14,
+          differential: 12.3,
+        },
+      });
+      render(<RoundListCard round={round} onPress={defaultOnPress} />);
+
+      expect(screen.getByText('HC 14')).toBeTruthy();
+      expect(screen.getByText('Diff 12.3')).toBeTruthy();
+    });
+
+    it('omits handicap and differential when not recorded', () => {
+      const round = createCompletedRound({
+        userScore: { hasScorecard: true, totalPoints: 34 },
+      });
+      render(<RoundListCard round={round} onPress={defaultOnPress} />);
+
+      expect(screen.queryByTestId('round-card-handicap')).toBeNull();
+      expect(screen.queryByTestId('round-card-differential')).toBeNull();
+    });
   });
 
   // ===========================================================================
@@ -595,6 +630,43 @@ describe('RoundListCard', () => {
       render(<RoundListCard round={round} onPress={defaultOnPress} />);
 
       expect(screen.queryByTestId('icon-trash')).toBeNull();
+    });
+
+    it('shows a tag-to-league action when onTagToLeague is provided', () => {
+      const onTagToLeague = jest.fn();
+      const round = createCompletedRound({
+        userScore: { hasScorecard: true, totalPoints: 34, scorecardId: 'sc-1' },
+      });
+      render(
+        <RoundListCard
+          round={round}
+          onPress={defaultOnPress}
+          onDelete={defaultOnDelete}
+          onTagToLeague={onTagToLeague}
+          swipeEnabled={true}
+        />
+      );
+
+      fireEvent.press(screen.getByTestId('tag-league-button'));
+
+      expect(screen.getByText('Tag League')).toBeTruthy();
+      expect(onTagToLeague).toHaveBeenCalledWith(round);
+    });
+
+    it('does not show a tag-to-league action when onTagToLeague is omitted', () => {
+      const round = createCompletedRound({
+        userScore: { hasScorecard: true, totalPoints: 34 },
+      });
+      render(
+        <RoundListCard
+          round={round}
+          onPress={defaultOnPress}
+          onDelete={defaultOnDelete}
+          swipeEnabled={true}
+        />
+      );
+
+      expect(screen.queryByTestId('tag-league-button')).toBeNull();
     });
   });
 

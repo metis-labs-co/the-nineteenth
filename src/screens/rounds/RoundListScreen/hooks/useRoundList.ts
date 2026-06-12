@@ -521,6 +521,7 @@ export function useRoundList(): UseRoundListReturn {
       if (completedRoundIds.length > 0) {
         try {
           interface ScorecardRow {
+            id: string;
             round_id: string;
             player_id: string;
             scores: Record<string, HoleScore | MultiBallHoleScore> | null;
@@ -529,6 +530,7 @@ export function useRoundList(): UseRoundListReturn {
             total_points: number | null;
             daily_handicap_used: number | null;
             ga_handicap_used: number | null;
+            handicap_differential: number | null;
             status: string;
             player: {
               id: string;
@@ -543,6 +545,7 @@ export function useRoundList(): UseRoundListReturn {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
             .from('scorecards') as any)
             .select(`
+              id,
               round_id,
               player_id,
               scores,
@@ -551,6 +554,7 @@ export function useRoundList(): UseRoundListReturn {
               total_points,
               daily_handicap_used,
               ga_handicap_used,
+              handicap_differential,
               status,
               player:players!player_id(
                 id,
@@ -624,6 +628,9 @@ export function useRoundList(): UseRoundListReturn {
                   totalPoints: userStat.totalStableford,
                   hasScorecard: true,
                   matchResult: null,
+                  dailyHandicap: userScorecard?.daily_handicap_used ?? null,
+                  differential: userScorecard?.handicap_differential ?? null,
+                  scorecardId: userScorecard?.id ?? null,
                 };
               } else if (userScorecard) {
                 // Fall back to stored totals when we can't compute stats
@@ -636,6 +643,9 @@ export function useRoundList(): UseRoundListReturn {
                     userScorecard.status === 'completed' ||
                     userScorecard.status === 'confirmed',
                   matchResult: null,
+                  dailyHandicap: userScorecard.daily_handicap_used,
+                  differential: userScorecard.handicap_differential,
+                  scorecardId: userScorecard.id,
                 };
               } else {
                 round.userScore = { hasScorecard: false };

@@ -15,6 +15,22 @@ import { spacing, typography, borderRadius } from '@/constants/theme';
 import { SWIPE_GESTURE } from '@/constants/gestures';
 
 /**
+ * An additional action button revealed alongside Delete when swiping left
+ */
+export interface SwipeSecondaryAction {
+  /** Button label */
+  label: string;
+  /** Optional icon rendered above the label */
+  icon?: React.ReactNode;
+  /** Callback when the action is pressed (the row closes first) */
+  onPress: () => void;
+  /** Button background colour (defaults to the theme primary) */
+  backgroundColor?: string;
+  /** Accessibility label (defaults to the label) */
+  accessibilityLabel?: string;
+}
+
+/**
  * Props for the SwipeableRow component
  */
 export interface SwipeableRowProps {
@@ -26,6 +42,10 @@ export interface SwipeableRowProps {
    * Callback when the delete action is triggered
    */
   onDelete: () => void;
+  /**
+   * Optional extra action revealed to the left of Delete
+   */
+  secondaryAction?: SwipeSecondaryAction;
   /**
    * Label for the delete button (default: "Delete")
    */
@@ -81,6 +101,7 @@ export const SwipeableRow = forwardRef<SwipeableRowRef, SwipeableRowProps>(
     {
       children,
       onDelete,
+      secondaryAction,
       deleteLabel = 'Delete',
       deleteAccessibilityLabel,
       enabled = true,
@@ -104,6 +125,11 @@ export const SwipeableRow = forwardRef<SwipeableRowRef, SwipeableRowProps>(
       swipeableRef.current?.close();
       onDelete();
     }, [onDelete]);
+
+    const handleSecondaryAction = useCallback(() => {
+      swipeableRef.current?.close();
+      secondaryAction?.onPress();
+    }, [secondaryAction]);
 
     const handleSwipeableOpen = useCallback(() => {
       isOpenRef.current = true;
@@ -130,10 +156,38 @@ export const SwipeableRow = forwardRef<SwipeableRowRef, SwipeableRowProps>(
         });
 
         return (
-          <Animated.View style={[styles.rightAction, { opacity }]}>
+          <Animated.View
+            style={[
+              styles.rightAction,
+              secondaryAction && styles.rightActionWide,
+              { opacity },
+            ]}
+          >
+            {secondaryAction && (
+              <RectButton
+                style={[
+                  styles.actionButton,
+                  { backgroundColor: secondaryAction.backgroundColor ?? colors.primary },
+                ]}
+                onPress={handleSecondaryAction}
+                testID={testID ? `${testID}-secondary-button` : undefined}
+              >
+                <View
+                  style={styles.deleteButtonContent}
+                  accessible
+                  accessibilityRole="button"
+                  accessibilityLabel={secondaryAction.accessibilityLabel || secondaryAction.label}
+                >
+                  {secondaryAction.icon}
+                  <Text style={[styles.deleteButtonText, { color: colors.white }]}>
+                    {secondaryAction.label}
+                  </Text>
+                </View>
+              </RectButton>
+            )}
             <RectButton
               style={[
-                styles.deleteButton,
+                styles.actionButton,
                 { backgroundColor: colors.error },
               ]}
               onPress={handleDelete}
@@ -154,7 +208,7 @@ export const SwipeableRow = forwardRef<SwipeableRowRef, SwipeableRowProps>(
           </Animated.View>
         );
       },
-      [colors, handleDelete, deleteLabel, deleteAccessibilityLabel, testID]
+      [colors, handleDelete, handleSecondaryAction, secondaryAction, deleteLabel, deleteAccessibilityLabel, testID]
     );
 
     // If not enabled, just render children without swipe wrapper
@@ -193,12 +247,16 @@ const styles = StyleSheet.create({
   },
   rightAction: {
     width: SWIPE_GESTURE.DELETE_BUTTON_WIDTH,
+    flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  deleteButton: {
+  rightActionWide: {
+    width: SWIPE_GESTURE.DELETE_BUTTON_WIDTH * 2,
+  },
+  actionButton: {
     flex: 1,
-    width: '100%',
+    height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
   },

@@ -24,7 +24,7 @@ export type { PageHeaderProps } from './PageHeader';
 export { CardContainer } from './CardContainer';
 export type { CardContainerProps, CardPadding } from './CardContainer';
 export { SwipeableRow } from './SwipeableRow';
-export type { SwipeableRowProps, SwipeableRowRef } from './SwipeableRow';
+export type { SwipeableRowProps, SwipeableRowRef, SwipeSecondaryAction } from './SwipeableRow';
 export { ExpandableItem, ExpandableList } from './ExpandableItem';
 export type {
   ExpandableItemProps,

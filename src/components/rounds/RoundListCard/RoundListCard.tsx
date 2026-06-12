@@ -3,7 +3,7 @@
 import React, { useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { IconDice, IconDog } from '@tabler/icons-react-native';
+import { IconDice, IconDog, IconTrophy } from '@tabler/icons-react-native';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { CardContainer, Pill, PlayerAvatar } from '@/components/common';
@@ -48,6 +48,7 @@ export const RoundListCard = React.memo(function RoundListCard<
   round,
   onPress,
   onDelete,
+  onTagToLeague,
   swipeEnabled = false,
   actionLabel,
   currentUserId,
@@ -62,6 +63,10 @@ export const RoundListCard = React.memo(function RoundListCard<
   const handleDelete = useCallback(() => {
     onDelete?.(round);
   }, [onDelete, round]);
+
+  const handleTagToLeague = useCallback(() => {
+    onTagToLeague?.(round);
+  }, [onTagToLeague, round]);
 
   const courseName = round.course.name;
   const clubName =
@@ -114,6 +119,17 @@ export const RoundListCard = React.memo(function RoundListCard<
       onPress={handlePress}
       swipeable={swipeEnabled && !!onDelete}
       onDelete={swipeEnabled && onDelete ? handleDelete : undefined}
+      swipeSecondaryAction={
+        swipeEnabled && onTagToLeague
+          ? {
+              label: 'Tag League',
+              icon: <IconTrophy size={24} color={colors.white} />,
+              onPress: handleTagToLeague,
+              backgroundColor: colors.primary,
+              accessibilityLabel: `Tag round at ${courseName} to a league`,
+            }
+          : undefined
+      }
       deleteAccessibilityName={courseName}
       accessibilityLabel={getAccessibilityLabel()}
       activeOpacity={0.85}

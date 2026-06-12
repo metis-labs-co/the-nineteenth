@@ -3,7 +3,7 @@ import React, { useRef, useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity, StyleProp, ViewStyle } from 'react-native';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, borderRadius, shadows } from '@/constants/theme';
-import { SwipeableRow, SwipeableRowRef } from './SwipeableRow';
+import { SwipeableRow, SwipeableRowRef, SwipeSecondaryAction } from './SwipeableRow';
 
 /**
  * Padding size variants for the card container
@@ -42,6 +42,10 @@ export interface CardContainerProps {
    * Callback when delete is pressed (only called if swipeable is true)
    */
   onDelete?: () => void;
+  /**
+   * Optional extra swipe action revealed to the left of Delete
+   */
+  swipeSecondaryAction?: SwipeSecondaryAction;
   /**
    * Test ID for testing
    */
@@ -138,6 +142,7 @@ export const CardContainer = React.memo(function CardContainer({
   style,
   swipeable = false,
   onDelete,
+  swipeSecondaryAction,
   testID,
   padding = 'lg',
   noBorder = false,
@@ -191,13 +196,22 @@ export const CardContainer = React.memo(function CardContainer({
       accessibilityLabel={accessibilityLabel}
       accessibilityHint={accessibilityHint}
       accessibilityActions={
-        swipeable && onDelete ? [{ name: 'delete', label: 'Delete' }] : undefined
+        swipeable && onDelete
+          ? [
+              { name: 'delete', label: 'Delete' },
+              ...(swipeSecondaryAction
+                ? [{ name: 'secondary', label: swipeSecondaryAction.label }]
+                : []),
+            ]
+          : undefined
       }
       onAccessibilityAction={
         swipeable && onDelete
           ? (event) => {
               if (event.nativeEvent.actionName === 'delete') {
                 handleDelete();
+              } else if (event.nativeEvent.actionName === 'secondary') {
+                swipeSecondaryAction?.onPress();
               }
             }
           : undefined
@@ -222,6 +236,7 @@ export const CardContainer = React.memo(function CardContainer({
     <SwipeableRow
       ref={swipeableRef}
       onDelete={handleDelete}
+      secondaryAction={swipeSecondaryAction}
       deleteLabel="Delete"
       deleteAccessibilityLabel={
         deleteAccessibilityName ? `Delete ${deleteAccessibilityName}` : 'Delete'
