@@ -284,7 +284,11 @@ export default function HomeScreen() {
 
               {home.inProgressRounds.length > 0 ? (
                 <View style={styles.carouselWrapper}>
-                  <SectionHeader title="Continue scoring" />
+                  <SectionHeader
+                    title="Continue scoring"
+                    actionLabel="View all rounds"
+                    onActionPress={handleViewAllRounds}
+                  />
                   <InProgressRoundSection
                     rounds={home.inProgressRounds}
                     onScoreRound={handleScoreRound}
@@ -292,32 +296,6 @@ export default function HomeScreen() {
                     roundDisplayNumbers={roundDisplayNumbers}
                     onDeleteRound={handleDeleteRound}
                   />
-                  <TouchableOpacity
-                    onPress={handleViewAllRounds}
-                    accessibilityRole="button"
-                    accessibilityLabel="View all rounds"
-                    style={[
-                      styles.viewAllRoundsButton,
-                      {
-                        backgroundColor: colors.surface,
-                        borderColor: colors.borderLight,
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.viewAllRoundsLabel,
-                        { color: colors.textPrimary },
-                      ]}
-                    >
-                      View all rounds
-                    </Text>
-                    <Icon
-                      source="chevron-right"
-                      size={20}
-                      color={colors.textSecondary}
-                    />
-                  </TouchableOpacity>
                 </View>
               ) : null}
 
@@ -510,25 +488,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: layout.screenPadding,
   },
   carouselWrapper: {
-    // InProgressRoundSection sets its own container margins; just give it room
-    marginBottom: 0,
-  },
-  viewAllRoundsButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    marginTop: spacing.sm,
+    // InProgressRoundSection sets its own container margins; the bottom
+    // margin keeps section spacing now that the View-all button is gone.
     marginBottom: spacing.lg,
-    minHeight: 48,
-  },
-  viewAllRoundsLabel: {
-    ...typography.body,
-    fontWeight: '600',
   },
   headerRightSlotRow: {
     flexDirection: 'row',
