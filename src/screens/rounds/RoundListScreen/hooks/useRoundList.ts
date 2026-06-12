@@ -266,6 +266,7 @@ export function useRoundList(): UseRoundListReturn {
             )
           `)
           .eq('player_id', user.id)
+          .neq('invitation_status', 'declined') // Exclude rounds the user has declined
           .is('round.competition_id', null)
           .is('round.deleted_at', null)
           .neq('round.user_id', user.id); // Exclude rounds user owns (already fetched above)

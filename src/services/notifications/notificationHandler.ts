@@ -82,11 +82,11 @@ const NOTIFICATION_SCREEN_MAP: Record<NotificationType, keyof RootStackParamList
   // Scorecard notifications -> ViewRound
   scorecard_submitted: 'ViewRound',
 
-  // Social round invitation -> ViewRound (or CompetitionDetail if no roundId)
-  social_round_invitation: 'ViewRound',
+  // Social round invitation -> ScheduledRound (detail + accept/decline screen)
+  social_round_invitation: 'ScheduledRound',
 
-  // Social round response -> ViewRound (organiser sees who responded)
-  social_round_response: 'ViewRound',
+  // Social round response -> ScheduledRound (organiser sees updated player list)
+  social_round_response: 'ScheduledRound',
 
   // League notifications -> LeagueDetail
   league_player_joined: 'LeagueDetail',
@@ -174,13 +174,25 @@ function getTargetScreen(
     return 'Notifications';
   }
 
-  // Special case: social_round_invitation can go to either ViewRound or CompetitionDetail
+  // Special case: social_round_invitation navigates to the scheduled-round detail screen.
+  // The trigger fires for ALL round_players inserts (not just upcoming rounds); the
+  // ScheduledRoundScreen handles any status gracefully (just hides start/edit actions
+  // for non-upcoming rounds), so routing here is always correct.
   if (type === 'social_round_invitation') {
     if (data.roundId) {
-      return 'ViewRound';
+      return 'ScheduledRound';
     }
     if (data.competitionId) {
       return 'CompetitionDetail';
+    }
+    return 'Notifications';
+  }
+
+  // Special case: social_round_response (organiser notified of decline/accept) navigates
+  // to the scheduled-round detail screen where they can see updated player list.
+  if (type === 'social_round_response') {
+    if (data.roundId) {
+      return 'ScheduledRound';
     }
     return 'Notifications';
   }
@@ -212,6 +224,10 @@ function isOnRelevantScreen(
     case 'CompetitionDetail':
       // On competition detail for the same competition
       return params?.id === data.competitionId;
+
+    case 'ScheduledRound':
+      // On scheduled round detail for the same round
+      return params?.roundId === data.roundId;
 
     case 'ViewRound':
       // On view round for the same round
@@ -248,7 +264,8 @@ function isOnRelevantScreen(
  * - competition_* -> CompetitionDetail (with id)
  * - friend_* -> Friends
  * - scorecard_* -> ViewRound (with roundId)
- * - social_round_invitation -> ViewRound or CompetitionDetail
+ * - social_round_invitation -> ScheduledRound (or CompetitionDetail if no roundId)
+ * - social_round_response -> ScheduledRound (organiser sees updated player list)
  *
  * @param response - The Expo notification response from user tap
  * @param navigation - React Navigation navigator
@@ -278,6 +295,15 @@ export function handleNotificationResponse(
         navigation.navigate('CompetitionDetail', { id: competitionId });
       } else {
         logger.warn('Competition notification without competitionId');
+        navigation.navigate('Notifications');
+      }
+      break;
+
+    case 'ScheduledRound':
+      if (roundId) {
+        navigation.navigate('ScheduledRound', { roundId });
+      } else {
+        logger.warn('Scheduled round notification without roundId');
         navigation.navigate('Notifications');
       }
       break;
@@ -620,6 +646,12 @@ export function buildNavigationParams(
       return {
         screen: 'CompetitionDetail',
         params: { id: data.competitionId || '' },
+      };
+
+    case 'ScheduledRound':
+      return {
+        screen: 'ScheduledRound',
+        params: { roundId: data.roundId || '' },
       };
 
     case 'ViewRound':

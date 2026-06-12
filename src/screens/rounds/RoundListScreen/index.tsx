@@ -197,6 +197,15 @@ export default function RoundsScreen() {
     [navigation]
   );
 
+  // Upcoming scheduled rounds navigate to the detail/start-day screen.
+  // Only standalone rounds (competition_id IS NULL) appear in this list.
+  const handleUpcomingRoundPress = useCallback(
+    (round: { id: string }) => {
+      navigation.navigate('ScheduledRound', { roundId: round.id });
+    },
+    [navigation]
+  );
+
   const handleOpenNewRound = useCallback(() => {
     setIsBottomSheetVisible(true);
   }, []);
@@ -283,6 +292,7 @@ export default function RoundsScreen() {
               onViewRound={handleViewRound}
               onDeleteInProgressRound={handleDeleteInProgressRound}
               onScoreRound={handleScoreRound}
+              onUpcomingRoundPress={handleUpcomingRoundPress}
               onDeleteRound={handleDeleteRound}
               hasUnlimitedRounds={hasUnlimitedRounds}
               roundsPlayedCount={roundsPlayedCount}
