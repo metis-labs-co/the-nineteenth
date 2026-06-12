@@ -188,13 +188,18 @@ BEGIN;
 
     DELETE FROM rounds WHERE id = v_round_id;
 
-    -- Cancel notifications go to v_invitee_id (not the owner)
+    -- Cancel notifications go to v_invitee_id (not the owner).
+    -- round_id is intentionally NULL on cancellation notifications: the FK to
+    -- rounds is ON DELETE CASCADE, so a linked row would be wiped by the very
+    -- DELETE that created it. Match on the data payload instead (this round's
+    -- date discriminates it from Test C's round at CURRENT_DATE + 14).
     SELECT COUNT(*) INTO v_cancel_count
     FROM notifications
     WHERE user_id  = v_invitee_id
       AND type     = 'social_round_response'
-      AND round_id = v_round_id
-      AND (data->>'cancelled')::boolean = true;
+      AND round_id IS NULL
+      AND (data->>'cancelled')::boolean = true
+      AND (data->>'date')::date = CURRENT_DATE + 7;
 
     IF v_cancel_count <> 1 THEN
       RAISE EXCEPTION 'Test B FAILED: expected 1 cancellation notification for invitee, got %', v_cancel_count;
@@ -227,7 +232,8 @@ BEGIN;
     WHERE user_id  = v_invitee_id
       AND type     = 'social_round_response'
       AND (data->>'cancelled')::boolean = true
-      AND round_id = v_round_id;
+      AND round_id IS NULL
+      AND (data->>'date')::date = CURRENT_DATE + 14;
 
     IF v_cancel_count <> 0 THEN
       RAISE EXCEPTION 'Test C FAILED: declined invitee should not receive cancellation, got %', v_cancel_count;

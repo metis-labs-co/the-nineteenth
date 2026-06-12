@@ -393,7 +393,10 @@ BEGIN
         'cancelled',    true
       ),
       NULL,                               -- p_competition_id
-      OLD.id,                             -- p_round_id
+      -- p_round_id MUST be NULL: notifications.round_id is a FK to rounds
+      -- with ON DELETE CASCADE, so linking to the round being deleted would
+      -- wipe this notification in the same statement that creates it.
+      NULL,                               -- p_round_id
       OLD.user_id,                        -- p_player_id  (organizer who cancelled)
       NULL,                               -- p_friendship_id
       NULL                                -- p_league_id
@@ -406,7 +409,8 @@ BEGIN
       'Your round at ' || COALESCE(v_course_name, 'the course') || ' on ' || to_char(OLD.date, 'DD Mon YYYY') || ' has been cancelled',
       jsonb_build_object(
         'type',         'social_round_response',
-        'roundId',      OLD.id,
+        -- No roundId: the round no longer exists, so there is nothing to
+        -- deep-link to. Clients fall back to their default notification route.
         'course_name',  v_course_name,
         'date',         OLD.date,
         'cancelled',    true
