@@ -10,7 +10,7 @@
  */
 
 import { useCallback } from 'react';
-import type { Friend, GameType } from '@/types/database.types';
+import type { Friend } from '@/types/database.types';
 import type { WizardData } from '../types';
 import { MAX_PARTNERS } from '../types';
 import { ROUND_PRESETS, type RoundPresetId } from '@/constants/roundPresets';
@@ -78,11 +78,6 @@ export function useWizardPartners({
     [data.selectedPartners]
   );
 
-  // TODO(format-first cleanup): delete with MatchTypeStep — superseded by handleSelectPreset.
-  const handleSelectMatchType = useCallback((matchType: GameType) => {
-    setData((prev) => ({ ...prev, selectedMatchType: matchType }));
-  }, [setData]);
-
   // Preset selection — resolves both the preset and its game_type, then
   // advances to the course step (or nineType if a course is already pre-filled).
   const handleSelectPreset = useCallback(
@@ -105,7 +100,6 @@ export function useWizardPartners({
     handleTogglePartner,
     handleRemovePartner,
     isPartnerSelected,
-    handleSelectMatchType,
     handleSelectPreset,
   };
 }

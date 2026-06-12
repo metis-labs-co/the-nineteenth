@@ -92,7 +92,7 @@ export function useWizardInitialization({
   // Reset state helper
   const resetState = useCallback(() => {
     setData(initialData);
-    setCurrentStep('matchType');
+    setCurrentStep('gameFormat');
   }, [initialData, setCurrentStep, setData]);
 
   // Start round immediately with current state (used when partner step is skipped)
@@ -157,7 +157,7 @@ export function useWizardInitialization({
 
         // Course is pre-filled, but format is still step 1. If the caller
         // locked the format too (initialMatchType), jump straight to nineType.
-        setCurrentStep(initialMatchType ? 'nineType' : 'matchType');
+        setCurrentStep(initialMatchType ? 'nineType' : 'gameFormat');
       } else if (initialMatchType) {
         // Format is locked but no course was pre-filled — the matchType step
         // is filtered out, so land on course selection instead.

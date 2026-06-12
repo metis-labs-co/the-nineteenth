@@ -31,12 +31,8 @@ export interface StandaloneWolfConfig {
 
 /**
  * Wizard step identifiers
- *
- * NOTE: the 'matchType' key renders as "Game Format" (GameFormatStep) since
- * the format-first reorder; rename to 'gameFormat' when MatchTypeStep is
- * deleted.
  */
-export type WizardStep = 'course' | 'nineType' | 'matchType' | 'partners' | 'ballCount' | 'scoringSetup' | 'yourSetup';
+export type WizardStep = 'course' | 'nineType' | 'gameFormat' | 'partners' | 'ballCount' | 'scoringSetup' | 'yourSetup';
 
 /**
  * Playing partner selected for the round
@@ -109,17 +105,6 @@ export interface TeamConfig {
     name: string;
     memberIds: string[]; // Player UUIDs
   }[];
-}
-
-/**
- * Match type option for display
- */
-export interface MatchTypeOption {
-  value: GameType;
-  label: string;
-  description: string;
-  /** Minimum tier required to use this game type */
-  requiredTier: SubscriptionTier;
 }
 
 /**
@@ -198,54 +183,6 @@ export interface CreateRoundBottomSheetProps {
   /** Skip the partner selection step entirely — starts the round after tee selection */
   skipPartnerStep?: boolean;
 }
-
-/**
- * All available match types with tier requirements
- */
-export const MATCH_TYPES: MatchTypeOption[] = [
-  {
-    value: 'stableford',
-    label: 'Stableford',
-    description: 'Points-based scoring (most common)',
-    requiredTier: 'free',
-  },
-  {
-    value: 'stroke',
-    label: 'Stroke Play',
-    description: 'Lowest total strokes wins',
-    requiredTier: 'social',
-  },
-  {
-    value: 'par',
-    label: 'Par',
-    description: 'Win/lose each hole (+1, 0, -1 scoring)',
-    requiredTier: 'social',
-  },
-  {
-    value: 'match-play',
-    label: 'Match Play',
-    description: 'Hole-by-hole competition',
-    requiredTier: 'social',
-  },
-  {
-    value: 'best-ball',
-    label: 'Best Ball',
-    description: 'Team format - best score counts',
-    requiredTier: 'premium',
-  },
-  {
-    value: 'scramble',
-    label: 'Scramble',
-    description: 'Team format - everyone plays from best shot',
-    requiredTier: 'premium',
-  },
-  {
-    value: 'shamble',
-    label: 'Shamble',
-    description: 'Best drive, then individual play - sum all points',
-    requiredTier: 'premium',
-  },
-];
 
 /**
  * Display names for subscription tiers

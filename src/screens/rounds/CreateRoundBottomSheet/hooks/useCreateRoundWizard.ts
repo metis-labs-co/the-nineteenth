@@ -88,9 +88,6 @@ interface UseCreateRoundWizardReturn {
   handleCurrentUserHandicapChange: (value: number) => void;
   handlePartnerHandicapChange: (partnerId: string, value: number) => void;
 
-  // Match type selection
-  handleSelectMatchType: (matchType: GameType) => void;
-
   // Preset selection (format-first wizard step 1)
   handleSelectPreset: (presetId: RoundPresetId) => void;
 
@@ -124,7 +121,6 @@ interface UseCreateRoundWizardReturn {
   handleBackToGameFormat: () => void;
   handleBackToCourse: () => void;
   handleBackToNineType: () => void;
-  handleBackToMatchType: () => void;
   handleBackToPartners: () => void;
   handleContinueToScoringSetup: () => void;
 
@@ -176,7 +172,7 @@ export function useCreateRoundWizard({
   onStartRound,
   onClose,
 }: UseCreateRoundWizardOptions): UseCreateRoundWizardReturn {
-  const [currentStep, setCurrentStep] = useState<WizardStep>('matchType');
+  const [currentStep, setCurrentStep] = useState<WizardStep>('gameFormat');
   const [data, setData] = useState<WizardData>(initialData);
 
   // Subscription tier for multi-ball feature gating
@@ -220,7 +216,6 @@ export function useCreateRoundWizard({
     handleTogglePartner,
     handleRemovePartner,
     isPartnerSelected,
-    handleSelectMatchType,
     handleSelectPreset,
   } = useWizardPartners({ data, setData, setCurrentStep, skipPartnerStep });
 
@@ -252,7 +247,6 @@ export function useCreateRoundWizard({
     handleBackToGameFormat,
     handleBackToCourse,
     handleBackToNineType,
-    handleBackToMatchType,
     handleBackToPartners,
     handleContinueToScoringSetup,
     handleStartSoloRound,
@@ -260,7 +254,6 @@ export function useCreateRoundWizard({
     handleClose,
   } = useWizardNavigation({
     data,
-    initialMatchType,
     isSocialOrHigher,
     setCurrentStep,
     setData,
@@ -285,7 +278,6 @@ export function useCreateRoundWizard({
     handleCurrentUserTeeChange,
     handleCurrentUserHandicapChange,
     handlePartnerHandicapChange,
-    handleSelectMatchType,
     handleSelectPreset,
     setFriendSearchQuery,
     handleTogglePartner,
@@ -304,7 +296,6 @@ export function useCreateRoundWizard({
     handleBackToGameFormat,
     handleBackToCourse,
     handleBackToNineType,
-    handleBackToMatchType,
     handleBackToPartners,
     handleContinueToScoringSetup,
     setBuildAsYouPlay,

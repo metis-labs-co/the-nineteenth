@@ -22,7 +22,8 @@ import type { Friend, TeeBox, GameType, Player } from '@/types/database.types';
 import type { RoundPresetId } from '@/constants/roundPresets';
 import { checkPresetPlayerCount } from '@/utils/presetPlayers';
 import type { SelectedCourse, PlayingPartner } from '../types';
-import { MAX_PARTNERS, MATCH_TYPES, getTeeColor } from '../types';
+import { MAX_PARTNERS, getTeeColor } from '../types';
+import { GAME_TYPE_DESCRIPTIONS } from '@/constants/gameTypeDescriptions';
 import { FriendSelectorBottomSheet } from './FriendSelectorBottomSheet';
 
 /** Identity + effective handicap of the row currently being edited. */
@@ -280,7 +281,7 @@ export const PartnersStep = memo(function PartnersStep({
                   {' · '}
                 </>
               )}
-              {MATCH_TYPES.find((m) => m.value === selectedMatchType)?.label}
+              {GAME_TYPE_DESCRIPTIONS[selectedMatchType]?.title}
             </Text>
           </View>
         </View>

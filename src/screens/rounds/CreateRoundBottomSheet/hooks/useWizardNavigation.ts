@@ -25,7 +25,6 @@ import type {
 
 interface UseWizardNavigationParams {
   data: WizardData;
-  initialMatchType?: GameType;
   isSocialOrHigher: boolean;
   setCurrentStep: React.Dispatch<React.SetStateAction<WizardStep>>;
   setData: React.Dispatch<React.SetStateAction<WizardData>>;
@@ -51,7 +50,6 @@ interface UseWizardNavigationParams {
 
 export function useWizardNavigation({
   data,
-  initialMatchType,
   isSocialOrHigher,
   setCurrentStep,
   setData,
@@ -60,7 +58,7 @@ export function useWizardNavigation({
   onClose,
 }: UseWizardNavigationParams) {
   const handleBackToGameFormat = useCallback(() => {
-    setCurrentStep('matchType');
+    setCurrentStep('gameFormat');
   }, [setCurrentStep]);
 
   const handleBackToCourse = useCallback(() => {
@@ -76,18 +74,6 @@ export function useWizardNavigation({
     setCurrentStep('nineType');
     setData((prev) => ({ ...prev, friendSearchQuery: '' }));
   }, [setCurrentStep, setData]);
-
-  // TODO(format-first cleanup): delete — no longer reachable from resolveBackHandler since the format-first reorder.
-  const handleBackToMatchType = useCallback(() => {
-    if (initialMatchType) {
-      // Match type is locked — go back to nineType (skipping the locked matchType step)
-      setCurrentStep('nineType');
-      setData((prev) => ({ ...prev, friendSearchQuery: '' }));
-    } else {
-      setCurrentStep('matchType');
-      setData((prev) => ({ ...prev, friendSearchQuery: '' }));
-    }
-  }, [initialMatchType, setCurrentStep, setData]);
 
   const handleBackToPartners = useCallback(() => {
     setCurrentStep('partners');
@@ -222,7 +208,6 @@ export function useWizardNavigation({
     handleBackToGameFormat,
     handleBackToCourse,
     handleBackToNineType,
-    handleBackToMatchType,
     handleBackToPartners,
     handleContinueToScoringSetup,
     handleStartSoloRound,

@@ -400,17 +400,17 @@ export default function CreateRoundBottomSheet({
   const dynamicStepKeys = useMemo(() => {
     let steps: string[];
     if (skipPartnerStep) {
-      steps = ['matchType', 'course', 'nineType'];
+      steps = ['gameFormat', 'course', 'nineType'];
     } else if (wizard.data.selectedPartners.length > 0) {
-      steps = ['matchType', 'course', 'nineType', 'partners', 'scoringSetup'];
+      steps = ['gameFormat', 'course', 'nineType', 'partners', 'scoringSetup'];
     } else if (wizard.currentStep === 'yourSetup') {
-      steps = ['matchType', 'course', 'nineType', 'partners', 'yourSetup'];
+      steps = ['gameFormat', 'course', 'nineType', 'partners', 'yourSetup'];
     } else if (wizard.currentStep === 'ballCount') {
-      steps = ['matchType', 'course', 'nineType', 'partners', 'ballCount'];
+      steps = ['gameFormat', 'course', 'nineType', 'partners', 'ballCount'];
     } else {
-      steps = ['matchType', 'course', 'nineType', 'partners'];
+      steps = ['gameFormat', 'course', 'nineType', 'partners'];
     }
-    return initialMatchType ? steps.filter((s) => s !== 'matchType') : steps;
+    return initialMatchType ? steps.filter((s) => s !== 'gameFormat') : steps;
   }, [skipPartnerStep, wizard.data.selectedPartners.length, wizard.currentStep, initialMatchType]);
 
   // Wrap close to also reset inline form state and clean up orphan courses
@@ -448,7 +448,7 @@ export default function CreateRoundBottomSheet({
 
   const wizardCompat = useMemo((): UseWizardReturn => {
     const titleMap: Record<string, string> = {
-      matchType: 'Game Format',
+      gameFormat: 'Game Format',
       course: showCreateCourseForm ? 'Add New Course' : 'Select Course',
       nineType: 'Holes',
       partners: 'Playing Partners',
@@ -696,7 +696,7 @@ export default function CreateRoundBottomSheet({
         />
       )}
 
-      {wizard.currentStep === 'matchType' && (
+      {wizard.currentStep === 'gameFormat' && (
         <GameFormatStep
           selectedPresetId={wizard.data.selectedPresetId}
           onSelectPreset={wizard.handleSelectPreset}
