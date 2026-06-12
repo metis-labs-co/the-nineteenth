@@ -71,4 +71,32 @@ describe('formatTimeAgo', () => {
     expect(formatTimeAgo(null, now)).toBe('');
     expect(formatTimeAgo('not-a-date', now)).toBe('');
   });
+
+  it('returns "59m" at 59 minutes', () => {
+    expect(formatTimeAgo('2026-06-12T11:01:00Z', now)).toBe('59m');
+  });
+
+  it('returns "1h" at exactly 60 minutes', () => {
+    expect(formatTimeAgo('2026-06-12T11:00:00Z', now)).toBe('1h');
+  });
+
+  it('returns "1d" at exactly 24 hours', () => {
+    expect(formatTimeAgo('2026-06-11T12:00:00Z', now)).toBe('1d');
+  });
+
+  it('returns "1w" at exactly 7 days', () => {
+    expect(formatTimeAgo('2026-06-05T12:00:00Z', now)).toBe('1w');
+  });
+
+  it('returns "52w" at 364 days', () => {
+    expect(formatTimeAgo('2025-06-13T12:00:00Z', now)).toBe('52w');
+  });
+
+  it('returns "1y" at exactly 365 days', () => {
+    expect(formatTimeAgo('2025-06-12T12:00:00Z', now)).toBe('1y');
+  });
+
+  it('treats future timestamps as "now"', () => {
+    expect(formatTimeAgo('2026-06-12T12:05:00Z', now)).toBe('now');
+  });
 });

@@ -381,6 +381,7 @@ export function formatTeeTime(timeString: string | null): string {
 /**
  * Format a timestamp as a compact relative age, e.g. "now", "5m", "3h",
  * "2d", "2w", "2y". Used by the activity feed ("played a round · 2d").
+ * Future timestamps (negative diff) are treated as "now".
  *
  * @param isoString - ISO timestamp (e.g. row's activity_at)
  * @param now - Reference time, injectable for tests (defaults to now)
