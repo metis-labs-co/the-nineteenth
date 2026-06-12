@@ -4,6 +4,7 @@
 
 import type { ScoringPairCreateInput, SkinsConfig } from '@/types';
 import type { Club, TeeBox, GameType } from '@/types/database.types';
+import type { RoundPresetId } from '@/constants/roundPresets';
 import type { HandicapSource, Hole } from '@/types/database';
 import type { SubscriptionTier } from '@/types/subscription.types';
 import type { BallCount } from '@/types/multiball.types';
@@ -124,6 +125,8 @@ export interface WizardData {
   selectedCourse: SelectedCourse | null;
   selectedTee: TeeBox | null;
   selectedMatchType: GameType | null;
+  /** Canonical preset driving game type + player-count requirements. */
+  selectedPresetId: RoundPresetId | null;
   selectedPartners: PlayingPartner[];
   searchQuery: string;
   friendSearchQuery: string;

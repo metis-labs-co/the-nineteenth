@@ -141,6 +141,7 @@ const initialData: WizardData = {
   selectedCourse: null,
   selectedTee: null,
   selectedMatchType: null,
+  selectedPresetId: null,
   selectedPartners: [],
   searchQuery: '',
   friendSearchQuery: '',
