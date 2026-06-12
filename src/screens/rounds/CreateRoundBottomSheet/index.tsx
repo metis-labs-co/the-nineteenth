@@ -55,6 +55,7 @@ import {
   CourseSelectionStep,
   NineTypeStep,
   GameFormatStep,
+  WhenStep,
   PartnersStep,
   ScoringSetupStep,
   BallCountStep,
@@ -400,17 +401,19 @@ export default function CreateRoundBottomSheet({
   const dynamicStepKeys = useMemo(() => {
     let steps: string[];
     if (skipPartnerStep) {
+      // Quick-start flows: no 'when' step (play now by definition)
       steps = ['gameFormat', 'course', 'nineType'];
     } else if (wizard.data.selectedPartners.length > 0) {
-      steps = ['gameFormat', 'course', 'nineType', 'partners', 'scoringSetup'];
+      steps = ['gameFormat', 'course', 'nineType', 'when', 'partners', 'scoringSetup'];
     } else if (wizard.currentStep === 'yourSetup') {
-      steps = ['gameFormat', 'course', 'nineType', 'partners', 'yourSetup'];
+      steps = ['gameFormat', 'course', 'nineType', 'when', 'partners', 'yourSetup'];
     } else if (wizard.currentStep === 'ballCount') {
-      steps = ['gameFormat', 'course', 'nineType', 'partners', 'ballCount'];
+      steps = ['gameFormat', 'course', 'nineType', 'when', 'partners', 'ballCount'];
     } else {
-      steps = ['gameFormat', 'course', 'nineType', 'partners'];
+      steps = ['gameFormat', 'course', 'nineType', 'when', 'partners'];
     }
-    return initialMatchType ? steps.filter((s) => s !== 'gameFormat') : steps;
+    // initialMatchType flows skip both 'gameFormat' and 'when' (play now by definition)
+    return initialMatchType ? steps.filter((s) => s !== 'gameFormat' && s !== 'when') : steps;
   }, [skipPartnerStep, wizard.data.selectedPartners.length, wizard.currentStep, initialMatchType]);
 
   // Wrap close to also reset inline form state and clean up orphan courses
@@ -451,6 +454,7 @@ export default function CreateRoundBottomSheet({
       gameFormat: 'Game Format',
       course: showCreateCourseForm ? 'Add New Course' : 'Select Course',
       nineType: 'Holes',
+      when: 'When',
       partners: 'Playing Partners',
       yourSetup: 'Solo Round',
       ballCount: 'Solo Round',
@@ -468,7 +472,9 @@ export default function CreateRoundBottomSheet({
       switch (wizard.currentStep) {
         case 'course': return initialMatchType ? undefined : wizard.handleBackToGameFormat;
         case 'nineType': return wizard.handleBackToCourse;
-        case 'partners': return wizard.handleBackToNineType;
+        case 'when': return wizard.handleBackToNineType;
+        // 'partners' back goes to 'when' in normal flow; initialMatchType flows back to nineType
+        case 'partners': return initialMatchType ? wizard.handleBackToNineType : wizard.handleBackToWhen;
         case 'yourSetup': return wizard.handleBackToPartners;
         case 'ballCount': return wizard.handleBackToPartners;
         case 'scoringSetup': return wizard.handleBackToPartners;
@@ -693,6 +699,15 @@ export default function CreateRoundBottomSheet({
         <NineTypeStep
           selectedNineType={wizard.data.nineType}
           onSelectNineType={wizard.handleSelectNineType}
+        />
+      )}
+
+      {wizard.currentStep === 'when' && (
+        <WhenStep
+          scheduledDate={wizard.data.scheduledDate}
+          scheduledTeeTime={wizard.data.scheduledTeeTime}
+          onPlayNow={wizard.handlePlayNow}
+          onSchedule={wizard.handleScheduleFor}
         />
       )}
 

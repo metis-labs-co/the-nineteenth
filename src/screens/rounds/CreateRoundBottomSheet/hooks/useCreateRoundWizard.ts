@@ -117,10 +117,15 @@ interface UseCreateRoundWizardReturn {
   handleSelectBallCount: (ballCount: BallCount) => void;
   handleStartSoloRound: () => void;
 
+  // When step
+  handlePlayNow: () => void;
+  handleScheduleFor: (date: string, teeTime: string | null) => void;
+
   // Navigation
   handleBackToGameFormat: () => void;
   handleBackToCourse: () => void;
   handleBackToNineType: () => void;
+  handleBackToWhen: () => void;
   handleBackToPartners: () => void;
   handleContinueToScoringSetup: () => void;
 
@@ -160,6 +165,8 @@ const initialData: WizardData = {
   isBuildAsYouPlay: false,
   handicapSource: 'profile',
   nineType: 'full' as NineType,
+  scheduledDate: null,
+  scheduledTeeTime: null,
   currentUserHandicapOverride: null,
 };
 
@@ -238,8 +245,21 @@ export function useCreateRoundWizard({
   });
 
   // NineType selection handler
+  // initialMatchType flows are play-now by definition — skip 'when' step.
   const handleSelectNineType = useCallback((nineType: NineType) => {
     setData((prev) => ({ ...prev, nineType }));
+    setCurrentStep(initialMatchType ? 'partners' : 'when');
+  }, [initialMatchType, setData, setCurrentStep]);
+
+  // When step: user chose "Play now"
+  const handlePlayNow = useCallback(() => {
+    setData((prev) => ({ ...prev, scheduledDate: null, scheduledTeeTime: null }));
+    setCurrentStep('partners');
+  }, [setData, setCurrentStep]);
+
+  // When step: user scheduled for a future date/time
+  const handleScheduleFor = useCallback((date: string, teeTime: string | null) => {
+    setData((prev) => ({ ...prev, scheduledDate: date, scheduledTeeTime: teeTime }));
     setCurrentStep('partners');
   }, [setData, setCurrentStep]);
 
@@ -247,6 +267,7 @@ export function useCreateRoundWizard({
     handleBackToGameFormat,
     handleBackToCourse,
     handleBackToNineType,
+    handleBackToWhen,
     handleBackToPartners,
     handleContinueToScoringSetup,
     handleStartSoloRound,
@@ -272,6 +293,8 @@ export function useCreateRoundWizard({
     handleSelectFavoriteCourse,
     recentCourses,
     handleSelectNineType,
+    handlePlayNow,
+    handleScheduleFor,
     handleSelectTee,
     handleSkipTeeSelection,
     handlePlayerTeeChange,
@@ -296,6 +319,7 @@ export function useCreateRoundWizard({
     handleBackToGameFormat,
     handleBackToCourse,
     handleBackToNineType,
+    handleBackToWhen,
     handleBackToPartners,
     handleContinueToScoringSetup,
     setBuildAsYouPlay,

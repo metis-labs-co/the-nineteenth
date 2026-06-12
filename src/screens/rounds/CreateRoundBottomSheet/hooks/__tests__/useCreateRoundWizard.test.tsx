@@ -1,15 +1,18 @@
 /**
  * useCreateRoundWizard — step-flow integration tests
  *
- * Covers the 7 key branching behaviours of the format-first wizard:
+ * Covers the key branching behaviours of the format-first wizard:
  *   1. Fresh open → initial step 'gameFormat'
  *   2. handleSelectPreset → sets selectedPresetId / selectedMatchType + advances to 'course'
  *   3. handleSelectPreset when course already pre-filled → advances to 'nineType'
  *   4. initialCourse (no initialMatchType) → step stays on 'gameFormat', course pre-filled
  *   5. initialMatchType + initialCourse → step jumps to 'nineType', preset derived
  *   6. initialMatchType without course → step lands on 'course' (bug-fix case)
- *   7. handleSelectNineType → advances to 'partners'
- *   8. handleClose (resetState) → returns to 'gameFormat', clears data
+ *   7. handleSelectNineType (fresh flow) → advances to 'when' (not partners)
+ *   8. handleSelectNineType (initialMatchType) → skips 'when', advances to 'partners'
+ *   9. handlePlayNow → advances to 'partners', clears scheduled fields
+ *  10. handleScheduleFor → advances to 'partners', sets scheduledDate + scheduledTeeTime
+ *  11. handleClose (resetState) → returns to 'gameFormat', clears data
  */
 
 import { renderHook, act } from '@testing-library/react-native';
@@ -200,9 +203,38 @@ describe('useCreateRoundWizard — step-flow', () => {
   });
 
   // --------------------------------------------------------------------------
-  // 7. handleSelectNineType → advances to 'partners'
+  // 7. handleSelectNineType (fresh flow) → advances to 'when'
   // --------------------------------------------------------------------------
-  it('advances to partners after handleSelectNineType', () => {
+  it('advances to when after handleSelectNineType in a fresh flow', () => {
+    const wrapper = createWrapper();
+    const { result } = renderHook(
+      () =>
+        useCreateRoundWizard({
+          ...BASE_OPTIONS,
+          initialCourse: STUB_INITIAL_COURSE,
+          // No initialMatchType — normal path goes through 'when' step
+        }),
+      { wrapper }
+    );
+
+    // Select a preset to get to nineType
+    act(() => {
+      result.current.handleSelectPreset('individual_stableford');
+    });
+    expect(result.current.currentStep).toBe('nineType');
+
+    act(() => {
+      result.current.handleSelectNineType('full');
+    });
+
+    expect(result.current.currentStep).toBe('when');
+    expect(result.current.data.nineType).toBe('full');
+  });
+
+  // --------------------------------------------------------------------------
+  // 8. handleSelectNineType (initialMatchType) → skips 'when', goes to 'partners'
+  // --------------------------------------------------------------------------
+  it('skips when step and advances to partners after handleSelectNineType with initialMatchType', () => {
     const wrapper = createWrapper();
     const { result } = renderHook(
       () =>
@@ -226,7 +258,63 @@ describe('useCreateRoundWizard — step-flow', () => {
   });
 
   // --------------------------------------------------------------------------
-  // 8. handleClose → resets to 'gameFormat' and clears data
+  // 9. handlePlayNow → advances to 'partners', clears scheduled fields
+  // --------------------------------------------------------------------------
+  it('advances to partners with null scheduling on handlePlayNow', () => {
+    const wrapper = createWrapper();
+    const { result } = renderHook(
+      () =>
+        useCreateRoundWizard({
+          ...BASE_OPTIONS,
+          initialCourse: STUB_INITIAL_COURSE,
+        }),
+      { wrapper }
+    );
+
+    // Navigate to the 'when' step
+    act(() => result.current.handleSelectPreset('individual_stableford') );
+    act(() => result.current.handleSelectNineType('full') );
+    expect(result.current.currentStep).toBe('when');
+
+    act(() => {
+      result.current.handlePlayNow();
+    });
+
+    expect(result.current.currentStep).toBe('partners');
+    expect(result.current.data.scheduledDate).toBeNull();
+    expect(result.current.data.scheduledTeeTime).toBeNull();
+  });
+
+  // --------------------------------------------------------------------------
+  // 10. handleScheduleFor → advances to 'partners', sets date + teeTime
+  // --------------------------------------------------------------------------
+  it('advances to partners with scheduled date/time on handleScheduleFor', () => {
+    const wrapper = createWrapper();
+    const { result } = renderHook(
+      () =>
+        useCreateRoundWizard({
+          ...BASE_OPTIONS,
+          initialCourse: STUB_INITIAL_COURSE,
+        }),
+      { wrapper }
+    );
+
+    // Navigate to the 'when' step
+    act(() => result.current.handleSelectPreset('individual_stableford') );
+    act(() => result.current.handleSelectNineType('full') );
+    expect(result.current.currentStep).toBe('when');
+
+    act(() => {
+      result.current.handleScheduleFor('2026-07-15', '08:00:00');
+    });
+
+    expect(result.current.currentStep).toBe('partners');
+    expect(result.current.data.scheduledDate).toBe('2026-07-15');
+    expect(result.current.data.scheduledTeeTime).toBe('08:00:00');
+  });
+
+  // --------------------------------------------------------------------------
+  // 11. handleClose → resets to 'gameFormat' and clears data
   // --------------------------------------------------------------------------
   it('resets to gameFormat and clears data on handleClose', () => {
     const onClose = jest.fn();

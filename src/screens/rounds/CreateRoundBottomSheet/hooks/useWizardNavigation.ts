@@ -75,6 +75,10 @@ export function useWizardNavigation({
     setData((prev) => ({ ...prev, friendSearchQuery: '' }));
   }, [setCurrentStep, setData]);
 
+  const handleBackToWhen = useCallback(() => {
+    setCurrentStep('when');
+  }, [setCurrentStep]);
+
   const handleBackToPartners = useCallback(() => {
     setCurrentStep('partners');
   }, [setCurrentStep]);
@@ -208,6 +212,7 @@ export function useWizardNavigation({
     handleBackToGameFormat,
     handleBackToCourse,
     handleBackToNineType,
+    handleBackToWhen,
     handleBackToPartners,
     handleContinueToScoringSetup,
     handleStartSoloRound,

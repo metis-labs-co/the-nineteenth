@@ -32,7 +32,7 @@ export interface StandaloneWolfConfig {
 /**
  * Wizard step identifiers
  */
-export type WizardStep = 'course' | 'nineType' | 'gameFormat' | 'partners' | 'ballCount' | 'scoringSetup' | 'yourSetup';
+export type WizardStep = 'course' | 'nineType' | 'gameFormat' | 'when' | 'partners' | 'ballCount' | 'scoringSetup' | 'yourSetup';
 
 /**
  * Playing partner selected for the round
@@ -144,6 +144,10 @@ export interface WizardData {
   handicapSource: HandicapSource;
   /** Nine type selection for 9-hole rounds */
   nineType: NineType;
+  /** Scheduled round date (YYYY-MM-DD). Null = play now. */
+  scheduledDate: string | null;
+  /** Scheduled tee time (HH:MM:SS). Null = no specific time. */
+  scheduledTeeTime: string | null;
   /**
    * Current user's WHS handicap override for this round. Null means use the
    * profile value as-is. When set, the round-start flow writes this back to
