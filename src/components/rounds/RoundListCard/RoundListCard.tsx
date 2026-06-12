@@ -95,7 +95,10 @@ export const RoundListCard = React.memo(function RoundListCard<
       (round.winner.points ? `${round.winner.points} ${getPointsLabel(round.gameType)}` : null);
     subtitle = detail ? `Winner: ${round.winner.name} · ${detail}` : `Winner: ${round.winner.name}`;
   } else if (notSubmitted) {
-    subtitle = 'Round not submitted';
+    subtitle =
+      round.holesCompleted > 0
+        ? `Not submitted · ${round.holesCompleted}/${round.totalHoles} holes`
+        : 'Round not submitted';
   } else if (!isCompleted) {
     subtitle = 'Ready to score';
   }

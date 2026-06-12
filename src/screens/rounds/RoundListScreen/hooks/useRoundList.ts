@@ -26,6 +26,24 @@ import {
  * `{ latitude, longitude }`. Returns nulls when the location is missing
  * or malformed. Coordinates in the GeoJSON are [longitude, latitude].
  */
+/**
+ * Count the holes with a valid score in a scorecard's scores JSON.
+ * Handles both single-ball and multi-ball (team) hole scores.
+ */
+function countScoredHoles(scores: Record<string, unknown> | null | undefined): number {
+  if (!scores || typeof scores !== 'object') return 0;
+  return Object.values(scores).filter((score) => {
+    if (!score || typeof score !== 'object') return false;
+    const s = score as HoleScore | MultiBallHoleScore;
+    if (isSingleBallScore(s)) {
+      return s.strokes != null && s.strokes > 0;
+    }
+    // MultiBallHoleScore - check if any ball has strokes
+    const balls = (s as MultiBallHoleScore).balls;
+    return Array.isArray(balls) && balls.some((b) => b.strokes != null && b.strokes > 0);
+  }).length;
+}
+
 function parseClubLocation(
   location: { type: 'Point'; coordinates: [number, number] } | null | undefined,
 ): { latitude: number | null; longitude: number | null } {
@@ -393,18 +411,7 @@ export function useRoundList(): UseRoundListReturn {
             // Map holes completed per round
             const progressByRound = new Map<string, number>();
             for (const sc of progressData as ProgressScorecardRow[]) {
-              if (!sc.scores || typeof sc.scores !== 'object') continue;
-              // Count holes with valid scores
-              const holesScored = Object.values(sc.scores).filter(score => {
-                if (!score || typeof score !== 'object') return false;
-                const s = score as HoleScore | MultiBallHoleScore;
-                if (isSingleBallScore(s)) {
-                  return s.strokes != null && s.strokes > 0;
-                }
-                // MultiBallHoleScore - check if any ball has strokes
-                const balls = (s as MultiBallHoleScore).balls;
-                return Array.isArray(balls) && balls.some(b => b.strokes != null && b.strokes > 0);
-              }).length;
+              const holesScored = countScoredHoles(sc.scores);
               // Use the max holes scored across scorecards for this round
               const existing = progressByRound.get(sc.round_id) ?? 0;
               if (holesScored > existing) {
@@ -693,6 +700,51 @@ export function useRoundList(): UseRoundListReturn {
           }
         } catch (err) {
           roundListLogger.debug('Completed rounds stats skipped', { error: err });
+        }
+      }
+
+      // 9. For completed rounds the user never submitted, count how many holes
+      // they actually scored (any scorecard status) so the card can show how
+      // far they got. Checks Supabase first, then merges offline-only scores.
+      const unsubmittedRoundIds = allRounds
+        .filter((r) => r.status === 'completed' && r.userScore?.hasScorecard === false)
+        .map((r) => r.id);
+
+      if (unsubmittedRoundIds.length > 0) {
+        try {
+          const { data: unsubmittedData, error: unsubmittedError } = await (supabase
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
+            .from('scorecards') as any)
+            .select('round_id, scores')
+            .eq('player_id', user.id)
+            .in('round_id', unsubmittedRoundIds);
+
+          const holesByRound = new Map<string, number>();
+          if (!unsubmittedError && unsubmittedData) {
+            for (const sc of unsubmittedData as { round_id: string; scores: Record<string, unknown> | null }[]) {
+              const holesScored = countScoredHoles(sc.scores);
+              if (holesScored > (holesByRound.get(sc.round_id) ?? 0)) {
+                holesByRound.set(sc.round_id, holesScored);
+              }
+            }
+          }
+
+          // Scores entered offline may not have synced yet
+          const offlineProgress = await getHolesCompletedByRounds(unsubmittedRoundIds, user.id);
+          for (const [roundId, count] of offlineProgress) {
+            if (count > (holesByRound.get(roundId) ?? 0)) {
+              holesByRound.set(roundId, count);
+            }
+          }
+
+          for (const round of allRounds) {
+            if (holesByRound.has(round.id)) {
+              round.holesCompleted = Math.max(round.holesCompleted, holesByRound.get(round.id)!);
+            }
+          }
+        } catch (err) {
+          // Progress is decorative — the card falls back to "Round not submitted"
+          roundListLogger.debug('Unsubmitted progress fetch skipped', { error: err });
         }
       }
 

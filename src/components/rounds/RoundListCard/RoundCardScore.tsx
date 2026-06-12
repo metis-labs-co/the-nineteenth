@@ -37,10 +37,12 @@ export const RoundCardScore = React.memo(function RoundCardScore({
 
   return (
     <View style={styles.container} testID="round-card-score">
-      <Text style={[styles.value, { color: toneColor }]}>{display.value}</Text>
-      {display.label && (
-        <Text style={[styles.label, { color: colors.textSecondary }]}>{display.label}</Text>
-      )}
+      <View style={styles.valueRow}>
+        <Text style={[styles.value, { color: toneColor }]}>{display.value}</Text>
+        {display.label && (
+          <Text style={[styles.label, { color: colors.textSecondary }]}>{display.label}</Text>
+        )}
+      </View>
       {dailyHandicap != null && (
         <Text style={[styles.meta, { color: colors.textSecondary }]} testID="round-card-handicap">
           HC {dailyHandicap}
@@ -57,9 +59,14 @@ export const RoundCardScore = React.memo(function RoundCardScore({
 
 const styles = StyleSheet.create({
   container: {
-    alignItems: 'center',
+    alignItems: 'flex-end',
     justifyContent: 'center',
     marginLeft: spacing.md,
+  },
+  valueRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: spacing.xs,
   },
   value: {
     ...typography.h2,
@@ -71,5 +78,6 @@ const styles = StyleSheet.create({
   meta: {
     ...typography.caption,
     marginTop: 2,
+    textAlign: 'right',
   },
 });

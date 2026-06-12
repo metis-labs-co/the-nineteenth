@@ -309,13 +309,26 @@ describe('RoundListCard', () => {
       expect(screen.getByText('Winner: Jane Doe · 3&2')).toBeTruthy();
     });
 
-    it('shows "Round not submitted" when no scorecard exists', () => {
+    it('shows "Round not submitted" when no scorecard exists and no holes scored', () => {
       const round = createCompletedRound({
+        holesCompleted: 0,
         userScore: { hasScorecard: false },
       });
       render(<RoundListCard round={round} onPress={defaultOnPress} />);
 
       expect(screen.getByText('Round not submitted')).toBeTruthy();
+      expect(screen.queryByTestId('round-card-score')).toBeNull();
+    });
+
+    it('shows holes completed for unsubmitted rounds with scored holes', () => {
+      const round = createCompletedRound({
+        holesCompleted: 13,
+        totalHoles: 18,
+        userScore: { hasScorecard: false },
+      });
+      render(<RoundListCard round={round} onPress={defaultOnPress} />);
+
+      expect(screen.getByText('Not submitted · 13/18 holes')).toBeTruthy();
       expect(screen.queryByTestId('round-card-score')).toBeNull();
     });
   });
