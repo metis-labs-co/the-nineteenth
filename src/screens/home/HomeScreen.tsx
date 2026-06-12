@@ -29,6 +29,7 @@ import { spacing, layout, typography, borderRadius } from '@/constants/theme';
 import {
   ConfirmationDialog,
   PageHeader,
+  HeaderQuickActions,
   FeatureButton,
 } from '@/components/common';
 import { InProgressRoundSection } from '@/components/competitions/detail/sections';
@@ -49,75 +50,12 @@ import {
   NewUserFallback,
   HomeSkeleton,
   SectionHeader,
-  HeaderWeatherChip,
   RoundTodayCard,
   HomeTileGrid,
   MatesThisWeekSection,
 } from './components';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
-
-// ---------------------------------------------------------------------------
-// HeaderRightSlot — inline helper, not exported
-// ---------------------------------------------------------------------------
-
-function HeaderRightSlot({
-  onPressGolf,
-  onPressNotifications,
-  unreadCount,
-  golfLabel,
-}: {
-  onPressGolf: () => void;
-  onPressNotifications: () => void;
-  unreadCount: number;
-  golfLabel: string;
-}) {
-  const colors = useThemeColors();
-  return (
-    <View style={styles.headerRightSlotRow}>
-      {/* Always render the chip — it's a "my location" ambient indicator,
-          independent of the round-today weather inside RoundTodayCard. The
-          chip self-hides when there is no snapshot yet. */}
-      <HeaderWeatherChip />
-      <TouchableOpacity
-        onPress={onPressGolf}
-        accessibilityRole="button"
-        accessibilityLabel={golfLabel}
-        style={[styles.headerActionButton, { backgroundColor: colors.surfaceVariant }]}
-      >
-        <Icon source="golf" size={22} color={colors.primary} />
-      </TouchableOpacity>
-      <TouchableOpacity
-        onPress={onPressNotifications}
-        accessibilityRole="button"
-        accessibilityLabel={
-          unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'
-        }
-        style={[styles.headerActionButton, { backgroundColor: colors.surfaceVariant }]}
-      >
-        <View>
-          <Icon source="bell-outline" size={22} color={colors.primary} />
-          {unreadCount > 0 ? (
-            <View
-              style={[
-                styles.headerBadge,
-                { backgroundColor: colors.error, borderColor: colors.surface },
-              ]}
-            >
-              <Text
-                style={[styles.headerBadgeText, { color: colors.textOnColored }]}
-                numberOfLines={1}
-                allowFontScaling={false}
-              >
-                {unreadCount > 99 ? '99+' : unreadCount}
-              </Text>
-            </View>
-          ) : null}
-        </View>
-      </TouchableOpacity>
-    </View>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // HomeScreen
@@ -222,10 +160,6 @@ export default function HomeScreen() {
 
   const handleCancelDelete = useCallback(() => setRoundToDelete(null), []);
 
-  const handleNotificationsPress = useCallback(() => {
-    navigation.navigate('Notifications');
-  }, [navigation]);
-
   const handleViewAllRounds = useCallback(() => {
     navigation.navigate('AllRounds');
   }, [navigation]);
@@ -234,14 +168,7 @@ export default function HomeScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <PageHeader
         title={home.greeting.firstName ? `Welcome ${home.greeting.firstName}` : 'Welcome'}
-        rightContent={
-          <HeaderRightSlot
-            onPressGolf={handleViewAllRounds}
-            onPressNotifications={handleNotificationsPress}
-            unreadCount={home.unreadCount}
-            golfLabel="View all rounds"
-          />
-        }
+        rightContent={<HeaderQuickActions />}
       />
 
       <ScrollView
@@ -491,35 +418,6 @@ const styles = StyleSheet.create({
     // InProgressRoundSection sets its own container margins; the bottom
     // margin keeps section spacing now that the View-all button is gone.
     marginBottom: spacing.lg,
-  },
-  headerRightSlotRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  headerActionButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 22,
-  },
-  headerBadge: {
-    position: 'absolute',
-    top: -4,
-    right: -6,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    paddingHorizontal: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerBadgeText: {
-    fontSize: 10,
-    lineHeight: 12,
-    fontWeight: '700',
   },
   devSection: {
     marginTop: spacing.xl,

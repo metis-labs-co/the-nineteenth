@@ -37,6 +37,13 @@ import { ScaledText } from './ScaledText';
  * ```
  */
 
+interface InfoAction {
+  /** Callback when the info icon is pressed */
+  onPress: () => void;
+  /** Accessibility label for the info icon */
+  accessibilityLabel?: string;
+}
+
 interface RightAction {
   /** Icon name from your icon library (e.g., MaterialIcons) */
   icon: string;
@@ -76,6 +83,12 @@ export interface PageHeaderProps {
    * @default 'arrow'
    */
   backIcon?: 'arrow' | 'close';
+  /**
+   * Small helper-style info icon rendered inline to the right of the title.
+   * Use for screen-level "what is this?" actions instead of a full-size
+   * right action button.
+   */
+  infoAction?: InfoAction;
   /** Array of action buttons displayed on right (max 2 recommended) */
   rightActions?: RightAction[];
   /** Custom content for right section (takes precedence over rightActions) */
@@ -95,6 +108,7 @@ export function PageHeader({
   showBack = false,
   onBack,
   backIcon = 'arrow',
+  infoAction,
   rightActions = [],
   rightContent,
   backgroundColor,
@@ -138,6 +152,18 @@ export function PageHeader({
       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
     >
       <BackIconComponent size={24} color={colors.textPrimary} />
+    </TouchableOpacity>
+  ) : null;
+
+  // Small helper-style info icon rendered inline after the title
+  const InfoIcon = infoAction ? (
+    <TouchableOpacity
+      onPress={infoAction.onPress}
+      accessibilityRole="button"
+      accessibilityLabel={infoAction.accessibilityLabel ?? 'More info'}
+      hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+    >
+      <Icon source="information-outline" size={16} color={colors.textTertiary} />
     </TouchableOpacity>
   ) : null;
 
@@ -193,16 +219,19 @@ export function PageHeader({
 
             {/* Center section - title and subtitle */}
             <View style={styles.centeredTitleSection}>
-              <ScaledText
-                category="title"
-                style={[styles.title, styles.centeredTitle, { color: txtColor }]}
-                numberOfLines={1}
-                ellipsizeMode="tail"
-                accessibilityRole="text"
-                accessibilityLabel={`Page title: ${title}`}
-              >
-                {title}
-              </ScaledText>
+              <View style={styles.titleRow}>
+                <ScaledText
+                  category="title"
+                  style={[styles.title, styles.centeredTitle, { color: txtColor }]}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                  accessibilityRole="text"
+                  accessibilityLabel={`Page title: ${title}`}
+                >
+                  {title}
+                </ScaledText>
+                {InfoIcon}
+              </View>
               {subtitle && (
                 typeof subtitle === 'string' ? (
                   <ScaledText
@@ -230,16 +259,19 @@ export function PageHeader({
             <View style={styles.leftSection}>
               {BackButton}
               <View style={styles.titleContainer}>
-                <ScaledText
-                  category="title"
-                  style={[styles.title, { color: txtColor }]}
-                  numberOfLines={1}
-                  ellipsizeMode="tail"
-                  accessibilityRole="text"
-                  accessibilityLabel={`Page title: ${title}`}
-                >
-                  {title}
-                </ScaledText>
+                <View style={styles.titleRow}>
+                  <ScaledText
+                    category="title"
+                    style={[styles.title, { color: txtColor }]}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                    accessibilityRole="text"
+                    accessibilityLabel={`Page title: ${title}`}
+                  >
+                    {title}
+                  </ScaledText>
+                  {InfoIcon}
+                </View>
                 {subtitle && (
                   typeof subtitle === 'string' ? (
                     <ScaledText
@@ -309,6 +341,11 @@ const styles = StyleSheet.create({
   titleContainer: {
     flex: 1,
     justifyContent: 'center',
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
   },
   title: {
     ...typography.h3,

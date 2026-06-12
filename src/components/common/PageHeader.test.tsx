@@ -352,6 +352,58 @@ describe('PageHeader', () => {
   });
 
   // ===========================================================================
+  // INFO ACTION TESTS
+  // ===========================================================================
+
+  describe('Info Action', () => {
+    it('renders the inline info icon and fires onPress', () => {
+      const onPress = jest.fn();
+      render(
+        <PageHeader
+          title="Title"
+          infoAction={{ onPress, accessibilityLabel: 'Compete info' }}
+        />
+      );
+      const info = screen.getByLabelText('Compete info');
+      fireEvent.press(info);
+      expect(onPress).toHaveBeenCalledTimes(1);
+    });
+
+    it('falls back to a default accessibility label', () => {
+      render(<PageHeader title="Title" infoAction={{ onPress: jest.fn() }} />);
+      expect(screen.getByLabelText('More info')).toBeTruthy();
+    });
+
+    it('renders the info icon in the centered variant too', () => {
+      render(
+        <PageHeader
+          variant="centered"
+          title="Title"
+          infoAction={{ onPress: jest.fn(), accessibilityLabel: 'Info' }}
+        />
+      );
+      expect(screen.getByLabelText('Info')).toBeTruthy();
+    });
+
+    it('does not render an info icon when infoAction is omitted', () => {
+      render(<PageHeader title="Title" />);
+      expect(screen.queryByLabelText('More info')).toBeNull();
+    });
+
+    it('renders alongside rightContent', () => {
+      render(
+        <PageHeader
+          title="Title"
+          infoAction={{ onPress: jest.fn(), accessibilityLabel: 'Info' }}
+          rightContent={<Text testID="custom-right">Custom</Text>}
+        />
+      );
+      expect(screen.getByLabelText('Info')).toBeTruthy();
+      expect(screen.getByTestId('custom-right')).toBeTruthy();
+    });
+  });
+
+  // ===========================================================================
   // STYLING TESTS
   // ===========================================================================
 

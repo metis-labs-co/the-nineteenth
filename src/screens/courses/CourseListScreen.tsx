@@ -18,7 +18,13 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography } from '@/constants/theme';
-import { LoadingSpinner, SearchBar, PageHeader, ConfirmationDialog } from '@/components/common';
+import {
+  LoadingSpinner,
+  SearchBar,
+  PageHeader,
+  HeaderQuickActions,
+  ConfirmationDialog,
+} from '@/components/common';
 import { ScreenWelcomeModal } from '@/components/common/ScreenWelcomeModal';
 import { useConfirmationDialog } from '@/hooks';
 import { useScreenWelcome } from '@/hooks/useScreenWelcome';
@@ -295,14 +301,17 @@ export default function CourseListScreen() {
   );
 
 
+  // Shared across the loading / error / main header instances
+  const headerRight = <HeaderQuickActions />;
+  const headerInfoAction = !isFirstVisit
+    ? { onPress: showModal, accessibilityLabel: 'Course info' }
+    : undefined;
+
   // Loading state
   if (isLoading) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <PageHeader
-          title="Courses"
-          rightActions={!isFirstVisit ? [{ icon: 'information-outline', onPress: showModal, accessibilityLabel: 'Course info' }] : []}
-        />
+        <PageHeader title="Courses" infoAction={headerInfoAction} rightContent={headerRight} />
         <View style={[styles.centerContent, { flex: 1 }]}>
           <LoadingSpinner size="lg" />
         </View>
@@ -315,10 +324,7 @@ export default function CourseListScreen() {
   if (error && !displayItems.length) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <PageHeader
-          title="Courses"
-          rightActions={!isFirstVisit ? [{ icon: 'information-outline', onPress: showModal, accessibilityLabel: 'Course info' }] : []}
-        />
+        <PageHeader title="Courses" infoAction={headerInfoAction} rightContent={headerRight} />
         <ErrorState
           error={error}
           onRetry={handleRefresh}
@@ -331,10 +337,7 @@ export default function CourseListScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
-      <PageHeader
-        title="Courses"
-        rightActions={!isFirstVisit ? [{ icon: 'information-outline', onPress: showModal, accessibilityLabel: 'Course info' }] : []}
-      />
+      <PageHeader title="Courses" infoAction={headerInfoAction} rightContent={headerRight} />
 
       {/* Intro Text */}
       <Text style={[styles.introText, { color: colors.textSecondary }]}>

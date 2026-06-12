@@ -21,6 +21,7 @@ export { FormSection } from './FormSection';
 export type { FormSectionProps } from './FormSection';
 export { PageHeader } from './PageHeader';
 export type { PageHeaderProps } from './PageHeader';
+export { HeaderQuickActions, HeaderIconButton } from './HeaderQuickActions';
 export { CardContainer } from './CardContainer';
 export type { CardContainerProps, CardPadding } from './CardContainer';
 export { SwipeableRow } from './SwipeableRow';
@@ -151,7 +152,7 @@ export type {
   UseWizardReturn,
   FullScreenWizardProps,
 } from './FullScreenWizard';
-// NotificationBell moved to @/screens/profile/components
+// NotificationBell removed - headers use HeaderQuickActions' bell instead
 export { FeatureButton } from './FeatureButton';
 
 // === Avatar & Identity Components ===

@@ -12,7 +12,13 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, layout } from '@/constants/theme';
-import { PageHeader, EmptyState, ErrorState, LoadingSpinner } from '@/components/common';
+import {
+  PageHeader,
+  HeaderQuickActions,
+  EmptyState,
+  ErrorState,
+  LoadingSpinner,
+} from '@/components/common';
 import { ActivityRoundCard } from '@/components/activity';
 import { useActivityFeed } from '@/hooks/activity';
 import type { ActivityFeedCard } from '@/hooks/activity';
@@ -56,7 +62,9 @@ export default function ActivityScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <PageHeader variant="centered" title="Activity" />
+      {/* Default (left-aligned) variant — the centered variant's fixed-width
+          right section can't fit the quick-actions cluster. */}
+      <PageHeader title="Activity" rightContent={<HeaderQuickActions />} />
 
       {isLoading ? (
         <View style={styles.centered}>

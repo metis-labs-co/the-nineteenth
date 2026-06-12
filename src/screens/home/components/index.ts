@@ -15,7 +15,6 @@ export { AchievementStatsSection } from './AchievementStatsSection';
 export { LastRoundSection } from './LastRoundSection';
 export { MatesThisWeekSection } from './MatesThisWeekSection';
 export { NewUserFallback } from './NewUserFallback';
-export { HeaderWeatherChip } from './HeaderWeatherChip';
 export { HomeSkeleton } from './HomeSkeleton';
 export { HomeTile } from './HomeTile';
 export type { HomeTileProps } from './HomeTile';

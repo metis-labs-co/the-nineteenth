@@ -7,16 +7,16 @@
  */
 
 import React, { useCallback, useState } from 'react';
-import { View, ScrollView, StyleSheet, RefreshControl, TouchableOpacity } from 'react-native';
-import { Icon } from 'react-native-paper';
+import { View, ScrollView, StyleSheet, RefreshControl } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { PageHeader } from '@/components/common/PageHeader';
+import { HeaderQuickActions } from '@/components/common/HeaderQuickActions';
 import { SegmentedButton } from '@/components/common/SegmentedButton';
 import { ScreenWelcomeModal } from '@/components/common/ScreenWelcomeModal';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useScreenWelcome } from '@/hooks/useScreenWelcome';
 import { leagueKeys } from '@/hooks/queryKeys';
-import { spacing, borderRadius } from '@/constants/theme';
+import { spacing } from '@/constants/theme';
 import { CompsContent, LeaguesContent } from './components';
 
 type CompeteMode = 'comps' | 'leagues';
@@ -53,18 +53,15 @@ export default function CompeteScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <PageHeader
         title="Compete"
-        rightContent={
-          !welcome.isFirstVisit ? (
-            <TouchableOpacity
-              style={[styles.infoButton, { backgroundColor: colors.surfaceVariant }]}
-              onPress={welcome.showModal}
-              accessibilityRole="button"
-              accessibilityLabel={mode === 'comps' ? 'Competitions info' : 'Leagues info'}
-            >
-              <Icon source="information-outline" size={22} color={colors.primary} />
-            </TouchableOpacity>
-          ) : undefined
+        infoAction={
+          !welcome.isFirstVisit
+            ? {
+                onPress: welcome.showModal,
+                accessibilityLabel: mode === 'comps' ? 'Competitions info' : 'Leagues info',
+              }
+            : undefined
         }
+        rightContent={<HeaderQuickActions />}
       />
 
       <View style={styles.toggleContainer}>
@@ -110,13 +107,6 @@ const styles = StyleSheet.create({
   toggleContainer: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
-  },
-  infoButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: borderRadius.xxxl,
   },
   content: {
     flex: 1,

@@ -7,7 +7,12 @@ import { View, StyleSheet } from 'react-native';
 import { IconPlus } from '@tabler/icons-react-native';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing } from '@/constants/theme';
-import { PageHeader, FeatureButton } from '@/components/common';
+import {
+  PageHeader,
+  HeaderQuickActions,
+  HeaderIconButton,
+  FeatureButton,
+} from '@/components/common';
 
 interface RoundListHeaderProps {
   onOpenNewRound: () => void;
@@ -28,21 +33,29 @@ export function RoundListHeader({
 }: RoundListHeaderProps) {
   const colors = useThemeColors();
 
-  const rightActions = [];
-  if (onQuickScore) {
-    rightActions.push({ icon: 'flash', onPress: onQuickScore, accessibilityLabel: 'Quick score entry' });
-  }
-  if (showInfoIcon && onInfoPress) {
-    rightActions.push({ icon: 'information-outline', onPress: onInfoPress, accessibilityLabel: 'Rounds info' });
-  }
-
   return (
     <>
       <PageHeader
         title="Rounds"
         showBack={showBack}
         onBack={onBack}
-        rightActions={rightActions}
+        infoAction={
+          showInfoIcon && onInfoPress
+            ? { onPress: onInfoPress, accessibilityLabel: 'Rounds info' }
+            : undefined
+        }
+        rightContent={
+          // This IS the rounds screen, so hide the cluster's golf button.
+          <HeaderQuickActions showRounds={false}>
+            {onQuickScore ? (
+              <HeaderIconButton
+                icon="flash"
+                onPress={onQuickScore}
+                accessibilityLabel="Quick score entry"
+              />
+            ) : null}
+          </HeaderQuickActions>
+        }
       />
 
       <View style={styles.stickyHeader}>

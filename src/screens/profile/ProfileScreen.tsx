@@ -22,7 +22,7 @@ import {
   type ClubCourseDisplayItem,
 } from '@/hooks/useClubs';
 import { PageHeader } from '@/components/common/PageHeader';
-import { NotificationBell } from './components';
+import { HeaderQuickActions } from '@/components/common/HeaderQuickActions';
 import { APP_NAME, APP_VERSION } from '@/constants/app';
 import type { Club } from '@/types/database.types';
 import { useSettingsStore } from '@/store/settingsStore';
@@ -128,18 +128,10 @@ export default function ProfileScreen() {
     }
   }, [logout]);
 
-  // Navigation handlers
-  const handleNotificationsPress = useCallback(() => {
-    navigation.navigate('Notifications');
-  }, [navigation]);
-
   if (isLoading) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <PageHeader
-          title="Profile"
-          rightContent={<NotificationBell onPress={handleNotificationsPress} />}
-        />
+        <PageHeader title="Profile" rightContent={<HeaderQuickActions />} />
         <View style={styles.loadingContainer}>
           <LoadingSpinner size="lg" />
         </View>
@@ -149,10 +141,7 @@ export default function ProfileScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <PageHeader
-        title="Profile"
-        rightContent={<NotificationBell onPress={handleNotificationsPress} />}
-      />
+      <PageHeader title="Profile" rightContent={<HeaderQuickActions />} />
 
       <ScrollView
         style={styles.content}
