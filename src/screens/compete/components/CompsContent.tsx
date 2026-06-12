@@ -1,6 +1,7 @@
 // src/screens/compete/components/CompsContent.tsx
 import React, { useCallback } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { Text } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { IconPlus, IconSparkles, IconUsersPlus } from '@tabler/icons-react-native';
 import {
@@ -14,7 +15,7 @@ import {
 import { FeatureLockCompact, LimitIndicator } from '@/components/subscription';
 import { CompetitionListCard } from '@/components/competitions';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing } from '@/constants/theme';
+import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useCompetitionGroups } from '../hooks';
 import type { CompetitionItem } from '../hooks';
 
@@ -138,19 +139,24 @@ export function CompsContent() {
             />
           </FeatureLockCompact>
         </View>
-        <View style={styles.featureButtonWrapper}>
-          <FeatureButton
-            title="Join"
-            subtitle="Invite code"
-            icon={<IconUsersPlus size={20} color={colors.white} strokeWidth={2.5} />}
-            onPress={handleJoinCompetition}
-            backgroundColor={colors.info}
-            accessibilityLabel="Join competition with invite code"
-            variant="compact"
-            showChevron={false}
-          />
-        </View>
       </View>
+
+      {/* Join bar */}
+      <TouchableOpacity
+        style={[
+          styles.joinBar,
+          { backgroundColor: colors.surface, borderColor: colors.primary },
+        ]}
+        onPress={handleJoinCompetition}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel="Join competition with invite code"
+      >
+        <IconUsersPlus size={18} color={colors.primary} strokeWidth={2.5} />
+        <Text style={[styles.joinBarText, { color: colors.primary }]}>
+          Join with invite code
+        </Text>
+      </TouchableOpacity>
 
       {/* Limit indicator */}
       {!hasUnlimitedCompetitions && (
@@ -227,6 +233,20 @@ const styles = StyleSheet.create({
   },
   featureButtonWrapper: {
     flex: 1,
+  },
+  joinBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.md,
+    minHeight: 44,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+  },
+  joinBarText: {
+    ...typography.smallBold,
   },
   limitRow: {
     flexDirection: 'row',
