@@ -19,6 +19,8 @@ import { HandicapEditSheet } from '@/components/rounds';
 import { usePlaceholderPlayers } from '@/hooks/usePlaceholderPlayers';
 import { useAuth } from '@/hooks/useAuth';
 import type { Friend, TeeBox, GameType, Player } from '@/types/database.types';
+import type { RoundPresetId } from '@/constants/roundPresets';
+import { checkPresetPlayerCount } from '@/utils/presetPlayers';
 import type { SelectedCourse, PlayingPartner } from '../types';
 import { MAX_PARTNERS, MATCH_TYPES, getTeeColor } from '../types';
 import { FriendSelectorBottomSheet } from './FriendSelectorBottomSheet';
@@ -35,6 +37,7 @@ interface PartnersStepProps {
   selectedTee: TeeBox | null;
   selectedMatchType: GameType;
   selectedPartners: PlayingPartner[];
+  selectedPresetId: RoundPresetId | null;
   friendSearchQuery: string;
   onFriendSearchQueryChange: (query: string) => void;
   friends?: Friend[];
@@ -62,6 +65,7 @@ export const PartnersStep = memo(function PartnersStep({
   selectedTee,
   selectedMatchType,
   selectedPartners,
+  selectedPresetId,
   friendSearchQuery,
   onFriendSearchQueryChange,
   friends,
@@ -240,7 +244,15 @@ export const PartnersStep = memo(function PartnersStep({
 
   // Match play requires at least one opponent
   const isMatchPlay = selectedMatchType === 'match-play';
-  const canContinue = !isMatchPlay || selectedPartners.length >= 1;
+
+  const playerCountCheck = useMemo(
+    () =>
+      selectedPresetId
+        ? checkPresetPlayerCount(selectedPresetId, selectedPartners.length)
+        : null,
+    [selectedPresetId, selectedPartners.length]
+  );
+  const canContinue = (playerCountCheck?.ok ?? true) && (!isMatchPlay || selectedPartners.length >= 1);
 
   return (
     <View style={styles.container}>
@@ -497,6 +509,11 @@ export const PartnersStep = memo(function PartnersStep({
         {isMatchPlay && selectedPartners.length === 0 && (
           <Text style={[styles.matchPlayHint, { color: colors.warning }]}>
             Select at least one opponent for Match Play
+          </Text>
+        )}
+        {playerCountCheck && !playerCountCheck.ok && (
+          <Text style={[typography.small, { color: colors.warning, textAlign: 'center', marginBottom: spacing.sm }]}>
+            {playerCountCheck.message}
           </Text>
         )}
         <TouchableOpacity

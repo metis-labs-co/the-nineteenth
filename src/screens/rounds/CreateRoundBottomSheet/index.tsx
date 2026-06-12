@@ -709,6 +709,7 @@ export default function CreateRoundBottomSheet({
           selectedTee={wizard.data.selectedTee}
           selectedMatchType={wizard.data.selectedMatchType}
           selectedPartners={wizard.data.selectedPartners}
+          selectedPresetId={wizard.data.selectedPresetId}
           friendSearchQuery={wizard.data.friendSearchQuery}
           onFriendSearchQueryChange={wizard.setFriendSearchQuery}
           friends={friends}
