@@ -6,12 +6,14 @@
  * - Toggle partner on/off (respecting MAX_PARTNERS limit)
  * - Remove partner by ID
  * - Check if a friend is currently selected
+ * - Preset selection (advances to course step)
  */
 
 import { useCallback } from 'react';
 import type { Friend, GameType } from '@/types/database.types';
 import type { WizardData } from '../types';
 import { MAX_PARTNERS } from '../types';
+import { ROUND_PRESETS, type RoundPresetId } from '@/constants/roundPresets';
 
 interface UseWizardPartnersParams {
   data: WizardData;
@@ -24,7 +26,7 @@ export function useWizardPartners({
   data,
   setData,
   setCurrentStep,
-  skipPartnerStep,
+  skipPartnerStep: _skipPartnerStep,
 }: UseWizardPartnersParams) {
   const setFriendSearchQuery = useCallback((query: string) => {
     setData((prev) => ({ ...prev, friendSearchQuery: query }));
@@ -76,15 +78,29 @@ export function useWizardPartners({
     [data.selectedPartners]
   );
 
-  // Match type selection — update data and advance to partners step
+  // Match type selection — update data only; step advancement is now owned
+  // by handleSelectPreset. Kept for backward compat with any call sites that
+  // set the match type without going through the preset catalog.
   const handleSelectMatchType = useCallback((matchType: GameType) => {
     setData((prev) => ({ ...prev, selectedMatchType: matchType }));
-    if (skipPartnerStep) {
-      // Skip directly — the navigation hook handles starting the round
-      return;
-    }
-    setCurrentStep('partners');
-  }, [setData, setCurrentStep, skipPartnerStep]);
+  }, [setData]);
+
+  // Preset selection — resolves both the preset and its game_type, then
+  // advances to the course step (or nineType if a course is already pre-filled).
+  const handleSelectPreset = useCallback(
+    (presetId: RoundPresetId) => {
+      const preset = ROUND_PRESETS[presetId];
+      setData((prev) => ({
+        ...prev,
+        selectedPresetId: presetId,
+        selectedMatchType: preset.config.game_type,
+      }));
+      // Course may already be pre-filled (initialCourse / single-course home
+      // club) — skip the course step in that case.
+      setCurrentStep(data.selectedCourse ? 'nineType' : 'course');
+    },
+    [data.selectedCourse, setData, setCurrentStep]
+  );
 
   return {
     setFriendSearchQuery,
@@ -92,5 +108,6 @@ export function useWizardPartners({
     handleRemovePartner,
     isPartnerSelected,
     handleSelectMatchType,
+    handleSelectPreset,
   };
 }

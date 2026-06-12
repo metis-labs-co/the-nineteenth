@@ -11,6 +11,7 @@
 
 import { useCallback, useEffect, useMemo } from 'react';
 import type { TeeBox, GameType } from '@/types/database.types';
+import { presetIdForGameType } from '@/constants/roundPresets';
 import type { BallCount } from '@/types/multiball.types';
 import { useHomeClub } from '@/hooks/useHomeClub';
 import { useAuth } from '@/hooks/useAuth';
@@ -91,7 +92,7 @@ export function useWizardInitialization({
   // Reset state helper
   const resetState = useCallback(() => {
     setData(initialData);
-    setCurrentStep('course');
+    setCurrentStep('matchType');
   }, [initialData, setCurrentStep, setData]);
 
   // Start round immediately with current state (used when partner step is skipped)
@@ -154,12 +155,9 @@ export function useWizardInitialization({
           selectedTee: courseToUse.tees?.[0] ?? null,
         }));
 
-        if (initialMatchType && skipPartnerStep) {
-          // Skip everything - start round immediately (handled by course selection)
-          setCurrentStep('nineType');
-        } else {
-          setCurrentStep('nineType');
-        }
+        // Course is pre-filled, but format is still step 1. If the caller
+        // locked the format too (initialMatchType), jump straight to nineType.
+        setCurrentStep(initialMatchType ? 'nineType' : 'matchType');
       }
     }
   }, [visible, initialCourse, homeClub, initialMatchType, skipPartnerStep, setCurrentStep, setData]);
@@ -174,12 +172,13 @@ export function useWizardInitialization({
     }
   }, [visible, initialPartners, setData]);
 
-  // Pre-populate match type when sheet opens
+  // Pre-populate match type (and derive preset) when sheet opens
   useEffect(() => {
     if (visible && initialMatchType) {
       setData((prev) => ({
         ...prev,
         selectedMatchType: initialMatchType,
+        selectedPresetId: presetIdForGameType(initialMatchType),
       }));
     }
   }, [visible, initialMatchType, setData]);

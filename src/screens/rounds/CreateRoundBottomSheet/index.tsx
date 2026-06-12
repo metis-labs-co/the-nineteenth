@@ -3,9 +3,9 @@
  *
  * Features:
  * - Full-screen wizard with segmented progress bar
- * - Step 1: Search/select club and course
- * - Step 2: Select nine type (full 18, front 9, back 9)
- * - Step 3: Select match type (Stableford, Stroke, Match Play)
+ * - Step 1: Select game format (preset catalog)
+ * - Step 2: Search/select club and course
+ * - Step 3: Select nine type (full 18, front 9, back 9)
  * - Step 4: Select playing partners (with inline tee pickers)
  * - Step 5: Configure scoring setup (group) or Your Setup (solo)
  * - Quick-start scoring
@@ -54,7 +54,7 @@ import { useCreateRoundWizard } from './hooks';
 import {
   CourseSelectionStep,
   NineTypeStep,
-  MatchTypeStep,
+  GameFormatStep,
   PartnersStep,
   ScoringSetupStep,
   BallCountStep,
@@ -400,15 +400,15 @@ export default function CreateRoundBottomSheet({
   const dynamicStepKeys = useMemo(() => {
     let steps: string[];
     if (skipPartnerStep) {
-      steps = ['course', 'nineType', 'matchType'];
+      steps = ['matchType', 'course', 'nineType'];
     } else if (wizard.data.selectedPartners.length > 0) {
-      steps = ['course', 'nineType', 'matchType', 'partners', 'scoringSetup'];
+      steps = ['matchType', 'course', 'nineType', 'partners', 'scoringSetup'];
     } else if (wizard.currentStep === 'yourSetup') {
-      steps = ['course', 'nineType', 'matchType', 'partners', 'yourSetup'];
+      steps = ['matchType', 'course', 'nineType', 'partners', 'yourSetup'];
     } else if (wizard.currentStep === 'ballCount') {
-      steps = ['course', 'nineType', 'matchType', 'partners', 'ballCount'];
+      steps = ['matchType', 'course', 'nineType', 'partners', 'ballCount'];
     } else {
-      steps = ['course', 'nineType', 'matchType', 'partners'];
+      steps = ['matchType', 'course', 'nineType', 'partners'];
     }
     return initialMatchType ? steps.filter((s) => s !== 'matchType') : steps;
   }, [skipPartnerStep, wizard.data.selectedPartners.length, wizard.currentStep, initialMatchType]);
@@ -444,13 +444,13 @@ export default function CreateRoundBottomSheet({
 
   // Build wizard-compatible object for FullScreenWizard
   const currentStepIndex = Math.max(0, dynamicStepKeys.indexOf(wizard.currentStep));
-  const isFirstStep = wizard.currentStep === 'course' && !showCreateCourseForm;
+  const isFirstStep = currentStepIndex === 0 && !showCreateCourseForm;
 
   const wizardCompat = useMemo((): UseWizardReturn => {
     const titleMap: Record<string, string> = {
+      matchType: 'Game Format',
       course: showCreateCourseForm ? 'Add New Course' : 'Select Course',
       nineType: 'Holes',
-      matchType: 'Match Type',
       partners: 'Playing Partners',
       yourSetup: 'Solo Round',
       ballCount: 'Solo Round',
@@ -466,10 +466,10 @@ export default function CreateRoundBottomSheet({
 
     const resolveBackHandler = () => {
       switch (wizard.currentStep) {
+        case 'course': return initialMatchType ? undefined : wizard.handleBackToGameFormat;
         case 'nineType': return wizard.handleBackToCourse;
-        case 'matchType': return wizard.handleBackToNineType;
-        case 'partners': return wizard.handleBackToMatchType;
-        case 'yourSetup': return wizard.handleBackToMatchType;
+        case 'partners': return wizard.handleBackToNineType;
+        case 'yourSetup': return wizard.handleBackToPartners;
         case 'ballCount': return wizard.handleBackToPartners;
         case 'scoringSetup': return wizard.handleBackToPartners;
         default: return undefined;
@@ -495,7 +495,7 @@ export default function CreateRoundBottomSheet({
       isLastStep: currentStepIndex === steps.length - 1,
       totalSteps: steps.length,
     };
-  }, [dynamicStepKeys, currentStepIndex, isFirstStep, showCreateCourseForm, handleCancelCreateCourse, handleClose, wizard]);
+  }, [dynamicStepKeys, currentStepIndex, isFirstStep, showCreateCourseForm, handleCancelCreateCourse, handleClose, wizard, initialMatchType]);
 
   if (!visible) return null;
 
@@ -697,11 +697,9 @@ export default function CreateRoundBottomSheet({
       )}
 
       {wizard.currentStep === 'matchType' && (
-        <MatchTypeStep
-          selectedCourse={wizard.data.selectedCourse}
-          selectedTee={wizard.data.selectedTee}
-          selectedMatchType={wizard.data.selectedMatchType}
-          onSelectMatchType={wizard.handleSelectMatchType}
+        <GameFormatStep
+          selectedPresetId={wizard.data.selectedPresetId}
+          onSelectPreset={wizard.handleSelectPreset}
         />
       )}
 

@@ -59,6 +59,10 @@ export function useWizardNavigation({
   onStartRound,
   onClose,
 }: UseWizardNavigationParams) {
+  const handleBackToGameFormat = useCallback(() => {
+    setCurrentStep('matchType');
+  }, [setCurrentStep]);
+
   const handleBackToCourse = useCallback(() => {
     setCurrentStep('course');
     setData((prev) => ({
@@ -214,6 +218,7 @@ export function useWizardNavigation({
   }, [onClose, resetState]);
 
   return {
+    handleBackToGameFormat,
     handleBackToCourse,
     handleBackToNineType,
     handleBackToMatchType,

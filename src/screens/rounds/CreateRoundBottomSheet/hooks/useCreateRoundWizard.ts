@@ -27,6 +27,7 @@ import type {
   InitialCourse,
   TeamConfig,
 } from '../types';
+import type { RoundPresetId } from '@/constants/roundPresets';
 import { useWizardInitialization } from './useWizardInitialization';
 import { useWizardCourseSelection } from './useWizardCourseSelection';
 import { useWizardTeeSelection } from './useWizardTeeSelection';
@@ -90,6 +91,9 @@ interface UseCreateRoundWizardReturn {
   // Match type selection
   handleSelectMatchType: (matchType: GameType) => void;
 
+  // Preset selection (format-first wizard step 1)
+  handleSelectPreset: (presetId: RoundPresetId) => void;
+
   // Partner selection
   setFriendSearchQuery: (query: string) => void;
   handleTogglePartner: (friend: Friend) => void;
@@ -117,6 +121,7 @@ interface UseCreateRoundWizardReturn {
   handleStartSoloRound: () => void;
 
   // Navigation
+  handleBackToGameFormat: () => void;
   handleBackToCourse: () => void;
   handleBackToNineType: () => void;
   handleBackToMatchType: () => void;
@@ -171,7 +176,7 @@ export function useCreateRoundWizard({
   onStartRound,
   onClose,
 }: UseCreateRoundWizardOptions): UseCreateRoundWizardReturn {
-  const [currentStep, setCurrentStep] = useState<WizardStep>('course');
+  const [currentStep, setCurrentStep] = useState<WizardStep>('matchType');
   const [data, setData] = useState<WizardData>(initialData);
 
   // Subscription tier for multi-ball feature gating
@@ -216,6 +221,7 @@ export function useCreateRoundWizard({
     handleRemovePartner,
     isPartnerSelected,
     handleSelectMatchType,
+    handleSelectPreset,
   } = useWizardPartners({ data, setData, setCurrentStep, skipPartnerStep });
 
   const {
@@ -239,10 +245,11 @@ export function useCreateRoundWizard({
   // NineType selection handler
   const handleSelectNineType = useCallback((nineType: NineType) => {
     setData((prev) => ({ ...prev, nineType }));
-    setCurrentStep(initialMatchType ? 'partners' : 'matchType');
-  }, [initialMatchType, setData, setCurrentStep]);
+    setCurrentStep('partners');
+  }, [setData, setCurrentStep]);
 
   const {
+    handleBackToGameFormat,
     handleBackToCourse,
     handleBackToNineType,
     handleBackToMatchType,
@@ -279,6 +286,7 @@ export function useCreateRoundWizard({
     handleCurrentUserHandicapChange,
     handlePartnerHandicapChange,
     handleSelectMatchType,
+    handleSelectPreset,
     setFriendSearchQuery,
     handleTogglePartner,
     handleRemovePartner,
@@ -293,6 +301,7 @@ export function useCreateRoundWizard({
     setSplitIntoTeams,
     handleSelectBallCount,
     handleStartSoloRound,
+    handleBackToGameFormat,
     handleBackToCourse,
     handleBackToNineType,
     handleBackToMatchType,
