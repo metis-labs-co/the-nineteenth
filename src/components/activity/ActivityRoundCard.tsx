@@ -29,16 +29,16 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 /** Cap the stacked avatars in the footer; overflow shows a "+N" chip. */
 const MAX_FOOTER_AVATARS = 4;
 
-function participantScoreLabel(p: FeedParticipant, gameType: string): string {
+function participantScoreLabel(p: FeedParticipant, gameType: string): string | null {
   if (gameType === 'stableford') {
-    return p.total_points != null ? `${p.total_points} pts` : '–';
+    return p.total_points != null ? `${p.total_points} pts` : null;
   }
   if (p.total_gross != null && p.total_gross > 0) {
     return p.total_net != null && p.total_net > 0
       ? `${p.total_gross} (${p.total_net})`
       : `${p.total_gross}`;
   }
-  return '–';
+  return null;
 }
 
 /** The viewer if they played in the round, otherwise the first participant. */
@@ -80,7 +80,7 @@ export const ActivityRoundCard = React.memo(function ActivityRoundCard({
 
   const headline = headlineParticipant(card.participants, user?.id);
   const isViewer = !!headline && headline.player_id === user?.id;
-  const scoreLabel = headline ? participantScoreLabel(headline, card.game_type) : '–';
+  const scoreLabel = headline ? participantScoreLabel(headline, card.game_type) : null;
   const others = headline
     ? card.participants.filter((p) => p.player_id !== headline.player_id)
     : card.participants;
@@ -109,7 +109,9 @@ export const ActivityRoundCard = React.memo(function ActivityRoundCard({
         onPress={handleOpen}
         style={styles.content}
         accessibilityRole="button"
-        accessibilityLabel={`Round at ${courseTitle}`}
+        accessibilityLabel={
+          headline ? `${headline.name} played a round at ${courseTitle}` : `Round at ${courseTitle}`
+        }
       >
         {headline ? (
           <View style={styles.playerRow}>
@@ -135,7 +137,7 @@ export const ActivityRoundCard = React.memo(function ActivityRoundCard({
                 played a round · {formatTimeAgo(card.activity_at)}
               </Text>
             </View>
-            {scoreLabel !== '–' ? (
+            {scoreLabel ? (
               <Text style={[styles.score, { color: colors.primary }]}>{scoreLabel}</Text>
             ) : null}
           </View>
@@ -165,7 +167,9 @@ export const ActivityRoundCard = React.memo(function ActivityRoundCard({
           ) : null}
         </View>
 
-        {/* Inset rounded photo; section collapses when the round has none */}
+        {/* Inset rounded photo; gated on the feed payload so photo-less cards skip the
+            banner (and its query) entirely. If the banner's own cache disagrees mid-
+            invalidation it renders null inside this margin until the feed refetches. */}
         {card.photos.length > 0 ? (
           <View style={styles.photo}>
             <RoundPhotoBanner roundId={card.round_id} />

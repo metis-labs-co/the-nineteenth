@@ -64,6 +64,15 @@ describe('ActivityRoundCard', () => {
     expect(screen.getByText(/played a round/)).toBeTruthy();
   });
 
+  it('promotes the viewer to headline when they are not the first participant', () => {
+    const card = makeCard({
+      participants: [participant('p2', 'Alex Smith', 28), participant('viewer-1', 'Sam Kay', 34)],
+    });
+    render(<ActivityRoundCard card={card} onOpen={jest.fn()} />);
+    expect(screen.getByText('YOU')).toBeTruthy();
+    expect(screen.getByText('34 pts')).toBeTruthy();
+  });
+
   it('headlines the first participant without YOU pill when viewer is not in the round', () => {
     const card = makeCard({ participants: [participant('p2', 'Alex Smith', 28)] });
     render(<ActivityRoundCard card={card} onOpen={jest.fn()} />);
@@ -77,7 +86,7 @@ describe('ActivityRoundCard', () => {
       participants: [{ ...participant('viewer-1', 'Sam Kay'), total_points: null }],
     });
     render(<ActivityRoundCard card={card} onOpen={jest.fn()} />);
-    expect(screen.queryByText('–')).toBeNull();
+    expect(screen.queryByText(/pts/)).toBeNull();
   });
 
   it('shows the course row with club name', () => {
@@ -101,6 +110,8 @@ describe('ActivityRoundCard', () => {
     // 1 header avatar + 4 stacked footer avatars (5th other is overflow)
     expect(screen.getAllByText(/^avatar:/)).toHaveLength(5);
     expect(screen.getByText('+1')).toBeTruthy();
+    expect(screen.getByText('avatar:D')).toBeTruthy();
+    expect(screen.queryByText('avatar:E')).toBeNull();
   });
 
   it('renders no footer avatar stack for a solo round', () => {
