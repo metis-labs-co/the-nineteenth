@@ -34,10 +34,22 @@ describe('standalone preset metadata', () => {
     expect(getPresetAvailability(ROUND_PRESETS.team_best_ball, ctx).contextAllowed).toBe(true);
   });
 
-  it('does not apply comingSoon to standalone-eligible presets in standalone context', () => {
-    const ctx = { tier: 'premium' as const, isStandalone: true, perRoundRulesEnabled: true };
-    // team_best_ball is comingSoon for competitions but already live standalone
-    expect(getPresetAvailability(ROUND_PRESETS.team_best_ball, ctx).comingSoon).toBe(false);
+  it('does not apply comingSoon to standalone-eligible presets in prod (standalone context)', () => {
+    const g = global as unknown as Record<string, boolean>;
+    const origDev = g['__DEV__'];
+    g['__DEV__'] = false;
+    try {
+      const ctx = { tier: 'premium' as const, isStandalone: true, perRoundRulesEnabled: true };
+      // team_best_ball is comingSoon for competitions but already live standalone
+      expect(getPresetAvailability(ROUND_PRESETS.team_best_ball, ctx).comingSoon).toBe(false);
+      // a comp-only comingSoon preset stays locked
+      expect(getPresetAvailability(ROUND_PRESETS.pairs_scramble_2v2, ctx).comingSoon).toBe(true);
+      // and comingSoon still applies in competition context
+      const compCtx = { ...ctx, isStandalone: false };
+      expect(getPresetAvailability(ROUND_PRESETS.team_best_ball, compCtx).comingSoon).toBe(true);
+    } finally {
+      g['__DEV__'] = origDev;
+    }
   });
 
   it('maps legacy GameType entry points to canonical presets', () => {

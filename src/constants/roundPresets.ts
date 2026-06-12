@@ -94,6 +94,8 @@ export interface RoundPreset {
    * When true, this preset only makes sense on a competition round with
    * teams already configured (e.g. split sub-matches need 2+ team rosters
    * to generate pairings). Standalone rounds hide these.
+   * Informational only — standalone availability is gated via the `standalone`
+   * field; this flag no longer drives availability logic.
    */
   requiresCompetitionTeams?: boolean;
   /**
@@ -555,6 +557,10 @@ export function presetIdForGameType(gameType: GameType): RoundPresetId {
     case 'best-ball': return 'team_best_ball';
     case 'scramble': return 'team_scramble';
     case 'shamble': return 'team_shamble';
+    default: {
+      const _exhaustive: never = gameType;
+      throw new Error(`No preset for game type: ${String(_exhaustive)}`);
+    }
   }
 }
 
