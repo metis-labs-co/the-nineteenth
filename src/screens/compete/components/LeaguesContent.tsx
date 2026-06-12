@@ -1,6 +1,7 @@
 // src/screens/compete/components/LeaguesContent.tsx
 import React, { useCallback, useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { Text } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { IconPlus, IconUsersPlus } from '@tabler/icons-react-native';
@@ -11,7 +12,7 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { useSubscriptionContext } from '@/context/SubscriptionContext';
 import { useLeagues, useDeleteLeague } from '@/hooks/useLeagues';
 import { isUnlimited, isNoLimit } from '@/types/subscription.types';
-import { spacing } from '@/constants/theme';
+import { spacing, typography, borderRadius } from '@/constants/theme';
 import type { RootStackParamList } from '@/navigation/types';
 import type { League } from '@/types/database';
 
@@ -82,16 +83,21 @@ export function LeaguesContent() {
             feature="join_league"
             onUpgradePress={handleUpgrade}
           >
-            <FeatureButton
-              title="Join"
-              subtitle="Public or invite code"
-              icon={<IconUsersPlus size={20} color={colors.white} strokeWidth={2.5} />}
+            <TouchableOpacity
+              style={[
+                styles.joinButton,
+                { backgroundColor: colors.surface, borderColor: colors.primary },
+              ]}
               onPress={handleJoinLeague}
-              backgroundColor={colors.accent}
+              activeOpacity={0.7}
+              accessibilityRole="button"
               accessibilityLabel="Join a league"
-              variant="compact"
-              showChevron={false}
-            />
+            >
+              <IconUsersPlus size={18} color={colors.primary} strokeWidth={2.5} />
+              <Text style={[styles.joinButtonText, { color: colors.primary }]}>
+                Join
+              </Text>
+            </TouchableOpacity>
           </FeatureLockCompact>
         </View>
       </View>
@@ -159,6 +165,20 @@ const styles = StyleSheet.create({
   },
   featureButtonWrapper: {
     flex: 1,
+  },
+  // Bordered style matching the comps join bar; minHeight tracks the compact
+  // FeatureButton so the row stays level.
+  joinButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    minHeight: 64,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+  },
+  joinButtonText: {
+    ...typography.bodyBold,
   },
   limitRow: {
     flexDirection: 'row',
