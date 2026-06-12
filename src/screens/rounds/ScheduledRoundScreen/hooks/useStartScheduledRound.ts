@@ -117,7 +117,22 @@ export function useStartScheduledRound(
         );
 
         // -----------------------------------------------------------------------
-        // 2. Execute keep/drop DB changes (owner only — see RLS analysis above)
+        // 2. Fetch course holes FIRST — validates course data before any DB writes.
+        //    Doing this before the status UPDATE prevents stranding the round in
+        //    'in-progress' if the course data is missing or malformed.
+        // -----------------------------------------------------------------------
+        const nineType = (round.nine_type as Parameters<typeof fetchRoundHoles>[2]) ?? 'full';
+        const { holes, effectiveNineType } = await fetchRoundHoles(
+          round.course_id,
+          false,          // scheduled rounds don't use build-as-you-play
+          nineType
+        );
+
+        // -----------------------------------------------------------------------
+        // 3. Execute keep/drop DB changes (owner only — see RLS analysis above).
+        //    Drops are irreversible — if the subsequent UPDATE fails we revert the
+        //    status but cannot restore the deleted rows (acceptable: the player was
+        //    pending and the organiser explicitly chose to remove them).
         // -----------------------------------------------------------------------
         if (toDrop.length > 0 && isOwner) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase typed client workaround
@@ -130,16 +145,6 @@ export function useStartScheduledRound(
             throw new Error(`Failed to remove dropped players: ${dropError.message}`);
           }
         }
-
-        // -----------------------------------------------------------------------
-        // 3. Fetch course holes and resolve effective nine type
-        // -----------------------------------------------------------------------
-        const nineType = (round.nine_type as Parameters<typeof fetchRoundHoles>[2]) ?? 'full';
-        const { holes, effectiveNineType } = await fetchRoundHoles(
-          round.course_id,
-          false,          // scheduled rounds don't use build-as-you-play
-          nineType
-        );
 
         // -----------------------------------------------------------------------
         // 4. UPDATE round: status → in-progress + any setup fields
@@ -168,6 +173,11 @@ export function useStartScheduledRound(
         if (updateError) {
           throw new Error(`Failed to start round: ${updateError.message}`);
         }
+
+        // Post-UPDATE work is wrapped in try/catch so that if anything after the
+        // status flip fails, we attempt to revert the round back to 'upcoming'.
+        // (Mirrors the rollback pattern in useStartNewRound.)
+        try {
 
         // -----------------------------------------------------------------------
         // 5. Build Player[] from active round_players rows
@@ -283,6 +293,26 @@ export function useStartScheduledRound(
           teamConfig,
           players,
         });
+
+        } catch (postUpdateError) {
+          // Post-UPDATE tail failed — attempt best-effort revert of status to
+          // 'upcoming' so the start UI remains accessible. If the revert itself
+          // fails, we still surface the original error to the user.
+          // Note: any dropped round_players rows are NOT restored (drops are
+          // irreversible and acceptable — the organiser explicitly chose to remove
+          // those pending players).
+          try {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase typed client workaround
+            await (supabase.from('rounds') as any)
+              .update({ status: 'upcoming' })
+              .eq('id', round.id);
+          } catch {
+            // Revert failed — surface the original error below; round may remain
+            // in-progress but at least we don't silently swallow the failure.
+          }
+          throw postUpdateError;
+        }
+
       } catch (error) {
         console.error('[useStartScheduledRound] Error starting round:', error);
         showAlert(

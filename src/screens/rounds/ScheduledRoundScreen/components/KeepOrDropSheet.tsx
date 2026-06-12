@@ -7,7 +7,7 @@
  * (RLS only allows the owner to delete others' round_players rows).
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Text } from 'react-native-paper';
 import { BottomSheet } from '@/components/common/BottomSheet';
@@ -44,6 +44,14 @@ export function KeepOrDropSheet({
 
   // droppedIds: pending players the owner wants to remove
   const [droppedIds, setDroppedIds] = useState<Set<string>>(new Set());
+
+  // Reset selection whenever the sheet (re)opens so stale state from a
+  // previous open doesn't carry into the next start attempt.
+  useEffect(() => {
+    if (visible) {
+      setDroppedIds(new Set());
+    }
+  }, [visible]);
 
   const toggleDrop = (playerId: string) => {
     setDroppedIds((prev) => {
@@ -108,6 +116,8 @@ export function KeepOrDropSheet({
                   ]}
                   onPress={() => toggleDrop(p.player_id)}
                   accessibilityLabel={isDropped ? `Include ${name}` : `Remove ${name}`}
+                  accessibilityRole="switch"
+                  accessibilityState={{ selected: isDropped }}
                 >
                   <Text style={[styles.toggleText, { color: isDropped ? colors.error : colors.success }]}>
                     {isDropped ? 'Removed' : 'Keep'}
@@ -141,6 +151,7 @@ export function KeepOrDropSheet({
           onPress={handleConfirm}
           disabled={!!blockReason}
           activeOpacity={0.8}
+          accessibilityState={{ disabled: !!blockReason }}
         >
           <Text style={[styles.startButtonText, { color: blockReason ? colors.textDisabled : colors.white }]}>
             Start Round

@@ -102,7 +102,7 @@ export default function ScheduledRoundScreen({ route, navigation }: Props) {
   const colors = useThemeColors();
   const { user } = useAuth();
 
-  const { data: round, isLoading, error, refetch } = useScheduledRound(roundId);
+  const { data: round, isLoading, isRefetching, error, refetch } = useScheduledRound(roundId);
   const respondMutation = useRespondToRoundInvitation();
   const inviteMutation = useInviteToScheduledRound();
   const updateMutation = useUpdateScheduledRound();
@@ -313,11 +313,16 @@ export default function ScheduledRoundScreen({ route, navigation }: Props) {
   // Called from KeepOrDropSheet.onConfirm
   const handleKeepDropConfirm = useCallback(
     (droppedIds: Set<string>) => {
-      setPendingDropIds(droppedIds);
       setShowKeepOrDrop(false);
       if (isGroupRound) {
+        // Store for the scoring-setup leg (cleared by handleScoringSetupStart or
+        // by the scoring-setup cancel path — both exit paths reset pendingDropIds).
+        setPendingDropIds(droppedIds);
         setShowScoringSetup(true);
       } else {
+        // Solo round: pass directly and don't persist — state isn't needed further.
+        // On error the user returns to the start section with clean state.
+        setPendingDropIds(new Set());
         handleStart({ droppedPendingIds: droppedIds, handicapSource });
       }
     },
@@ -350,8 +355,14 @@ export default function ScheduledRoundScreen({ route, navigation }: Props) {
           }
         : undefined;
 
+    // Snapshot the current drop set and clear standing state immediately.
+    // Success navigates away; on error the user gets back to the start section
+    // with a clean slate so the next attempt doesn't reuse stale drop IDs.
+    const droppedSnapshot = new Set(pendingDropIds);
+    setPendingDropIds(new Set());
+
     handleStart({
-      droppedPendingIds: pendingDropIds,
+      droppedPendingIds: droppedSnapshot,
       scoringPairsConfig,
       skinsConfig: skinsConfigFinal,
       wolfConfig: wolfConfigFinal,
@@ -470,7 +481,7 @@ export default function ScheduledRoundScreen({ route, navigation }: Props) {
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
-        refreshControl={<RefreshControl refreshing={false} onRefresh={refetch} />}
+        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
         showsVerticalScrollIndicator={false}
       >
         {/* Header card */}
@@ -544,6 +555,11 @@ export default function ScheduledRoundScreen({ route, navigation }: Props) {
                 {blockReason}
               </Text>
             ) : null}
+            {!isOrganiser && pendingPlayers.length > 0 && (
+              <Text style={[styles.pendingNote, { color: colors.textSecondary }]}>
+                Pending invitees can only be removed by the organiser.
+              </Text>
+            )}
             <TouchableOpacity
               style={[
                 styles.startButton,
@@ -552,6 +568,7 @@ export default function ScheduledRoundScreen({ route, navigation }: Props) {
               onPress={handleStartPress}
               disabled={startDisabled || isStarting}
               accessibilityLabel={startDisabled ? 'Cannot start round yet' : 'Start round'}
+              accessibilityState={{ disabled: startDisabled || isStarting }}
               activeOpacity={0.8}
             >
               <Text
@@ -686,7 +703,12 @@ export default function ScheduledRoundScreen({ route, navigation }: Props) {
             <PageHeader
               title="Scoring Setup"
               showBack
-              onBack={() => setShowScoringSetup(false)}
+              onBack={() => {
+                setShowScoringSetup(false);
+                // Clear pending drop IDs when the user cancels scoring setup so
+                // the next start attempt begins from a clean slate.
+                setPendingDropIds(new Set());
+              }}
             />
             <ScoringSetupStep
               selectedCourse={
@@ -815,6 +837,10 @@ const styles = StyleSheet.create({
   },
   blockText: {
     ...typography.body,
+    textAlign: 'center',
+  },
+  pendingNote: {
+    ...typography.caption,
     textAlign: 'center',
   },
   startButton: {
