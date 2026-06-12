@@ -8,6 +8,7 @@ import type { WinnerInfo } from '@/components/common';
 export interface RoundPlayerInfo {
   id: string;
   name: string;
+  photo_url?: string | null;
 }
 
 /**

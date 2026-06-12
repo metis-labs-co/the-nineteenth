@@ -3,11 +3,9 @@
  *
  * Tests for the round list card component including:
  * - Basic rendering with different round statuses
- * - Competition vs standalone practice rounds
- * - Player display for standalone rounds
- * - Course information display
- * - Date and game type display
- * - Progress bar for in-progress rounds
+ * - Title block (course, club, result/type subtitle)
+ * - Prominent user score display for completed rounds
+ * - Footer chips: game format, tee swatch, skins/wolf, companion avatars
  * - Swipe-to-delete functionality
  * - Accessibility features
  * - Edge cases
@@ -26,19 +24,9 @@ import type { RoundListCardData } from './types';
 jest.mock('@tabler/icons-react-native', () => {
   const { View, Text } = require('react-native');
   return {
-    IconMapPin: (props: any) => (
-      <View testID="icon-map-pin" {...props}>
-        <Text>MapPin</Text>
-      </View>
-    ),
-    IconUsers: (props: any) => (
-      <View testID="icon-users" {...props}>
-        <Text>Users</Text>
-      </View>
-    ),
-    IconTrash: (props: any) => (
-      <View testID="icon-trash" {...props}>
-        <Text>Trash</Text>
+    IconDice: (props: any) => (
+      <View testID="icon-dice" {...props}>
+        <Text>Dice</Text>
       </View>
     ),
     IconDog: (props: any) => (
@@ -75,48 +63,14 @@ jest.mock('@/components/common', () => {
         )}
       </View>
     ),
-    StatusBadge: ({ status, label, size: _size }: { status: string; label?: string; size?: string }) => (
-      <View testID={label ? `game-type-badge-${label}` : `status-badge-${status}`}>
-        <Text>{label || status}</Text>
-      </View>
-    ),
-    ProgressBar: ({
-      value,
-      max,
-      label,
-    }: {
-      value: number;
-      max: number;
-      label?: string;
-    }) => (
-      <View testID="progress-bar">
-        <Text testID="progress-value">{value}/{max}</Text>
-        {label && <Text testID="progress-label">{label}</Text>}
-      </View>
-    ),
-    DateTimeDisplay: ({
-      date,
-      time,
-      size: _size,
-    }: {
-      date: string | Date;
-      time?: string | null;
-      size?: string;
-    }) => (
-      <View testID="datetime-display">
-        <Text testID="date-value">{typeof date === 'string' ? date : date.toISOString()}</Text>
-        {time && <Text testID="time-value">{time}</Text>}
-      </View>
-    ),
     Pill: ({ label, size: _size }: { label: string; size?: string }) => (
       <View testID="pill">
         <Text>{label}</Text>
       </View>
     ),
-    WinnerRow: ({ winner, pointsLabel, size: _size }: any) => (
-      <View testID="winner-row">
-        <Text>{winner?.name || 'Unknown'}</Text>
-        {pointsLabel && <Text>{pointsLabel}</Text>}
+    PlayerAvatar: ({ name }: { name: string; photoUrl?: string | null; size?: number }) => (
+      <View testID={`player-avatar-${name}`}>
+        <Text>{name}</Text>
       </View>
     ),
   };
@@ -224,32 +178,136 @@ describe('RoundListCard', () => {
       expect(screen.getByTestId('round-card')).toBeTruthy();
     });
 
-    it('renders with scheduled status', () => {
+    it('renders the course as the card title with the club beneath', () => {
+      const round = createRoundData();
+      render(<RoundListCard round={round} onPress={defaultOnPress} />);
+
+      expect(screen.getByText('Royal Melbourne')).toBeTruthy();
+      expect(screen.getByText('Royal Melbourne Golf Club')).toBeTruthy();
+    });
+
+    it('does not repeat the club line when it matches the course name', () => {
+      const round = createRoundData({
+        course: { id: 'course-1', name: 'Royal Melbourne', venueName: 'Royal Melbourne' },
+      });
+      render(<RoundListCard round={round} onPress={defaultOnPress} />);
+
+      expect(screen.getAllByText('Royal Melbourne')).toHaveLength(1);
+    });
+
+    it('shows "Ready to score" for rounds that have not started', () => {
       const round = createRoundData({ status: 'scheduled' });
       render(<RoundListCard round={round} onPress={defaultOnPress} />);
 
-      // Status badge is no longer shown for regular statuses;
-      // verify the card renders the game type pill and competition name
-      expect(screen.getByText('Stableford')).toBeTruthy();
-      expect(screen.getByText('Summer Series')).toBeTruthy();
+      expect(screen.getByText('Ready to score')).toBeTruthy();
     });
 
     it('renders with in-progress status', () => {
       const round = createInProgressRound();
       render(<RoundListCard round={round} onPress={defaultOnPress} />);
 
-      // In-progress rounds show a progress bar
-      expect(screen.getByTestId('progress-bar')).toBeTruthy();
+      expect(screen.getByText('Ready to score')).toBeTruthy();
+      expect(screen.getByText('Stableford')).toBeTruthy();
     });
 
     it('renders with completed status', () => {
       const round = createCompletedRound();
       render(<RoundListCard round={round} onPress={defaultOnPress} />);
 
-      // Completed rounds render without error
       expect(screen.getByText('Stableford')).toBeTruthy();
     });
+  });
 
+  // ===========================================================================
+  // SUBTITLE / RESULT LINE TESTS
+  // ===========================================================================
+
+  describe('Subtitle Display', () => {
+    it('shows the competition name for competition rounds', () => {
+      const round = createCompletedRound({
+        userScore: { hasScorecard: true, totalPoints: 34 },
+      });
+      render(<RoundListCard round={round} onPress={defaultOnPress} />);
+
+      expect(screen.getByText('Summer Series')).toBeTruthy();
+    });
+
+    it('falls back to "Competition" when no competition name', () => {
+      const round = createCompletedRound({
+        competition: null,
+        isStandalone: false,
+        userScore: { hasScorecard: true, totalPoints: 34 },
+      });
+      render(<RoundListCard round={round} onPress={defaultOnPress} />);
+
+      expect(screen.getByText('Competition')).toBeTruthy();
+    });
+
+    it('shows "Practice Round" for solo standalone rounds', () => {
+      const round = createStandaloneRound({
+        status: 'completed',
+        players: [{ id: 'player-1', name: 'John Smith' }],
+        userScore: { hasScorecard: true, totalPoints: 34 },
+      });
+      render(<RoundListCard round={round} onPress={defaultOnPress} />);
+
+      expect(screen.getByText('Practice Round')).toBeTruthy();
+    });
+
+    it('shows "Handicap Round" for solo standalone rounds with a handicap source', () => {
+      const round = createStandaloneRound({
+        status: 'completed',
+        players: [{ id: 'player-1', name: 'John Smith' }],
+        handicapSource: 'profile',
+        userScore: { hasScorecard: true, totalPoints: 34 },
+      });
+      render(<RoundListCard round={round} onPress={defaultOnPress} />);
+
+      expect(screen.getByText('Handicap Round')).toBeTruthy();
+    });
+
+    it('shows "Match" for multiplayer standalone rounds without a winner', () => {
+      const round = createStandaloneRound({
+        status: 'completed',
+        userScore: { hasScorecard: true, totalPoints: 34 },
+      });
+      render(<RoundListCard round={round} onPress={defaultOnPress} />);
+
+      expect(screen.getByText('Match')).toBeTruthy();
+    });
+
+    it('shows the winner line for completed group rounds', () => {
+      const round = createStandaloneRound({
+        status: 'completed',
+        winner: { name: 'Jane Doe', points: 38, isTeam: false },
+        userScore: { hasScorecard: true, totalPoints: 34 },
+      });
+      render(<RoundListCard round={round} onPress={defaultOnPress} />);
+
+      expect(screen.getByText('Winner: Jane Doe · 38 pts')).toBeTruthy();
+    });
+
+    it('shows the match play winner with margin', () => {
+      const round = createStandaloneRound({
+        status: 'completed',
+        gameType: 'match-play',
+        winner: { name: 'Jane Doe', points: 0, isTeam: false, margin: '3&2' },
+        userScore: { hasScorecard: true, matchResult: { won: false, margin: '3&2' } },
+      });
+      render(<RoundListCard round={round} onPress={defaultOnPress} />);
+
+      expect(screen.getByText('Winner: Jane Doe · 3&2')).toBeTruthy();
+    });
+
+    it('shows "Round not submitted" when no scorecard exists', () => {
+      const round = createCompletedRound({
+        userScore: { hasScorecard: false },
+      });
+      render(<RoundListCard round={round} onPress={defaultOnPress} />);
+
+      expect(screen.getByText('Round not submitted')).toBeTruthy();
+      expect(screen.queryByTestId('round-card-score')).toBeNull();
+    });
   });
 
   // ===========================================================================
@@ -290,16 +348,6 @@ describe('RoundListCard', () => {
       expect(screen.getByText('Won')).toBeTruthy();
     });
 
-    it('shows not submitted pill when no scorecard exists', () => {
-      const round = createCompletedRound({
-        userScore: { hasScorecard: false },
-      });
-      render(<RoundListCard round={round} onPress={defaultOnPress} />);
-
-      expect(screen.getByText('Not submitted')).toBeTruthy();
-      expect(screen.queryByTestId('round-card-score')).toBeNull();
-    });
-
     it('does not show a score for in-progress rounds', () => {
       const round = createInProgressRound({
         userScore: { hasScorecard: true, totalPoints: 20 },
@@ -311,10 +359,17 @@ describe('RoundListCard', () => {
   });
 
   // ===========================================================================
-  // TEE SWATCH TESTS
+  // FOOTER CHIP TESTS
   // ===========================================================================
 
-  describe('Tee Swatch Display', () => {
+  describe('Footer Chips', () => {
+    it('shows the game format chip', () => {
+      const round = createStandaloneRound({ gameType: 'stroke' });
+      render(<RoundListCard round={round} onPress={defaultOnPress} />);
+
+      expect(screen.getByText('Stroke Play')).toBeTruthy();
+    });
+
     it('shows a tee colour swatch for standalone rounds with a selected tee', () => {
       const round = createStandaloneRound({ selectedTeeName: 'White' });
       render(<RoundListCard round={round} onPress={defaultOnPress} />);
@@ -329,215 +384,91 @@ describe('RoundListCard', () => {
 
       expect(screen.queryByTestId('round-card-tee-swatch')).toBeNull();
     });
-  });
 
-  // ===========================================================================
-  // COMPETITION ROUND TESTS
-  // ===========================================================================
-
-  describe('Competition Round Display', () => {
-    it('displays competition name', () => {
-      const round = createRoundData({
-        competition: { id: 'comp-1', name: 'Summer Series' },
-      });
+    it('shows a nine-hole chip for front 9 rounds', () => {
+      const round = createStandaloneRound({ nineType: 'front9' });
       render(<RoundListCard round={round} onPress={defaultOnPress} />);
 
-      expect(screen.getByText('Summer Series')).toBeTruthy();
+      expect(screen.getByText('Front 9')).toBeTruthy();
     });
 
-    it('displays round number pill when multiple rounds exist', () => {
-      const round = createRoundData({
-        roundNumber: 2,
-        totalRounds: 4,
-      });
+    it('shows skins and wolf chips when those games are active', () => {
+      const round = createStandaloneRound({ hasSkins: true, hasWolf: true });
       render(<RoundListCard round={round} onPress={defaultOnPress} />);
 
-      expect(screen.getByText('Round 2 of 4')).toBeTruthy();
+      expect(screen.getByText('Skins')).toBeTruthy();
+      expect(screen.getByText('Wolf')).toBeTruthy();
+      expect(screen.getByTestId('icon-dice')).toBeTruthy();
+      expect(screen.getByTestId('icon-dog')).toBeTruthy();
     });
 
-    it('does not display round pill for single round competition', () => {
-      const round = createRoundData({
-        roundNumber: 1,
-        totalRounds: 1,
-      });
-      render(<RoundListCard round={round} onPress={defaultOnPress} />);
-
-      expect(screen.queryByText('Round 1 of 1')).toBeNull();
-    });
-
-    it('displays fallback "Competition" when no competition name', () => {
-      const round = createRoundData({
-        competition: { id: 'comp-1', name: '' },
-        isStandalone: false,
-      });
-      render(<RoundListCard round={round} onPress={defaultOnPress} />);
-
-      // Should show "Competition" when name is empty
-      expect(screen.getByText('Competition')).toBeTruthy();
-    });
-
-    it('displays "Competition" when competition is null but not standalone', () => {
-      const round = createRoundData({
-        competition: null,
-        isStandalone: false,
-      });
-      render(<RoundListCard round={round} onPress={defaultOnPress} />);
-
-      expect(screen.getByText('Competition')).toBeTruthy();
-    });
-  });
-
-  // ===========================================================================
-  // STANDALONE/PRACTICE ROUND TESTS
-  // ===========================================================================
-
-  describe('Standalone/Practice Round Display', () => {
-    it('displays "Practice Round" label for solo standalone round', () => {
-      const round = createStandaloneRound({
-        players: [{ id: 'player-1', name: 'John Smith' }],
-      });
-      render(<RoundListCard round={round} onPress={defaultOnPress} />);
-
-      expect(screen.getByText('Practice Round')).toBeTruthy();
-    });
-
-    it('displays "Match" label for multiplayer standalone round', () => {
+    it('does not show skins or wolf chips by default', () => {
       const round = createStandaloneRound();
       render(<RoundListCard round={round} onPress={defaultOnPress} />);
 
-      expect(screen.getByText('Match')).toBeTruthy();
+      expect(screen.queryByText('Skins')).toBeNull();
+      expect(screen.queryByText('Wolf')).toBeNull();
+    });
+  });
+
+  // ===========================================================================
+  // COMPANION AVATAR TESTS
+  // ===========================================================================
+
+  describe('Companion Avatars', () => {
+    it('shows companion avatars excluding the current user', () => {
+      const round = createStandaloneRound();
+      render(
+        <RoundListCard round={round} onPress={defaultOnPress} currentUserId="player-1" />
+      );
+
+      expect(screen.getByText('with 1')).toBeTruthy();
+      expect(screen.getByTestId('player-avatar-Jane Doe')).toBeTruthy();
+      expect(screen.queryByTestId('player-avatar-John Smith')).toBeNull();
     });
 
-    it('displays playing partners for standalone rounds', () => {
+    it('shows all players when current user is not in the round', () => {
+      const round = createStandaloneRound();
+      render(
+        <RoundListCard round={round} onPress={defaultOnPress} currentUserId="someone-else" />
+      );
+
+      expect(screen.getByText('with 2')).toBeTruthy();
+    });
+
+    it('caps the avatar stack at three companions', () => {
       const round = createStandaloneRound({
         players: [
-          { id: 'player-1', name: 'John Smith' },
-          { id: 'player-2', name: 'Jane Doe' },
-          { id: 'player-3', name: 'Bob Wilson' },
+          { id: 'p1', name: 'One' },
+          { id: 'p2', name: 'Two' },
+          { id: 'p3', name: 'Three' },
+          { id: 'p4', name: 'Four' },
         ],
       });
       render(<RoundListCard round={round} onPress={defaultOnPress} />);
 
-      expect(screen.getByTestId('icon-users')).toBeTruthy();
-      expect(screen.getByText('John, Jane, Bob')).toBeTruthy();
+      expect(screen.getByText('with 4')).toBeTruthy();
+      expect(screen.getByTestId('player-avatar-One')).toBeTruthy();
+      expect(screen.getByTestId('player-avatar-Three')).toBeTruthy();
+      expect(screen.queryByTestId('player-avatar-Four')).toBeNull();
     });
 
-    it('displays "You" for current user in players list', () => {
-      const round = createStandaloneRound({
-        players: [
-          { id: 'current-user', name: 'My Name' },
-          { id: 'player-2', name: 'Jane Doe' },
-        ],
-      });
-      render(
-        <RoundListCard
-          round={round}
-          onPress={defaultOnPress}
-          currentUserId="current-user"
-        />
-      );
-
-      expect(screen.getByText('You, Jane')).toBeTruthy();
-    });
-
-    it('does not display players for single player standalone round', () => {
+    it('does not show avatars when the only player is the current user', () => {
       const round = createStandaloneRound({
         players: [{ id: 'player-1', name: 'John Smith' }],
       });
-      render(<RoundListCard round={round} onPress={defaultOnPress} />);
+      render(
+        <RoundListCard round={round} onPress={defaultOnPress} currentUserId="player-1" />
+      );
 
-      // Should not show players row when only 1 player
-      expect(screen.queryByTestId('icon-users')).toBeNull();
+      expect(screen.queryByText(/^with /)).toBeNull();
     });
 
-    it('does not display players when players array is empty', () => {
-      const round = createStandaloneRound({
-        players: [],
-      });
+    it('does not show avatars when players is undefined', () => {
+      const round = createStandaloneRound({ players: undefined });
       render(<RoundListCard round={round} onPress={defaultOnPress} />);
 
-      expect(screen.queryByTestId('icon-users')).toBeNull();
-    });
-
-    it('does not display players when players is undefined', () => {
-      const round = createStandaloneRound({
-        players: undefined,
-      });
-      render(<RoundListCard round={round} onPress={defaultOnPress} />);
-
-      expect(screen.queryByTestId('icon-users')).toBeNull();
-    });
-  });
-
-  // ===========================================================================
-  // COURSE INFORMATION TESTS
-  // ===========================================================================
-
-  describe('Course Information Display', () => {
-    it('displays course name with map pin icon', () => {
-      const round = createRoundData({
-        course: { id: 'c1', name: 'Royal Melbourne' },
-      });
-      render(<RoundListCard round={round} onPress={defaultOnPress} />);
-
-      expect(screen.getByTestId('icon-map-pin')).toBeTruthy();
-      expect(screen.getByText('Royal Melbourne')).toBeTruthy();
-    });
-
-    it('displays venue name when same as course name', () => {
-      const round = createRoundData({
-        course: {
-          id: 'c1',
-          name: 'Kingston Heath',
-          venueName: 'Kingston Heath',
-        },
-      });
-      render(<RoundListCard round={round} onPress={defaultOnPress} />);
-
-      // Should just show venue name once
-      expect(screen.getByText('Kingston Heath')).toBeTruthy();
-    });
-
-    it('displays venue and course name when different', () => {
-      const round = createRoundData({
-        course: {
-          id: 'c1',
-          name: 'West Course',
-          venueName: 'Sandbelt Golf Club',
-        },
-      });
-      render(<RoundListCard round={round} onPress={defaultOnPress} />);
-
-      expect(screen.getByText('Sandbelt Golf Club (West Course)')).toBeTruthy();
-    });
-
-    it('displays only course name when no venue', () => {
-      const round = createRoundData({
-        course: {
-          id: 'c1',
-          name: 'Public Links',
-          venueName: undefined,
-        },
-      });
-      render(<RoundListCard round={round} onPress={defaultOnPress} />);
-
-      expect(screen.getByText('Public Links')).toBeTruthy();
-    });
-  });
-
-  // ===========================================================================
-  // DATE AND TIME TESTS
-  // ===========================================================================
-
-  describe('Date and Time Display', () => {
-    it('does not display the date on round cards', () => {
-      const round = createRoundData({
-        date: '2025-01-15',
-        teeTime: '10:30 AM',
-      });
-      render(<RoundListCard round={round} onPress={defaultOnPress} />);
-
-      expect(screen.queryByTestId('datetime-display')).toBeNull();
+      expect(screen.queryByText(/^with /)).toBeNull();
     });
   });
 
@@ -572,62 +503,6 @@ describe('RoundListCard', () => {
       render(<RoundListCard round={round} onPress={defaultOnPress} />);
 
       expect(screen.getByText('Scramble')).toBeTruthy();
-    });
-
-    it('displays Best Ball game type', () => {
-      const round = createRoundData({ gameType: 'best-ball' });
-      render(<RoundListCard round={round} onPress={defaultOnPress} />);
-
-      expect(screen.getByText('Best Ball')).toBeTruthy();
-    });
-
-    it('displays unknown game type as-is', () => {
-      const round = createRoundData({ gameType: 'custom_format' });
-      render(<RoundListCard round={round} onPress={defaultOnPress} />);
-
-      // Unknown game types are passed through as-is from getGameTypeLabel
-      expect(screen.getByText('custom_format')).toBeTruthy();
-    });
-  });
-
-  // ===========================================================================
-  // PROGRESS BAR TESTS
-  // ===========================================================================
-
-  describe('Progress Bar Display', () => {
-    it('displays progress bar for in-progress rounds', () => {
-      const round = createInProgressRound({
-        holesCompleted: 9,
-        totalHoles: 18,
-      });
-      render(<RoundListCard round={round} onPress={defaultOnPress} />);
-
-      expect(screen.getByTestId('progress-bar')).toBeTruthy();
-      expect(screen.getByText('9/18 holes')).toBeTruthy();
-    });
-
-    it('does not display progress bar for scheduled rounds', () => {
-      const round = createRoundData({ status: 'scheduled' });
-      render(<RoundListCard round={round} onPress={defaultOnPress} />);
-
-      expect(screen.queryByTestId('progress-bar')).toBeNull();
-    });
-
-    it('does not display progress bar for completed rounds', () => {
-      const round = createCompletedRound();
-      render(<RoundListCard round={round} onPress={defaultOnPress} />);
-
-      expect(screen.queryByTestId('progress-bar')).toBeNull();
-    });
-
-    it('displays correct progress values', () => {
-      const round = createInProgressRound({
-        holesCompleted: 12,
-        totalHoles: 18,
-      });
-      render(<RoundListCard round={round} onPress={defaultOnPress} />);
-
-      expect(screen.getByText('12/18')).toBeTruthy();
     });
   });
 
@@ -699,6 +574,22 @@ describe('RoundListCard', () => {
       expect(screen.getByText('Delete')).toBeTruthy();
     });
 
+    it('calls onDelete with round data when delete is pressed', () => {
+      const round = createRoundData();
+      render(
+        <RoundListCard
+          round={round}
+          onPress={defaultOnPress}
+          onDelete={defaultOnDelete}
+          swipeEnabled={true}
+        />
+      );
+
+      fireEvent.press(screen.getByTestId('delete-button'));
+
+      expect(defaultOnDelete).toHaveBeenCalledWith(round);
+    });
+
     it('swipeEnabled defaults to false', () => {
       const round = createRoundData();
       render(<RoundListCard round={round} onPress={defaultOnPress} />);
@@ -721,25 +612,30 @@ describe('RoundListCard', () => {
     });
 
     it('has appropriate accessibility label for scheduled round', () => {
-      const round = createRoundData({
-        status: 'scheduled',
-        course: { id: 'c1', name: 'Royal Melbourne', venueName: 'Royal Melbourne Golf Club' },
-      });
+      const round = createRoundData();
       render(<RoundListCard round={round} onPress={defaultOnPress} testID="round-card" />);
 
       const card = screen.getByTestId('round-card');
+      expect(card.props.accessibilityLabel).toContain('View round at');
       expect(card.props.accessibilityLabel).toContain('Royal Melbourne Golf Club');
     });
 
     it('has appropriate accessibility label for in-progress round', () => {
-      const round = createInProgressRound({
-        course: { id: 'c1', name: 'Kingston Heath' },
+      const round = createInProgressRound();
+      render(<RoundListCard round={round} onPress={defaultOnPress} testID="round-card" />);
+
+      const card = screen.getByTestId('round-card');
+      expect(card.props.accessibilityLabel).toContain('Score round at');
+    });
+
+    it('includes the result in the accessibility label for completed rounds', () => {
+      const round = createCompletedRound({
+        userScore: { hasScorecard: true, totalPoints: 34 },
       });
       render(<RoundListCard round={round} onPress={defaultOnPress} testID="round-card" />);
 
       const card = screen.getByTestId('round-card');
-      expect(card.props.accessibilityLabel).toContain('Score');
-      expect(card.props.accessibilityLabel).toContain('Kingston Heath');
+      expect(card.props.accessibilityLabel).toContain('34 pts');
     });
 
     it('includes swipe hint in accessibility label when swipe enabled', () => {
@@ -764,149 +660,62 @@ describe('RoundListCard', () => {
         <RoundListCard
           round={round}
           onPress={defaultOnPress}
-          actionLabel="Continue scoring"
+          actionLabel="Resume"
           testID="round-card"
         />
       );
 
       const card = screen.getByTestId('round-card');
-      expect(card.props.accessibilityLabel).toContain('Continue scoring');
+      expect(card.props.accessibilityLabel).toContain('Resume round at');
     });
   });
 
   // ===========================================================================
-  // EDGE CASES TESTS
+  // EDGE CASES
   // ===========================================================================
 
   describe('Edge Cases', () => {
     it('handles empty course name', () => {
       const round = createRoundData({
-        course: { id: 'c1', name: '' },
+        course: { id: 'course-1', name: '' },
       });
-      render(<RoundListCard round={round} onPress={defaultOnPress} />);
+      render(<RoundListCard round={round} onPress={defaultOnPress} testID="round-card" />);
 
-      // Should render without crashing
-      expect(screen.getByTestId('icon-map-pin')).toBeTruthy();
-    });
-
-    it('handles zero holes completed', () => {
-      const round = createInProgressRound({
-        holesCompleted: 0,
-        totalHoles: 18,
-      });
-      render(<RoundListCard round={round} onPress={defaultOnPress} />);
-
-      expect(screen.getByText('0/18 holes')).toBeTruthy();
-    });
-
-    it('handles 9-hole round', () => {
-      const round = createInProgressRound({
-        holesCompleted: 5,
-        totalHoles: 9,
-      });
-      render(<RoundListCard round={round} onPress={defaultOnPress} />);
-
-      expect(screen.getByText('5/9 holes')).toBeTruthy();
+      expect(screen.getByTestId('round-card')).toBeTruthy();
     });
 
     it('handles empty competition name', () => {
-      const round = createRoundData({
-        competition: { id: 'c1', name: '' },
+      const round = createCompletedRound({
+        competition: { id: 'comp-1', name: '' },
         isStandalone: false,
+        userScore: { hasScorecard: true, totalPoints: 30 },
       });
       render(<RoundListCard round={round} onPress={defaultOnPress} />);
 
-      // Should show fallback "Competition"
       expect(screen.getByText('Competition')).toBeTruthy();
     });
 
-    it('handles round number 0', () => {
-      const round = createRoundData({
-        roundNumber: 0,
-        totalRounds: 4,
-      });
-      render(<RoundListCard round={round} onPress={defaultOnPress} />);
-
-      // Should still display pill (unusual but valid data)
-      expect(screen.getByText('Round 0 of 4')).toBeTruthy();
-    });
-
-    it('handles very long competition name', () => {
-      const round = createRoundData({
-        competition: {
-          id: 'c1',
-          name: 'The Annual Summer Golf Championship Series Tournament 2025',
-        },
-      });
-      render(<RoundListCard round={round} onPress={defaultOnPress} />);
-
-      expect(screen.getByText('The Annual Summer Golf Championship Series Tournament 2025')).toBeTruthy();
-    });
-
     it('handles very long course name', () => {
+      const longName = 'The Royal and Ancient Golf Club of St Andrews Championship Links Course';
       const round = createRoundData({
-        course: {
-          id: 'c1',
-          name: 'The Very Long Named Golf Course at Prestigious Country Club Estate',
-        },
+        course: { id: 'course-1', name: longName },
       });
       render(<RoundListCard round={round} onPress={defaultOnPress} />);
 
-      expect(screen.getByText('The Very Long Named Golf Course at Prestigious Country Club Estate')).toBeTruthy();
+      expect(screen.getByText(longName)).toBeTruthy();
     });
   });
 
   // ===========================================================================
-  // STATUS VARIANT MAPPING TESTS
-  // ===========================================================================
-
-  describe('Status Variant Mapping', () => {
-    it('does not show status badge for scheduled rounds', () => {
-      const round = createRoundData({ status: 'scheduled' });
-      render(<RoundListCard round={round} onPress={defaultOnPress} />);
-
-      // Regular statuses no longer show a StatusBadge
-      expect(screen.queryByTestId('status-badge-upcoming')).toBeNull();
-    });
-
-    it('shows stale badge for in-progress round with past date', () => {
-      const round = createInProgressRound({
-        date: '2020-01-01', // past date to trigger stale detection
-      });
-      render(<RoundListCard round={round} onPress={defaultOnPress} />);
-
-      expect(screen.getByText('Not Completed')).toBeTruthy();
-    });
-
-    it('does not show stale badge for in-progress round with today or future date', () => {
-      const futureDate = new Date();
-      futureDate.setDate(futureDate.getDate() + 1);
-      const round = createInProgressRound({
-        date: futureDate.toISOString().split('T')[0],
-      });
-      render(<RoundListCard round={round} onPress={defaultOnPress} />);
-
-      expect(screen.queryByText('Not Completed')).toBeNull();
-    });
-
-    it('does not show status badge for completed rounds', () => {
-      const round = createCompletedRound();
-      render(<RoundListCard round={round} onPress={defaultOnPress} />);
-
-      expect(screen.queryByTestId('status-badge-completed')).toBeNull();
-    });
-  });
-
-  // ===========================================================================
-  // TESTID PROP TESTS
+  // TESTID PROP
   // ===========================================================================
 
   describe('testID Prop', () => {
     it('applies testID to the card', () => {
       const round = createRoundData();
-      render(<RoundListCard round={round} onPress={defaultOnPress} testID="my-round-card" />);
+      render(<RoundListCard round={round} onPress={defaultOnPress} testID="custom-round-card" />);
 
-      expect(screen.getByTestId('my-round-card')).toBeTruthy();
+      expect(screen.getByTestId('custom-round-card')).toBeTruthy();
     });
 
     it('applies testID in swipe mode', () => {
@@ -917,40 +726,29 @@ describe('RoundListCard', () => {
           onPress={defaultOnPress}
           onDelete={defaultOnDelete}
           swipeEnabled={true}
-          testID="swipeable-card"
+          testID="swipe-round-card"
         />
       );
 
-      expect(screen.getByTestId('swipeable-card')).toBeTruthy();
+      expect(screen.getByTestId('swipe-round-card')).toBeTruthy();
     });
   });
 
   // ===========================================================================
-  // MEMOIZATION TESTS
-  // ===========================================================================
-
-  describe('Memoization', () => {
-    it('component is exported and can be rendered', () => {
-      // Verify the component can be imported and rendered (memoization doesn't change this)
-      const round = createRoundData();
-      render(<RoundListCard round={round} onPress={defaultOnPress} testID="memo-test" />);
-      expect(screen.getByTestId('memo-test')).toBeTruthy();
-    });
-  });
-
-  // ===========================================================================
-  // DARK MODE TESTS
+  // DARK MODE
   // ===========================================================================
 
   describe('Dark Mode', () => {
     it('renders correctly in dark mode', () => {
-      const round = createRoundData();
-      render(
-        <RoundListCard round={round} onPress={defaultOnPress} testID="dark-mode-card" />,
-        { isDarkMode: true }
-      );
+      const round = createCompletedRound({
+        userScore: { hasScorecard: true, totalPoints: 34 },
+      });
+      render(<RoundListCard round={round} onPress={defaultOnPress} testID="round-card" />, {
+        isDarkMode: true,
+      });
 
-      expect(screen.getByTestId('dark-mode-card')).toBeTruthy();
+      expect(screen.getByTestId('round-card')).toBeTruthy();
+      expect(screen.getByText('34')).toBeTruthy();
     });
 
     it('renders swipe mode correctly in dark mode', () => {
@@ -961,12 +759,12 @@ describe('RoundListCard', () => {
           onPress={defaultOnPress}
           onDelete={defaultOnDelete}
           swipeEnabled={true}
-          testID="dark-swipe-card"
+          testID="round-card"
         />,
         { isDarkMode: true }
       );
 
-      expect(screen.getByTestId('dark-swipe-card')).toBeTruthy();
+      expect(screen.getByTestId('round-card')).toBeTruthy();
     });
   });
 });

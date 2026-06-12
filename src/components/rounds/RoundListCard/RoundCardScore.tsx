@@ -50,6 +50,7 @@ const styles = StyleSheet.create({
   },
   value: {
     ...typography.h2,
+    fontWeight: '700',
   },
   label: {
     ...typography.caption,

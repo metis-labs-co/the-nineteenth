@@ -1,11 +1,7 @@
 // src/components/rounds/RoundListCard.tsx
 // Re-export from refactored module for backward compatibility
 
-export {
-  RoundListCard,
-  RoundCardHeader,
-  RoundCardMeta,
-} from './RoundListCard/index';
+export { RoundListCard } from './RoundListCard/index';
 
 export type {
   RoundListCardData,

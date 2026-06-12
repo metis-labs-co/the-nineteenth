@@ -16,6 +16,7 @@ export type RoundTypeFilter = 'all' | 'practice' | 'match' | 'skins' | 'wolf';
 export interface RoundPlayerInfo {
   id: string;
   name: string;
+  photo_url?: string | null;
 }
 
 // Re-export RoundListCardData as RoundItem for internal use

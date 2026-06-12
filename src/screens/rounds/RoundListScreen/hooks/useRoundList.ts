@@ -320,7 +320,7 @@ export function useRoundList(): UseRoundListReturn {
         try {
           interface RoundPlayerRow {
             round_id: string;
-            player: { id: string; name: string } | null;
+            player: { id: string; name: string; photo_url: string | null } | null;
           }
 
           const { data: roundPlayersData, error: playersError } = await (supabase
@@ -330,7 +330,8 @@ export function useRoundList(): UseRoundListReturn {
               round_id,
               player:players!player_id(
                 id,
-                name
+                name,
+                photo_url
               )
             `)
             .in('round_id', allStandaloneRoundIds);
@@ -351,6 +352,7 @@ export function useRoundList(): UseRoundListReturn {
               playersByRound.get(roundId)!.push({
                 id: rp.player.id,
                 name: rp.player.name,
+                photo_url: rp.player.photo_url,
               });
             }
 
