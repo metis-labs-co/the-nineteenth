@@ -15,7 +15,8 @@ import { spacing, typography, borderRadius } from '@/constants/theme';
 import { SWIPE_GESTURE } from '@/constants/gestures';
 
 /**
- * An additional action button revealed alongside Delete when swiping left
+ * An additional action button revealed on the left side when swiping right
+ * (Delete stays on the right side, revealed by swiping left)
  */
 export interface SwipeSecondaryAction {
   /** Button label */
@@ -43,7 +44,7 @@ export interface SwipeableRowProps {
    */
   onDelete: () => void;
   /**
-   * Optional extra action revealed to the left of Delete
+   * Optional extra action revealed on the left side by swiping right
    */
   secondaryAction?: SwipeSecondaryAction;
   /**
@@ -156,35 +157,7 @@ export const SwipeableRow = forwardRef<SwipeableRowRef, SwipeableRowProps>(
         });
 
         return (
-          <Animated.View
-            style={[
-              styles.rightAction,
-              secondaryAction && styles.rightActionWide,
-              { opacity },
-            ]}
-          >
-            {secondaryAction && (
-              <RectButton
-                style={[
-                  styles.actionButton,
-                  { backgroundColor: secondaryAction.backgroundColor ?? colors.primary },
-                ]}
-                onPress={handleSecondaryAction}
-                testID={testID ? `${testID}-secondary-button` : undefined}
-              >
-                <View
-                  style={styles.deleteButtonContent}
-                  accessible
-                  accessibilityRole="button"
-                  accessibilityLabel={secondaryAction.accessibilityLabel || secondaryAction.label}
-                >
-                  {secondaryAction.icon}
-                  <Text style={[styles.deleteButtonText, { color: colors.white }]}>
-                    {secondaryAction.label}
-                  </Text>
-                </View>
-              </RectButton>
-            )}
+          <Animated.View style={[styles.rightAction, { opacity }]}>
             <RectButton
               style={[
                 styles.actionButton,
@@ -208,7 +181,51 @@ export const SwipeableRow = forwardRef<SwipeableRowRef, SwipeableRowProps>(
           </Animated.View>
         );
       },
-      [colors, handleDelete, handleSecondaryAction, secondaryAction, deleteLabel, deleteAccessibilityLabel, testID]
+      [colors, handleDelete, deleteLabel, deleteAccessibilityLabel, testID]
+    );
+
+    /**
+     * Renders the secondary action button revealed when swiping right
+     */
+    const renderLeftActions = useCallback(
+      (
+        progress: Animated.AnimatedInterpolation<number>,
+        _dragX: Animated.AnimatedInterpolation<number>
+      ) => {
+        if (!secondaryAction) return null;
+
+        const opacity = progress.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, 1],
+          extrapolate: 'clamp',
+        });
+
+        return (
+          <Animated.View style={[styles.leftAction, { opacity }]}>
+            <RectButton
+              style={[
+                styles.actionButton,
+                { backgroundColor: secondaryAction.backgroundColor ?? colors.primary },
+              ]}
+              onPress={handleSecondaryAction}
+              testID={testID ? `${testID}-secondary-button` : undefined}
+            >
+              <View
+                style={styles.deleteButtonContent}
+                accessible
+                accessibilityRole="button"
+                accessibilityLabel={secondaryAction.accessibilityLabel || secondaryAction.label}
+              >
+                {secondaryAction.icon}
+                <Text style={[styles.deleteButtonText, { color: colors.white }]}>
+                  {secondaryAction.label}
+                </Text>
+              </View>
+            </RectButton>
+          </Animated.View>
+        );
+      },
+      [colors, handleSecondaryAction, secondaryAction, testID]
     );
 
     // If not enabled, just render children without swipe wrapper
@@ -220,9 +237,12 @@ export const SwipeableRow = forwardRef<SwipeableRowRef, SwipeableRowProps>(
       <Swipeable
         ref={swipeableRef}
         renderRightActions={renderRightActions}
+        renderLeftActions={secondaryAction ? renderLeftActions : undefined}
         rightThreshold={SWIPE_GESTURE.SWIPE_THRESHOLD}
+        leftThreshold={SWIPE_GESTURE.SWIPE_THRESHOLD}
         friction={2}
         overshootRight={false}
+        overshootLeft={false}
         overshootFriction={8}
         onSwipeableOpen={handleSwipeableOpen}
         onSwipeableClose={handleSwipeableClose}
@@ -247,12 +267,13 @@ const styles = StyleSheet.create({
   },
   rightAction: {
     width: SWIPE_GESTURE.DELETE_BUTTON_WIDTH,
-    flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  rightActionWide: {
-    width: SWIPE_GESTURE.DELETE_BUTTON_WIDTH * 2,
+  leftAction: {
+    width: SWIPE_GESTURE.DELETE_BUTTON_WIDTH,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   actionButton: {
     flex: 1,

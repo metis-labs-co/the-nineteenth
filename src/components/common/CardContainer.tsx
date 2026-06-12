@@ -43,7 +43,7 @@ export interface CardContainerProps {
    */
   onDelete?: () => void;
   /**
-   * Optional extra swipe action revealed to the left of Delete
+   * Optional extra action revealed on the left side by swiping right
    */
   swipeSecondaryAction?: SwipeSecondaryAction;
   /**

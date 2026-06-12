@@ -130,8 +130,9 @@ export interface RoundListCardProps<T extends RoundListCardData = RoundListCardD
    */
   onDelete?: (round: T) => void;
   /**
-   * When provided, the swipe menu shows a "Tag to League" action alongside
-   * Delete (requires swipeEnabled). Callers gate this on league eligibility.
+   * When provided, swiping right reveals a "Tag to League" action on the
+   * left side (requires swipeEnabled). Callers gate this on league
+   * eligibility. Delete remains on the right side via left swipe.
    */
   onTagToLeague?: (round: T) => void;
   /**
