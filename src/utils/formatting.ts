@@ -378,6 +378,30 @@ export function formatTeeTime(timeString: string | null): string {
   return formatTime(timeString) ?? 'TBD';
 }
 
+/**
+ * Format a timestamp as a compact relative age, e.g. "now", "5m", "3h",
+ * "2d", "2w", "2y". Used by the activity feed ("played a round · 2d").
+ *
+ * @param isoString - ISO timestamp (e.g. row's activity_at)
+ * @param now - Reference time, injectable for tests (defaults to now)
+ * @returns Compact age string, or '' for null/invalid input
+ */
+export function formatTimeAgo(isoString: string | null, now: Date = new Date()): string {
+  if (!isoString) return '';
+  const then = new Date(isoString);
+  if (isNaN(then.getTime())) return '';
+
+  const minutes = Math.floor((now.getTime() - then.getTime()) / 60000);
+  if (minutes < 1) return 'now';
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d`;
+  if (days < 365) return `${Math.floor(days / 7)}w`;
+  return `${Math.floor(days / 365)}y`;
+}
+
 // ============================================================================
 // CURRENCY FORMATTING (shared utilities)
 // ============================================================================
