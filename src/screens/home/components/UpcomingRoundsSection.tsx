@@ -11,6 +11,7 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import type { RootStackParamList } from '@/navigation/types';
 import type { RoundItem } from '@/screens/rounds/RoundListScreen/types';
+import { formatTime } from '@/utils/formatting';
 import { SectionHeader } from './SectionHeader';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -60,7 +61,12 @@ export const UpcomingRoundsSection = React.memo(
             { backgroundColor: colors.surface, borderColor: colors.borderLight },
           ]}
         >
-          {visible.map((round, idx) => (
+          {visible.map((round, idx) => {
+            const teeLabel = formatTime(round.teeTime ?? null);
+            const subLabel = [teeLabel, round.competition?.name]
+              .filter(Boolean)
+              .join(' · ');
+            return (
             <TouchableOpacity
               key={round.id}
               onPress={() =>
@@ -70,7 +76,7 @@ export const UpcomingRoundsSection = React.memo(
                 })
               }
               accessibilityRole="button"
-              accessibilityLabel={`Upcoming round at ${round.course.name}, ${formatShortDate(round.date)}`}
+              accessibilityLabel={`Upcoming round at ${round.course.name}, ${formatShortDate(round.date)}${teeLabel ? `, ${teeLabel}` : ''}`}
               style={[
                 styles.row,
                 idx < visible.length - 1 && {
@@ -98,7 +104,7 @@ export const UpcomingRoundsSection = React.memo(
                 >
                   {round.course.name}
                 </Text>
-                {round.competition?.name ? (
+                {subLabel ? (
                   <Text
                     style={[
                       styles.subLabel,
@@ -106,7 +112,7 @@ export const UpcomingRoundsSection = React.memo(
                     ]}
                     numberOfLines={1}
                   >
-                    {round.competition.name}
+                    {subLabel}
                   </Text>
                 ) : null}
               </View>
@@ -116,7 +122,8 @@ export const UpcomingRoundsSection = React.memo(
                 color={colors.textSecondary}
               />
             </TouchableOpacity>
-          ))}
+            );
+          })}
         </View>
       </View>
     );

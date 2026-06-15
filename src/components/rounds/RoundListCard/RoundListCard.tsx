@@ -9,6 +9,8 @@ import { spacing, typography, borderRadius } from '@/constants/theme';
 import { CardContainer, Pill, PlayerAvatar } from '@/components/common';
 import { getGameTypeLabel } from '@/constants/statusConfig';
 import { getTeeSwatch } from '@/utils/teeColors';
+import { formatTime, parseLocalDateString } from '@/utils/formatting';
+import { formatDisplayDate } from '@/utils/locale';
 import { RoundListCardData, RoundListCardProps, getUserScoreDisplay } from './types';
 import { RoundCardScore } from './RoundCardScore';
 
@@ -100,7 +102,10 @@ export const RoundListCard = React.memo(function RoundListCard<
         ? `Not submitted · ${round.holesCompleted}/${round.totalHoles} holes`
         : 'Round not submitted';
   } else if (!isCompleted) {
-    subtitle = 'Ready to score';
+    subtitle =
+      (round.status === 'upcoming' &&
+        formatScheduledLine(round.date, round.teeTime)) ||
+      'Ready to score';
   }
 
   const scoreDisplay = isCompleted
@@ -234,6 +239,32 @@ export const RoundListCard = React.memo(function RoundListCard<
     </CardContainer>
   );
 });
+
+/**
+ * Subtitle for a scheduled (upcoming) round: "Sat 14 Jun · 7:30 AM".
+ * Returns null when neither a date nor a tee time is available so the
+ * caller can fall back to the default subtitle.
+ */
+function formatScheduledLine(
+  date: string | Date | null | undefined,
+  teeTime: string | null | undefined
+): string | null {
+  let datePart: string | null = null;
+  if (date) {
+    const d =
+      typeof date === 'string' ? parseLocalDateString(date.slice(0, 10)) : date;
+    if (d && !Number.isNaN(d.getTime())) {
+      datePart = formatDisplayDate(d, {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+      });
+    }
+  }
+  const teePart = formatTime(teeTime ?? null);
+  const parts = [datePart, teePart].filter(Boolean);
+  return parts.length > 0 ? parts.join(' · ') : null;
+}
 
 /**
  * Get appropriate points label based on game type

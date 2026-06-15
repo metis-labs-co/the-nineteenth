@@ -267,13 +267,13 @@ const styles = StyleSheet.create({
   },
   rightAction: {
     width: SWIPE_GESTURE.DELETE_BUTTON_WIDTH,
+    // alignItems defaults to 'stretch' so the coloured actionButton fills the
+    // full width — not just the width of its icon/label content.
     justifyContent: 'center',
-    alignItems: 'center',
   },
   leftAction: {
     width: SWIPE_GESTURE.DELETE_BUTTON_WIDTH,
     justifyContent: 'center',
-    alignItems: 'center',
   },
   actionButton: {
     flex: 1,

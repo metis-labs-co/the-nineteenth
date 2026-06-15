@@ -212,6 +212,41 @@ describe('RoundListCard', () => {
       expect(screen.getByText('Ready to score')).toBeTruthy();
     });
 
+    it('shows date and tee time for upcoming scheduled rounds', () => {
+      const round = createRoundData({
+        status: 'upcoming',
+        date: '2026-06-20',
+        teeTime: '07:30:00',
+      });
+      render(<RoundListCard round={round} onPress={defaultOnPress} />);
+
+      // Date part is locale-dependent; tee time format is fixed
+      expect(screen.getByText(/7:30 AM/)).toBeTruthy();
+      expect(screen.queryByText('Ready to score')).toBeNull();
+    });
+
+    it('shows tee time alone for upcoming rounds without a date', () => {
+      const round = createRoundData({
+        status: 'upcoming',
+        date: null,
+        teeTime: '14:00:00',
+      });
+      render(<RoundListCard round={round} onPress={defaultOnPress} />);
+
+      expect(screen.getByText('2:00 PM')).toBeTruthy();
+    });
+
+    it('falls back to "Ready to score" for upcoming rounds without date or tee time', () => {
+      const round = createRoundData({
+        status: 'upcoming',
+        date: null,
+        teeTime: null,
+      });
+      render(<RoundListCard round={round} onPress={defaultOnPress} />);
+
+      expect(screen.getByText('Ready to score')).toBeTruthy();
+    });
+
     it('renders with in-progress status', () => {
       const round = createInProgressRound();
       render(<RoundListCard round={round} onPress={defaultOnPress} />);
