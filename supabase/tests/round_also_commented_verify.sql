@@ -33,6 +33,12 @@ SELECT 'trigger_bound' AS check,
   CASE WHEN COUNT(*) = 1 THEN 'OK' ELSE 'MISSING' END AS result
 FROM pg_trigger WHERE tgname = 'trigger_notify_round_commented';
 
+SELECT 'covering_index' AS check,
+  CASE WHEN COUNT(*) = 1 THEN 'OK' ELSE 'MISSING' END AS result
+FROM pg_indexes
+WHERE schemaname = 'public'
+  AND indexname = 'idx_round_comments_round_author';
+
 -- -----------------------------------------------------
 -- PART 2: functional checks (TEMPLATE — fill in ids, run in a tx)
 -- -----------------------------------------------------

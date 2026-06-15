@@ -60,6 +60,15 @@ ALTER TABLE notifications ADD CONSTRAINT notifications_type_check CHECK (type IN
 ));
 
 -- -----------------------------------------------------
+-- 1b. COVERING INDEX FOR PRIOR-COMMENTER LOOKUP
+-- -----------------------------------------------------
+-- notify_round_commented() looks up distinct prior comment authors for a
+-- round on every comment insert. This partial index lets that run index-only.
+CREATE INDEX IF NOT EXISTS idx_round_comments_round_author
+  ON round_comments(round_id, author_id)
+  WHERE deleted_at IS NULL;
+
+-- -----------------------------------------------------
 -- 2. REWRITE COMMENT NOTIFICATION TRIGGER FUNCTION
 -- -----------------------------------------------------
 CREATE OR REPLACE FUNCTION notify_round_commented()
@@ -136,6 +145,8 @@ BEGIN
       AND rc.deleted_at IS NULL
       AND rc.id <> NEW.id
       AND rc.author_id <> NEW.author_id
+      -- v_participant_recipients is initialised to ARRAY[]::UUID[] (never NULL),
+      -- so <> ALL(...) is TRUE (not NULL) when the participant loop fired zero times.
       AND rc.author_id <> ALL(v_participant_recipients)
   LOOP
     PERFORM create_notification(
