@@ -146,7 +146,8 @@ export type NotificationType =
   | 'prize_pool_settled'
   | 'tee_time_reminder'
   | 'round_liked'
-  | 'round_commented';
+  | 'round_commented'
+  | 'round_also_commented';
 
 // Feature enums
 export type TierFeature =
