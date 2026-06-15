@@ -59,16 +59,18 @@ export default function PlayerScorecardScreen({ navigation, route }: Props) {
     back9Holes,
     isLoading,
     isInitialized,
+    isReadOnly,
+    startHole,
     // Multi-ball support
     isMultiBall,
     ballCount,
     multiBallFront9,
     multiBallBack9,
     multiBallStats,
-  } = usePlayerScorecard(playerId);
+  } = usePlayerScorecard(playerId, roundId);
 
-  // Get submission methods from store
-  const { holes, getCompletedHolesCount, submitScorecards, setCurrentHole, groupScorecards, startHole } = useScorecardStore();
+  // Get submission methods from store (only used in the live-scoring context)
+  const { holes, getCompletedHolesCount, submitScorecards, setCurrentHole, groupScorecards } = useScorecardStore();
 
   // Skins finalization hook
   const { finalizeSkinsForRound } = useFinalizeSkinsForRound();
@@ -238,7 +240,7 @@ export default function PlayerScorecardScreen({ navigation, route }: Props) {
         style={styles.scrollView}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: insets.bottom + 120 },
+          { paddingBottom: insets.bottom + (isReadOnly ? spacing.lg : 120) },
         ]}
         refreshControl={
           <RefreshControl
@@ -266,40 +268,42 @@ export default function PlayerScorecardScreen({ navigation, route }: Props) {
           // Stats visibility (Premium-only)
           showFIR={showFairwayHit}
           showGIR={showGreenInRegulation}
-          onHolePress={handleHolePress}
+          onHolePress={isReadOnly ? undefined : handleHolePress}
           startHole={startHole}
         />
       </ScrollView>
 
-      {/* Submit Footer - Always visible, disabled when incomplete */}
-      <View
-        style={[
-          styles.footerContainer,
-          {
-            backgroundColor: colors.surface,
-            borderTopColor: colors.border,
-            paddingBottom: insets.bottom + spacing.md,
-          },
-        ]}
-      >
-        {!isAllComplete && (
-          <Text style={[styles.incompleteHint, { color: colors.textSecondary }]}>
-            Complete all holes to submit
-          </Text>
-        )}
-        <TouchableOpacity
+      {/* Submit Footer - live scoring only; hidden when viewing a round read-only */}
+      {!isReadOnly && (
+        <View
           style={[
-            styles.submitButton,
-            { backgroundColor: isAllComplete ? colors.success : colors.gray400 },
+            styles.footerContainer,
+            {
+              backgroundColor: colors.surface,
+              borderTopColor: colors.border,
+              paddingBottom: insets.bottom + spacing.md,
+            },
           ]}
-          onPress={handleSubmit}
-          disabled={isSubmitting || !isAllComplete}
         >
-          <Text style={[styles.submitButtonText, { color: colors.white }]}>
-            {isSubmitting ? 'Submitting...' : 'Submit Scorecard'}
-          </Text>
-        </TouchableOpacity>
-      </View>
+          {!isAllComplete && (
+            <Text style={[styles.incompleteHint, { color: colors.textSecondary }]}>
+              Complete all holes to submit
+            </Text>
+          )}
+          <TouchableOpacity
+            style={[
+              styles.submitButton,
+              { backgroundColor: isAllComplete ? colors.success : colors.gray400 },
+            ]}
+            onPress={handleSubmit}
+            disabled={isSubmitting || !isAllComplete}
+          >
+            <Text style={[styles.submitButtonText, { color: colors.white }]}>
+              {isSubmitting ? 'Submitting...' : 'Submit Scorecard'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Incomplete Round Dialog */}
       <Portal>

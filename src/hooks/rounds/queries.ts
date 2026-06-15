@@ -260,21 +260,21 @@ async function fetchRoundPlayers(roundId: string): Promise<RoundPlayer[]> {
 // HOOKS - Round Details
 // =====================================================
 
-export function useRoundDetails(roundId: string) {
+export function useRoundDetails(roundId: string, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: roundKeys.detail(roundId),
     queryFn: () => fetchRoundDetails(roundId),
-    enabled: !!roundId,
+    enabled: (options?.enabled ?? true) && !!roundId,
     staleTime: CACHE_TIMES.MODERATE,
     gcTime: GC_TIMES.STANDARD,
   });
 }
 
-export function useRoundScorecards(roundId: string) {
+export function useRoundScorecards(roundId: string, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: scorecardKeys.list({ roundId }),
     queryFn: () => fetchRoundScorecards(roundId),
-    enabled: !!roundId,
+    enabled: (options?.enabled ?? true) && !!roundId,
     staleTime: CACHE_TIMES.SHORT,
     gcTime: GC_TIMES.SHORT,
     refetchInterval: 30 * 1000,

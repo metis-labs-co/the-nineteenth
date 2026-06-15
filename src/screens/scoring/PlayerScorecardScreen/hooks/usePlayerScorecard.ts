@@ -9,6 +9,7 @@
 
 import { useMemo } from 'react';
 import { useScorecardStore } from '@/store/scorecardStore';
+import { useRoundScorecards, useRoundDetails } from '@/hooks/rounds/queries';
 import {
   getStrokesReceived,
   calculateStablefordPointsNet,
@@ -16,6 +17,7 @@ import {
 import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
 import { getBaseHandicap } from '@/utils/scorecardCalculations';
 import { isMultiBallScore, isSingleBallScore } from '@/types/database/base';
+import type { HandicapSource } from '@/types/database/enums';
 import type { Hole, Player, Scorecard, HoleScore } from '@/types';
 import type { BallCount } from '@/types/multiball.types';
 import { PICKUP_SCORE } from '@/constants/scoring';
@@ -96,6 +98,10 @@ interface UsePlayerScorecardResult {
   back9Holes: HoleRowData[];
   isLoading: boolean;
   isInitialized: boolean;
+  /** True when viewing a completed/other round (data loaded from DB, not the live scoring store). */
+  isReadOnly: boolean;
+  /** First hole played (1 normally, 10 for back-9 rounds) — for hole-number display. */
+  startHole: number;
   // Multi-ball support
   isMultiBall: boolean;
   ballCount: BallCount;
@@ -105,33 +111,105 @@ interface UsePlayerScorecardResult {
   multiBallStats: MultiBallStats;
 }
 
-export function usePlayerScorecard(playerId: string): UsePlayerScorecardResult {
+export function usePlayerScorecard(playerId: string, roundId?: string): UsePlayerScorecardResult {
   const {
+    currentRoundId,
     currentPlayers,
     groupScorecards,
     holes: storeHoles,
-    isLoading,
-    isInitialized,
-    isMultiBall,
-    ballCount,
-    selectedTeeData,
-    handicapSource,
+    isLoading: storeIsLoading,
+    isInitialized: storeIsInitialized,
+    isMultiBall: storeIsMultiBall,
+    ballCount: storeBallCount,
+    selectedTeeData: storeSelectedTeeData,
+    handicapSource: storeHandicapSource,
+    startHole: storeStartHole,
   } = useScorecardStore();
 
-  // Find the player
-  const player = useMemo(() => {
-    return currentPlayers.find((p) => p.id === playerId);
-  }, [currentPlayers, playerId]);
+  // "Live" = the scoring store holds the round we're viewing. Without a roundId we
+  // preserve legacy behaviour (always read from the store). When a roundId is given
+  // but the store is scoring a different round (e.g. opened from a leaderboard), we
+  // fall back to read-only data fetched from the database.
+  const isLive = !roundId || (storeIsInitialized && currentRoundId === roundId);
+  const isReadOnly = !isLive;
+  const readOnlyEnabled = !!roundId && isReadOnly;
 
-  // Get scorecard for this player
+  // Read-only sources (DB). Gated so live scoring doesn't trigger extra fetches.
+  const { data: roScorecards, isLoading: roScLoading } = useRoundScorecards(roundId ?? '', {
+    enabled: readOnlyEnabled,
+  });
+  const { data: roRound, isLoading: roRoundLoading } = useRoundDetails(roundId ?? '', {
+    enabled: readOnlyEnabled,
+  });
+
+  const roScorecardRaw = useMemo(
+    () => roScorecards?.find((sc) => sc.player_id === playerId),
+    [roScorecards, playerId]
+  );
+
+  // Find the player (camelCase shape) from the active source.
+  const player = useMemo<Player | undefined>(() => {
+    if (isLive) {
+      return currentPlayers.find((p) => p.id === playerId);
+    }
+    const p = roScorecardRaw?.player;
+    if (!p) return undefined;
+    return {
+      id: p.id,
+      name: p.name,
+      email: p.email ?? '',
+      handicap: p.handicap,
+      handicapIndex: p.handicap_index,
+      gender: p.gender,
+    };
+  }, [isLive, currentPlayers, playerId, roScorecardRaw]);
+
+  // Get scorecard for this player. The read-only (snake) and live (camel) shapes
+  // differ, but both expose `scores` keyed by hole number — all the calc below reads.
   const scorecard = useMemo(() => {
-    return groupScorecards.get(playerId);
-  }, [groupScorecards, playerId]);
+    return isLive
+      ? groupScorecards.get(playerId)
+      : (roScorecardRaw as unknown as Scorecard | undefined);
+  }, [isLive, groupScorecards, playerId, roScorecardRaw]);
+
+  // Resolve the remaining inputs from the active source.
+  const selectedTeeData = isLive ? storeSelectedTeeData : roRound?.selected_tee ?? null;
+  const handicapSource: HandicapSource = isLive
+    ? storeHandicapSource
+    : roRound?.competition?.handicap_source ?? 'profile';
+  const startHole = isLive ? storeStartHole : roRound?.nine_type === 'back9' ? 10 : 1;
+  const isLoading = isLive ? storeIsLoading : roScLoading || roRoundLoading;
+  const isInitialized = isLive ? storeIsInitialized : !roScLoading && !roRoundLoading;
+
+  // Daily handicap recorded on a completed card — preferred over recomputation so the
+  // displayed strokes-received matches what was actually scored.
+  const dailyHandicapOverride = isLive ? undefined : roScorecardRaw?.daily_handicap_used ?? undefined;
+  const baseHandicapOverride = isLive ? undefined : roScorecardRaw?.ga_handicap_used ?? undefined;
+
+  // Multi-ball flags. The live store tracks these directly; read-only detects from data.
+  const isMultiBall = useMemo(() => {
+    if (isLive) return storeIsMultiBall;
+    const scores = roScorecardRaw?.scores;
+    if (!scores) return false;
+    return Object.values(scores).some((s) => isMultiBallScore(s));
+  }, [isLive, storeIsMultiBall, roScorecardRaw]);
+
+  const ballCount: BallCount = useMemo(() => {
+    if (isLive) return storeBallCount;
+    const scores = roScorecardRaw?.scores;
+    if (!scores) return 1;
+    let max = 1;
+    for (const s of Object.values(scores)) {
+      if (isMultiBallScore(s)) max = Math.max(max, s.balls.length);
+    }
+    return max as BallCount;
+  }, [isLive, storeBallCount, roScorecardRaw]);
 
   // Get holes data
   const holes: Hole[] = useMemo(() => {
-    if (storeHoles && storeHoles.length > 0) {
-      return storeHoles;
+    const sourceHoles = isLive ? storeHoles : roRound?.course?.holes;
+    if (sourceHoles && sourceHoles.length > 0) {
+      return sourceHoles;
     }
 
     // Default holes with standard pars and stroke indexes
@@ -148,7 +226,7 @@ export function usePlayerScorecard(playerId: string): UsePlayerScorecardResult {
       });
     }
     return defaultHoles;
-  }, [storeHoles]);
+  }, [isLive, storeHoles, roRound]);
 
   // Calculate course par for daily handicap calculation
   const coursePar = useMemo(() => {
@@ -157,8 +235,9 @@ export function usePlayerScorecard(playerId: string): UsePlayerScorecardResult {
 
   // Calculate daily handicap using WHS formula, respecting handicap source
   const { handicap, dailyHandicap } = useMemo(() => {
-    // Use getBaseHandicap to select correct value based on handicap source (profile vs social index)
-    const rawHandicap = getBaseHandicap(
+    // Use getBaseHandicap to select correct value based on handicap source (profile vs social index).
+    // For completed cards viewed read-only, prefer the handicap recorded at scoring time.
+    const rawHandicap = baseHandicapOverride ?? getBaseHandicap(
       player ? {
         id: player.id,
         name: player.name,
@@ -169,7 +248,11 @@ export function usePlayerScorecard(playerId: string): UsePlayerScorecardResult {
       handicapSource
     );
 
-    // Calculate daily handicap if tee data is available
+    // Prefer the daily handicap recorded on the card; otherwise compute from tee data.
+    if (dailyHandicapOverride != null) {
+      return { handicap: rawHandicap, dailyHandicap: dailyHandicapOverride };
+    }
+
     let daily = rawHandicap;
     if (selectedTeeData?.slopeRating && selectedTeeData?.courseRating && coursePar > 0) {
       const result = calculateGADailyHandicap({
@@ -183,7 +266,7 @@ export function usePlayerScorecard(playerId: string): UsePlayerScorecardResult {
     }
 
     return { handicap: rawHandicap, dailyHandicap: daily };
-  }, [player?.handicap, player?.handicapIndex, player?.gender, selectedTeeData, coursePar, handicapSource]);
+  }, [player?.handicap, player?.handicapIndex, player?.gender, selectedTeeData, coursePar, handicapSource, baseHandicapOverride, dailyHandicapOverride]);
 
   // Calculate hole row data
   const holeRowData: HoleRowData[] = useMemo(() => {
@@ -421,6 +504,8 @@ export function usePlayerScorecard(playerId: string): UsePlayerScorecardResult {
     back9Holes,
     isLoading,
     isInitialized,
+    isReadOnly,
+    startHole,
     // Multi-ball support
     isMultiBall,
     ballCount,
