@@ -128,7 +128,7 @@ export function ContributionsBoard({ competitionId }: ContributionsBoardProps) {
 
             {round.dataMissing ? (
               <Text style={[typography.small, { color: colors.warning }]}>
-                ⚠ Shot contributions weren't tracked for this round — excluded from MVP.
+                ⚠ Shot contributions weren&apos;t tracked for this round — excluded from MVP.
               </Text>
             ) : (
               round.teams.map((team) => (
