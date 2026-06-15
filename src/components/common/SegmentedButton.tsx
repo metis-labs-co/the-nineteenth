@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, type StyleProp, type ViewStyle } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, borderRadius, typography } from '@/constants/theme';
@@ -29,7 +29,7 @@ interface SegmentedButtonProps<T extends string = string> {
   /** Array of segment options */
   buttons: SegmentOption<T>[];
   /** Optional style for the container */
-  style?: object;
+  style?: StyleProp<ViewStyle>;
   /** Whether the entire component is disabled */
   disabled?: boolean;
   /** Size variant of the buttons */

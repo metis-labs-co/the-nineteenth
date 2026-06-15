@@ -523,11 +523,16 @@ describe('LeaderboardTab', () => {
 
       render(<LeaderboardTab {...defaultProps} teamMode="fixed" />);
 
-      const individualButton = screen.getByLabelText('Individual standings');
-      const teamButton = screen.getByLabelText('Team standings');
+      // Rendered via the shared SegmentedButton: the selected segment is
+      // labelled "<label>, selected". Default view is team for teamMode="fixed".
+      const teamButton = screen.getByLabelText('Team, selected');
+      const individualButton = screen.getByLabelText('Individual');
 
-      expect(individualButton).toBeTruthy();
       expect(teamButton).toBeTruthy();
+      expect(individualButton).toBeTruthy();
+      expect(teamButton.props.accessibilityState).toEqual(
+        expect.objectContaining({ selected: true }),
+      );
     });
   });
 

@@ -9,9 +9,10 @@
  */
 
 import React, { useState, useMemo, useCallback } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { ErrorState, LoadingSpinner, SectionHeader } from '@/components/common';
+import { SegmentedButton } from '@/components/common/SegmentedButton';
 import { IconUsers, IconUser, IconCalendar } from '@tabler/icons-react-native';
 import { LeaderboardTable } from './LeaderboardTable';
 import { TeamLeaderboardTable, type TeamLeaderboardEntry } from './TeamLeaderboardTable';
@@ -22,7 +23,7 @@ import {
 } from './InProgressRoundLeaderboard';
 import { useCompetitionLeaderboard, type LeaderboardFilter, type CompetitionLeaderboardEntry } from '@/hooks/useCompetitionLeaderboard';
 import { useTeams } from '@/hooks/rounds';
-import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import type { TeamMode, GameType, TeamWithMembers } from '@/types/database.types';
 import type { RoundWithCourse } from '@/components/competitions/detail/types';
@@ -91,71 +92,22 @@ export const LeaderboardViewToggle = React.memo(function LeaderboardViewToggle({
   hideIndividualOption = false,
   style,
 }: LeaderboardViewToggleProps) {
-  const colors = useThemeColors();
-
   // Hide toggle if no team option OR if individual is hidden (only team remains)
   if (!showTeamOption || hideIndividualOption) {
     return null;
   }
 
   return (
-    <View style={[styles.toggleContainer, { backgroundColor: colors.gray100 }, style]}>
-      <TouchableOpacity
-        style={[
-          styles.toggleButton,
-          selectedView === 'individual' && [
-            styles.toggleButtonActive,
-            { backgroundColor: colors.surface },
-          ],
-        ]}
-        onPress={() => onViewChange('individual')}
-        accessibilityRole="tab"
-        accessibilityState={{ selected: selectedView === 'individual' }}
-        accessibilityLabel="Individual standings"
-      >
-        <IconUser
-          size={16}
-          color={selectedView === 'individual' ? colors.primary : colors.textSecondary}
-        />
-        <Text
-          style={[
-            styles.toggleButtonText,
-            { color: selectedView === 'individual' ? colors.primary : colors.textSecondary },
-            selectedView === 'individual' && styles.toggleButtonTextActive,
-          ]}
-        >
-          Individual
-        </Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={[
-          styles.toggleButton,
-          selectedView === 'team' && [
-            styles.toggleButtonActive,
-            { backgroundColor: colors.surface },
-          ],
-        ]}
-        onPress={() => onViewChange('team')}
-        accessibilityRole="tab"
-        accessibilityState={{ selected: selectedView === 'team' }}
-        accessibilityLabel="Team standings"
-      >
-        <IconUsers
-          size={16}
-          color={selectedView === 'team' ? colors.primary : colors.textSecondary}
-        />
-        <Text
-          style={[
-            styles.toggleButtonText,
-            { color: selectedView === 'team' ? colors.primary : colors.textSecondary },
-            selectedView === 'team' && styles.toggleButtonTextActive,
-          ]}
-        >
-          Team
-        </Text>
-      </TouchableOpacity>
-    </View>
+    <SegmentedButton<LeaderboardView>
+      value={selectedView}
+      onValueChange={onViewChange}
+      buttons={[
+        { value: 'individual', label: 'Individual', icon: 'account' },
+        { value: 'team', label: 'Team', icon: 'account-group' },
+      ]}
+      size="small"
+      style={[styles.viewToggle, style]}
+    />
   );
 });
 
@@ -588,30 +540,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   // View Toggle
-  toggleContainer: {
-    flexDirection: 'row',
-    padding: spacing.xs,
-    borderRadius: borderRadius.lg,
+  viewToggle: {
     marginBottom: spacing.lg,
-  },
-  toggleButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.md,
-  },
-  toggleButtonActive: {
-    ...shadows.sm,
-  },
-  toggleButtonText: {
-    ...typography.small,
-  },
-  toggleButtonTextActive: {
-    fontWeight: '600',
   },
 
   // Empty State

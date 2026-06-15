@@ -1,8 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import { View, TouchableOpacity, StyleSheet } from 'react-native';
-import { Text } from 'react-native-paper';
-import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { View, StyleSheet } from 'react-native';
+import { spacing } from '@/constants/theme';
+import { SegmentedButton } from '@/components/common/SegmentedButton';
 import { RingerBoard } from '@/components/competitions/ringer';
 import { ContributionsBoard } from '@/components/competitions/contributions';
 
@@ -15,43 +14,26 @@ interface BreakdownTabProps {
 type Segment = 'ringer' | 'contributions';
 
 export function BreakdownTab({ competitionId, showRinger, showContributions }: BreakdownTabProps) {
-  const colors = useThemeColors();
-  const segments = useMemo<{ key: Segment; label: string }[]>(() => {
-    const s: { key: Segment; label: string }[] = [];
-    if (showRinger) s.push({ key: 'ringer', label: 'Ringer' });
-    if (showContributions) s.push({ key: 'contributions', label: 'Contributions' });
+  const segments = useMemo<{ value: Segment; label: string }[]>(() => {
+    const s: { value: Segment; label: string }[] = [];
+    if (showRinger) s.push({ value: 'ringer', label: 'Ringer' });
+    if (showContributions) s.push({ value: 'contributions', label: 'Contributions' });
     return s;
   }, [showRinger, showContributions]);
 
-  const [segment, setSegment] = useState<Segment>(segments[0]?.key ?? 'ringer');
-  const active = segments.some((s) => s.key === segment) ? segment : segments[0]?.key;
+  const [segment, setSegment] = useState<Segment>(segments[0]?.value ?? 'ringer');
+  const active = segments.some((s) => s.value === segment) ? segment : (segments[0]?.value ?? 'ringer');
 
   return (
     <View>
       {segments.length > 1 && (
-        <View style={[styles.toggle, { backgroundColor: colors.surfaceVariant }]}>
-          {segments.map((s) => {
-            const isActive = active === s.key;
-            return (
-              <TouchableOpacity
-                key={s.key}
-                style={[styles.toggleBtn, isActive && { backgroundColor: colors.surface }, isActive && shadows.sm]}
-                onPress={() => setSegment(s.key)}
-                accessibilityRole="button"
-                accessibilityState={{ selected: isActive }}
-              >
-                <Text
-                  style={[
-                    typography.small,
-                    { color: isActive ? colors.textPrimary : colors.textSecondary, fontWeight: isActive ? '600' : '400' },
-                  ]}
-                >
-                  {s.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+        <SegmentedButton<Segment>
+          value={active}
+          onValueChange={setSegment}
+          buttons={segments}
+          size="small"
+          style={styles.toggle}
+        />
       )}
 
       {active === 'ringer' && <RingerBoard competitionId={competitionId} />}
@@ -61,6 +43,7 @@ export function BreakdownTab({ competitionId, showRinger, showContributions }: B
 }
 
 const styles = StyleSheet.create({
-  toggle: { flexDirection: 'row', borderRadius: borderRadius.lg, padding: 4, marginBottom: spacing.md },
-  toggleBtn: { flex: 1, alignItems: 'center', paddingVertical: spacing.sm, borderRadius: borderRadius.md },
+  toggle: {
+    marginBottom: spacing.md,
+  },
 });
