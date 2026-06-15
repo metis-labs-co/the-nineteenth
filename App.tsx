@@ -36,6 +36,7 @@ import { AuthProvider } from '@/context/AuthContext';
 import { ToastProvider } from '@/context/ToastContext';
 import { AchievementToastProvider } from '@/context/AchievementToastContext';
 import { UnifiedToastDisplay } from '@/components/common/Toast';
+import { LaunchVideoGate } from '@/components/common';
 import { lightColors, darkColors } from '@/constants/theme';
 import { activeBrand } from '@/config/brands';
 import { useWatchBridge } from '@/watch/useWatchBridge';
@@ -214,7 +215,9 @@ function AppContent() {
                 accessibilityIgnoresInvertColors
               />
             )}
-            <RootNavigator theme={navigationTheme} />
+            <LaunchVideoGate>
+              <RootNavigator theme={navigationTheme} />
+            </LaunchVideoGate>
             <StatusBar style={isDark ? 'light' : 'dark'} />
             <UnifiedToastDisplay />
           </View>
