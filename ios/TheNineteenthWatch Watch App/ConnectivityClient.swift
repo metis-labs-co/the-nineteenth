@@ -74,6 +74,19 @@ final class ConnectivityClient: NSObject, ObservableObject, WCSessionDelegate {
         }
     }
 
+    /// Tell the phone to open the chosen round. Real-time when reachable, with a
+    /// guaranteed `transferUserInfo` fallback (the phone may be backgrounded).
+    func selectRound(roundId: String) {
+        let msg: [String: Any] = ["type": "selectRound", "roundId": roundId]
+        if WCSession.default.isReachable {
+            WCSession.default.sendMessage(msg, replyHandler: nil) { _ in
+                WCSession.default.transferUserInfo(msg)
+            }
+        } else {
+            WCSession.default.transferUserInfo(msg)
+        }
+    }
+
     // MARK: - Receiving
 
     func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
@@ -121,7 +134,7 @@ final class ConnectivityClient: NSObject, ObservableObject, WCSessionDelegate {
     /// then ask WidgetKit to refresh.
     private func publishComplicationState(_ snapshot: WatchSnapshot) {
         WatchSharedState.write(.init(
-            active: true,
+            active: snapshot.hasActiveRound,
             hole: snapshot.currentHole,
             holeCount: snapshot.holes.count,
             name: snapshot.competitionName

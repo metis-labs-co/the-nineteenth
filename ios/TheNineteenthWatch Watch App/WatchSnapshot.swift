@@ -71,6 +71,21 @@ struct WatchHoleScore: Codable, Equatable {
     var hazards: [WatchHazard]?
 }
 
+/// One round the user can open from the watch picker. Mirrors
+/// `WatchAvailableRound` in `src/watch/types.ts`.
+struct WatchAvailableRound: Codable, Equatable, Identifiable {
+    let roundId: String
+    let competitionId: String?
+    let title: String
+    let teeTime: String?
+    let status: String      // "in-progress" | "upcoming"
+    let gameType: String
+    let isTeamRound: Bool
+
+    var id: String { roundId }
+    var isLive: Bool { status == "in-progress" }
+}
+
 struct WatchSnapshot: Codable, Equatable {
     let rev: Int
     let roundId: String
@@ -86,10 +101,23 @@ struct WatchSnapshot: Codable, Equatable {
     let leaderboard: [WatchLeaderboardRow]
     /// Optional: missing from older snapshots / when the phone has no weather.
     let wind: WatchWind?
+    /// Rounds the user can open from the watch. Optional for backward-compatible
+    /// decode of older snapshots (missing key -> treated as empty).
+    let availableRounds: [WatchAvailableRound]?
 
     /// Convenience: the hole object for the current hole, if present.
     var currentHoleObject: WatchHole? {
         holes.first { $0.hole == currentHole }
+    }
+
+    /// True when the snapshot describes a round currently being scored. The phone
+    /// sends an empty `roundId` (with availableRounds populated) to clear a
+    /// finished round while still feeding the picker.
+    var hasActiveRound: Bool { !roundId.isEmpty }
+
+    /// Picker list, excluding the active round, with nil decoded as empty.
+    var pickerRounds: [WatchAvailableRound] {
+        (availableRounds ?? []).filter { $0.roundId != roundId }
     }
 
     func score(playerId: String, hole: Int) -> WatchHoleScore? {
