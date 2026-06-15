@@ -53,6 +53,7 @@ const mockPreferences = {
   push_friend_requests: true,
   push_scorecard_updates: true,
   push_league_updates: true,
+  push_social_activity: true,
 };
 
 // Mock state

@@ -75,6 +75,8 @@ export interface PushPreferences {
   pushSideGameUpdates: boolean;
   /** Tee-time reminders sent 30 min before a round */
   pushRoundReminders: boolean;
+  /** Notifications about social activity (likes & comments on your rounds) */
+  pushSocialActivity: boolean;
 }
 
 /**
@@ -88,6 +90,7 @@ export const DEFAULT_PUSH_PREFERENCES: PushPreferences = {
   pushLeagueUpdates: true,
   pushSideGameUpdates: true,
   pushRoundReminders: true,
+  pushSocialActivity: true,
 };
 
 // =====================================================

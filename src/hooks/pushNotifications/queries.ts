@@ -30,6 +30,7 @@ type PushPrefsRow = {
   push_league_updates: boolean;
   push_side_game_updates: boolean;
   push_round_reminders: boolean;
+  push_social_activity: boolean;
 };
 
 // =====================================================
@@ -66,7 +67,7 @@ export function usePushPreferences(userId: string) {
       const { data, error } = (await (supabase as any)
         .from('user_preferences')
         .select(
-          'push_enabled, push_competition_updates, push_friend_requests, push_scorecard_updates, push_league_updates, push_side_game_updates, push_round_reminders'
+          'push_enabled, push_competition_updates, push_friend_requests, push_scorecard_updates, push_league_updates, push_side_game_updates, push_round_reminders, push_social_activity'
         )
         .eq('user_id', userId)
         .maybeSingle()) as { data: PushPrefsRow | null; error: Error | null };
@@ -81,6 +82,7 @@ export function usePushPreferences(userId: string) {
         pushLeagueUpdates: data.push_league_updates,
         pushSideGameUpdates: data.push_side_game_updates,
         pushRoundReminders: data.push_round_reminders,
+        pushSocialActivity: data.push_social_activity,
       };
     },
     enabled: !!userId,

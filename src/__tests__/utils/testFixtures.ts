@@ -43,6 +43,7 @@ export function createTestPlayer(overrides: Partial<Player> = {}): Player {
     push_friend_requests: true,
     push_scorecard_updates: true,
     push_league_updates: true,
+    push_social_activity: true,
     is_placeholder: false,
     created_by: null,
     linked_player_id: null,
