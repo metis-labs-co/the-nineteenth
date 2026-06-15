@@ -28,6 +28,7 @@ import {
 } from '@/services/offline/sync';
 import { storeLogger, logScorecardSummary } from '@/utils/debugLogger';
 import { calculatePlayerTotals } from './utils/scorecardCalculations';
+import { persistScorecardUpdate } from './scorecardPersistence';
 import * as multiBall from './multiBallSlice';
 import * as scoreUpdate from './scoreUpdateSlice';
 import * as initSlice from './initializeRoundSlice';
@@ -83,6 +84,7 @@ interface ScorecardState {
   ) => Promise<void>;
   setAllowedPlayers: (playerIds: string[]) => void;
   setSelectedTeeData: (teeData: TeeBox | null) => void;
+  setPlayerTee: (playerId: string, tee: TeeBox) => Promise<void>;
   loadFromOffline: (roundId: string) => Promise<boolean>;
   ensureTeamMemberScorecards: (teamMemberPlayers: Player[]) => Promise<void>;
   setCurrentHole: (hole: number) => void;
@@ -196,6 +198,50 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
       });
     },
 
+    setPlayerTee: async (playerId, tee) => {
+      const { groupScorecards, playerTeeMap, holes, gameType, handicapSource } = get();
+      const scorecard = groupScorecards.get(playerId);
+      if (!scorecard) {
+        storeLogger.warn('setPlayerTee: no scorecard for player', {
+          playerId: playerId.substring(0, 8) + '...',
+        });
+        return;
+      }
+
+      const nextTeeMap = new Map(playerTeeMap);
+      nextTeeMap.set(playerId, tee);
+
+      const totals = calculatePlayerTotals(scorecard, holes, gameType, {
+        selectedTee: tee,
+        handicapSource,
+      });
+      const updatedScorecard: Scorecard = {
+        ...scorecard,
+        totalGross: totals.gross,
+        totalNet: totals.net,
+        total_par_score: totals.parScore,
+        teeData: tee,
+        updatedAt: new Date(),
+      };
+
+      const nextScorecards = new Map(groupScorecards);
+      nextScorecards.set(playerId, updatedScorecard);
+      // State is committed before persistence (fire-and-forget), matching the
+      // store's score-update path: live scoring must stay responsive, and a
+      // failed SQLite write is logged rather than blocking the UI.
+      set({ playerTeeMap: nextTeeMap, groupScorecards: nextScorecards });
+
+      await persistScorecardUpdate({
+        scorecard: { scorecardId: updatedScorecard.id, scorecard: updatedScorecard },
+        context: 'setPlayerTee',
+      });
+      storeLogger.info('Player tee switched', {
+        playerId: playerId.substring(0, 8) + '...',
+        tee: tee.name,
+        slopeRating: tee.slopeRating,
+      });
+    },
+
     // Score updates (delegated to scoreUpdateSlice)
     setPlayerScore: (playerId, hole, strokes, scoredBy) =>
       scoreUpdate.setPlayerScore(get, set, playerId, hole, strokes, scoredBy),
@@ -217,10 +263,14 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
     },
 
     getPlayerTotals: (playerId) => {
-      const { groupScorecards, holes, gameType } = get();
+      const { groupScorecards, holes, gameType, playerTeeMap, selectedTeeData, handicapSource } = get();
       const scorecard = groupScorecards.get(playerId);
       if (!scorecard) return { gross: 0, net: 0, points: 0, parScore: 0 };
-      return calculatePlayerTotals(scorecard, holes, gameType);
+      const playerTee = playerTeeMap.get(playerId) ?? selectedTeeData;
+      return calculatePlayerTotals(scorecard, holes, gameType, {
+        selectedTee: playerTee,
+        handicapSource,
+      });
     },
 
     getPlayerTee: (playerId) => {

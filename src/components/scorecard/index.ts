@@ -56,3 +56,7 @@ export type { MatchPlayScorecardTableProps } from './MatchPlayScorecardTable';
 // Group filter strip
 export { GroupFilterStrip } from './GroupFilterStrip';
 
+// Mid-round tee switch sheet
+export { ChangeTeesSheet } from './ChangeTeesSheet';
+export type { ChangeTeesSheetProps } from './ChangeTeesSheet';
+

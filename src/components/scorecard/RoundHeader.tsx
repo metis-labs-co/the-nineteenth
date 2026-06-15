@@ -64,6 +64,12 @@ export interface RoundHeaderProps {
    * play). The icon is rendered in the right-content area of the header.
    */
   showShotLoggingInfo?: boolean;
+  /** When true, show a "change tees" action in the header (owner/organizer). */
+  canChangeTees?: boolean;
+  /** Called when the change-tees action is tapped while online. */
+  onChangeTeesPress?: () => void;
+  /** Called when tapped while offline (e.g. to toast a hint). */
+  onChangeTeesBlockedOffline?: () => void;
 }
 
 export function RoundHeader({
@@ -82,6 +88,9 @@ export function RoundHeader({
   scoringPairsEnabled = false,
   playersToScore = [],
   showShotLoggingInfo = false,
+  canChangeTees = false,
+  onChangeTeesPress,
+  onChangeTeesBlockedOffline,
 }: RoundHeaderProps) {
   const colors = useThemeColors();
 
@@ -147,6 +156,29 @@ export function RoundHeader({
 
   const renderRightContent = () => (
     <View style={styles.rightContent}>
+      {canChangeTees && (
+        <Pressable
+          onPress={() => {
+            if (isOnline) {
+              onChangeTeesPress?.();
+            } else {
+              onChangeTeesBlockedOffline?.();
+            }
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Change tees"
+          accessibilityState={{ disabled: !isOnline }}
+          hitSlop={8}
+          style={styles.headerIconButton}
+          testID="round-header-change-tees"
+        >
+          <Icon
+            source="golf-tee"
+            size={22}
+            color={isOnline ? colors.textSecondary : colors.textDisabled}
+          />
+        </Pressable>
+      )}
       {showShotLoggingInfo && (
         <Pressable
           onPress={() => setShowShotInfo(true)}

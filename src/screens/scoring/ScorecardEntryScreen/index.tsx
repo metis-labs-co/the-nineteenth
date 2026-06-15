@@ -27,7 +27,8 @@ import { useScorecardStore } from '@/store/scorecardStore';
 import { useStatsVisibilityWithTier } from '@/hooks/useStatsVisibilityWithTier';
 import { useIsSuperAdmin } from '@/store/subscriptionStore';
 import { useOfflineSync, useRoundData, useTeamScoring, useBuildAsYouPlay, useGroupFilter, useActiveSubMatch } from '@/hooks/scorecard';
-import { usePairings, useTeams as useCompetitionTeams } from '@/hooks/rounds';
+import { usePairings, useTeams as useCompetitionTeams, useRoundDetails } from '@/hooks/rounds';
+import { useCompetitionInfo } from '@/hooks/competitions';
 import {
   QuickScorecardView,
   HoleHeader,
@@ -59,7 +60,7 @@ import {
   useWolfIntegration,
   useScoreHandlers,
 } from './hooks';
-import { RoundHeader } from '@/components/scorecard';
+import { RoundHeader, ChangeTeesSheet } from '@/components/scorecard';
 import {
   ScorecardFooter,
   ScorecardDialogs,
@@ -73,7 +74,7 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
   const { roundId, competitionId, isBuildAsYouPlay: isBuildAsYouPlayParam } = route.params;
   const colors = useThemeColors();
   const { user } = useAuth();
-  const { showSuccessToast } = useToast();
+  const { showSuccessToast, showErrorToast } = useToast();
   const handlePhotosUploaded = useCallback(
     (n: number) => showSuccessToast(n === 1 ? 'Photo added' : `${n} photos added`),
     [showSuccessToast]
@@ -94,6 +95,22 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only diagnostic
   }, []);
   const isSuperAdmin = useIsSuperAdmin();
+
+  // Change-tees permission gate. Round owner (standalone) / competition
+  // organizer / super admin may switch a player's tee from score entry.
+  const { data: roundDetails } = useRoundDetails(roundId);
+  const { data: competitionInfo } = useCompetitionInfo(
+    isStandaloneRound ? undefined : competitionId
+  );
+  const [showChangeTeesSheet, setShowChangeTeesSheet] = useState(false);
+
+  const canChangeTees = useMemo(() => {
+    if (!user?.id) return false;
+    if (isSuperAdmin) return true;
+    if (isStandaloneRound) return roundDetails?.user_id === user.id;
+    return competitionInfo?.organizer_id === user.id;
+  }, [user?.id, isSuperAdmin, isStandaloneRound, roundDetails?.user_id, competitionInfo?.organizer_id]);
+
   const [editingHole, setEditingHole] = useState<Hole | null>(null);
   const [detailedStatsPlayerId, setDetailedStatsPlayerId] = useState<string | null>(null);
   const [isQuickViewScrolling, setIsQuickViewScrolling] = useState(false);
@@ -733,6 +750,11 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
         scoringPairsEnabled={scoringPairsEnabled}
         playersToScore={playersToScore}
         showShotLoggingInfo
+        canChangeTees={canChangeTees}
+        onChangeTeesPress={() => setShowChangeTeesSheet(true)}
+        onChangeTeesBlockedOffline={() =>
+          showErrorToast('Offline', 'Connect to the internet to change tees')
+        }
       />
 
       {buildAsYouPlay.enabled && (
@@ -844,6 +866,15 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
           />
         );
       })()}
+
+      <ChangeTeesSheet
+        visible={showChangeTeesSheet}
+        onClose={() => setShowChangeTeesSheet(false)}
+        roundId={roundId}
+        competitionId={isStandaloneRound ? undefined : competitionId}
+        players={currentPlayers}
+        availableTees={courseTees}
+      />
 
       <ConfirmationDialog {...submissionDialogConfig} onCancel={dismissSubmissionDialog} />
     </SafeAreaView>

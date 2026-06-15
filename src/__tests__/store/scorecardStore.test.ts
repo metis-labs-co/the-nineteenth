@@ -606,6 +606,112 @@ describe('ScorecardStore', () => {
     });
   });
 
+  describe('setPlayerTee', () => {
+    const easyTee = {
+      tee_id: 'tee-easy',
+      name: 'Red',
+      color: 'red',
+      slopeRating: 113,
+      courseRating: 70,
+    };
+    const hardTee = {
+      tee_id: 'tee-hard',
+      name: 'Black',
+      color: 'black',
+      slopeRating: 140,
+      courseRating: 74,
+    };
+
+    it('updates playerTeeMap for the player', async () => {
+      const store = getStore();
+      await store.initializeRound(
+        testRoundId,
+        testPlayers,
+        testHoles,
+        'stableford',
+        false,
+        undefined,
+        easyTee,
+        'profile'
+      );
+      const playerId = testPlayers[0].id;
+
+      await getStore().setPlayerTee(playerId, hardTee);
+
+      expect(getStore().getPlayerTee(playerId)).toEqual(hardTee);
+    });
+
+    it('persists the updated scorecard to SQLite', async () => {
+      const store = getStore();
+      await store.initializeRound(
+        testRoundId,
+        testPlayers,
+        testHoles,
+        'stableford',
+        false,
+        undefined,
+        easyTee,
+        'profile'
+      );
+      const playerId = testPlayers[0].id;
+      (saveScorecard as jest.Mock).mockClear();
+
+      await getStore().setPlayerTee(playerId, hardTee);
+
+      expect(saveScorecard as jest.Mock).toHaveBeenCalled();
+    });
+
+    it('recomputes the player totals when the tee changes', async () => {
+      const store = getStore();
+      await store.initializeRound(
+        testRoundId,
+        testPlayers,
+        testHoles,
+        'stableford',
+        false,
+        undefined,
+        easyTee,
+        'profile'
+      );
+      const playerId = testPlayers[0].id;
+      // Enter scores on several holes so the DHC difference between tees is
+      // reflected in total points (a single hole may not change).
+      for (let h = 1; h <= 9; h++) {
+        await getStore().setPlayerScore(playerId, h, 6);
+      }
+      const easyPoints = getStore().getPlayerTotals(playerId).points;
+
+      await getStore().setPlayerTee(playerId, hardTee);
+      const hardPoints = getStore().getPlayerTotals(playerId).points;
+
+      // Switching back to the original tee restores the original total.
+      await getStore().setPlayerTee(playerId, easyTee);
+      const restoredPoints = getStore().getPlayerTotals(playerId).points;
+
+      expect(hardPoints).not.toBe(easyPoints); // the tee genuinely drives the calc
+      expect(restoredPoints).toBe(easyPoints); // round-trip is consistent
+    });
+
+    it('does nothing for an unknown player', async () => {
+      const store = getStore();
+      await store.initializeRound(
+        testRoundId,
+        testPlayers,
+        testHoles,
+        'stableford',
+        false,
+        undefined,
+        easyTee,
+        'profile'
+      );
+      (saveScorecard as jest.Mock).mockClear();
+
+      await getStore().setPlayerTee('non-existent-player', hardTee);
+
+      expect(saveScorecard as jest.Mock).not.toHaveBeenCalled();
+    });
+  });
+
   describe('getHoleInfo', () => {
     beforeEach(async () => {
       const store = getStore();

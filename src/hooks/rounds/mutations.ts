@@ -19,6 +19,7 @@ import {
   leaderboardKeys,
 } from '@/hooks/queryKeys';
 import { recalculateScorecardDifferential } from '@/services/handicap/recalculateScorecardDifferential';
+import { upsertRoundPlayerTee } from '@/services/competitionPlayers/competitionPlayersService';
 import { refinalizeRoundResults } from '@/services/rounds/refinalizeRoundResults';
 import { getScorecardsByRound, markScorecardsAsSynced, deleteScorecardsByRound } from '@/services/offline/database';
 import { syncScorecard } from '@/services/offline/sync';
@@ -281,6 +282,77 @@ export function useUpdatePlayerTee() {
     },
     onError: (error) => {
       console.error('[useUpdatePlayerTee] Failed to update tee / recalculate:', error);
+    },
+  });
+}
+
+// =====================================================
+// SWITCH PLAYER TEE (mid-round, from score entry)
+// =====================================================
+
+/** Input for switching a player's tee from the score-entry screen. */
+export interface SwitchPlayerTeeInput {
+  roundId: string;
+  playerId: string;
+  /** New tee to apply as the per-player override. */
+  tee: TeeBox;
+  /** Competition id — when set, the override is written to
+   *  competition_round_player_tees instead of round_players. */
+  competitionId?: string;
+  /** Real scorecard id (server UUID). When provided, the differential is
+   *  recalculated. Omit for players with no synced scorecard yet. */
+  scorecardId?: string;
+}
+
+/**
+ * Persist a per-player tee override and (best-effort) recalculate the
+ * scorecard differential. Routes the write by round type:
+ *   - standalone  -> round_players.selected_tee
+ *   - competition -> competition_round_player_tees.selected_tee
+ * Exported for direct unit testing.
+ */
+export async function switchPlayerTeeAndPersist(input: SwitchPlayerTeeInput): Promise<void> {
+  const { roundId, playerId, tee, competitionId, scorecardId } = input;
+
+  if (competitionId) {
+    await upsertRoundPlayerTee(roundId, playerId, tee);
+  } else {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase typed client workaround
+    const { error } = await (supabase.from('round_players') as any)
+      .update({ selected_tee: tee })
+      .eq('round_id', roundId)
+      .eq('player_id', playerId);
+    if (error) {
+      throw new Error(`Failed to update round_players: ${error.message}`);
+    }
+  }
+
+  // Recalc only when there is a real scorecard to recompute. Mid-round with
+  // no synced scorecard, the live store snapshot drives the eventual submit.
+  if (scorecardId) {
+    await recalculateScorecardDifferential(scorecardId);
+  }
+}
+
+/**
+ * Mutation hook used by the score-entry ChangeTeesSheet. Owner/organizer
+ * changes a player's tee on an in-progress round.
+ */
+export function useSwitchPlayerTee() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: switchPlayerTeeAndPersist,
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: scorecardKeys.list({ roundId: variables.roundId }) });
+      queryClient.invalidateQueries({ queryKey: roundKeys.detail(variables.roundId) });
+      queryClient.invalidateQueries({ queryKey: leaderboardKeys.round(variables.roundId) });
+      if (variables.competitionId) {
+        queryClient.invalidateQueries({ queryKey: leaderboardKeys.competition(variables.competitionId) });
+      }
+    },
+    onError: (error) => {
+      console.error('[useSwitchPlayerTee] Failed to switch tee:', error);
     },
   });
 }
