@@ -84,3 +84,16 @@ export const ringerKeys = {
   scorecards: (roundId: string) => [...ringerKeys.all, 'scorecards', roundId] as const,
   teams: (competitionId: string) => [...ringerKeys.all, 'teams', competitionId] as const,
 } as const;
+
+// =====================================================
+// CONTRIBUTIONS BOARD
+// =====================================================
+
+export const contributionKeys = {
+  all: ['contributions'] as const,
+  competition: (competitionId: string) =>
+    [...contributionKeys.all, 'competition', competitionId] as const,
+  roundHoles: (roundId: string) => [...contributionKeys.all, 'roundHoles', roundId] as const,
+  scorecards: (roundId: string) => [...contributionKeys.all, 'scorecards', roundId] as const,
+  teams: (competitionId: string) => [...contributionKeys.all, 'teams', competitionId] as const,
+} as const;
