@@ -80,9 +80,7 @@ function SubSection({ testID, label, rows, onPress }: SubSectionProps) {
         </Text>
         <Icon source="chevron-right" size={18} color={colors.textSecondary} />
       </View>
-      {rows.above && <MiniRow entry={rows.above} />}
       <MiniRow entry={rows.you} />
-      {rows.below && <MiniRow entry={rows.below} />}
     </TouchableOpacity>
   );
 }
@@ -132,6 +130,7 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: borderRadius.lg,
     padding: spacing.md,
+    marginTop: spacing.lg,
     marginBottom: spacing.lg,
   },
   title: {

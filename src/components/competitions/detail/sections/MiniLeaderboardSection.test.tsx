@@ -80,20 +80,16 @@ describe('MiniLeaderboardSection', () => {
     expect(onOpen).toHaveBeenCalledWith('team');
   });
 
-  it('omits the above row when user is first', () => {
-    const firstPlace: MiniLeaderboardData = {
-      above: null,
-      you: { id: 'p1', position: 1, name: 'You', points: 50, isCurrent: true },
-      below: { id: 'p2', position: 2, name: 'Jess', points: 40, isCurrent: false },
-    };
+  it('shows only the user own row, not the surrounding context rows', () => {
     const { queryByText, getByText } = render(
       <MiniLeaderboardSection
-        individual={firstPlace}
+        individual={individual}
         team={null}
         onOpenLeaderboard={jest.fn()}
       />,
     );
-    expect(queryByText('Jess')).toBeTruthy();
     expect(getByText('You')).toBeTruthy();
+    expect(queryByText('Jess Patel')).toBeNull();
+    expect(queryByText('Mike')).toBeNull();
   });
 });
