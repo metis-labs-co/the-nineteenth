@@ -41,16 +41,25 @@ export function pickGroupingStrategy({
   isSplitRound,
   isTeamRound,
   teamCount,
+  isIndividualCompetition = false,
 }: {
   teamFormat: TeamFormat | null | undefined;
   isSplitRound: boolean;
   isTeamRound: boolean;
   teamCount: number;
+  /** True when the round belongs to a competition with `team_mode = 'none'`.
+   *  Individual competitions have no team rosters, so any team config left on
+   *  a round (e.g. a team preset applied before the team_mode was set) must be
+   *  ignored — players are simply split into random, handicap-balanced groups. */
+  isIndividualCompetition?: boolean;
 }): GroupingStrategy {
   // Split rounds: tee groups come from the sub-matches table — no
   // separate group shuffle at this level. TODO: regenerate pairings on
   // preset change (see src/services/rounds/applyPresetToRound.ts).
   if (isSplitRound) return 'none';
+  // Individual competitions never group by team — bypass any stray team
+  // format/flags on the round and fall through to the snake draft below.
+  if (isIndividualCompetition) return 'snake-draft';
   // Scramble: whole team plays one ball → teammates MUST share a group.
   if (teamFormat === 'scramble') return 'team-together';
   // Any other team round with 2+ rostered teams → balanced cross-team mix.

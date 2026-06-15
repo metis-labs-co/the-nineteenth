@@ -98,6 +98,15 @@ interface SubMatchesTabProps {
   isSplitRound?: boolean;
   /** True when the round is a team round (drives pair-generation semantics). */
   isTeamRound?: boolean;
+  /** True when the parent competition has `team_mode = 'none'` (individual
+   *  competition). Forces random snake-draft groups regardless of any stray
+   *  team format/flags left on the round, so the Groups tab never tries the
+   *  team-together generator with no teams. */
+  isIndividualCompetition?: boolean;
+  /** True while the competition metadata (which determines
+   *  `isIndividualCompetition`) is still loading. The one-shot auto-shuffle
+   *  waits for this so it doesn't pick a stale team strategy mid-load. */
+  isCompetitionInfoLoading?: boolean;
   /** Round game type — determines whether pairs-aggregate (stroke) or match-play result is shown. */
   gameType?: GameType;
   /** Round's team_format. When 'scramble' on a combined round, the shuffle
@@ -162,6 +171,8 @@ export function SubMatchesTab({
   isOrganizer = false,
   isSplitRound = false,
   isTeamRound = false,
+  isIndividualCompetition = false,
+  isCompetitionInfoLoading = false,
   gameType,
   teamFormat,
   holes = [],
@@ -463,8 +474,9 @@ export function SubMatchesTab({
         isSplitRound,
         isTeamRound,
         teamCount: teams.length,
+        isIndividualCompetition,
       }),
-    [teamFormat, isSplitRound, isTeamRound, teams.length]
+    [teamFormat, isSplitRound, isTeamRound, teams.length, isIndividualCompetition]
   );
 
   // Team-together (scramble) has only one valid grouping shape — teammates
@@ -746,6 +758,10 @@ export function SubMatchesTab({
     if (isShuffling) return;
     if (isPairingsLoading || isPlayersLoading) return;
     if (hasTeamSource && isTeamsLoading) return;
+    // Wait for the competition's team_mode to resolve before choosing a
+    // grouping strategy — otherwise an individual competition could briefly
+    // look team-based and the one-shot shuffle would pick team-together.
+    if (competitionId && isCompetitionInfoLoading) return;
     if (!players || players.length <= 4) return;
     if (!pairings || pairings.length > 0) return;
     autoShuffledRef.current = true;
@@ -759,6 +775,8 @@ export function SubMatchesTab({
     isPlayersLoading,
     hasTeamSource,
     isTeamsLoading,
+    competitionId,
+    isCompetitionInfoLoading,
     players,
     pairings,
     handleShuffleGroups,

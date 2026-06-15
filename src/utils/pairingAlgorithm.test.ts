@@ -12,6 +12,7 @@ import {
   divisorsOf,
   generateTeamBalancedGroups,
   generateTeamTogetherGroups,
+  pickGroupingStrategy,
 } from './pairingAlgorithm';
 import type { PairingPlayer } from '@/types';
 
@@ -478,5 +479,91 @@ describe('divisorsOf', () => {
     expect(divisorsOf(-1)).toEqual([]);
     expect(divisorsOf(Number.NaN)).toEqual([]);
     expect(divisorsOf(Number.POSITIVE_INFINITY)).toEqual([]);
+  });
+});
+
+describe('pickGroupingStrategy', () => {
+  it('maps scramble to team-together for team competitions', () => {
+    expect(
+      pickGroupingStrategy({
+        teamFormat: 'scramble',
+        isSplitRound: false,
+        isTeamRound: true,
+        teamCount: 2,
+      })
+    ).toBe('team-together');
+  });
+
+  it('maps a multi-team round to team-balanced', () => {
+    expect(
+      pickGroupingStrategy({
+        teamFormat: 'best-ball',
+        isSplitRound: false,
+        isTeamRound: true,
+        teamCount: 2,
+      })
+    ).toBe('team-balanced');
+  });
+
+  it('maps a non-team round to snake-draft', () => {
+    expect(
+      pickGroupingStrategy({
+        teamFormat: null,
+        isSplitRound: false,
+        isTeamRound: false,
+        teamCount: 0,
+      })
+    ).toBe('snake-draft');
+  });
+
+  it('maps split rounds to none', () => {
+    expect(
+      pickGroupingStrategy({
+        teamFormat: 'scramble',
+        isSplitRound: true,
+        isTeamRound: true,
+        teamCount: 2,
+      })
+    ).toBe('none');
+  });
+
+  // Individual competitions (team_mode 'none') must ignore any stray team
+  // config left on a round (e.g. a team preset applied by mistake) and fall
+  // back to random groups of four — otherwise the Groups tab tries the
+  // team-together generator and errors with "no teams with players".
+  it('forces snake-draft for individual competitions even when the round carries a scramble team format', () => {
+    expect(
+      pickGroupingStrategy({
+        teamFormat: 'scramble',
+        isSplitRound: false,
+        isTeamRound: true,
+        teamCount: 0,
+        isIndividualCompetition: true,
+      })
+    ).toBe('snake-draft');
+  });
+
+  it('forces snake-draft for individual competitions even when flagged as a multi-team round', () => {
+    expect(
+      pickGroupingStrategy({
+        teamFormat: 'best-ball',
+        isSplitRound: false,
+        isTeamRound: true,
+        teamCount: 2,
+        isIndividualCompetition: true,
+      })
+    ).toBe('snake-draft');
+  });
+
+  it('still defers to sub-matches for a split round in an individual competition', () => {
+    expect(
+      pickGroupingStrategy({
+        teamFormat: null,
+        isSplitRound: true,
+        isTeamRound: false,
+        teamCount: 0,
+        isIndividualCompetition: true,
+      })
+    ).toBe('none');
   });
 });

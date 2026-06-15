@@ -48,6 +48,7 @@ export function useViewRoundScreen({ route, navigation }: Props) {
   const dataFetch = useViewRoundDataFetch({ roundId, competitionId });
   const {
     round, roundError, scorecards, roundPlayers, matchPlayData, competitionInfo,
+    isLoadingCompetitionInfo,
     isMatchPlayRound, isTeamMatchPlayRound, isShambleRound, isScrambleRound, isStrokePlayRound, isStablefordRound, isParRound, isSplitRound, isTeamStrokeRound, isTeamRound,
     isLoading, refetchRound, refetchScorecards, refetchPlayers, refetchMatchPlay,
   } = dataFetch;
@@ -225,6 +226,7 @@ export function useViewRoundScreen({ route, navigation }: Props) {
     wolfGame,
     wolfSummary,
     competitionInfo,
+    isLoadingCompetitionInfo,
 
     // Loading/refreshing
     isLoading,
@@ -245,6 +247,7 @@ export function useViewRoundScreen({ route, navigation }: Props) {
     teams: teamsForCount,
     subMatches: subMatchesForCount,
     isUserPlaying: permissions.isUserPlaying,
+    roundReadyToScore: permissions.roundReadyToScore,
     isOrganizer: permissions.isOrganizer,
     isTeamSkins,
     skinsTeams,

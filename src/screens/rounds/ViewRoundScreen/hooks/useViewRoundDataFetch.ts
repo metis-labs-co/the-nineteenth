@@ -32,7 +32,8 @@ export function useViewRoundDataFetch({ roundId, competitionId }: UseViewRoundDa
     isRefetching: isRefetchingPlayers,
   } = useRoundPlayers(roundId);
 
-  const { data: competitionInfo } = useCompetitionInfo(competitionId);
+  const { data: competitionInfo, isLoading: isLoadingCompetitionInfo } =
+    useCompetitionInfo(competitionId);
 
   // Realtime: invalidate scorecard / competition leaderboard queries the
   // moment any scorecard for this round changes on the server (typically
@@ -85,6 +86,7 @@ export function useViewRoundDataFetch({ roundId, competitionId }: UseViewRoundDa
     roundPlayers,
     matchPlayData,
     competitionInfo,
+    isLoadingCompetitionInfo,
 
     // Game type flags
     isMatchPlayRound,

@@ -262,7 +262,7 @@ export default function ViewRoundScreen(props: Props) {
       />
 
       {/* Score Round Button */}
-      {vm.isUserPlaying && !vm.userScorecardSubmitted && round.status !== 'completed' && (
+      {vm.isUserPlaying && vm.roundReadyToScore && !vm.userScorecardSubmitted && round.status !== 'completed' && (
         <View style={[styles.scoreButtonContainer, { backgroundColor: colors.surface }]}>
           <TouchableOpacity
             style={[styles.scoreButton, { backgroundColor: colors.primary }]}
@@ -410,6 +410,8 @@ export default function ViewRoundScreen(props: Props) {
             isOrganizer={vm.isOrganizer}
             isSplitRound={vm.isSplitRound}
             isTeamRound={round.is_team_round ?? false}
+            isIndividualCompetition={vm.competitionInfo?.team_mode === 'none'}
+            isCompetitionInfoLoading={vm.isLoadingCompetitionInfo}
             scoringPairsEnabled={round.scoring_pairs_required ?? false}
             roundStatus={round.status}
             gameType={round.game_type}

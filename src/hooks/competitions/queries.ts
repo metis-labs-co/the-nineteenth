@@ -23,6 +23,7 @@ import type {
   CompetitionData,
 } from '@/components/competitions/detail';
 import type { CompetitionLeaderboardEntry } from './leaderboard';
+import type { TeamMode } from '@/types/database.types';
 
 // =====================================================
 // useCompetitions
@@ -398,6 +399,8 @@ export interface CompetitionInfo {
   organizer_id: string;
   /** Whether per-round rules overrides are enabled at the competition level */
   per_round_rules_enabled: boolean;
+  /** Team mode: 'none' = individual competition, 'fixed'/'per-round' = team-based */
+  team_mode: TeamMode;
 }
 
 /**
@@ -458,7 +461,7 @@ export function useCompetitionInfo(
 
       const { data, error } = await supabase
         .from('competitions')
-        .select('name, organizer_id, per_round_rules_enabled')
+        .select('name, organizer_id, per_round_rules_enabled, team_mode')
         .eq('id', competitionId)
         .single();
 
@@ -466,11 +469,18 @@ export function useCompetitionInfo(
       if (!data) return null;
       // Default to FALSE so competitions that predate the flag column behave
       // as general-rules mode (safest default for the new UI).
-      const raw = data as { name: string; organizer_id: string; per_round_rules_enabled: boolean | null };
+      const raw = data as {
+        name: string;
+        organizer_id: string;
+        per_round_rules_enabled: boolean | null;
+        team_mode: TeamMode | null;
+      };
       return {
         name: raw.name,
         organizer_id: raw.organizer_id,
         per_round_rules_enabled: raw.per_round_rules_enabled ?? false,
+        // Default to 'none' (individual) when the column is absent/null.
+        team_mode: raw.team_mode ?? 'none',
       };
     },
     enabled: enabled ?? !!competitionId,
