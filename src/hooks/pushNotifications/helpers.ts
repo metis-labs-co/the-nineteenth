@@ -42,6 +42,8 @@ export function extractPreferencesFromPlayer(player: Player): PushPreferences {
     pushLeagueUpdates: player.push_league_updates ?? true,
     pushSideGameUpdates: player.push_side_game_updates ?? true,
     pushRoundReminders: player.push_round_reminders ?? true,
+    // Not stored on the legacy players record; this mapper is unused. Default on.
+    pushSocialActivity: true,
   };
 }
 

@@ -53,6 +53,7 @@ type PushPrefsRow = {
   push_league_updates: boolean;
   push_side_game_updates: boolean;
   push_round_reminders: boolean;
+  push_social_activity: boolean;
 };
 
 // =====================================================
@@ -127,7 +128,7 @@ export function usePushNotifications(): UsePushNotificationsReturn {
       const { data, error } = (await (supabase as any)
         .from('user_preferences')
         .select(
-          'push_enabled, push_competition_updates, push_friend_requests, push_scorecard_updates, push_league_updates, push_side_game_updates, push_round_reminders'
+          'push_enabled, push_competition_updates, push_friend_requests, push_scorecard_updates, push_league_updates, push_side_game_updates, push_round_reminders, push_social_activity'
         )
         .eq('user_id', userId)
         .maybeSingle()) as { data: PushPrefsRow | null; error: Error | null };
@@ -147,6 +148,7 @@ export function usePushNotifications(): UsePushNotificationsReturn {
         pushLeagueUpdates: data.push_league_updates,
         pushSideGameUpdates: data.push_side_game_updates,
         pushRoundReminders: data.push_round_reminders,
+        pushSocialActivity: data.push_social_activity,
       };
     },
     enabled: !!userId && isAuthenticated,
@@ -268,6 +270,9 @@ export function usePushNotifications(): UsePushNotificationsReturn {
       if (input.pushRoundReminders !== undefined) {
         updateData.push_round_reminders = input.pushRoundReminders;
       }
+      if (input.pushSocialActivity !== undefined) {
+        updateData.push_social_activity = input.pushSocialActivity;
+      }
 
       if (Object.keys(updateData).length === 0) {
         throw new Error('No preferences to update');
@@ -279,7 +284,7 @@ export function usePushNotifications(): UsePushNotificationsReturn {
         .update(updateData)
         .eq('user_id', userId)
         .select(
-          'push_enabled, push_competition_updates, push_friend_requests, push_scorecard_updates, push_league_updates, push_side_game_updates, push_round_reminders'
+          'push_enabled, push_competition_updates, push_friend_requests, push_scorecard_updates, push_league_updates, push_side_game_updates, push_round_reminders, push_social_activity'
         )
         .single()) as { data: PushPrefsRow | null; error: Error | null };
 
@@ -300,6 +305,7 @@ export function usePushNotifications(): UsePushNotificationsReturn {
         pushLeagueUpdates: data.push_league_updates,
         pushSideGameUpdates: data.push_side_game_updates,
         pushRoundReminders: data.push_round_reminders,
+        pushSocialActivity: data.push_social_activity,
       };
     },
     onMutate: async (input) => {
@@ -320,6 +326,7 @@ export function usePushNotifications(): UsePushNotificationsReturn {
         pushLeagueUpdates: true,
         pushSideGameUpdates: true,
         pushRoundReminders: true,
+        pushSocialActivity: true,
       };
 
       queryClient.setQueryData<PushPreferences>(pushKeys.preferences(userId), {

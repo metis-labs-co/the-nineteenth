@@ -30,6 +30,7 @@ export interface UpdatePushPreferencesInput {
   pushLeagueUpdates?: boolean;
   pushSideGameUpdates?: boolean;
   pushRoundReminders?: boolean;
+  pushSocialActivity?: boolean;
 }
 
 /**
