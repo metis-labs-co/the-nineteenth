@@ -2,7 +2,7 @@
 -- "Also commented" notifications - verification script
 -- =====================================================
 -- Run AFTER applying:
---   20260615000000_round_also_commented_notifications.sql
+--   20260615010000_round_also_commented_notifications.sql
 --
 -- Part 1 (catalog checks) is safe to run anywhere — metadata only.
 -- Part 2 (functional checks) is a commented template: fill in real ids on a
