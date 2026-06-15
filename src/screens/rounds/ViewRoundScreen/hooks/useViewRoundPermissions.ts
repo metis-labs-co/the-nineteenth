@@ -33,6 +33,13 @@ export function useViewRoundPermissions({
     return false;
   }, [user?.id, scorecards, roundPlayers, isStandalone, round?.user_id]);
 
+  // A round can be created with the course left as "TBD" (course === null)
+  // — e.g. a competition organiser schedules the date before the venue is
+  // locked in. Scoring such a round is impossible (there are no holes,
+  // pars, or stroke indexes), so the Score Round button must stay hidden
+  // until the course settings are completed.
+  const roundReadyToScore = useMemo(() => !!round?.course, [round?.course]);
+
   const isOrganizer = useMemo(() => {
     if (!user?.id) return false;
     if (isStandalone && round?.user_id === user.id) return true;
@@ -81,6 +88,7 @@ export function useViewRoundPermissions({
 
   return {
     isUserPlaying,
+    roundReadyToScore,
     isOrganizer,
     canDelete,
     canTagToLeague,
