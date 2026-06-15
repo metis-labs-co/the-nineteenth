@@ -150,6 +150,86 @@ describe('computeContributions — scramble', () => {
   });
 });
 
+describe('computeContributions — rollup', () => {
+  it('averages each player share across played rounds, excluding missing rounds', () => {
+    const mk = (id: string, format: 'best-ball'): ContributionRoundInput => ({
+      roundId: id,
+      roundLabel: id.toUpperCase(),
+      format,
+      gameType: 'stroke',
+      holes: HOLES,
+      teams: [
+        {
+          teamId: 't1',
+          teamName: 'Eagles',
+          color: null,
+          members: [
+            { playerId: 'a', playerName: 'Ann', handicap: 0 },
+            { playerId: 'b', playerName: 'Bob', handicap: 0 },
+          ],
+          strokesByPlayerHole: {
+            a: { 1: 3, 2: 3, 3: 3 }, // Ann wins all 3 → share 1
+            b: { 1: 5, 2: 5, 3: 5 }, // Bob share 0
+          },
+        },
+      ],
+    });
+
+    // Round 2 is a scramble with no shot data → excluded from rollup.
+    const missing: ContributionRoundInput = {
+      roundId: 'r2',
+      roundLabel: 'R2',
+      format: 'scramble',
+      gameType: 'stroke',
+      holes: HOLES,
+      teams: [
+        {
+          teamId: 't1',
+          teamName: 'Eagles',
+          color: null,
+          members: [{ playerId: 'a', playerName: 'Ann', handicap: 0 }],
+          strokesByPlayerHole: {},
+          shotContributionsByHole: {},
+        },
+      ],
+    };
+
+    const board = computeContributions({ rounds: [mk('r1', 'best-ball'), missing] });
+    const ann = board.rollup.find((r) => r.playerId === 'a')!;
+    expect(ann.averageShare).toBeCloseTo(1);
+    expect(ann.roundsCounted).toBe(1); // missing round excluded
+    expect(ann.isMvp).toBe(true);
+    expect(board.rollup[0].playerId).toBe('a'); // sorted desc
+    expect(board.isEmpty).toBe(false);
+  });
+
+  it('marks isEmpty when every round is data-missing', () => {
+    const board = computeContributions({
+      rounds: [
+        {
+          roundId: 'r1',
+          roundLabel: 'R1',
+          format: 'scramble',
+          gameType: 'stroke',
+          holes: HOLES,
+          teams: [
+            {
+              teamId: 't1',
+              teamName: 'Eagles',
+              color: null,
+              members: [{ playerId: 'a', playerName: 'Ann', handicap: 0 }],
+              strokesByPlayerHole: {},
+              shotContributionsByHole: {},
+            },
+          ],
+        },
+      ],
+    });
+    expect(board.rollup).toHaveLength(0);
+    expect(board.isEmpty).toBe(true);
+  });
+});
+
 describe('computeContributions — shamble', () => {
   it('averages drives-used and holes-won shares', () => {
     const board = computeContributions({

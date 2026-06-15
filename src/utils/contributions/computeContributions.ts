@@ -13,6 +13,7 @@ import type {
   GameType,
   Hole,
   PlayerContribution,
+  RollupEntry,
   RoundContribution,
   ShotBreakdown,
   TeamContribution,
@@ -312,11 +313,49 @@ function computeRound(round: ContributionRoundInput): RoundContribution {
   };
 }
 
+function buildRollup(rounds: RoundContribution[]): RollupEntry[] {
+  // Sum shares per player across non-missing rounds.
+  const sum = new Map<string, { name: string; total: number; count: number }>();
+  for (const round of rounds) {
+    if (round.dataMissing) continue;
+    for (const team of round.teams) {
+      for (const p of team.players) {
+        const cur = sum.get(p.playerId) ?? { name: p.playerName, total: 0, count: 0 };
+        cur.total += p.share;
+        cur.count += 1;
+        cur.name = p.playerName;
+        sum.set(p.playerId, cur);
+      }
+    }
+  }
+
+  const entries: RollupEntry[] = [...sum.entries()].map(([playerId, v]) => ({
+    playerId,
+    playerName: v.name,
+    averageShare: v.count > 0 ? v.total / v.count : 0,
+    roundsCounted: v.count,
+    position: 0,
+    isMvp: false,
+  }));
+
+  entries.sort((a, b) => b.averageShare - a.averageShare);
+  const top = entries.length ? entries[0].averageShare : 0;
+  let lastValue = Number.POSITIVE_INFINITY;
+  let lastPos = 0;
+  entries.forEach((e, i) => {
+    if (e.averageShare < lastValue) {
+      lastPos = i + 1;
+      lastValue = e.averageShare;
+    }
+    e.position = lastPos;
+    e.isMvp = top > 0 && e.averageShare === top;
+  });
+  return entries;
+}
+
 export function computeContributions(input: ComputeContributionsInput): ContributionsBoard {
   const rounds = input.rounds.map(computeRound);
-  return {
-    rollup: [], // filled in a later task
-    rounds,
-    isEmpty: rounds.length === 0,
-  };
+  const rollup = buildRollup(rounds);
+  const isEmpty = rounds.every((r) => r.dataMissing);
+  return { rollup, rounds, isEmpty };
 }
