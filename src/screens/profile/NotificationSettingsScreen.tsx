@@ -113,6 +113,13 @@ export default function NotificationSettingsScreen() {
     [updatePreferences]
   );
 
+  const handleSocialActivityChange = useCallback(
+    (enabled: boolean) => {
+      updatePreferences({ pushSocialActivity: enabled });
+    },
+    [updatePreferences]
+  );
+
   // Get permission status text and icon
   const getPermissionStatusInfo = () => {
     if (!isPhysicalDevice) {
@@ -319,6 +326,22 @@ export default function NotificationSettingsScreen() {
                   }
                   onPress={() => !isUpdatingPreferences && handleRoundRemindersChange(!(preferences?.pushRoundReminders ?? true))}
                   testID="setting-round-reminders"
+                />
+                <MenuItemRow
+                  icon="account-heart-outline"
+                  title="Social Activity"
+                  subtitle="Likes and comments on your rounds"
+                  showChevron={false}
+                  disabled={isUpdatingPreferences}
+                  rightContent={
+                    <ToggleSwitch
+                      value={preferences?.pushSocialActivity ?? true}
+                      onValueChange={handleSocialActivityChange}
+                      disabled={isUpdatingPreferences}
+                    />
+                  }
+                  onPress={() => !isUpdatingPreferences && handleSocialActivityChange(!(preferences?.pushSocialActivity ?? true))}
+                  testID="setting-social-activity"
                 />
               </View>
             </View>
