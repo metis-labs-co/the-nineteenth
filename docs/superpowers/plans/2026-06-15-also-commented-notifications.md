@@ -14,7 +14,7 @@
 
 ## File Structure
 
-- **Create:** `supabase/migrations/20260615000000_round_also_commented_notifications.sql` — extends the `notifications` type CHECK constraint and rewrites `notify_round_commented()`.
+- **Create:** `supabase/migrations/20260615010000_round_also_commented_notifications.sql` — extends the `notifications` type CHECK constraint and rewrites `notify_round_commented()`.
 - **Create:** `supabase/tests/round_also_commented_verify.sql` — catalog + functional verification, mirroring `supabase/tests/activity_feed_verify.sql`.
 - **Modify:** `src/types/database/enums.ts` — add `'round_also_commented'` to `NotificationType`.
 - **Modify:** `src/components/notifications/NotificationItem.tsx` — add render config for the new type.
@@ -25,7 +25,7 @@
 ## Task 1: Database migration — type + trigger function
 
 **Files:**
-- Create: `supabase/migrations/20260615000000_round_also_commented_notifications.sql`
+- Create: `supabase/migrations/20260615010000_round_also_commented_notifications.sql`
 
 The latest constraint definition lives in `supabase/migrations/20260612000000_scheduled_rounds.sql` and already includes `social_round_response`. The list below reproduces it verbatim and appends `round_also_commented` — do not drop `social_round_response`.
 
@@ -217,7 +217,7 @@ Note: `x <> ALL(ARRAY[]::uuid[])` is vacuously TRUE, so when there are no partic
 - [ ] **Step 2: Commit**
 
 ```bash
-git add supabase/migrations/20260615000000_round_also_commented_notifications.sql
+git add supabase/migrations/20260615010000_round_also_commented_notifications.sql
 git commit -m "feat(notifications): add round_also_commented trigger for prior commenters"
 ```
 
@@ -237,7 +237,7 @@ This mirrors `supabase/tests/activity_feed_verify.sql`: Part 1 is catalog checks
 -- "Also commented" notifications - verification script
 -- =====================================================
 -- Run AFTER applying:
---   20260615000000_round_also_commented_notifications.sql
+--   20260615010000_round_also_commented_notifications.sql
 --
 -- Part 1 (catalog checks) is safe to run anywhere — metadata only.
 -- Part 2 (functional checks) is a commented template: fill in real ids on a
@@ -302,7 +302,7 @@ FROM pg_trigger WHERE tgname = 'trigger_notify_round_commented';
 Run (against a non-prod connection string):
 
 ```bash
-psql "$TEST_DATABASE_URL" -f supabase/migrations/20260615000000_round_also_commented_notifications.sql
+psql "$TEST_DATABASE_URL" -f supabase/migrations/20260615010000_round_also_commented_notifications.sql
 ```
 
 Expected: `ALTER TABLE`, `ALTER TABLE`, `CREATE FUNCTION`, `COMMENT` with no errors.

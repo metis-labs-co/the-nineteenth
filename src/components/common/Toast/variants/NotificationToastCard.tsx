@@ -237,6 +237,14 @@ const notificationConfig: Record<NotificationType, NotificationConfig> = {
     getMessage: (data) =>
       `${data.actor_name || 'Someone'} commented on your round${data.comment_preview ? `: "${data.comment_preview}"` : ''}`,
   },
+  round_also_commented: {
+    icon: 'comment-outline',
+    getTitle: () => 'New comment',
+    getMessage: (data) =>
+      `${data.actor_name || 'Someone'} also commented on a round you commented on${
+        data.comment_preview ? `: "${data.comment_preview}"` : ''
+      }`,
+  },
 };
 
 function getNotificationConfig(type: NotificationType): NotificationConfig {

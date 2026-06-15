@@ -123,6 +123,7 @@ const NOTIFICATION_SCREEN_MAP: Record<NotificationType, keyof RootStackParamList
   // Activity feed engagement -> RoundActivity
   round_liked: 'RoundActivity',
   round_commented: 'RoundActivity',
+  round_also_commented: 'RoundActivity',
 };
 
 // =====================================================
