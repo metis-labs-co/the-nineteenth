@@ -118,11 +118,20 @@ The player(s) with the highest % get the 👑 MVP marker.
 ## Granularity & Rollup
 
 - **Per-round, grouped by team:** one card per team-format round, each team's members
-  ranked by contribution %, with the format-native breakdown.
-- **Competition-wide MVP rollup (top):** for each player, average their contribution %
-  across the team rounds they actually played. Highest average = Competition MVP (👑).
+  ranked by within-team contribution %, with the format-native breakdown.
+- **Competition-wide MVP rollup (top):** a team-size-normalized **"pull your weight" index**.
+  Each player's per-round within-team share is multiplied by their team size (× number of
+  players), so the metric is comparable across teams of different sizes — a player on a
+  2-person team and one on a 4-person team are each measured against their own team's equal
+  split. A team's per-round indices average to 1.0 by construction. A player's MVP score is
+  the mean of these indices across the team rounds they played; highest = Competition MVP (👑).
+  - **1.0× = pulled their weight; >1× = carried the team; <1× = carried by teammates.**
+  - Displayed as a multiplier (e.g. "1.6×"); rollup bars are scaled relative to the leader.
   - Rounds excluded for missing data (see below) do not count toward any player's average.
   - A player is averaged only over rounds they participated in.
+  - Rationale: a raw average of within-team shares would bias the headline toward players on
+    smaller teams (who naturally hold a larger share); normalizing removes that bias and
+    matches the "pull your weight" intent.
 
 ## Graceful Degradation
 
