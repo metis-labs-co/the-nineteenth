@@ -196,7 +196,11 @@ describe('computeContributions — rollup', () => {
 
     const board = computeContributions({ rounds: [mk('r1', 'best-ball'), missing] });
     const ann = board.rollup.find((r) => r.playerId === 'a')!;
-    expect(ann.averageShare).toBeCloseTo(1);
+    const bob = board.rollup.find((r) => r.playerId === 'b')!;
+    // Ann won all 3 holes on a 2-player team: share 1 × team size 2 = index 2.
+    // Bob: share 0 × 2 = index 0. The team's indices average to 1.0.
+    expect(ann.weightIndex).toBeCloseTo(2);
+    expect(bob.weightIndex).toBeCloseTo(0);
     expect(ann.roundsCounted).toBe(1); // missing round excluded
     expect(ann.isMvp).toBe(true);
     expect(board.rollup[0].playerId).toBe('a'); // sorted desc

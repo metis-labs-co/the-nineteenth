@@ -87,8 +87,14 @@ export interface RoundContribution {
 export interface RollupEntry {
   playerId: string;
   playerName: string;
-  /** Average share across played, non-missing rounds (0–1). */
-  averageShare: number;
+  /**
+   * "Pull your weight" index, averaged across played, non-missing rounds.
+   * Each round's contribution is normalized by team size so it is comparable
+   * across teams of different sizes: 1.0 = pulled exactly their weight,
+   * >1 = carried the team, <1 = carried by teammates. The team average is
+   * always 1.0 by construction.
+   */
+  weightIndex: number;
   /** Number of rounds that fed this average. */
   roundsCounted: number;
   position: number;

@@ -53,7 +53,7 @@ function board(partial: Partial<Board> = {}): Board {
       {
         playerId: 'a',
         playerName: 'Ann Smith',
-        averageShare: 0.64,
+        weightIndex: 1.3,
         roundsCounted: 2,
         position: 1,
         isMvp: true,
@@ -61,7 +61,7 @@ function board(partial: Partial<Board> = {}): Board {
       {
         playerId: 'b',
         playerName: 'Bob Jones',
-        averageShare: 0.36,
+        weightIndex: 0.7,
         roundsCounted: 2,
         position: 2,
         isMvp: false,
@@ -126,8 +126,9 @@ describe('ContributionsBoard', () => {
     // MVP rollup header
     expect(screen.getByText('★ COMPETITION MVP')).toBeTruthy();
 
-    // MVP player percentage
-    expect(screen.getByText('64%')).toBeTruthy();
+    // MVP player "pull your weight" index
+    expect(screen.getByText('1.3×')).toBeTruthy();
+    expect(screen.getByText('1.0× = pulled their weight')).toBeTruthy();
 
     // Round header label — format is "R1 · Best Ball"
     expect(screen.getByText('R1 · Best Ball')).toBeTruthy();

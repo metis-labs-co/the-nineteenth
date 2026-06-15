@@ -85,25 +85,31 @@ export function ContributionsBoard({ competitionId }: ContributionsBoardProps) {
         <Text style={[typography.small, styles.rollupLabel, { color: colors.primary }]}>
           ★ COMPETITION MVP
         </Text>
-        {board.rollup.map((r) => (
-          <View key={r.playerId} style={styles.rollupRow}>
-            <Text style={{ width: 22 }}>{r.isMvp ? '👑' : ''}</Text>
-            <Text style={[typography.body, { flex: 1, color: colors.textPrimary }]}>
-              {firstName(r.playerName)}
-            </Text>
-            <View style={[styles.barTrack, { backgroundColor: colors.surfaceVariant }]}>
-              <View
-                style={[
-                  styles.barFill,
-                  { width: `${Math.round(r.averageShare * 100)}%`, backgroundColor: colors.primary },
-                ]}
-              />
+        <Text style={[typography.caption, { color: colors.textSecondary, marginBottom: spacing.sm }]}>
+          1.0× = pulled their weight
+        </Text>
+        {board.rollup.map((r) => {
+          const top = board.rollup[0]?.weightIndex ?? 0;
+          const barPct = top > 0 ? Math.round((r.weightIndex / top) * 100) : 0;
+          return (
+            <View key={r.playerId} style={styles.rollupRow}>
+              <Text style={{ width: 22 }}>{r.isMvp ? '👑' : ''}</Text>
+              <Text style={[typography.body, { flex: 1, color: colors.textPrimary }]}>
+                {firstName(r.playerName)}
+              </Text>
+              <View style={[styles.barTrack, { backgroundColor: colors.surfaceVariant }]}>
+                <View
+                  style={[styles.barFill, { width: `${barPct}%`, backgroundColor: colors.primary }]}
+                />
+              </View>
+              <Text
+                style={[typography.bodyBold, { color: colors.primary, width: 48, textAlign: 'right' }]}
+              >
+                {r.weightIndex.toFixed(1)}×
+              </Text>
             </View>
-            <Text style={[typography.bodyBold, { color: colors.primary, width: 48, textAlign: 'right' }]}>
-              {pct(r.averageShare)}
-            </Text>
-          </View>
-        ))}
+          );
+        })}
       </View>
 
       {board.rounds.map((round) => {

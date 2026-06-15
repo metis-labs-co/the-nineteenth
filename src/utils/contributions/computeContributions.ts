@@ -314,14 +314,20 @@ function computeRound(round: ContributionRoundInput): RoundContribution {
 }
 
 function buildRollup(rounds: RoundContribution[]): RollupEntry[] {
-  // Sum shares per player across non-missing rounds.
+  // Average a "pull your weight" index per player across non-missing rounds.
+  // Each round's within-team share is normalized by team size (× number of
+  // players) so it is comparable across teams of different sizes: a player on
+  // a 2-person team and one on a 4-person team are both measured against their
+  // own team's equal split. The team's indices average to 1.0 by construction.
   const sum = new Map<string, { name: string; total: number; count: number }>();
   for (const round of rounds) {
     if (round.dataMissing) continue;
     for (const team of round.teams) {
+      const teamSize = team.players.length;
+      if (teamSize === 0) continue;
       for (const p of team.players) {
         const cur = sum.get(p.playerId) ?? { name: p.playerName, total: 0, count: 0 };
-        cur.total += p.share;
+        cur.total += p.share * teamSize;
         cur.count += 1;
         cur.name = p.playerName;
         sum.set(p.playerId, cur);
@@ -332,23 +338,23 @@ function buildRollup(rounds: RoundContribution[]): RollupEntry[] {
   const entries: RollupEntry[] = [...sum.entries()].map(([playerId, v]) => ({
     playerId,
     playerName: v.name,
-    averageShare: v.count > 0 ? v.total / v.count : 0,
+    weightIndex: v.count > 0 ? v.total / v.count : 0,
     roundsCounted: v.count,
     position: 0,
     isMvp: false,
   }));
 
-  entries.sort((a, b) => b.averageShare - a.averageShare);
-  const top = entries.length ? entries[0].averageShare : 0;
+  entries.sort((a, b) => b.weightIndex - a.weightIndex);
+  const top = entries.length ? entries[0].weightIndex : 0;
   let lastValue = Number.POSITIVE_INFINITY;
   let lastPos = 0;
   entries.forEach((e, i) => {
-    if (e.averageShare < lastValue) {
+    if (e.weightIndex < lastValue) {
       lastPos = i + 1;
-      lastValue = e.averageShare;
+      lastValue = e.weightIndex;
     }
     e.position = lastPos;
-    e.isMvp = top > 0 && e.averageShare === top;
+    e.isMvp = top > 0 && e.weightIndex === top;
   });
   return entries;
 }
