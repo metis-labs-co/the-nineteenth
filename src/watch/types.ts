@@ -1,6 +1,7 @@
 import type {
   HoleScore, FairwayMissDirection, GreenMissDirection, HazardEntry,
 } from '@/types/database/base';
+import type { GameType, RoundStatus } from '@/types/database/enums';
 
 export interface LatLng { latitude: number; longitude: number; }
 export type WatchUnit = 'metres' | 'yards';
@@ -31,6 +32,18 @@ export interface WatchLeaderboardRow {
  *  reports it; the watch converts to "blows to" at render. */
 export interface WatchWind { speedKph: number; fromDeg: number; }
 
+/** One round the user can open from the watch picker. `status` decides where the
+ *  phone routes: in-progress resumes scoring, upcoming opens ViewRound for setup. */
+export interface WatchAvailableRound {
+  roundId: string;
+  competitionId: string | null;     // null for standalone rounds
+  title: string;                    // competition name, else course name, else "Round"
+  teeTime: string | null;           // "HH:MM" for display, or null
+  status: Extract<RoundStatus, 'in-progress' | 'upcoming'>;
+  gameType: GameType;               // routes match-play to its dedicated screen
+  isTeamRound: boolean;             // routes team match-play to its dedicated screen
+}
+
 export interface WatchSnapshot {
   rev: number;
   roundId: string;
@@ -43,6 +56,10 @@ export interface WatchSnapshot {
   currentHole: number;
   scores: Record<string, HoleScore>; // key `${playerId}:${hole}`; absent = not entered
   leaderboard: WatchLeaderboardRow[];
+  /** Rounds the user can open from the watch. Present even when no round is
+   *  active (empty `roundId`) — that push both clears a finished round and
+   *  delivers the picker list. */
+  availableRounds: WatchAvailableRound[];
   /** Optional so older cached snapshots (and the Swift decoder) stay compatible. */
   wind?: WatchWind;
 }
@@ -79,4 +96,11 @@ export interface WatchAck { clientWriteId: string; status: WatchWriteStatus; rev
 export interface WatchNavigate {
   type: 'navigate';
   hole: number;
+}
+
+/** Watch → phone: open the chosen round. Carries only the id; the phone resolves
+ *  the full entry from the snapshot it last sent and routes accordingly. */
+export interface WatchSelectRound {
+  type: 'selectRound';
+  roundId: string;
 }

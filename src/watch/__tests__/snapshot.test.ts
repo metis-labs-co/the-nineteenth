@@ -1,4 +1,5 @@
 import { groupGreenCoords, trimLeaderboard, buildWatchSnapshot, BuildSnapshotInput } from '../snapshot';
+import type { WatchAvailableRound } from '../types';
 
 describe('groupGreenCoords', () => {
   it('groups green coords by hole and type, ignoring any tee poi', () => {
@@ -133,5 +134,40 @@ describe('buildWatchSnapshot', () => {
   it('omits the wind key entirely when absent', () => {
     const snap = buildWatchSnapshot(baseInput());
     expect('wind' in snap).toBe(false);
+  });
+});
+
+describe('buildWatchSnapshot availableRounds', () => {
+  const base = {
+    rev: 1,
+    roundId: '',
+    competitionName: 'Round',
+    unit: 'metres' as const,
+    isPremium: false,
+    statFlags: {
+      putts: false, fairways: false, gir: false, penalties: false, bunker: false,
+      fairwayDirection: false, greenDirection: false,
+    },
+    currentHole: 1,
+    currentUserId: 'u1',
+    holes: [],
+    coords: [],
+    pairPlayers: [],
+    leaderboard: [],
+  };
+
+  const round: WatchAvailableRound = {
+    roundId: 'r1', competitionId: null, title: 'Royal Melbourne',
+    teeTime: '08:30', status: 'upcoming', gameType: 'stableford', isTeamRound: false,
+  };
+
+  it('passes availableRounds straight through onto the snapshot', () => {
+    const snap = buildWatchSnapshot({ ...base, availableRounds: [round] });
+    expect(snap.availableRounds).toEqual([round]);
+  });
+
+  it('defaults availableRounds to an empty array when omitted', () => {
+    const snap = buildWatchSnapshot({ ...base });
+    expect(snap.availableRounds).toEqual([]);
   });
 });

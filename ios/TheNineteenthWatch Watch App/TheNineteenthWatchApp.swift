@@ -31,9 +31,13 @@ struct RootView: View {
     @ObservedObject var workout: WorkoutController
     @ObservedObject var durationMonitor: RoundDurationMonitor
 
+    private var hasActiveRound: Bool {
+        connectivity.snapshot?.hasActiveRound ?? false
+    }
+
     var body: some View {
         NavigationStack {
-            if connectivity.snapshot != nil {
+            if hasActiveRound {
                 DistanceView(connectivity: connectivity, location: location)
                     .toolbar {
                         ToolbarItem(placement: .topBarTrailing) {
@@ -45,19 +49,16 @@ struct RootView: View {
                         }
                     }
             } else {
-                NowPlayingView(connectivity: connectivity, location: location)
+                // No active round: show the picker (it renders its own empty state
+                // when there's nothing to pick).
+                RoundPickerView(connectivity: connectivity)
             }
         }
-        // Keep the app alive while a round is live; release it when the round ends.
-        .onAppear { if connectivity.snapshot != nil { workout.start() } }
-        .onChange(of: connectivity.snapshot != nil) { _, live in
+        // Keep the app alive only while a round is actually live.
+        .onAppear { if hasActiveRound { workout.start() } }
+        .onChange(of: hasActiveRound) { _, live in
             if live { workout.start() } else { workout.stop() }
         }
-        // Anchor the 5-hour reminder to the workout session start (the clock the
-        // on-watch timer shows). Starts when the session begins, stops when it ends.
-        // Note: if the watch app is force-relaunched mid-round, the workout session
-        // restarts and this anchor resets to the relaunch time — the keep-alive
-        // session exists precisely to make that rare.
         .onChange(of: workout.startDate) { _, started in
             if let started { durationMonitor.start(at: started) } else { durationMonitor.stop() }
         }
@@ -70,7 +71,6 @@ struct RootView: View {
             Text("You've been playing over 5 hours. Time to wrap up and submit your scorecard on your phone.")
         }
         .onChange(of: durationMonitor.shouldPromptCompletion) { _, prompting in
-            // Rising edge only: haptic on the alert appearing, not on dismissal.
             if prompting { WKInterfaceDevice.current().play(.notification) }
         }
     }

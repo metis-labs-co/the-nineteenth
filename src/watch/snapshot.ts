@@ -1,5 +1,6 @@
 import type { HoleScore } from '@/types/database/base';
 import type {
+  WatchAvailableRound,
   WatchHole,
   WatchLeaderboardRow,
   WatchSnapshot,
@@ -75,6 +76,8 @@ export interface BuildSnapshotInput {
   coords: SnapshotCoord[];
   pairPlayers: SnapshotPlayer[];
   leaderboard: SnapshotLeaderboardEntry[];
+  /** Optional so existing call sites/tests compile; defaults to []. */
+  availableRounds?: WatchAvailableRound[];
   wind?: WatchWind;
 }
 
@@ -99,6 +102,7 @@ export function buildWatchSnapshot(input: BuildSnapshotInput): WatchSnapshot {
     currentHole: input.currentHole,
     scores,
     leaderboard: trimLeaderboard(input.leaderboard, input.currentUserId),
+    availableRounds: input.availableRounds ?? [],
     // Omit the key entirely when absent so the snapshot stays compact and the
     // optional decodes cleanly on the watch.
     ...(input.wind ? { wind: input.wind } : {}),

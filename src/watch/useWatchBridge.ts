@@ -21,7 +21,7 @@
  * wiring hook.
  */
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { usePlayersToScore } from '@/hooks/scoringPairs/queries';
@@ -36,6 +36,12 @@ import { buildWatchSnapshot } from './snapshot';
 import { applyWatchScoreWrite, type ScoreWriteContext } from './scoreWrite';
 import { createWatchTransport } from './transport';
 import { useActiveRoundIds } from './useActiveRoundIds';
+import { useInProgressRounds } from '@/hooks/home/useInProgressRounds';
+import { useUpcomingRounds } from '@/hooks/home/useUpcomingRounds';
+import { navigate, isNavigationReady } from '@/navigation/navigationRef';
+import { buildAvailableRounds, type AvailableRoundSource } from './availableRounds';
+import { routeForSelectedRound } from './selectRoundRoute';
+import type { RoundWithCourse } from '@/components/competitions/detail/types';
 import type { WatchScoreWrite, WatchStatFlags } from './types';
 
 export interface UseWatchBridgeOptions {
@@ -77,6 +83,33 @@ export function useWatchBridge(opts: UseWatchBridgeOptions = {}) {
   const { data: playersToScore = [] } = usePlayersToScore(roundId ?? '', user?.id ?? '');
   const { data: leaderboard = [] } = useCompetitionLeaderboard(competitionId);
   const { data: coords = [] } = useHoleCoordinates(courseId);
+
+  // Today's playable rounds for the watch picker. These hooks are already used by
+  // the Home screen, so React Query de-dupes the fetches; here they let the watch
+  // list rounds even when no round is open on the phone.
+  const { data: inProgressRounds = [] } = useInProgressRounds();
+  const { data: upcomingRounds = [] } = useUpcomingRounds();
+
+  const availableRounds = useMemo(() => {
+    const toSource = (r: RoundWithCourse, status: AvailableRoundSource['status']): AvailableRoundSource => ({
+      id: r.id,
+      status,
+      competition_id: r.competition_id ?? null,
+      competitionName: r.competition?.name ?? null,
+      courseName: r.course?.name ?? null,
+      tee_time: r.tee_time ?? null,
+      game_type: r.game_type,
+      is_team_round: Boolean(r.is_team_round),
+    });
+    return buildAvailableRounds(
+      inProgressRounds.map((r) => toSource(r, 'in-progress')),
+      upcomingRounds.map((r) => toSource(r, 'upcoming')),
+    );
+  }, [inProgressRounds, upcomingRounds]);
+
+  // Mirror for the (stable) inbound select-round subscription.
+  const availableRoundsRef = useRef(availableRounds);
+  availableRoundsRef.current = availableRounds;
 
   // Course location for the wind fetch: the current hole's green centre, else any
   // green centre, else any coord. Open-Meteo rounds to ~0.01° so course-level
@@ -136,14 +169,48 @@ export function useWatchBridge(opts: UseWatchBridgeOptions = {}) {
   const statFlagsRef = useRef(statFlags);
   statFlagsRef.current = statFlags;
 
+  // Resolve a watch-selected round id against the list we last sent, and route the
+  // phone there. Returns false when the id is unknown (stale) or navigation isn't
+  // ready yet, so the caller can retry.
+  const pendingSelectRef = useRef<string | null>(null);
+  const retryRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const routeToRound = useCallback((selectedRoundId: string): boolean => {
+    const entry = availableRoundsRef.current.find((r) => r.roundId === selectedRoundId);
+    if (!entry) return false; // unknown / no longer playable — drop
+    if (!isNavigationReady()) return false; // app not foregrounded yet — retry
+    const intent = routeForSelectedRound(entry);
+    // Cast: SelectRouteIntent screens/params are a subset of RootStackParamList.
+    navigate(intent.screen as never, intent.params as never);
+    return true;
+  }, []);
+
+  const startPendingRetry = useCallback(() => {
+    if (retryRef.current) return;
+    let tries = 0;
+    retryRef.current = setInterval(() => {
+      tries += 1;
+      const pending = pendingSelectRef.current;
+      if (!pending || routeToRound(pending) || tries > 20) {
+        pendingSelectRef.current = null;
+        if (retryRef.current) {
+          clearInterval(retryRef.current);
+          retryRef.current = null;
+        }
+      }
+    }, 300);
+  }, [routeToRound]);
+
   // ── Effect 1: push snapshot whenever inputs change ────────────────────────
   useEffect(() => {
-    if (!transport.isSupported() || !roundId || !user) return;
+    // No `roundId` guard: we push even with no active round so the watch clears a
+    // finished round and shows the picker. An empty roundId is the clear signal.
+    if (!transport.isSupported() || !user) return;
     const rev = ++revRef.current;
     transport.updateContext(
       buildWatchSnapshot({
         rev,
-        roundId,
+        roundId: roundId ?? '',
         competitionName: 'Round',
         unit,
         isPremium,
@@ -170,6 +237,7 @@ export function useWatchBridge(opts: UseWatchBridgeOptions = {}) {
           detail: String(e.totalPoints),
           playerId: e.participantId,
         })),
+        availableRounds,
         wind,
       }),
     );
@@ -186,6 +254,7 @@ export function useWatchBridge(opts: UseWatchBridgeOptions = {}) {
     currentPlayers,
     groupScorecards,
     leaderboard,
+    availableRounds,
     wind,
   ]);
 
@@ -237,4 +306,26 @@ export function useWatchBridge(opts: UseWatchBridgeOptions = {}) {
     });
     return off;
   }, [transport, roundId, user, setCurrentHole]);
+
+  // ── Effect 4: open a watch-selected round on the phone ────────────────────
+  // No active-round guard: selection is about choosing A round, not acting within
+  // one. If the app wasn't foregrounded when the tap arrived, hold the selection
+  // and retry until navigation is ready (bounded).
+  useEffect(() => {
+    if (!transport.isSupported() || !user) return;
+    const off = transport.onSelectRound((sel) => {
+      if (!routeToRound(sel.roundId)) {
+        // A later selection replaces an in-flight pending one; the earlier tap is dropped.
+        pendingSelectRef.current = sel.roundId;
+        startPendingRetry();
+      }
+    });
+    return () => {
+      off();
+      if (retryRef.current) {
+        clearInterval(retryRef.current);
+        retryRef.current = null;
+      }
+    };
+  }, [transport, user, routeToRound, startPendingRetry]);
 }

@@ -24,6 +24,11 @@ struct NowPlayingView: View {
                 MenuRow(title: "Leaderboard", systemImage: "trophy.fill", tint: .brandWarning) {
                     LeaderboardView(connectivity: connectivity)
                 }
+                if !(snapshot.pickerRounds.isEmpty) {
+                    MenuRow(title: "Switch round", systemImage: "arrow.left.arrow.right", tint: .secondary) {
+                        RoundPickerView(connectivity: connectivity)
+                    }
+                }
             }
             .navigationTitle("The Nineteenth")
         } else {
