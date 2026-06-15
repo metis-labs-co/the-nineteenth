@@ -52,6 +52,7 @@ export interface Player {
   push_league_updates: boolean; // League-related notifications
   push_side_game_updates?: boolean; // Side-game and prize pool notifications (optional for backwards compat)
   push_round_reminders?: boolean; // Tee-time reminders 30 min before a round (optional for backwards compat)
+  push_social_activity?: boolean; // Social activity notifications (likes & comments on rounds, optional for backwards compat)
   // Equipped cosmetics (achievement rewards)
   equipped_badge_id: string | null; // UUID, reference to cosmetic_definitions
   equipped_frame_id: string | null; // UUID, reference to cosmetic_definitions
