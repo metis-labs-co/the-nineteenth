@@ -112,6 +112,7 @@ supabase/.temp/
 .claude/
 .superpowers/
 .worktrees/
+.clone/
 
 # Misc
 *.tgz
