@@ -14,6 +14,7 @@ import type {
   Hole,
   PlayerContribution,
   RoundContribution,
+  ShotBreakdown,
   TeamContribution,
 } from './types';
 
@@ -177,6 +178,99 @@ function computeAggregateTeam(
   };
 }
 
+const SHOT_KEYS = ['teeShot', 'secondShot', 'approach', 'putt'] as const;
+
+function emptyBreakdown(): ShotBreakdown {
+  return { drives: 0, approaches: 0, putts: 0 };
+}
+
+/** Count shot slots per player. Returns null when nothing was tracked. */
+function countShots(
+  team: ContributionTeamInput
+): { byPlayer: Map<string, ShotBreakdown>; total: number } | null {
+  const byPlayer = new Map<string, ShotBreakdown>();
+  team.members.forEach((m) => byPlayer.set(m.playerId, emptyBreakdown()));
+  let total = 0;
+  const holes = team.shotContributionsByHole ?? {};
+  for (const slots of Object.values(holes)) {
+    for (const key of SHOT_KEYS) {
+      const playerId = slots[key];
+      if (!playerId) continue;
+      const bd = byPlayer.get(playerId);
+      if (!bd) continue;
+      if (key === 'teeShot') bd.drives += 1;
+      else if (key === 'putt') bd.putts += 1;
+      else bd.approaches += 1; // secondShot + approach
+      total += 1;
+    }
+  }
+  return total === 0 ? null : { byPlayer, total };
+}
+
+function computeScrambleTeam(team: ContributionTeamInput): TeamContribution | null {
+  const shots = countShots(team);
+  if (!shots) return null; // signal data-missing to caller
+  const players: PlayerContribution[] = team.members.map((m) => {
+    const bd = shots.byPlayer.get(m.playerId) ?? emptyBreakdown();
+    const value = bd.drives + bd.approaches + bd.putts;
+    return {
+      playerId: m.playerId,
+      playerName: m.playerName,
+      value,
+      share: shots.total > 0 ? value / shots.total : 0,
+      shotBreakdown: bd,
+      position: 0,
+      isMvp: false,
+    };
+  });
+  return { teamId: team.teamId, teamName: team.teamName, color: team.color, players: rank(players) };
+}
+
+/** Drives-used share per player; null when no tee-shot data. */
+function drivesShare(team: ContributionTeamInput): Map<string, number> | null {
+  const holes = team.shotContributionsByHole ?? {};
+  const counts = new Map<string, number>();
+  team.members.forEach((m) => counts.set(m.playerId, 0));
+  let total = 0;
+  for (const slots of Object.values(holes)) {
+    if (!slots.teeShot) continue;
+    if (!counts.has(slots.teeShot)) continue;
+    counts.set(slots.teeShot, (counts.get(slots.teeShot) ?? 0) + 1);
+    total += 1;
+  }
+  if (total === 0) return null;
+  const share = new Map<string, number>();
+  counts.forEach((c, id) => share.set(id, c / total));
+  return share;
+}
+
+function computeShambleTeam(
+  team: ContributionTeamInput,
+  holes: Hole[],
+  gameType: GameType
+): { team: TeamContribution; drivesMissing: boolean } {
+  const { won, holesScored } = holesWonByPlayer(team, holes, gameType);
+  const drives = drivesShare(team);
+  const drivesMissing = drives === null;
+
+  const players: PlayerContribution[] = team.members.map((m) => {
+    const holesShare = holesScored > 0 ? (won.get(m.playerId) ?? 0) / holesScored : 0;
+    const share = drives ? (holesShare + (drives.get(m.playerId) ?? 0)) / 2 : holesShare;
+    return {
+      playerId: m.playerId,
+      playerName: m.playerName,
+      value: won.get(m.playerId) ?? 0,
+      share,
+      position: 0,
+      isMvp: false,
+    };
+  });
+  return {
+    team: { teamId: team.teamId, teamName: team.teamName, color: team.color, players: rank(players) },
+    drivesMissing,
+  };
+}
+
 function computeRound(round: ContributionRoundInput): RoundContribution {
   const base = {
     roundId: round.roundId,
@@ -193,11 +287,28 @@ function computeRound(round: ContributionRoundInput): RoundContribution {
     };
   }
 
-  // best-ball (scramble/shamble handled in a later task — fall through to best-ball for now)
+  if (round.format === 'best-ball') {
+    return {
+      ...base,
+      teams: round.teams.map((t) => computeBestBallTeam(t, round.holes, round.gameType)),
+      dataMissing: false,
+    };
+  }
+
+  if (round.format === 'scramble') {
+    const teams = round.teams
+      .map((t) => computeScrambleTeam(t))
+      .filter((t): t is TeamContribution => t !== null);
+    return { ...base, teams, dataMissing: teams.length === 0 };
+  }
+
+  // shamble
+  const results = round.teams.map((t) => computeShambleTeam(t, round.holes, round.gameType));
   return {
     ...base,
-    teams: round.teams.map((t) => computeBestBallTeam(t, round.holes, round.gameType)),
+    teams: results.map((r) => r.team),
     dataMissing: false,
+    drivesMissing: results.length > 0 && results.every((r) => r.drivesMissing),
   };
 }
 

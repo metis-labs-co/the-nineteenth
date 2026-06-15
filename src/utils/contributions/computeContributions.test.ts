@@ -81,3 +81,147 @@ describe('computeContributions — aggregate', () => {
     expect(board.rounds[0].metricLabel).toBe('points');
   });
 });
+
+describe('computeContributions — scramble', () => {
+  it('counts shot slots and breaks down by type', () => {
+    const board = computeContributions({
+      rounds: [
+        {
+          roundId: 'r1',
+          roundLabel: 'R1',
+          format: 'scramble',
+          gameType: 'stroke',
+          holes: HOLES,
+          teams: [
+            {
+              teamId: 't1',
+              teamName: 'Eagles',
+              color: null,
+              members: [
+                { playerId: 'a', playerName: 'Ann', handicap: 0 },
+                { playerId: 'b', playerName: 'Bob', handicap: 0 },
+              ],
+              strokesByPlayerHole: {},
+              shotContributionsByHole: {
+                1: { teeShot: 'a', approach: 'a', putt: 'b' },
+                2: { teeShot: 'a', approach: 'b', putt: 'b' },
+                3: { teeShot: 'b', approach: 'a', putt: 'a' },
+              },
+            },
+          ],
+        },
+      ],
+    });
+
+    const team = board.rounds[0].teams[0];
+    const ann = team.players.find((p) => p.playerId === 'a')!;
+    const bob = team.players.find((p) => p.playerId === 'b')!;
+    // Ann: tee 2, approach 2, putt 1 = 5. Bob: tee 1, approach 1, putt 2 = 4.
+    expect(ann.value).toBe(5);
+    expect(bob.value).toBe(4);
+    expect(ann.shotBreakdown).toEqual({ drives: 2, approaches: 2, putts: 1 });
+    expect(ann.share).toBeCloseTo(5 / 9);
+    expect(board.rounds[0].dataMissing).toBe(false);
+  });
+
+  it('flags dataMissing when no shot contributions exist', () => {
+    const board = computeContributions({
+      rounds: [
+        {
+          roundId: 'r1',
+          roundLabel: 'R1',
+          format: 'scramble',
+          gameType: 'stroke',
+          holes: HOLES,
+          teams: [
+            {
+              teamId: 't1',
+              teamName: 'Eagles',
+              color: null,
+              members: [{ playerId: 'a', playerName: 'Ann', handicap: 0 }],
+              strokesByPlayerHole: {},
+              shotContributionsByHole: {},
+            },
+          ],
+        },
+      ],
+    });
+    expect(board.rounds[0].dataMissing).toBe(true);
+  });
+});
+
+describe('computeContributions — shamble', () => {
+  it('averages drives-used and holes-won shares', () => {
+    const board = computeContributions({
+      rounds: [
+        {
+          roundId: 'r1',
+          roundLabel: 'R1',
+          format: 'shamble',
+          gameType: 'stroke',
+          holes: HOLES,
+          teams: [
+            {
+              teamId: 't1',
+              teamName: 'Eagles',
+              color: null,
+              members: [
+                { playerId: 'a', playerName: 'Ann', handicap: 0 },
+                { playerId: 'b', playerName: 'Bob', handicap: 0 },
+              ],
+              // Ann wins all 3 holes on own ball.
+              strokesByPlayerHole: {
+                a: { 1: 3, 2: 3, 3: 3 },
+                b: { 1: 5, 2: 5, 3: 5 },
+              },
+              // Drives: Ann 1, Bob 2.
+              shotContributionsByHole: {
+                1: { teeShot: 'b' },
+                2: { teeShot: 'b' },
+                3: { teeShot: 'a' },
+              },
+            },
+          ],
+        },
+      ],
+    });
+    const ann = board.rounds[0].teams[0].players.find((p) => p.playerId === 'a')!;
+    // drives share Ann = 1/3; holes-won share Ann = 3/3 = 1. avg = (1/3 + 1)/2 = 2/3.
+    expect(ann.share).toBeCloseTo((1 / 3 + 1) / 2);
+    expect(board.rounds[0].drivesMissing).toBe(false);
+  });
+
+  it('falls back to holes-won only when drives are missing', () => {
+    const board = computeContributions({
+      rounds: [
+        {
+          roundId: 'r1',
+          roundLabel: 'R1',
+          format: 'shamble',
+          gameType: 'stroke',
+          holes: HOLES,
+          teams: [
+            {
+              teamId: 't1',
+              teamName: 'Eagles',
+              color: null,
+              members: [
+                { playerId: 'a', playerName: 'Ann', handicap: 0 },
+                { playerId: 'b', playerName: 'Bob', handicap: 0 },
+              ],
+              strokesByPlayerHole: {
+                a: { 1: 3, 2: 3, 3: 3 },
+                b: { 1: 5, 2: 5, 3: 5 },
+              },
+              shotContributionsByHole: {},
+            },
+          ],
+        },
+      ],
+    });
+    const ann = board.rounds[0].teams[0].players.find((p) => p.playerId === 'a')!;
+    expect(ann.share).toBeCloseTo(1); // holes-won only
+    expect(board.rounds[0].drivesMissing).toBe(true);
+    expect(board.rounds[0].dataMissing).toBe(false); // own-ball data present
+  });
+});
