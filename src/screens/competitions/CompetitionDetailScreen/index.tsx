@@ -38,7 +38,7 @@ import {
   PayoutsTab,
   SkinsTab,
 } from '@/components/competitions/detail';
-import { RingerBoard } from '@/components/competitions/ringer';
+import { BreakdownTab } from '@/components/competitions/breakdown';
 import { useCompetitionSkinsGames } from '@/hooks/skins';
 import { BracketTab } from '@/components/knockout';
 import { PointsBreakdownModal, LeaderboardViewToggle } from '@/components/leaderboard';
@@ -61,7 +61,7 @@ type TabValue =
   | 'stats'
   | 'payouts'
   | 'skins'
-  | 'ringer';
+  | 'breakdown';
 
 export default function CompetitionDetailScreen({ navigation, route }: Props) {
   const colors = useThemeColors();
@@ -242,6 +242,18 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
     [competitionData]
   );
 
+  // Contributions board needs at least one team-format round to break down.
+  const showContributionsTab = useMemo(() => {
+    const roundsList = competitionData?.rounds ?? [];
+    const teamFormats = ['best-ball', 'scramble', 'shamble', 'aggregate'];
+    return roundsList.some(
+      (r) => teamFormats.includes(r.team_format ?? '') || teamFormats.includes(r.game_type ?? '')
+    );
+  }, [competitionData]);
+
+  // Breakdown tab surfaces if either segment has data.
+  const showBreakdownTab = showRingerTab || showContributionsTab;
+
   // Once the competition is live, surface standings earlier — leaderboard (or
   // bracket for knockouts) jumps to the 3rd tab so players can see results
   // without scrolling past Players/Teams/Stats.
@@ -346,7 +358,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
           { key: 'players', label: 'Players', count: players.length },
           ...(competition.team_mode !== 'none' ? [{ key: 'teams' as const, label: 'Teams' }] : []),
           ...(showStatsTab ? [{ key: 'stats' as const, label: 'Stats' }] : []),
-          ...(showRingerTab ? [{ key: 'ringer' as const, label: 'Ringer' }] : []),
+          ...(showBreakdownTab ? [{ key: 'breakdown' as const, label: 'Breakdown' }] : []),
           ...(!promoteLeaderboard
             ? [
                 competition.competition_type === 'knockout'
@@ -533,8 +545,12 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
           <SkinsTab competitionId={id} />
         )}
 
-        {activeTab === 'ringer' && showRingerTab && (
-          <RingerBoard competitionId={id} />
+        {activeTab === 'breakdown' && showBreakdownTab && (
+          <BreakdownTab
+            competitionId={id}
+            showRinger={showRingerTab}
+            showContributions={showContributionsTab}
+          />
         )}
       </ScrollView>
 

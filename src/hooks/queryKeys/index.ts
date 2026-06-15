@@ -12,7 +12,7 @@ import { authKeys } from './auth';
 import { competitionKeys, playerKeys, teamKeys, pairingKeys, knockoutKeys, competitionDetailsKeys } from './competition';
 import { clubKeys, courseKeys, teeKeys, coordinateKeys, favoriteKeys } from './course';
 import { roundKeys, scheduledRoundKeys, subMatchKeys } from './round';
-import { scorecardKeys, leaderboardKeys, scoringPairsKeys, statisticsKeys, scoreMismatchKeys, ringerKeys } from './scoring';
+import { scorecardKeys, leaderboardKeys, scoringPairsKeys, statisticsKeys, scoreMismatchKeys, ringerKeys, contributionKeys } from './scoring';
 import { friendsKeys, notificationKeys, pushKeys, placeholderPlayersKeys } from './social';
 import { skinsKeys, wolfKeys, prizePoolKeys, achievementKeys, cosmeticKeys, leagueKeys, subscriptionKeys, aiKeys } from './features';
 import { shotLogKeys } from './shots';
@@ -49,6 +49,7 @@ export {
   statisticsKeys,
   scoreMismatchKeys,
   ringerKeys,
+  contributionKeys,
 };
 
 export {
