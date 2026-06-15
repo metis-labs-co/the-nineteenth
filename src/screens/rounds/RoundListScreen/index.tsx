@@ -106,6 +106,7 @@ export default function RoundsScreen() {
     deleteDialogVisible,
     roundToDelete,
     isDeleting,
+    pendingDeleteIsCancel,
     dialogConfig: actionsDialogConfig,
     dismissDialog: dismissActionsDialog,
   } = useRoundActions(handleRefresh);
@@ -319,10 +320,14 @@ export default function RoundsScreen() {
       {/* Delete Confirmation Dialog */}
       <ConfirmationDialog
         visible={deleteDialogVisible}
-        title="Delete Round"
-        message={`Are you sure you want to delete this round at ${roundToDelete?.course.name ?? 'this course'}? This action cannot be undone.`}
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
+        title={pendingDeleteIsCancel ? 'Cancel Round' : 'Delete Round'}
+        message={
+          pendingDeleteIsCancel
+            ? `Cancel this round at ${roundToDelete?.course.name ?? 'this course'}? All invited players will be notified and it will be removed for everyone. This can't be undone.`
+            : `Are you sure you want to delete this round at ${roundToDelete?.course.name ?? 'this course'}? This action cannot be undone.`
+        }
+        confirmLabel={pendingDeleteIsCancel ? 'Cancel Round' : 'Delete'}
+        cancelLabel={pendingDeleteIsCancel ? 'Keep Round' : 'Cancel'}
         confirmVariant="destructive"
         onConfirm={handleConfirmDelete}
         onCancel={handleCancelDelete}

@@ -6,17 +6,24 @@ import { useState, useCallback } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useDeleteRound } from '@/hooks/rounds/mutations';
+import { useCancelScheduledRound } from '@/hooks/rounds/scheduledRounds';
 import { useConfirmationDialog, type DialogConfig } from '@/hooks';
+import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/context/ToastContext';
 import type { RootStackParamList } from '@/navigation/types';
 import type { RoundItem, UseRoundActionsReturn } from '../types';
+import { shouldCancelScheduledRound } from './shouldCancelScheduledRound';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 export function useRoundActions(onDeleteSuccess?: () => void): UseRoundActionsReturn & {
   dialogConfig: DialogConfig;
   dismissDialog: () => void;
+  pendingDeleteIsCancel: boolean;
 } {
   const navigation = useNavigation<NavigationProp>();
+  const { user } = useAuth();
+  const { showToast } = useToast();
 
   // Dialog state for error alerts
   const { dialogConfig, showAlert, dismissDialog } = useConfirmationDialog();
@@ -26,6 +33,13 @@ export function useRoundActions(onDeleteSuccess?: () => void): UseRoundActionsRe
 
   // Delete round via shared soft-delete hook (RPC handles auth + cache invalidation + undo toast)
   const deleteRoundMutation = useDeleteRound();
+  // Cancel path for scheduled rounds with invitees: hard delete -> the
+  // notify_scheduled_round_cancelled trigger pushes a "Round cancelled" notice
+  // to every invitee and the cascade removes the round for everyone. No undo.
+  const cancelScheduledRoundMutation = useCancelScheduledRound();
+
+  // Whether the pending delete will be handled as a cancel (notifies invitees).
+  const pendingDeleteIsCancel = shouldCancelScheduledRound(roundToDelete, user?.id);
 
   const handleScoreRound = useCallback(
     (round: RoundItem) => {
@@ -75,7 +89,23 @@ export function useRoundActions(onDeleteSuccess?: () => void): UseRoundActionsRe
   );
 
   const handleConfirmDelete = useCallback(() => {
-    if (roundToDelete) {
+    if (!roundToDelete) return;
+
+    if (shouldCancelScheduledRound(roundToDelete, user?.id)) {
+      // Scheduled round with invitees -> cancel it. Hard delete fires the
+      // BEFORE DELETE trigger that notifies invitees and removes it for all.
+      cancelScheduledRoundMutation.mutate(roundToDelete.id, {
+        onSuccess: () => {
+          showToast({
+            variant: 'success',
+            title: 'Round cancelled',
+            message: 'Invited players have been notified.',
+          });
+          onDeleteSuccess?.();
+        },
+        onError: () => showAlert('Error', 'Failed to cancel round. Please try again.'),
+      });
+    } else {
       deleteRoundMutation.mutate(
         { roundId: roundToDelete.id, competitionId: roundToDelete.competition?.id },
         {
@@ -83,10 +113,19 @@ export function useRoundActions(onDeleteSuccess?: () => void): UseRoundActionsRe
           onError: () => showAlert('Error', 'Failed to delete round. Please try again.'),
         }
       );
-      setDeleteDialogVisible(false);
-      setRoundToDelete(null);
     }
-  }, [roundToDelete, deleteRoundMutation, showAlert, onDeleteSuccess]);
+
+    setDeleteDialogVisible(false);
+    setRoundToDelete(null);
+  }, [
+    roundToDelete,
+    user?.id,
+    deleteRoundMutation,
+    cancelScheduledRoundMutation,
+    showToast,
+    showAlert,
+    onDeleteSuccess,
+  ]);
 
   const handleCancelDelete = useCallback(() => {
     setDeleteDialogVisible(false);
@@ -100,7 +139,8 @@ export function useRoundActions(onDeleteSuccess?: () => void): UseRoundActionsRe
     handleCancelDelete,
     deleteDialogVisible,
     roundToDelete,
-    isDeleting: deleteRoundMutation.isPending,
+    isDeleting: deleteRoundMutation.isPending || cancelScheduledRoundMutation.isPending,
+    pendingDeleteIsCancel,
     dialogConfig,
     dismissDialog,
   };
