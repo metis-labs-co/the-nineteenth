@@ -4,6 +4,7 @@ import {
   createWearTransport,
   createWatchTransport,
   isWatchNavigate,
+  isWatchSelectRound,
 } from '../transport';
 
 const mockBridge = {
@@ -41,6 +42,30 @@ describe('isWatchNavigate', () => {
   it('returns false for a non-integer hole', () => {
     expect(isWatchNavigate({ type: 'navigate', hole: 1.5 })).toBe(false);
     expect(isWatchNavigate({ type: 'navigate', hole: NaN })).toBe(false);
+  });
+});
+
+describe('isWatchSelectRound', () => {
+  it('returns true for a selectRound message', () => {
+    expect(isWatchSelectRound({ type: 'selectRound', roundId: 'r1' })).toBe(true);
+  });
+  it('returns false for a score write and a navigate message', () => {
+    expect(isWatchSelectRound({ clientWriteId: 'w1', hole: 5, playerId: 'p', strokes: 4 })).toBe(false);
+    expect(isWatchSelectRound({ type: 'navigate', hole: 5 })).toBe(false);
+  });
+  it('returns false for junk / wrong shape', () => {
+    expect(isWatchSelectRound(null)).toBe(false);
+    expect(isWatchSelectRound({ type: 'selectRound' })).toBe(false); // missing roundId
+    expect(isWatchSelectRound({ type: 'selectRound', roundId: 5 })).toBe(false);
+  });
+  it('returns false for an empty roundId', () => {
+    expect(isWatchSelectRound({ type: 'selectRound', roundId: '' })).toBe(false);
+  });
+  it('null transport onSelectRound returns an unsubscribe function', () => {
+    const t = createNullTransport();
+    const off = t.onSelectRound(() => {});
+    expect(typeof off).toBe('function');
+    off();
   });
 });
 
@@ -97,6 +122,20 @@ describe('Wear transport (Android)', () => {
     expect(onMsg).toHaveBeenCalledWith(expect.objectContaining({ clientWriteId: 'w' }));
     expect(onNav).toHaveBeenCalledTimes(1);
     expect(onNav).toHaveBeenCalledWith(expect.objectContaining({ type: 'navigate', hole: 5 }));
+  });
+
+  it('routes inbound messages: selectRound to onSelectRound, not to onMessage', () => {
+    const t = createWearTransport();
+    const onMsg = jest.fn();
+    const onSel = jest.fn();
+    t.onMessage(onMsg);
+    t.onSelectRound(onSel);
+
+    emit({ json: JSON.stringify({ type: 'selectRound', roundId: 'r1' }) });
+
+    expect(onSel).toHaveBeenCalledTimes(1);
+    expect(onSel).toHaveBeenCalledWith(expect.objectContaining({ type: 'selectRound', roundId: 'r1' }));
+    expect(onMsg).not.toHaveBeenCalled();
   });
 
   it('ignores malformed inbound JSON without throwing', () => {

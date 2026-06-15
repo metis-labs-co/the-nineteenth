@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 import { isExpoGo } from '@/utils/expoGo';
-import type { WatchSnapshot, WatchScoreWrite, WatchAck, WatchNavigate } from './types';
+import type { WatchSnapshot, WatchScoreWrite, WatchAck, WatchNavigate, WatchSelectRound } from './types';
 
 function warnUnavailable(module: string): void {
   if (__DEV__) {
@@ -19,11 +19,21 @@ export function isWatchNavigate(msg: unknown): msg is WatchNavigate {
   );
 }
 
+export function isWatchSelectRound(msg: unknown): msg is WatchSelectRound {
+  const m = msg as { type?: unknown; roundId?: unknown };
+  return (
+    typeof msg === 'object' && msg !== null &&
+    m.type === 'selectRound' &&
+    typeof m.roundId === 'string' && m.roundId.length > 0
+  );
+}
+
 export interface WatchTransport {
   isSupported(): boolean;
   updateContext(snapshot: WatchSnapshot): void;          // applicationContext
   onMessage(handler: (msg: WatchScoreWrite) => void): () => void; // transferUserInfo + message
   onNavigate(handler: (nav: WatchNavigate) => void): () => void;
+  onSelectRound(handler: (sel: WatchSelectRound) => void): () => void;
   sendAck(ack: WatchAck): void;                           // sendMessage when reachable
 }
 
@@ -33,6 +43,7 @@ export function createNullTransport(): WatchTransport {
     updateContext: () => {},
     onMessage: () => () => {},
     onNavigate: () => () => {},
+    onSelectRound: () => () => {},
     sendAck: () => {},
   };
 }
@@ -72,8 +83,10 @@ export function createWatchConnectivityTransport(): WatchTransport {
   return {
     isSupported: () => true,
     updateContext: (snapshot) => rnwc.updateApplicationContext(snapshot as any),
-    onMessage: (handler) => subscribe((m) => !isWatchNavigate(m), (m) => handler(m as WatchScoreWrite)),
+    onMessage: (handler) =>
+      subscribe((m) => !isWatchNavigate(m) && !isWatchSelectRound(m), (m) => handler(m as WatchScoreWrite)),
     onNavigate: (handler) => subscribe(isWatchNavigate, (m) => handler(m as WatchNavigate)),
+    onSelectRound: (handler) => subscribe(isWatchSelectRound, (m) => handler(m as WatchSelectRound)),
     sendAck: (ack) => {
       if (rnwc.sendMessage) rnwc.sendMessage(ack as any, () => {}, () => {});
     },
@@ -113,8 +126,10 @@ export function createWearTransport(): WatchTransport {
       try { return bridge.isSupported(); } catch { return false; }
     },
     updateContext: (snapshot) => { bridge.updateData(JSON.stringify(snapshot)); },
-    onMessage: (handler) => subscribe((m) => !isWatchNavigate(m), (m) => handler(m as WatchScoreWrite)),
+    onMessage: (handler) =>
+      subscribe((m) => !isWatchNavigate(m) && !isWatchSelectRound(m), (m) => handler(m as WatchScoreWrite)),
     onNavigate: (handler) => subscribe(isWatchNavigate, (m) => handler(m as WatchNavigate)),
+    onSelectRound: (handler) => subscribe(isWatchSelectRound, (m) => handler(m as WatchSelectRound)),
     sendAck: (ack) => { bridge.sendMessage(JSON.stringify(ack)); },
   };
 }
