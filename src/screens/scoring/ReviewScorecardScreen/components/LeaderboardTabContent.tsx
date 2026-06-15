@@ -31,6 +31,9 @@ interface LeaderboardTabContentProps {
   /** Round team format. When 'best-ball' or 'aggregate' the toggle renders
    *  and the Team view is shown by default. */
   teamFormat?: TeamFormat | null;
+  /** When provided, tapping a player row in the individual leaderboard opens
+   *  that player's scorecard. */
+  onPlayerPress?: (playerId: string) => void;
   isRefreshing: boolean;
   onRefresh: () => void;
   bottomInset: number;
@@ -45,6 +48,7 @@ export function LeaderboardTabContent({
   roundId,
   competitionId,
   teamFormat,
+  onPlayerPress,
   isRefreshing,
   onRefresh,
   bottomInset,
@@ -95,6 +99,7 @@ export function LeaderboardTabContent({
           holes={holes}
           getPlayerScore={getPlayerScore}
           currentUserId={currentUserId}
+          onPlayerPress={onPlayerPress}
           testID="stableford-leaderboard-full"
         />
       );
@@ -106,6 +111,7 @@ export function LeaderboardTabContent({
           holes={holes}
           getPlayerScore={getPlayerScore}
           currentUserId={currentUserId}
+          onPlayerPress={onPlayerPress}
           testID="par-leaderboard-full"
         />
       );
@@ -116,6 +122,7 @@ export function LeaderboardTabContent({
         holes={holes}
         getPlayerScore={getPlayerScore}
         currentUserId={currentUserId}
+        onPlayerPress={onPlayerPress}
         testID="stroke-play-leaderboard-full"
       />
     );

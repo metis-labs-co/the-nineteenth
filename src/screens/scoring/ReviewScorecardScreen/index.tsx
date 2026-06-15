@@ -464,6 +464,11 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
           roundId={roundId ?? undefined}
           competitionId={route.params?.competitionId}
           teamFormat={roundDetails?.team_format ?? null}
+          onPlayerPress={
+            roundId
+              ? (playerId) => navigation.navigate('PlayerScorecard', { playerId, roundId })
+              : undefined
+          }
           isRefreshing={isRefreshing}
           onRefresh={handleRefresh}
           bottomInset={insets.bottom}

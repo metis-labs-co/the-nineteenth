@@ -8,7 +8,7 @@
  */
 
 import React, { useMemo } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Text, Icon, Divider } from 'react-native-paper';
 import { BottomSheet } from '@/components/common/BottomSheet';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -32,6 +32,10 @@ export interface PointsBreakdownModalProps {
   roundPoints: RoundPoints[];
   /** Round metadata for displaying course/date info */
   rounds: RoundWithCourse[];
+  /** When provided, each round row becomes tappable and calls this with the
+   *  round id (used to open the participant's scorecard for that round). Not
+   *  passed for team entries, which have no single scorecard to open. */
+  onRoundPress?: (roundId: string) => void;
   testID?: string;
 }
 
@@ -45,6 +49,7 @@ export function PointsBreakdownModal({
   roundsPlayed,
   roundPoints,
   rounds,
+  onRoundPress,
   testID,
 }: PointsBreakdownModalProps) {
   const colors = useThemeColors();
@@ -169,41 +174,64 @@ export function PointsBreakdownModal({
               const roundInfo = roundInfoMap.get(rp.roundId);
               const isLast = index === sortedRoundPoints.length - 1;
 
-              return (
-                <View key={rp.roundId}>
-                  <View style={styles.roundRow}>
-                    <View style={styles.roundInfo}>
-                      <View style={styles.roundHeader}>
-                        <Text style={[styles.roundNumber, { color: colors.textPrimary }]}>
-                          Round {roundInfo?.round_number ?? index + 1}
-                        </Text>
-                        {roundInfo?.date && (
-                          <Text style={[styles.roundDate, { color: colors.textSecondary }]}>
-                            {formatDate(roundInfo.date)}
-                          </Text>
-                        )}
-                      </View>
-                      {roundInfo?.course?.name && (
-                        <Text
-                          style={[styles.courseName, { color: colors.textSecondary }]}
-                          numberOfLines={1}
-                        >
-                          {roundInfo.course.name}
+              const rowContent = (
+                <>
+                  <View style={styles.roundInfo}>
+                    <View style={styles.roundHeader}>
+                      <Text style={[styles.roundNumber, { color: colors.textPrimary }]}>
+                        Round {roundInfo?.round_number ?? index + 1}
+                      </Text>
+                      {roundInfo?.date && (
+                        <Text style={[styles.roundDate, { color: colors.textSecondary }]}>
+                          {formatDate(roundInfo.date)}
                         </Text>
                       )}
                     </View>
+                    {roundInfo?.course?.name && (
+                      <Text
+                        style={[styles.courseName, { color: colors.textSecondary }]}
+                        numberOfLines={1}
+                      >
+                        {roundInfo.course.name}
+                      </Text>
+                    )}
+                  </View>
 
-                    <View style={styles.roundScore}>
-                      <View style={styles.positionBadge}>
-                        <Text style={[styles.positionText, { color: getPositionColor(rp.position) }]}>
-                          {rp.position}{getPositionSuffix(rp.position)}
-                        </Text>
-                      </View>
-                      <Text style={[styles.pointsValue, { color: colors.textPrimary }]}>
-                        {rp.points} pts
+                  <View style={styles.roundScore}>
+                    <View style={styles.positionBadge}>
+                      <Text style={[styles.positionText, { color: getPositionColor(rp.position) }]}>
+                        {rp.position}{getPositionSuffix(rp.position)}
                       </Text>
                     </View>
+                    <Text style={[styles.pointsValue, { color: colors.textPrimary }]}>
+                      {rp.points} pts
+                    </Text>
                   </View>
+
+                  {onRoundPress && (
+                    <View style={styles.chevron}>
+                      <Icon source="chevron-right" size={20} color={colors.textSecondary} />
+                    </View>
+                  )}
+                </>
+              );
+
+              return (
+                <View key={rp.roundId}>
+                  {onRoundPress ? (
+                    <TouchableOpacity
+                      style={styles.roundRow}
+                      onPress={() => onRoundPress(rp.roundId)}
+                      activeOpacity={0.7}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Round ${roundInfo?.round_number ?? index + 1}, ${rp.position}${getPositionSuffix(rp.position)} place, ${rp.points} points`}
+                      accessibilityHint="Tap to view scorecard"
+                    >
+                      {rowContent}
+                    </TouchableOpacity>
+                  ) : (
+                    <View style={styles.roundRow}>{rowContent}</View>
+                  )}
                   {!isLast && (
                     <Divider style={[styles.divider, { backgroundColor: colors.gray100 }]} />
                   )}
@@ -307,6 +335,9 @@ const styles = StyleSheet.create({
   },
   roundScore: {
     alignItems: 'flex-end',
+  },
+  chevron: {
+    marginLeft: spacing.xs,
   },
   positionBadge: {
     marginBottom: spacing.xs,

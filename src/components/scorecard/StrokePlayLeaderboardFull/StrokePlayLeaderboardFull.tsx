@@ -40,6 +40,9 @@ export interface StrokePlayLeaderboardFullProps {
   holes: Hole[];
   /** Current user's ID for highlighting */
   currentUserId?: string;
+  /** When provided, each player row becomes tappable and calls this with the
+   *  player's id (used to open that player's individual scorecard). */
+  onPlayerPress?: (playerId: string) => void;
   /** Optional test ID for testing */
   testID?: string;
 }
@@ -78,6 +81,7 @@ export const StrokePlayLeaderboardFull = React.memo(function StrokePlayLeaderboa
   getPlayerScore,
   holes,
   currentUserId,
+  onPlayerPress,
   testID,
 }: StrokePlayLeaderboardFullProps) {
   const colors = useThemeColors();
@@ -254,16 +258,15 @@ export const StrokePlayLeaderboardFull = React.memo(function StrokePlayLeaderboa
       </View>
 
       {/* Leaderboard rows */}
-      {leaderboardData.map((row, index) => (
-        <View
-          key={row.playerId}
-          style={[
-            styles.row,
-            { backgroundColor: row.isCurrentUser ? colors.primaryBackground : colors.surface },
-            index < leaderboardData.length - 1 && { borderBottomColor: colors.border, borderBottomWidth: 1 },
-          ]}
-          accessibilityLabel={`${getPositionDisplay(row.position)} place: ${row.playerName}, ${formatRelativeToPar(sortBy === 'gross' ? row.grossRelativeToPar : row.netRelativeToPar)}`}
-        >
+      {leaderboardData.map((row, index) => {
+        const rowStyle = [
+          styles.row,
+          { backgroundColor: row.isCurrentUser ? colors.primaryBackground : colors.surface },
+          index < leaderboardData.length - 1 && { borderBottomColor: colors.border, borderBottomWidth: 1 },
+        ];
+        const accessibilityLabel = `${getPositionDisplay(row.position)} place: ${row.playerName}, ${formatRelativeToPar(sortBy === 'gross' ? row.grossRelativeToPar : row.netRelativeToPar)}`;
+        const rowContent = (
+          <>
           {/* Position */}
           <View style={styles.positionCol}>
             <View
@@ -330,8 +333,31 @@ export const StrokePlayLeaderboardFull = React.memo(function StrokePlayLeaderboa
               {row.holesCompleted}
             </Text>
           </View>
-        </View>
-      ))}
+          </>
+        );
+
+        if (onPlayerPress) {
+          return (
+            <TouchableOpacity
+              key={row.playerId}
+              style={rowStyle}
+              onPress={() => onPlayerPress(row.playerId)}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={accessibilityLabel}
+              accessibilityHint="Tap to view scorecard"
+            >
+              {rowContent}
+            </TouchableOpacity>
+          );
+        }
+
+        return (
+          <View key={row.playerId} style={rowStyle} accessibilityLabel={accessibilityLabel}>
+            {rowContent}
+          </View>
+        );
+      })}
     </View>
   );
 });

@@ -6,7 +6,7 @@
  */
 
 import React, { useMemo } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { EmptyState } from '@/components/common';
 import {
@@ -25,6 +25,9 @@ export interface ParLeaderboardFullProps {
   holes: Hole[];
   getPlayerScore: (playerId: string, holeNumber: number) => HoleScore | MultiBallHoleScore | undefined;
   currentUserId?: string;
+  /** When provided, each player row becomes tappable and calls this with the
+   *  player's id (used to open that player's individual scorecard). */
+  onPlayerPress?: (playerId: string) => void;
   testID?: string;
 }
 
@@ -54,6 +57,7 @@ export const ParLeaderboardFull = React.memo(function ParLeaderboardFull({
   getPlayerScore,
   holes,
   currentUserId,
+  onPlayerPress,
   testID,
 }: ParLeaderboardFullProps) {
   const colors = useThemeColors();
@@ -166,16 +170,15 @@ export const ParLeaderboardFull = React.memo(function ParLeaderboardFull({
       </View>
 
       {/* Rows */}
-      {leaderboardData.map((row, index) => (
-        <View
-          key={row.playerId}
-          style={[
-            styles.row,
-            { backgroundColor: row.isCurrentUser ? colors.primaryBackground : colors.surface },
-            index < leaderboardData.length - 1 && { borderBottomColor: colors.border, borderBottomWidth: 1 },
-          ]}
-          accessibilityLabel={`${row.position} place: ${row.playerName}, ${formatPoints(row.points)}`}
-        >
+      {leaderboardData.map((row, index) => {
+        const rowStyle = [
+          styles.row,
+          { backgroundColor: row.isCurrentUser ? colors.primaryBackground : colors.surface },
+          index < leaderboardData.length - 1 && { borderBottomColor: colors.border, borderBottomWidth: 1 },
+        ];
+        const accessibilityLabel = `${row.position} place: ${row.playerName}, ${formatPoints(row.points)}`;
+        const rowContent = (
+          <>
           <View style={styles.positionCol}>
             <View
               style={[
@@ -221,8 +224,31 @@ export const ParLeaderboardFull = React.memo(function ParLeaderboardFull({
               {row.holesCompleted}
             </Text>
           </View>
-        </View>
-      ))}
+          </>
+        );
+
+        if (onPlayerPress) {
+          return (
+            <TouchableOpacity
+              key={row.playerId}
+              style={rowStyle}
+              onPress={() => onPlayerPress(row.playerId)}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={accessibilityLabel}
+              accessibilityHint="Tap to view scorecard"
+            >
+              {rowContent}
+            </TouchableOpacity>
+          );
+        }
+
+        return (
+          <View key={row.playerId} style={rowStyle} accessibilityLabel={accessibilityLabel}>
+            {rowContent}
+          </View>
+        );
+      })}
     </View>
   );
 });

@@ -624,6 +624,15 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
           roundsPlayed={selectedLeaderboardEntry.roundsPlayed}
           roundPoints={selectedLeaderboardEntry.roundPoints}
           rounds={rounds}
+          onRoundPress={
+            selectedLeaderboardEntry.isTeam
+              ? undefined
+              : (roundId) => {
+                  const playerId = selectedLeaderboardEntry.participantId;
+                  handleClosePointsBreakdown();
+                  navigation.navigate('PlayerScorecard', { playerId, roundId });
+                }
+          }
           testID="points-breakdown-modal"
         />
       )}
