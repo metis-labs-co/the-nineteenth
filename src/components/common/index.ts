@@ -125,6 +125,8 @@ export { InfoCard } from './InfoCard';
 export type { InfoCardProps } from './InfoCard';
 export { WinnerRow } from './WinnerRow';
 export type { WinnerRowProps, WinnerInfo } from './WinnerRow';
+export { PlayerTeeRow } from './PlayerTeeRow';
+export type { PlayerTeeRowProps } from './PlayerTeeRow';
 // MenuItemRow moved to @/screens/profile/components
 
 // === State Components ===
