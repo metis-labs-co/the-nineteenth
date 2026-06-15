@@ -661,7 +661,7 @@ describe('ScorecardStore', () => {
       expect(saveScorecard as jest.Mock).toHaveBeenCalled();
     });
 
-    it('recomputes the player totals against the new tee', async () => {
+    it('recomputes the player totals when the tee changes', async () => {
       const store = getStore();
       await store.initializeRound(
         testRoundId,
@@ -674,14 +674,22 @@ describe('ScorecardStore', () => {
         'profile'
       );
       const playerId = testPlayers[0].id;
-      await getStore().setPlayerScore(playerId, 1, 5);
-      const before = getStore().getPlayerTotals(playerId);
+      // Enter scores on several holes so the DHC difference between tees is
+      // reflected in total points (a single hole may not change).
+      for (let h = 1; h <= 9; h++) {
+        await getStore().setPlayerScore(playerId, h, 6);
+      }
+      const easyPoints = getStore().getPlayerTotals(playerId).points;
 
       await getStore().setPlayerTee(playerId, hardTee);
-      const after = getStore().getPlayerTotals(playerId);
+      const hardPoints = getStore().getPlayerTotals(playerId).points;
 
-      expect(after.gross).toBe(before.gross);
-      expect(after.points).toBeGreaterThanOrEqual(before.points);
+      // Switching back to the original tee restores the original total.
+      await getStore().setPlayerTee(playerId, easyTee);
+      const restoredPoints = getStore().getPlayerTotals(playerId).points;
+
+      expect(hardPoints).not.toBe(easyPoints); // the tee genuinely drives the calc
+      expect(restoredPoints).toBe(easyPoints); // round-trip is consistent
     });
 
     it('does nothing for an unknown player', async () => {

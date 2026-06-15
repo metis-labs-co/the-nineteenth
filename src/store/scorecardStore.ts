@@ -28,6 +28,7 @@ import {
 } from '@/services/offline/sync';
 import { storeLogger, logScorecardSummary } from '@/utils/debugLogger';
 import { calculatePlayerTotals } from './utils/scorecardCalculations';
+import { persistScorecardUpdate } from './scorecardPersistence';
 import * as multiBall from './multiBallSlice';
 import * as scoreUpdate from './scoreUpdateSlice';
 import * as initSlice from './initializeRoundSlice';
@@ -225,20 +226,20 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
 
       const nextScorecards = new Map(groupScorecards);
       nextScorecards.set(playerId, updatedScorecard);
+      // State is committed before persistence (fire-and-forget), matching the
+      // store's score-update path: live scoring must stay responsive, and a
+      // failed SQLite write is logged rather than blocking the UI.
       set({ playerTeeMap: nextTeeMap, groupScorecards: nextScorecards });
 
-      try {
-        await saveScorecard(updatedScorecard);
-        storeLogger.info('Player tee switched', {
-          playerId: playerId.substring(0, 8) + '...',
-          tee: tee.name,
-          slopeRating: tee.slopeRating,
-        });
-      } catch (error) {
-        storeLogger.error('setPlayerTee: failed to persist scorecard', error, {
-          playerId: playerId.substring(0, 8) + '...',
-        });
-      }
+      await persistScorecardUpdate({
+        scorecard: { scorecardId: updatedScorecard.id, scorecard: updatedScorecard },
+        context: 'setPlayerTee',
+      });
+      storeLogger.info('Player tee switched', {
+        playerId: playerId.substring(0, 8) + '...',
+        tee: tee.name,
+        slopeRating: tee.slopeRating,
+      });
     },
 
     // Score updates (delegated to scoreUpdateSlice)
@@ -262,10 +263,14 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
     },
 
     getPlayerTotals: (playerId) => {
-      const { groupScorecards, holes, gameType } = get();
+      const { groupScorecards, holes, gameType, playerTeeMap, selectedTeeData, handicapSource } = get();
       const scorecard = groupScorecards.get(playerId);
       if (!scorecard) return { gross: 0, net: 0, points: 0, parScore: 0 };
-      return calculatePlayerTotals(scorecard, holes, gameType);
+      const playerTee = playerTeeMap.get(playerId) ?? selectedTeeData;
+      return calculatePlayerTotals(scorecard, holes, gameType, {
+        selectedTee: playerTee,
+        handicapSource,
+      });
     },
 
     getPlayerTee: (playerId) => {
