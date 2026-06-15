@@ -344,16 +344,20 @@ export async function refinalizeRoundResults(roundId: string): Promise<void> {
     // R2 — Pair-points persistence for split rounds (e.g. Pairs Better Ball).
     // Independent of the round-total team path — the two never fire on the
     // same round because `finalizeTeamResults` skips `pairs_better_ball`.
-    if (
-      isPairPointsOverride(round.round_format, effectiveOverride) &&
-      round.team1_id &&
-      round.team2_id
-    ) {
+    //
+    // team1_id/team2_id are passed when set but no longer required: sides are
+    // derived from competition team membership when absent, and sub-match
+    // outcomes are computed live from scorecards when not explicitly recorded
+    // (a stableford Pairs Better Ball round never persists sub-match results).
+    if (isPairPointsOverride(round.round_format, effectiveOverride)) {
       try {
         const pairRowCount = await finalizePairResults({
           roundId,
           team1Id: round.team1_id,
           team2Id: round.team2_id,
+          competitionId: round.competition_id,
+          gameType,
+          scorecards,
           rulesOverride: effectiveOverride,
           perRoundRulesEnabled,
         });

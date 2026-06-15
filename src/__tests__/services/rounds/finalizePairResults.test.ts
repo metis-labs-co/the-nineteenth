@@ -6,7 +6,12 @@
 
 import { finalizePairResults, isPairPointsOverride } from '@/services/rounds/finalizePairResults';
 import * as roundResultsService from '@/services/rounds/roundResultsService';
-import type { SubMatch } from '@/types/database.types';
+import type {
+  Hole,
+  Scorecard,
+  SubMatch,
+  TeamWithMembers,
+} from '@/types/database.types';
 import type { RoundRulesOverride } from '@/types/database/roundRules.types';
 
 const OVERRIDE: RoundRulesOverride = {
@@ -245,6 +250,151 @@ describe('finalizePairResults', () => {
         rulesOverride: OVERRIDE,
       });
       expect(count).toBe(0);
+    });
+  });
+
+  describe('live computation from scorecards', () => {
+    // 3 par-4 holes, handicap 0 → stableford per hole = points off gross:
+    // birdie(3)=3, par(4)=2, bogey(5)=1, double+(6+)=0.
+    const HOLES: Hole[] = [
+      { number: 1, par: 4, strokeIndex: 1 },
+      { number: 2, par: 4, strokeIndex: 2 },
+      { number: 3, par: 4, strokeIndex: 3 },
+    ];
+
+    function member(playerId: string) {
+      return { team_id: '', player_id: playerId, joined_at: '', player: undefined };
+    }
+
+    const TEAMS: TeamWithMembers[] = [
+      {
+        id: 'team-a',
+        competition_id: 'comp-1',
+        name: 'Team A',
+        color: null,
+        created_at: '',
+        updated_at: '',
+        members: [member('a1'), member('a2'), member('a3'), member('a4')],
+      },
+      {
+        id: 'team-b',
+        competition_id: 'comp-1',
+        name: 'Team B',
+        color: null,
+        created_at: '',
+        updated_at: '',
+        members: [member('b1'), member('b2'), member('b3'), member('b4')],
+      },
+    ];
+
+    /** Scorecard from a 3-element gross-strokes array (handicap 0). */
+    function card(playerId: string, strokes: [number, number, number]): Scorecard {
+      const scores: Record<string, { strokes: number }> = {};
+      strokes.forEach((s, i) => {
+        scores[String(i + 1)] = { strokes: s };
+      });
+      return {
+        id: `sc-${playerId}`,
+        round_id: 'round-1',
+        player_id: playerId,
+        scores,
+        total_gross: strokes.reduce((a, b) => a + b, 0),
+        total_net: strokes.reduce((a, b) => a + b, 0),
+        total_points: 0,
+        status: 'completed',
+        daily_handicap_used: 0,
+      } as unknown as Scorecard;
+    }
+
+    const splitSubMatches: SubMatch[] = [
+      subMatch({
+        sort_order: 0,
+        status: 'upcoming',
+        result: null,
+        team_a_player_ids: ['a1', 'a2'],
+        team_b_player_ids: ['b1', 'b2'],
+      }),
+      subMatch({
+        sort_order: 1,
+        status: 'upcoming',
+        result: null,
+        team_a_player_ids: ['a3', 'a4'],
+        team_b_player_ids: ['b3', 'b4'],
+      }),
+    ];
+
+    it('computes sub-match outcomes via best-ball and derives team ids when team1/team2 omitted', async () => {
+      const scorecards: Scorecard[] = [
+        // SM0: A best-ball [3,2,2]=7 vs B best-ball [2,2,2]=6 → A wins
+        card('a1', [3, 4, 4]),
+        card('a2', [4, 4, 4]),
+        card('b1', [4, 4, 4]),
+        card('b2', [5, 5, 5]),
+        // SM1: A best-ball [2,2,2]=6 vs B best-ball [1,1,1]=3 → A wins
+        card('a3', [4, 4, 4]),
+        card('a4', [5, 5, 5]),
+        card('b3', [5, 5, 5]),
+        card('b4', [5, 5, 5]),
+      ];
+
+      const count = await finalizePairResults({
+        roundId: 'round-1',
+        rulesOverride: OVERRIDE,
+        subMatches: splitSubMatches,
+        teams: TEAMS,
+        scorecards,
+        courseHoles: HOLES,
+        gameType: 'stableford',
+      });
+
+      expect(count).toBe(2);
+      const rows = saveSpy.mock.calls[0][1];
+      const byTeam = Object.fromEntries(
+        rows.map((r: { teamId: string; rawScore: number; position: number }) => [
+          r.teamId,
+          r,
+        ])
+      );
+      expect(byTeam['team-a'].rawScore).toBe(2); // won both sub-matches
+      expect(byTeam['team-b'].rawScore).toBe(0);
+      expect(byTeam['team-a'].position).toBe(1);
+      expect(byTeam['team-b'].position).toBe(2);
+    });
+
+    it('prefers a persisted forfeit result over computed scorecards', async () => {
+      const scorecards: Scorecard[] = [
+        // Scorecards would say A wins, but the sub-match was forfeited by A.
+        card('a1', [3, 3, 3]),
+        card('a2', [3, 3, 3]),
+        card('b1', [5, 5, 5]),
+        card('b2', [5, 5, 5]),
+      ];
+
+      const count = await finalizePairResults({
+        roundId: 'round-1',
+        rulesOverride: OVERRIDE,
+        subMatches: [
+          subMatch({
+            sort_order: 0,
+            status: 'forfeited',
+            result: 'forfeit-a', // side A forfeits → side B wins
+            team_a_player_ids: ['a1', 'a2'],
+            team_b_player_ids: ['b1', 'b2'],
+          }),
+        ],
+        teams: TEAMS,
+        scorecards,
+        courseHoles: HOLES,
+        gameType: 'stableford',
+      });
+
+      expect(count).toBe(2);
+      const rows = saveSpy.mock.calls[0][1];
+      const byTeam = Object.fromEntries(
+        rows.map((r: { teamId: string; rawScore: number }) => [r.teamId, r.rawScore])
+      );
+      expect(byTeam['team-a']).toBe(0); // forfeited
+      expect(byTeam['team-b']).toBe(1); // wins by forfeit
     });
   });
 
