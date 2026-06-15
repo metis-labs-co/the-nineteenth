@@ -83,6 +83,7 @@ interface ScorecardState {
   ) => Promise<void>;
   setAllowedPlayers: (playerIds: string[]) => void;
   setSelectedTeeData: (teeData: TeeBox | null) => void;
+  setPlayerTee: (playerId: string, tee: TeeBox) => Promise<void>;
   loadFromOffline: (roundId: string) => Promise<boolean>;
   ensureTeamMemberScorecards: (teamMemberPlayers: Player[]) => Promise<void>;
   setCurrentHole: (hole: number) => void;
@@ -194,6 +195,50 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
         slopeRating: teeData?.slopeRating,
         courseRating: teeData?.courseRating,
       });
+    },
+
+    setPlayerTee: async (playerId, tee) => {
+      const { groupScorecards, playerTeeMap, holes, gameType, handicapSource } = get();
+      const scorecard = groupScorecards.get(playerId);
+      if (!scorecard) {
+        storeLogger.warn('setPlayerTee: no scorecard for player', {
+          playerId: playerId.substring(0, 8) + '...',
+        });
+        return;
+      }
+
+      const nextTeeMap = new Map(playerTeeMap);
+      nextTeeMap.set(playerId, tee);
+
+      const totals = calculatePlayerTotals(scorecard, holes, gameType, {
+        selectedTee: tee,
+        handicapSource,
+      });
+      const updatedScorecard: Scorecard = {
+        ...scorecard,
+        totalGross: totals.gross,
+        totalNet: totals.net,
+        total_par_score: totals.parScore,
+        teeData: tee,
+        updatedAt: new Date(),
+      };
+
+      const nextScorecards = new Map(groupScorecards);
+      nextScorecards.set(playerId, updatedScorecard);
+      set({ playerTeeMap: nextTeeMap, groupScorecards: nextScorecards });
+
+      try {
+        await saveScorecard(updatedScorecard);
+        storeLogger.info('Player tee switched', {
+          playerId: playerId.substring(0, 8) + '...',
+          tee: tee.name,
+          slopeRating: tee.slopeRating,
+        });
+      } catch (error) {
+        storeLogger.error('setPlayerTee: failed to persist scorecard', error, {
+          playerId: playerId.substring(0, 8) + '...',
+        });
+      }
     },
 
     // Score updates (delegated to scoreUpdateSlice)

@@ -606,6 +606,104 @@ describe('ScorecardStore', () => {
     });
   });
 
+  describe('setPlayerTee', () => {
+    const easyTee = {
+      tee_id: 'tee-easy',
+      name: 'Red',
+      color: 'red',
+      slopeRating: 113,
+      courseRating: 70,
+    };
+    const hardTee = {
+      tee_id: 'tee-hard',
+      name: 'Black',
+      color: 'black',
+      slopeRating: 140,
+      courseRating: 74,
+    };
+
+    it('updates playerTeeMap for the player', async () => {
+      const store = getStore();
+      await store.initializeRound(
+        testRoundId,
+        testPlayers,
+        testHoles,
+        'stableford',
+        false,
+        undefined,
+        easyTee,
+        'profile'
+      );
+      const playerId = testPlayers[0].id;
+
+      await getStore().setPlayerTee(playerId, hardTee);
+
+      expect(getStore().getPlayerTee(playerId)).toEqual(hardTee);
+    });
+
+    it('persists the updated scorecard to SQLite', async () => {
+      const store = getStore();
+      await store.initializeRound(
+        testRoundId,
+        testPlayers,
+        testHoles,
+        'stableford',
+        false,
+        undefined,
+        easyTee,
+        'profile'
+      );
+      const playerId = testPlayers[0].id;
+      (saveScorecard as jest.Mock).mockClear();
+
+      await getStore().setPlayerTee(playerId, hardTee);
+
+      expect(saveScorecard as jest.Mock).toHaveBeenCalled();
+    });
+
+    it('recomputes the player totals against the new tee', async () => {
+      const store = getStore();
+      await store.initializeRound(
+        testRoundId,
+        testPlayers,
+        testHoles,
+        'stableford',
+        false,
+        undefined,
+        easyTee,
+        'profile'
+      );
+      const playerId = testPlayers[0].id;
+      await getStore().setPlayerScore(playerId, 1, 5);
+      const before = getStore().getPlayerTotals(playerId);
+
+      await getStore().setPlayerTee(playerId, hardTee);
+      const after = getStore().getPlayerTotals(playerId);
+
+      expect(after.gross).toBe(before.gross);
+      expect(after.points).toBeGreaterThanOrEqual(before.points);
+    });
+
+    it('does nothing for an unknown player', async () => {
+      const store = getStore();
+      await store.initializeRound(
+        testRoundId,
+        testPlayers,
+        testHoles,
+        'stableford',
+        false,
+        undefined,
+        easyTee,
+        'profile'
+      );
+      (saveScorecard as jest.Mock).mockClear();
+
+      await getStore().setPlayerTee('non-existent-player', hardTee);
+
+      expect(saveScorecard as jest.Mock).not.toHaveBeenCalled();
+    });
+  });
+
   describe('getHoleInfo', () => {
     beforeEach(async () => {
       const store = getStore();
