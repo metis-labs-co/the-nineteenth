@@ -1,0 +1,178 @@
+/**
+ * ContributionsBoard Component Tests
+ *
+ * Tests for the ContributionsBoard component including:
+ * - MVP rollup rendering
+ * - Per-round breakdown rendering
+ * - Data-missing warning
+ * - Empty state
+ */
+
+import React from 'react';
+import { render, screen } from '@testing-library/react-native';
+import { ContributionsBoard } from './ContributionsBoard';
+import type { ContributionsBoard as Board } from '@/utils/contributions';
+
+// ============================================================================
+// MOCKS
+// ============================================================================
+
+const mockUse = jest.fn();
+jest.mock('@/hooks/competitions/useCompetitionContributions', () => ({
+  useCompetitionContributions: (id: string) => mockUse(id),
+}));
+
+// Mock @/components/common to avoid the expo-video import chain that comes
+// through LaunchVideoGate (exported from common/index.ts). Only stub what
+// ContributionsBoard actually uses.
+jest.mock('@/components/common', () => {
+  const { View, Text, TouchableOpacity } = require('react-native');
+  return {
+    ErrorState: ({ title, onRetry }: { title?: string; error?: unknown; onRetry?: () => void }) => (
+      <View testID="error-state">
+        <Text>{title ?? 'Error'}</Text>
+        {onRetry && (
+          <TouchableOpacity onPress={onRetry}>
+            <Text>Retry</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    ),
+  };
+});
+
+// useThemeColors is globally mocked in jest.setup.js — no explicit provider needed.
+
+// ============================================================================
+// TEST FIXTURES
+// ============================================================================
+
+function board(partial: Partial<Board> = {}): Board {
+  return {
+    rollup: [
+      {
+        playerId: 'a',
+        playerName: 'Ann Smith',
+        averageShare: 0.64,
+        roundsCounted: 2,
+        position: 1,
+        isMvp: true,
+      },
+      {
+        playerId: 'b',
+        playerName: 'Bob Jones',
+        averageShare: 0.36,
+        roundsCounted: 2,
+        position: 2,
+        isMvp: false,
+      },
+    ],
+    rounds: [
+      {
+        roundId: 'r1',
+        roundLabel: 'R1',
+        format: 'best-ball',
+        metricLabel: 'holes won',
+        dataMissing: false,
+        teams: [
+          {
+            teamId: 't1',
+            teamName: 'Eagles',
+            color: null,
+            players: [
+              {
+                playerId: 'a',
+                playerName: 'Ann Smith',
+                value: 11,
+                share: 0.61,
+                position: 1,
+                isMvp: true,
+              },
+              {
+                playerId: 'b',
+                playerName: 'Bob Jones',
+                value: 7,
+                share: 0.39,
+                position: 2,
+                isMvp: false,
+              },
+            ],
+          },
+        ],
+      },
+    ],
+    isEmpty: false,
+    ...partial,
+  };
+}
+
+// ============================================================================
+// TESTS
+// ============================================================================
+
+describe('ContributionsBoard', () => {
+  beforeEach(() => mockUse.mockReset());
+
+  it('renders the MVP rollup and per-round breakdown', () => {
+    mockUse.mockReturnValue({
+      board: board(),
+      isLoading: false,
+      error: null,
+      refetch: jest.fn(),
+    });
+
+    render(<ContributionsBoard competitionId="c1" />);
+
+    // MVP rollup header
+    expect(screen.getByText('★ COMPETITION MVP')).toBeTruthy();
+
+    // MVP player percentage
+    expect(screen.getByText('64%')).toBeTruthy();
+
+    // Round header label — format is "R1 · Best Ball"
+    expect(screen.getByText('R1 · Best Ball')).toBeTruthy();
+
+    // Crown emoji appears on the MVP rollup row AND the per-round player row.
+    // The rollup row renders '👑' in its own Text; the player row renders '👑 '
+    // followed by firstName in the same Text node. queryAllByText with a regex
+    // matches both.
+    expect(screen.queryAllByText(/👑/).length).toBeGreaterThan(0);
+  });
+
+  it('shows the not-tracked warning for a data-missing round', () => {
+    mockUse.mockReturnValue({
+      board: board({
+        rounds: [
+          {
+            roundId: 'r2',
+            roundLabel: 'R2',
+            format: 'scramble',
+            metricLabel: 'shots used',
+            dataMissing: true,
+            teams: [],
+          },
+        ],
+      }),
+      isLoading: false,
+      error: null,
+      refetch: jest.fn(),
+    });
+
+    render(<ContributionsBoard competitionId="c1" />);
+
+    expect(screen.getByText(/weren't tracked/)).toBeTruthy();
+  });
+
+  it('shows empty state', () => {
+    mockUse.mockReturnValue({
+      board: { rollup: [], rounds: [], isEmpty: true },
+      isLoading: false,
+      error: null,
+      refetch: jest.fn(),
+    });
+
+    render(<ContributionsBoard competitionId="c1" />);
+
+    expect(screen.getByText(/No team-format contributions yet/)).toBeTruthy();
+  });
+});
