@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { StrictMode } from 'react';
 import { Animated, Text } from 'react-native';
 import { render, fireEvent, act } from '@testing-library/react-native';
 
@@ -67,6 +67,17 @@ it('shows the skip control on first (cold-start) mount', () => {
     <LaunchVideoGate>
       <Child />
     </LaunchVideoGate>
+  );
+  expect(getByLabelText('Skip intro')).toBeTruthy();
+});
+
+it('still shows the overlay on a cold start under React StrictMode', () => {
+  const { getByLabelText } = render(
+    <StrictMode>
+      <LaunchVideoGate>
+        <Child />
+      </LaunchVideoGate>
+    </StrictMode>
   );
   expect(getByLabelText('Skip intro')).toBeTruthy();
 });

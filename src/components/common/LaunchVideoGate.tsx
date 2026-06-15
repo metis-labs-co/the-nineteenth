@@ -24,19 +24,22 @@ interface LaunchVideoGateProps {
 }
 
 export function LaunchVideoGate({ children }: LaunchVideoGateProps) {
-  // Decide once, on first render, whether this mount is a cold start. Claiming
-  // the guard inside the initializer ensures it runs exactly once per mount.
-  const [overlayVisible, setOverlayVisible] = useState(() => {
-    if (hasLaunchVideoPlayed) return false;
-    hasLaunchVideoPlayed = true;
-    return true;
-  });
+  // Claim the cold-start guard exactly once per mounted instance. Using a ref
+  // (not a useState initializer) keeps this correct under React StrictMode,
+  // which double-invokes useState initializers in development.
+  const isColdStart = useRef<boolean | null>(null);
+  if (isColdStart.current === null) {
+    isColdStart.current = !hasLaunchVideoPlayed;
+    if (isColdStart.current) hasLaunchVideoPlayed = true;
+  }
+  const [overlayVisible, setOverlayVisible] = useState(isColdStart.current);
 
   const opacity = useRef(new Animated.Value(1)).current;
 
   const player = useVideoPlayer(
     overlayVisible ? launchVideoSource : null,
     (instance) => {
+      if (!overlayVisible) return; // nothing to play on a warm-resume mount
       instance.loop = false;
       instance.muted = false; // play with sound
       instance.play();
