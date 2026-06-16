@@ -195,10 +195,10 @@ function RoundCard({
           />
         )}
         {competitionName && (
-          <View style={[styles.chip, { backgroundColor: colors.primary }]}>
-            <IconTrophy size={14} color={colors.textOnColored} />
+          <View style={styles.competitionLabel}>
+            <IconTrophy size={14} color={colors.textSecondary} />
             <Text
-              style={[styles.chipLabel, { color: colors.textOnColored }]}
+              style={[styles.chipLabel, { color: colors.textSecondary }]}
               numberOfLines={1}
             >
               {competitionName}
@@ -434,6 +434,12 @@ const styles = StyleSheet.create({
   },
   formatPill: {
     alignSelf: 'center',
+  },
+  competitionLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    flexShrink: 1,
   },
   teeSwatch: {
     width: 14,
