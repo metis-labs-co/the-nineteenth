@@ -613,7 +613,6 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
         isSyncing={isSyncing}
         pendingSyncCount={pendingSyncCount}
         onSyncPress={triggerSync}
-        showShotLoggingInfo
       />
 
       {/* Match Status Bar */}

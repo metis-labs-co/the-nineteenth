@@ -22,14 +22,13 @@ import {
   ConfirmationDialog,
   PageHeader,
   OfflineIndicator,
-  ShotLoggingInfoSheet,
 } from '@/components/common';
 import { SkinsIndicator } from '@/components/skins';
 import { WolfIndicator } from '@/components/wolf';
 import { DistanceToPin } from '@/components/scorecard/HoleHeader/DistanceToPin';
 import { getTeeColor } from '@/components/common/TeeSelector/hooks/useTeeSelector';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, typography, borderRadius } from '@/constants/theme';
+import { spacing, typography } from '@/constants/theme';
 import type { Player, TeeBox } from '@/types';
 
 export interface RoundHeaderProps {
@@ -58,12 +57,6 @@ export interface RoundHeaderProps {
   scoringPairsEnabled?: boolean;
   playersToScore?: Player[];
 
-  /**
-   * Show an info icon that opens a bottom sheet explaining how to log shots.
-   * Enable on screens that mount the shot-logging UI (stroke play, match
-   * play). The icon is rendered in the right-content area of the header.
-   */
-  showShotLoggingInfo?: boolean;
   /** When true, show a "change tees" action in the header (owner/organizer). */
   canChangeTees?: boolean;
   /** Called when the change-tees action is tapped while online. */
@@ -87,7 +80,6 @@ export function RoundHeader({
   onSyncPress,
   scoringPairsEnabled = false,
   playersToScore = [],
-  showShotLoggingInfo = false,
   canChangeTees = false,
   onChangeTeesPress,
   onChangeTeesBlockedOffline,
@@ -99,8 +91,6 @@ export function RoundHeader({
   const _handleSkinsPress = useCallback(() => {
     setShowSkinsAlert(true);
   }, []);
-
-  const [showShotInfo, setShowShotInfo] = useState(false);
 
   const handleChangeTeesPress = () => {
     if (isOnline) {
@@ -186,22 +176,6 @@ export function RoundHeader({
 
   const renderRightContent = () => (
     <View style={styles.rightContent}>
-      {showShotLoggingInfo && (
-        <Pressable
-          onPress={() => setShowShotInfo(true)}
-          accessibilityRole="button"
-          accessibilityLabel="How to log shots"
-          hitSlop={8}
-          style={styles.headerIconButton}
-          testID="round-header-shot-info"
-        >
-          <Icon
-            source="information-outline"
-            size={22}
-            color={colors.textSecondary}
-          />
-        </Pressable>
-      )}
       {courseId && (
         <DistanceToPin courseId={courseId} holeNumber={currentHole} roundId={roundId} />
       )}
@@ -267,13 +241,6 @@ export function RoundHeader({
         onConfirm={() => setShowSkinsAlert(false)}
         onCancel={() => setShowSkinsAlert(false)}
       />
-
-      {showShotLoggingInfo && (
-        <ShotLoggingInfoSheet
-          visible={showShotInfo}
-          onClose={() => setShowShotInfo(false)}
-        />
-      )}
     </>
   );
 }
@@ -283,13 +250,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-  },
-  headerIconButton: {
-    width: 32,
-    height: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: borderRadius.lg,
   },
   subtitleContainer: {
     flexDirection: 'row',

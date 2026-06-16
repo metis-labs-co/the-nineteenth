@@ -20,6 +20,7 @@ import { useShotLoggingUiStore } from '@/store/shotLoggingUiStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useAuth } from '@/hooks/useAuth';
 import { useBag } from '@/hooks/queries/useBag';
+import { ShotLoggingInfoSheet } from '@/components/common';
 import { BagClubPickerSheet } from '@/components/features/bag/BagClubPickerSheet';
 import type { ClubKey } from '@/constants/clubs';
 import type { RootStackParamList } from '@/navigation/types';
@@ -81,6 +82,7 @@ export const LogShotInline = React.memo(function LogShotInline({
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const eligibility = useShotTrackingEligibility(roundId);
+  const [showShotInfo, setShowShotInfo] = useState(false);
   const enableHoleMap = useSettingsStore((s) => s.enableHoleMap);
   const trackShotsAutomatically = useSettingsStore((s) => s.trackShotsAutomatically);
   const shotPromptingEnabled = useSettingsStore((s) => s.shotPromptingEnabled);
@@ -379,34 +381,47 @@ export const LogShotInline = React.memo(function LogShotInline({
 
   return (
     <>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={
-          isAwaitingPermission
-            ? 'Enable GPS to log shots'
-            : isFetchingPosition
-            ? 'Acquiring GPS — log shot when ready'
-            : 'Log shot at current GPS'
-        }
-        accessibilityState={{ disabled: !pressable }}
-        onPress={handlePress}
-        disabled={!pressable}
-        testID="log-shot-inline"
-        style={[
-          styles.button,
-          { backgroundColor: pressable ? colors.primary : colors.gray400 },
-        ]}
-      >
-        {showSpinner ? (
-          <ActivityIndicator color={colors.white} size="small" testID="log-shot-inline-spinner" />
-        ) : (
-          <View style={styles.iconRow}>
-            <Icon source="golf-tee" size={16} color={colors.white} />
-            <Icon source="plus" size={12} color={colors.white} />
-          </View>
-        )}
-        <Text style={[styles.label, { color: colors.white }]}>Log Shot</Text>
-      </Pressable>
+      <View style={styles.row}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={
+            isAwaitingPermission
+              ? 'Enable GPS to log shots'
+              : isFetchingPosition
+              ? 'Acquiring GPS — log shot when ready'
+              : 'Log shot at current GPS'
+          }
+          accessibilityState={{ disabled: !pressable }}
+          onPress={handlePress}
+          disabled={!pressable}
+          testID="log-shot-inline"
+          style={[
+            styles.button,
+            { backgroundColor: pressable ? colors.primary : colors.gray400 },
+          ]}
+        >
+          {showSpinner ? (
+            <ActivityIndicator color={colors.white} size="small" testID="log-shot-inline-spinner" />
+          ) : (
+            <View style={styles.iconRow}>
+              <Icon source="golf-tee" size={16} color={colors.white} />
+              <Icon source="plus" size={12} color={colors.white} />
+            </View>
+          )}
+          <Text style={[styles.label, { color: colors.white }]}>Log Shot</Text>
+        </Pressable>
+
+        <Pressable
+          onPress={() => setShowShotInfo(true)}
+          accessibilityRole="button"
+          accessibilityLabel="How to log shots"
+          hitSlop={8}
+          style={styles.infoButton}
+          testID="log-shot-inline-info"
+        >
+          <Icon source="information-outline" size={20} color={colors.textSecondary} />
+        </Pressable>
+      </View>
 
       <BagClubPickerSheet
         visible={pendingPosition !== null}
@@ -416,12 +431,29 @@ export const LogShotInline = React.memo(function LogShotInline({
         onCancel={handlePickerCancel}
         onSetupBag={handleSetupBag}
       />
+
+      <ShotLoggingInfoSheet
+        visible={showShotInfo}
+        onClose={() => setShowShotInfo(false)}
+      />
     </>
   );
 });
 LogShotInline.displayName = 'LogShotInline';
 
 const styles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  infoButton: {
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: borderRadius.full,
+  },
   button: {
     flexDirection: 'row',
     alignItems: 'center',

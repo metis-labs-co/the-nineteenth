@@ -749,7 +749,6 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
         onSyncPress={triggerSync}
         scoringPairsEnabled={scoringPairsEnabled}
         playersToScore={playersToScore}
-        showShotLoggingInfo
         canChangeTees={canChangeTees}
         onChangeTeesPress={() => setShowChangeTeesSheet(true)}
         onChangeTeesBlockedOffline={() =>
