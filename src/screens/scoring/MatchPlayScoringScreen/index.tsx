@@ -19,13 +19,17 @@ import { View, StyleSheet, ScrollView, BackHandler } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { LoadingSpinner, ErrorState, Pill, ConfirmationDialog } from '@/components/common';
 import { useConfirmationDialog } from '@/hooks';
-import { HoleHeader, RoundHeader, SwipeableHoleNavigator } from '@/components/scorecard';
+import { HoleHeader, RoundHeader, SwipeableHoleNavigator, ChangeTeesSheet } from '@/components/scorecard';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
+import { useToast } from '@/context/ToastContext';
 import { useScorecardStore } from '@/store/scorecardStore';
+import { useIsSuperAdmin } from '@/store/subscriptionStore';
 import { useMatchPlayData, useMatchPlayScoring, useOfflineSync } from '@/hooks/scorecard';
-import { useProcessSkinsIfNeeded, useOnlineStatus } from '@/hooks';
+import { useProcessSkinsIfNeeded, useOnlineStatus, useAuth } from '@/hooks';
+import { useRoundDetails } from '@/hooks/rounds';
+import { useCompetitionInfo } from '@/hooks/competitions';
 import { supabase } from '@/services/supabase/client';
 import { matchPlayLogger } from '@/utils/debugLogger';
 import { getStrokesReceived } from '@/utils/scoring';
@@ -50,7 +54,26 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
   // Online status for round status update
   const isOnline = useOnlineStatus();
 
-  const { handicapSource, selectedTeeData: storeTeeData, playerTeeMap, startHole } = useScorecardStore();
+  const { handicapSource, selectedTeeData: storeTeeData, playerTeeMap, startHole, currentPlayers } = useScorecardStore();
+
+  // Change-tees permission gate + state. Round owner (standalone) /
+  // competition organizer / super admin may switch a player's tee.
+  const { user } = useAuth();
+  const { showErrorToast } = useToast();
+  const isSuperAdmin = useIsSuperAdmin();
+  const isStandalone = !competitionId || competitionId === 'standalone';
+  const { data: roundDetails } = useRoundDetails(roundId);
+  const { data: competitionInfo } = useCompetitionInfo(
+    isStandalone ? undefined : competitionId
+  );
+  const [showChangeTeesSheet, setShowChangeTeesSheet] = useState(false);
+  const canChangeTees = useMemo(() => {
+    if (!user?.id) return false;
+    if (isSuperAdmin) return true;
+    if (isStandalone) return roundDetails?.user_id === user.id;
+    return competitionInfo?.organizer_id === user.id;
+  }, [user?.id, isSuperAdmin, isStandalone, roundDetails?.user_id, competitionInfo?.organizer_id]);
+  const availableTees = roundDetails?.course?.tees ?? [];
 
   // State - start on initialHole if provided (clamped to 1-18)
   const [currentHole, setCurrentHole] = useState(1);
@@ -613,6 +636,11 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
         isSyncing={isSyncing}
         pendingSyncCount={pendingSyncCount}
         onSyncPress={triggerSync}
+        canChangeTees={canChangeTees}
+        onChangeTeesPress={() => setShowChangeTeesSheet(true)}
+        onChangeTeesBlockedOffline={() =>
+          showErrorToast('Offline', 'Connect to the internet to change tees')
+        }
       />
 
       {/* Match Status Bar */}
@@ -669,6 +697,15 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
 
       {/* General Confirmation/Alert Dialog */}
       <ConfirmationDialog {...dialogConfig} onCancel={dismissDialog} />
+
+      <ChangeTeesSheet
+        visible={showChangeTeesSheet}
+        onClose={() => setShowChangeTeesSheet(false)}
+        roundId={roundId}
+        competitionId={isStandalone ? undefined : competitionId}
+        players={currentPlayers}
+        availableTees={availableTees}
+      />
     </SafeAreaView>
   );
 }

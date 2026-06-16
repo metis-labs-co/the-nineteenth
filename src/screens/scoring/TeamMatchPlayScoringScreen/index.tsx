@@ -18,10 +18,11 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { LoadingSpinner, ConfirmationDialog } from '@/components/common';
-import { HoleHeader, RoundHeader, SwipeableHoleNavigator } from '@/components/scorecard';
+import { HoleHeader, RoundHeader, SwipeableHoleNavigator, ChangeTeesSheet } from '@/components/scorecard';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
+import { useToast } from '@/context/ToastContext';
 import { useIsSuperAdmin } from '@/store/subscriptionStore';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { useRoundDetails } from '@/hooks/useRoundDetails';
@@ -141,6 +142,11 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
   const clubName = roundData?.course?.club?.name ?? null;
   const selectedTeeBox: TeeBox | undefined = roundData?.selected_tee ?? undefined;
   const selectedTeeColor = selectedTeeBox?.color ?? 'white';
+
+  // Change-tees: organizer/owner/super admin may switch a player's tee.
+  const { showErrorToast } = useToast();
+  const [showChangeTeesSheet, setShowChangeTeesSheet] = useState(false);
+  const availableTees = roundData?.course?.tees ?? [];
 
   // Use course holes if available, otherwise default
   const holes = useMemo(() => {
@@ -727,6 +733,11 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
         isSyncing={isSyncing}
         pendingSyncCount={pendingSyncCount}
         onSyncPress={triggerSync}
+        canChangeTees={isOrganizer}
+        onChangeTeesPress={() => setShowChangeTeesSheet(true)}
+        onChangeTeesBlockedOffline={() =>
+          showErrorToast('Offline', 'Connect to the internet to change tees')
+        }
       />
 
       {showSubMatchPicker && (
@@ -814,6 +825,15 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
 
       {/* Confirmation/Alert Dialog */}
       <ConfirmationDialog {...dialogConfig} onCancel={dismissDialog} />
+
+      <ChangeTeesSheet
+        visible={showChangeTeesSheet}
+        onClose={() => setShowChangeTeesSheet(false)}
+        roundId={roundId}
+        competitionId={competitionId}
+        players={currentPlayers}
+        availableTees={availableTees}
+      />
     </SafeAreaView>
   );
 }
