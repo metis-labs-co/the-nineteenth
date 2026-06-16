@@ -81,6 +81,28 @@ describe('ActivityRoundCard', () => {
     expect(screen.getByText('28 pts')).toBeTruthy();
   });
 
+  it('labels the parenthesised value as net for stroke-play rounds', () => {
+    const card = makeCard({
+      game_type: 'stroke',
+      participants: [
+        { ...participant('viewer-1', 'Sam Kay'), total_points: null, total_gross: 52, total_net: 48 },
+      ],
+    });
+    render(<ActivityRoundCard card={card} onOpen={jest.fn()} />);
+    expect(screen.getByText('52 (48 net)')).toBeTruthy();
+  });
+
+  it('shows gross only when there is no net score', () => {
+    const card = makeCard({
+      game_type: 'stroke',
+      participants: [
+        { ...participant('viewer-1', 'Sam Kay'), total_points: null, total_gross: 52, total_net: null },
+      ],
+    });
+    render(<ActivityRoundCard card={card} onOpen={jest.fn()} />);
+    expect(screen.getByText('52')).toBeTruthy();
+  });
+
   it('hides the header score when the headline participant has no score', () => {
     const card = makeCard({
       participants: [{ ...participant('viewer-1', 'Sam Kay'), total_points: null }],

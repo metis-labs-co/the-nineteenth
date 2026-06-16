@@ -35,7 +35,7 @@ function participantScoreLabel(p: FeedParticipant, gameType: string): string | n
   }
   if (p.total_gross != null && p.total_gross > 0) {
     return p.total_net != null && p.total_net > 0
-      ? `${p.total_gross} (${p.total_net})`
+      ? `${p.total_gross} (${p.total_net} net)`
       : `${p.total_gross}`;
   }
   return null;
