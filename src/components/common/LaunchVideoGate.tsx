@@ -9,6 +9,8 @@ const launchVideoSource = require('../../../assets/videos/the-nineteenth-logo.mp
 // with the native splash and the portrait video letterboxes onto the same color.
 const SPLASH_BACKGROUND = '#2f3428';
 const FADE_OUT_MS = 250;
+// Only show the first few seconds of the launch video before dismissing.
+const MAX_PLAY_MS = 3000;
 
 // Module-level guard: the launch video plays once per process (cold start only).
 // It survives warm resume (the module stays loaded) and resets on process kill.
@@ -60,9 +62,12 @@ export function LaunchVideoGate({ children }: LaunchVideoGateProps) {
     const statusSub = player.addListener('statusChange', (payload) => {
       if (payload?.status === 'error' || payload?.error) dismiss();
     });
+    // Cap playback at the first few seconds even if the clip is longer.
+    const timer = setTimeout(() => dismiss(), MAX_PLAY_MS);
     return () => {
       endSub.remove();
       statusSub.remove();
+      clearTimeout(timer);
     };
   }, [overlayVisible, player, dismiss]);
 
@@ -77,7 +82,7 @@ export function LaunchVideoGate({ children }: LaunchVideoGateProps) {
             style={StyleSheet.absoluteFill}
             player={player}
             nativeControls={false}
-            contentFit="contain"
+            contentFit="cover"
             allowsFullscreen={false}
             allowsPictureInPicture={false}
           />
