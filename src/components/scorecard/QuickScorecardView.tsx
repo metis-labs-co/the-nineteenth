@@ -9,7 +9,8 @@ import React, { useRef, useEffect, useCallback } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { spacing, typography, borderRadius } from '@/constants/theme';
-import { useThemeColors, type ColorPalette } from '@/context/ThemeContext';
+import { withOpacity } from '@/constants/colors';
+import { useThemeColors, useIsDark, type ColorPalette } from '@/context/ThemeContext';
 import { displayHoleNumber } from '@/utils/holeTransformers';
 import type { Hole, HoleScore, MultiBallHoleScore, Player } from '@/types';
 import { isSingleBallScore } from '@/types/database';
@@ -45,7 +46,14 @@ export const QuickScorecardView = React.memo(function QuickScorecardView({
   onScrollingChange,
 }: QuickScorecardViewProps) {
   const colors = useThemeColors();
+  const isDark = useIsDark();
   const scrollViewRef = useRef<ScrollView>(null);
+
+  // Selected-hole highlight: a light primary tint reads well in light mode, but
+  // primaryLighter is a bright lime in dark mode that washes out near-white. In
+  // dark mode use a darker tinted green instead — the bright primary border and
+  // text still mark the hole as selected.
+  const selectedHoleBackground = isDark ? withOpacity(colors.primary, 0.22) : colors.primaryLighter;
 
   // Notify parent when user is interacting with this component
   // Using touch events instead of scroll events because they fire BEFORE
@@ -111,7 +119,7 @@ export const QuickScorecardView = React.memo(function QuickScorecardView({
         style={[
           styles.holeButton,
           {
-            backgroundColor: isCurrent ? colors.primaryLighter : colors.surface,
+            backgroundColor: isCurrent ? selectedHoleBackground : colors.surface,
             borderColor: allComplete ? colors.success : (isCurrent ? colors.primary : colors.border),
           },
         ]}
