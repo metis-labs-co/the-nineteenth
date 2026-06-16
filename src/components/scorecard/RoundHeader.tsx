@@ -102,12 +102,20 @@ export function RoundHeader({
 
   const [showShotInfo, setShowShotInfo] = useState(false);
 
+  const handleChangeTeesPress = () => {
+    if (isOnline) {
+      onChangeTeesPress?.();
+    } else {
+      onChangeTeesBlockedOffline?.();
+    }
+  };
+
   const renderSubtitle = (): React.ReactNode | undefined => {
     if (!courseName) return undefined;
 
     if (selectedTee?.name) {
       const teeColorHex = getTeeColor(selectedTee.color, colors.textDisabled);
-      return (
+      const teeContent = (
         <View style={styles.subtitleContainer}>
           <Text style={[styles.subtitleText, { color: colors.textSecondary }]}>
             {courseName} -{' '}
@@ -118,7 +126,29 @@ export function RoundHeader({
           <Text style={[styles.subtitleText, { color: colors.textSecondary }]}>
             {' '}{selectedTee.name}
           </Text>
+          {canChangeTees && (
+            <Icon
+              source="chevron-down"
+              size={16}
+              color={isOnline ? colors.textSecondary : colors.textDisabled}
+            />
+          )}
         </View>
+      );
+
+      if (!canChangeTees) return teeContent;
+
+      return (
+        <Pressable
+          onPress={handleChangeTeesPress}
+          accessibilityRole="button"
+          accessibilityLabel="Change tees"
+          accessibilityState={{ disabled: !isOnline }}
+          hitSlop={8}
+          testID="round-header-change-tees"
+        >
+          {teeContent}
+        </Pressable>
       );
     }
 
@@ -156,29 +186,6 @@ export function RoundHeader({
 
   const renderRightContent = () => (
     <View style={styles.rightContent}>
-      {canChangeTees && (
-        <Pressable
-          onPress={() => {
-            if (isOnline) {
-              onChangeTeesPress?.();
-            } else {
-              onChangeTeesBlockedOffline?.();
-            }
-          }}
-          accessibilityRole="button"
-          accessibilityLabel="Change tees"
-          accessibilityState={{ disabled: !isOnline }}
-          hitSlop={8}
-          style={styles.headerIconButton}
-          testID="round-header-change-tees"
-        >
-          <Icon
-            source="golf-tee"
-            size={22}
-            color={isOnline ? colors.textSecondary : colors.textDisabled}
-          />
-        </Pressable>
-      )}
       {showShotLoggingInfo && (
         <Pressable
           onPress={() => setShowShotInfo(true)}
