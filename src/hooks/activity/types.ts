@@ -28,6 +28,11 @@ export interface FeedPhoto {
 export interface ActivityFeedCard {
   round_id: string;
   competition_id: string | null;
+  /** Course/club ids power the course-row deep link to the Course detail
+   *  screen. Nullable for cards cached before the column was added to the
+   *  feed RPCs (20260616000000); the tap is gated on course_id presence. */
+  course_id: string | null;
+  club_id: string | null;
   course_name: string;
   club_name: string;
   club_location: string | null;

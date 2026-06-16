@@ -1,6 +1,8 @@
-import { render, screen } from '@testing-library/react-native';
+import { render, screen, fireEvent } from '@testing-library/react-native';
 import { ActivityRoundCard } from './ActivityRoundCard';
 import type { ActivityFeedCard, FeedParticipant } from '@/hooks/activity';
+
+const mockNavigate = jest.fn();
 
 jest.mock('@/context/ThemeContext', () => ({
   useThemeColors: () => new Proxy({}, { get: () => '#008000' }),
@@ -14,7 +16,7 @@ jest.mock('@/hooks/activity', () => ({
   useUnlikeRound: () => ({ mutate: jest.fn() }),
 }));
 jest.mock('@react-navigation/native', () => ({
-  useNavigation: () => ({ navigate: jest.fn() }),
+  useNavigation: () => ({ navigate: mockNavigate }),
 }));
 jest.mock('./RoundPhotoBanner', () => ({ RoundPhotoBanner: () => null }));
 jest.mock('@/components/common', () => {
@@ -39,6 +41,8 @@ function makeCard(overrides: Partial<ActivityFeedCard> = {}): ActivityFeedCard {
   return {
     round_id: 'r1',
     competition_id: null,
+    course_id: 'course-1',
+    club_id: 'club-1',
     course_name: 'Hepburn Springs',
     club_name: 'Hepburn Springs Golf Club',
     club_location: 'Hepburn Springs · VIC',
@@ -56,6 +60,10 @@ function makeCard(overrides: Partial<ActivityFeedCard> = {}): ActivityFeedCard {
 }
 
 describe('ActivityRoundCard', () => {
+  beforeEach(() => {
+    mockNavigate.mockClear();
+  });
+
   it('headlines the viewer with YOU pill, score, and subtitle', () => {
     render(<ActivityRoundCard card={makeCard()} onOpen={jest.fn()} />);
     expect(screen.getByText('Sam Kay')).toBeTruthy();
@@ -139,5 +147,31 @@ describe('ActivityRoundCard', () => {
   it('renders no footer avatar stack for a solo round', () => {
     render(<ActivityRoundCard card={makeCard()} onOpen={jest.fn()} />);
     expect(screen.queryByTestId('footer-avatar-stack')).toBeNull();
+  });
+
+  it('opens the headline player scorecard when the score is tapped', () => {
+    render(<ActivityRoundCard card={makeCard()} onOpen={jest.fn()} />);
+    fireEvent.press(screen.getByLabelText("View Sam Kay's scorecard"));
+    expect(mockNavigate).toHaveBeenCalledWith('PlayerScorecard', {
+      playerId: 'viewer-1',
+      roundId: 'r1',
+    });
+  });
+
+  it('opens the course detail screen when the course row is tapped', () => {
+    render(<ActivityRoundCard card={makeCard()} onOpen={jest.fn()} />);
+    fireEvent.press(screen.getByLabelText('View Hepburn Springs Golf Club details'));
+    expect(mockNavigate).toHaveBeenCalledWith('Course', {
+      courseId: 'course-1',
+      clubId: 'club-1',
+    });
+  });
+
+  it('does not navigate from the course row when course_id is missing', () => {
+    const card = makeCard({ course_id: null, club_id: null });
+    render(<ActivityRoundCard card={card} onOpen={jest.fn()} />);
+    // No accessible course button is exposed when the id is absent.
+    expect(screen.queryByLabelText(/details$/)).toBeNull();
+    expect(mockNavigate).not.toHaveBeenCalled();
   });
 });

@@ -91,6 +91,22 @@ export const ActivityRoundCard = React.memo(function ActivityRoundCard({
     if (competitionId) navigation.navigate('Leaderboard', { competitionId });
   }, [navigation, competitionId]);
 
+  const courseId = card.course_id;
+  const clubId = card.club_id;
+  const handleOpenCourse = useCallback(() => {
+    if (courseId) navigation.navigate('Course', { courseId, clubId: clubId ?? undefined });
+  }, [navigation, courseId, clubId]);
+
+  const headlinePlayerId = headline?.player_id;
+  const handleOpenScorecard = useCallback(() => {
+    if (headlinePlayerId) {
+      navigation.navigate('PlayerScorecard', {
+        playerId: headlinePlayerId,
+        roundId: card.round_id,
+      });
+    }
+  }, [navigation, headlinePlayerId, card.round_id]);
+
   const courseTitle = card.club_name || card.course_name;
   const courseSubtitle = [formatDateWithWeekday(card.round_date), card.club_location]
     .filter(Boolean)
@@ -138,28 +154,43 @@ export const ActivityRoundCard = React.memo(function ActivityRoundCard({
               </Text>
             </View>
             {scoreLabel ? (
-              <Text style={[styles.score, { color: colors.primary }]}>{scoreLabel}</Text>
+              <TouchableOpacity
+                onPress={handleOpenScorecard}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={`View ${headline?.name ?? 'player'}'s scorecard`}
+              >
+                <Text style={[styles.score, { color: colors.primary }]}>{scoreLabel}</Text>
+              </TouchableOpacity>
             ) : null}
           </View>
         ) : null}
 
         <View style={styles.courseRow}>
-          <View style={[styles.courseIcon, { backgroundColor: colors.surfaceVariant }]}>
-            <Icon source="flag" size={18} color={colors.primary} />
-          </View>
-          <View style={styles.courseText}>
-            <Text style={[styles.courseTitle, { color: colors.textPrimary }]} numberOfLines={1}>
-              {courseTitle}
-            </Text>
-            {!!courseSubtitle && (
-              <Text
-                style={[styles.subtitle, { color: colors.textSecondary }]}
-                numberOfLines={1}
-              >
-                {courseSubtitle}
+          <TouchableOpacity
+            style={styles.courseTap}
+            onPress={handleOpenCourse}
+            disabled={!courseId}
+            accessibilityRole={courseId ? 'button' : undefined}
+            accessibilityLabel={courseId ? `View ${courseTitle} details` : undefined}
+          >
+            <View style={[styles.courseIcon, { backgroundColor: colors.surfaceVariant }]}>
+              <Icon source="flag" size={18} color={colors.primary} />
+            </View>
+            <View style={styles.courseText}>
+              <Text style={[styles.courseTitle, { color: colors.textPrimary }]} numberOfLines={1}>
+                {courseTitle}
               </Text>
-            )}
-          </View>
+              {!!courseSubtitle && (
+                <Text
+                  style={[styles.subtitle, { color: colors.textSecondary }]}
+                  numberOfLines={1}
+                >
+                  {courseSubtitle}
+                </Text>
+              )}
+            </View>
+          </TouchableOpacity>
           {isCompetition ? (
             <View style={[styles.tag, { backgroundColor: compPillBackground }]}>
               <Text style={[styles.tagText, { color: colors.primary }]}>Comp</Text>
@@ -307,6 +338,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
     marginTop: spacing.md,
+  },
+  courseTap: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   courseIcon: {
     width: 36,
