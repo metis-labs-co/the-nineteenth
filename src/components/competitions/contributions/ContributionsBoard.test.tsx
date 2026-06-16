@@ -22,9 +22,8 @@ jest.mock('@/hooks/competitions/useCompetitionContributions', () => ({
   useCompetitionContributions: (id: string) => mockUse(id),
 }));
 
-// Mock @/components/common to avoid the expo-video import chain that comes
-// through LaunchVideoGate (exported from common/index.ts). Only stub what
-// ContributionsBoard actually uses.
+// Mock @/components/common to isolate ContributionsBoard from the rest of the
+// barrel. Only stub what ContributionsBoard actually uses.
 jest.mock('@/components/common', () => {
   const { View, Text, TouchableOpacity } = require('react-native');
   return {

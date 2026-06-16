@@ -168,7 +168,6 @@ export type { GolferIconProps, ColorPalette } from './GolferIcon';
 export { AppIcon } from './AppIcon';
 export { Logo } from './Logo';
 export { LogoHorizontal } from './LogoHorizontal';
-export { LaunchVideoGate } from './LaunchVideoGate';
 
 export { SystemModalTheme } from './SystemModalTheme';
 
