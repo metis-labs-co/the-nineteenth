@@ -7,6 +7,7 @@ import {
   Platform,
 } from 'react-native';
 import { Text } from 'react-native-paper';
+import * as Clipboard from 'expo-clipboard';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, borderRadius } from '@/constants/theme';
 
@@ -69,6 +70,19 @@ export function OtpInput({
     inputRef.current?.focus();
   }, []);
 
+  // The capturing TextInput is visually hidden, so the OS paste menu can't be
+  // summoned on it. Long-pressing the boxes pulls the code straight from the
+  // clipboard (the same digit-only cleaning as typed input).
+  const handlePaste = useCallback(async () => {
+    if (disabled) return;
+    const clip = await Clipboard.getStringAsync();
+    const cleaned = clip.replace(/[^0-9]/g, '').slice(0, length);
+    if (cleaned) {
+      onChange(cleaned);
+      inputRef.current?.focus();
+    }
+  }, [disabled, length, onChange]);
+
   const getBoxStyle = (index: number) => {
     const isFilled = index < value.length;
     const isCurrent = index === value.length;
@@ -106,7 +120,9 @@ export function OtpInput({
       <Pressable
         style={styles.boxRow}
         onPress={handlePress}
+        onLongPress={handlePaste}
         accessibilityRole="none"
+        accessibilityHint="Long press to paste a code from the clipboard"
       >
         {Array.from({ length }, (_, index) => (
           <View
