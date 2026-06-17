@@ -265,6 +265,12 @@ export function RoundTypeSheet({
   // Guard whether Save is usable — covers tier, in-progress scoring,
   // unchanged selection, and split presets with no valid pairings.
   const isSplitTarget = pendingPreset?.config.round_format === 'split';
+  // Only *team* split presets pre-generate sub-matches and thus require a
+  // non-empty preview. Singles match play (split + is_team_round: false)
+  // starts with empty sub_matches and is paired manually later, so it has
+  // no preview to satisfy — mirrors the `needsSubMatches` check in the
+  // apply mutation below.
+  const needsPreview = isSplitTarget && pendingPreset?.config.is_team_round === true;
   const canSave = (() => {
     if (!pendingPresetId) return false;
     if (pendingPresetId === currentPresetId) return false;
@@ -273,7 +279,7 @@ export function RoundTypeSheet({
     if (availabilityFor(pendingPreset).comingSoon) return false;
     if (!availabilityFor(pendingPreset).tierAllowed) return false;
     if (!availabilityFor(pendingPreset).contextAllowed) return false;
-    if (isSplitTarget && (!preview || preview.length === 0)) return false;
+    if (needsPreview && (!preview || preview.length === 0)) return false;
     return true;
   })();
 
