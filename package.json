@@ -22,7 +22,11 @@
     "storybook:android": "STORYBOOK_ENABLED=true expo run:android",
     "generate-icons": "node scripts/generate-icons.js",
     "inject-maps-key": "node scripts/inject-maps-key.js",
-    "eas-build-post-install": "node scripts/inject-maps-key.js"
+    "eas-build-post-install": "node scripts/inject-maps-key.js",
+    "commit-version-bump": "node scripts/commit-version-bump.js",
+    "build:prod": "eas build --profile production && node scripts/commit-version-bump.js",
+    "build:prod:ios": "eas build --platform ios --profile production && node scripts/commit-version-bump.js",
+    "build:prod:android": "eas build --platform android --profile production && node scripts/commit-version-bump.js"
   },
   "dependencies": {
     "@expo/metro-runtime": "^6.1.2",
