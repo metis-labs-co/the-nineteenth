@@ -22,7 +22,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.the.nineteenth.golf",
-      "buildNumber": "9",
+      "buildNumber": "10",
       "usesAppleSignIn": true,
       "appleTeamId": "TMB3988D5Z",
       "associatedDomains": [
