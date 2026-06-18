@@ -54,8 +54,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/icon.png",
-        "backgroundColor": "#1f2937"
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#003913"
       },
       "package": "com.the.nineteenth.golf",
       "versionCode": 47,
