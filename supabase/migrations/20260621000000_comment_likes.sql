@@ -28,13 +28,13 @@ ALTER TABLE round_comment_likes ENABLE ROW LEVEL SECURITY;
 CREATE POLICY round_comment_likes_select ON round_comment_likes FOR SELECT
   USING (EXISTS (
     SELECT 1 FROM round_comments c
-    WHERE c.id = comment_id AND can_view_round(c.round_id)
+    WHERE c.id = comment_id AND c.deleted_at IS NULL AND can_view_round(c.round_id)
   ));
 
 CREATE POLICY round_comment_likes_insert ON round_comment_likes FOR INSERT
   WITH CHECK (player_id = auth.uid() AND EXISTS (
     SELECT 1 FROM round_comments c
-    WHERE c.id = comment_id AND can_view_round(c.round_id)
+    WHERE c.id = comment_id AND c.deleted_at IS NULL AND can_view_round(c.round_id)
   ));
 
 CREATE POLICY round_comment_likes_delete ON round_comment_likes FOR DELETE
