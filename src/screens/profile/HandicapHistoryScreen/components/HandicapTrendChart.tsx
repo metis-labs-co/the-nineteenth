@@ -17,10 +17,14 @@ const SCREEN_WIDTH = Dimensions.get('window').width;
 
 interface HandicapTrendChartProps {
   rounds: HandicapRound[];
+  variant?: 'full' | 'compact';
+  width?: number;
 }
 
 export const HandicapTrendChart = React.memo(function HandicapTrendChart({
   rounds,
+  variant = 'full',
+  width,
 }: HandicapTrendChartProps) {
   const colors = useThemeColors();
 
@@ -61,6 +65,33 @@ export const HandicapTrendChart = React.memo(function HandicapTrendChart({
   }, [chartData]);
 
   const chartWidth = SCREEN_WIDTH - spacing.lg * 2 - spacing.xl * 2 - 40;
+
+  if (variant === 'compact') {
+    if (!chartData) return null;
+    const compactWidth = width ?? chartWidth;
+    return (
+      <View style={styles.compactContainer}>
+        <LineChart
+          data={chartData}
+          height={56}
+          width={compactWidth}
+          spacing={compactWidth / Math.max(chartData.length - 1, 1)}
+          initialSpacing={6}
+          endSpacing={6}
+          color1={colors.primary}
+          thickness={2}
+          curved
+          curvature={0.2}
+          hideRules
+          hideDataPoints
+          hideYAxisText
+          xAxisColor="transparent"
+          yAxisColor="transparent"
+          hideAxesAndRules
+        />
+      </View>
+    );
+  }
 
   if (rounds.length < 2) {
     return (
@@ -154,6 +185,10 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.xl,
     padding: spacing.lg,
     marginBottom: spacing.lg,
+  },
+  compactContainer: {
+    alignItems: 'center',
+    paddingVertical: spacing.xs,
   },
   title: {
     ...typography.h4,
