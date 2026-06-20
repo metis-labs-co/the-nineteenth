@@ -24,6 +24,8 @@ import type {
   DeleteCommentInput,
   UploadRoundPhotoInput,
   DeleteRoundPhotoInput,
+  RoundComment,
+  LikeCommentInput,
 } from './types';
 
 // Activity-feed tables/RPCs are not yet in the generated Database types.
@@ -59,6 +61,29 @@ function resyncRound(qc: QueryClient, roundId: string): void {
   qc.invalidateQueries({ queryKey: activityKeys.round(roundId) });
   qc.invalidateQueries({ queryKey: activityKeys.feed() });
 }
+
+/**
+ * Toggle a comment's like state in a cached RoundComment[] (pure, idempotent).
+ */
+export function applyCommentLike(
+  comments: RoundComment[] | undefined,
+  commentId: string,
+  liked: boolean
+): RoundComment[] | undefined {
+  if (!comments) return comments;
+  return comments.map((c) => {
+    if (c.id !== commentId) return c;
+    if (liked === c.viewer_has_liked) return c;
+    return {
+      ...c,
+      viewer_has_liked: liked,
+      like_count: liked ? c.like_count + 1 : Math.max(0, c.like_count - 1),
+    };
+  });
+}
+
+/** Test-only export. */
+export const __applyCommentLikeForTest = applyCommentLike;
 
 export function useLikeRound() {
   const qc = useQueryClient();
@@ -152,6 +177,57 @@ export function useDeleteComment() {
         ...c,
         comment_count: Math.max(0, c.comment_count - 1),
       }));
+    },
+  });
+}
+
+export function useLikeComment() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({ commentId }: LikeCommentInput) => {
+      if (!user?.id) throw createError('You must be signed in to like a comment', 'AUTH');
+      const { error } = await sb
+        .from('round_comment_likes')
+        .upsert(
+          { comment_id: commentId, player_id: user.id },
+          { onConflict: 'comment_id,player_id', ignoreDuplicates: true }
+        );
+      if (error) throw createError(`Failed to like comment: ${error.message}`, 'DATABASE');
+    },
+    onMutate: ({ commentId, roundId }: LikeCommentInput) => {
+      qc.setQueryData<RoundComment[]>(activityKeys.comments(roundId), (old) =>
+        applyCommentLike(old, commentId, true)
+      );
+    },
+    onError: (_err, { roundId }) => {
+      qc.invalidateQueries({ queryKey: activityKeys.comments(roundId) });
+    },
+  });
+}
+
+export function useUnlikeComment() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({ commentId }: LikeCommentInput) => {
+      if (!user?.id) throw createError('You must be signed in', 'AUTH');
+      const { error } = await sb
+        .from('round_comment_likes')
+        .delete()
+        .eq('comment_id', commentId)
+        .eq('player_id', user.id);
+      if (error) throw createError(`Failed to unlike comment: ${error.message}`, 'DATABASE');
+    },
+    onMutate: ({ commentId, roundId }: LikeCommentInput) => {
+      qc.setQueryData<RoundComment[]>(activityKeys.comments(roundId), (old) =>
+        applyCommentLike(old, commentId, false)
+      );
+    },
+    onError: (_err, { roundId }) => {
+      qc.invalidateQueries({ queryKey: activityKeys.comments(roundId) });
     },
   });
 }

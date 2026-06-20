@@ -10,6 +10,7 @@ export type {
   RoundPhoto,
   AddCommentInput,
   DeleteCommentInput,
+  LikeCommentInput,
   UploadRoundPhotoInput,
   DeleteRoundPhotoInput,
 } from './types';
@@ -28,6 +29,8 @@ export {
   useUnlikeRound,
   useAddComment,
   useDeleteComment,
+  useLikeComment,
+  useUnlikeComment,
   useUploadRoundPhoto,
   useDeleteRoundPhoto,
 } from './mutations';
