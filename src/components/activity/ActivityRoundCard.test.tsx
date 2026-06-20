@@ -167,6 +167,12 @@ describe('ActivityRoundCard', () => {
     });
   });
 
+  it('opens the headline player profile when their name is tapped', () => {
+    render(<ActivityRoundCard card={makeCard()} onOpen={jest.fn()} />);
+    fireEvent.press(screen.getByLabelText("View Sam Kay's profile"));
+    expect(mockNavigate).toHaveBeenCalledWith('PlayerDetail', { id: 'viewer-1' });
+  });
+
   it('does not navigate from the course row when course_id is missing', () => {
     const card = makeCard({ course_id: null, club_id: null });
     render(<ActivityRoundCard card={card} onOpen={jest.fn()} />);

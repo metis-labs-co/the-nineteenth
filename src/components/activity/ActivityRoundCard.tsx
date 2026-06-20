@@ -107,6 +107,12 @@ export const ActivityRoundCard = React.memo(function ActivityRoundCard({
     }
   }, [navigation, headlinePlayerId, card.round_id]);
 
+  const handleOpenProfile = useCallback(() => {
+    if (headlinePlayerId) {
+      navigation.navigate('PlayerDetail', { id: headlinePlayerId });
+    }
+  }, [navigation, headlinePlayerId]);
+
   const courseTitle = card.club_name || card.course_name;
   const courseSubtitle = [formatDateWithWeekday(card.round_date), card.club_location]
     .filter(Boolean)
@@ -131,28 +137,35 @@ export const ActivityRoundCard = React.memo(function ActivityRoundCard({
       >
         {headline ? (
           <View style={styles.playerRow}>
-            <PlayerAvatar photoUrl={headline.photo_url} name={headline.name} size={40} />
-            <View style={styles.playerText}>
-              <View style={styles.nameRow}>
+            <TouchableOpacity
+              style={styles.playerTap}
+              onPress={handleOpenProfile}
+              accessibilityRole="button"
+              accessibilityLabel={`View ${headline.name}'s profile`}
+            >
+              <PlayerAvatar photoUrl={headline.photo_url} name={headline.name} size={40} />
+              <View style={styles.playerText}>
+                <View style={styles.nameRow}>
+                  <Text
+                    style={[styles.playerName, { color: colors.textPrimary }]}
+                    numberOfLines={1}
+                  >
+                    {headline.name}
+                  </Text>
+                  {isViewer ? (
+                    <View style={[styles.youPill, { borderColor: colors.primary }]}>
+                      <Text style={[styles.youPillText, { color: colors.primary }]}>YOU</Text>
+                    </View>
+                  ) : null}
+                </View>
                 <Text
-                  style={[styles.playerName, { color: colors.textPrimary }]}
+                  style={[styles.subtitle, { color: colors.textSecondary }]}
                   numberOfLines={1}
                 >
-                  {headline.name}
+                  played a round · {formatTimeAgo(card.activity_at)}
                 </Text>
-                {isViewer ? (
-                  <View style={[styles.youPill, { borderColor: colors.primary }]}>
-                    <Text style={[styles.youPillText, { color: colors.primary }]}>YOU</Text>
-                  </View>
-                ) : null}
               </View>
-              <Text
-                style={[styles.subtitle, { color: colors.textSecondary }]}
-                numberOfLines={1}
-              >
-                played a round · {formatTimeAgo(card.activity_at)}
-              </Text>
-            </View>
+            </TouchableOpacity>
             {scoreLabel ? (
               <TouchableOpacity
                 onPress={handleOpenScorecard}
@@ -303,6 +316,12 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
   },
   playerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  playerTap: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
