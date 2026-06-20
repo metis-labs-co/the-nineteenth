@@ -92,13 +92,13 @@ CREATE INDEX idx_round_comment_likes_comment ON round_comment_likes(comment_id);
 ALTER TABLE round_comment_likes ENABLE ROW LEVEL SECURITY;
 ```
 
-**RLS** — reuse the existing `can_see_round_social(round_id)` definer helper via
-the comment's round:
+**RLS** — reuse the existing `can_view_round(round_id)` definer helper (the same
+one `round_likes`/`round_comments` policies use) via the comment's round:
 
-- SELECT: visible when the comment's round is socially visible —
-  `EXISTS (SELECT 1 FROM round_comments c WHERE c.id = comment_id AND can_see_round_social(c.round_id))`.
-- INSERT: `player_id = auth.uid()` **and** the comment's round is socially
-  visible (same `EXISTS`).
+- SELECT: visible when the comment's round is visible —
+  `EXISTS (SELECT 1 FROM round_comments c WHERE c.id = comment_id AND can_view_round(c.round_id))`.
+- INSERT: `player_id = auth.uid()` **and** the comment's round is visible
+  (same `EXISTS`).
 - DELETE: `player_id = auth.uid()`.
 - `GRANT SELECT, INSERT, DELETE ON round_comment_likes TO authenticated;`
   `GRANT ALL ON round_comment_likes TO service_role;`
@@ -147,9 +147,10 @@ Map: `like_count = likes.length`,
 `viewer_has_liked = likes.some(l => l.player_id === user?.id)`. Get the current
 user id by importing `useAuth` into `queries.ts` (as `mutations.ts` already
 does) and reading `user?.id` at the top of the hook, then closing over it in
-`queryFn`. Add `user?.id` to the query key (or keep the key stable and only use
-the id for the `viewer_has_liked` derivation) — prefer including it so a user
-switch re-derives correctly. Empty/missing `likes` defaults to `0` / `false`.
+`queryFn`. Keep the query key as `activityKeys.comments(roundId)` (unchanged) so
+the optimistic `setQueryData` in the mutations keeps hitting the exact key; the
+viewer id is only used for the `viewer_has_liked` derivation. Empty/missing
+`likes` defaults to `0` / `false`.
 
 ### 2d. Mutations — `src/hooks/activity/mutations.ts`
 
