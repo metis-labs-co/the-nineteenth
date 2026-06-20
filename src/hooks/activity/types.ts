@@ -55,6 +55,8 @@ export interface RoundComment {
   body: string;
   created_at: string;
   updated_at: string;
+  like_count: number;
+  viewer_has_liked: boolean;
   author: {
     id: string;
     name: string;
@@ -70,6 +72,11 @@ export interface RoundPhoto extends FeedPhoto {
 export interface AddCommentInput {
   roundId: string;
   body: string;
+}
+
+export interface LikeCommentInput {
+  commentId: string;
+  roundId: string;
 }
 
 export interface UploadRoundPhotoInput {

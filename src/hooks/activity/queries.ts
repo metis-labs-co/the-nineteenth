@@ -14,6 +14,7 @@ import { activityKeys } from '@/hooks/queryKeys';
 import { CACHE_TIMES, GC_TIMES } from '@/constants/cacheConfig';
 import { createError } from '@/services/errors';
 import { buildTransform, type ImagePreset } from '@/utils/imageTransform';
+import { useAuth } from '@/hooks/useAuth';
 import type {
   ActivityFeedCard,
   RoundComment,
@@ -23,6 +24,23 @@ import type {
 
 // Activity-feed tables/RPCs are not yet in the generated Database types.
 const sb = supabase as unknown as SupabaseClient;
+
+/**
+ * Reduce a comment's embedded like rows to a count + whether the viewer liked.
+ */
+export function deriveCommentLikes(
+  likes: Array<{ player_id: string }> | null | undefined,
+  viewerId: string | undefined
+): { like_count: number; viewer_has_liked: boolean } {
+  const rows = likes ?? [];
+  return {
+    like_count: rows.length,
+    viewer_has_liked: !!viewerId && rows.some((l) => l.player_id === viewerId),
+  };
+}
+
+/** Test-only export. */
+export const __deriveCommentLikesForTest = deriveCommentLikes;
 
 export const ACTIVITY_PAGE_SIZE = 20;
 const SIGNED_URL_TTL_SECONDS = 60 * 60; // 1 hour
@@ -127,6 +145,7 @@ function firstOrSelf<T>(value: T | T[] | null | undefined): T | null {
  * Flat comment thread for a round (oldest first), with author profiles.
  */
 export function useRoundComments(roundId: string | undefined) {
+  const { user } = useAuth();
   return useQuery({
     queryKey: activityKeys.comments(roundId ?? ''),
     enabled: !!roundId,
@@ -134,7 +153,7 @@ export function useRoundComments(roundId: string | undefined) {
       const { data, error } = await sb
         .from('round_comments')
         .select(
-          'id, round_id, author_id, body, created_at, updated_at, author:players!round_comments_author_id_fkey(id, name, photo_url)'
+          'id, round_id, author_id, body, created_at, updated_at, author:players!round_comments_author_id_fkey(id, name, photo_url), likes:round_comment_likes(player_id)'
         )
         .eq('round_id', roundId)
         .is('deleted_at', null)
@@ -142,17 +161,20 @@ export function useRoundComments(roundId: string | undefined) {
       if (error) {
         throw createError(`Failed to load comments: ${error.message}`, 'DATABASE');
       }
-      return (data ?? []).map(
-        (row): RoundComment => ({
+      return (data ?? []).map((row): RoundComment => {
+        const { like_count, viewer_has_liked } = deriveCommentLikes(row.likes, user?.id);
+        return {
           id: row.id,
           round_id: row.round_id,
           author_id: row.author_id,
           body: row.body,
           created_at: row.created_at,
           updated_at: row.updated_at,
+          like_count,
+          viewer_has_liked,
           author: firstOrSelf(row.author),
-        })
-      );
+        };
+      });
     },
     staleTime: CACHE_TIMES.SHORT,
     gcTime: GC_TIMES.STANDARD,
