@@ -20,5 +20,6 @@ export { HomeTile } from './HomeTile';
 export type { HomeTileProps } from './HomeTile';
 export { HomeTileGrid } from './HomeTileGrid';
 export { RoundTodayCard } from './RoundTodayCard';
+export { HandicapHomeCard } from './HandicapHomeCard';
 export { SectionHeader } from './SectionHeader';
 export { WeatherStrip } from './WeatherStrip';
