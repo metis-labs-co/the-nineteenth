@@ -13,7 +13,7 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography } from '@/constants/theme';
 import { SectionHeader, PlayerAvatar } from '@/components/common';
 import { useAuth } from '@/hooks/useAuth';
-import { useRoundComments, useDeleteComment } from '@/hooks/activity';
+import { useRoundComments, useDeleteComment, useLikeComment, useUnlikeComment } from '@/hooks/activity';
 import type { RoundComment } from '@/hooks/activity';
 
 function timeAgo(iso: string): string {
@@ -33,6 +33,19 @@ export function RoundComments({ roundId }: RoundCommentsProps) {
   const { user } = useAuth();
   const { data: comments, isLoading } = useRoundComments(roundId);
   const deleteComment = useDeleteComment();
+  const likeComment = useLikeComment();
+  const unlikeComment = useUnlikeComment();
+
+  const toggleLike = useCallback(
+    (comment: RoundComment) => {
+      if (comment.viewer_has_liked) {
+        unlikeComment.mutate({ commentId: comment.id, roundId });
+      } else {
+        likeComment.mutate({ commentId: comment.id, roundId });
+      }
+    },
+    [likeComment, unlikeComment, roundId]
+  );
 
   const confirmDelete = useCallback(
     (comment: RoundComment) => {
@@ -98,6 +111,24 @@ export function RoundComments({ roundId }: RoundCommentsProps) {
                 <Text style={[styles.commentText, { color: colors.textPrimary }]}>
                   {comment.body}
                 </Text>
+                <TouchableOpacity
+                  style={styles.likeRow}
+                  onPress={() => toggleLike(comment)}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel={comment.viewer_has_liked ? 'Unlike comment' : 'Like comment'}
+                >
+                  <Icon
+                    source={comment.viewer_has_liked ? 'heart' : 'heart-outline'}
+                    size={16}
+                    color={comment.viewer_has_liked ? colors.error : colors.textSecondary}
+                  />
+                  {comment.like_count > 0 ? (
+                    <Text style={[styles.likeCount, { color: colors.textSecondary }]}>
+                      {comment.like_count}
+                    </Text>
+                  ) : null}
+                </TouchableOpacity>
               </View>
             </View>
           );
@@ -142,5 +173,17 @@ const styles = StyleSheet.create({
   commentText: {
     ...typography.small,
     marginTop: 2,
+  },
+  likeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.xs,
+    minHeight: 44,
+    alignSelf: 'flex-start',
+  },
+  likeCount: {
+    ...typography.caption,
+    fontWeight: '600',
   },
 });
