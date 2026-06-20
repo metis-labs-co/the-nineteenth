@@ -12,6 +12,7 @@ import { useRoundList } from '@/screens/rounds/RoundListScreen/hooks/useRoundLis
 import { useCompetitions } from '@/hooks/competitions/queries';
 import { useLeagues } from '@/hooks/leagues/queries';
 import { usePlayer } from '@/hooks/player/queries';
+import { useHandicapHistory } from '@/hooks/player';
 import { usePlayerStatistics } from '@/hooks/playerStatistics/queries';
 import {
   useAchievementProgress,
@@ -38,6 +39,7 @@ import type {
   NotableMoment,
   PendingAction,
 } from '@/types/home';
+import type { HandicapSummary } from '@/types/handicap.types';
 
 // ---------------------------------------------------------------------------
 // Pure helpers — exported so they can be unit-tested without a React runtime.
@@ -192,6 +194,8 @@ function calcLast5Average(
 export interface HomeData {
   greeting: { firstName: string | null; timeOfDay: TimeOfDay };
   handicap: HandicapHighlight;
+  /** Full Social Handicap Index summary for the Home handicap card. */
+  handicapSummary: HandicapSummary | null;
   unreadCount: number;
   /** In-progress rounds in RoundWithCourse shape — fed to the shared carousel. */
   inProgressRounds: RoundWithCourse[];
@@ -254,6 +258,9 @@ export function useHomeData(): HomeData {
   const { data: leagues, refetch: refetchLeagues } = useLeagues();
 
   const { data: playerData, refetch: refetchPlayer } = usePlayer(userId);
+
+  const { data: handicapHistory, refetch: refetchHandicap } =
+    useHandicapHistory(userId);
 
   const { data: stats, refetch: refetchStats } = usePlayerStatistics(userId);
 
@@ -461,6 +468,7 @@ export function useHomeData(): HomeData {
     refetchComps();
     refetchLeagues();
     refetchPlayer();
+    refetchHandicap();
     refetchStats();
     refetchAchievements();
     refetchFriends();
@@ -492,6 +500,7 @@ export function useHomeData(): HomeData {
     return {
       greeting: { firstName, timeOfDay: timeOfDay() },
       handicap: { value: null, delta30d: null, hasHandicap: false },
+      handicapSummary: null,
       unreadCount: 0,
       inProgressRounds: [],
       upcomingRounds: [],
@@ -515,6 +524,7 @@ export function useHomeData(): HomeData {
   return {
     greeting: { firstName, timeOfDay: timeOfDay() },
     handicap: handicapHighlight,
+    handicapSummary: handicapHistory ?? null,
     unreadCount,
     inProgressRounds,
     upcomingRounds,
