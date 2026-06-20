@@ -69,25 +69,35 @@ export const HandicapTrendChart = React.memo(function HandicapTrendChart({
   if (variant === 'compact') {
     if (!chartData) return null;
     const compactWidth = width ?? chartWidth;
+    // Flat secondary series at the mean differential — renders as a straight
+    // average line. Using data2 (not a reference line) keeps it on the same
+    // auto-scaled y-axis as the primary series so it always sits at the mean.
+    const average =
+      chartData.reduce((sum, d) => sum + d.value, 0) / chartData.length;
+    const averageData = chartData.map(() => ({ value: average }));
     return (
       <View style={styles.compactContainer}>
         <LineChart
           data={chartData}
+          data2={averageData}
           height={56}
           width={compactWidth}
           spacing={compactWidth / Math.max(chartData.length - 1, 1)}
           initialSpacing={6}
           endSpacing={6}
           color1={colors.primary}
+          color2={colors.warning}
           thickness={2}
+          thickness2={1.5}
           curved
           curvature={0.2}
           hideRules
           hideDataPoints
+          hideDataPoints2
           hideYAxisText
           xAxisColor="transparent"
           yAxisColor="transparent"
-          hideAxesAndRules
+          xAxisLabelTextStyle={{ color: colors.textSecondary, fontSize: 9 }}
         />
       </View>
     );
