@@ -4,9 +4,9 @@
 -- =====================================================
 -- Adds round_comment_likes (one like per comment per player), its RLS, and a
 -- trigger that notifies a comment's author when an accepted friend likes it.
--- Mirrors round_likes / notify_round_liked. comment_liked is NOT added to
--- should_send_push()'s category CASE, so it respects only the master push
--- toggle (identical to round_liked / round_commented).
+-- Mirrors round_likes / notify_round_liked. comment_liked is added to
+-- should_send_push()'s social-activity branch so it respects push_social_activity
+-- (consistent with round_liked / round_commented / round_also_commented).
 -- =====================================================
 
 -- -----------------------------------------------------
@@ -165,3 +165,93 @@ DROP TRIGGER IF EXISTS trigger_notify_comment_liked ON round_comment_likes;
 CREATE TRIGGER trigger_notify_comment_liked
   AFTER INSERT ON round_comment_likes
   FOR EACH ROW EXECUTE FUNCTION notify_comment_liked();
+
+-- -----------------------------------------------------
+-- 4. EXTEND should_send_push() — gate comment_liked on push_social_activity
+-- -----------------------------------------------------
+-- Reproduces the full function from 20260615020000_social_activity_push_preference.sql
+-- verbatim, with only 'comment_liked' added to the social-activity IN (...) list.
+CREATE OR REPLACE FUNCTION should_send_push(
+  p_user_id UUID,
+  p_notification_type TEXT
+)
+RETURNS BOOLEAN AS $$
+DECLARE
+  v_push_enabled BOOLEAN;
+  v_category_enabled BOOLEAN;
+BEGIN
+  SELECT
+    up.push_enabled,
+    CASE
+      -- Competition & round-related notifications
+      WHEN p_notification_type IN (
+        'competition_player_added',
+        'competition_player_joined',
+        'new_round_created',
+        'competition_status_changed',
+        'round_completed',
+        'social_round_invitation',
+        'social_round_response'
+      ) THEN up.push_competition_updates
+
+      -- Friend-related notifications
+      WHEN p_notification_type IN (
+        'friend_request_received',
+        'friend_request_accepted'
+      ) THEN up.push_friend_requests
+
+      -- Scorecard-related notifications
+      WHEN p_notification_type IN (
+        'scorecard_submitted'
+      ) THEN up.push_scorecard_updates
+
+      -- League-related notifications
+      WHEN p_notification_type IN (
+        'league_player_joined',
+        'league_player_left',
+        'league_player_removed',
+        'league_round_tagged',
+        'league_leaderboard_changed'
+      ) THEN up.push_league_updates
+
+      -- Partnership-related notifications (also league category)
+      WHEN p_notification_type IN (
+        'partnership_created',
+        'partnership_round_tagged'
+      ) THEN up.push_league_updates
+
+      -- Side-game & prize pool notifications
+      WHEN p_notification_type IN (
+        'skins_game_completed',
+        'skins_game_cancelled',
+        'wolf_game_completed',
+        'wolf_game_cancelled',
+        'prize_pool_settled'
+      ) THEN up.push_side_game_updates
+
+      -- Tee-time reminder
+      WHEN p_notification_type = 'tee_time_reminder'
+        THEN up.push_round_reminders
+
+      -- Social activity (likes & comments on rounds, and comment likes)
+      WHEN p_notification_type IN (
+        'round_liked',
+        'round_commented',
+        'round_also_commented',
+        'comment_liked'
+      ) THEN up.push_social_activity
+
+      -- Default to enabled for unknown types
+      ELSE TRUE
+    END
+  INTO v_push_enabled, v_category_enabled
+  FROM user_preferences up
+  WHERE up.user_id = p_user_id;
+
+  IF v_push_enabled IS NULL THEN
+    RETURN FALSE;
+  END IF;
+
+  RETURN v_push_enabled AND v_category_enabled;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
