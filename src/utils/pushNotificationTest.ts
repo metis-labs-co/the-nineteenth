@@ -138,6 +138,10 @@ const MOCK_NOTIFICATION_DATA: Record<NotificationType, Omit<NotificationData, 't
     roundId: 'test-round-789',
     playerId: 'test-player-456',
   },
+  comment_liked: {
+    roundId: 'test-round-789',
+    playerId: 'test-player-456',
+  },
 };
 
 /**
@@ -170,6 +174,7 @@ const MOCK_NOTIFICATION_TITLES: Record<NotificationType, string> = {
   round_liked: 'New like',
   round_commented: 'New comment',
   round_also_commented: 'New comment',
+  comment_liked: 'New like',
 };
 
 /**
@@ -202,6 +207,7 @@ const MOCK_NOTIFICATION_BODIES: Record<NotificationType, string> = {
   round_liked: 'Test Player liked your round at Test Course',
   round_commented: 'Test Player commented on your round at Test Course',
   round_also_commented: 'Test Player also commented on a round you commented on at Test Course',
+  comment_liked: 'Test Player liked your comment',
 };
 
 // =====================================================

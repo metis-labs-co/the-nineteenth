@@ -245,6 +245,12 @@ const notificationConfig: Record<NotificationType, NotificationConfig> = {
         data.comment_preview ? `: "${data.comment_preview}"` : ''
       }`,
   },
+  comment_liked: {
+    icon: 'heart-outline',
+    getTitle: () => 'New like',
+    getMessage: (data) =>
+      `${data.actor_name || 'Someone'} liked your comment${data.comment_preview ? `: "${data.comment_preview}"` : ''}`,
+  },
 };
 
 function getNotificationConfig(type: NotificationType): NotificationConfig {

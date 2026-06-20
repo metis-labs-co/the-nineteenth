@@ -36,6 +36,7 @@ import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useNotificationStore } from '@/store/notificationStore';
 import { useToast } from '@/context/ToastContext';
 import { pushService, type PermissionStatus } from '@/services/notifications';
+import { isActivityDetailNotificationType } from '@/services/notifications/activityDeepLink';
 import type { RootStackParamList } from '@/navigation/types';
 import type { Notification } from '@/types/database.types';
 import type { PushNotificationData } from '@/types/push.types';
@@ -156,6 +157,8 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
         data.roundId
       ) {
         nav.navigate('ScheduledRound', { roundId: data.roundId });
+      } else if (isActivityDetailNotificationType(data.type) && data.roundId) {
+        nav.navigate('RoundActivity', { roundId: data.roundId });
       } else if (data.roundId) {
         // roundId alone is sufficient — standalone rounds have no competitionId
         nav.navigate('ViewRound', {
@@ -307,6 +310,8 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
           notification.round_id
         ) {
           nav.navigate('ScheduledRound', { roundId: notification.round_id });
+        } else if (isActivityDetailNotificationType(notification.type) && notification.round_id) {
+          nav.navigate('RoundActivity', { roundId: notification.round_id });
         } else if (notification.round_id) {
           // round_id first: round-specific notifications should land on the round
           nav.navigate('ViewRound', {

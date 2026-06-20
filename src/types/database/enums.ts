@@ -147,7 +147,8 @@ export type NotificationType =
   | 'tee_time_reminder'
   | 'round_liked'
   | 'round_commented'
-  | 'round_also_commented';
+  | 'round_also_commented'
+  | 'comment_liked';
 
 // Feature enums
 export type TierFeature =
