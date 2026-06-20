@@ -33,6 +33,7 @@ import {
   FeatureButton,
 } from '@/components/common';
 import { InProgressRoundSection } from '@/components/competitions/detail/sections';
+import { FeatureLock } from '@/components/subscription';
 import CreateRoundBottomSheet from '@/screens/rounds/CreateRoundBottomSheet';
 import { useStartNewRound, useScheduleRound } from '@/screens/rounds/RoundListScreen/hooks';
 import { useHomeData } from '@/hooks/home';
@@ -50,6 +51,7 @@ import {
   RoundTodayCard,
   HomeTileGrid,
   MatesThisWeekSection,
+  HandicapHomeCard,
 } from './components';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -134,6 +136,10 @@ export default function HomeScreen() {
     navigation.navigate('AllRounds');
   }, [navigation]);
 
+  const handleViewHandicap = useCallback(() => {
+    navigation.navigate('HandicapHistory');
+  }, [navigation]);
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <PageHeader
@@ -198,6 +204,17 @@ export default function HomeScreen() {
               {home.upcomingWithin24h ? (
                 <RoundTodayCard round={home.upcomingWithin24h} />
               ) : null}
+
+              <FeatureLock
+                feature="handicap_history"
+                onUpgradePress={() => navigation.navigate('Subscription')}
+              >
+                <HandicapHomeCard
+                  summary={home.handicapSummary}
+                  onPress={handleViewHandicap}
+                  testID="home-handicap-card"
+                />
+              </FeatureLock>
 
               <PendingActionsSection actions={home.pendingActions} />
 
