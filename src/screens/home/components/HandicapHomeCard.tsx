@@ -5,13 +5,18 @@
  */
 
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, borderRadius, shadows, typography } from '@/constants/theme';
+import { spacing, borderRadius, shadows, typography, layout } from '@/constants/theme';
 import { formatHandicapIndex } from '@/utils/displayHelpers';
 import { HandicapTrendChart } from '@/screens/profile/HandicapHistoryScreen/components/HandicapTrendChart';
 import type { HandicapSummary } from '@/types/handicap.types';
+
+// Available width for the compact chart inside this card:
+// screen width minus home body padding (layout.screenPadding × 2) and card padding (spacing.lg × 2).
+const CARD_CHART_WIDTH =
+  Dimensions.get('window').width - layout.screenPadding * 2 - spacing.lg * 2;
 
 interface HandicapHomeCardProps {
   summary: HandicapSummary | null;
@@ -31,7 +36,11 @@ export function HandicapHomeCard({ summary, onPress, testID }: HandicapHomeCardP
       onPress={onPress}
       activeOpacity={0.85}
       accessibilityRole="button"
-      accessibilityLabel="View handicap history"
+      accessibilityLabel={
+        hasData
+          ? `Social Handicap Index ${formatHandicapIndex(summary!.handicapIndex)}, view history`
+          : 'Social Handicap Index not yet established, view history'
+      }
       style={[styles.container, { backgroundColor: colors.surface }, shadows.md]}
     >
       <View style={styles.headerRow}>
@@ -57,7 +66,7 @@ export function HandicapHomeCard({ summary, onPress, testID }: HandicapHomeCardP
 
       {showChart ? (
         <View style={styles.chartWrapper}>
-          <HandicapTrendChart rounds={summary!.rounds} variant="compact" />
+          <HandicapTrendChart rounds={summary!.rounds} variant="compact" width={CARD_CHART_WIDTH} />
         </View>
       ) : null}
     </TouchableOpacity>
