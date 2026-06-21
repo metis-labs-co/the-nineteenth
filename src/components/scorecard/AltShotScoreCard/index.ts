@@ -1,0 +1,1 @@
+export { AltShotScoreCard } from './AltShotScoreCard';
