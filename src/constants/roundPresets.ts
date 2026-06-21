@@ -471,23 +471,20 @@ export const RYDER_CUP_SINGLES: RoundPreset = {
 
 export const RYDER_CUP_FOURSOMES_2V2: RoundPreset = {
   id: 'ryder_cup_foursomes_2v2',
-  title: '2v2 Foursomes Match Play',
-  shortTitle: '2v2 Foursomes',
-  summary: 'Pair vs pair, sub-match stack.',
+  title: '2v2 Alt Shot (Foursomes)',
+  shortTitle: '2v2 Alt Shot',
+  summary: 'Pair vs pair, one ball each, handicap-differential match.',
   longDescription:
-    'The round is split into 2v2 match-play sub-matches. Each pair plays as a team against the opposing pair; winners earn 1 point per sub-match (0.5 on a tie).',
-  icon: 'shield-half-full',
+    'The round is split into 2v2 sub-matches. Each pair plays a single ball, alternating shots, off 50% of their combined handicaps. The higher-handicap pair receives the difference in strokes on the hardest holes; the lower net total wins the sub-match (1 point, 0.5 for a tie). Does not feed the individual leaderboard.',
+  icon: 'swap-horizontal',
   tier: 'premium',
   group: 'sub_matches',
   config: {
-    game_type: 'match-play',
+    game_type: 'alt-shot',
     is_team_round: true,
-    team_format: 'match-play-team',
+    team_format: 'alt-shot',
     round_format: 'split',
     sub_match_size: 2,
-    // 2v2 foursomes is one ball alternating shots — there are no per-player
-    // results to feed the individual leaderboard. Pair points (1/0.5/0) drive
-    // the team competition leaderboard via finalizePairResults.
     rules_override: {
       pair_points: { win: 1, tie: 0.5, loss: 0 },
       contributes_to_individual_leaderboard: false,
@@ -495,7 +492,6 @@ export const RYDER_CUP_FOURSOMES_2V2: RoundPreset = {
     },
   },
   requiresCompetitionTeams: true,
-  comingSoon: true,
 };
 
 // -----------------------------------------------------------------------------
