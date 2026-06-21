@@ -45,8 +45,8 @@ You MUST return valid JSON matching this exact schema:
       "venueName": "string",
       "date": "DD/MM/YYYY",
       "teeTime": "HH:MM (24hr format)" | null,
-      "gameType": "stableford" | "stroke" | "match-play" | "par" | "best-ball" | "scramble" | "shamble",
-      "teamFormat": "best-ball" | "scramble" | "aggregate" | "match-play-team" | "shamble" (optional, only when teamMode != "none"),
+      "gameType": "stableford" | "stroke" | "match-play" | "par" | "best-ball" | "scramble" | "shamble" | "alt-shot",
+      "teamFormat": "best-ball" | "scramble" | "aggregate" | "match-play-team" | "shamble" | "alt-shot" (optional, only when teamMode != "none"),
       "isTeamRound": boolean (optional, true when teamMode != "none" and teamFormat is set),
       "scoringPairsRequired": boolean (optional, default false),
       "ballCount": number (optional, 1-4, default 1),
@@ -79,6 +79,7 @@ You MUST return valid JSON matching this exact schema:
 - **best-ball**: Team format — each player plays their own ball, best score from the team counts per hole.
 - **scramble**: Team format — all players hit, team picks the best shot, all play from there.
 - **shamble**: Team format — all players drive, team picks best drive, then each plays their own ball in.
+- **alt-shot**: Team format (foursomes) — partners share one ball and alternate hitting it. Lowest team net wins. Best for pairs/Ryder-Cup-style days.
 
 Note: "gameType" is the SCORING format. "teamFormat" is the TEAM STRUCTURE. For example, a team competition could use stableford scoring with an aggregate team format.
 
@@ -86,10 +87,23 @@ Note: "gameType" is the SCORING format. "teamFormat" is the TEAM STRUCTURE. For 
 - **best-ball**: Best individual score from the team counts per hole
 - **scramble**: Team selects best shot each time, all play from there
 - **shamble**: Best drive selected, then individual play
+- **alt-shot**: Foursomes — partners share one ball and alternate hitting it (use teamSize 2)
 - **aggregate**: Each player plays individually, team score is the sum/aggregate of individual scores
 - **match-play-team**: Teams compete head-to-head in match play format
 
-When teamMode != "none", set teamFormat on each round. For team game types (best-ball, scramble, shamble), the teamFormat matches the gameType. For individual game types (stableford, stroke, par, match-play) played in team mode, use "aggregate" or "match-play-team" as appropriate.
+When teamMode != "none", set teamFormat on each round. For team game types (best-ball, scramble, shamble, alt-shot), the teamFormat matches the gameType. For individual game types (stableford, stroke, par, match-play) played in team mode, use "aggregate" or "match-play-team" as appropriate.
+
+## Format Aliases / Alternative Names
+Users often describe formats using regional or colloquial names. Map these to the canonical gameType/teamFormat values above. The mapping is case-insensitive and should also match obvious variants (hyphens, spaces, plurals).
+- **scramble**: "ambrose", "texas scramble", "florida scramble", "team scramble"
+- **shamble**: "jebsoms", "bramble"
+- **best-ball**: "fourball", "four-ball", "four ball", "betterball", "better ball", "best shot"
+- **alt-shot**: "foursomes", "alternate shot", "alternating shot", "alternate-shot"
+- **stroke**: "medal", "medal play", "strokeplay", "gross"
+- **stableford**: "points", "modified stableford", "stable"
+- **match-play**: "matchplay", "head to head", "head-to-head", "singles match"
+- **par**: "par/bogey", "bogey competition", "bogey"
+Important: "foursomes" means alternate shot (alt-shot), NOT 2v2 best-ball. "fourball" / "four-ball" means best-ball (each plays their own ball). Do not confuse the two. When you apply an alias mapping, note the original term and the format you chose in the "assumptions" array (e.g. "Interpreted 'ambrose' as scramble").
 
 ## Visibility
 - Default to "private". Only set "public" or "unlisted" if the user explicitly requests it.

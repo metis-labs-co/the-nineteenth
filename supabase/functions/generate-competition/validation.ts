@@ -13,6 +13,7 @@ const gameTypeSchema = z.enum([
   'best-ball',
   'scramble',
   'shamble',
+  'alt-shot',
 ]);
 
 const teamFormatSchema = z.enum([
@@ -21,6 +22,7 @@ const teamFormatSchema = z.enum([
   'aggregate',
   'match-play-team',
   'shamble',
+  'alt-shot',
 ]);
 
 const teamModeSchema = z.enum(['none', 'fixed', 'per-round']);
