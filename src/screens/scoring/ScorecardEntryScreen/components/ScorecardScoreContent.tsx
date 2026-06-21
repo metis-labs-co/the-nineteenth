@@ -24,6 +24,7 @@ import {
   StrokePlayLeaderboard,
   DriveContributorPicker,
 } from '@/components/scorecard';
+import { AltShotScoreCard } from '@/components/scorecard/AltShotScoreCard';
 import { WolfDecisionPrompt } from '@/components/wolf';
 import type { Player, Hole, HoleScore, MultiBallHoleScore, ShotContributions, HoleShotContributions } from '@/types';
 import type { WolfGameWithParticipants, WolfHoleDecision } from '@/types/database/wolf.types';
@@ -353,8 +354,8 @@ export function ScorecardScoreContent({
     return team.members?.filter((m) => allowedPlayerIds.has(m.player_id));
   };
 
-  // Team round: Scramble / Alt Shot format (single-ball formats)
-  if (isTeamRound && (teamFormat === 'scramble' || teamFormat === 'alt-shot') && teams.length > 0) {
+  // Team round: Scramble format (single ball)
+  if (isTeamRound && teamFormat === 'scramble' && teams.length > 0) {
     return (
       <>
         {teams
@@ -376,6 +377,33 @@ export function ScorecardScoreContent({
                 // Legacy props - kept for backward compatibility
                 onContributorSelect={setSelectedContributor}
                 selectedContributor={selectedContributor}
+              />
+            );
+          })
+          .filter(Boolean)}
+      </>
+    );
+  }
+
+  // Team round: Alt Shot format (single ball, alternating shots)
+  if (isTeamRound && teamFormat === 'alt-shot' && teams.length > 0) {
+    return (
+      <>
+        {teams
+          .map((team, index) => {
+            const filteredMembers = getFilteredTeamMembers(team);
+            if (scoringPairsEnabled && (!filteredMembers || filteredMembers.length === 0)) {
+              return null;
+            }
+            return (
+              <AltShotScoreCard
+                key={team.id}
+                team={{ ...team, members: filteredMembers }}
+                currentHole={currentHoleData}
+                currentScore={getTeamScore(index)}
+                onScoreSelect={(strokes) => handleTeamScoreSelect(index, strokes)}
+                shotContributions={getTeamShotContributions(index)}
+                onShotContributionsChange={createShotContributionsHandler(index)}
               />
             );
           })
