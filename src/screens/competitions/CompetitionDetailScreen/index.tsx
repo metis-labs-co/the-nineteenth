@@ -229,7 +229,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
     const roundsList = competitionData?.rounds ?? [];
     return (
       roundsList.length > 0 &&
-      roundsList.some((r) => r.game_type !== 'scramble')
+      roundsList.some((r) => r.game_type !== 'scramble' && r.game_type !== 'alt-shot')
     );
   }, [competitionData]);
 
@@ -237,7 +237,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
   const showRingerTab = useMemo(
     () =>
       (competitionData?.rounds ?? []).some(
-        (r) => r.team_format !== 'scramble' && r.game_type !== 'scramble'
+        (r) => r.team_format !== 'scramble' && r.game_type !== 'scramble' && r.team_format !== 'alt-shot' && r.game_type !== 'alt-shot'
       ),
     [competitionData]
   );
