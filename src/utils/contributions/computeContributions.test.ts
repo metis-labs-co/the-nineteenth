@@ -234,6 +234,43 @@ describe('computeContributions — rollup', () => {
   });
 });
 
+describe('computeContributions — alt-shot (scramble format)', () => {
+  it('alt-shot one-ball contributions count shots per player', () => {
+    const board = computeContributions({
+      rounds: [
+        {
+          roundId: 'r1',
+          roundLabel: 'R1',
+          format: 'scramble', // alt-shot maps to this internally
+          gameType: 'alt-shot',
+          holes: [{ number: 1, par: 4, strokeIndex: 1 } as never],
+          teams: [
+            {
+              teamId: 't1',
+              teamName: 'Sam & Alex',
+              color: null,
+              members: [
+                { playerId: 'p1', playerName: 'Sam', handicap: 9 },
+                { playerId: 'p2', playerName: 'Alex', handicap: 11 },
+              ],
+              strokesByPlayerHole: { p1: { 1: 4 }, p2: { 1: 4 } },
+              // Sam: teeShot + putt = 2. Alex: approach = 1.
+              shotContributionsByHole: { 1: { teeShot: 'p1', approach: 'p2', putt: 'p1' } },
+            },
+          ],
+        },
+      ],
+    });
+    const team = board.rounds[0].teams[0];
+    const sam = team.players.find((p) => p.playerId === 'p1')!;
+    const alex = team.players.find((p) => p.playerId === 'p2')!;
+    expect(sam.value).toBe(2);  // teeShot + putt
+    expect(alex.value).toBe(1); // approach
+    expect(board.rounds[0].metricLabel).toBe('shots used');
+    expect(board.rounds[0].dataMissing).toBe(false);
+  });
+});
+
 describe('computeContributions — shamble', () => {
   it('averages drives-used and holes-won shares', () => {
     const board = computeContributions({
