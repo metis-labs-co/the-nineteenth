@@ -196,7 +196,7 @@ describe('ActivityRoundCard players sheet', () => {
     expect(screen.getByText('Players')).toBeTruthy();
     // Sheet lists everyone, including the headline player.
     // Note: "View Me's profile" exists both on the headline row and the sheet row.
-    expect(screen.getAllByLabelText("View Me's profile").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByLabelText("View Me's profile").length).toBeGreaterThanOrEqual(2);
     expect(screen.getByLabelText("View Sam's profile")).toBeTruthy();
   });
 
