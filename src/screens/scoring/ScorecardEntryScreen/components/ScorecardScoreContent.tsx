@@ -212,7 +212,7 @@ export function ScorecardScoreContent({
   // (playerScoresMap is memoized without groupScorecards as a dep and would be stale here).
   const getTeamShotContributions = useCallback(
     (teamIndex: number): ShotContributions | undefined => {
-      if (!isTeamRound || teamFormat !== 'scramble' || teams.length === 0) {
+      if (!isTeamRound || (teamFormat !== 'scramble' && teamFormat !== 'alt-shot') || teams.length === 0) {
         return undefined;
       }
       const team = teams[teamIndex];
@@ -353,8 +353,8 @@ export function ScorecardScoreContent({
     return team.members?.filter((m) => allowedPlayerIds.has(m.player_id));
   };
 
-  // Team round: Scramble format
-  if (isTeamRound && teamFormat === 'scramble' && teams.length > 0) {
+  // Team round: Scramble / Alt Shot format (single-ball formats)
+  if (isTeamRound && (teamFormat === 'scramble' || teamFormat === 'alt-shot') && teams.length > 0) {
     return (
       <>
         {teams

@@ -277,9 +277,9 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
     [rounds]
   );
 
-  // Check if ALL rounds are scramble format (individual standings become irrelevant)
+  // Check if ALL rounds are single-ball team format (scramble/alt-shot — individual standings become irrelevant)
   const isAllScrambleFormat = useMemo(
-    () => rounds.length > 0 && rounds.every((round) => round.team_format === 'scramble'),
+    () => rounds.length > 0 && rounds.every((round) => round.team_format === 'scramble' || round.team_format === 'alt-shot'),
     [rounds]
   );
 

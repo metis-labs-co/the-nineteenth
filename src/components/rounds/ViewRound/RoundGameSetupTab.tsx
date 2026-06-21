@@ -61,7 +61,7 @@ export const RoundGameSetupTab = React.memo(function RoundGameSetupTab({
   // benefits from explicit pairs — for ryder_cup_singles in particular, the
   // 1v1 sub-match is itself the natural scoring pair, and the engine's cross-
   // team / group-aware generator handles the assignment automatically.
-  const showScoringPairs = players.length > 1 && round.team_format !== 'scramble';
+  const showScoringPairs = players.length > 1 && round.team_format !== 'scramble' && round.team_format !== 'alt-shot';
 
   // Flip round.scoring_pairs_required. Drives whether the pair-management
   // card is enabled and whether the read-only summary appears on the

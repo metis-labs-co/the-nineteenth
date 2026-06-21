@@ -18,7 +18,7 @@ export type CompetitionStatus = 'upcoming' | 'in-progress' | 'completed' | 'canc
 export type CompetitionType = 'knockout' | 'event';
 
 // Game enums
-export type GameType = 'stroke' | 'stableford' | 'par' | 'match-play' | 'best-ball' | 'scramble' | 'shamble';
+export type GameType = 'stroke' | 'stableford' | 'par' | 'match-play' | 'best-ball' | 'scramble' | 'shamble' | 'alt-shot';
 export type RoundStatus = 'upcoming' | 'in-progress' | 'completed';
 
 /** Response state for a player invited to a scheduled social round. */
@@ -44,7 +44,7 @@ export type SubMatchResult =
 
 // Team enums
 export type TeamMode = 'none' | 'fixed' | 'per-round';
-export type TeamFormat = 'best-ball' | 'scramble' | 'aggregate' | 'match-play-team' | 'shamble';
+export type TeamFormat = 'best-ball' | 'scramble' | 'aggregate' | 'match-play-team' | 'shamble' | 'alt-shot';
 
 /**
  * How individual scores combine into a team score for per-round rule overrides.

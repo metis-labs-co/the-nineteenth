@@ -96,6 +96,7 @@ export function getHandicapAllowance(gameType?: GameType): number {
     case 'shamble':
       return 0.85; // 85%
     case 'scramble':
+    case 'alt-shot':
       return 1.0; // Team handicap calculated differently
     case 'stableford':
     case 'stroke':

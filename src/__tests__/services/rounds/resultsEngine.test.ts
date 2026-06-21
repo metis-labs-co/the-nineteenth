@@ -26,6 +26,7 @@ describe('resultsEngine', () => {
       scramble: 'team-only',
       'best-ball': 'team-only',
       shamble: 'team-only',
+      'alt-shot': 'team-only',
     };
 
     it.each(Object.entries(expectedShapes))(
@@ -37,9 +38,9 @@ describe('resultsEngine', () => {
   });
 
   describe('TEAM_ONLY_GAME_TYPES exposes the expected set', () => {
-    it('includes scramble, best-ball, shamble', () => {
+    it('includes scramble, best-ball, shamble, alt-shot', () => {
       expect(TEAM_ONLY_GAME_TYPES.sort()).toEqual(
-        ['best-ball', 'scramble', 'shamble'].sort()
+        ['best-ball', 'scramble', 'shamble', 'alt-shot'].sort()
       );
     });
 
@@ -52,7 +53,7 @@ describe('resultsEngine', () => {
   });
 
   describe('isTeamOnlyGameType', () => {
-    it.each(['scramble', 'best-ball', 'shamble'])(
+    it.each(['scramble', 'best-ball', 'shamble', 'alt-shot'])(
       'returns true for %s',
       (gameType) => {
         expect(isTeamOnlyGameType(gameType)).toBe(true);

@@ -19,7 +19,7 @@ export const handicapSources = ['profile', 'calculated', 'none'] as const;
 export type HandicapSource = (typeof handicapSources)[number];
 
 // Team formats (matches database.types.ts)
-export const teamFormats = ['best-ball', 'scramble', 'aggregate', 'match-play-team', 'shamble'] as const;
+export const teamFormats = ['best-ball', 'scramble', 'alt-shot', 'aggregate', 'match-play-team', 'shamble'] as const;
 export type TeamFormat = (typeof teamFormats)[number];
 
 // Point system entry
@@ -187,7 +187,7 @@ export const teamSettingsSchema = z.object({
 export type TeamSettingsFormData = z.infer<typeof teamSettingsSchema>;
 
 // Game types for rounds (matches database.types.ts)
-export const gameTypes = ['stroke', 'stableford', 'par', 'match-play', 'best-ball', 'scramble', 'shamble'] as const;
+export const gameTypes = ['stroke', 'stableford', 'par', 'match-play', 'best-ball', 'scramble', 'shamble', 'alt-shot'] as const;
 export type GameType = (typeof gameTypes)[number];
 
 /**

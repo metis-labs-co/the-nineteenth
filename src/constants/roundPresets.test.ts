@@ -183,6 +183,37 @@ describe('isTierAllowed', () => {
   });
 });
 
+describe('Alt Shot presets', () => {
+  it('infers the combined Alt Shot preset', () => {
+    const id = inferPresetIdFromRound({
+      game_type: 'alt-shot',
+      is_team_round: true,
+      team_format: 'alt-shot',
+      round_format: 'combined',
+      sub_match_size: null,
+      rules_override: null,
+    });
+    expect(id).toBe('team_alt_shot');
+  });
+
+  it('infers the Ryder Cup foursomes (alt-shot split) preset', () => {
+    const id = inferPresetIdFromRound({
+      game_type: 'alt-shot',
+      is_team_round: true,
+      team_format: 'alt-shot',
+      round_format: 'split',
+      sub_match_size: 2,
+      rules_override: { pair_points: { win: 1, tie: 0.5, loss: 0 } },
+    });
+    expect(id).toBe('ryder_cup_foursomes_2v2');
+  });
+
+  it('foursomes preset is no longer coming soon', () => {
+    expect(ROUND_PRESETS.ryder_cup_foursomes_2v2.comingSoon).toBeFalsy();
+    expect(ROUND_PRESETS.ryder_cup_foursomes_2v2.config.game_type).toBe('alt-shot');
+  });
+});
+
 describe('getPresetAvailability', () => {
   const context = (overrides: Partial<PresetAvailabilityContext> = {}): PresetAvailabilityContext => ({
     tier: 'free',

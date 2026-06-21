@@ -582,6 +582,7 @@ function calculateStandardResults(
       case 'best-ball':
       case 'scramble':
       case 'shamble':
+      case 'alt-shot':
         rawScore = sc.total_points || sc.total_net;
         resultData = { team_score: rawScore, gross_score: sc.total_gross, net_score: sc.total_net };
         break;

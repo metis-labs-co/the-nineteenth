@@ -290,6 +290,7 @@ export function formatScoreData(
     case 'scramble':
     case 'shamble':
     case 'best-ball':
+    case 'alt-shot':
       // Team formats fall through to team data
       return formatTeamData(resultData, gameType as TeamFormat);
     default:

@@ -36,6 +36,8 @@ function contributionFormat(round: {
   const gt = round.game_type;
   if (tf === 'best-ball' || gt === 'best-ball') return 'best-ball';
   if (tf === 'scramble' || gt === 'scramble') return 'scramble';
+  // Alt-shot is a single-ball team format like scramble; map to scramble contributions.
+  if (tf === 'alt-shot' || gt === 'alt-shot') return 'scramble';
   if (tf === 'shamble' || gt === 'shamble') return 'shamble';
   if (tf === 'aggregate') return 'aggregate';
   return null;

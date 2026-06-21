@@ -97,7 +97,7 @@ async function fetchCompetitionStatisticsData(
   const rounds = (roundsData ?? []) as { id: string; game_type: string }[];
   const totalRoundCount = rounds.length;
   const scrambleRoundIds = new Set<string>(
-    rounds.filter((r) => r.game_type === 'scramble').map((r) => r.id)
+    rounds.filter((r) => r.game_type === 'scramble' || r.game_type === 'alt-shot').map((r) => r.id)
   );
 
   // Fetch completed/confirmed scorecards for the competition with joined

@@ -70,6 +70,7 @@ export interface GameTypeHeaderProps {
 function getGameTypeLabel(gameType: GameType, teamFormat?: TeamFormat | null): string {
   if (teamFormat === 'best-ball') return 'BEST BALL';
   if (teamFormat === 'scramble') return 'SCRAMBLE';
+  if (teamFormat === 'alt-shot') return 'ALT SHOT';
   if (teamFormat === 'match-play-team') return 'TEAM MATCH PLAY';
   if (teamFormat === 'aggregate') return 'AGGREGATE';
 
@@ -215,8 +216,8 @@ export const GameTypeHeader = React.memo(function GameTypeHeader({
     );
   }
 
-  // Render Scramble header
-  if (teamFormat === 'scramble' && teamScores.length > 0) {
+  // Render Scramble / Alt Shot header (single-ball formats)
+  if ((teamFormat === 'scramble' || teamFormat === 'alt-shot') && teamScores.length > 0) {
     const teamScore = teamScores[0];
     const grossDisplay = teamScore.gross !== undefined
       ? (teamScore.gross > 0 ? `+${teamScore.gross}` : teamScore.gross === 0 ? 'E' : teamScore.gross)

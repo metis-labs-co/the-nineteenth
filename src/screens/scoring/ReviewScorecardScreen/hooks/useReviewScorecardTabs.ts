@@ -44,7 +44,8 @@ export function useReviewScorecardTabs({ roundId, storeGameType, playerCount }: 
 
   // Game type flags
   const isStrokePlay = effectiveGameType === 'stroke';
-  const isScramble = effectiveGameType === 'scramble' || roundDetails?.team_format === 'scramble';
+  const isScramble = effectiveGameType === 'scramble' || roundDetails?.team_format === 'scramble'
+    || effectiveGameType === 'alt-shot' || roundDetails?.team_format === 'alt-shot';
   const isShamble = effectiveGameType === 'shamble' || roundDetails?.team_format === 'shamble';
   const isBestBall = roundDetails?.team_format === 'best-ball';
   const isMatchPlayTeam = roundDetails?.team_format === 'match-play-team';

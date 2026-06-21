@@ -241,6 +241,9 @@ export async function refinalizeRoundResults(roundId: string): Promise<void> {
           roundId,
           team1Id: round.team1_id,
           team2Id: round.team2_id,
+          competitionId: round.competition_id,
+          gameType,
+          scorecards,
           rulesOverride: effectiveOverride,
           perRoundRulesEnabled,
         });

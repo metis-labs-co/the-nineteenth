@@ -106,11 +106,11 @@ export function prepareTeamHoleScores(
         teamScore = bestNetScore;
         break;
       case 'scramble':
-        // For scramble, all players play from the same position
-        // The team score is typically the single team score (all players have same score)
-        // Use the best gross score as the team score
+      case 'alt-shot':
+        // For scramble/alt-shot, one ball is played per team.
+        // Use the best gross score as the team score (all players share the same ball).
         teamScore = bestGrossScore;
-        contributingPlayerId = undefined; // All contribute in scramble
+        contributingPlayerId = undefined; // All contribute equally
         break;
       default:
         // For other formats (aggregate, match-play-team), use best net
@@ -142,7 +142,8 @@ export function getTeamScoreForFormat(
 ): number {
   switch (teamFormat) {
     case 'scramble':
-      // Scramble always uses the team_score (gross-based)
+    case 'alt-shot':
+      // Scramble/alt-shot: one ball per team, use the team_score (gross-based)
       return teamData.team_score;
 
     case 'best-ball':

@@ -100,6 +100,7 @@ export const GAME_TYPE_LABELS: Record<GameType, string> = {
   'best-ball': 'Best Ball',
   scramble: 'Scramble',
   shamble: 'Shamble',
+  'alt-shot': 'Alt Shot',
 };
 
 /**

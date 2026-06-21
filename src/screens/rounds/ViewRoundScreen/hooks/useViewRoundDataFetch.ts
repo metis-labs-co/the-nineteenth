@@ -44,7 +44,8 @@ export function useViewRoundDataFetch({ roundId, competitionId }: UseViewRoundDa
   const isMatchPlayRound = round?.game_type === 'match-play' && !round?.is_team_round;
   const isTeamMatchPlayRound = round?.game_type === 'match-play' && round?.is_team_round;
   const isShambleRound = round?.game_type === 'shamble' || round?.team_format === 'shamble';
-  const isScrambleRound = round?.game_type === 'scramble' || round?.team_format === 'scramble';
+  const isScrambleRound = round?.game_type === 'scramble' || round?.team_format === 'scramble'
+    || round?.game_type === 'alt-shot' || round?.team_format === 'alt-shot';
   const isStrokePlayRound = round?.game_type === 'stroke';
   const isStablefordRound = round?.game_type === 'stableford';
   const isParRound = round?.game_type === 'par';

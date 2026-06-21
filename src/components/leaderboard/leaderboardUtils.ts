@@ -31,6 +31,8 @@ export function getGameTypeLabel(gameType: GameType): string {
       return 'Scramble';
     case 'shamble':
       return 'Shamble';
+    case 'alt-shot':
+      return 'Alt Shot';
     default:
       return gameType;
   }
@@ -53,6 +55,7 @@ export function getGameTypeVariant(
     case 'best-ball':
     case 'scramble':
     case 'shamble':
+    case 'alt-shot':
       return 'success';
     default:
       return 'primary';
