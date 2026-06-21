@@ -56,6 +56,11 @@ export function useViewRoundDataFetch({ roundId, competitionId }: UseViewRoundDa
   //   - Singles split (Singles Match Play): each sub_match is a 1v1; no team
   //     aggregation — the per-match results stand on their own.
   const isSplitRound = round?.round_format === 'split';
+  // Alt-shot split: head-to-head 2v2 pairs — the cross-field Scramble
+  // Scorecard/Leaderboard tabs are wrong here (they rank across all players).
+  const isAltShotSplitRound =
+    (round?.team_format === 'alt-shot' || round?.game_type === 'alt-shot') &&
+    round?.round_format === 'split';
   // Team stroke round: best-ball or aggregate team formats that still score
   // per-player into scorecards. Match-play-team uses the Match tab, scramble
   // and shamble have their own dedicated tabs — those are excluded here.
@@ -94,6 +99,7 @@ export function useViewRoundDataFetch({ roundId, competitionId }: UseViewRoundDa
     isTeamMatchPlayRound,
     isShambleRound,
     isScrambleRound,
+    isAltShotSplitRound,
     isStrokePlayRound,
     isStablefordRound,
     isParRound,

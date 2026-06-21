@@ -7,6 +7,10 @@ interface UseViewRoundTabsParams {
   isTeamMatchPlayRound: boolean;
   isShambleRound: boolean;
   isScrambleRound: boolean;
+  /** True when this is a split alt-shot round (head-to-head 2v2). The
+   *  cross-field Scramble Scorecard/Leaderboard tabs are wrong for this
+   *  format; only Contributions is kept alongside the Sub-Matches tab. */
+  isAltShotSplitRound: boolean;
   isStrokePlayRound: boolean;
   isStablefordRound: boolean;
   isParRound: boolean;
@@ -51,6 +55,7 @@ export function useViewRoundTabs({
   isTeamMatchPlayRound,
   isShambleRound,
   isScrambleRound,
+  isAltShotSplitRound,
   isStrokePlayRound,
   isStablefordRound,
   isParRound,
@@ -115,8 +120,13 @@ export function useViewRoundTabs({
     }
 
     if (isScrambleRound) {
-      result.push({ key: 'scrambleTeamScore', label: 'Scorecard' });
-      result.push({ key: 'scrambleLeaderboard', label: 'Leaderboard' });
+      // Split alt-shot is head-to-head 2v2: the cross-field Scorecard/Leaderboard
+      // tabs rank across all players and are wrong here. Keep only Contributions;
+      // the Sub-Matches tab already shows the pair results.
+      if (!isAltShotSplitRound) {
+        result.push({ key: 'scrambleTeamScore', label: 'Scorecard' });
+        result.push({ key: 'scrambleLeaderboard', label: 'Leaderboard' });
+      }
       result.push({ key: 'scrambleContributions', label: 'Contributions' });
     }
 
@@ -148,5 +158,5 @@ export function useViewRoundTabs({
     }
 
     return result;
-  }, [isMatchPlayRound, isTeamMatchPlayRound, isShambleRound, isScrambleRound, isStrokePlayRound, isStablefordRound, isParRound, isSplitRound, isTeamRound, hasSkinsGame, hasWolfGame, hasPayoutsTab, hasStats, hasShots, playerCount, groupCount, teamCount]);
+  }, [isMatchPlayRound, isTeamMatchPlayRound, isShambleRound, isScrambleRound, isAltShotSplitRound, isStrokePlayRound, isStablefordRound, isParRound, isSplitRound, isTeamRound, hasSkinsGame, hasWolfGame, hasPayoutsTab, hasStats, hasShots, playerCount, groupCount, teamCount]);
 }
