@@ -42,6 +42,7 @@ import {
 import { PICKUP_SCORE } from '@/constants/scoring';
 import {
   resolveSubMatchOutcomeFromScores,
+  resolveAltShotSubMatchOutcome,
   deriveSideTeamIds,
   type SideOutcome,
 } from './pairPointsCalculation';
@@ -273,6 +274,22 @@ export async function finalizePairResults(
     }
   }
 
+  // Daily-handicap snapshot for alt-shot's differential allowance.
+  const dhcByPlayer = new Map<string, number>();
+  if (input.scorecards) {
+    for (const sc of input.scorecards) {
+      if (typeof sc.daily_handicap_used === 'number') {
+        dhcByPlayer.set(sc.player_id, sc.daily_handicap_used);
+      }
+    }
+  }
+
+  // One-ball gross lookup for alt-shot (reuses getHoleGross over scores JSON).
+  const getGross = (playerId: string, hole: Hole): number | null => {
+    const sc = input.scorecards?.find((c) => c.player_id === playerId);
+    return sc ? getHoleGross(sc.scores, hole.number) : null;
+  };
+
   // Accumulate per-team points. Both sides of every decided sub-match are added
   // (loss = 0) so a team that only ever loses still gets a row.
   const teamPoints = new Map<string, number>();
@@ -297,7 +314,15 @@ export async function finalizePairResults(
 
     // Persisted result wins; otherwise compute from scorecards.
     let outcome = persistedOutcome(sm);
-    if (!outcome && getHoleValue && gameType) {
+    if (!outcome && gameType === 'alt-shot' && holes.length > 0) {
+      outcome = resolveAltShotSubMatchOutcome({
+        teamAPlayerIds: sm.team_a_player_ids,
+        teamBPlayerIds: sm.team_b_player_ids,
+        holes,
+        getGross,
+        dailyHandicaps: dhcByPlayer,
+      });
+    } else if (!outcome && getHoleValue && gameType) {
       outcome = resolveSubMatchOutcomeFromScores({
         teamAPlayerIds: sm.team_a_player_ids,
         teamBPlayerIds: sm.team_b_player_ids,
