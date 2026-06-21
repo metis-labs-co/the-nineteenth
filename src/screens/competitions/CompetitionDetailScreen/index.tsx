@@ -245,7 +245,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
   // Contributions board needs at least one team-format round to break down.
   const showContributionsTab = useMemo(() => {
     const roundsList = competitionData?.rounds ?? [];
-    const teamFormats = ['best-ball', 'scramble', 'shamble', 'aggregate'];
+    const teamFormats = ['best-ball', 'scramble', 'shamble', 'aggregate', 'alt-shot'];
     return roundsList.some(
       (r) => teamFormats.includes(r.team_format ?? '') || teamFormats.includes(r.game_type ?? '')
     );
@@ -267,10 +267,11 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
     if (!competitionData) return false;
     if (competitionData.competition.team_mode === 'none') return false;
     const roundsList = competitionData.rounds;
-    const isAllScramble =
+    // Single-ball team formats (scramble/alt-shot) have no meaningful individual standings.
+    const isAllSingleBallTeam =
       roundsList.length > 0 &&
-      roundsList.every((r) => r.team_format === 'scramble');
-    return !isAllScramble;
+      roundsList.every((r) => r.team_format === 'scramble' || r.team_format === 'alt-shot');
+    return !isAllSingleBallTeam;
   }, [competitionData]);
 
   // Loading state

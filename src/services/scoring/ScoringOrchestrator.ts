@@ -146,6 +146,8 @@ export class ScoringOrchestrator {
         return new TeamScoringEngine('scramble');
       case 'shamble':
         return new TeamScoringEngine('shamble');
+      case 'alt-shot':
+        return new TeamScoringEngine('alt-shot');
       default:
         // Default to Stableford
         return new StablefordEngine();

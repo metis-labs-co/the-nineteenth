@@ -17,9 +17,10 @@ interface UseRingerBoardResult {
   refetch: () => void;
 }
 
-/** A Scramble round produces a single team ball, not individual scorecards. */
+/** A single-ball team round (scramble/alt-shot) produces one team ball, not individual scorecards. */
 function isScramble(round: { team_format?: string | null; game_type?: string }): boolean {
-  return round.team_format === 'scramble' || round.game_type === 'scramble';
+  return round.team_format === 'scramble' || round.game_type === 'scramble'
+    || round.team_format === 'alt-shot' || round.game_type === 'alt-shot';
 }
 
 /**

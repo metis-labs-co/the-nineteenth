@@ -10,6 +10,7 @@ import { useRoundTeams } from '@/hooks/scorecard/useRoundTeams';
 import type { HoleScore, MultiBallHoleScore, Player } from '@/types';
 import type { StandaloneTeamConfig } from '@/types/supabase/roundQueries';
 import { calculateScrambleTeamHandicap } from '@/utils/teamScoring/scramble';
+import { calculateAltShotTeamHandicap } from '@/utils/teamScoring/altShot';
 
 interface UseViewRoundScrambleParams {
   isScrambleRound: boolean;
@@ -18,6 +19,7 @@ interface UseViewRoundScrambleParams {
         id?: string;
         competition_id?: string | null;
         team_format?: string | null;
+        game_type?: string;
         is_team_round?: boolean;
       }
     | null
@@ -140,11 +142,25 @@ export function useViewRoundScramble({
       .filter((p): p is Player => p !== undefined);
   }, [isScrambleRound, scrambleTeams, selectedTeamIndex, buildPlayerMap]);
 
-  // Get team handicap (25% of sum of member handicaps for scramble).
-  // Shared with finalization via calculateScrambleTeamHandicap.
+  // True when the round uses the alt-shot (foursomes) format — 50% handicap.
+  // Scramble uses 25%. Both are single-ball team formats.
+  const isAltShotFormat =
+    round?.game_type === 'alt-shot' || round?.team_format === 'alt-shot';
+
+  // Helper: pick the right handicap formula for this format.
+  const calcTeamHandicap = useCallback(
+    (players: { handicap?: number | null }[]) =>
+      isAltShotFormat
+        ? calculateAltShotTeamHandicap(players)
+        : calculateScrambleTeamHandicap(players),
+    [isAltShotFormat]
+  );
+
+  // Get team handicap (25% of sum for scramble; 50% for alt-shot).
+  // Shared with finalization via the respective helper functions.
   const scrambleTeamHandicap = useMemo(
-    () => calculateScrambleTeamHandicap(scrambleTeamPlayers),
-    [scrambleTeamPlayers]
+    () => calcTeamHandicap(scrambleTeamPlayers),
+    [calcTeamHandicap, scrambleTeamPlayers]
   );
 
   // Get all players for scramble leaderboard (needed for team member lookup).
@@ -227,11 +243,11 @@ export function useViewRoundScramble({
       .filter((p): p is Player => p !== undefined);
   }, [isScrambleRound, scrambleTeams, buildPlayerMap]);
 
-  // Get team handicap for a specific team by index (shared formula).
+  // Get team handicap for a specific team by index (format-aware: 25% scramble, 50% alt-shot).
   const getScrambleTeamHandicapByIndex = useCallback(
     (teamIndex: number): number =>
-      calculateScrambleTeamHandicap(getScrambleTeamPlayersByIndex(teamIndex)),
-    [getScrambleTeamPlayersByIndex]
+      calcTeamHandicap(getScrambleTeamPlayersByIndex(teamIndex)),
+    [calcTeamHandicap, getScrambleTeamPlayersByIndex]
   );
 
   return {

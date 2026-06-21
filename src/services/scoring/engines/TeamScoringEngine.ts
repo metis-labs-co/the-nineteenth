@@ -32,7 +32,7 @@ import { sortByScore, assignPositions } from '../utils/leaderboardUtils';
  * Team format type
  * Matches database team_format enum + shamble for future use
  */
-export type TeamFormat = 'best-ball' | 'scramble' | 'aggregate' | 'match-play-team' | 'shamble';
+export type TeamFormat = 'best-ball' | 'scramble' | 'aggregate' | 'match-play-team' | 'shamble' | 'alt-shot';
 
 /**
  * Team scoring engine for multi-player team formats.
