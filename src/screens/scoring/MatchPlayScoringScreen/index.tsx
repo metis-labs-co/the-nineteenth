@@ -28,8 +28,9 @@ import { useScorecardStore } from '@/store/scorecardStore';
 import { useIsSuperAdmin } from '@/store/subscriptionStore';
 import { useMatchPlayData, useMatchPlayScoring, useOfflineSync } from '@/hooks/scorecard';
 import { useProcessSkinsIfNeeded, useOnlineStatus, useAuth } from '@/hooks';
-import { useRoundDetails } from '@/hooks/rounds';
+import { useRoundDetails, useSubMatches } from '@/hooks/rounds';
 import { useCompetitionInfo } from '@/hooks/competitions';
+import { resolveSubMatchForUser } from '@/utils/subMatches';
 import { supabase } from '@/services/supabase/client';
 import { matchPlayLogger } from '@/utils/debugLogger';
 import { getStrokesReceived } from '@/utils/scoring';
@@ -89,9 +90,23 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
     }
   }, [initialHole]);
 
-  // Resolve player IDs (prefer explicit IDs, fall back to team IDs)
-  const resolvedPlayer1Id = player1Id || team1Id || '1';
-  const resolvedPlayer2Id = player2Id || team2Id || '2';
+  // When the screen is opened without explicit IDs (e.g. the "Score Round"
+  // button on a split 1v1 round), resolve the logged-in user's own
+  // sub-match so we score them against their real opponent instead of
+  // falling through to the first two players in the round.
+  const { data: subMatches } = useSubMatches(roundId);
+  const userSubMatch = useMemo(
+    () =>
+      player1Id || player2Id || team1Id || team2Id
+        ? null
+        : resolveSubMatchForUser(subMatches, user?.id),
+    [player1Id, player2Id, team1Id, team2Id, subMatches, user?.id]
+  );
+
+  // Resolve player IDs (prefer explicit IDs, then the user's sub-match,
+  // then fall back to team IDs / placeholders for legacy 2-player rounds)
+  const resolvedPlayer1Id = player1Id || team1Id || userSubMatch?.player1Id || '1';
+  const resolvedPlayer2Id = player2Id || team2Id || userSubMatch?.player2Id || '2';
 
   // Use the new hooks for data fetching and store initialization
   const {
