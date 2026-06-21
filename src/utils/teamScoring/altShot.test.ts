@@ -42,7 +42,7 @@ describe('computeAltShotTeamRoundScore', () => {
   });
 
   it('returns zeros when no card has data', () => {
-    const score = computeAltShotTeamRoundScore([], members);
+    const score = computeAltShotTeamRoundScore([], []);
     expect(score).toEqual({
       teamGross: 0,
       teamHandicap: 0,
@@ -50,5 +50,14 @@ describe('computeAltShotTeamRoundScore', () => {
       teamNet: 0,
       holesCompleted: 0,
     });
+  });
+
+  it('returns the resolved handicap even when no scorecards are present', () => {
+    const score = computeAltShotTeamRoundScore([], members);
+    expect(score.teamHandicap).toBe(10);
+    expect(score.teamHandicapStrokes).toBe(10);
+    expect(score.teamGross).toBe(0);
+    expect(score.teamNet).toBe(0);
+    expect(score.holesCompleted).toBe(0);
   });
 });

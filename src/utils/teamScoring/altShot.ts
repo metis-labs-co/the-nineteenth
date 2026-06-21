@@ -72,7 +72,7 @@ export function computeAltShotTeamRoundScore(
 
   const chosen = withScores ?? withTotal;
   if (!chosen) {
-    return { teamGross: 0, teamHandicap: 0, teamHandicapStrokes: 0, teamNet: 0, holesCompleted: 0 };
+    return { teamGross: 0, teamHandicap, teamHandicapStrokes, teamNet: 0, holesCompleted: 0 };
   }
 
   let perHoleGross = 0;
