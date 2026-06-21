@@ -9,7 +9,7 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Icon, Text } from 'react-native-paper';
-import { spacing, typography } from '@/constants/theme';
+import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { FormSection } from '@/components/common';
 import { RoundPresetPicker } from '@/components/rounds/RoundPresetPicker';
@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: spacing.sm,
     padding: spacing.md,
-    borderRadius: 8,
+    borderRadius: borderRadius.md,
     borderWidth: 1,
     marginTop: spacing.sm,
   },

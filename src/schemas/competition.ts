@@ -19,7 +19,7 @@ export const handicapSources = ['profile', 'calculated', 'none'] as const;
 export type HandicapSource = (typeof handicapSources)[number];
 
 // Team formats (matches database.types.ts)
-export const teamFormats = ['best-ball', 'scramble', 'aggregate', 'match-play-team', 'shamble'] as const;
+export const teamFormats = ['best-ball', 'scramble', 'alt-shot', 'aggregate', 'match-play-team', 'shamble'] as const;
 export type TeamFormat = (typeof teamFormats)[number];
 
 // Point system entry
