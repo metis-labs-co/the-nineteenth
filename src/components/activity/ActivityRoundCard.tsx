@@ -23,23 +23,12 @@ import type { ActivityFeedCard, FeedParticipant } from '@/hooks/activity';
 import type { RootStackParamList } from '@/navigation/types';
 // Import directly (not via the index) to avoid a circular dependency.
 import { RoundPhotoBanner } from './RoundPhotoBanner';
+import { participantScoreLabel } from './participantScore';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 /** Cap the stacked avatars in the footer; overflow shows a "+N" chip. */
 const MAX_FOOTER_AVATARS = 4;
-
-function participantScoreLabel(p: FeedParticipant, gameType: string): string | null {
-  if (gameType === 'stableford') {
-    return p.total_points != null ? `${p.total_points} pts` : null;
-  }
-  if (p.total_gross != null && p.total_gross > 0) {
-    return p.total_net != null && p.total_net > 0
-      ? `${p.total_gross} (${p.total_net} net)`
-      : `${p.total_gross}`;
-  }
-  return null;
-}
 
 /** The viewer if they played in the round, otherwise the first participant. */
 function headlineParticipant(
