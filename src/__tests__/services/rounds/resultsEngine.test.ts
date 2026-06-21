@@ -26,6 +26,7 @@ describe('resultsEngine', () => {
       scramble: 'team-only',
       'best-ball': 'team-only',
       shamble: 'team-only',
+      'alt-shot': 'team-only',
     };
 
     it.each(Object.entries(expectedShapes))(

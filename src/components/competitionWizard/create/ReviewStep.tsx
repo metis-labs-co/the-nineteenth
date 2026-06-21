@@ -28,6 +28,7 @@ const gameTypeLabels: Record<GameType, string> = {
   'best-ball': 'Best Ball',
   'scramble': 'Scramble',
   'shamble': 'Shamble',
+  'alt-shot': 'Alt Shot',
 };
 
 // Team mode labels for display (values match database.types.ts)

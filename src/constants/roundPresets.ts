@@ -557,6 +557,7 @@ export function presetIdForGameType(gameType: GameType): RoundPresetId {
     case 'best-ball': return 'team_best_ball';
     case 'scramble': return 'team_scramble';
     case 'shamble': return 'team_shamble';
+    case 'alt-shot': return 'team_alt_shot';
     default: {
       const _exhaustive: never = gameType;
       throw new Error(`No preset for game type: ${String(_exhaustive)}`);

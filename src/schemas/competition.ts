@@ -187,7 +187,7 @@ export const teamSettingsSchema = z.object({
 export type TeamSettingsFormData = z.infer<typeof teamSettingsSchema>;
 
 // Game types for rounds (matches database.types.ts)
-export const gameTypes = ['stroke', 'stableford', 'par', 'match-play', 'best-ball', 'scramble', 'shamble'] as const;
+export const gameTypes = ['stroke', 'stableford', 'par', 'match-play', 'best-ball', 'scramble', 'shamble', 'alt-shot'] as const;
 export type GameType = (typeof gameTypes)[number];
 
 /**

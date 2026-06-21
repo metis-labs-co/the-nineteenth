@@ -36,6 +36,10 @@ import {
   computeScrambleTeamRoundScore,
   type ScrambleTeamMember,
 } from '@/utils/teamScoring/scramble';
+import {
+  computeAltShotTeamRoundScore,
+  type AltShotTeamMember,
+} from '@/utils/teamScoring/altShot';
 
 export type RoundShape =
   | 'individual'
@@ -172,6 +176,45 @@ function pickScrambleScore(
   };
 }
 
+/**
+ * Alt Shot combined: team plays one ball; gross read from any member's card.
+ * Team handicap is 50% of the sum of member daily handicaps; net = gross −
+ * floor(team_handicap). Lower net is better (ascending sort inferred from
+ * gameType not being stableford/par).
+ */
+function pickAltShotScore(
+  teamScorecards: Scorecard[],
+  teamMembers: EngineTeamMember[]
+): PickedScore {
+  if (teamScorecards.length === 0) {
+    throw new Error('pickTeamRawScore called with empty scorecards array');
+  }
+  const members: AltShotTeamMember[] = teamMembers.map((m) => ({
+    player_id: m.player_id,
+    handicap: m.handicap,
+  }));
+  const score = computeAltShotTeamRoundScore(teamScorecards, members);
+  return {
+    rawScore: score.teamNet,
+    rawResultData: {
+      team_score: score.teamNet,
+      gross_score: score.teamGross,
+      net_score: score.teamNet,
+      team_handicap: score.teamHandicap,
+    },
+  };
+}
+
+const ALT_SHOT: RoundEngineSpec = {
+  gameType: 'alt-shot',
+  shape: 'team-only',
+  // Net stroke play: lower team net wins (ascending sort inferred for any
+  // gameType that isn't stableford/par).
+  betterDirection: 'lower',
+  pickIndividualRawScore: pickTeamFormatScore,
+  pickTeamRawScore: pickAltShotScore,
+};
+
 const STABLEFORD: RoundEngineSpec = {
   gameType: 'stableford',
   shape: 'individual',
@@ -245,6 +288,7 @@ export const ROUND_ENGINES: Record<GameType, RoundEngineSpec> = {
   scramble: SCRAMBLE,
   'best-ball': BEST_BALL,
   shamble: SHAMBLE,
+  'alt-shot': ALT_SHOT,
 };
 
 /** Game types whose unit of competition is the team, not the player. */

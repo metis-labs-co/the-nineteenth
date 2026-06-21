@@ -140,6 +140,19 @@ export const GAME_TYPE_DESCRIPTIONS: Record<GameType, GameTypeDescription> = {
     bestFor: 'Groups wanting team camaraderie off the tee with individual scoring thereafter.',
     tip: 'Pick the drive that gives everyone the best angle to the green, not just the longest.',
   },
+  'alt-shot': {
+    title: 'Alt Shot',
+    icon: 'swap-horizontal',
+    summary: 'Foursomes — partners alternate hitting one ball. Lowest net wins.',
+    howItWorks: [
+      'Each pair plays a single ball, alternating shots until it is holed',
+      'Team handicap is 50% of the two partners\' combined handicaps',
+      'Combined rounds rank teams by net total (gross minus team handicap)',
+      'Ryder Cup sub-matches give the higher-handicap pair the difference in strokes, then compare net totals',
+    ],
+    bestFor: 'Pairs events and Ryder-Cup style team days.',
+    tip: 'Agree who tees off on odd vs even holes before you start.',
+  },
 };
 
 /**
@@ -224,6 +237,17 @@ export const TEAM_FORMAT_DESCRIPTIONS: Record<TeamFormat, GameTypeDescription> =
     ],
     bestFor: 'Groups wanting the fun of team drives with individual shot-making.',
     tip: 'Consider position over distance when choosing the team drive.',
+  },
+  'alt-shot': {
+    title: 'Alt Shot',
+    icon: 'swap-horizontal',
+    summary: 'Foursomes — partners alternate hitting one ball. Lowest net wins.',
+    howItWorks: [
+      'Each pair plays a single ball, alternating shots until it is holed',
+      'Team handicap is 50% of the two partners\' combined handicaps',
+      'Lowest net score wins',
+    ],
+    bestFor: 'Pairs events and Ryder-Cup style team days.',
   },
 };
 
