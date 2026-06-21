@@ -29,6 +29,8 @@ import {
 } from './roundResultsService';
 import { aggregateTeamTotal, type PlayerTotal } from '@/utils/teamAggregation';
 import { getEngine } from './resultsEngine';
+import { submitLogger } from '@/utils/debugLogger';
+import { validateAltShotPairs } from '@/utils/teamScoring/altShotValidation';
 import type {
   GameType,
   PointSystemConfig,
@@ -290,8 +292,28 @@ export async function finalizeTeamOnlyRound(
     );
   }
 
-  const teams = input.teams ?? (await getCompetitionTeams(competitionId));
+  let teams = input.teams ?? (await getCompetitionTeams(competitionId));
   if (teams.length < 2) return 0;
+
+  // Alt Shot (foursomes) requires exactly 2 players per team. Filter out any
+  // teams that don't form a valid pair so non-pair teams are excluded from the
+  // finalized results. Other game types are unaffected by this guard.
+  if (gameType === 'alt-shot') {
+    const offenders = validateAltShotPairs(
+      teams.map((t) => ({ id: t.id, memberIds: t.members.map((m) => m.player_id) }))
+    );
+    for (const o of offenders) {
+      submitLogger.warn('Alt Shot team is not a pair; skipping from results', {
+        teamId: o.teamId.substring(0, 8) + '...',
+        size: o.size,
+      });
+    }
+    if (offenders.length > 0) {
+      const offenderIds = new Set(offenders.map((o) => o.teamId));
+      teams = teams.filter((t) => !offenderIds.has(t.id));
+      if (teams.length < 2) return 0;
+    }
+  }
 
   const byTeam = groupScorecardsByTeam(scorecards, teams);
   if (byTeam.size < 2) return 0;

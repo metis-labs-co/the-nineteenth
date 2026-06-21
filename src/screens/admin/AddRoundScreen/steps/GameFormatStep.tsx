@@ -8,12 +8,12 @@
 
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Text } from 'react-native-paper';
+import { Icon, Text } from 'react-native-paper';
 import { spacing, typography } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { FormSection } from '@/components/common';
 import { RoundPresetPicker } from '@/components/rounds/RoundPresetPicker';
-import type { RoundPresetId } from '@/constants/roundPresets';
+import { ROUND_PRESETS, type RoundPresetId } from '@/constants/roundPresets';
 import type { GeneratedSubMatch } from '@/utils/pairingAlgorithm';
 
 interface GameFormatStepProps {
@@ -45,6 +45,11 @@ export function GameFormatStep({
 }: GameFormatStepProps) {
   const colors = useThemeColors();
 
+  const selectedPresetConfig = presetId ? ROUND_PRESETS[presetId]?.config : null;
+  const showAltShotPairsWarning =
+    selectedPresetConfig?.game_type === 'alt-shot' &&
+    selectedPresetConfig?.round_format === 'combined';
+
   return (
     <View style={styles.container}>
       <FormSection noCard title="Round Type *">
@@ -59,6 +64,14 @@ export function GameFormatStep({
           onUpgrade={onUpgradePress}
           hideTeamGroups={!supportsTeams}
         />
+        {showAltShotPairsWarning && (
+          <View style={[styles.altShotNote, { backgroundColor: colors.infoLight, borderColor: colors.info }]}>
+            <Icon source="information-outline" size={14} color={colors.info} />
+            <Text style={[styles.altShotNoteText, { color: colors.infoDark }]}>
+              Alt Shot is played in pairs — make sure every team has exactly 2 players.
+            </Text>
+          </View>
+        )}
         {presetError && (
           <Text style={[styles.errorText, { color: colors.error }]}>
             {presetError}
@@ -72,6 +85,19 @@ export function GameFormatStep({
 const styles = StyleSheet.create({
   container: {
     gap: spacing.lg,
+  },
+  altShotNote: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: spacing.sm,
+  },
+  altShotNoteText: {
+    ...typography.small,
+    flex: 1,
   },
   errorText: {
     ...typography.small,
