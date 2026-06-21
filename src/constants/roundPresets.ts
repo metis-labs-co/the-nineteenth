@@ -56,6 +56,7 @@ export type RoundPresetId =
   | 'team_best_ball'
   | 'team_shamble'
   | 'team_scramble'
+  | 'team_alt_shot'
   | 'team_match_play'
   | 'pairs_better_ball_2v2'
   | 'pairs_scramble_2v2'
@@ -338,6 +339,30 @@ export const TEAM_SCRAMBLE: RoundPreset = {
   standalone: { minPlayers: 2, maxPlayers: 4 },
 };
 
+export const TEAM_ALT_SHOT: RoundPreset = {
+  id: 'team_alt_shot',
+  title: 'Team Alt Shot',
+  shortTitle: 'Alt Shot',
+  summary: 'Foursomes — partners alternate one ball. Lowest net wins.',
+  longDescription:
+    'Each pair plays a single ball, alternating shots. Team handicap is 50% of the two partners\' combined handicaps. Teams are ranked by net total (gross minus team handicap), lowest wins. Does not feed the individual leaderboard.',
+  icon: 'swap-horizontal',
+  tier: 'premium',
+  group: 'team_combined',
+  config: {
+    game_type: 'alt-shot',
+    is_team_round: true,
+    team_format: 'alt-shot',
+    round_format: 'combined',
+    sub_match_size: null,
+    rules_override: {
+      contributes_to_individual_leaderboard: false,
+      contributes_to_team_leaderboard: true,
+    },
+  },
+  requiresCompetitionTeams: true,
+};
+
 export const TEAM_MATCH_PLAY: RoundPreset = {
   id: 'team_match_play',
   title: 'Team Match Play',
@@ -488,6 +513,7 @@ export const ROUND_PRESETS: Record<RoundPresetId, RoundPreset> = {
   team_best_ball: TEAM_BEST_BALL,
   team_shamble: TEAM_SHAMBLE,
   team_scramble: TEAM_SCRAMBLE,
+  team_alt_shot: TEAM_ALT_SHOT,
   team_match_play: TEAM_MATCH_PLAY,
   pairs_better_ball_2v2: PAIRS_BETTER_BALL_2V2,
   pairs_scramble_2v2: PAIRS_SCRAMBLE_2V2,
@@ -509,6 +535,7 @@ export const ROUND_PRESET_ORDER: RoundPresetId[] = [
   'team_best_ball',
   'team_shamble',
   'team_scramble',
+  'team_alt_shot',
   'team_match_play',
   // Sub-matches
   'pairs_better_ball_2v2',

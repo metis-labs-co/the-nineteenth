@@ -183,6 +183,20 @@ describe('isTierAllowed', () => {
   });
 });
 
+describe('Alt Shot presets', () => {
+  it('infers the combined Alt Shot preset', () => {
+    const id = inferPresetIdFromRound({
+      game_type: 'alt-shot',
+      is_team_round: true,
+      team_format: 'alt-shot',
+      round_format: 'combined',
+      sub_match_size: null,
+      rules_override: null,
+    });
+    expect(id).toBe('team_alt_shot');
+  });
+});
+
 describe('getPresetAvailability', () => {
   const context = (overrides: Partial<PresetAvailabilityContext> = {}): PresetAvailabilityContext => ({
     tier: 'free',
