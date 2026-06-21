@@ -23,6 +23,7 @@ jest.mock('@/components/common', () => {
   const { Text } = require('react-native');
   return {
     PlayerAvatar: ({ name }: { name?: string }) => <Text>{`avatar:${name}`}</Text>,
+    SystemModalTheme: ({ children }: { children: React.ReactNode }) => children,
   };
 });
 
@@ -179,5 +180,31 @@ describe('ActivityRoundCard', () => {
     // No accessible course button is exposed when the id is absent.
     expect(screen.queryByLabelText(/details$/)).toBeNull();
     expect(mockNavigate).not.toHaveBeenCalled();
+  });
+});
+
+const groupParticipants: ActivityFeedCard['participants'] = [
+  { player_id: 'viewer-1', name: 'Me', photo_url: null, total_gross: 80, total_net: 70, total_points: null },
+  { player_id: 'p2', name: 'Sam', photo_url: null, total_gross: 90, total_net: 78, total_points: null },
+];
+
+describe('ActivityRoundCard players sheet', () => {
+  it('opens the players sheet when the footer avatar stack is pressed', () => {
+    render(<ActivityRoundCard card={makeCard({ participants: groupParticipants, game_type: 'stroke' })} onOpen={jest.fn()} />);
+    expect(screen.queryByText('Players')).toBeNull();
+    fireEvent.press(screen.getByLabelText('View players in this round'));
+    expect(screen.getByText('Players')).toBeTruthy();
+    // Sheet lists everyone, including the headline player.
+    // Note: "View Me's profile" exists both on the headline row and the sheet row.
+    expect(screen.getAllByLabelText("View Me's profile").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByLabelText("View Sam's profile")).toBeTruthy();
+  });
+
+  it('does not render a pressable stack for a solo round', () => {
+    const solo: ActivityFeedCard['participants'] = [
+      { player_id: 'viewer-1', name: 'Me', photo_url: null, total_gross: 80, total_net: 70, total_points: null },
+    ];
+    render(<ActivityRoundCard card={makeCard({ participants: solo })} onOpen={jest.fn()} />);
+    expect(screen.queryByLabelText('View players in this round')).toBeNull();
   });
 });

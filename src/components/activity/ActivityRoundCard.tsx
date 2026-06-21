@@ -8,7 +8,7 @@
  * card (or the comment button) opens the round's activity detail.
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
@@ -24,6 +24,7 @@ import type { RootStackParamList } from '@/navigation/types';
 // Import directly (not via the index) to avoid a circular dependency.
 import { RoundPhotoBanner } from './RoundPhotoBanner';
 import { participantScoreLabel } from './participantScore';
+import { RoundPlayersBottomSheet } from './RoundPlayersBottomSheet';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -56,6 +57,7 @@ export const ActivityRoundCard = React.memo(function ActivityRoundCard({
   const { user } = useAuth();
   const likeRound = useLikeRound();
   const unlikeRound = useUnlikeRound();
+  const [playersSheetVisible, setPlayersSheetVisible] = useState(false);
 
   const toggleLike = useCallback(() => {
     if (card.viewer_has_liked) unlikeRound.mutate(card.round_id);
@@ -101,6 +103,13 @@ export const ActivityRoundCard = React.memo(function ActivityRoundCard({
       navigation.navigate('PlayerDetail', { id: headlinePlayerId });
     }
   }, [navigation, headlinePlayerId]);
+
+  const handleSelectPlayer = useCallback(
+    (playerId: string) => {
+      navigation.navigate('PlayerDetail', { id: playerId });
+    },
+    [navigation],
+  );
 
   const courseTitle = card.club_name || card.course_name;
   const courseSubtitle = [formatDateWithWeekday(card.round_date), card.club_location]
@@ -255,10 +264,12 @@ export const ActivityRoundCard = React.memo(function ActivityRoundCard({
         </TouchableOpacity>
 
         {stackedAvatars.length > 0 ? (
-          <View
+          <TouchableOpacity
             style={styles.avatarStack}
             testID="footer-avatar-stack"
-            accessibilityLabel={`Played with ${others.map((p) => p.name).join(', ')}`}
+            onPress={() => setPlayersSheetVisible(true)}
+            accessibilityRole="button"
+            accessibilityLabel="View players in this round"
           >
             {stackedAvatars.map((p, index) => (
               <View
@@ -286,9 +297,16 @@ export const ActivityRoundCard = React.memo(function ActivityRoundCard({
                 </Text>
               </View>
             ) : null}
-          </View>
+          </TouchableOpacity>
         ) : null}
       </View>
+      <RoundPlayersBottomSheet
+        visible={playersSheetVisible}
+        onClose={() => setPlayersSheetVisible(false)}
+        participants={card.participants}
+        gameType={card.game_type}
+        onSelectPlayer={handleSelectPlayer}
+      />
     </View>
   );
 });
