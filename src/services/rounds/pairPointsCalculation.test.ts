@@ -56,6 +56,26 @@ describe('resolveAltShotSubMatchOutcome', () => {
     expect(outcome).toBe('a-wins');
   });
 
+  it('side B wins when its net total is lower', () => {
+    // A one-ball gross 6+6 = 12, net 12 (no strokes).
+    // B one-ball gross 5+5 = 10, minus 1 differential stroke -> net 9.
+    const grossByPlayer: Record<string, Record<number, number>> = {
+      p1: { 1: 6, 2: 6 },
+      p3: { 1: 5, 2: 5 },
+    };
+    const getGross = (playerId: string, hole: Hole) =>
+      grossByPlayer[playerId]?.[hole.number] ?? null;
+
+    const outcome = resolveAltShotSubMatchOutcome({
+      teamAPlayerIds: ['p1', 'p2'],
+      teamBPlayerIds: ['p3', 'p4'],
+      holes,
+      getGross,
+      dailyHandicaps,
+    });
+    expect(outcome).toBe('b-wins');
+  });
+
   it('returns null when a side has no usable scores', () => {
     const getGross = () => null;
     const outcome = resolveAltShotSubMatchOutcome({
