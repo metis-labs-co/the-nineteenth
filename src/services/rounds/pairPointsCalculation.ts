@@ -16,6 +16,7 @@
  */
 
 import type { Hole } from '@/types/database.types';
+import { calculateAltShotTeamHandicap } from '@/utils/teamScoring/altShot';
 
 export type SideOutcome = 'a-wins' | 'b-wins' | 'halved';
 
@@ -113,4 +114,74 @@ export function deriveSideTeamIds(params: {
   if (!sideATeamId || !sideBTeamId) return null;
   if (sideATeamId === sideBTeamId) return null;
   return { sideATeamId, sideBTeamId };
+}
+
+/**
+ * One side's single-ball gross total. Both partners record the same ball, so
+ * for each hole take the first partner who has a recorded gross. Returns null
+ * when the side has no usable scores on any hole.
+ */
+function sideOneBallGross(
+  playerIds: string[],
+  holes: Hole[],
+  getGross: (playerId: string, hole: Hole) => number | null
+): number | null {
+  let total = 0;
+  let anyHole = false;
+  for (const hole of holes) {
+    let holeGross: number | null = null;
+    for (const playerId of playerIds) {
+      const g = getGross(playerId, hole);
+      if (g != null) {
+        holeGross = g;
+        break;
+      }
+    }
+    if (holeGross != null) {
+      total += holeGross;
+      anyHole = true;
+    }
+  }
+  return anyHole ? total : null;
+}
+
+/** 50%-combined team handicap for one side from the daily-handicap map. */
+function sideTeamHandicap(
+  playerIds: string[],
+  dailyHandicaps: Map<string, number>
+): number {
+  return calculateAltShotTeamHandicap(
+    playerIds.map((id) => ({ handicap: dailyHandicaps.get(id) ?? 0 }))
+  );
+}
+
+/**
+ * Decide an Alt Shot (foursomes) sub-match. Each side plays one ball off its
+ * 50%-combined handicap; the higher-handicap side receives the rounded
+ * difference in strokes (allocation is immaterial to a total comparison), and
+ * the lower net total wins. Returns null when either side has no usable scores.
+ */
+export function resolveAltShotSubMatchOutcome(params: {
+  teamAPlayerIds: string[];
+  teamBPlayerIds: string[];
+  holes: Hole[];
+  getGross: (playerId: string, hole: Hole) => number | null;
+  dailyHandicaps: Map<string, number>;
+}): SideOutcome | null {
+  const { teamAPlayerIds, teamBPlayerIds, holes, getGross, dailyHandicaps } = params;
+
+  const aGross = sideOneBallGross(teamAPlayerIds, holes, getGross);
+  const bGross = sideOneBallGross(teamBPlayerIds, holes, getGross);
+  if (aGross === null || bGross === null) return null;
+
+  const aHc = sideTeamHandicap(teamAPlayerIds, dailyHandicaps);
+  const bHc = sideTeamHandicap(teamBPlayerIds, dailyHandicaps);
+  const diff = Math.round(Math.abs(aHc - bHc)); // nearest; .5 rounds up
+
+  // Higher-handicap side receives `diff` strokes off its total.
+  const aNet = aGross - (aHc > bHc ? diff : 0);
+  const bNet = bGross - (bHc > aHc ? diff : 0);
+
+  if (aNet === bNet) return 'halved';
+  return aNet < bNet ? 'a-wins' : 'b-wins';
 }
