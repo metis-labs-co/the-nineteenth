@@ -10,7 +10,7 @@ import { View, StyleSheet } from 'react-native';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useSubscriptionContext } from '@/context/SubscriptionContext';
 import { GeneratedPreview } from '@/components/ai';
-import { ConfirmationDialog } from '@/components/common';
+import { ConfirmationDialog, SystemModalTheme } from '@/components/common';
 import { FeatureLock } from '@/components/subscription';
 
 // Local components and hooks
@@ -23,6 +23,17 @@ import {
 import { useAICompetitionFlow, useAILoadingAnimation } from './hooks';
 
 export default function AICompetitionScreen() {
+  // NOTE: no useThemeColors()/theme reads here — they must be called inside
+  // SystemModalTheme so surfaces resolve against the forced solid provider.
+  // See SystemModalTheme's "CRITICAL" doc comment.
+  return (
+    <SystemModalTheme>
+      <AICompetitionScreenContent />
+    </SystemModalTheme>
+  );
+}
+
+function AICompetitionScreenContent() {
   const colors = useThemeColors();
   const { tier } = useSubscriptionContext();
 
