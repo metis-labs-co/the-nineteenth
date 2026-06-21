@@ -10,3 +10,5 @@ export { RoundComments } from './RoundComments';
 export type { RoundCommentsProps } from './RoundComments';
 export { RoundCommentComposer } from './RoundCommentComposer';
 export type { RoundCommentComposerProps } from './RoundCommentComposer';
+export { RoundPlayersBottomSheet } from './RoundPlayersBottomSheet';
+export type { RoundPlayersBottomSheetProps } from './RoundPlayersBottomSheet';
