@@ -26,6 +26,7 @@ import { syncScorecard } from '@/services/offline/sync';
 import { useToast } from '@/context/ToastContext';
 import type { TeeBox } from '@/types';
 import type { CompetitionData, RoundWithCourse } from '@/components/competitions/detail';
+import type { RoundRulesOverride } from '@/types/database/roundRules.types';
 
 // =====================================================
 // TYPES
@@ -403,6 +404,57 @@ export function useRecalculateRoundResults() {
     },
     onError: (error) => {
       console.error('[useRecalculateRoundResults] Failed:', error);
+    },
+  });
+}
+
+// =====================================================
+// UPDATE PER-ROUND RULES (rules_override)
+// =====================================================
+
+export interface UpdateRoundRulesInput {
+  /** Round whose rules_override is being replaced. */
+  roundId: string;
+  /** Competition ID for leaderboard cache invalidation (optional). */
+  competitionId?: string;
+  /** Full replacement rules_override payload. */
+  rulesOverride: RoundRulesOverride;
+}
+
+/**
+ * Replace a round's rules_override, then re-finalize so the new points apply
+ * immediately. refinalizeRoundResults is idempotent (same path as the
+ * Recalculate Results action). Editing should be gated at the call site by the
+ * advanced_round_rules feature; applying is never gated.
+ */
+export function useUpdateRoundRules() {
+  const queryClient = useQueryClient();
+
+  return useMutation<void, Error, UpdateRoundRulesInput>({
+    mutationFn: async ({ roundId, rulesOverride }) => {
+      const { error } = await supabase
+        .from('rounds')
+        // @ts-expect-error - Supabase types don't model partial JSONB updates
+        .update({ rules_override: rulesOverride })
+        .eq('id', roundId);
+      if (error) throw new Error(error.message);
+      await refinalizeRoundResults(roundId);
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: roundKeys.detail(variables.roundId) });
+      queryClient.invalidateQueries({ queryKey: leaderboardKeys.round(variables.roundId) });
+      if (variables.competitionId) {
+        queryClient.invalidateQueries({
+          queryKey: leaderboardKeys.competition(variables.competitionId),
+        });
+        queryClient.invalidateQueries({ queryKey: competitionKeys.detail(variables.competitionId) });
+        queryClient.invalidateQueries({
+          queryKey: competitionDetailsKeys.detail(variables.competitionId),
+        });
+      }
+    },
+    onError: (error) => {
+      console.error('[useUpdateRoundRules] Failed:', error);
     },
   });
 }
