@@ -1,11 +1,13 @@
 // src/components/competitions/detail/sections/PointsConfigSection.tsx
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import type { Competition, Round, TeamWithMembers } from '@/types/database.types';
 import { summarizeCompetition } from '@/utils/competitionPoints/roundPointsSummary';
+import { useFeatureAccess } from '@/hooks/subscription';
+import { EditRoundPointsSheet } from './sheets/EditRoundPointsSheet';
 
 export interface PointsConfigSectionProps {
   competition: Competition;
@@ -20,9 +22,15 @@ export function PointsConfigSection({
   rounds,
   teams,
   isOrganizer,
-  onEditRound,
+  onEditRound: _onEditRoundExternal,
 }: PointsConfigSectionProps) {
   const colors = useThemeColors();
+
+  const { checkAccess, isSuperAdmin } = useFeatureAccess();
+  const canEdit =
+    isOrganizer && (isSuperAdmin || checkAccess('advanced_round_rules').allowed);
+
+  const [editRoundId, setEditRoundId] = useState<string | null>(null);
 
   const membersPerTeam = useMemo(() => {
     const counts = (teams ?? []).map((t) => t.members.length).filter((n) => n > 0);
@@ -66,15 +74,15 @@ export function PointsConfigSection({
                 <Text style={[typography.caption, { color: colors.primaryDark }]}>Custom</Text>
               </View>
             )}
-            {isOrganizer && onEditRound && (
+            {canEdit && (
               <Icon source="chevron-right" size={22} color={colors.gray400} />
             )}
           </View>
         );
-        return isOrganizer && onEditRound ? (
+        return canEdit ? (
           <TouchableOpacity
             key={r.roundId}
-            onPress={() => onEditRound(r.roundId)}
+            onPress={() => setEditRoundId(r.roundId)}
             accessibilityRole="button"
             accessibilityLabel={`Edit points for ${r.title || `round ${idx + 1}`}`}
           >
@@ -84,6 +92,15 @@ export function PointsConfigSection({
           <View key={r.roundId}>{rowBody}</View>
         );
       })}
+
+      {editRoundId && (
+        <EditRoundPointsSheet
+          visible={!!editRoundId}
+          onDismiss={() => setEditRoundId(null)}
+          round={rounds.find((r) => r.id === editRoundId)!}
+          competitionId={competition.id}
+        />
+      )}
     </View>
   );
 }
