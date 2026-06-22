@@ -63,6 +63,21 @@ export interface TeamAggregationConfig {
 }
 
 /**
+ * Bonus points configuration for a round.
+ * Awards additional points based on a specified metric (e.g. combined match margin).
+ */
+export interface BonusPointsConfig {
+  /** Whether bonus points are enabled for this round. */
+  enabled: boolean;
+  /** The metric to use for awarding bonus (e.g. 'combined_match_margin'). */
+  metric?: string;
+  /** Number of bonus points to award. */
+  points: number;
+  /** How to handle ties when awarding bonus (e.g. 'split'). */
+  tie?: string;
+}
+
+/**
  * Full per-round override. All fields optional — unset means inherit the
  * competition-level default.
  */
@@ -78,6 +93,8 @@ export interface RoundRulesOverride {
   team_points?: WinTieLossPoints;
   /** Points awarded per sub-match (pair) outcome — used when round_format='split'. */
   pair_points?: WinTieLossPoints;
+  /** Bonus points configuration for this round. */
+  bonus_points?: BonusPointsConfig;
   /**
    * How individual results contribute to the competition individual leaderboard.
    * See `IndividualPointsRule` for modes. Legacy rounds may persist a bare
