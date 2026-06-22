@@ -43,11 +43,19 @@ function headlineParticipant(
 export interface ActivityRoundCardProps {
   card: ActivityFeedCard;
   onOpen: (roundId: string) => void;
+  /**
+   * When true, the headline name/avatar row links to the player's profile.
+   * Defaults to false so that in the feed the whole card is a single tap
+   * target (opens the round detail); the profile link is reserved for the
+   * detail view, where tapping the card itself is a no-op.
+   */
+  enablePlayerProfileLink?: boolean;
 }
 
 export const ActivityRoundCard = React.memo(function ActivityRoundCard({
   card,
   onOpen,
+  enablePlayerProfileLink = false,
 }: ActivityRoundCardProps) {
   const colors = useThemeColors();
   const isDark = useIsDark();
@@ -123,6 +131,29 @@ export const ActivityRoundCard = React.memo(function ActivityRoundCard({
     .filter(Boolean)
     .join(' · ');
 
+  // The avatar + name + subtitle block, shared by the linked (detail) and
+  // inert (feed) variants of the headline row.
+  const headlineContent = headline ? (
+    <>
+      <PlayerAvatar photoUrl={headline.photo_url} name={headline.name} size={40} />
+      <View style={styles.playerText}>
+        <View style={styles.nameRow}>
+          <Text style={[styles.playerName, { color: colors.textPrimary }]} numberOfLines={1}>
+            {headline.name}
+          </Text>
+          {isViewer ? (
+            <View style={[styles.youPill, { borderColor: colors.primary }]}>
+              <Text style={[styles.youPillText, { color: colors.primary }]}>YOU</Text>
+            </View>
+          ) : null}
+        </View>
+        <Text style={[styles.subtitle, { color: colors.textSecondary }]} numberOfLines={1}>
+          played a round · {formatTimeAgo(card.activity_at)}
+        </Text>
+      </View>
+    </>
+  ) : null;
+
   return (
     <View
       style={[
@@ -142,35 +173,20 @@ export const ActivityRoundCard = React.memo(function ActivityRoundCard({
       >
         {headline ? (
           <View style={styles.playerRow}>
-            <TouchableOpacity
-              style={styles.playerTap}
-              onPress={handleOpenProfile}
-              accessibilityRole="button"
-              accessibilityLabel={`View ${headline.name}'s profile`}
-            >
-              <PlayerAvatar photoUrl={headline.photo_url} name={headline.name} size={40} />
-              <View style={styles.playerText}>
-                <View style={styles.nameRow}>
-                  <Text
-                    style={[styles.playerName, { color: colors.textPrimary }]}
-                    numberOfLines={1}
-                  >
-                    {headline.name}
-                  </Text>
-                  {isViewer ? (
-                    <View style={[styles.youPill, { borderColor: colors.primary }]}>
-                      <Text style={[styles.youPillText, { color: colors.primary }]}>YOU</Text>
-                    </View>
-                  ) : null}
-                </View>
-                <Text
-                  style={[styles.subtitle, { color: colors.textSecondary }]}
-                  numberOfLines={1}
-                >
-                  played a round · {formatTimeAgo(card.activity_at)}
-                </Text>
-              </View>
-            </TouchableOpacity>
+            {/* In the feed the row is inert so the whole card opens the detail
+                view; in the detail view it links through to the profile. */}
+            {enablePlayerProfileLink ? (
+              <TouchableOpacity
+                style={styles.playerTap}
+                onPress={handleOpenProfile}
+                accessibilityRole="button"
+                accessibilityLabel={`View ${headline.name}'s profile`}
+              >
+                {headlineContent}
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.playerTap}>{headlineContent}</View>
+            )}
             {scoreLabel ? (
               <TouchableOpacity
                 onPress={handleOpenScorecard}

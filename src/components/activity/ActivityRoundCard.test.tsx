@@ -168,10 +168,20 @@ describe('ActivityRoundCard', () => {
     });
   });
 
-  it('opens the headline player profile when their name is tapped', () => {
-    render(<ActivityRoundCard card={makeCard()} onOpen={jest.fn()} />);
+  it('opens the headline player profile when their name is tapped in the detail view', () => {
+    render(<ActivityRoundCard card={makeCard()} onOpen={jest.fn()} enablePlayerProfileLink />);
     fireEvent.press(screen.getByLabelText("View Sam Kay's profile"));
     expect(mockNavigate).toHaveBeenCalledWith('PlayerDetail', { id: 'viewer-1' });
+  });
+
+  it('does not link the headline name to a profile by default; tapping the card opens the round detail', () => {
+    const onOpen = jest.fn();
+    render(<ActivityRoundCard card={makeCard()} onOpen={onOpen} />);
+    // No separate profile button on the headline row in the feed.
+    expect(screen.queryByLabelText("View Sam Kay's profile")).toBeNull();
+    fireEvent.press(screen.getByLabelText('Sam Kay played a round at Hepburn Springs Golf Club'));
+    expect(onOpen).toHaveBeenCalledWith('r1');
+    expect(mockNavigate).not.toHaveBeenCalledWith('PlayerDetail', expect.anything());
   });
 
   it('does not navigate from the course row when course_id is missing', () => {
@@ -194,9 +204,9 @@ describe('ActivityRoundCard players sheet', () => {
     expect(screen.queryByText('Players')).toBeNull();
     fireEvent.press(screen.getByLabelText('View players in this round'));
     expect(screen.getByText('Players')).toBeTruthy();
-    // Sheet lists everyone, including the headline player.
-    // Note: "View Me's profile" exists both on the headline row and the sheet row.
-    expect(screen.getAllByLabelText("View Me's profile").length).toBeGreaterThanOrEqual(2);
+    // The sheet lists everyone with a profile link, independent of the headline
+    // row (which only links to a profile in the detail view, not the feed).
+    expect(screen.getByLabelText("View Me's profile")).toBeTruthy();
     expect(screen.getByLabelText("View Sam's profile")).toBeTruthy();
   });
 

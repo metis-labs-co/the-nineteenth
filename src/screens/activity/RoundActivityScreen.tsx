@@ -75,7 +75,7 @@ export default function RoundActivityScreen({ route }: Props) {
             keyboardDismissMode="on-drag"
             showsVerticalScrollIndicator={false}
           >
-            <ActivityRoundCard card={card} onOpen={noop} />
+            <ActivityRoundCard card={card} onOpen={noop} enablePlayerProfileLink />
             <RoundComments roundId={roundId} />
           </ScrollView>
           <RoundCommentComposer roundId={roundId} />
