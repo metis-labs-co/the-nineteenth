@@ -7,7 +7,7 @@
  * The feature gate (organiser + advanced_round_rules) lives in
  * PointsConfigSection — this sheet is always functional when rendered.
  *
- * Bonus points (Task 8) are NOT included here.
+ * Bonus points: shown only for pair_points + split rounds.
  */
 
 import React, { useEffect, useMemo, useState } from 'react';
@@ -27,6 +27,7 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { useUpdateRoundRules } from '@/hooks/rounds';
 import type { Round } from '@/types/database.types';
 import type {
+  MarginBonusConfig,
   RoundRulesOverride,
   WinTieLossPoints,
 } from '@/types/database/roundRules.types';
@@ -73,6 +74,11 @@ export function EditRoundPointsSheet({
   const [tie, setTie] = useState(String(currentPoints.tie));
   const [loss, setLoss] = useState(String(currentPoints.loss));
 
+  // Bonus point controls — only relevant for pair_points + split rounds
+  const showBonus = pointsKey === 'pair_points' && round.round_format === 'split';
+  const [bonusEnabled, setBonusEnabled] = useState(!!override.bonus_points?.enabled);
+  const [bonusPts, setBonusPts] = useState(String(override.bonus_points?.points ?? 1));
+
   // Reset fields when sheet re-opens (new round or re-open after dismiss)
   useEffect(() => {
     if (visible) {
@@ -80,6 +86,9 @@ export function EditRoundPointsSheet({
       setWin(String(pts.win));
       setTie(String(pts.tie));
       setLoss(String(pts.loss));
+      const ro = round.rules_override as RoundRulesOverride | null;
+      setBonusEnabled(!!ro?.bonus_points?.enabled);
+      setBonusPts(String(ro?.bonus_points?.points ?? 1));
     }
     // only re-run when visibility or round identity changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -116,6 +125,24 @@ export function EditRoundPointsSheet({
     };
     // Preserve all other override fields; only replace the points block.
     const next: RoundRulesOverride = { ...override, [pointsKey]: points };
+    if (showBonus) {
+      const existingTie: MarginBonusConfig['tie'] = override.bonus_points?.tie ?? 'split';
+      next.bonus_points = bonusEnabled
+        ? {
+            enabled: true,
+            metric: 'combined_match_margin',
+            points: clampNum(bonusPts),
+            tie: existingTie,
+          }
+        : {
+            ...(override.bonus_points ?? {
+              metric: 'combined_match_margin' as const,
+              points: 1,
+              tie: 'split' as const,
+            }),
+            enabled: false,
+          };
+    }
     mutate(
       { roundId: round.id, competitionId, rulesOverride: next },
       { onSuccess: onDismiss }
@@ -173,6 +200,38 @@ export function EditRoundPointsSheet({
               Reset to standard
             </Text>
           </TouchableOpacity>
+        )}
+
+        {/* Bonus point — only for pair_points + split rounds */}
+        {showBonus && (
+          <View style={styles.bonusBlock}>
+            <TouchableOpacity
+              onPress={() => setBonusEnabled((v) => !v)}
+              disabled={isPending}
+              style={styles.bonusToggle}
+              accessibilityRole="switch"
+              accessibilityState={{ checked: bonusEnabled }}
+              accessibilityLabel="Bonus point for combined holes-up margin"
+              activeOpacity={0.7}
+            >
+              <Icon
+                source={bonusEnabled ? 'checkbox-marked' : 'checkbox-blank-outline'}
+                size={22}
+                color={bonusEnabled ? colors.primary : colors.textSecondary}
+              />
+              <Text style={[typography.small, { color: colors.textPrimary, flex: 1 }]}>
+                Bonus point for combined holes-up margin
+              </Text>
+            </TouchableOpacity>
+            {bonusEnabled && (
+              <PointField
+                label="Bonus points"
+                value={bonusPts}
+                onChange={setBonusPts}
+                disabled={isPending}
+              />
+            )}
+          </View>
         )}
       </ScrollView>
 
@@ -285,6 +344,15 @@ const styles = StyleSheet.create({
   linkBtn: {
     paddingVertical: spacing.sm,
     marginBottom: spacing.sm,
+  },
+  bonusBlock: {
+    marginBottom: spacing.md,
+  },
+  bonusToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
   },
   footer: {
     flexDirection: 'row',
