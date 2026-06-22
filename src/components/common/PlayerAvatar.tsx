@@ -97,11 +97,21 @@ function PlayerAvatarComponent({
       );
     }
 
-    // Case 3: Null/undefined - render default green GolferIcon
+    // Case 3: Null/undefined - render the default avatar (first simple avatar)
+    const defaultAvatar = getDefaultAvatar();
+    if (getAvatarVariant(defaultAvatar.id) === 'simple') {
+      return (
+        <SimpleGolferIcon
+          size={size}
+          colorPalette={defaultAvatar.colorPalette}
+          testID="avatar-icon"
+        />
+      );
+    }
     return (
       <GolferIcon
         size={size}
-        colorPalette={getDefaultAvatar().colorPalette}
+        colorPalette={defaultAvatar.colorPalette}
         testID="avatar-icon"
       />
     );

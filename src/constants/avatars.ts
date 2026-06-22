@@ -31,7 +31,8 @@ export interface AvatarOption {
 export const AVATAR_PREFIX = 'avatar:';
 /** ID prefix for the "simple" style variants (e.g. "avatar-simple-blue"). */
 export const SIMPLE_AVATAR_PREFIX = 'avatar-simple-';
-export const DEFAULT_AVATAR_ID = 'avatar-green';
+/** The default avatar shown to users who have not chosen one (first simple avatar). */
+export const DEFAULT_AVATAR_ID = 'avatar-simple-green';
 
 export const AVATARS: AvatarOption[] = [
   {
@@ -221,8 +222,9 @@ export function formatAvatarUrl(avatarId: string): string {
 }
 
 /**
- * Get the default avatar option (green)
+ * Get the default avatar option (the first simple avatar - simple green).
+ * Shown to users who have not chosen an avatar.
  */
 export function getDefaultAvatar(): AvatarOption {
-  return AVATARS[0];
+  return getAvatarById(DEFAULT_AVATAR_ID) ?? AVATARS[0];
 }
