@@ -14,12 +14,16 @@ import { Text, Icon } from 'react-native-paper';
 import { BottomSheet } from '@/components/common/BottomSheet';
 import { GolfBallLoader } from '@/components/common/GolfBallLoader';
 import { FriendSelector, type SelectedPlayer } from '@/components/common/FriendSelector';
+import { AddPlaceholderModal } from '@/components/common/AddPlaceholderModal';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { supabase } from '@/services/supabase/client';
 import { useFriends } from '@/hooks/useFriends';
+import { usePlaceholderPlayers } from '@/hooks/usePlaceholderPlayers';
+import { useToast } from '@/context/ToastContext';
 import { isUnlimited, isNoLimit } from '@/types/subscription.types';
+import type { Player } from '@/types/database.types';
 
 interface AddPlayersBottomSheetProps {
   visible: boolean;
@@ -47,9 +51,12 @@ export default function AddPlayersBottomSheet({
 }: AddPlayersBottomSheetProps) {
   const colors = useThemeColors();
   const queryClient = useQueryClient();
+  const { showErrorToast } = useToast();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPlayers, setSelectedPlayers] = useState<SelectedPlayer[]>([]);
+  // Modal state for creating placeholder/guest players
+  const [showAddPlaceholderModal, setShowAddPlaceholderModal] = useState(false);
 
   // Calculate if we have unlimited players (no limit)
   const hasUnlimitedPlayers =
@@ -63,6 +70,9 @@ export default function AddPlayersBottomSheet({
   // Fetch user's friends
   const { data: friends = [], isLoading: friendsLoading } = useFriends();
 
+  // Fetch the user's placeholder (guest) players
+  const { data: placeholderPlayers } = usePlaceholderPlayers();
+
   // Filter to only show accepted friends not already in competition
   const availableFriends = useMemo(
     () =>
@@ -71,6 +81,12 @@ export default function AddPlayersBottomSheet({
           f.friendship_status === 'accepted' && !existingPlayerIds.includes(f.id)
       ),
     [friends, existingPlayerIds]
+  );
+
+  // Filter to only show guests not already in the competition
+  const availablePlaceholders = useMemo(
+    () => (placeholderPlayers ?? []).filter((p) => !existingPlayerIds.includes(p.id)),
+    [placeholderPlayers, existingPlayerIds]
   );
 
   // Add players mutation
@@ -119,6 +135,34 @@ export default function AddPlayersBottomSheet({
     [hasUnlimitedPlayers, currentPlayerCount, maxPlayers]
   );
 
+  // Auto-add a freshly created guest to the selection (respecting the limit)
+  const handlePlaceholderCreated = useCallback(
+    (player: Player) => {
+      setShowAddPlaceholderModal(false);
+
+      // Guard against exceeding the subscription player limit
+      if (!hasUnlimitedPlayers && currentPlayerCount + selectedPlayers.length + 1 > maxPlayers!) {
+        showErrorToast(
+          'Player Limit Reached',
+          `You can only add ${remainingSlots} more player${remainingSlots === 1 ? '' : 's'} on your plan.`
+        );
+        return;
+      }
+
+      setSelectedPlayers((prev) => [
+        ...prev,
+        {
+          id: player.id,
+          name: player.name,
+          email: player.email,
+          handicap: player.handicap,
+          is_placeholder: true,
+        },
+      ]);
+    },
+    [hasUnlimitedPlayers, currentPlayerCount, selectedPlayers.length, maxPlayers, remainingSlots, showErrorToast]
+  );
+
   const handleClose = useCallback(() => {
     setSearchQuery('');
     setSelectedPlayers([]);
@@ -162,6 +206,9 @@ export default function AddPlayersBottomSheet({
           friends.length > 0 ? 'All friends already added' : 'No friends yet'
         }
         testID="add-players-selector"
+        placeholderPlayers={availablePlaceholders}
+        onAddPlaceholderPress={() => setShowAddPlaceholderModal(true)}
+        addPlaceholderLabel="Add Guest"
       />
 
       {/* Footer with Add Button */}
@@ -197,6 +244,13 @@ export default function AddPlayersBottomSheet({
           )}
         </TouchableOpacity>
       </View>
+
+      {/* Add Guest Modal */}
+      <AddPlaceholderModal
+        visible={showAddPlaceholderModal}
+        onClose={() => setShowAddPlaceholderModal(false)}
+        onPlayerCreated={handlePlaceholderCreated}
+      />
     </BottomSheet>
   );
 }

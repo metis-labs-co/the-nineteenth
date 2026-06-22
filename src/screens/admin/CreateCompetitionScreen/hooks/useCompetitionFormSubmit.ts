@@ -8,12 +8,12 @@
  * - Handles success (toast, navigation) and errors (upgrade prompt or alert)
  */
 
-import { useState } from 'react';
 import { useCreateCompetition } from '@/hooks/useCreateCompetition';
 import { useCreatePrizePool } from '@/hooks/usePrizePool';
 import { useAuth } from '@/hooks/useAuth';
 import { useCheckAchievements } from '@/hooks/achievements/useCheckAchievements';
 import { useAchievementToast } from '@/context/AchievementToastContext';
+import { useToast } from '@/context/ToastContext';
 import { DEFAULT_POINT_SYSTEM } from '@/schemas/competition';
 import { clearWizardDraft } from '@/store/competitionWizardStore';
 import { parseAustralianDate } from '../types';
@@ -48,11 +48,7 @@ export function useCompetitionFormSubmit({
   const { user } = useAuth();
   const { checkAndAward, isReady: isAchievementReady } = useCheckAchievements(user?.id ?? '');
   const { showMultipleToasts } = useAchievementToast();
-
-  // Toast state
-  const [toastVisible, setToastVisible] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
-  const [toastInviteCode, setToastInviteCode] = useState('');
+  const { showSuccessToast } = useToast();
 
   const handleSubmit = async (
     step1: CompetitionDetailsFormData | undefined,
@@ -166,18 +162,16 @@ export function useCompetitionFormSubmit({
         }
       }
 
-      // Show success toast
-      setToastMessage('Competition Created!');
-      setToastInviteCode(result.inviteCode);
-      setToastVisible(true);
+      // Show success toast via the global top-anchored toast system. Because it
+      // lives at the app root (outside the navigator), it survives navigation and
+      // is shown over the destination screen.
+      showSuccessToast('Competition Created!', `Invite code: ${result.inviteCode}`);
 
-      // Clear the wizard draft after successful creation
+      // Clear the wizard draft and navigate immediately. Navigating right away
+      // (rather than after a delay) unmounts the wizard in the same render commit
+      // as the draft reset, so the first step never flashes behind the toast.
       clearWizardDraft();
-
-      // Navigate to competition detail after short delay
-      setTimeout(() => {
-        onSuccess(result.competition.id, result.inviteCode);
-      }, 2000);
+      onSuccess(result.competition.id, result.inviteCode);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       if (errorMessage.includes('competition limit') || errorMessage.includes('cannot create more competitions')) {
@@ -213,9 +207,5 @@ export function useCompetitionFormSubmit({
   return {
     handleSubmit,
     isSubmitting: createCompetition.isPending || createPrizePool.isPending,
-    toastVisible,
-    setToastVisible,
-    toastMessage,
-    toastInviteCode,
   };
 }
