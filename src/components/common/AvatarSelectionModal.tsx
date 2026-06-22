@@ -27,11 +27,14 @@ const AVATAR_SIZE = 60;
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const ITEM_WIDTH = (SCREEN_WIDTH - spacing.lg * 2 - spacing.sm * 3) / NUM_COLUMNS;
 
-/** Sub-categories shown as tabs in the avatar picker. */
+/** Sub-categories shown as tabs in the avatar picker (Simple first / default). */
 const CATEGORIES: { variant: AvatarVariant; label: string; data: AvatarOption[] }[] = [
-  { variant: 'beer', label: 'Beer', data: AVATARS },
   { variant: 'simple', label: 'Simple', data: SIMPLE_AVATARS },
+  { variant: 'beer', label: 'Beer', data: AVATARS },
 ];
+
+/** Default sub-category tab when the user has no current selection. */
+const DEFAULT_VARIANT: AvatarVariant = 'simple';
 
 /**
  * Props for the AvatarSelectionModal component.
@@ -81,15 +84,17 @@ function AvatarSelectionModalComponent({
       ? getAvatarId(currentAvatarUrl)
       : null;
 
-  // Active sub-category tab; defaults to the style of the current selection.
+  // Active sub-category tab; defaults to Simple, or the style of the current selection.
   const [activeVariant, setActiveVariant] = useState<AvatarVariant>(
-    currentAvatarId ? getAvatarVariant(currentAvatarId) : 'beer'
+    currentAvatarId ? getAvatarVariant(currentAvatarId) : DEFAULT_VARIANT
   );
 
   // When the sheet is (re)opened, jump to the tab matching the current avatar.
   useEffect(() => {
-    if (visible && currentAvatarId) {
-      setActiveVariant(getAvatarVariant(currentAvatarId));
+    if (visible) {
+      setActiveVariant(
+        currentAvatarId ? getAvatarVariant(currentAvatarId) : DEFAULT_VARIANT
+      );
     }
   }, [visible, currentAvatarId]);
 

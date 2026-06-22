@@ -125,7 +125,7 @@ jest.mock('@/constants/avatars', () => ({
     return avatars[avatarId];
   },
   getDefaultAvatar: () => ({
-    id: 'avatar-green',
+    id: 'avatar-simple-green',
     name: 'Green',
     colorPalette: {
       darkest: '#0a5d24',
@@ -145,7 +145,7 @@ describe('PlayerAvatar', () => {
   describe('Rendering', () => {
     it('renders without crashing', () => {
       render(<PlayerAvatar photoUrl={null} />);
-      expect(screen.getByTestId('golfer-icon')).toBeTruthy();
+      expect(screen.getByTestId('simple-golfer-icon')).toBeTruthy();
     });
 
     it('renders with all props', () => {
@@ -257,32 +257,35 @@ describe('PlayerAvatar', () => {
   // =========================================================================
 
   describe('Null/Undefined Fallback', () => {
-    it('renders default green GolferIcon for null photoUrl', () => {
+    it('renders default simple green icon for null photoUrl', () => {
       render(<PlayerAvatar photoUrl={null} />);
 
-      expect(screen.getByTestId('golfer-icon')).toBeTruthy();
+      // Default avatar is now the first simple avatar (simple green)
+      expect(screen.getByTestId('simple-golfer-icon')).toBeTruthy();
+      expect(screen.queryByTestId('golfer-icon')).toBeNull();
       expect(screen.queryByTestId('app-image')).toBeNull();
 
       // Check it uses default green palette (mid colour)
-      const golferIcon = screen.getByTestId('golfer-icon');
-      expect(golferIcon.props.accessibilityLabel).toBe('golfer-icon-#34953d');
+      const simpleIcon = screen.getByTestId('simple-golfer-icon');
+      expect(simpleIcon.props.accessibilityLabel).toBe('simple-golfer-icon-#34953d');
     });
 
-    it('renders default green GolferIcon for undefined photoUrl', () => {
+    it('renders default simple green icon for undefined photoUrl', () => {
       render(<PlayerAvatar photoUrl={undefined} />);
 
-      expect(screen.getByTestId('golfer-icon')).toBeTruthy();
+      expect(screen.getByTestId('simple-golfer-icon')).toBeTruthy();
+      expect(screen.queryByTestId('golfer-icon')).toBeNull();
       expect(screen.queryByTestId('app-image')).toBeNull();
 
-      // Check it uses default green palette
-      const golferIcon = screen.getByTestId('golfer-icon');
-      expect(golferIcon.props.accessibilityLabel).toBe('golfer-icon-#34953d');
+      const simpleIcon = screen.getByTestId('simple-golfer-icon');
+      expect(simpleIcon.props.accessibilityLabel).toBe('simple-golfer-icon-#34953d');
     });
 
-    it('renders default green GolferIcon for empty string photoUrl', () => {
+    it('renders default simple green icon for empty string photoUrl', () => {
       render(<PlayerAvatar photoUrl="" />);
 
-      expect(screen.getByTestId('golfer-icon')).toBeTruthy();
+      expect(screen.getByTestId('simple-golfer-icon')).toBeTruthy();
+      expect(screen.queryByTestId('golfer-icon')).toBeNull();
       expect(screen.queryByTestId('app-image')).toBeNull();
     });
   });
@@ -550,7 +553,7 @@ describe('PlayerAvatar', () => {
       ).toBeGreaterThan(0);
     });
 
-    it('renders new player avatar with no photo', () => {
+    it('renders new player avatar with no photo (default simple)', () => {
       render(
         <PlayerAvatar
           photoUrl={null}
@@ -559,7 +562,7 @@ describe('PlayerAvatar', () => {
         />
       );
 
-      expect(screen.getByTestId('golfer-icon')).toBeTruthy();
+      expect(screen.getByTestId('simple-golfer-icon')).toBeTruthy();
       expect(screen.getByLabelText("New Player's avatar")).toBeTruthy();
     });
 
