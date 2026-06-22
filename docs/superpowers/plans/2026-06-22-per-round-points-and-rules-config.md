@@ -49,9 +49,10 @@
 **Files:**
 - Create: `src/utils/competitionPoints/roundPointsSummary.ts`
 - Test: `src/__tests__/utils/competitionPoints/roundPointsSummary.test.ts`
+- Modify: `src/types/database/roundRules.types.ts` — define the canonical `MarginBonusConfig` and add `bonus_points?: MarginBonusConfig` to `RoundRulesOverride` (pulled earlier from Task 5, because this formatter reads `bonus_points`). Use the exact strict shape from Task 5: `interface MarginBonusConfig { enabled: boolean; metric: 'combined_match_margin'; points: number; tie: 'split' | 'void' | 'carry' }`.
 
 **Interfaces:**
-- Consumes: `Round` (`@/types/database.types`), `RoundRulesOverride` + `WinTieLossPoints` (`@/types/database/roundRules.types`), `ROUND_TEMPLATES` (`@/constants/roundTemplates`).
+- Consumes: `Round` (`@/types/database.types`), `RoundRulesOverride` + `WinTieLossPoints` + `MarginBonusConfig` (`@/types/database/roundRules.types`), `ROUND_TEMPLATES` (`@/constants/roundTemplates`).
 - Produces:
   - `interface RoundPointsContext { membersPerTeam: number }`
   - `interface RoundPointsSummary { roundId: string; title: string; detail: string; maxPoints: number; isCustom: boolean; voided: boolean }`
@@ -835,47 +836,22 @@ git commit -m "feat(points): edit per-round points (win/tie/loss, void) from det
 
 ## Phase 3 — Bonus point for combined holes-up margin (solves R2)
 
-### Task 5: Extend `RoundRulesOverride` with `bonus_points`
+### Task 5: Verify `MarginBonusConfig` / `bonus_points` type (folded into Task 1)
+
+> **NOTE:** The canonical `MarginBonusConfig` interface and `RoundRulesOverride.bonus_points?: MarginBonusConfig` field were pulled forward into **Task 1** (the formatter reads `bonus_points`, so the type had to exist first). This task is now a verification no-op — do NOT re-add the type.
 
 **Files:**
-- Modify: `src/types/database/roundRules.types.ts`
+- Verify only: `src/types/database/roundRules.types.ts`
 
 **Interfaces:**
-- Produces: `interface MarginBonusConfig { enabled: boolean; metric: 'combined_match_margin'; points: number; tie: 'split' | 'void' | 'carry' }` and `RoundRulesOverride.bonus_points?: MarginBonusConfig`.
+- Confirms present: `interface MarginBonusConfig { enabled: boolean; metric: 'combined_match_margin'; points: number; tie: 'split' | 'void' | 'carry' }` and `RoundRulesOverride.bonus_points?: MarginBonusConfig`.
 
-- [ ] **Step 1: Add the type**
-
-In `src/types/database/roundRules.types.ts`, add before `RoundRulesOverride` (after `WinTieLossPoints`, ~line 28):
-
-```typescript
-/**
- * Optional per-round bonus point. v1 supports a single metric:
- * `combined_match_margin` — the team with the higher net holes-up margin
- * (signed sum of sub-match `final_differential`) across the round's
- * sub-matches earns `points`. Exact tie resolves per `tie`.
- */
-export interface MarginBonusConfig {
-  enabled: boolean;
-  metric: 'combined_match_margin';
-  points: number;
-  tie: 'split' | 'void' | 'carry';
-}
-```
-
-Then add the field inside `RoundRulesOverride` (after `pair_points`, ~line 80):
-
-```typescript
-  /** Optional bonus point awarded on a round-level margin metric. */
-  bonus_points?: MarginBonusConfig;
-```
-
-- [ ] **Step 2: Type-check and commit**
+- [ ] **Step 1: Verify the canonical type exists**
 
 ```bash
-pnpm type-check
-git add src/types/database/roundRules.types.ts
-git commit -m "feat(points): add bonus_points (combined match margin) to RoundRulesOverride"
+grep -n "MarginBonusConfig" src/types/database/roundRules.types.ts
 ```
+Expected: the `MarginBonusConfig` interface (strict literal `metric`/`tie`) and a `bonus_points?: MarginBonusConfig` field on `RoundRulesOverride`. If a looser `BonusPointsConfig` is present instead, it was an interim shape — it must already have been replaced by `MarginBonusConfig` during the Task 1 fix. No commit needed for this task.
 
 ---
 
