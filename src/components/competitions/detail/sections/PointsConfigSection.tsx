@@ -133,6 +133,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.xl,
   },
   plain: {
+    paddingTop: spacing.md,
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.lg,
   },
