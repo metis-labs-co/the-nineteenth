@@ -2,6 +2,7 @@ import {
   computeUpcomingWithin24h,
   computeUpcomingForList,
   computeUpcomingRwcWithin24h,
+  computeNextCompetitionWithin7Days,
 } from '@/hooks/home/useHomeData';
 import type { RoundItem } from '@/screens/rounds/RoundListScreen/types';
 import type { RoundWithCourse } from '@/components/competitions/detail/types';
@@ -81,5 +82,64 @@ describe('computeUpcomingRwcWithin24h', () => {
         now,
       ),
     ).toBeNull();
+  });
+});
+
+describe('computeNextCompetitionWithin7Days', () => {
+  const now = new Date('2026-06-22T07:00:00'); // Monday
+
+  const compRound = (over: Partial<RoundWithCourse>): RoundWithCourse =>
+    rwcRound({
+      competition: { id: `comp-${over.id ?? 'x'}`, name: 'Saturday Medal' },
+      ...over,
+    });
+
+  it('picks the earliest competition round within 7 days', () => {
+    const rounds = [
+      compRound({ id: 'fri', date: '2026-06-26', tee_time: '08:30:00' }),
+      compRound({ id: 'sun', date: '2026-06-28', tee_time: '08:00:00' }),
+    ];
+    expect(computeNextCompetitionWithin7Days(rounds, now, null)?.id).toBe('fri');
+  });
+
+  it('ignores standalone (non-competition) rounds', () => {
+    const rounds = [
+      rwcRound({ id: 'solo', date: '2026-06-25', tee_time: '08:00:00', competition: null }),
+      compRound({ id: 'fri', date: '2026-06-26', tee_time: '08:30:00' }),
+    ];
+    expect(computeNextCompetitionWithin7Days(rounds, now, null)?.id).toBe('fri');
+  });
+
+  it('excludes the hero round by id', () => {
+    const rounds = [
+      compRound({ id: 'today', date: '2026-06-22', tee_time: '12:00:00' }),
+      compRound({ id: 'fri', date: '2026-06-26', tee_time: '08:30:00' }),
+    ];
+    expect(computeNextCompetitionWithin7Days(rounds, now, 'today')?.id).toBe('fri');
+  });
+
+  it('includes a round on the +7d boundary', () => {
+    const rounds = [
+      compRound({ id: 'edge', date: '2026-06-29', tee_time: '06:00:00' }), // within 7d of Mon 07:00
+    ];
+    expect(computeNextCompetitionWithin7Days(rounds, now, null)?.id).toBe('edge');
+  });
+
+  it('excludes a round beyond 7 days', () => {
+    const rounds = [
+      compRound({ id: 'far', date: '2026-07-05', tee_time: '08:00:00' }),
+    ];
+    expect(computeNextCompetitionWithin7Days(rounds, now, null)).toBeNull();
+  });
+
+  it('excludes a round earlier today whose tee time has passed', () => {
+    const rounds = [
+      compRound({ id: 'passed', date: '2026-06-22', tee_time: '06:00:00' }),
+    ];
+    expect(computeNextCompetitionWithin7Days(rounds, now, null)).toBeNull();
+  });
+
+  it('returns null for an empty list', () => {
+    expect(computeNextCompetitionWithin7Days([], now, null)).toBeNull();
   });
 });

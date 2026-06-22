@@ -46,6 +46,7 @@ import type { HandicapSummary } from '@/types/handicap.types';
 // ---------------------------------------------------------------------------
 
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
  * Returns the first upcoming round whose tee time falls within the next 24h
@@ -80,6 +81,35 @@ export function computeUpcomingRwcWithin24h(
 ): RoundWithCourse | null {
   const cutoff = now.getTime() + TWENTY_FOUR_HOURS_MS;
   for (const r of upcoming) {
+    if (!r.date) continue;
+    const teeTime = r.tee_time ?? '09:00:00';
+    const dateStr =
+      typeof r.date === 'string'
+        ? r.date.slice(0, 10)
+        : (r.date as Date).toISOString().slice(0, 10);
+    const start = new Date(`${dateStr}T${teeTime}`).getTime();
+    if (start >= now.getTime() && start <= cutoff) return r;
+  }
+  return null;
+}
+
+/**
+ * Returns the next *competition* round (RoundWithCourse) whose tee time falls
+ * within the next 7 days from `now`, or null. `excludeId` lets the caller drop
+ * the round already shown in the 24h hero card so it isn't surfaced twice.
+ * Standalone (non-competition) rounds are ignored. Assumes `upcoming` is sorted
+ * by date ascending (as returned by useUpcomingRounds), so the first match is
+ * the earliest.
+ */
+export function computeNextCompetitionWithin7Days(
+  upcoming: RoundWithCourse[],
+  now: Date,
+  excludeId: string | null,
+): RoundWithCourse | null {
+  const cutoff = now.getTime() + SEVEN_DAYS_MS;
+  for (const r of upcoming) {
+    if (excludeId && r.id === excludeId) continue;
+    if (!r.competition?.id) continue;
     if (!r.date) continue;
     const teeTime = r.tee_time ?? '09:00:00';
     const dateStr =
@@ -210,6 +240,12 @@ export interface HomeData {
    */
   upcomingWithin24h: RoundWithCourse | null;
   /**
+   * The user's next competition round whose tee time is within the next
+   * 7 days, or null. Excludes the round already shown by `upcomingWithin24h`
+   * so the home screen never shows it twice. Drives the NextCompetitionCard.
+   */
+  nextCompetition: RoundWithCourse | null;
+  /**
    * `upcomingRounds` with `upcomingWithin24h` removed.
    * Use this for the scrollable list below the hero so the chosen round
    * isn't shown twice.
@@ -311,6 +347,16 @@ export function useHomeData(): HomeData {
   const upcomingWithin24h = useMemo<RoundWithCourse | null>(() => {
     return computeUpcomingRwcWithin24h(upcomingRoundsRwc, new Date());
   }, [upcomingRoundsRwc]);
+
+  // The next competition round within a week — surfaced as a dedicated card.
+  // Excludes the hero round (if any) so it isn't duplicated.
+  const nextCompetition = useMemo<RoundWithCourse | null>(() => {
+    return computeNextCompetitionWithin7Days(
+      upcomingRoundsRwc,
+      new Date(),
+      upcomingWithin24h?.id ?? null,
+    );
+  }, [upcomingRoundsRwc, upcomingWithin24h]);
 
   // The "Coming up" list still draws from the standalone-only round-list
   // (RoundItem). We exclude any round that the hero already shows.
@@ -505,6 +551,7 @@ export function useHomeData(): HomeData {
       inProgressRounds: [],
       upcomingRounds: [],
       upcomingWithin24h: null,
+      nextCompetition: null,
       upcomingRoundsForList: [],
       lastRound: null,
       pendingActions: [],
@@ -529,6 +576,7 @@ export function useHomeData(): HomeData {
     inProgressRounds,
     upcomingRounds,
     upcomingWithin24h,
+    nextCompetition,
     upcomingRoundsForList,
     lastRound,
     pendingActions,
