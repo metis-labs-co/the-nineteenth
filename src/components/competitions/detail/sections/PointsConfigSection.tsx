@@ -14,6 +14,12 @@ export interface PointsConfigSectionProps {
   rounds: Round[];
   teams?: TeamWithMembers[];
   isOrganizer: boolean;
+  /**
+   * 'card' (default) = standalone card with margin/shadow/background + an
+   * internal title. 'plain' = embedded in a sheet: no card chrome, no internal
+   * title (the sheet provides it).
+   */
+  variant?: 'card' | 'plain';
 }
 
 export function PointsConfigSection({
@@ -21,6 +27,7 @@ export function PointsConfigSection({
   rounds,
   teams,
   isOrganizer,
+  variant = 'card',
 }: PointsConfigSectionProps) {
   const colors = useThemeColors();
 
@@ -40,10 +47,17 @@ export function PointsConfigSection({
     [rounds, membersPerTeam]
   );
 
+  const isPlain = variant === 'plain';
+  const containerStyle = isPlain
+    ? styles.plain
+    : [styles.card, shadows.sm, { backgroundColor: colors.surface }];
+
   if (competition.per_round_rules_enabled === false) {
     return (
-      <View style={[styles.card, shadows.sm, { backgroundColor: colors.surface }]}>
-        <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>Points & Rules</Text>
+      <View style={containerStyle}>
+        {!isPlain && (
+          <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>Points & Rules</Text>
+        )}
         <Text style={[typography.small, { color: colors.textSecondary }]}>
           Uses competition-wide points. Open Settings → General Rules to change.
         </Text>
@@ -52,8 +66,10 @@ export function PointsConfigSection({
   }
 
   return (
-    <View style={[styles.card, shadows.sm, { backgroundColor: colors.surface }]}>
-      <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>Points & Rules</Text>
+    <View style={containerStyle}>
+      {!isPlain && (
+        <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>Points & Rules</Text>
+      )}
       <Text style={[styles.summary, { color: colors.textSecondary }]}>
         {total} points available · first to {toWin} wins
       </Text>
@@ -109,6 +125,10 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     padding: spacing.lg,
     borderRadius: borderRadius.xl,
+  },
+  plain: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.lg,
   },
   cardTitle: { ...typography.h4, marginBottom: spacing.xs },
   summary: { ...typography.small, marginBottom: spacing.sm },

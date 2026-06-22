@@ -2,7 +2,7 @@
  * Shared types and constants for DetailsTab sections
  */
 
-import type { Competition, CompetitionType, HandicapSystem, TeamMode, TeamWithMembers } from '@/types/database.types';
+import type { Competition, CompetitionType, HandicapSystem, Round, TeamMode, TeamWithMembers } from '@/types/database.types';
 import type { CompetitionPrizePool, PrizePoolPlacement } from '@/types';
 import type { MiniLeaderboardData } from '@/utils/miniLeaderboard';
 
@@ -42,6 +42,8 @@ export interface SettingsSectionProps {
   teams?: TeamWithMembers[];
   /** Called when the Team Size row is pressed — navigates to the Teams tab. */
   onViewTeams?: () => void;
+  /** All rounds in the competition — used by the Points Config row/sheet. */
+  rounds: Round[];
 }
 
 export interface PrizePoolSectionProps {
