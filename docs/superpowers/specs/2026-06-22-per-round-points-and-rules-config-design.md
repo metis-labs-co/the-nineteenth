@@ -119,8 +119,11 @@ Bonus audit detail (winning team, per-team net margins) is written into the exis
 In `src/services/rounds/finalizePairResults.ts`, after pair points accumulate, if
 `rules_override.bonus_points?.enabled`:
 
-1. Sum each team's **signed** `final_differential` across the round's sub-matches
-   (net holes up; positive = side A ahead).
+1. Sum each team's net holes-up margin across the round's sub-matches. NOTE:
+   `sub_matches.final_differential` is stored **unsigned** (`Math.abs`), with the
+   winning side carried in `result`/`outcome` (`a-wins`/`b-wins`/`halved`). So the
+   margin must be signed by the outcome: the winning side gets `+|diff|`, the
+   loser `-|diff|`, a halved match contributes 0.
 2. Higher net → award `points`; exact tie → apply `tie` rule (default split 0.5).
 3. Add the award to that team's `competition_points`; write `{ bonus, team_margins }`
    into `raw_result_data`.
