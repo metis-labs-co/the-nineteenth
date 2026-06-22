@@ -165,6 +165,8 @@ export { PlayerAvatar } from './PlayerAvatar';
 export type { PlayerAvatarProps } from './PlayerAvatar';
 export { GolferIcon } from './GolferIcon';
 export type { GolferIconProps, ColorPalette } from './GolferIcon';
+export { SimpleGolferIcon } from './SimpleGolferIcon';
+export type { SimpleGolferIconProps } from './SimpleGolferIcon';
 export { AppIcon } from './AppIcon';
 export { Logo } from './Logo';
 export { LogoHorizontal } from './LogoHorizontal';

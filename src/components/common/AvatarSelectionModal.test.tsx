@@ -47,6 +47,20 @@ jest.mock('./GolferIcon', () => {
   };
 });
 
+// Mock SimpleGolferIcon
+jest.mock('./SimpleGolferIcon', () => {
+  const { View } = require('react-native');
+  return {
+    SimpleGolferIcon: ({ size, colorPalette }: any) => (
+      <View
+        testID="simple-golfer-icon"
+        accessibilityLabel={`simple-golfer-icon-${colorPalette?.mid || 'unknown'}`}
+        style={{ width: size, height: size }}
+      />
+    ),
+  };
+});
+
 // Mock react-native-paper
 jest.mock('react-native-paper', () => {
   const { View, Text } = require('react-native');
@@ -112,10 +126,18 @@ const AVATARS = [
 
 jest.mock('@/constants/avatars', () => ({
   AVATARS,
+  // Simple-style variants share the palettes; IDs gain the "avatar-simple-" prefix
+  SIMPLE_AVATARS: AVATARS.map((a) => ({
+    ...a,
+    id: a.id.replace('avatar-', 'avatar-simple-'),
+  })),
   AVATAR_PREFIX: 'avatar:',
+  SIMPLE_AVATAR_PREFIX: 'avatar-simple-',
   isAvatarId: (photoUrl: string | null | undefined) =>
     !!photoUrl && photoUrl.startsWith('avatar:'),
   getAvatarId: (photoUrl: string) => photoUrl.replace('avatar:', ''),
+  getAvatarVariant: (avatarId: string) =>
+    avatarId.startsWith('avatar-simple-') ? 'simple' : 'beer',
 }));
 
 describe('AvatarSelectionModal', () => {
@@ -469,6 +491,60 @@ describe('AvatarSelectionModal', () => {
 
       const blueAvatarButton = screen.getByLabelText('Blue golfer avatar');
       expect(blueAvatarButton.props.accessibilityState.selected).toBe(false);
+    });
+  });
+
+  // ===========================================================================
+  // SUB-CATEGORY TABS (BEER / SIMPLE)
+  // ===========================================================================
+
+  describe('Sub-category Tabs', () => {
+    it('renders Beer and Simple tabs', () => {
+      render(<AvatarSelectionModal {...defaultProps} />);
+
+      expect(screen.getByLabelText('Beer avatars')).toBeTruthy();
+      expect(screen.getByLabelText('Simple avatars')).toBeTruthy();
+    });
+
+    it('defaults to the Beer tab (golfer icons, no simple icons)', () => {
+      render(<AvatarSelectionModal {...defaultProps} />);
+
+      expect(screen.getAllByTestId('golfer-icon')).toHaveLength(12);
+      expect(screen.queryAllByTestId('simple-golfer-icon')).toHaveLength(0);
+    });
+
+    it('shows simple avatars after tapping the Simple tab', () => {
+      render(<AvatarSelectionModal {...defaultProps} />);
+
+      fireEvent.press(screen.getByLabelText('Simple avatars'));
+
+      expect(screen.getAllByTestId('simple-golfer-icon')).toHaveLength(12);
+      expect(screen.queryAllByTestId('golfer-icon')).toHaveLength(0);
+      expect(screen.getByLabelText('Green simple avatar')).toBeTruthy();
+    });
+
+    it('selects a simple avatar with the avatar-simple- id', () => {
+      const onSelect = jest.fn();
+      render(<AvatarSelectionModal {...defaultProps} onSelect={onSelect} />);
+
+      fireEvent.press(screen.getByLabelText('Simple avatars'));
+      fireEvent.press(screen.getByLabelText('Blue simple avatar'));
+
+      expect(onSelect).toHaveBeenCalledWith('avatar-simple-blue');
+    });
+
+    it('opens on the Simple tab when the current avatar is a simple variant', () => {
+      render(
+        <AvatarSelectionModal
+          {...defaultProps}
+          currentAvatarUrl="avatar:avatar-simple-red"
+        />
+      );
+
+      // Simple grid should be active without any tab interaction
+      expect(screen.getAllByTestId('simple-golfer-icon')).toHaveLength(12);
+      const redSimple = screen.getByLabelText('Red simple avatar');
+      expect(redSimple.props.accessibilityState.selected).toBe(true);
     });
   });
 

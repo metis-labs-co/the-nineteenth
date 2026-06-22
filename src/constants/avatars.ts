@@ -1,10 +1,14 @@
 /**
  * Avatar Configuration Module
  *
- * Defines 12 colour variations of The Nineteenth golfer icon.
- * Each avatar uses the same icon with different colour palettes.
+ * Defines colour variations of The Nineteenth avatars across two styles:
+ * - "beer"   - the full golfer mascot (GolferIcon)
+ * - "simple" - the simplified golf-ball + cap mark (SimpleGolferIcon)
  *
- * Storage format: photo_url = "avatar:avatar-blue"
+ * Both styles share the same 12 colour palettes.
+ *
+ * Storage format: photo_url = "avatar:avatar-blue" (beer)
+ *                 photo_url = "avatar:avatar-simple-blue" (simple)
  */
 
 export interface ColorPalette {
@@ -15,6 +19,9 @@ export interface ColorPalette {
   lightest: string;
 }
 
+/** Visual style of an avatar. */
+export type AvatarVariant = 'beer' | 'simple';
+
 export interface AvatarOption {
   id: string;
   name: string;
@@ -22,6 +29,8 @@ export interface AvatarOption {
 }
 
 export const AVATAR_PREFIX = 'avatar:';
+/** ID prefix for the "simple" style variants (e.g. "avatar-simple-blue"). */
+export const SIMPLE_AVATAR_PREFIX = 'avatar-simple-';
 export const DEFAULT_AVATAR_ID = 'avatar-green';
 
 export const AVATARS: AvatarOption[] = [
@@ -160,6 +169,28 @@ export const AVATARS: AvatarOption[] = [
 ];
 
 /**
+ * The "simple" style avatars - same 12 colour palettes as the beer avatars,
+ * rendered with the simplified golf-ball + cap mark. IDs are prefixed with
+ * "avatar-simple-" (e.g. "avatar-simple-blue").
+ */
+export const SIMPLE_AVATARS: AvatarOption[] = AVATARS.map((avatar) => ({
+  ...avatar,
+  id: avatar.id.replace('avatar-', SIMPLE_AVATAR_PREFIX),
+}));
+
+/** All avatars across both styles (beer first, then simple). */
+export const ALL_AVATARS: AvatarOption[] = [...AVATARS, ...SIMPLE_AVATARS];
+
+/**
+ * Determine the visual style of an avatar from its ID.
+ * @example getAvatarVariant("avatar-simple-blue") => "simple"
+ * @example getAvatarVariant("avatar-blue") => "beer"
+ */
+export function getAvatarVariant(avatarId: string): AvatarVariant {
+  return avatarId.startsWith(SIMPLE_AVATAR_PREFIX) ? 'simple' : 'beer';
+}
+
+/**
  * Check if a photo URL is a bundled avatar ID
  */
 export function isAvatarId(photoUrl: string | null | undefined): boolean {
@@ -175,10 +206,10 @@ export function getAvatarId(photoUrl: string): string {
 }
 
 /**
- * Find an avatar configuration by its ID
+ * Find an avatar configuration by its ID (searches both styles)
  */
 export function getAvatarById(avatarId: string): AvatarOption | undefined {
-  return AVATARS.find((a) => a.id === avatarId);
+  return ALL_AVATARS.find((a) => a.id === avatarId);
 }
 
 /**
