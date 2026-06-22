@@ -12,9 +12,10 @@ import {
   Badge,
   LoadingSpinner,
 } from '@/components/common';
-import { FeatureLockCompact, LimitIndicator } from '@/components/subscription';
+import { LimitIndicator } from '@/components/subscription';
 import { CompetitionListCard } from '@/components/competitions';
 import { useThemeColors } from '@/context/ThemeContext';
+import { useIsSuperAdmin } from '@/context/SubscriptionContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useCompetitionGroups } from '../hooks';
 import type { CompetitionItem } from '../hooks';
@@ -64,6 +65,7 @@ function CompetitionSection({
 export function CompsContent() {
   const colors = useThemeColors();
   const navigation = useNavigation();
+  const isSuperAdmin = useIsSuperAdmin();
 
   const {
     activeComps,
@@ -123,10 +125,8 @@ export function CompsContent() {
           />
         </View>
         <View style={styles.featureButtonWrapper}>
-          <FeatureLockCompact
-            feature="ai_competition"
-            onUpgradePress={handleUpgrade}
-          >
+          {/* AI Create is gated to super admin only; other tiers see Join here instead */}
+          {isSuperAdmin ? (
             <FeatureButton
               title="AI Create"
               subtitle="Describe in English"
@@ -137,26 +137,39 @@ export function CompsContent() {
               variant="compact"
               showChevron={false}
             />
-          </FeatureLockCompact>
+          ) : (
+            <FeatureButton
+              title="Join"
+              subtitle="Enter invite code"
+              icon={<IconUsersPlus size={20} color={colors.white} strokeWidth={2.5} />}
+              onPress={handleJoinCompetition}
+              backgroundColor={colors.accent}
+              accessibilityLabel="Join competition with invite code"
+              variant="compact"
+              showChevron={false}
+            />
+          )}
         </View>
       </View>
 
-      {/* Join bar */}
-      <TouchableOpacity
-        style={[
-          styles.joinBar,
-          { backgroundColor: colors.surface, borderColor: colors.primary },
-        ]}
-        onPress={handleJoinCompetition}
-        activeOpacity={0.7}
-        accessibilityRole="button"
-        accessibilityLabel="Join competition with invite code"
-      >
-        <IconUsersPlus size={18} color={colors.primary} strokeWidth={2.5} />
-        <Text style={[styles.joinBarText, { color: colors.primary }]}>
-          Join with invite code
-        </Text>
-      </TouchableOpacity>
+      {/* Join bar — super admin only; other tiers join via the row above */}
+      {isSuperAdmin && (
+        <TouchableOpacity
+          style={[
+            styles.joinBar,
+            { backgroundColor: colors.surface, borderColor: colors.primary },
+          ]}
+          onPress={handleJoinCompetition}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel="Join competition with invite code"
+        >
+          <IconUsersPlus size={18} color={colors.primary} strokeWidth={2.5} />
+          <Text style={[styles.joinBarText, { color: colors.primary }]}>
+            Join with invite code
+          </Text>
+        </TouchableOpacity>
+      )}
 
       {/* Limit indicator */}
       {!hasUnlimitedCompetitions && (
