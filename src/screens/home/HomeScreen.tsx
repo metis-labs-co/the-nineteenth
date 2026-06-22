@@ -49,11 +49,11 @@ import {
   HomeSkeleton,
   SectionHeader,
   RoundTodayCard,
+  NextCompetitionCard,
   HomeTileGrid,
   MatesThisWeekSection,
   HandicapHomeCard,
 } from './components';
-import { NextCompetitionCard } from './components/NextCompetitionCard';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 

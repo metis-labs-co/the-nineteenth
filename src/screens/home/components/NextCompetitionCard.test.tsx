@@ -16,6 +16,8 @@ jest.mock('@/context/ThemeContext', () => ({
     primary: '#080',
   }),
 }));
+jest.mock('./dateLabels', () => ({ formatDayLabel: () => 'This Friday' }));
+jest.mock('@/utils/locale', () => ({ formatDisplayDate: () => '26 Jun' }));
 
 const round = {
   id: 'r-fri',
@@ -36,5 +38,10 @@ describe('NextCompetitionCard', () => {
     const { getByTestId } = render(<NextCompetitionCard round={round} />);
     fireEvent.press(getByTestId('next-competition-card'));
     expect(mockNavigate).toHaveBeenCalledWith('CompetitionDetail', { id: 'comp-1' });
+  });
+
+  it('renders the day-label and date subtitle', () => {
+    const { getByText } = render(<NextCompetitionCard round={round} />);
+    expect(getByText('This Friday · 26 Jun')).toBeTruthy();
   });
 });

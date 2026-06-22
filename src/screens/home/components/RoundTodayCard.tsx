@@ -32,7 +32,6 @@ function formatTeeTime(teeTime: string | null): string {
   return `${hour12}:${minStr} ${period}`;
 }
 
-
 export const RoundTodayCard = React.memo(function RoundTodayCard({
   round,
 }: RoundTodayCardProps) {
