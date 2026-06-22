@@ -1,12 +1,14 @@
 import React from 'react';
 import { View, StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import { GolferIcon } from './GolferIcon';
+import { SimpleGolferIcon } from './SimpleGolferIcon';
 import { AppImage } from './AppImage';
 import { transformPublicUrl } from '@/utils/imageTransform';
 import {
   isAvatarId,
   getAvatarId,
   getAvatarById,
+  getAvatarVariant,
   getDefaultAvatar,
 } from '@/constants/avatars';
 
@@ -54,13 +56,24 @@ function PlayerAvatarComponent({
 
   // Determine what to render based on photoUrl
   const renderAvatarContent = () => {
-    // Case 1: Bundled avatar (avatar:avatar-blue format)
+    // Case 1: Bundled avatar (avatar:avatar-blue / avatar:avatar-simple-blue)
     if (isAvatarId(photoUrl)) {
       const avatarId = getAvatarId(photoUrl!);
       const avatarConfig = getAvatarById(avatarId);
 
       // Use the avatar's colour palette, or fall back to default if not found
       const colorPalette = avatarConfig?.colorPalette ?? getDefaultAvatar().colorPalette;
+
+      // Render the matching style for the avatar ID (beer vs simple)
+      if (getAvatarVariant(avatarId) === 'simple') {
+        return (
+          <SimpleGolferIcon
+            size={size}
+            colorPalette={colorPalette}
+            testID="avatar-icon"
+          />
+        );
+      }
 
       return (
         <GolferIcon
