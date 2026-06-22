@@ -63,18 +63,16 @@ export interface TeamAggregationConfig {
 }
 
 /**
- * Bonus points configuration for a round.
- * Awards additional points based on a specified metric (e.g. combined match margin).
+ * Optional per-round bonus point. v1 supports a single metric:
+ * `combined_match_margin` — the team with the higher net holes-up margin
+ * (signed sum of sub-match `final_differential`) across the round's
+ * sub-matches earns `points`. Exact tie resolves per `tie`.
  */
-export interface BonusPointsConfig {
-  /** Whether bonus points are enabled for this round. */
+export interface MarginBonusConfig {
   enabled: boolean;
-  /** The metric to use for awarding bonus (e.g. 'combined_match_margin'). */
-  metric?: string;
-  /** Number of bonus points to award. */
+  metric: 'combined_match_margin';
   points: number;
-  /** How to handle ties when awarding bonus (e.g. 'split'). */
-  tie?: string;
+  tie: 'split' | 'void' | 'carry';
 }
 
 /**
@@ -93,8 +91,8 @@ export interface RoundRulesOverride {
   team_points?: WinTieLossPoints;
   /** Points awarded per sub-match (pair) outcome — used when round_format='split'. */
   pair_points?: WinTieLossPoints;
-  /** Bonus points configuration for this round. */
-  bonus_points?: BonusPointsConfig;
+  /** Optional bonus point awarded on a round-level margin metric. */
+  bonus_points?: MarginBonusConfig;
   /**
    * How individual results contribute to the competition individual leaderboard.
    * See `IndividualPointsRule` for modes. Legacy rounds may persist a bare
