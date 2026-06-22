@@ -354,9 +354,16 @@ export async function finalizePairResults(
     }
 
     if (bonusCfg?.enabled && typeof sm.final_differential === 'number') {
-      // final_differential is signed: positive = side A ahead.
-      addMargin(sideIds.sideATeamId, sm.final_differential);
-      addMargin(sideIds.sideBTeamId, -sm.final_differential);
+      // final_differential is stored UNSIGNED (Math.abs); direction comes from `outcome`.
+      const magnitude = Math.abs(sm.final_differential);
+      if (outcome === 'a-wins') {
+        addMargin(sideIds.sideATeamId, magnitude);
+        addMargin(sideIds.sideBTeamId, -magnitude);
+      } else if (outcome === 'b-wins') {
+        addMargin(sideIds.sideATeamId, -magnitude);
+        addMargin(sideIds.sideBTeamId, magnitude);
+      }
+      // halved → contributes 0 to each (no-op)
     }
   }
 
