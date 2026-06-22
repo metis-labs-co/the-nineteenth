@@ -10,8 +10,7 @@
  * Bonus points (Task 8) are NOT included here.
  */
 
-import React, { useEffect, useMemo } from 'react';
-import { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -151,6 +150,7 @@ export function EditRoundPointsSheet({
           style={[styles.secondaryBtn, { borderColor: colors.border }]}
           accessibilityRole="button"
           accessibilityLabel="Void points for this round"
+          accessibilityHint="Sets win, tie, and loss points to zero"
           activeOpacity={0.7}
         >
           <Icon source="cancel" size={18} color={colors.textSecondary} />
@@ -166,7 +166,7 @@ export function EditRoundPointsSheet({
             disabled={isPending}
             style={styles.linkBtn}
             accessibilityRole="button"
-            accessibilityLabel="Reset to standard points"
+            accessibilityLabel="Reset round points to standard"
             activeOpacity={0.7}
           >
             <Text style={[typography.small, { color: colors.primary }]}>

@@ -14,7 +14,6 @@ export interface PointsConfigSectionProps {
   rounds: Round[];
   teams?: TeamWithMembers[];
   isOrganizer: boolean;
-  onEditRound?: (roundId: string) => void;
 }
 
 export function PointsConfigSection({
@@ -22,7 +21,6 @@ export function PointsConfigSection({
   rounds,
   teams,
   isOrganizer,
-  onEditRound: _onEditRoundExternal,
 }: PointsConfigSectionProps) {
   const colors = useThemeColors();
 
