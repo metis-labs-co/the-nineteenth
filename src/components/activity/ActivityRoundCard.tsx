@@ -111,6 +111,13 @@ export const ActivityRoundCard = React.memo(function ActivityRoundCard({
     [navigation],
   );
 
+  const handleSelectPlayerScorecard = useCallback(
+    (playerId: string) => {
+      navigation.navigate('PlayerScorecard', { playerId, roundId: card.round_id });
+    },
+    [navigation, card.round_id],
+  );
+
   const courseTitle = card.club_name || card.course_name;
   const courseSubtitle = [formatDateWithWeekday(card.round_date), card.club_location]
     .filter(Boolean)
@@ -306,6 +313,7 @@ export const ActivityRoundCard = React.memo(function ActivityRoundCard({
         participants={card.participants}
         gameType={card.game_type}
         onSelectPlayer={handleSelectPlayer}
+        onSelectScorecard={handleSelectPlayerScorecard}
       />
     </View>
   );
