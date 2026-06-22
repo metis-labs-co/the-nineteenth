@@ -398,6 +398,106 @@ describe('finalizePairResults', () => {
     });
   });
 
+  describe('combined-match-margin bonus', () => {
+    const BONUS_OVERRIDE: RoundRulesOverride = {
+      pair_points: { win: 1, tie: 0.5, loss: 0 },
+      bonus_points: { enabled: true, metric: 'combined_match_margin', points: 1, tie: 'split' },
+    };
+
+    it('adds the bonus to the team with the higher net holes-up margin', async () => {
+      // SM0: A wins by 3 (unsigned diff=3). SM1: B wins by 1 (unsigned diff=1).
+      // Net: A = +3 −1 = +2 → A wins bonus.
+      const subMatches: SubMatch[] = [
+        subMatch({ sort_order: 0, result: 'a-wins', final_differential: 3 }),
+        subMatch({ sort_order: 1, result: 'b-wins', final_differential: 1 }),
+      ];
+
+      await finalizePairResults({
+        roundId: 'round-1',
+        team1Id: 'team-a',
+        team2Id: 'team-b',
+        rulesOverride: BONUS_OVERRIDE,
+        subMatches,
+      });
+
+      const rows = saveSpy.mock.calls[0][1];
+      const byTeam = Object.fromEntries(
+        rows.map((r: { teamId: string; rawScore: number; competitionPoints: number; position: number }) => [r.teamId, r])
+      );
+      // pair points: A=1 (one win), B=1 (one win). Bonus +1 to A.
+      expect(byTeam['team-a'].rawScore).toBe(1);
+      expect(byTeam['team-a'].competitionPoints).toBe(2); // 1 + 1 bonus
+      expect(byTeam['team-b'].competitionPoints).toBe(1); // 1 + 0 bonus
+      expect(byTeam['team-a'].position).toBe(1);
+      expect(byTeam['team-b'].position).toBe(2);
+    });
+
+    it('splits the bonus 0.5/0.5 on an exact net-margin tie', async () => {
+      // SM0: A wins by 2. SM1: B wins by 2. Net = 0 → split.
+      const subMatches: SubMatch[] = [
+        subMatch({ sort_order: 0, result: 'a-wins', final_differential: 2 }),
+        subMatch({ sort_order: 1, result: 'b-wins', final_differential: 2 }),
+      ];
+
+      await finalizePairResults({
+        roundId: 'round-1',
+        team1Id: 'team-a',
+        team2Id: 'team-b',
+        rulesOverride: BONUS_OVERRIDE,
+        subMatches,
+      });
+
+      const rows = saveSpy.mock.calls[0][1];
+      const byTeam = Object.fromEntries(
+        rows.map((r: { teamId: string; competitionPoints: number }) => [r.teamId, r.competitionPoints])
+      );
+      expect(byTeam['team-a']).toBe(1.5); // 1 pair + 0.5 bonus
+      expect(byTeam['team-b']).toBe(1.5);
+    });
+
+    it('awards the bonus to side B when it has the higher margin', async () => {
+      // SM0: A wins by 1 (unsigned diff=1). SM1: B wins by 3 (unsigned diff=3).
+      // Net: A = +1 −3 = −2 → B wins bonus.
+      const subMatches: SubMatch[] = [
+        subMatch({ sort_order: 0, result: 'a-wins', final_differential: 1 }),
+        subMatch({ sort_order: 1, result: 'b-wins', final_differential: 3 }),
+      ];
+
+      await finalizePairResults({
+        roundId: 'round-1',
+        team1Id: 'team-a',
+        team2Id: 'team-b',
+        rulesOverride: BONUS_OVERRIDE,
+        subMatches,
+      });
+
+      const rows = saveSpy.mock.calls[0][1];
+      const byTeam = Object.fromEntries(
+        rows.map((r: { teamId: string; competitionPoints: number; position: number }) => [r.teamId, r])
+      );
+      // pair points: A=1, B=1. Bonus +1 to B.
+      expect(byTeam['team-b'].competitionPoints).toBe(2);
+      expect(byTeam['team-a'].competitionPoints).toBe(1);
+      expect(byTeam['team-b'].position).toBe(1);
+    });
+
+    it('does not award a bonus when bonus_points is absent', async () => {
+      const subMatches: SubMatch[] = [
+        subMatch({ sort_order: 0, result: 'a-wins', final_differential: 5 }),
+      ];
+      await finalizePairResults({
+        roundId: 'round-1',
+        team1Id: 'team-a',
+        team2Id: 'team-b',
+        rulesOverride: { pair_points: { win: 1, tie: 0.5, loss: 0 } },
+        subMatches,
+      });
+      const rows = saveSpy.mock.calls[0][1];
+      const a = rows.find((r: { teamId: string }) => r.teamId === 'team-a');
+      expect(a.competitionPoints).toBe(1); // no bonus
+    });
+  });
+
   describe('isPairPointsOverride', () => {
     it('returns true for split rounds with pair_points', () => {
       expect(isPairPointsOverride('split', OVERRIDE)).toBe(true);
