@@ -53,6 +53,7 @@ import {
   MatesThisWeekSection,
   HandicapHomeCard,
 } from './components';
+import { NextCompetitionCard } from './components/NextCompetitionCard';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -203,6 +204,10 @@ export default function HomeScreen() {
 
               {home.upcomingWithin24h ? (
                 <RoundTodayCard round={home.upcomingWithin24h} />
+              ) : null}
+
+              {home.nextCompetition ? (
+                <NextCompetitionCard round={home.nextCompetition} />
               ) : null}
 
               <FeatureLock
