@@ -498,6 +498,91 @@ describe('finalizePairResults', () => {
     });
   });
 
+  describe('alt-shot stroke-play holes-up bonus', () => {
+    const ALT_HOLES: Hole[] = [
+      { number: 1, par: 4, strokeIndex: 1 },
+      { number: 2, par: 4, strokeIndex: 2 },
+      { number: 3, par: 4, strokeIndex: 3 },
+    ];
+
+    function altMember(playerId: string) {
+      return { team_id: '', player_id: playerId, joined_at: '', player: undefined };
+    }
+
+    const ALT_TEAMS: TeamWithMembers[] = [
+      {
+        id: 'team-a', competition_id: 'comp-1', name: 'Team A', color: null,
+        created_at: '', updated_at: '',
+        members: [altMember('a1'), altMember('a2'), altMember('a3'), altMember('a4')],
+      },
+      {
+        id: 'team-b', competition_id: 'comp-1', name: 'Team B', color: null,
+        created_at: '', updated_at: '',
+        members: [altMember('b1'), altMember('b2'), altMember('b3'), altMember('b4')],
+      },
+    ];
+
+    function altCard(playerId: string, strokes: [number, number, number]): Scorecard {
+      const scores: Record<string, { strokes: number }> = {};
+      strokes.forEach((s, i) => { scores[String(i + 1)] = { strokes: s }; });
+      return {
+        id: `sc-${playerId}`, round_id: 'round-1', player_id: playerId, scores,
+        total_gross: strokes.reduce((a, b) => a + b, 0),
+        total_net: strokes.reduce((a, b) => a + b, 0),
+        total_points: 0, status: 'completed', daily_handicap_used: 0,
+      } as unknown as Scorecard;
+    }
+
+    const BONUS_OVERRIDE: RoundRulesOverride = {
+      pair_points: { win: 1, tie: 0.5, loss: 0 },
+      bonus_points: { enabled: true, metric: 'combined_match_margin', points: 1, tie: 'split' },
+    };
+
+    it('derives the bonus from per-hole holes-up when no final_differential is persisted', async () => {
+      // Alt-shot, live-computed (status upcoming, result null, final_differential null).
+      // SM0: A one-ball [4,4,4] vs B [5,5,5] → A wins all 3 holes (+3) AND wins the match (net 12<15).
+      // SM1: A [4,4,4] vs B [4,4,4] → all holes halved (margin 0) AND match halved.
+      // Net margin: A +3, B -3 → A wins the bonus point.
+      // Pair points: SM0 A win=1/B loss=0; SM1 halved 0.5/0.5 → A=1.5, B=0.5.
+      // Competition points: A = 1.5 + 1 bonus = 2.5; B = 0.5 + 0 = 0.5.
+      const subMatches: SubMatch[] = [
+        subMatch({
+          sort_order: 0, status: 'upcoming', result: null, final_differential: null,
+          team_a_player_ids: ['a1', 'a2'], team_b_player_ids: ['b1', 'b2'],
+        }),
+        subMatch({
+          sort_order: 1, status: 'upcoming', result: null, final_differential: null,
+          team_a_player_ids: ['a3', 'a4'], team_b_player_ids: ['b3', 'b4'],
+        }),
+      ];
+
+      const scorecards: Scorecard[] = [
+        altCard('a1', [4, 4, 4]), altCard('b1', [5, 5, 5]), // SM0
+        altCard('a3', [4, 4, 4]), altCard('b3', [4, 4, 4]), // SM1
+      ];
+
+      await finalizePairResults({
+        roundId: 'round-1',
+        rulesOverride: BONUS_OVERRIDE,
+        subMatches,
+        teams: ALT_TEAMS,
+        scorecards,
+        courseHoles: ALT_HOLES,
+        gameType: 'alt-shot',
+      });
+
+      const rows = saveSpy.mock.calls[0][1];
+      const byTeam = Object.fromEntries(
+        rows.map((r: { teamId: string; rawScore: number; competitionPoints: number; position: number }) => [r.teamId, r])
+      );
+      expect(byTeam['team-a'].rawScore).toBe(1.5);        // pair points only
+      expect(byTeam['team-a'].competitionPoints).toBe(2.5); // + 1 bonus
+      expect(byTeam['team-b'].competitionPoints).toBe(0.5); // no bonus
+      expect(byTeam['team-a'].position).toBe(1);
+      expect(byTeam['team-b'].position).toBe(2);
+    });
+  });
+
   describe('isPairPointsOverride', () => {
     it('returns true for split rounds with pair_points', () => {
       expect(isPairPointsOverride('split', OVERRIDE)).toBe(true);
