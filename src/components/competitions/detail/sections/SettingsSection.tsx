@@ -29,8 +29,10 @@ import {
   EditDatesSheet,
   EditCompetitionRulesSheet,
   EditScoringRulesModeSheet,
+  PointsConfigSheet,
   detectActivePreset,
 } from './sheets';
+import { summarizeCompetition } from '@/utils/competitionPoints/roundPointsSummary';
 
 type OpenSheet =
   | 'type'
@@ -39,6 +41,7 @@ type OpenSheet =
   | 'dates'
   | 'rules-mode'
   | 'general-rules'
+  | 'points-config'
   | null;
 
 // =====================================================
@@ -107,6 +110,7 @@ export function SettingsSection({
   isOrganizer,
   hasStartedRound,
   teams = [],
+  rounds,
   onViewTeams,
 }: SettingsSectionProps) {
   const colors = useThemeColors();
@@ -147,6 +151,15 @@ export function SettingsSection({
     detectActivePreset(competition.point_system ?? null) === 'standard'
       ? 'Standard'
       : 'Custom';
+
+  const pointsMembersPerTeam = useMemo(() => {
+    const counts = teams.map((t) => t.members.length).filter((n) => n > 0);
+    return counts.length ? Math.max(...counts) : (competition.team_size ?? 1);
+  }, [teams, competition.team_size]);
+  const pointsTotal = useMemo(
+    () => summarizeCompetition(rounds, { membersPerTeam: pointsMembersPerTeam }).total,
+    [rounds, pointsMembersPerTeam]
+  );
 
   return (
     <View style={styles.section}>
@@ -277,6 +290,25 @@ export function SettingsSection({
           </>
         )}
 
+        {/* Points Config — shown only in per-round mode. Unconditionally
+            tappable by organisers AND players (editing is gated inside
+            the sheet); NOT locked by structureLocked. */}
+        {perRoundEnabled && (
+          <>
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            <SettingRow
+              icon="medal-outline"
+              label="Points Config"
+              onPress={() => setOpenSheet('points-config')}
+              accessibilityLabel="View or edit competition points config"
+            >
+              <Text style={[styles.value, { color: colors.textPrimary }]}>
+                {pointsTotal} pts
+              </Text>
+            </SettingRow>
+          </>
+        )}
+
       </View>
 
       {canEdit && structureLocked && (
@@ -336,6 +368,16 @@ export function SettingsSection({
           onDismiss={handleClose}
           competitionId={competition.id}
           currentPointSystem={competition.point_system ?? null}
+        />
+      )}
+      {openSheet === 'points-config' && (
+        <PointsConfigSheet
+          visible
+          onDismiss={handleClose}
+          competition={competition}
+          rounds={rounds}
+          teams={teams}
+          isOrganizer={isOrganizer}
         />
       )}
     </View>
