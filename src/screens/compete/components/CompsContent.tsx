@@ -141,9 +141,9 @@ export function CompsContent() {
             <FeatureButton
               title="Join"
               subtitle="Enter invite code"
-              icon={<IconUsersPlus size={20} color={colors.white} strokeWidth={2.5} />}
+              icon={<IconUsersPlus size={20} color={colors.primary} strokeWidth={2.5} />}
               onPress={handleJoinCompetition}
-              backgroundColor={colors.accent}
+              outlined
               accessibilityLabel="Join competition with invite code"
               variant="compact"
               showChevron={false}
