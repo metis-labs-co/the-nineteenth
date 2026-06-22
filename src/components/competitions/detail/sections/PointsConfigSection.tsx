@@ -2,7 +2,7 @@
 import React, { useMemo, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
-import { useThemeColors } from '@/context/ThemeContext';
+import { useThemeColors, useIsDark } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import type { Competition, Round, TeamWithMembers } from '@/types/database.types';
 import { summarizeCompetition } from '@/utils/competitionPoints/roundPointsSummary';
@@ -30,6 +30,12 @@ export function PointsConfigSection({
   variant = 'card',
 }: PointsConfigSectionProps) {
   const colors = useThemeColors();
+  const isDark = useIsDark();
+  // Custom badge: a darker, translucent-primary chip in dark mode (the brightened
+  // `primaryLighter` reads too light there); the pale tint in light mode. Mirrors
+  // the badge treatment in CompetitionInfoSection.
+  const customChipBg = isDark ? `${colors.primary}33` : colors.primaryLighter;
+  const customChipText = isDark ? colors.primary : colors.primaryDark;
 
   const { checkAccess, isSuperAdmin } = useFeatureAccess();
   const canEdit =
@@ -84,8 +90,8 @@ export function PointsConfigSection({
               <Text style={[typography.small, { color: colors.textSecondary }]}>{r.detail}</Text>
             </View>
             {r.isCustom && (
-              <View style={[styles.chip, { backgroundColor: colors.primaryLighter }]}>
-                <Text style={[typography.caption, { color: colors.primaryDark }]}>Custom</Text>
+              <View style={[styles.chip, { backgroundColor: customChipBg }]}>
+                <Text style={[typography.caption, { color: customChipText }]}>Custom</Text>
               </View>
             )}
             {canEdit && (
