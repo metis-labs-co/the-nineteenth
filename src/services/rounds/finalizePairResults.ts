@@ -46,6 +46,7 @@ import {
   deriveSideTeamIds,
   type SideOutcome,
 } from './pairPointsCalculation';
+import { decideMarginBonus } from './marginBonus';
 import type {
   GameType,
   Hole,
@@ -297,6 +298,13 @@ export async function finalizePairResults(
     teamPoints.set(teamId, (teamPoints.get(teamId) ?? 0) + points);
   };
 
+  // Per-team net holes-up margin for the optional combined-match-margin bonus.
+  const bonusCfg = rulesOverride?.bonus_points;
+  const marginByTeam = new Map<string, number>();
+  const addMargin = (teamId: string, delta: number) => {
+    marginByTeam.set(teamId, (marginByTeam.get(teamId) ?? 0) + delta);
+  };
+
   let decidedCount = 0;
   for (const sm of subMatches) {
     // Resolve which competition team is on each side.
@@ -344,27 +352,51 @@ export async function finalizePairResults(
       addPoints(sideIds.sideATeamId, pairPoints.tie);
       addPoints(sideIds.sideBTeamId, pairPoints.tie);
     }
+
+    if (bonusCfg?.enabled && typeof sm.final_differential === 'number') {
+      // final_differential is signed: positive = side A ahead.
+      addMargin(sideIds.sideATeamId, sm.final_differential);
+      addMargin(sideIds.sideBTeamId, -sm.final_differential);
+    }
   }
 
   if (decidedCount === 0 || teamPoints.size === 0) return 0;
 
-  // Rank by points (higher better — win > loss). Ties share a position, and
-  // each team's pair-points total is also its competition_points for the round.
-  const ranked = [...teamPoints.entries()].sort((a, b) => b[1] - a[1]);
+  // Bonus awards (combined match margin), if configured.
+  const bonusByTeam =
+    bonusCfg?.enabled
+      ? decideMarginBonus(marginByTeam, { points: bonusCfg.points, tie: bonusCfg.tie })
+      : new Map<string, number>();
+
+  // Total = pair points + bonus. Rank by total (higher better); pair points
+  // remain the rawScore, total is the competition_points contribution.
+  const ranked = [...teamPoints.entries()]
+    .map(([teamId, pairPts]) => ({
+      teamId,
+      pairPts,
+      bonus: bonusByTeam.get(teamId) ?? 0,
+      total: pairPts + (bonusByTeam.get(teamId) ?? 0),
+    }))
+    .sort((a, b) => b.total - a.total);
+
   let position = 0;
-  let prevPoints: number | null = null;
-  const rows = ranked.map(([teamId, points], index) => {
-    if (prevPoints === null || points < prevPoints) {
+  let prevTotal: number | null = null;
+  const rows = ranked.map((entry, index) => {
+    if (prevTotal === null || entry.total < prevTotal) {
       position = index + 1;
-      prevPoints = points;
+      prevTotal = entry.total;
     }
     return {
       roundId,
-      teamId,
-      rawScore: points,
-      rawResultData: { team_score: points },
+      teamId: entry.teamId,
+      rawScore: entry.pairPts,
+      rawResultData: {
+        team_score: entry.pairPts,
+        ...(entry.bonus ? { bonus_points: entry.bonus } : {}),
+        ...(bonusCfg?.enabled ? { net_margin: marginByTeam.get(entry.teamId) ?? 0 } : {}),
+      },
       position,
-      competitionPoints: points,
+      competitionPoints: entry.total,
       isTeamResult: true,
     };
   });
