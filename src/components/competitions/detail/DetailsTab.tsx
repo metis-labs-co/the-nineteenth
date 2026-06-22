@@ -21,6 +21,7 @@ import {
   SettingsSection,
   PrizePoolSection,
   WhatsAppGroupSection,
+  PointsConfigSection,
 } from './sections';
 
 export interface DetailsTabProps {
@@ -141,6 +142,13 @@ export const DetailsTab = React.memo(function DetailsTab({
         hasStartedRound={hasStartedRound}
         teams={teams}
         onViewTeams={onViewTeams}
+      />
+
+      <PointsConfigSection
+        competition={competition}
+        rounds={rounds}
+        teams={teams}
+        isOrganizer={isOrganizer}
       />
 
       <PrizePoolSection
