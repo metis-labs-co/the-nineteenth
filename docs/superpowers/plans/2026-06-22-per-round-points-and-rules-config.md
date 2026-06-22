@@ -464,7 +464,7 @@ git commit -m "feat(points): read-only Points & Rules section on competition det
 **Files:**
 - Modify: `src/hooks/rounds/mutations.ts`
 - Modify: `src/hooks/rounds/index.ts`
-- Test: `src/__tests__/hooks/rounds/useUpdateRoundRules.test.ts` (create)
+- Test: `src/__tests__/hooks/rounds/useUpdateRoundRules.test.tsx` (create)
 
 **Interfaces:**
 - Produces:
@@ -476,7 +476,7 @@ It mirrors `useRecalculateRoundResults` (mutations.ts:388) for invalidation and 
 - [ ] **Step 1: Write the failing test**
 
 ```typescript
-// src/__tests__/hooks/rounds/useUpdateRoundRules.test.ts
+// src/__tests__/hooks/rounds/useUpdateRoundRules.test.tsx
 import { renderHook, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
@@ -522,7 +522,7 @@ describe('useUpdateRoundRules', () => {
 
 - [ ] **Step 2: Run the test, verify it fails**
 
-Run: `pnpm jest src/__tests__/hooks/rounds/useUpdateRoundRules.test.ts`
+Run: `pnpm jest src/__tests__/hooks/rounds/useUpdateRoundRules.test.tsx`
 Expected: FAIL — `useUpdateRoundRules` is not exported.
 
 - [ ] **Step 3: Implement the hook**
@@ -594,7 +594,7 @@ In `src/hooks/rounds/index.ts`, add `useUpdateRoundRules` to the export list (ne
 
 - [ ] **Step 5: Run the test, verify it passes**
 
-Run: `pnpm jest src/__tests__/hooks/rounds/useUpdateRoundRules.test.ts`
+Run: `pnpm jest src/__tests__/hooks/rounds/useUpdateRoundRules.test.tsx`
 Expected: PASS.
 
 - [ ] **Step 6: Type-check and commit**
@@ -602,7 +602,7 @@ Expected: PASS.
 ```bash
 pnpm type-check
 git add src/hooks/rounds/mutations.ts src/hooks/rounds/index.ts \
-  src/__tests__/hooks/rounds/useUpdateRoundRules.test.ts
+  src/__tests__/hooks/rounds/useUpdateRoundRules.test.tsx
 git commit -m "feat(points): useUpdateRoundRules mutation with re-finalize"
 ```
 
@@ -1260,7 +1260,7 @@ git commit -m "feat(points): configure combined-match-margin bonus from the edit
 ## Final verification
 
 - [ ] Run the full affected test set:
-  `pnpm jest src/__tests__/utils/competitionPoints/roundPointsSummary.test.ts src/__tests__/services/rounds/marginBonus.test.ts src/__tests__/services/rounds/finalizePairResults.test.ts src/__tests__/hooks/rounds/useUpdateRoundRules.test.ts`
+  `pnpm jest src/__tests__/utils/competitionPoints/roundPointsSummary.test.ts src/__tests__/services/rounds/marginBonus.test.ts src/__tests__/services/rounds/finalizePairResults.test.ts src/__tests__/hooks/rounds/useUpdateRoundRules.test.tsx`
   Expected: all PASS.
 - [ ] `pnpm type-check` — clean.
 - [ ] `pnpm lint` — no new errors in changed files.
