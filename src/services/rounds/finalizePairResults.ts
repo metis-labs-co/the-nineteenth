@@ -44,6 +44,7 @@ import {
   resolveSubMatchOutcomeFromScores,
   resolveAltShotSubMatchOutcome,
   deriveSideTeamIds,
+  computeAltShotHolesUpMargin,
   type SideOutcome,
 } from './pairPointsCalculation';
 import { decideMarginBonus } from './marginBonus';
@@ -353,17 +354,32 @@ export async function finalizePairResults(
       addPoints(sideIds.sideBTeamId, pairPoints.tie);
     }
 
-    if (bonusCfg?.enabled && typeof sm.final_differential === 'number') {
-      // final_differential is stored UNSIGNED (Math.abs); direction comes from `outcome`.
-      const magnitude = Math.abs(sm.final_differential);
-      if (outcome === 'a-wins') {
-        addMargin(sideIds.sideATeamId, magnitude);
-        addMargin(sideIds.sideBTeamId, -magnitude);
-      } else if (outcome === 'b-wins') {
-        addMargin(sideIds.sideATeamId, -magnitude);
-        addMargin(sideIds.sideBTeamId, magnitude);
+    if (bonusCfg?.enabled) {
+      if (typeof sm.final_differential === 'number') {
+        // Persisted match-play scoring: final_differential is UNSIGNED; sign by outcome.
+        const magnitude = Math.abs(sm.final_differential);
+        if (outcome === 'a-wins') {
+          addMargin(sideIds.sideATeamId, magnitude);
+          addMargin(sideIds.sideBTeamId, -magnitude);
+        } else if (outcome === 'b-wins') {
+          addMargin(sideIds.sideATeamId, -magnitude);
+          addMargin(sideIds.sideBTeamId, magnitude);
+        }
+        // halved → contributes 0 to each (no-op)
+      } else if (gameType === 'alt-shot' && holes.length > 0) {
+        // Alt-shot stroke play persists no holes-up; derive it per hole from scores.
+        const margin = computeAltShotHolesUpMargin({
+          teamAPlayerIds: sm.team_a_player_ids,
+          teamBPlayerIds: sm.team_b_player_ids,
+          holes,
+          getGross,
+          dailyHandicaps: dhcByPlayer,
+        });
+        if (margin !== null) {
+          addMargin(sideIds.sideATeamId, margin);
+          addMargin(sideIds.sideBTeamId, -margin);
+        }
       }
-      // halved → contributes 0 to each (no-op)
     }
   }
 

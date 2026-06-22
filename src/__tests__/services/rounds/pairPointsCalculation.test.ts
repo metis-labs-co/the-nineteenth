@@ -8,6 +8,7 @@ import {
   sideBestBallTotal,
   resolveSubMatchOutcomeFromScores,
   deriveSideTeamIds,
+  computeAltShotHolesUpMargin,
 } from '@/services/rounds/pairPointsCalculation';
 import type { Hole } from '@/types/database.types';
 
@@ -186,5 +187,85 @@ describe('deriveSideTeamIds', () => {
         teams,
       })
     ).toBeNull();
+  });
+});
+
+describe('computeAltShotHolesUpMargin', () => {
+  const HOLES: Hole[] = [
+    { number: 1, par: 4, strokeIndex: 1 },
+    { number: 2, par: 4, strokeIndex: 2 },
+    { number: 3, par: 4, strokeIndex: 3 },
+  ];
+
+  // gross lookup from { playerId: [h1, h2, h3] }; missing player/hole → null.
+  function grossFn(table: Record<string, (number | null)[]>) {
+    return (playerId: string, hole: Hole): number | null => {
+      const row = table[playerId];
+      if (!row) return null;
+      const v = row[hole.number - 1];
+      return v == null ? null : v;
+    };
+  }
+
+  const levelHc = new Map<string, number>([
+    ['a1', 0], ['a2', 0], ['b1', 0], ['b2', 0],
+  ]);
+
+  it('returns +holes when side A wins more holes (level handicaps)', () => {
+    const margin = computeAltShotHolesUpMargin({
+      teamAPlayerIds: ['a1', 'a2'],
+      teamBPlayerIds: ['b1', 'b2'],
+      holes: HOLES,
+      getGross: grossFn({ a1: [4, 4, 4], b1: [5, 5, 5] }),
+      dailyHandicaps: levelHc,
+    });
+    expect(margin).toBe(3); // A wins all 3 holes
+  });
+
+  it('returns -holes when side B wins more holes', () => {
+    const margin = computeAltShotHolesUpMargin({
+      teamAPlayerIds: ['a1', 'a2'],
+      teamBPlayerIds: ['b1', 'b2'],
+      holes: HOLES,
+      getGross: grossFn({ a1: [5, 5, 5], b1: [4, 4, 4] }),
+      dailyHandicaps: levelHc,
+    });
+    expect(margin).toBe(-3);
+  });
+
+  it('counts halved holes as 0', () => {
+    const margin = computeAltShotHolesUpMargin({
+      teamAPlayerIds: ['a1', 'a2'],
+      teamBPlayerIds: ['b1', 'b2'],
+      holes: HOLES,
+      // h1 4=4 halve; h2 A5>B4 → B; h3 A4<B5 → A  → 1 - 1 = 0
+      getGross: grossFn({ a1: [4, 5, 4], b1: [4, 4, 5] }),
+      dailyHandicaps: levelHc,
+    });
+    expect(margin).toBe(0);
+  });
+
+  it('applies a handicap stroke by stroke index, flipping a hole', () => {
+    // Side A team handicap = (2 + 0) * 0.5 = 1 → receives 1 stroke on SI 1 (hole 1).
+    // Equal gross everywhere; only hole 1 flips to A on net. → margin +1.
+    const margin = computeAltShotHolesUpMargin({
+      teamAPlayerIds: ['a1', 'a2'],
+      teamBPlayerIds: ['b1', 'b2'],
+      holes: HOLES,
+      getGross: grossFn({ a1: [4, 4, 4], b1: [4, 4, 4] }),
+      dailyHandicaps: new Map([['a1', 2], ['a2', 0], ['b1', 0], ['b2', 0]]),
+    });
+    expect(margin).toBe(1);
+  });
+
+  it('returns null when no hole is comparable (incomplete)', () => {
+    const margin = computeAltShotHolesUpMargin({
+      teamAPlayerIds: ['a1', 'a2'],
+      teamBPlayerIds: ['b1', 'b2'],
+      holes: HOLES,
+      getGross: grossFn({ a1: [4, 4, 4] }), // side B has no scores
+      dailyHandicaps: levelHc,
+    });
+    expect(margin).toBeNull();
   });
 });
