@@ -372,7 +372,8 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
   const teamPointsToWin = useMemo(() => {
     if (effectiveView !== 'team' || !hasTeams || !perRoundRulesEnabled) return null;
     const counts = (teams ?? []).map((t) => t.members.length).filter((n) => n > 0);
-    const membersPerTeam = counts.length ? Math.max(...counts) : 1;
+    if (counts.length === 0) return null; // teams not loaded yet — avoid a wrong banner
+    const membersPerTeam = Math.max(...counts);
     const { total, toWin } = summarizeCompetition(rounds, { membersPerTeam });
     return { total, toWin };
   }, [effectiveView, hasTeams, perRoundRulesEnabled, teams, rounds]);
