@@ -510,6 +510,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
             competitionId={id}
             teamMode={competition.team_mode}
             rounds={rounds}
+            perRoundRulesEnabled={competition.per_round_rules_enabled ?? false}
             currentUserId={user?.id}
             onEntryPress={handleLeaderboardEntryPress}
             selectedView={leaderboardView}

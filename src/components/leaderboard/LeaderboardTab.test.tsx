@@ -255,6 +255,7 @@ describe('LeaderboardTab', () => {
     competitionId: 'comp-1',
     teamMode: 'none' as const,
     rounds: [] as RoundWithCourse[],
+    perRoundRulesEnabled: false,
   };
 
   beforeEach(() => {
