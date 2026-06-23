@@ -16,6 +16,8 @@ import { SegmentedButton } from '@/components/common/SegmentedButton';
 import { IconUsers, IconUser, IconCalendar } from '@tabler/icons-react-native';
 import { LeaderboardTable } from './LeaderboardTable';
 import { TeamLeaderboardTable, type TeamLeaderboardEntry } from './TeamLeaderboardTable';
+import { TeamPointsToWinBanner } from './TeamPointsToWinBanner';
+import { summarizeCompetition } from '@/utils/competitionPoints/roundPointsSummary';
 import { RoundLeaderboard } from './RoundLeaderboard';
 import {
   InProgressRoundLeaderboard,
@@ -46,6 +48,8 @@ export interface LeaderboardTabProps {
   teamMode: TeamMode;
   /** Rounds data for round-specific leaderboards */
   rounds: RoundWithCourse[];
+  /** True when the competition uses per-round rules — gates the team points-to-win banner. */
+  perRoundRulesEnabled: boolean;
   /** Current user ID for highlighting */
   currentUserId?: string;
   /** Enable auto-refresh */
@@ -253,6 +257,7 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
   competitionId,
   teamMode,
   rounds,
+  perRoundRulesEnabled,
   currentUserId,
   autoRefresh = true,
   onEntryPress,
@@ -362,6 +367,16 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
     return toTeamLeaderboardEntries(leaderboard, rounds);
   }, [leaderboard, effectiveView, rounds]);
 
+  // Points target for the team standings overview. Only meaningful for per-round
+  // team competitions. membersPerTeam mirrors PointsConfigSection's derivation.
+  const teamPointsToWin = useMemo(() => {
+    if (effectiveView !== 'team' || !hasTeams || !perRoundRulesEnabled) return null;
+    const counts = (teams ?? []).map((t) => t.members.length).filter((n) => n > 0);
+    const membersPerTeam = counts.length ? Math.max(...counts) : 1;
+    const { total, toWin } = summarizeCompetition(rounds, { membersPerTeam });
+    return { total, toWin };
+  }, [effectiveView, hasTeams, perRoundRulesEnabled, teams, rounds]);
+
   // Render loading state
   if (isLoading) {
     return (
@@ -407,13 +422,21 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
       {isEmpty ? (
         <EmptyLeaderboardState type={effectiveView} />
       ) : effectiveView === 'team' ? (
-        <TeamLeaderboardTable
-          leaderboard={teamEntries}
-          currentUserId={currentUserId}
-          isLoading={false}
-          showTiedIndicator
-          testID="competition-team-leaderboard"
-        />
+        <>
+          {teamPointsToWin && (
+            <TeamPointsToWinBanner
+              total={teamPointsToWin.total}
+              toWin={teamPointsToWin.toWin}
+            />
+          )}
+          <TeamLeaderboardTable
+            leaderboard={teamEntries}
+            currentUserId={currentUserId}
+            isLoading={false}
+            showTiedIndicator
+            testID="competition-team-leaderboard"
+          />
+        </>
       ) : (
         <LeaderboardTable
           leaderboard={individualEntries}
