@@ -62,6 +62,14 @@ describe('summarizeRoundPoints', () => {
     );
     expect(s.maxPoints).toBe(8); // 2 * (4/1)
   });
+
+  it('returns an empty title when the round has no name (component numbers it)', () => {
+    const s = summarizeRoundPoints(
+      round('r5', { team_points: { win: 2, tie: 1, loss: 0 } }),
+      CTX
+    );
+    expect(s.title).toBe('');
+  });
 });
 
 describe('summarizeCompetition', () => {

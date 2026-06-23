@@ -48,7 +48,7 @@ export function summarizeRoundPoints(
 ): RoundPointsSummary {
   const o: RoundRulesOverride = (round.rules_override ?? {}) as RoundRulesOverride;
   const template = o.template_id ? ROUND_TEMPLATES[o.template_id] : undefined;
-  const title = round.name?.trim() || `Round`;
+  const title = round.name?.trim() || '';
 
   const bonus = bonusPointsValue(o);
   const bonusSuffix = bonus ? ` · +${bonus} bonus (combined margin)` : '';
