@@ -126,3 +126,20 @@ New table `app_version_config`, one row per platform.
 - Project owner fills real `store_url` values post-migration.
 - Gate stays inert until `minimum_version` / `latest_version` are raised above the
   shipped app version.
+
+### Reach caveat (important)
+
+The gate logic ships as JS. It can only ever block a client that has actually
+received this JS bundle — i.e. this app version (or a later OTA on the same
+runtime channel). Consequences:
+
+- It protects users **from this release forward**. A previously-shipped,
+  genuinely-broken native build that never receives this bundle cannot be
+  gated retroactively — the gate is a forward-looking kill-switch, not a
+  retroactive one.
+- `app.json` currently pins `runtimeVersion` (`1.12.7`) separately from
+  `version` (`1.13.1`). Confirm the live OTA runtime channel actually delivers
+  this bundle to current users, otherwise the gate never mounts on them.
+- The gate compares the native `version` string; the real "force a native
+  update" power comes from raising `minimum_version` once a new binary is on
+  the stores.
