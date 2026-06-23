@@ -36,6 +36,7 @@ import { AuthProvider } from '@/context/AuthContext';
 import { ToastProvider } from '@/context/ToastContext';
 import { AchievementToastProvider } from '@/context/AchievementToastContext';
 import { UnifiedToastDisplay } from '@/components/common/Toast';
+import { ForceUpdateModal } from '@/components/common';
 import { lightColors, darkColors } from '@/constants/theme';
 import { activeBrand } from '@/config/brands';
 import { useWatchBridge } from '@/watch/useWatchBridge';
@@ -217,6 +218,7 @@ function AppContent() {
             <RootNavigator theme={navigationTheme} />
             <StatusBar style={isDark ? 'light' : 'dark'} />
             <UnifiedToastDisplay />
+            <ForceUpdateModal />
           </View>
         </AchievementToastProvider>
       </ToastProvider>
