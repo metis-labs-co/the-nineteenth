@@ -526,3 +526,18 @@ export interface AutoPairResult {
   pairs: ScoringPairCreateInput[];
   type: 'reciprocal' | 'circular';
 }
+
+// =====================================================
+// APP VERSION CONFIG
+// =====================================================
+
+// Remote force-update gate configuration (mirrors public.app_version_config).
+export type GatePlatform = 'ios' | 'android';
+
+export interface AppVersionConfig {
+  platform: GatePlatform;
+  minimumVersion: string;
+  latestVersion: string;
+  storeUrl: string;
+  message: string | null;
+}
