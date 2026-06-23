@@ -8,6 +8,26 @@ import type { Competition, Round, TeamWithMembers } from '@/types/database.types
 import { summarizeCompetition } from '@/utils/competitionPoints/roundPointsSummary';
 import { useFeatureAccess } from '@/hooks/subscription';
 import { EditRoundPointsSheet } from './sheets/EditRoundPointsSheet';
+import { Pill } from '@/components/common';
+import { inferPresetIdFromRound, ROUND_PRESETS } from '@/constants/roundPresets';
+import { GAME_TYPE_LABELS } from '../types';
+
+/**
+ * Descriptive format label for a round, mirroring CompetitionRoundCard:
+ * the matched preset's title (e.g. "1v1 Singles Match Play"), else the bare
+ * game-type label.
+ */
+function roundFormatLabel(round: Round): string {
+  const presetId = inferPresetIdFromRound({
+    game_type: round.game_type,
+    is_team_round: round.is_team_round,
+    team_format: round.team_format,
+    round_format: round.round_format,
+    sub_match_size: round.sub_match_size,
+    rules_override: round.rules_override ?? null,
+  });
+  return (presetId && ROUND_PRESETS[presetId]?.title) || GAME_TYPE_LABELS[round.game_type];
+}
 
 export interface PointsConfigSectionProps {
   competition: Competition;
@@ -53,6 +73,11 @@ export function PointsConfigSection({
     [rounds, membersPerTeam]
   );
 
+  const roundsById = useMemo(
+    () => new Map(rounds.map((rd) => [rd.id, rd])),
+    [rounds]
+  );
+
   const isPlain = variant === 'plain';
   const containerStyle = isPlain
     ? styles.plain
@@ -81,12 +106,17 @@ export function PointsConfigSection({
       </Text>
 
       {perRound.map((r, idx) => {
+        const round = roundsById.get(r.roundId);
+        const formatLabel = round ? roundFormatLabel(round) : null;
         const rowBody = (
           <View style={[styles.row, { borderTopColor: colors.border }]}>
             <View style={styles.rowMain}>
               <Text style={[typography.body, { color: colors.textPrimary }]} numberOfLines={1}>
                 {r.title?.trim() ? r.title : `Round ${idx + 1}`}
               </Text>
+              {formatLabel && (
+                <Pill label={formatLabel} size="sm" style={styles.formatPill} />
+              )}
               <Text style={[typography.small, { color: colors.textSecondary }]}>{r.detail}</Text>
             </View>
             {r.isCustom && (
@@ -147,6 +177,11 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   rowMain: { flex: 1 },
+  formatPill: {
+    alignSelf: 'flex-start',
+    marginTop: spacing.xs,
+    marginBottom: spacing.xs,
+  },
   chip: {
     paddingHorizontal: spacing.sm,
     paddingVertical: 2,
