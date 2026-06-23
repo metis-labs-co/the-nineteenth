@@ -40,6 +40,8 @@ export interface RoundWithCourse extends Round {
   competition?: {
     id: string;
     name: string;
+    /** Optional comp blurb — shown on Home's upcoming-competition card. */
+    description?: string | null;
   } | null;
   /**
    * Optional roster — populated for standalone rounds shown in cross-context

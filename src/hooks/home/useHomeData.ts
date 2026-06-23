@@ -123,6 +123,75 @@ export function computeNextCompetitionWithin7Days(
 }
 
 /**
+ * A single day a competition runs, with the coordinates used to fetch that
+ * day's weather forecast. Drives the per-day weather lines on the Home
+ * upcoming-competition card.
+ */
+export interface CompetitionDay {
+  /** Local `YYYY-MM-DD` for the round day. */
+  dateIso: string;
+  lat: number;
+  lng: number;
+}
+
+/**
+ * Resolve a round's club coordinates: the hydrated camelCase fields first
+ * (set by useUpcomingRounds), then the raw `location` GeoJSON `[lng, lat]`.
+ * Returns null when neither is available.
+ */
+function resolveClubCoords(
+  round: RoundWithCourse,
+): { lat: number; lng: number } | null {
+  const club = round.course?.clubs as
+    | {
+        latitude?: number | null;
+        longitude?: number | null;
+        location?: { coordinates?: [number, number] } | null;
+      }
+    | null
+    | undefined;
+  if (!club) return null;
+  if (club.latitude != null && club.longitude != null) {
+    return { lat: club.latitude, lng: club.longitude };
+  }
+  const coords = club.location?.coordinates;
+  if (coords && coords.length >= 2) {
+    return { lat: coords[1], lng: coords[0] };
+  }
+  return null;
+}
+
+/**
+ * Distinct days the given competition runs, derived from the already-fetched
+ * upcoming rounds (`useUpcomingRounds` returns every upcoming round for the
+ * user, including all of a competition's rounds). Rounds with no resolvable
+ * club coordinates are dropped; days are deduped (first round wins for that
+ * day's coords) and sorted ascending. Returns [] when `competitionId` is null.
+ */
+export function computeCompetitionDays(
+  upcoming: RoundWithCourse[],
+  competitionId: string | null,
+): CompetitionDay[] {
+  if (!competitionId) return [];
+  const byDate = new Map<string, CompetitionDay>();
+  for (const r of upcoming) {
+    if (r.competition?.id !== competitionId) continue;
+    if (!r.date) continue;
+    const dateIso =
+      typeof r.date === 'string'
+        ? r.date.slice(0, 10)
+        : (r.date as Date).toISOString().slice(0, 10);
+    if (byDate.has(dateIso)) continue;
+    const coords = resolveClubCoords(r);
+    if (!coords) continue;
+    byDate.set(dateIso, { dateIso, lat: coords.lat, lng: coords.lng });
+  }
+  return Array.from(byDate.values()).sort((a, b) =>
+    a.dateIso < b.dateIso ? -1 : a.dateIso > b.dateIso ? 1 : 0,
+  );
+}
+
+/**
  * Returns `upcoming` with the hero-card round removed (by id), so the list
  * below the hero doesn't duplicate it.
  */
@@ -246,6 +315,12 @@ export interface HomeData {
    */
   nextCompetition: RoundWithCourse | null;
   /**
+   * Distinct days the `nextCompetition`'s competition runs (with per-day
+   * coordinates), used to render the upcoming-competition card's weather
+   * forecast. Empty when there is no next competition.
+   */
+  nextCompetitionDays: CompetitionDay[];
+  /**
    * `upcomingRounds` with `upcomingWithin24h` removed.
    * Use this for the scrollable list below the hero so the chosen round
    * isn't shown twice.
@@ -357,6 +432,16 @@ export function useHomeData(): HomeData {
       upcomingWithin24h?.id ?? null,
     );
   }, [upcomingRoundsRwc, upcomingWithin24h]);
+
+  // Distinct days the next competition runs — drives the per-day weather
+  // forecast on the upcoming-competition card. Derived from the already-fetched
+  // upcoming rounds, so no extra network request.
+  const nextCompetitionDays = useMemo<CompetitionDay[]>(() => {
+    return computeCompetitionDays(
+      upcomingRoundsRwc,
+      nextCompetition?.competition?.id ?? null,
+    );
+  }, [upcomingRoundsRwc, nextCompetition]);
 
   // The "Coming up" list still draws from the standalone-only round-list
   // (RoundItem). We exclude any round that the hero already shows.
@@ -552,6 +637,7 @@ export function useHomeData(): HomeData {
       upcomingRounds: [],
       upcomingWithin24h: null,
       nextCompetition: null,
+      nextCompetitionDays: [],
       upcomingRoundsForList: [],
       lastRound: null,
       pendingActions: [],
@@ -577,6 +663,7 @@ export function useHomeData(): HomeData {
     upcomingRounds,
     upcomingWithin24h,
     nextCompetition,
+    nextCompetitionDays,
     upcomingRoundsForList,
     lastRound,
     pendingActions,

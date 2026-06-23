@@ -207,7 +207,10 @@ export default function HomeScreen() {
               ) : null}
 
               {home.nextCompetition ? (
-                <NextCompetitionCard round={home.nextCompetition} />
+                <NextCompetitionCard
+                  round={home.nextCompetition}
+                  days={home.nextCompetitionDays}
+                />
               ) : null}
 
               <FeatureLock
