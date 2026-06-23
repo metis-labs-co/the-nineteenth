@@ -39,10 +39,7 @@ function gatePlatform(): GatePlatform {
 }
 
 /** Pure status resolver — the testable core of the gate. */
-export function resolveGateStatus(
-  running: string,
-  config: AppVersionConfig | null
-): GateStatus {
+export function resolveGateStatus(running: string, config: AppVersionConfig | null): GateStatus {
   if (!config) return 'ok';
   if (isBelow(running, config.minimumVersion)) return 'hard';
   if (isBelow(running, config.latestVersion)) return 'soft';
@@ -50,9 +47,7 @@ export function resolveGateStatus(
 }
 
 /** Fetch the config row for a platform. Returns null on any failure. */
-export async function fetchVersionConfig(
-  platform: GatePlatform
-): Promise<AppVersionConfig | null> {
+export async function fetchVersionConfig(platform: GatePlatform): Promise<AppVersionConfig | null> {
   try {
     const timeout = new Promise<null>((resolve) =>
       setTimeout(() => resolve(null), FETCH_TIMEOUT_MS)

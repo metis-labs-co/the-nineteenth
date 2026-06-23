@@ -122,11 +122,7 @@ export type {
   TeeTimeInterval,
 } from './pairing.types';
 
-export {
-  toPairingPlayer,
-  DEFAULT_TEE_TIME_CONFIG,
-  TEE_TIME_INTERVALS,
-} from './pairing.types';
+export { toPairingPlayer, DEFAULT_TEE_TIME_CONFIG, TEE_TIME_INTERVALS } from './pairing.types';
 
 // Re-export player gender type
 export type { PlayerGender } from './database/player.types';
@@ -293,7 +289,7 @@ export interface Course {
   id: string;
   source: 'api' | 'manual';
   apiId?: string;
-  
+
   // Basic Info
   name: string;
   state: AustralianState;
@@ -304,13 +300,13 @@ export interface Course {
   website?: string;
   latitude: number;
   longitude: number;
-  
+
   // Course Details
   holes: Hole[];
   tees?: TeeBox[];
   slopeRating?: number;
   courseRating?: number;
-  
+
   // Metadata
   lastSynced?: Date;
   createdAt: Date;

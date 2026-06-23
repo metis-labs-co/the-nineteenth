@@ -13,13 +13,7 @@
  * user's surface/backdrop settings (outer wrapper holds no theme reads).
  */
 import React, { useCallback, useEffect, useState } from 'react';
-import {
-  BackHandler,
-  Linking,
-  StyleSheet,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { BackHandler, Linking, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SystemModalTheme } from './SystemModalTheme';
@@ -38,10 +32,7 @@ const SOFT_TITLE = 'Update Available';
 const SOFT_BODY = 'A new version of The Nineteenth is available.';
 
 /** Pure: should the soft prompt show given the last-dismissed version? */
-export function shouldShowSoft(
-  latestVersion: string,
-  dismissedVersion: string | null
-): boolean {
+export function shouldShowSoft(latestVersion: string, dismissedVersion: string | null): boolean {
   if (!dismissedVersion) return true;
   return compareVersions(latestVersion, dismissedVersion) > 0;
 }
@@ -132,9 +123,7 @@ function ForceUpdateCard({ isHard, config, onUpdate, onLater }: CardProps) {
         accessibilityRole="button"
         accessibilityLabel="Update now"
       >
-        <Text style={{ ...typography.bodyBold, color: colors.white }}>
-          Update Now
-        </Text>
+        <Text style={{ ...typography.bodyBold, color: colors.white }}>Update Now</Text>
       </TouchableOpacity>
 
       {!isHard && (
@@ -144,9 +133,7 @@ function ForceUpdateCard({ isHard, config, onUpdate, onLater }: CardProps) {
           accessibilityRole="button"
           accessibilityLabel="Remind me later"
         >
-          <Text style={{ ...typography.body, color: colors.textSecondary }}>
-            Later
-          </Text>
+          <Text style={{ ...typography.body, color: colors.textSecondary }}>Later</Text>
         </TouchableOpacity>
       )}
     </View>
