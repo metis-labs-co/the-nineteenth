@@ -6,8 +6,11 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { SectionHeader } from './SectionHeader';
+import { CompetitionWeatherRow } from './CompetitionWeatherRow';
 import { formatDayLabel } from './dateLabels';
 import { formatDisplayDate } from '@/utils/locale';
+import { useCompetitionWeather } from '@/hooks/weather';
+import type { CompetitionDay } from '@/hooks/home/useHomeData';
 import type { RootStackParamList } from '@/navigation/types';
 import type { RoundWithCourse } from '@/components/competitions/detail/types';
 
@@ -15,6 +18,8 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 interface NextCompetitionCardProps {
   round: RoundWithCourse;
+  /** Distinct days the competition runs — drives the per-day weather lines. */
+  days?: CompetitionDay[];
 }
 
 function isoDateStr(date: RoundWithCourse['date']): string | null {
@@ -37,13 +42,18 @@ function buildSubtitle(dateIso: string | null): string {
 
 export const NextCompetitionCard = React.memo(function NextCompetitionCard({
   round,
+  days = [],
 }: NextCompetitionCardProps) {
   const colors = useThemeColors();
   const navigation = useNavigation<Nav>();
 
   const competitionId = round.competition?.id;
   const name = round.competition?.name ?? 'Competition';
+  const description = round.competition?.description?.trim() ?? '';
   const subtitle = buildSubtitle(isoDateStr(round.date));
+
+  const { data: weatherByDate } = useCompetitionWeather(days);
+  const forecastDays = days.filter((d) => weatherByDate?.[d.dateIso]);
 
   // Guard: this card is only rendered for competition rounds, but stay safe.
   if (!competitionId) return null;
@@ -81,9 +91,32 @@ export const NextCompetitionCard = React.memo(function NextCompetitionCard({
                 {subtitle}
               </Text>
             )}
+            {!!description && (
+              <Text
+                style={[styles.description, { color: colors.textSecondary }]}
+                numberOfLines={2}
+              >
+                {description}
+              </Text>
+            )}
           </View>
           <Icon source="chevron-right" size={22} color={colors.textSecondary} />
         </View>
+
+        {forecastDays.length > 0 && (
+          <View
+            testID="competition-weather"
+            style={[styles.weather, { borderTopColor: colors.borderLight }]}
+          >
+            {forecastDays.map((d) => (
+              <CompetitionWeatherRow
+                key={d.dateIso}
+                dateIso={d.dateIso}
+                weather={weatherByDate![d.dateIso]}
+              />
+            ))}
+          </View>
+        )}
       </TouchableOpacity>
     </View>
   );
@@ -107,4 +140,10 @@ const styles = StyleSheet.create({
   text: { flex: 1 },
   title: { ...typography.body, fontWeight: '700' },
   subtitle: { ...typography.caption, marginTop: 2 },
+  description: { ...typography.caption, marginTop: 4 },
+  weather: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
 });

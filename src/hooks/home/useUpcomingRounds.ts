@@ -7,8 +7,8 @@
  *   - Competition rounds where the user is an accepted player.
  *
  * Includes both `clubs(*)` (so `course.clubs.location` is available for the
- * weather forecast) and `competition:competitions(id, name)` so the hero
- * card can show the comp name.
+ * weather forecast) and `competition:competitions(id, name, description)` so
+ * the hero/upcoming-competition cards can show the comp name and blurb.
  *
  * Filters to `status = 'upcoming'` and `date >= today` so the cache stays
  * small (we don't care about rounds long in the past).
@@ -26,7 +26,7 @@ const ROUND_SELECT = `
     *,
     clubs(*)
   ),
-  competition:competitions(id, name)
+  competition:competitions(id, name, description)
 `;
 
 function todayIsoDate(): string {

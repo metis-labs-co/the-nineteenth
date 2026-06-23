@@ -3,6 +3,7 @@ import {
   computeUpcomingForList,
   computeUpcomingRwcWithin24h,
   computeNextCompetitionWithin7Days,
+  computeCompetitionDays,
 } from '@/hooks/home/useHomeData';
 import type { RoundItem } from '@/screens/rounds/RoundListScreen/types';
 import type { RoundWithCourse } from '@/components/competitions/detail/types';
@@ -141,5 +142,75 @@ describe('computeNextCompetitionWithin7Days', () => {
 
   it('returns null for an empty list', () => {
     expect(computeNextCompetitionWithin7Days([], now, null)).toBeNull();
+  });
+});
+
+describe('computeCompetitionDays', () => {
+  const dayRound = (over: Partial<RoundWithCourse>): RoundWithCourse =>
+    ({
+      id: 'r',
+      status: 'upcoming',
+      date: '2026-06-26',
+      tee_time: '08:00:00',
+      course: {
+        id: 'c',
+        name: 'Course',
+        clubs: { name: 'Club', latitude: -37.81, longitude: 144.96 },
+      } as any,
+      competition: { id: 'comp-1', name: 'Winter Classic' },
+      ...over,
+    }) as unknown as RoundWithCourse;
+
+  it('returns [] when competitionId is null', () => {
+    expect(computeCompetitionDays([dayRound({})], null)).toEqual([]);
+  });
+
+  it('keeps only rounds of the target competition', () => {
+    const rounds = [
+      dayRound({ id: 'a', date: '2026-06-26' }),
+      dayRound({ id: 'b', date: '2026-06-27', competition: { id: 'comp-2', name: 'Other' } }),
+    ];
+    const days = computeCompetitionDays(rounds, 'comp-1');
+    expect(days.map((d) => d.dateIso)).toEqual(['2026-06-26']);
+  });
+
+  it('dedupes by date and sorts ascending', () => {
+    const rounds = [
+      dayRound({ id: 'b', date: '2026-06-28' }),
+      dayRound({ id: 'a', date: '2026-06-26' }),
+      dayRound({ id: 'a2', date: '2026-06-26' }), // duplicate day
+    ];
+    const days = computeCompetitionDays(rounds, 'comp-1');
+    expect(days.map((d) => d.dateIso)).toEqual(['2026-06-26', '2026-06-28']);
+  });
+
+  it('drops rounds with no resolvable club coordinates', () => {
+    const rounds = [
+      dayRound({
+        id: 'nocoord',
+        date: '2026-06-26',
+        course: { id: 'c', name: 'Course', clubs: { name: 'Club' } } as any,
+      }),
+      dayRound({ id: 'ok', date: '2026-06-27' }),
+    ];
+    const days = computeCompetitionDays(rounds, 'comp-1');
+    expect(days.map((d) => d.dateIso)).toEqual(['2026-06-27']);
+    expect(days[0]).toEqual({ dateIso: '2026-06-27', lat: -37.81, lng: 144.96 });
+  });
+
+  it('resolves coordinates from raw location GeoJSON when lat/lng absent', () => {
+    const rounds = [
+      dayRound({
+        id: 'geo',
+        date: '2026-06-26',
+        course: {
+          id: 'c',
+          name: 'Course',
+          clubs: { name: 'Club', location: { type: 'Point', coordinates: [151.2, -33.86] } },
+        } as any,
+      }),
+    ];
+    const days = computeCompetitionDays(rounds, 'comp-1');
+    expect(days).toEqual([{ dateIso: '2026-06-26', lat: -33.86, lng: 151.2 }]);
   });
 });
