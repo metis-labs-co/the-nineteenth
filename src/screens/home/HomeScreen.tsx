@@ -49,6 +49,7 @@ import {
   HomeSkeleton,
   SectionHeader,
   RoundTodayCard,
+  NextCompetitionCard,
   HomeTileGrid,
   MatesThisWeekSection,
   HandicapHomeCard,
@@ -203,6 +204,10 @@ export default function HomeScreen() {
 
               {home.upcomingWithin24h ? (
                 <RoundTodayCard round={home.upcomingWithin24h} />
+              ) : null}
+
+              {home.nextCompetition ? (
+                <NextCompetitionCard round={home.nextCompetition} />
               ) : null}
 
               <FeatureLock
