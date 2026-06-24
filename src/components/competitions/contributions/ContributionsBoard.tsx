@@ -20,7 +20,7 @@ function firstName(name: string): string {
 }
 
 function fmtValue(p: PlayerContribution, round: RoundContribution): string {
-  if (round.format === 'scramble') {
+  if (round.format === 'scramble' || round.format === 'alt-shot') {
     const b = p.shotBreakdown;
     return b ? `🏌 ${b.drives}  ⛳ ${b.putts}` : '';
   }
@@ -39,6 +39,8 @@ function labelForFormat(format: RoundContribution['format']): string {
       return 'Shamble';
     case 'aggregate':
       return 'Aggregate';
+    case 'alt-shot':
+      return 'Alt Shot';
   }
 }
 
