@@ -21,6 +21,9 @@ comment on column public.app_version_config.latest_version is
 alter table public.app_version_config enable row level security;
 
 -- Public read: anyone (signed in or not) can read the gate config.
+-- Drop-then-create so the migration is idempotent (re-runnable) — Postgres
+-- has no `create policy if not exists`.
+drop policy if exists "app_version_config_read" on public.app_version_config;
 create policy "app_version_config_read"
   on public.app_version_config
   for select
