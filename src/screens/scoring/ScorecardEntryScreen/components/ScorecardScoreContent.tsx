@@ -240,6 +240,22 @@ export function ScorecardScoreContent({
     [handleShotContributionsChange]
   );
 
+  // Alt-shot: the player who tees hole 1 (stored as hole-1 teeShot) drives all
+  // shot derivation. Falls back to the first team member until chosen.
+  const getTeamFirstTee = useCallback(
+    (teamIndex: number): string | undefined => {
+      const team = teams[teamIndex];
+      const firstMember = team?.members?.[0];
+      if (!firstMember) return undefined;
+      const holeOne = getPlayerScore(firstMember.player_id, 1);
+      if (holeOne && isSingleBallScore(holeOne)) {
+        return holeOne.shotContributions?.teeShot ?? firstMember.player_id;
+      }
+      return firstMember.player_id;
+    },
+    [teams, getPlayerScore]
+  );
+
   // Helper: get the playing handicap for a player (daily HC when tee data is available, raw otherwise)
   const getHandicap = useCallback(
     (player: Player): number => playerHandicapMap?.get(player.id)?.playingHandicap ?? player.handicap ?? 0,
@@ -404,6 +420,7 @@ export function ScorecardScoreContent({
                 onScoreSelect={(strokes) => handleTeamScoreSelect(index, strokes)}
                 shotContributions={getTeamShotContributions(index)}
                 onShotContributionsChange={createShotContributionsHandler(index)}
+                firstTeePlayerId={getTeamFirstTee(index)}
               />
             );
           })
