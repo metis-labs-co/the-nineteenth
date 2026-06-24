@@ -42,3 +42,7 @@ export {
 // Scramble shot slot configuration
 export type { ShotSlot, ShotSlotColorKey, ShotSlotConfig } from './shotSlots';
 export { getShotSlotsForPar } from './shotSlots';
+
+// Alt-shot derived contributions
+export { altShotTeePlayer, deriveAltShotShotCounts } from './altShotContributions';
+export type { AltShotHoleBreakdown } from './altShotContributions';
