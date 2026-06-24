@@ -18,6 +18,8 @@ import type {
   ShotBreakdown,
   TeamContribution,
 } from './types';
+import { deriveAltShotShotCounts } from '@/utils/teamScoring';
+import type { AltShotPairInput } from './types';
 
 const PICKUP_SCORE = 99; // sentinel used elsewhere in the app for picked-up holes
 
@@ -65,6 +67,7 @@ const METRIC_LABEL: Record<ContributionFormat, string> = {
   scramble: 'shots used',
   shamble: 'drives + holes won',
   aggregate: 'points',
+  'alt-shot': 'shots used',
 };
 
 function rank(players: PlayerContribution[]): PlayerContribution[] {
@@ -272,6 +275,67 @@ function computeShambleTeam(
   };
 }
 
+/**
+ * Alt-shot per-team contribution, derived from the team's 2-player pairs.
+ * Each pair shares one ball; within a hole partners strictly alternate, so
+ * per-player shot counts come from the first-tee player + the hole's strokes.
+ */
+function computeAltShotTeam(
+  team: ContributionTeamInput,
+  holes: Hole[],
+  pairs: AltShotPairInput[]
+): TeamContribution | null {
+  const memberIds = new Set(team.members.map((m) => m.playerId));
+  const teamPairs = pairs.filter(
+    (p) => p.playerIds.length >= 2 && p.playerIds.every((id) => memberIds.has(id))
+  );
+
+  const byPlayer = new Map<string, ShotBreakdown>();
+  team.members.forEach((m) => byPlayer.set(m.playerId, emptyBreakdown()));
+  let total = 0;
+
+  for (const pair of teamPairs) {
+    const [p0, p1] = pair.playerIds;
+    const firstTee = pair.firstTeePlayerId || p0;
+    const partner = firstTee === p0 ? p1 : p0;
+    for (const hole of holes) {
+      const counts = deriveAltShotShotCounts(
+        firstTee,
+        partner,
+        hole.number,
+        pair.strokesByHole[hole.number]
+      );
+      for (const pid of pair.playerIds) {
+        const c = counts[pid];
+        const bd = byPlayer.get(pid);
+        if (!c || !bd) continue;
+        bd.drives += c.drives;
+        bd.approaches += c.approaches;
+        bd.putts += c.putts;
+        total += c.total;
+      }
+    }
+  }
+
+  if (total === 0) return null;
+
+  const players: PlayerContribution[] = team.members.map((m) => {
+    const bd = byPlayer.get(m.playerId) ?? emptyBreakdown();
+    const value = bd.drives + bd.approaches + bd.putts;
+    return {
+      playerId: m.playerId,
+      playerName: m.playerName,
+      value,
+      share: total > 0 ? value / total : 0,
+      shotBreakdown: bd,
+      position: 0,
+      isMvp: false,
+    };
+  });
+
+  return { teamId: team.teamId, teamName: team.teamName, color: team.color, players: rank(players) };
+}
+
 function computeRound(round: ContributionRoundInput): RoundContribution {
   const base = {
     roundId: round.roundId,
@@ -299,6 +363,14 @@ function computeRound(round: ContributionRoundInput): RoundContribution {
   if (round.format === 'scramble') {
     const teams = round.teams
       .map((t) => computeScrambleTeam(t))
+      .filter((t): t is TeamContribution => t !== null);
+    return { ...base, teams, dataMissing: teams.length === 0 };
+  }
+
+  if (round.format === 'alt-shot') {
+    const pairs = round.altShotPairs ?? [];
+    const teams = round.teams
+      .map((t) => computeAltShotTeam(t, round.holes, pairs))
       .filter((t): t is TeamContribution => t !== null);
     return { ...base, teams, dataMissing: teams.length === 0 };
   }

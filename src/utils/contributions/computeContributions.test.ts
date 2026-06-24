@@ -271,6 +271,84 @@ describe('computeContributions — alt-shot (scramble format)', () => {
   });
 });
 
+describe('computeContributions — alt-shot (pair-aware)', () => {
+  const holes = [
+    { number: 1, par: 4, strokeIndex: 1 },
+    { number: 2, par: 4, strokeIndex: 2 },
+  ] as any;
+
+  it('derives per-player drives/approaches/putts from pairings + strokes', () => {
+    const board = computeContributions({
+      rounds: [
+        {
+          roundId: 'r1',
+          roundLabel: 'R1',
+          format: 'alt-shot',
+          gameType: 'stableford',
+          holes,
+          teams: [
+            {
+              teamId: 't1',
+              teamName: 'Red',
+              color: null,
+              members: [
+                { playerId: 'a', playerName: 'Alice', handicap: 10 },
+                { playerId: 'b', playerName: 'Bob', handicap: 12 },
+              ],
+              strokesByPlayerHole: { a: { 1: 4, 2: 4 } },
+            },
+          ],
+          altShotPairs: [
+            {
+              playerIds: ['a', 'b'],
+              firstTeePlayerId: 'a',
+              strokesByHole: { 1: 4, 2: 4 },
+            },
+          ],
+        },
+      ],
+    });
+
+    const round = board.rounds[0];
+    expect(round.dataMissing).toBe(false);
+    expect(round.metricLabel).toBe('shots used');
+    const red = round.teams.find((t) => t.teamId === 't1')!;
+    const alice = red.players.find((p) => p.playerId === 'a')!;
+    const bob = red.players.find((p) => p.playerId === 'b')!;
+    // Hole 1 (A tees): A drive+appr, B appr+putt. Hole 2 (B tees): B drive+appr, A appr+putt.
+    // Totals across 2 holes: A = {drives:1, approaches:2, putts:1} = 4 shots; B = same = 4 shots.
+    expect(alice.shotBreakdown).toEqual({ drives: 1, approaches: 2, putts: 1 });
+    expect(bob.shotBreakdown).toEqual({ drives: 1, approaches: 2, putts: 1 });
+    expect(alice.value).toBe(4);
+    expect(bob.value).toBe(4);
+  });
+
+  it('marks dataMissing when there are no pairs', () => {
+    const board = computeContributions({
+      rounds: [
+        {
+          roundId: 'r1',
+          roundLabel: 'R1',
+          format: 'alt-shot',
+          gameType: 'stableford',
+          holes,
+          teams: [
+            {
+              teamId: 't1',
+              teamName: 'Red',
+              color: null,
+              members: [{ playerId: 'a', playerName: 'Alice', handicap: 10 }],
+              strokesByPlayerHole: {},
+            },
+          ],
+          altShotPairs: [],
+        },
+      ],
+    });
+    expect(board.rounds[0].dataMissing).toBe(true);
+  });
+});
+
 describe('computeContributions — shamble', () => {
   it('averages drives-used and holes-won shares', () => {
     const board = computeContributions({
