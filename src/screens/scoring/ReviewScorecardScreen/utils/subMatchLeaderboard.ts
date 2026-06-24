@@ -221,3 +221,28 @@ export function computeNetSubMatch(
   const sideNet = model === 'alt-shot' ? altShotSideNet : aggregateSideNet;
   return finalise(sideNet(sides.a, holes, getStrokes), sideNet(sides.b, holes, getStrokes), false, '');
 }
+
+export interface SubMatchLeader {
+  leaderSide: 'a' | 'b' | null;
+  hasScores: boolean;
+}
+
+/**
+ * Live projected Team A vs Team B tally: the side currently ahead in a
+ * sub-match earns 1 point, a level-but-started sub-match splits 0.5/0.5, and an
+ * unstarted sub-match contributes nothing.
+ */
+export function tallyOverall(results: SubMatchLeader[]): { pointsA: number; pointsB: number } {
+  let pointsA = 0;
+  let pointsB = 0;
+  for (const r of results) {
+    if (!r.hasScores) continue;
+    if (r.leaderSide === 'a') pointsA += 1;
+    else if (r.leaderSide === 'b') pointsB += 1;
+    else {
+      pointsA += 0.5;
+      pointsB += 0.5;
+    }
+  }
+  return { pointsA, pointsB };
+}

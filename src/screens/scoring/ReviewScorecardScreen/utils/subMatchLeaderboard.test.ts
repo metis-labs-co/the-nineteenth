@@ -1,4 +1,4 @@
-import { resolveSubMatchModel, computeMatchPlaySubMatch, computeNetSubMatch } from './subMatchLeaderboard';
+import { resolveSubMatchModel, computeMatchPlaySubMatch, computeNetSubMatch, tallyOverall } from './subMatchLeaderboard';
 import type { Hole } from '@/types';
 
 describe('resolveSubMatchModel', () => {
@@ -105,5 +105,18 @@ describe('computeNetSubMatch', () => {
     expect(r.valueB).toBeNull();
     expect(r.leaderSide).toBeNull();
     expect(r.hasScores).toBe(false);
+  });
+});
+
+describe('tallyOverall', () => {
+  it('awards 1 to the current leader, 0.5 each when level, 0 when unscored', () => {
+    const result = tallyOverall([
+      { leaderSide: 'a', hasScores: true },
+      { leaderSide: 'b', hasScores: true },
+      { leaderSide: null, hasScores: true }, // level -> 0.5 each
+      { leaderSide: null, hasScores: false }, // not started -> 0
+    ]);
+    expect(result.pointsA).toBe(1.5);
+    expect(result.pointsB).toBe(1.5);
   });
 });
