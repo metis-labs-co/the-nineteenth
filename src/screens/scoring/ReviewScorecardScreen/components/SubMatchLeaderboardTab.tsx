@@ -8,7 +8,7 @@ import { calculatePlayingHandicap } from '@/hooks/usePlayingHandicap';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { getTeamColorHex } from '@/utils/teamColor';
 import { isSingleBallScore } from '@/types/database/base';
-import { EmptyState } from '@/components/common';
+import { EmptyState } from '@/components/common/EmptyState';
 import { MatchPlayMatchRow } from '@/components/rounds/MatchPlayMatchRow';
 import { SubMatchNetCard, SubMatchOverallHeader } from '@/components/rounds/SubMatchNetCard';
 import {
