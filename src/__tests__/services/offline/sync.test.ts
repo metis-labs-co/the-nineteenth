@@ -75,6 +75,7 @@ jest.mock('@/services/supabase/client', () => ({
 // Mock score mismatch service (used by syncScorecard for score entry sync)
 jest.mock('@/services/scoreMismatch', () => ({
   saveScoreEntry: jest.fn(() => Promise.resolve()),
+  saveScoreEntries: jest.fn(() => Promise.resolve()),
 }));
 
 // Mock handicap update service

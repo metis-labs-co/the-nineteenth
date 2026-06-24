@@ -12,7 +12,6 @@
 import { Scorecard, HoleScore, Hole, GameType, HoleShotContributions, TeeBox } from '@/types';
 import type { HandicapSource } from '@/types/database';
 import { isSingleBallScore } from '@/types/database/base';
-import { saveScoreEntry } from '@/services/scoreMismatch';
 import { storeLogger } from '@/utils/debugLogger';
 import { persistScorecardUpdate } from './scorecardPersistence';
 import { debouncedQueueScorecardSync } from './scorecardSyncDebounce';
@@ -143,6 +142,13 @@ export async function setPlayerScore(
   // check in scorecardSync.ts skips upserts whose local copy has fewer holes
   // than the server already has, mitigating the original race condition that
   // led this sync to be deferred to submission time.
+  //
+  // Score entries for mismatch detection (score_entries table) are NOT written
+  // here per-keystroke. That immediate write used to race the debounced sync's
+  // own score_entries write on the same rows, causing row-lock contention and
+  // 8s statement timeouts. The debounced scorecard sync (syncScoreEntries) is
+  // now the single writer, batching all of this player's entries into one
+  // upsert ~2s after the last tap.
   await persistScorecardUpdate({
     holeScore: { scorecardId: scorecard.id, holeNumber: hole, score: holeScore },
     scorecard: { scorecardId: scorecard.id, scorecard: updatedScorecard },
@@ -151,22 +157,6 @@ export async function setPlayerScore(
 
   if (currentRoundId && !scorecard.isStandalone) {
     debouncedQueueScorecardSync(scorecard.id, () => get().groupScorecards.get(playerId));
-  }
-
-  if (scoredBy && currentRoundId && !scorecard.isStandalone) {
-    try {
-      await saveScoreEntry(currentRoundId, playerId, hole, scoredBy, holeScore);
-      storeLogger.debug('Score entry saved for mismatch detection', {
-        roundId: currentRoundId.substring(0, 8) + '...',
-        playerId: playerId.substring(0, 8) + '...',
-        hole,
-        scoredBy: scoredBy.substring(0, 8) + '...',
-      });
-    } catch (entryError) {
-      storeLogger.warn('Failed to save score entry for mismatch detection', {
-        error: entryError instanceof Error ? entryError.message : 'Unknown error',
-      });
-    }
   }
 }
 

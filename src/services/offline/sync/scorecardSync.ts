@@ -7,8 +7,8 @@
 
 import { supabase, getCurrentUser } from '@/services/supabase/client';
 import { invalidateHandicapCache } from '@/services/queryClient';
-import { saveScoreEntry } from '@/services/scoreMismatch';
-import type { Scorecard, PendingSync } from '@/types';
+import { saveScoreEntries } from '@/services/scoreMismatch';
+import type { Scorecard, PendingSync, HoleScore } from '@/types';
 import { isSingleBallScore } from '@/types/database/base';
 import { syncLogger, logScorecardSummary } from '@/utils/debugLogger';
 import { calculateScoreDifferential, getRatingsForGender } from '@/utils/handicapDifferential';
@@ -492,48 +492,72 @@ function calculateTotalParScore(
  * Sync score entries for mismatch detection
  */
 async function syncScoreEntries(scorecard: Scorecard): Promise<void> {
-  // Populate score_entries for mismatch detection (if scores have scoredBy attribution)
-  // This ensures offline scores are available for mismatch detection after reconnect
-  // NOTE: Only sync entries where the current user is the scorer (RLS policy requirement)
-  let scoreEntriesSynced = 0;
-  let entriesSkipped = 0;
+  // Populate score_entries for mismatch detection (if scores have scoredBy attribution).
+  // This ensures offline scores are available for mismatch detection after reconnect.
+  // NOTE: Only sync entries where the current user is the scorer (RLS policy requires
+  // scorer_id = auth.uid()); entries scored by others sync from those users' own devices.
+  //
+  // All of this scorecard's entries are pushed in a SINGLE batched upsert rather than
+  // one network call per hole. The per-hole loop previously fired up to 18 concurrent
+  // single-row upserts that contended for the same rows and hit the 8s statement
+  // timeout; batching collapses them into one short transaction. This is now the sole
+  // writer of score_entries — the per-keystroke write in scoreUpdateSlice was removed
+  // to eliminate the foreground/background race on these rows.
   const currentUser = await getCurrentUser();
   const currentUserId = currentUser?.id;
+
+  const entries: {
+    roundId: string;
+    playerId: string;
+    holeNumber: number;
+    scorerId: string;
+    score: HoleScore;
+  }[] = [];
+  let entriesSkipped = 0;
 
   for (const [holeNum, score] of Object.entries(scorecard.scores)) {
     if (score && isSingleBallScore(score) && score.strokes !== undefined && score.scoredBy) {
       // Only sync entries where current user was the scorer (RLS policy requires scorer_id = auth.uid())
-      // Entries scored by others will be synced when they sync their own device
       if (currentUserId && score.scoredBy !== currentUserId) {
         entriesSkipped++;
         continue;
       }
 
-      try {
-        await saveScoreEntry(
-          scorecard.roundId,
-          scorecard.playerId,
-          parseInt(holeNum),
-          score.scoredBy,
-          score
-        );
-        scoreEntriesSynced++;
-      } catch (entryError) {
-        // Non-critical - log but don't fail the sync
-        syncLogger.warn('Failed to save score entry during sync', {
-          error: entryError instanceof Error ? entryError.message : 'Unknown error',
-          holeNum,
-        });
-      }
+      entries.push({
+        roundId: scorecard.roundId,
+        playerId: scorecard.playerId,
+        holeNumber: parseInt(holeNum),
+        scorerId: score.scoredBy,
+        score,
+      });
     }
   }
 
-  if (scoreEntriesSynced > 0 || entriesSkipped > 0) {
+  if (entries.length === 0) {
+    if (entriesSkipped > 0) {
+      syncLogger.debug('Score entries synced for mismatch detection', {
+        roundId: scorecard.roundId.substring(0, 8) + '...',
+        playerId: scorecard.playerId.substring(0, 8) + '...',
+        entriesCount: 0,
+        entriesSkipped, // Skipped because scorer was another user
+      });
+    }
+    return;
+  }
+
+  try {
+    await saveScoreEntries(entries);
     syncLogger.debug('Score entries synced for mismatch detection', {
       roundId: scorecard.roundId.substring(0, 8) + '...',
       playerId: scorecard.playerId.substring(0, 8) + '...',
-      entriesCount: scoreEntriesSynced,
-      entriesSkipped: entriesSkipped, // Skipped because scorer was another user
+      entriesCount: entries.length,
+      entriesSkipped, // Skipped because scorer was another user
+    });
+  } catch (entryError) {
+    // Non-critical - log but don't fail the scorecard sync
+    syncLogger.warn('Failed to save score entries during sync', {
+      error: entryError instanceof Error ? entryError.message : 'Unknown error',
+      entriesCount: entries.length,
     });
   }
 }

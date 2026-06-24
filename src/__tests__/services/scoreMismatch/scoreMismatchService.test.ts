@@ -15,6 +15,7 @@
 import { supabase } from '@/services/supabase/client';
 import {
   saveScoreEntry,
+  saveScoreEntries,
   getRoundScoreEntries,
   getScorerEntries,
   isScorerComplete,
@@ -268,6 +269,64 @@ describe('Score Entry Operations', () => {
       await expect(
         saveScoreEntry(ROUND_ID, PLAYER_A_ID, 1, PLAYER_A_ID, createHoleScore())
       ).rejects.toThrow('Failed to save score entry: Database connection failed');
+    });
+  });
+
+  describe('saveScoreEntries()', () => {
+    const buildEntry = (holeNumber: number) => ({
+      roundId: ROUND_ID,
+      playerId: PLAYER_A_ID,
+      holeNumber,
+      scorerId: PLAYER_A_ID,
+      score: createHoleScore(),
+    });
+
+    it('should upsert all entries in a single batched call', async () => {
+      const mockChain = mockSupabaseSuccess(null);
+
+      await saveScoreEntries([buildEntry(1), buildEntry(2), buildEntry(3)]);
+
+      expect(supabase.from).toHaveBeenCalledWith('score_entries');
+      // One round-trip for the whole batch, not one per hole
+      expect(mockChain.upsert).toHaveBeenCalledTimes(1);
+      const [rows, options] = mockChain.upsert.mock.calls[0];
+      expect(Array.isArray(rows)).toBe(true);
+      expect(rows).toHaveLength(3);
+      expect(options).toEqual({ onConflict: 'round_id,player_id,hole_number,scorer_id' });
+    });
+
+    it('should not chain select() so the write returns minimal (no SELECT RLS eval)', async () => {
+      const mockChain = mockSupabaseSuccess(null);
+
+      await saveScoreEntries([buildEntry(1)]);
+
+      expect(mockChain.select).not.toHaveBeenCalled();
+    });
+
+    it('should be a no-op for an empty array (no network call)', async () => {
+      await saveScoreEntries([]);
+
+      expect(supabase.from).not.toHaveBeenCalled();
+    });
+
+    it('should throw validation error when a row is missing scorer ID', async () => {
+      await expect(
+        saveScoreEntries([{ ...buildEntry(1), scorerId: '' }])
+      ).rejects.toThrow('Round ID, Player ID, and Scorer ID are required');
+    });
+
+    it('should throw validation error for an out-of-range hole number', async () => {
+      await expect(saveScoreEntries([buildEntry(19)])).rejects.toThrow(
+        'Hole number must be between 1 and 18'
+      );
+    });
+
+    it('should handle database errors', async () => {
+      mockSupabaseError('Database connection failed');
+
+      await expect(saveScoreEntries([buildEntry(1)])).rejects.toThrow(
+        'Failed to save score entries: Database connection failed'
+      );
     });
   });
 
