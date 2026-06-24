@@ -671,12 +671,18 @@ export const AltShotScoreCard = React.memo(function AltShotScoreCard({
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <View style={styles.tallyRow}>
             {tally.map((t, i) => (
-              <Text key={i} style={[styles.tallyText, { color: colors.textSecondary }]}>
-                {t.name}
-                {' '}
-                {t.count}
-                {i < tally.length - 1 ? '  •  ' : ''}
-              </Text>
+              <React.Fragment key={i}>
+                <Text style={[styles.tallyText, { color: colors.textSecondary }]}>
+                  {t.name}
+                  {' '}
+                  {t.count}
+                </Text>
+                {i < tally.length - 1 ? (
+                  <Text style={[styles.tallyText, { color: colors.textSecondary }]}>
+                    {'  •  '}
+                  </Text>
+                ) : null}
+              </React.Fragment>
             ))}
           </View>
         </>
