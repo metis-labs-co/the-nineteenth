@@ -267,6 +267,7 @@ export function useCompetitionContributions(
     refetchTeams();
     scorecardResults.forEach((q) => q.refetch());
     holeResults.forEach((q) => q.refetch());
+    subMatchResults.forEach((q) => q.refetch());
   };
 
   return { board, isLoading, error, refetch };
