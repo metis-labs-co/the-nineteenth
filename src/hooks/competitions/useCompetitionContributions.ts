@@ -8,6 +8,7 @@ import { getCompetitionTeams } from '@/services/teams/teamQueries';
 import { contributionKeys } from '@/hooks/queryKeys';
 import { computeContributions } from '@/utils/contributions';
 import { isSingleBallScore } from '@/types/database/base';
+import { listSubMatchesForRound } from '@/services/subMatches';
 import type {
   ComputeContributionsInput,
   ContributionFormat,
@@ -15,10 +16,12 @@ import type {
   ContributionsBoard,
   ContributionTeamInput,
   HoleShotSlots,
+  AltShotPairInput,
 } from '@/utils/contributions';
 import type { Scorecard as DBScorecard } from '@/types/database/scorecard.types';
 import type { TeamWithMembers } from '@/types/database/team.types';
 import type { GameType, TeamFormat } from '@/types/database/enums';
+import type { SubMatch } from '@/types/database/round.types';
 
 interface UseCompetitionContributionsResult {
   board: ContributionsBoard | null;
@@ -36,8 +39,8 @@ function contributionFormat(round: {
   const gt = round.game_type;
   if (tf === 'best-ball' || gt === 'best-ball') return 'best-ball';
   if (tf === 'scramble' || gt === 'scramble') return 'scramble';
-  // Alt-shot is a single-ball team format like scramble; map to scramble contributions.
-  if (tf === 'alt-shot' || gt === 'alt-shot') return 'scramble';
+  // Alt-shot derives contributions per 2-player pair (see buildAltShotPairs).
+  if (tf === 'alt-shot' || gt === 'alt-shot') return 'alt-shot';
   if (tf === 'shamble' || gt === 'shamble') return 'shamble';
   if (tf === 'aggregate') return 'aggregate';
   return null;
@@ -106,6 +109,50 @@ function buildTeamInput(
   };
 }
 
+/** Build alt-shot pair inputs for a round from its sub-matches + scorecards.
+ *  Each sub-match side (team_a_player_ids / team_b_player_ids) is one pair that
+ *  shares a ball; both members hold identical ball scores, so read from the
+ *  first member whose card has scores. */
+function buildAltShotPairs(
+  subMatches: SubMatch[],
+  scorecards: DBScorecard[]
+): AltShotPairInput[] {
+  const cardByPlayer = new Map(scorecards.map((c) => [c.player_id, c]));
+  const pairs: AltShotPairInput[] = [];
+
+  for (const sm of subMatches) {
+    for (const side of [sm.team_a_player_ids, sm.team_b_player_ids]) {
+      if (!side || side.length < 2) continue;
+
+      const ballCard = side
+        .map((id) => cardByPlayer.get(id))
+        .find((c) => c && c.scores && Object.keys(c.scores).length > 0);
+
+      const strokesByHole: Record<number, number | undefined> = {};
+      let firstTee: string | undefined;
+
+      if (ballCard) {
+        for (const [holeStr, hs] of Object.entries(ballCard.scores ?? {})) {
+          if (!isSingleBallScore(hs)) continue;
+          const holeNum = Number(holeStr);
+          strokesByHole[holeNum] = hs.strokes;
+          if (holeNum === 1 && hs.shotContributions?.teeShot) {
+            firstTee = hs.shotContributions.teeShot;
+          }
+        }
+      }
+
+      pairs.push({
+        playerIds: side,
+        firstTeePlayerId: firstTee ?? side[0],
+        strokesByHole,
+      });
+    }
+  }
+
+  return pairs;
+}
+
 export function useCompetitionContributions(
   competitionId: string | undefined
 ): UseCompetitionContributionsResult {
@@ -145,6 +192,16 @@ export function useCompetitionContributions(
     })),
   });
 
+  const subMatchResults = useQueries({
+    queries: teamRounds.map(({ round, format }) => ({
+      queryKey: contributionKeys.subMatches(round.id),
+      queryFn: () => listSubMatchesForRound(round.id),
+      enabled: format === 'alt-shot',
+      staleTime: 1000 * 60 * 5,
+      gcTime: 1000 * 60 * 30,
+    })),
+  });
+
   const {
     data: teams,
     isLoading: teamsLoading,
@@ -161,13 +218,15 @@ export function useCompetitionContributions(
     compLoading ||
     teamsLoading ||
     scorecardResults.some((q) => q.isLoading) ||
-    holeResults.some((q) => q.isLoading);
+    holeResults.some((q) => q.isLoading) ||
+    subMatchResults.some((q) => q.isLoading);
 
   const error =
     (compError as Error | null) ??
     (teamsError as Error | null) ??
     (scorecardResults.find((q) => q.error)?.error as Error | undefined) ??
     (holeResults.find((q) => q.error)?.error as Error | undefined) ??
+    (subMatchResults.find((q) => q.error)?.error as Error | undefined) ??
     null;
 
   const board = useMemo<ContributionsBoard | null>(() => {
@@ -184,6 +243,10 @@ export function useCompetitionContributions(
             Object.keys(t.strokesByPlayerHole).length > 0 ||
             Object.keys(t.shotContributionsByHole ?? {}).length > 0
         );
+      const isAltShot = format === 'alt-shot';
+      const altShotPairs = isAltShot
+        ? buildAltShotPairs(subMatchResults[idx]?.data ?? [], cards)
+        : undefined;
       return {
         roundId: round.id,
         roundLabel: label,
@@ -191,12 +254,13 @@ export function useCompetitionContributions(
         gameType: round.game_type,
         holes: holeResults[idx]?.data ?? [],
         teams: teamInputs,
+        altShotPairs,
       };
     });
 
     const input: ComputeContributionsInput = { rounds };
     return computeContributions(input);
-  }, [isLoading, error, teamRounds, scorecardResults, holeResults, teams]);
+  }, [isLoading, error, teamRounds, scorecardResults, holeResults, teams, subMatchResults]);
 
   const refetch = () => {
     refetchComp();
