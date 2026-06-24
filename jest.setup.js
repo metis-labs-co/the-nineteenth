@@ -665,7 +665,7 @@ jest.mock('react-native-maps', () => require('./__mocks__/react-native-maps'));
 // TESTING LIBRARY MATCHERS
 // ============================================================================
 
-import '@testing-library/jest-native/extend-expect';
+import '@testing-library/react-native/extend-expect';
 
 // ============================================================================
 // CLEANUP AFTER EACH TEST
