@@ -1,5 +1,6 @@
 import type { GameType, TeamFormat, Hole } from '@/types';
 import { calculateTeamMatchData } from '@/components/scorecard/TeamMatchPlayScorecardTable/utils';
+import { calculateMatchStatus } from '@/screens/scoring/MatchPlayScoringScreen/utils/matchPlayCalculations';
 import type { MatchTeam } from '@/screens/scoring/TeamMatchPlayScoringScreen/types';
 
 /** Which scoring model a sub-match round uses for its per-match display. */
@@ -77,59 +78,29 @@ export function computeMatchPlaySubMatch(
   const team1 = toMatchSide(sides.a, 'a');
   const team2 = toMatchSide(sides.b, 'b');
   const calc = calculateTeamMatchData(holes, team1, team2, getStrokes);
-  const holeResults = calc.holeResults;
-  const hasScores = Object.values(holeResults).some((r) => r.winner !== null);
+  // Pass holes.length as totalHoles so dormie/close-out is detected for the
+  // round's actual hole count (the engine otherwise defaults to 18).
+  const status = calculateMatchStatus(calc.holeResults, holes.length);
+  const hasScores = Object.values(calc.holeResults).some((r) => r.winner !== null);
 
-  // Compute match status accounting for the actual number of holes in play
-  // (not the default 18) to detect dormie conditions correctly.
-  let player1Up = 0;
-  let holesPlayed = 0;
-  for (const result of Object.values(holeResults)) {
-    if (result?.winner) {
-      holesPlayed++;
-      if (result.winner === 'player1') {
-        player1Up++;
-      } else if (result.winner === 'player2') {
-        player1Up--;
-      }
-    }
-  }
-
-  const totalHoles = holes.length;
-  const holesRemaining = totalHoles - holesPlayed;
-  const absLead = Math.abs(player1Up);
-
-  // Check for early finish (dormie or beyond)
-  if (absLead > holesRemaining) {
-    const winner = player1Up > 0 ? 'player1' : 'player2';
-    const margin = `${absLead} & ${holesRemaining}`;
-    const leaderSide = winner === 'player1' ? 'a' : 'b';
-    return { statusText: normaliseMargin(margin), leaderSide, isComplete: true, hasScores };
-  }
-
-  // Check if all holes played
-  if (holesRemaining === 0) {
-    if (player1Up === 0) {
+  if (status.status === 'complete') {
+    if (status.winner === 'halved') {
       return { statusText: 'A/S', leaderSide: null, isComplete: true, hasScores };
     }
-    const winner = player1Up > 0 ? 'player1' : 'player2';
-    const leaderSide = winner === 'player1' ? 'a' : 'b';
     return {
-      statusText: normaliseMargin(`${absLead} up`),
-      leaderSide,
+      statusText: normaliseMargin(status.margin),
+      leaderSide: status.winner === 'player1' ? 'a' : 'b',
       isComplete: true,
       hasScores,
     };
   }
 
-  // Match in progress
-  if (player1Up === 0) {
+  if (status.leader === null) {
     return { statusText: 'A/S', leaderSide: null, isComplete: false, hasScores };
   }
-
   return {
-    statusText: `${absLead} UP`,
-    leaderSide: player1Up > 0 ? 'a' : 'b',
+    statusText: `${status.holesUp} UP`,
+    leaderSide: status.leader === 'player1' ? 'a' : 'b',
     isComplete: false,
     hasScores,
   };
