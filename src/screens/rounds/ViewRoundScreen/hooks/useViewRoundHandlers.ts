@@ -78,7 +78,18 @@ export function useViewRoundHandlers({
 
   // Navigation handlers
   const handleBack = useCallback(() => {
-    // If the previous screen in the stack is a scoring screen, go to round list instead
+    // Competition rounds always return to the competition detail → Rounds tab,
+    // regardless of how the user reached this screen (round list, scoring flow,
+    // deep link, etc.). navigate() pops back to the existing CompetitionDetail
+    // instance when present, or pushes a fresh one otherwise.
+    const compId = round?.competition?.id ?? competitionId;
+    if (compId) {
+      navigation.navigate('CompetitionDetail', { id: compId, initialTab: 'rounds' });
+      return;
+    }
+
+    // Standalone rounds: if the previous screen is a scoring screen, jump back
+    // to the main tabs rather than re-entering the scoring flow.
     const state = navigation.getState();
     const currentIndex = state.index;
     if (currentIndex > 0) {
@@ -93,7 +104,7 @@ export function useViewRoundHandlers({
       }
     }
     navigation.goBack();
-  }, [navigation]);
+  }, [navigation, round?.competition?.id, competitionId]);
 
   const handleScoreRound = useCallback(() => {
     if (isTeamMatchPlayRound) {

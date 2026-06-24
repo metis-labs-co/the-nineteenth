@@ -65,13 +65,22 @@ type TabValue =
 
 export default function CompetitionDetailScreen({ navigation, route }: Props) {
   const colors = useThemeColors();
-  const { id } = route.params;
+  const { id, initialTab } = route.params;
   const insets = useSafeAreaInsets();
   const tierLimits = useTierLimits();
   const isSuperAdmin = useIsSuperAdmin();
 
   // Tab state
-  const [activeTab, setActiveTab] = useState<TabValue>('details');
+  const [activeTab, setActiveTab] = useState<TabValue>(initialTab ?? 'details');
+
+  // When the screen is navigated back to with a new `initialTab` param (e.g. the
+  // round detail back button returning to the Rounds tab), the component is
+  // already mounted so the initial state above doesn't re-run — sync here.
+  React.useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
 
   // Lifted leaderboard state — lets the mini-leaderboard tap-through select a view
   const [leaderboardView, setLeaderboardView] = useState<'individual' | 'team'>(

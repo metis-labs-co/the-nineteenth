@@ -32,7 +32,24 @@ export type RootStackParamList = {
   MainTabs: NavigatorScreenParams<TabParamList> | undefined;
 
   // Competitions
-  CompetitionDetail: { id: string };
+  CompetitionDetail: {
+    id: string;
+    /**
+     * Optional tab to focus on mount / when navigated back to. Used by the
+     * round detail back button to return the user to the Rounds tab.
+     */
+    initialTab?:
+      | 'details'
+      | 'rounds'
+      | 'players'
+      | 'teams'
+      | 'leaderboard'
+      | 'bracket'
+      | 'stats'
+      | 'payouts'
+      | 'skins'
+      | 'breakdown';
+  };
   CreateCompetition: { initialState?: import('@/utils/aiToWizardState').WizardState } | undefined;
   AICompetition: undefined;
   CompetitionSettings: { competitionId: string };
