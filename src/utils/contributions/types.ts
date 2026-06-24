@@ -3,7 +3,7 @@ import type { GameType, TeamFormat } from '@/types/database/enums';
 import type { Hole } from '@/types';
 
 /** Formats that produce a meaningful team-contribution story. */
-export type ContributionFormat = 'best-ball' | 'scramble' | 'shamble' | 'aggregate';
+export type ContributionFormat = 'best-ball' | 'scramble' | 'shamble' | 'aggregate' | 'alt-shot';
 
 /** Shot slots attributed to players on a single hole (scramble/shamble). */
 export interface HoleShotSlots {
@@ -30,6 +30,16 @@ export interface ContributionTeamInput {
   shotContributionsByHole?: Record<number, HoleShotSlots>;
 }
 
+/** One alt-shot pair (2 players sharing a ball) for a round. */
+export interface AltShotPairInput {
+  /** The two players who share the ball. */
+  playerIds: string[];
+  /** Player who tees hole 1 (drives the alternation). */
+  firstTeePlayerId: string;
+  /** The pair's single-ball gross strokes per hole number. */
+  strokesByHole: Record<number, number | undefined>;
+}
+
 export interface ContributionRoundInput {
   roundId: string;
   roundLabel: string;
@@ -37,6 +47,8 @@ export interface ContributionRoundInput {
   gameType: GameType;
   holes: Hole[];
   teams: ContributionTeamInput[];
+  /** Alt-shot pairs for the round (only set when format === 'alt-shot'). */
+  altShotPairs?: AltShotPairInput[];
 }
 
 export interface ComputeContributionsInput {
