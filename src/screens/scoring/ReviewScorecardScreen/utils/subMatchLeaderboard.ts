@@ -2,6 +2,10 @@ import type { GameType, TeamFormat, Hole } from '@/types';
 import { calculateTeamMatchData } from '@/components/scorecard/TeamMatchPlayScorecardTable/utils';
 import { calculateMatchStatus } from '@/screens/scoring/MatchPlayScoringScreen/utils/matchPlayCalculations';
 import type { MatchTeam } from '@/screens/scoring/TeamMatchPlayScoringScreen/types';
+import { getStrokesReceived, calculateStablefordPoints } from '@/utils/scoring';
+import { computeAltShotTeamRoundScore } from '@/utils/teamScoring/altShot';
+import type { AltShotTeamMember } from '@/utils/teamScoring/altShot';
+import type { Scorecard } from '@/types/database/scorecard.types';
 
 /** Which scoring model a sub-match round uses for its per-match display. */
 export type SubMatchModel = 'match-play' | 'alt-shot' | 'aggregate' | 'best-ball';
@@ -104,4 +108,116 @@ export function computeMatchPlaySubMatch(
     isComplete: false,
     hasScores,
   };
+}
+
+export interface NetCardData {
+  /** Side A's net (alt-shot/aggregate) or points (best-ball); null if unscored. */
+  valueA: number | null;
+  valueB: number | null;
+  /** '' for net strokes, ' pts' for best-ball stableford. */
+  unit: '' | ' pts';
+  leaderSide: 'a' | 'b' | null;
+  /** Absolute lead magnitude (0 until both sides have scores). */
+  diff: number;
+  hasScores: boolean;
+}
+
+interface SideValue {
+  value: number;
+  hasScores: boolean;
+}
+
+/** Alt-shot pair net via the canonical engine (synthetic in-progress cards). */
+function altShotSideNet(players: SubMatchPlayer[], holes: Hole[], getStrokes: GetStrokes): SideValue {
+  const scores: Record<string, { strokes: number }> = {};
+  let holesScored = 0;
+  // Both partners share one ball; read from the first member.
+  const ballPlayerId = players[0]?.id;
+  for (const h of holes) {
+    const s = ballPlayerId ? getStrokes(ballPlayerId, h.number) : undefined;
+    if (typeof s === 'number' && s > 0) {
+      scores[String(h.number)] = { strokes: s };
+      holesScored++;
+    }
+  }
+  const synthetic = players.map(
+    (p) =>
+      ({ player_id: p.id, daily_handicap_used: p.handicap, scores, total_gross: 0 } as unknown as Scorecard)
+  );
+  const members: AltShotTeamMember[] = players.map((p) => ({ player_id: p.id, handicap: p.handicap }));
+  const result = computeAltShotTeamRoundScore(synthetic, members);
+  return { value: result.teamNet, hasScores: holesScored > 0 };
+}
+
+/** Aggregate net: sum of each member's per-hole net across scored holes. */
+function aggregateSideNet(players: SubMatchPlayer[], holes: Hole[], getStrokes: GetStrokes): SideValue {
+  let total = 0;
+  let scored = false;
+  for (const p of players) {
+    for (const h of holes) {
+      const s = getStrokes(p.id, h.number);
+      if (typeof s === 'number' && s > 0) {
+        total += s - getStrokesReceived(p.handicap, h.strokeIndex);
+        scored = true;
+      }
+    }
+  }
+  return { value: total, hasScores: scored };
+}
+
+/** Best-ball: sum of the best stableford points among the side per hole. */
+function bestBallSidePoints(players: SubMatchPlayer[], holes: Hole[], getStrokes: GetStrokes): SideValue {
+  let total = 0;
+  let scored = false;
+  for (const h of holes) {
+    let best: number | null = null;
+    for (const p of players) {
+      const s = getStrokes(p.id, h.number);
+      if (typeof s === 'number' && s > 0) {
+        const pts = calculateStablefordPoints(s, p.handicap, h);
+        if (best === null || pts > best) best = pts;
+      }
+    }
+    if (best !== null) {
+      total += best;
+      scored = true;
+    }
+  }
+  return { value: total, hasScores: scored };
+}
+
+function finalise(a: SideValue, b: SideValue, higherWins: boolean, unit: '' | ' pts'): NetCardData {
+  let leaderSide: 'a' | 'b' | null = null;
+  let diff = 0;
+  if (a.hasScores && b.hasScores && a.value !== b.value) {
+    const aLeads = higherWins ? a.value > b.value : a.value < b.value;
+    leaderSide = aLeads ? 'a' : 'b';
+    diff = Math.abs(a.value - b.value);
+  }
+  return {
+    valueA: a.hasScores ? a.value : null,
+    valueB: b.hasScores ? b.value : null,
+    unit,
+    leaderSide,
+    diff,
+    hasScores: a.hasScores || b.hasScores,
+  };
+}
+
+export function computeNetSubMatch(
+  model: Exclude<SubMatchModel, 'match-play'>,
+  sides: SubMatchSides,
+  holes: Hole[],
+  getStrokes: GetStrokes
+): NetCardData {
+  if (model === 'best-ball') {
+    return finalise(
+      bestBallSidePoints(sides.a, holes, getStrokes),
+      bestBallSidePoints(sides.b, holes, getStrokes),
+      true,
+      ' pts'
+    );
+  }
+  const sideNet = model === 'alt-shot' ? altShotSideNet : aggregateSideNet;
+  return finalise(sideNet(sides.a, holes, getStrokes), sideNet(sides.b, holes, getStrokes), false, '');
 }

@@ -1,4 +1,4 @@
-import { resolveSubMatchModel, computeMatchPlaySubMatch } from './subMatchLeaderboard';
+import { resolveSubMatchModel, computeMatchPlaySubMatch, computeNetSubMatch } from './subMatchLeaderboard';
 import type { Hole } from '@/types';
 
 describe('resolveSubMatchModel', () => {
@@ -61,5 +61,49 @@ describe('computeMatchPlaySubMatch', () => {
     expect(r.isComplete).toBe(true);
     expect(r.leaderSide).toBe('a');
     expect(r.statusText).toBe('7&2');
+  });
+});
+
+describe('computeNetSubMatch', () => {
+  const sides = {
+    a: [{ id: 'a1', name: 'Sam', handicap: 0 }, { id: 'a2', name: 'Al', handicap: 0 }],
+    b: [{ id: 'b1', name: 'Bob', handicap: 0 }, { id: 'b2', name: 'Ed', handicap: 0 }],
+  };
+
+  it('alt-shot: lower combined net leads, scratch pairs use raw gross', () => {
+    // Side A's shared ball: 4 on holes 1-2 (gross 8). Side B: 5,5 (gross 10).
+    const getStrokes = (pid: string, h: number) => {
+      if (h > 2) return undefined;
+      if (pid === 'a1' || pid === 'a2') return 4;
+      return 5;
+    };
+    const r = computeNetSubMatch('alt-shot', sides, NINE, getStrokes);
+    expect(r.valueA).toBe(8);
+    expect(r.valueB).toBe(10);
+    expect(r.leaderSide).toBe('a');
+    expect(r.diff).toBe(2);
+    expect(r.unit).toBe('');
+  });
+
+  it('best-ball: higher stableford points lead, unit is pts', () => {
+    // Par-4 holes, scratch. Side A makes 4 (par=2pts) on holes 1-2 => 4 pts.
+    // Side B makes 5 (bogey=1pt) on holes 1-2 => 2 pts.
+    const getStrokes = (pid: string, h: number) => {
+      if (h > 2) return undefined;
+      return pid.startsWith('a') ? 4 : 5;
+    };
+    const r = computeNetSubMatch('best-ball', sides, NINE, getStrokes);
+    expect(r.valueA).toBe(4);
+    expect(r.valueB).toBe(2);
+    expect(r.leaderSide).toBe('a');
+    expect(r.unit).toBe(' pts');
+  });
+
+  it('returns nulls and no leader before any scores', () => {
+    const r = computeNetSubMatch('aggregate', sides, NINE, () => undefined);
+    expect(r.valueA).toBeNull();
+    expect(r.valueB).toBeNull();
+    expect(r.leaderSide).toBeNull();
+    expect(r.hasScores).toBe(false);
   });
 });
