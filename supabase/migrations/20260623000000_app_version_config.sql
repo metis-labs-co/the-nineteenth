@@ -28,12 +28,17 @@ create policy "app_version_config_read"
   using (true);
 
 -- Seed both platforms inert (minimum == latest == current shipped version).
--- TODO(owner): replace store_url placeholders with real listing URLs.
+-- Seed/refresh store URLs. On conflict we update store_url (and bump
+-- updated_at) so re-running after the rows already exist still corrects the
+-- URL, but we deliberately leave minimum_version / latest_version / message
+-- untouched so any dashboard tuning of those is preserved.
 insert into public.app_version_config
   (platform, minimum_version, latest_version, store_url, message)
 values
   ('ios',     '1.13.1', '1.13.1',
-   'https://apps.apple.com/app/idREPLACE_ME', null),
+   'https://apps.apple.com/app/id6758835344', null),
   ('android', '1.13.1', '1.13.1',
-   'https://play.google.com/store/apps/details?id=REPLACE_ME', null)
-on conflict (platform) do nothing;
+   'https://play.google.com/store/apps/details?id=com.the.nineteenth.golf', null)
+on conflict (platform) do update
+  set store_url = excluded.store_url,
+      updated_at = now();
