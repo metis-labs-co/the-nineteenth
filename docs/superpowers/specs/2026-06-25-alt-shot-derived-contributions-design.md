@@ -34,9 +34,13 @@ Alt-shot **scoring does not use contributions at all**:
 Contributions in alt-shot today feed **display/stats only**:
 
 - The on-card per-player tally on `AltShotScoreCard` ("Alice 2 • Bob 2").
-- The in-round contribution leaderboard (`useContributionData`).
 - The competition contributions board (`computeContributions`, currently maps
-  alt-shot → `'scramble'` format).
+  alt-shot → `'scramble'` format and counts manually-entered slots).
+
+Note (corrected during planning): the **in-round** contribution leaderboard
+(`ContributionLeaderboard` / `useContributionData`) is **not** an alt-shot consumer —
+it only renders on the `scrambleContributions` tab (gated to `isScrambleRound`) and a
+shamble tab. Alt-shot rounds use the **Sub-Matches** tab. So it needs no changes.
 
 Therefore removing the manual UI carries **zero risk to scoring or sub-match results**.
 This is purely a stats/UX simplification.
@@ -114,15 +118,26 @@ derived numbers slot into the same display semantics.
 - Scramble / shamble / best-ball formats keep `ShotContributionSheet` unchanged — this
   change is alt-shot-only.
 
-#### 4. Rewire the two stats consumers for alt-shot
+#### 4. Competition contributions board — exact, pair-aware derivation
 
-Both already load scorecards, so they can read hole-1 `teeShot` + per-hole strokes and
-call the util on the alt-shot branch (instead of slot-counting / the current
-alt-shot→scramble mapping):
+The competition board (`computeContributions` + `useCompetitionContributions`) builds
+from the **big competition teams** (4 members), not the 2-player alt-shot pairs.
+Alternation is only meaningful within a pair, so the board must group each team's
+members into their 2-player pairs and derive per pair. Pairs come from the
+`sub_matches` table (`team_a_player_ids` / `team_b_player_ids`, each the pair sharing
+one ball), fetched per round via `listSubMatchesForRound(roundId)`.
 
-- In-round contribution leaderboard: `src/components/scorecard/ContributionLeaderboard/useContributionData.ts`
-- Competition contributions board: `src/utils/contributions/computeContributions.ts`
-  (and its caller `src/hooks/competitions/useCompetitionContributions.ts`)
+For each alt-shot round, build a per-pair input (pair player ids + the pair's ball
+strokes-by-hole + hole-1 `teeShot`, read from either pair member's scorecard — both
+hold the shared ball). A new `'alt-shot'` `ContributionFormat` routes to a
+`computeAltShotTeam` that, for each of the team's pairs, calls
+`deriveAltShotShotCounts` per hole and aggregates per player into the existing
+`drives/approaches/putts/total` shape. Metric label: "shots used" (same as scramble).
+
+Files: `src/utils/contributions/types.ts` (add `'alt-shot'` format + pair input type),
+`src/utils/contributions/computeContributions.ts` (alt-shot path),
+`src/hooks/competitions/useCompetitionContributions.ts` (fetch sub-matches, build pair
+inputs), `src/hooks/queryKeys` (sub-match query key).
 
 ### No scoring changes
 
@@ -169,10 +184,14 @@ Per hole display / stats:
 | File | Change |
 |------|--------|
 | `src/utils/teamScoring/altShotContributions.ts` | **New** — derivation util |
-| `src/utils/teamScoring/__tests__/altShotContributions.test.ts` | **New** — unit tests |
+| `src/utils/teamScoring/altShotContributions.test.ts` | **New** — unit tests |
 | `src/components/scorecard/AltShotScoreCard/AltShotScoreCard.tsx` | First-tee toggle (hole 1), derived tally, drop `ShotContributionSheet`, tee hint via util |
-| `src/components/scorecard/ContributionLeaderboard/useContributionData.ts` | Alt-shot branch derives instead of slot-counting |
-| `src/utils/contributions/computeContributions.ts` | Alt-shot derivation path (replace alt-shot→scramble slot-count) |
-| `src/hooks/competitions/useCompetitionContributions.ts` | Feed first-tee + strokes to the alt-shot path |
+| `src/components/scorecard/AltShotScoreCard/AltShotScoreCard.test.tsx` | Update for derived tally + toggle |
+| `src/screens/scoring/ScorecardEntryScreen/components/ScorecardScoreContent.tsx` | Compute + pass `firstTeePlayerId` per alt-shot team |
+| `src/utils/contributions/types.ts` | Add `'alt-shot'` format + alt-shot pair input type |
+| `src/utils/contributions/computeContributions.ts` | `computeAltShotTeam` pair-aware derivation path |
+| `src/hooks/competitions/useCompetitionContributions.ts` | Fetch sub-matches, build per-pair inputs |
+| `src/hooks/queryKeys.ts` | Sub-match contribution query key |
 
-No DB migration. No scoring-logic changes.
+No DB migration. No scoring-logic changes. In-round `ContributionLeaderboard` is **not**
+touched (not an alt-shot consumer).
