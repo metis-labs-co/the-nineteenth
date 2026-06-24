@@ -1,4 +1,4 @@
-# Per-Sub-Match Leaderboard for Split Alt Shot (Review Scorecard Screen)
+# Per-Match Leaderboard for Sub-Match Rounds (Review Scorecard Screen)
 
 **Date:** 2026-06-25
 **Status:** Approved design — ready for implementation plan
@@ -6,141 +6,180 @@
 
 ## Problem
 
-When scoring a **split 2v2 Alt Shot (Foursomes)** competition round, the
-Review Scorecard screen's **Leaderboard** tab does not show the sub-matches.
-A split round (8 players → 2 sub-matches) is a series of pair-vs-pair
-handicap-differential matches, but the leaderboard currently collapses each
-4-player team into one number.
+When scoring a round that is split into multiple **sub-matches**, the Review
+Scorecard screen's **Leaderboard** tab does not show those matches. Depending on
+the round type it shows the wrong thing or a collapsed aggregate:
 
-### Root cause
-
-`ReviewScorecardScreen` chooses one of three leaderboard branches from flags
-computed in `useReviewScorecardTabs`:
-
-- `isScramble` → `ScrambleLeaderboardTab`
-- `isMatchPlayTeam` (`team_format === 'match-play-team'`) → `MatchPlayLeaderboardTab`
-- else → `LeaderboardTabContent` (Team/Individual toggle, only for `best-ball`/`aggregate`)
-
-`isScramble` is defined to **include alt shot**:
-
-```ts
-// src/screens/scoring/ReviewScorecardScreen/hooks/useReviewScorecardTabs.ts
-const isScramble =
-  effectiveGameType === 'scramble' || roundDetails?.team_format === 'scramble'
-  || effectiveGameType === 'alt-shot' || roundDetails?.team_format === 'alt-shot';
-```
-
-So a split alt-shot round renders `ScrambleLeaderboardTab`, which lumps each
-team's 4 players into a single scramble-style team total (best-ball-per-hole) —
-neither sub-match-aware nor the correct alt-shot net formula. There is no
-per-match view here today.
+- **Split 2v2 Alt Shot** (`team_format='alt-shot'`, `round_format='split'`) trips
+  the `isScramble` flag and renders `ScrambleLeaderboardTab` — one wrong
+  scramble-style team total, no sub-match awareness.
+- **Singles Match Play** (`individual_match_play`: `game_type='match-play'`,
+  `is_team_round=false`, `round_format='split'`, `sub_match_size=1`) falls through
+  to `LeaderboardTabContent` and shows a plain **individual stroke leaderboard** —
+  no match status at all.
+- **Ryder-Cup Singles** (`ryder_cup_singles`: `team_format='match-play-team'`,
+  `round_format='split'`, `sub_match_size=1`) trips `isMatchPlayTeam` and renders
+  `MatchPlayLeaderboardTab`, which treats the round as **one combined
+  team-vs-team match** (best contributor per hole) and ignores the per-player 1v1
+  sub-matches entirely.
+- **Best-ball / aggregate splits** render `LeaderboardTabContent`, which sums all
+  sub-matches into a single team total (no per-match breakdown).
 
 The **View Round** screen already has a rich per-sub-match display
-(`SubMatchCard` + `PairsAggregateHeader` inside `SubMatchesTab.tsx`), but it
-reads **saved** scorecards (`useRoundScorecards`) and lives on a different
-screen — it cannot show the in-progress scores being entered in the Review
-flow.
+(`SubMatchCard` + `PairsAggregateHeader` inside `SubMatchesTab.tsx`), but it reads
+**saved** scorecards (`useRoundScorecards`) on a different screen — it can't show
+the in-progress scores being entered in the Review flow.
+
+### Routing today (`ReviewScorecardScreen/index.tsx` + `useReviewScorecardTabs`)
+
+```
+isScramble      → ScrambleLeaderboardTab      (includes alt-shot)
+isMatchPlayTeam → MatchPlayLeaderboardTab     (team_format === 'match-play-team')
+else            → LeaderboardTabContent       (Team/Individual; toggle only for best-ball/aggregate)
+```
 
 ## Goal
 
-In the Review Scorecard screen's Leaderboard tab, for **split alt shot rounds
-only**, replace the (incorrect) scramble team total with **one card per
-sub-match**, each showing the two pairs, each pair's live net total, and the
-current match status — plus an overall **Team A vs Team B** Ryder-cup point
-tally at the top.
+For **any round that has sub-matches**, the Leaderboard tab shows **one row/card
+per sub-match**, with the card style forking by **scoring model**:
+
+- **Match-play sub-matches** (`game_type='match-play'`) → a **centered
+  match-play row**: player/side names flanking a big bold status, leader-coloured.
+- **Net / points sub-matches** (alt shot, aggregate, best-ball) → a **pair card**
+  showing each pair's net (or stableford points) with a "Team A leads by N" line.
+
+Plus, for team/competition rounds with multiple sub-matches, an **overall
+Team A vs Team B header** tallying Ryder-cup points (1 / 0.5 / 0 per decided
+sub-match).
+
+### Confirmed decisions
+
+- **Match-play row:** names flank a big bold **centered** status; in-progress
+  shows `X UP` / `A/S`; a completed match shows the final golf margin (e.g.
+  `3&2`). Status is coloured by the **leading side's team colour** (neutral when
+  all square). Left name = `team_a` side, right name = `team_b` side.
+- **Scope = rounds with sub-matches only.** Combined Team Match Play
+  (`match-play-team`, `round_format='combined'`, no sub-matches), scramble,
+  combined alt shot, and individual leaderboards are **untouched**.
+- **Net/points cards** apply to all non-match-play splits: alt shot & aggregate
+  show net totals ("leads by N"); best-ball shows stableford points
+  ("leads by N pts").
 
 ### Non-goals
 
-- No change to scramble, best-ball, aggregate, match-play-team, combined alt
-  shot, or individual leaderboards.
-- No change to how alt-shot scores are entered or stored.
-- No change to finalization / saved-result logic.
-- Not generalising to all split team formats in this pass (best-ball split
-  already aggregates sub-matches into team totals via `LeaderboardTabContent`);
-  the new component is alt-shot-split-scoped, though built so it could be
-  extended later.
+- No change to how scores are entered/stored, or to finalization logic.
+- No change to combined Team Match Play, scramble, combined alt shot, or
+  individual stroke/stableford leaderboards.
+- No new Individual-view toggle inside the per-match tab (possible later
+  enhancement; see Open items).
 
-## Scope / Gate
+## Round taxonomy (in scope)
 
-Applies when **all** are true:
+| Round | game_type | team_format | round_format | sub_match_size | Sub-match sides | Card style |
+|-------|-----------|-------------|--------------|----------------|-----------------|-----------|
+| Singles Match Play | match-play | null | split | 1 | 1 vs 1 | match-play row |
+| Ryder-Cup Singles | match-play | match-play-team | split | 1 | 1 vs 1 | match-play row + overall |
+| Split 2v2 Alt Shot | alt-shot | alt-shot | split | 2 | pair vs pair | net card + overall |
+| Best-ball split | (stroke/stableford) | best-ball | split | 2 | pair vs pair | points card + overall |
+| Aggregate split | (stroke) | aggregate | split | 2 | pair vs pair | net card + overall |
 
-- `roundDetails.team_format === 'alt-shot'`
-- `roundDetails.round_format === 'split'`
-- sub-matches exist for the round (`useSubMatches(roundId)` returns ≥ 1)
+**Out of scope (unchanged):** combined Team Match Play, scramble, combined alt
+shot, individual stroke/stableford/par.
 
-A new flag `isSplitAltShot` captures this. Combined alt shot
-(`round_format === 'combined'`) and any non-alt-shot round are unaffected.
+## Scope gate
+
+A round is "sub-match scored" when `roundDetails.round_format === 'split'`. The
+new tab owns the `useSubMatches(roundId)` query; if it returns zero sub-matches
+(mis-seeded round) it shows an empty state rather than crashing.
+
+A new flag `isSubMatchRound` (= `round_format === 'split'`) is added to
+`useReviewScorecardTabs` and routes to the new tab **ahead of** the `isScramble`
+and `isMatchPlayTeam` branches so it wins for split alt shot and Ryder-Cup
+singles:
+
+```tsx
+{activeTab === 'leaderboard' && isSubMatchRound && (
+  <SubMatchLeaderboardTab ... />
+)}
+{activeTab === 'leaderboard' && !isSubMatchRound && isScramble && ( ... )}
+{activeTab === 'leaderboard' && !isSubMatchRound && !isScramble && isMatchPlayTeam && ( ... )}
+{activeTab === 'leaderboard' && !isSubMatchRound && !isScramble && !isMatchPlayTeam && ( ... )}
+```
 
 ## Design
 
-### 1. Routing (`ReviewScorecardScreen/index.tsx` + `useReviewScorecardTabs`)
-
-- Add `isSplitAltShot` to the flags returned by `useReviewScorecardTabs`
-  (alt-shot + split). Sub-match presence is checked inside the tab (it owns the
-  `useSubMatches` query) to keep the hook free of extra fetches; an empty
-  sub-match list falls back to an empty state.
-- In `index.tsx`, add the leaderboard branch **before** the `isScramble` check
-  so it takes precedence:
-
-  ```tsx
-  {activeTab === 'leaderboard' && isSplitAltShot && (
-    <SubMatchLeaderboardTab ... />
-  )}
-  {activeTab === 'leaderboard' && !isSplitAltShot && isScramble && ( ... )}
-  ```
-
-  (Equivalent: add `&& !isSplitAltShot` to the existing scramble guard.)
-
-### 2. New component: `SubMatchLeaderboardTab`
+### 1. `SubMatchLeaderboardTab` (new)
 
 Location: `src/screens/scoring/ReviewScorecardScreen/components/SubMatchLeaderboardTab.tsx`
 (exported from the components `index`).
 
 Props (mirroring the other leaderboard tabs):
 
-- `roundId: string`
-- `competitionId?: string | null`
+- `roundId: string`, `competitionId?: string | null`
+- `gameType: GameType`, `teamFormat?: TeamFormat | null`
 - `holes: Hole[]`
 - `getPlayerScore: (playerId, holeNumber) => HoleScore | MultiBallHoleScore | undefined`
+- `selectedTeeData`, `handicapSource` (needed to compute per-player net / strokes
+  received for match-play and net cards — same inputs the scorecard tabs use)
 - `currentUserId?: string`
-- `isRefreshing: boolean`, `onRefresh: () => void`, `bottomInset: number`
+- `isRefreshing`, `onRefresh`, `bottomInset`
 
 Behaviour:
 
-- `useSubMatches(roundId)` for the pair structure; `useRoundTeams(competitionId, true, roundId)`
-  for team names + colours (reuse `getTeamColorHex`, `labelForSide` semantics).
-- For each sub-match, compute **each pair's live net** from in-progress scores.
-- Render: an overall header + one card per sub-match. Loading and empty states
-  handled (empty → reuse `EmptyState`).
+1. `useSubMatches(roundId)` → ordered `SubMatch[]` (the match structure).
+2. `useRoundTeams(competitionId, true, roundId)` → team names + colours
+   (`teamColorByPlayer`, `labelForSide` semantics reused from `SubMatchesTab`).
+3. Determine **scoring model** from `gameType`/`teamFormat`:
+   `match-play` → match-play rows; `alt-shot`/`aggregate` → net cards; `best-ball`
+   → points cards.
+4. Render: optional overall header (when ≥2 teams) + one item per sub-match.
+5. Loading + empty states (reuse `GolfBallLoader`, `EmptyState`).
 
-### 3. Live net computation (consistency-critical)
+### 2. Per-sub-match computation (one source of truth per model)
 
-Both partners in an alt-shot pair store the **identical shared ball score**
-(`handleTeamScoreSelect` writes the same strokes to every member's scorecard),
-so reading either partner via `getPlayerScore` yields the pair's gross.
+All numbers are computed **live** from in-progress `getPlayerScore`, but each
+model **reuses the canonical util** so the live value matches the finalized
+result (no parallel formulas that can drift).
 
-To guarantee the live number **matches the finalized result**, reuse the
-canonical `computeAltShotTeamRoundScore` (`src/utils/teamScoring/altShot.ts`)
-rather than re-deriving a net formula that could drift. Approach: build a
-**synthetic `Scorecard`** per pair from the in-progress scores (populate
-`player_id`, `daily_handicap_used`/handicap, and a `scores` map assembled by
-iterating `holes` and calling `getPlayerScore`), then call
-`computeAltShotTeamRoundScore(syntheticScorecards, members)` to get
-`{ teamGross, teamNet, holesCompleted, ... }`.
+- **Match play** (`determineHoleWinner` + `calculateMatchStatus`, or
+  `calculateTeamMatchData` with single-member sides — plan picks the cleanest):
+  for each hole compare the two sides' **net** strokes (using
+  `getStrokesReceived(playerHandicap, hole.strokeIndex)`); accumulate
+  up/down; produce `{ leader: 'a'|'b'|null, holesUp, statusText, isComplete,
+  margin }`. `statusText` = `A/S` when level, `N UP` in progress, golf margin
+  (`3&2`, `2 UP`) when mathematically decided/complete.
+- **Alt shot net** (`computeAltShotTeamRoundScore`): build a synthetic
+  `Scorecard` per pair from in-progress scores (both partners hold the identical
+  shared ball score; read one per pair) and call the canonical function →
+  `{ teamNet, holesCompleted }`. 50%-combined handicap, floored, capped at 18 —
+  no per-hole reinvention. Lower net wins.
+- **Aggregate net:** sum of each pair member's net total (reuse the
+  `netTotalByPlayer` approach from `SubMatchesTab`). Lower wins.
+- **Best-ball points:** sum of best stableford points per hole per side (reuse
+  the `computeBestForSide` logic from `SubMatchesTab.bestBallData`). Higher wins.
 
-- A pair with no scores yet → treated as "no score" (status shows "Not started"
-  / dashes), not net 0.
-- Handicap allowance follows the canonical function (50% of combined handicaps,
-  floored, capped at 18) — **do not** invent a per-hole allocation here.
+A side with no usable scores yet → "not started" (dashes), contributes nothing to
+the overall tally.
 
-The exact shape of the synthetic-scorecard helper (and whether to extract a
-shared `computeAltShotPairLiveNet` util) is for the plan to finalise; the
-constraint is: **one source of truth for alt-shot net**, reused live and at
-finalization.
+### 3. Match-play row (presentation)
 
-### 4. Sub-match card + overall header (presentation)
+```
+  Sam  ●        2 UP        ●  Bob      (2 UP in Sam's team colour)
+  Joe  ●        A/S         ●  Tim      (neutral)
+  Amy  ●        3&2         ●  Lee      (final — Amy's team colour)
+```
 
-Per the approved mock:
+- Left name = `team_a_player_ids` side; right = `team_b_player_ids` side
+  (joined names for the rare multi-player match-play side).
+- Center: big, bold status. In-progress `N UP`/`A/S`; completed → final margin.
+- Colour: leading side's team colour (`teamColorByPlayer`, fallback to two fixed
+  accents — `colors.primary` / `colors.error` — for standalone singles with no
+  teams). All-square → neutral `textSecondary`.
+- "You" affordance: the current user's name is emphasised if present on a side.
+
+### 4. Net / points pair card (presentation)
+
+Per the approved mock (carried from the original alt-shot design):
 
 ```
 ┌─ Sub-Match 1 ───────────────┐
@@ -150,80 +189,106 @@ Per the approved mock:
 └──────────────────────────────┘
 ```
 
-- Each pair row: team colour dot, pair label (`labelForSide` → real team name
-  when both players share a team, else "Team A"/"Team B"), and live net.
-- Status line: **lower net wins**. "Team A leads by N", "Team B leads by N", or
-  "All square". Before any scores: "Not started".
-- Overall header (top): **Team A *X* – *Y* Team B**, where each decided
-  sub-match awards **1 point to the leading pair, 0.5 each if level** (Ryder-cup
-  scoring per the round preset's `pair_points: { win: 1, tie: 0.5, loss: 0 }`).
-  Undecided/unstarted sub-matches contribute 0 until they have a net on both
-  sides. Visual style follows the existing `PairsAggregateHeader`.
+- Pair row: team colour dot, pair label (`labelForSide` → real team name when
+  both share a team, else "Team A"/"Team B"), and live net (or `N pts` for
+  best-ball).
+- Status line: lower net (or higher points) wins → "Team A leads by N" /
+  "All square" / "Not started".
 
-### 5. Reuse vs. new code
+### 5. Overall header (team rounds)
 
-`SubMatchCard` and `PairsAggregateHeader` currently live **inside**
-`SubMatchesTab.tsx` (not exported) and are wired to saved scorecards.
+Shown when `useRoundTeams` yields ≥2 teams (i.e. competition/team rounds;
+standalone 2-player singles has none → header omitted).
 
-- **Preferred:** if the presentational card extracts cleanly (props: pair
-  labels, dot colours, two net values, status text), lift it into a shared
-  component (e.g. `src/components/rounds/SubMatchResultCard.tsx`) consumed by
-  both the live tab and `SubMatchesTab`, with the data/handicap logic kept out
-  of the presentational layer.
-- **Fallback:** if extraction would entangle the saved-scorecard wiring, keep a
-  self-contained card inside `SubMatchLeaderboardTab` that reproduces the
-  layout, leaving the saved path untouched.
+- **Team A *X* – *Y* Team B**, each decided sub-match awarding **1 to the leader,
+  0.5 each if level** (Ryder-cup, per the presets' `pair_points`/no-points
+  rules). Undecided/unstarted sub-matches contribute 0.
+- Visual style follows the existing `PairsAggregateHeader`.
 
-The plan picks one based on how cleanly `SubMatchCard`'s presentation separates
-from its `SubMatchesTab` data dependencies. Decoupling the live and saved paths
-is the priority.
+### 6. Reuse vs. new code
+
+`SubMatchCard`, `PairsAggregateHeader`, `labelForSide`, `formatStatus`,
+`resultToColor` live **inside** `SubMatchesTab.tsx` (not exported) and are wired
+to saved scorecards. Two presentational pieces are worth extracting into shared
+components consumed by both the live tab and `SubMatchesTab`:
+
+- `SubMatchNetCard` (net/points pair card) — preferred extraction from
+  `SubMatchCard`'s presentation, leaving data/handicap logic out of the view.
+- `MatchPlayMatchRow` (centered match-play row) — new; no clean equivalent today
+  (the closest is `MatchPlayLeaderboard`, which is team-aggregate-shaped).
+
+If extracting `SubMatchCard` cleanly would entangle the saved-scorecard wiring,
+fall back to self-contained components inside `SubMatchLeaderboardTab` that
+reproduce the layout, keeping the live and saved paths decoupled. The plan
+decides per the actual coupling. Decoupling is the priority over DRY.
+
+The **canonical computation utils** (`computeAltShotTeamRoundScore`,
+`calculateMatchStatus`/`determineHoleWinner`/`calculateTeamMatchData`,
+stableford/best-ball helpers, `getStrokesReceived`, `getTeamColorHex`) are reused
+as-is — not reimplemented.
 
 ## Data flow
 
 ```
 ReviewScorecardScreen
   useScoreReview ──► getPlayerScore (in-progress, zustand scorecardStore)
-  useReviewScorecardTabs ──► isSplitAltShot, roundDetails
+  useReviewScorecardTabs ──► isSubMatchRound, gameType, teamFormat, roundDetails
         │
-        ▼ (leaderboard tab, isSplitAltShot)
+        ▼ (leaderboard tab, isSubMatchRound)
   SubMatchLeaderboardTab
-    useSubMatches(roundId) ─────────► [SubMatch] (pair structure)
+    useSubMatches(roundId) ─────────► [SubMatch] (match structure)
     useRoundTeams(compId, roundId) ─► team names + colours
-    holes + getPlayerScore ─────────► synthetic Scorecards per pair
-        └─► computeAltShotTeamRoundScore ─► per-pair { teamNet, holesCompleted }
-    ──► overall Ryder-cup header + per-sub-match cards
+    holes + getPlayerScore + tee/handicap
+        ├─ match-play model ─► calculateMatchStatus  ─► MatchPlayMatchRow
+        ├─ alt-shot/aggregate ─► net per pair        ─► SubMatchNetCard
+        └─ best-ball ─► stableford points per side    ─► SubMatchNetCard (pts)
+    ──► optional overall Ryder-cup header + per-sub-match items
 ```
 
 ## Error / edge handling
 
-- **No sub-matches** (mis-seeded round): empty state, no crash.
-- **Partial scores:** pairs with no usable score show "Not started"; a
-  sub-match contributes 0 to the overall tally until both pairs have a net.
+- **No sub-matches** on a split round: empty state, no crash.
+- **Partial / no scores:** sides show "not started"; sub-match contributes 0 to
+  the overall tally until decided.
 - **Missing team rosters / colours:** fall back to "Team A"/"Team B" labels and
-  the legacy success/error dot colours (mirrors `SubMatchCard`).
-- **Offline:** reads only in-progress store + already-cached sub-match/team
-  queries; no new network dependency on the scoring path. Pull-to-refresh wired
-  to `onRefresh` like the other tabs.
+  fixed accent colours (mirrors `SubMatchCard`); standalone singles render fine
+  without teams.
+- **Offline:** reads only the in-progress store + already-cached
+  sub-match/team queries; no new network dependency on the scoring path.
+  Pull-to-refresh wired to `onRefresh`.
+- **Multi-player match-play side** (defensive): join names; status logic unchanged.
 
 ## Testing
 
-- **Unit (net/status logic):** given holes + a `getPlayerScore` stub, the
-  per-pair net matches `computeAltShotTeamRoundScore` on the equivalent saved
-  scorecards; status string resolves correctly (A leads / B leads / all square /
-  not started); overall tally awards 1 / 0.5 / 0 correctly across mixed states.
-- **Component:** `SubMatchLeaderboardTab` renders one card per sub-match with
-  correct labels and nets from a stubbed `getPlayerScore`; empty state when no
-  sub-matches.
-- **Routing:** a split alt-shot round renders `SubMatchLeaderboardTab`, not
-  `ScrambleLeaderboardTab`; combined alt shot still renders the scramble tab;
-  scramble/best-ball/match-play unaffected.
-- Diff against the known-noisy jest baseline (≈243 pre-existing failures on
-  main) rather than expecting a green suite.
+- **Unit — match-play status:** given holes + a `getPlayerScore` stub, status
+  resolves to `A/S` / `N UP` / final margin correctly and matches the canonical
+  match-play util; leader side is right; completed detection (dormie / decided)
+  matches.
+- **Unit — net/points:** per-pair alt-shot net matches
+  `computeAltShotTeamRoundScore` on equivalent saved scorecards; aggregate sums
+  pair nets; best-ball sums best stableford per hole; "leads by N" sign correct.
+- **Unit — overall tally:** awards 1 / 0.5 / 0 across mixed decided/undecided
+  sub-matches; omitted when <2 teams.
+- **Component:** `SubMatchLeaderboardTab` renders one item per sub-match with the
+  correct style per model (match-play row vs net card), correct labels/colours
+  from stubs; empty state when no sub-matches.
+- **Routing:** split alt shot → new tab (not scramble); singles match play → new
+  tab (not individual leaderboard); Ryder-cup singles → new tab (not the combined
+  MatchPlayLeaderboardTab); combined team match play / scramble / combined alt
+  shot / individual all unchanged.
+- Diff against the known-noisy jest baseline (≈243 pre-existing failures on main)
+  rather than expecting a green suite.
 
 ## Open items for the plan
 
-1. Extract a shared `SubMatchResultCard` vs. self-contained card (§5).
-2. Exact synthetic-scorecard helper shape and whether to add a
-   `computeAltShotPairLiveNet` wrapper in `teamScoring` (§3).
-3. Whether `isSplitAltShot` also guards the existing scramble branch via
-   `&& !isSplitAltShot` or via reordered conditions (§1).
+1. Match-play computation: reuse `calculateTeamMatchData` with single-member
+   sides vs. `determineHoleWinner` + `calculateMatchStatus` directly — pick the
+   path that best matches the saved/finalized result.
+2. Extract shared `SubMatchNetCard` from `SubMatchCard` vs. self-contained card
+   (§6), based on actual coupling to `SubMatchesTab`.
+3. Synthetic-scorecard helper shape for alt-shot live net; whether to add a
+   `computeAltShotPairLiveNet` wrapper in `teamScoring`.
+4. Whether `isSubMatchRound` guards the older branches via reordered conditions
+   or explicit `&& !isSubMatchRound` (§ scope gate).
+5. Possible future: an Individual-net view toggle inside the per-match tab
+   (deferred; not in this pass).
