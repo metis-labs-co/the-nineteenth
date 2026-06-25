@@ -61,6 +61,39 @@ export function isPickupScore(
 }
 
 /**
+ * WHS net-double-bogey offset used as the maximum score for handicap purposes.
+ * Net double bogey = par + 2 (double bogey) + strokes received on the hole.
+ */
+export const NET_DOUBLE_BOGEY_OFFSET = 2;
+
+/**
+ * Resolve the effective gross strokes for a hole under WHS "most likely score"
+ * handling, used for gross/net/differential totals.
+ *
+ * - Not played (no score, zero, or negative): returns `null` so the hole is
+ *   excluded from totals.
+ * - Pickup (strokes at or above PICKUP_SCORE — the app's max-strokes sentinel):
+ *   the player did not hole out, so WHS records net double bogey
+ *   (`par + 2 + strokesReceived`) rather than the raw sentinel or nothing.
+ * - Completed hole below the pickup threshold: the actual strokes.
+ *
+ * Net double bogey is exactly the threshold for 0 Stableford points / a lost
+ * Par-game hole, so callers can pass the result straight into the points
+ * helpers and get the same result as treating the hole as a blow-up.
+ */
+export function getEffectiveGrossStrokes(
+  strokes: number | undefined | null,
+  par: number,
+  strokesReceived: number
+): number | null {
+  if (!strokes || strokes <= 0) return null;
+  if (strokes >= PICKUP_SCORE) {
+    return par + NET_DOUBLE_BOGEY_OFFSET + strokesReceived;
+  }
+  return strokes;
+}
+
+/**
  * Calculate net score for a hole in stroke play
  */
 export function calculateNetScore(

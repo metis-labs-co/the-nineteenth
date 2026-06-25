@@ -10,10 +10,10 @@ import {
   getStrokesReceived,
   calculateStablefordPointsNet,
   calculateParScore,
+  getEffectiveGrossStrokes,
 } from '@/utils/scoring';
 import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
 import { getBaseHandicap } from '@/utils/scorecardCalculations';
-import { PICKUP_SCORE } from '@/constants/scoring';
 
 /**
  * Optional round-level context used to compute the correct WHS daily
@@ -89,15 +89,23 @@ export function calculatePlayerTotals(
     if (!rawHoleScore) continue;
 
     // Get strokes based on score type
-    const strokes = isSingleBallScore(rawHoleScore)
+    const rawStrokes = isSingleBallScore(rawHoleScore)
       ? rawHoleScore.strokes
       : rawHoleScore.balls?.[0]?.strokes; // Use first ball for multi-ball
 
-    if (!strokes || strokes <= 0 || strokes === PICKUP_SCORE) continue;
+    if (!rawStrokes || rawStrokes <= 0) continue;
+
+    const strokesReceived = getStrokesReceived(effectiveHandicap, hole.strokeIndex);
+
+    // Pickups (>= PICKUP_SCORE) score net double bogey for handicap purposes
+    // (WHS "most likely score"), rather than being dropped from the total.
+    // Completed holes use their actual strokes. This keeps the stored gross /
+    // net / differential consistent with the scorecard view.
+    const strokes = getEffectiveGrossStrokes(rawStrokes, hole.par, strokesReceived);
+    if (strokes == null) continue;
 
     totalGross += strokes;
 
-    const strokesReceived = getStrokesReceived(effectiveHandicap, hole.strokeIndex);
     const netStrokes = strokes - strokesReceived;
 
     if (gameType === 'stableford') {

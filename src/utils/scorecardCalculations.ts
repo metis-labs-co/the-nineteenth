@@ -10,7 +10,12 @@ import type { MultiBallHoleScore } from '@/types/database/base';
 import type { PlayerGender } from '@/types/database/player.types';
 import type { HandicapSource } from '@/types/database/enums';
 import { isSingleBallScore } from '@/types/database/base';
-import { getStrokesReceived, calculateStablefordPointsNet, calculateParScore } from './scoring';
+import {
+  getStrokesReceived,
+  calculateStablefordPointsNet,
+  calculateParScore,
+  getEffectiveGrossStrokes,
+} from './scoring';
 import { calculateGADailyHandicap } from './dailyHandicap';
 
 // =====================================================
@@ -188,10 +193,13 @@ export function calculatePlayerStats(
     safeHoles.forEach((hole) => {
       const score = scores?.[String(hole.number)];
       // Only process single-ball scores (for multi-ball, we'd use ball_totals)
-      const strokes = score && isSingleBallScore(score) ? score.strokes : 0;
-      if (strokes > 0) hasScores = true;
+      const rawStrokes = score && isSingleBallScore(score) ? score.strokes : 0;
       // Use daily handicap for strokes received calculation
       const strokesReceived = getStrokesReceived(dailyHandicap, hole.strokeIndex);
+      // Pickups (>= PICKUP_SCORE) count as net double bogey (WHS "most likely
+      // score"), matching the stored gross/differential and the scorecard view.
+      const strokes = getEffectiveGrossStrokes(rawStrokes, hole.par, strokesReceived) ?? 0;
+      if (strokes > 0) hasScores = true;
       const stablefordPoints =
         strokes > 0 ? calculateStablefordPointsNet(strokes, hole.par, strokesReceived) : 0;
       // Calculate par score (+1, 0, -1) for this hole

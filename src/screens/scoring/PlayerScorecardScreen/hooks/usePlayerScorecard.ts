@@ -13,6 +13,7 @@ import { useRoundScorecards, useRoundDetails } from '@/hooks/rounds/queries';
 import {
   getStrokesReceived,
   calculateStablefordPointsNet,
+  getEffectiveGrossStrokes,
 } from '@/utils/scoring';
 import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
 import { getBaseHandicap } from '@/utils/scorecardCalculations';
@@ -317,16 +318,20 @@ export function usePlayerScorecard(playerId: string, roundId?: string): UsePlaye
     let totalGIRPossible = 0;
 
     holeRowData.forEach((data) => {
-      const { hole, strokes, putts, stablefordPoints, fairwayHit, greenInRegulation, isPickup } = data;
+      const { hole, strokes, putts, stablefordPoints, strokesReceived, fairwayHit, greenInRegulation, isPickup } = data;
+
+      // Pickups count as net double bogey (WHS "most likely score"), matching the
+      // stored gross/differential — not the raw pickup sentinel.
+      const grossStrokes = getEffectiveGrossStrokes(strokes, hole.par, strokesReceived);
 
       if (hole.number <= 9) {
         front9Par += hole.par;
-        if (strokes) front9Gross += strokes;
+        if (grossStrokes != null) front9Gross += grossStrokes;
         front9Stableford += stablefordPoints;
         if (putts) front9Putts += putts;
       } else {
         back9Par += hole.par;
-        if (strokes) back9Gross += strokes;
+        if (grossStrokes != null) back9Gross += grossStrokes;
         back9Stableford += stablefordPoints;
         if (putts) back9Putts += putts;
       }
