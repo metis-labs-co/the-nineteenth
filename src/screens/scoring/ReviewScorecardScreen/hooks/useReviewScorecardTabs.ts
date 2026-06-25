@@ -49,6 +49,7 @@ export function useReviewScorecardTabs({ roundId, storeGameType, playerCount }: 
   const isShamble = effectiveGameType === 'shamble' || roundDetails?.team_format === 'shamble';
   const isBestBall = roundDetails?.team_format === 'best-ball';
   const isMatchPlayTeam = roundDetails?.team_format === 'match-play-team';
+  const isSubMatchRound = roundDetails?.round_format === 'split';
 
   // Check for active skins game
   const { data: skinsGame } = useActiveSkinsGameForRound(roundId || undefined);
@@ -191,6 +192,7 @@ export function useReviewScorecardTabs({ roundId, storeGameType, playerCount }: 
     isShamble,
     isBestBall,
     isMatchPlayTeam,
+    isSubMatchRound,
 
     // Round details
     roundDetails,

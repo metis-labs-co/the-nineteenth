@@ -46,6 +46,7 @@ import {
   ScrambleLeaderboardTab,
   MatchPlayLeaderboardTab,
   MatchScorecardTabContent,
+  SubMatchLeaderboardTab,
 } from './components';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ReviewScorecard'>;
@@ -103,6 +104,7 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
     isScramble,
     isShamble,
     isMatchPlayTeam,
+    isSubMatchRound,
     roundDetails,
     scoringPairsRequired,
     skinsGame,
@@ -426,7 +428,23 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
         />
       )}
 
-      {activeTab === 'leaderboard' && isScramble && (
+      {activeTab === 'leaderboard' && isSubMatchRound && roundId && (
+        <SubMatchLeaderboardTab
+          roundId={roundId}
+          competitionId={route.params?.competitionId}
+          gameType={effectiveGameType}
+          teamFormat={roundDetails?.team_format ?? null}
+          holes={holes}
+          currentUserId={currentUserId}
+          selectedTeeData={selectedTeeData}
+          handicapSource={handicapSource}
+          isRefreshing={isRefreshing}
+          onRefresh={handleRefresh}
+          bottomInset={insets.bottom}
+        />
+      )}
+
+      {activeTab === 'leaderboard' && !isSubMatchRound && isScramble && (
         <ScrambleLeaderboardTab
           holes={holes}
           currentPlayers={currentPlayers}
@@ -439,7 +457,7 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
         />
       )}
 
-      {activeTab === 'leaderboard' && !isScramble && isMatchPlayTeam && (
+      {activeTab === 'leaderboard' && !isSubMatchRound && !isScramble && isMatchPlayTeam && (
         <MatchPlayLeaderboardTab
           roundId={roundId || undefined}
           holes={holes}
@@ -454,7 +472,7 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
         />
       )}
 
-      {activeTab === 'leaderboard' && !isScramble && !isMatchPlayTeam && (
+      {activeTab === 'leaderboard' && !isSubMatchRound && !isScramble && !isMatchPlayTeam && (
         <LeaderboardTabContent
           players={currentPlayers}
           holes={holes}
