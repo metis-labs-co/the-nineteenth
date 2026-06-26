@@ -160,3 +160,84 @@ project norms — staging/device QA tracked separately).
 - **Shared checkout:** work is being done on the main checkout (user override of the
   worktree rule); no branch switching. Edits are JS-only and ship via OTA from this
   version forward.
+
+---
+
+## REVISION (2026-06-26) — verified data model invalidates the single-coupling assumption
+
+The original design above assumed `groupScorecards` on a device contains only the
+on-course group. **Verified false for team rounds.** Investigation + live prod data
+(competition "Murray Winter Classic 2026", round played 2026-06-26):
+
+- Every round is `is_team_round = true`.
+- The active round has **8 in-progress scorecards, 2 pairings of 4, 2 distinct scorers,
+  134 score_entries, nothing submitted** — i.e. exactly the cross-group wait, with no data
+  corruption yet.
+- `useRoundData.ts:311-338` loads **all team members** into `groupScorecards` for team
+  rounds. The user confirmed the scoring screen "showed my group with the option to show
+  all 8" — `useGroupFilter` is active (field of 8, display filtered to the pairing of 4).
+
+So the on-course **group boundary is the user's pairing** (`pairings.player_ids`, 4
+players), and `groupScorecards` holds the whole 8-player field. Three places couple the
+two groups together, not one:
+
+1. **Readiness gate** — original Tasks 1–3. Tasks 1–2 (service-layer scoping) are correct
+   and committed. Task 3 passed `groupScorecards.keys()` (all 8) → still round-wide. ❌
+2. **`submitScorecards`** (`scorecardStore.ts:353`) — marks **every** card in
+   `groupScorecards` `completed` and syncs it → one group's submit completes the other
+   group's cards. ❌
+3. **`updateRoundStatus`** (`useScoreSubmission.ts:583` → `useRoundFinalization.ts:37`) —
+   unconditionally flips the whole **round** to `completed` on the first submit. ❌
+
+### Revised architecture — `allowedPlayerIds` as the single group-scope source
+
+The store already has `allowedPlayerIds` meaning "players this device is responsible for"
+(populated today only for scoring-pairs, via `useRoundData.ts:465`; consumed by
+`useScoreReview`). Make it the **single source of group scope** and drive all three
+couplings from it.
+
+**Group scope decision (user, 2026-06-26): the user's pairing, toggle-aware.** When the
+group filter's "show all / mark another group" toggle is on, scope expands to the shown
+set; otherwise it's the pairing.
+
+1. **Populate `allowedPlayerIds` for the group-filter case.** In `ScorecardEntryScreen`,
+   when `useGroupFilter` is active (team multi-group, no scoring pairs), set
+   `allowedPlayerIds` to the filter's **effective** player set (`groupFilter.groupPlayers`
+   ids) and update it when the show-all toggle changes. Scoring-pairs population is
+   unchanged. (Net: `allowedPlayerIds` = the device's responsibility set in both modes;
+   empty when neither applies → legacy whole-field behaviour.)
+
+2. **Readiness gate (#1).** In `useScoreSubmission`, derive `groupPlayerIds` from
+   `store.allowedPlayerIds` (fall back to `groupScorecards.keys()` when empty), and pass it
+   to `checkSubmissionReadiness` — replacing the current `groupScorecards.keys()` source.
+
+3. **Submit scope (#2).** Add an optional `playerIds?: string[]` to `submitScorecards`;
+   when provided, only complete/sync cards for those players (default = all, backward
+   compatible). The call site passes `allowedPlayerIds` (when non-empty).
+
+4. **Round completion (#3).** Change `updateRoundStatus` to flip the round to `completed`
+   **only when every scorecard for the round is `completed`** (query the round's scorecard
+   statuses; if any remain non-completed, leave `in-progress`). Each group's results still
+   finalize incrementally via `finalizeRoundResults` on every submit. Backward compatible:
+   a single-group round's one submit completes all its cards → round completes as today.
+
+### Decision recap (user, 2026-06-26)
+
+- Same-group reconciliation preserved (already in Tasks 1–2).
+- Group scope = pairing, toggle-aware (via `allowedPlayerIds`).
+- Round flips to `completed` only when all groups have submitted.
+- Work on the main checkout, no branch switch.
+
+### Non-goals (revised)
+
+- No schema change. `is_team_round`, `pairings`, `allowedPlayerIds`, `scorecards.status`
+  all already exist.
+- No change to `MatchPlayScorecardScreen` (already gate-free, submits directly).
+- No change to the incremental finalization / leaderboard layer.
+
+### Manual QA addendum
+
+Reproduce against the real shape: team round, 8-player field, 2 pairings of 4, a scorer per
+group. Group A submits while Group B is mid-round → A passes the gate, only A's 4 cards
+complete, round stays `in-progress`; Group B later submits → their 4 complete, round flips
+to `completed`. Toggle "show all" then mark + submit another group → those cards included.
