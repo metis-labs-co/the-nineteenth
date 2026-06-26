@@ -14,6 +14,7 @@ import type {
   SubmissionReadiness,
   PartnerProgress,
   IncompleteScorer,
+  ScoreMismatch,
 } from './types';
 import { getRoundScoreEntries, getScorerEntries } from './entries';
 import { createMismatchRecords, getPendingMismatches } from './detection';
@@ -35,21 +36,37 @@ export async function checkSubmissionReadiness(
   roundId: string,
   userId: string,
   scoringPairsEnabled: boolean,
-  holeCount: number = 18
+  holeCount: number = 18,
+  groupPlayerIds?: string[]
 ): Promise<SubmissionReadiness> {
   if (!roundId || !userId) {
     throw createError('Round ID and User ID are required', 'VALIDATION');
   }
 
   return scoringPairsEnabled
-    ? checkPairsReadiness(roundId, userId, holeCount)
-    : checkMultiScorerReadiness(roundId, userId, holeCount);
+    ? checkPairsReadiness(roundId, userId, holeCount, groupPlayerIds)
+    : checkMultiScorerReadiness(roundId, userId, holeCount, groupPlayerIds);
+}
+
+/**
+ * Restrict mismatches to the players the submitting device is responsible for
+ * (its on-course group). When no group is supplied, returns them unchanged
+ * (legacy round-wide behaviour).
+ */
+function filterMismatchesToPlayers(
+  mismatches: ScoreMismatch[],
+  groupPlayerIds?: string[]
+): ScoreMismatch[] {
+  if (!groupPlayerIds || groupPlayerIds.length === 0) return mismatches;
+  const groupSet = new Set(groupPlayerIds);
+  return mismatches.filter((m) => groupSet.has(m.player_id));
 }
 
 async function checkPairsReadiness(
   roundId: string,
   userId: string,
-  holeCount: number
+  holeCount: number,
+  _groupPlayerIds?: string[]
 ): Promise<SubmissionReadiness> {
   // Check for pending mismatches first
   const pendingMismatches = await getPendingMismatches(roundId);
@@ -80,31 +97,46 @@ async function checkPairsReadiness(
  * Multi-scorer readiness — for rounds without scoring pairs configured.
  *
  * Auto-detects whether the verification gate applies: only kicks in if 2+
- * distinct users have written score_entries. Solo-scorer rounds (e.g. one
- * keeper for a scramble) submit normally with no extra friction.
+ * distinct users have written score_entries for THIS group's players. Solo-scorer
+ * rounds (e.g. one keeper for a scramble) submit normally with no extra friction.
  *
  * When triggered:
  *  1. Detect/persist mismatches across all scorers (N-way).
- *  2. Block on any pending mismatches.
+ *  2. Block on any pending mismatches for THIS group's players.
  *  3. Block until every other scorer has filled in every hole for every
  *     player they've already scored at least one hole for.
  */
 async function checkMultiScorerReadiness(
   roundId: string,
   userId: string,
-  holeCount: number
+  holeCount: number,
+  groupPlayerIds?: string[]
 ): Promise<SubmissionReadiness> {
-  const entries = await getRoundScoreEntries(roundId);
+  const allEntries = await getRoundScoreEntries(roundId);
+
+  // Scope to the players this device is submitting (its group). With no group
+  // supplied, fall back to round-wide (legacy behaviour).
+  const groupSet =
+    groupPlayerIds && groupPlayerIds.length > 0 ? new Set(groupPlayerIds) : null;
+  const entries = groupSet
+    ? allEntries.filter((e) => groupSet.has(e.player_id))
+    : allEntries;
+
   const distinctScorers = new Set(entries.map((e) => e.scorer_id));
 
-  // Auto-detect: only one scorer (or none) has touched the round → no gate.
+  // Only one scorer (or none) has touched THIS group's players → no gate.
+  // A different group's scorers never appear here, so they can't block us.
   if (distinctScorers.size <= 1) {
     return { canSubmit: true };
   }
 
-  // N-way mismatch sweep: surface any disagreements.
+  // Detection stays round-wide (it only ever finds same-player conflicts), but
+  // the BLOCK is scoped to this group's players.
   await createMismatchRecords(roundId);
-  const pendingMismatches = await getPendingMismatches(roundId);
+  const pendingMismatches = filterMismatchesToPlayers(
+    await getPendingMismatches(roundId),
+    groupPlayerIds
+  );
   if (pendingMismatches.length > 0) {
     return {
       canSubmit: false,
@@ -113,9 +145,8 @@ async function checkMultiScorerReadiness(
     };
   }
 
-  // For each other scorer, expected entries = holeCount × distinct players
-  // they've started scoring. This avoids waiting forever on a scorer who
-  // only ever touched one hole — they still owe entries for that player.
+  // For each other scorer who touched this group, expected entries =
+  // holeCount × distinct group-players they've started scoring.
   const otherScorerIds = [...distinctScorers].filter((id) => id !== userId);
   const incompleteScorers: IncompleteScorer[] = [];
 

@@ -1032,6 +1032,26 @@ describe('Submission Readiness', () => {
 
   describe('checkSubmissionReadiness() - multi-scorer (no pairs)', () => {
     const PLAYER_C_ID = '550e8400-e29b-41d4-a716-446655440003';
+    const PLAYER_D_ID = '550e8400-e29b-41d4-a716-446655440004';
+
+    // Helper: build a round-entries + mismatches mock for these tests.
+    const mockEntriesAndMismatches = (
+      entries: ScoreEntry[],
+      mismatches: ScoreMismatch[] = []
+    ) => {
+      (supabase.from as jest.Mock).mockImplementation((tableName: string) => ({
+        select: jest.fn().mockReturnThis(),
+        upsert: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        order: jest.fn().mockReturnThis(),
+        single: jest.fn(() => Promise.resolve({ data: { name: 'Player' }, error: null })),
+        then: jest.fn((resolve: (v: unknown) => unknown) => {
+          if (tableName === 'score_mismatches') return resolve({ data: mismatches, error: null });
+          if (tableName === 'score_entries') return resolve({ data: entries, error: null });
+          return resolve({ data: [], error: null });
+        }),
+      }));
+    };
 
     it('returns canSubmit when only one scorer has touched the round', async () => {
       const soloEntries = Array.from({ length: 18 }, (_, i) =>
@@ -1182,6 +1202,85 @@ describe('Submission Readiness', () => {
       expect(result.reason).toBe('waiting_for_other_scorers');
       // Only B is short; C and A are complete.
       expect(result.incompleteScorers?.map((s) => s.scorerId)).toEqual([PLAYER_B_ID]);
+    });
+
+    it('lets group 1 submit while group 2 is mid-entry (scoped to groupPlayerIds)', async () => {
+      // Group 1 (players A,B) co-scored by A and B, both complete & agreeing.
+      // Group 2 (players C,D) scored by C, only 3 holes done — must be ignored.
+      const entries: ScoreEntry[] = [
+        ...Array.from({ length: 18 }, (_, i) =>
+          createScoreEntry({ player_id: PLAYER_A_ID, hole_number: i + 1, scorer_id: PLAYER_A_ID, strokes: 4 })
+        ),
+        ...Array.from({ length: 18 }, (_, i) =>
+          createScoreEntry({ player_id: PLAYER_B_ID, hole_number: i + 1, scorer_id: PLAYER_A_ID, strokes: 4 })
+        ),
+        ...Array.from({ length: 18 }, (_, i) =>
+          createScoreEntry({ player_id: PLAYER_A_ID, hole_number: i + 1, scorer_id: PLAYER_B_ID, strokes: 4 })
+        ),
+        ...Array.from({ length: 18 }, (_, i) =>
+          createScoreEntry({ player_id: PLAYER_B_ID, hole_number: i + 1, scorer_id: PLAYER_B_ID, strokes: 4 })
+        ),
+        ...Array.from({ length: 3 }, (_, i) =>
+          createScoreEntry({ player_id: PLAYER_C_ID, hole_number: i + 1, scorer_id: PLAYER_C_ID, strokes: 5 })
+        ),
+        ...Array.from({ length: 3 }, (_, i) =>
+          createScoreEntry({ player_id: PLAYER_D_ID, hole_number: i + 1, scorer_id: PLAYER_C_ID, strokes: 5 })
+        ),
+      ];
+      mockEntriesAndMismatches(entries, []);
+
+      const result = await checkSubmissionReadiness(
+        ROUND_ID, PLAYER_A_ID, false, 18, [PLAYER_A_ID, PLAYER_B_ID]
+      );
+
+      expect(result).toEqual({ canSubmit: true });
+    });
+
+    it('still waits for a co-scorer of the SAME group who is incomplete', async () => {
+      // Group 1 (players A,B). A complete for both; B started player A but only hole 1.
+      const entries: ScoreEntry[] = [
+        ...Array.from({ length: 18 }, (_, i) =>
+          createScoreEntry({ player_id: PLAYER_A_ID, hole_number: i + 1, scorer_id: PLAYER_A_ID, strokes: 4 })
+        ),
+        ...Array.from({ length: 18 }, (_, i) =>
+          createScoreEntry({ player_id: PLAYER_B_ID, hole_number: i + 1, scorer_id: PLAYER_A_ID, strokes: 4 })
+        ),
+        createScoreEntry({ player_id: PLAYER_A_ID, hole_number: 1, scorer_id: PLAYER_B_ID, strokes: 4 }),
+      ];
+      mockEntriesAndMismatches(entries, []);
+
+      const result = await checkSubmissionReadiness(
+        ROUND_ID, PLAYER_A_ID, false, 18, [PLAYER_A_ID, PLAYER_B_ID]
+      );
+
+      expect(result.canSubmit).toBe(false);
+      expect(result.reason).toBe('waiting_for_other_scorers');
+      expect(result.incompleteScorers?.map((s) => s.scorerId)).toEqual([PLAYER_B_ID]);
+    });
+
+    it('blocks on a same-group mismatch but ignores another group\'s mismatch', async () => {
+      // Two scorers in group 1 so the gate engages; mismatches on both groups.
+      const entries: ScoreEntry[] = [
+        ...Array.from({ length: 18 }, (_, i) =>
+          createScoreEntry({ player_id: PLAYER_A_ID, hole_number: i + 1, scorer_id: PLAYER_A_ID, strokes: 4 })
+        ),
+        ...Array.from({ length: 18 }, (_, i) =>
+          createScoreEntry({ player_id: PLAYER_A_ID, hole_number: i + 1, scorer_id: PLAYER_B_ID, strokes: 4 })
+        ),
+      ];
+      const mismatches = [
+        createMismatchRecord({ id: 'mm-group1', player_id: PLAYER_A_ID, hole_number: 1 }),
+        createMismatchRecord({ id: 'mm-group2', player_id: PLAYER_C_ID, hole_number: 1 }),
+      ];
+      mockEntriesAndMismatches(entries, mismatches);
+
+      const result = await checkSubmissionReadiness(
+        ROUND_ID, PLAYER_A_ID, false, 18, [PLAYER_A_ID, PLAYER_B_ID]
+      );
+
+      expect(result.canSubmit).toBe(false);
+      expect(result.reason).toBe('unresolved_mismatches');
+      expect(result.mismatchCount).toBe(1); // only the group-1 mismatch counts
     });
   });
 
