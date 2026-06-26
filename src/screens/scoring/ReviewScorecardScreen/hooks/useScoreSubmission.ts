@@ -37,7 +37,7 @@ import { useScorecardStore } from '@/store/scorecardStore';
 import { isSingleBallScore } from '@/types/database/base';
 import type { Hole, Scorecard } from '@/types';
 import { useQueryClient } from '@tanstack/react-query';
-import { roundKeys, scorecardKeys } from '@/hooks/queryKeys';
+import { roundKeys, scorecardKeys, competitionDetailsKeys, leaderboardKeys } from '@/hooks/queryKeys';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import type { IncompleteHole } from './useScoreReview';
@@ -682,6 +682,14 @@ export function useScoreSubmission({
           queryClient.invalidateQueries({ queryKey: roundKeys.detail(roundId) });
           queryClient.invalidateQueries({ queryKey: scorecardKeys.list({ roundId }) });
         }
+        // Refresh the competition's detail (rounds tab status) + leaderboard so
+        // in-progress standings update live as each (sub-)group submits — e.g. a
+        // completed alt-shot sub-match's pair points appear without a manual
+        // refresh. finalizeRoundResults above already wrote the partial results.
+        if (competitionId && competitionId !== 'standalone') {
+          queryClient.invalidateQueries({ queryKey: competitionDetailsKeys.detail(competitionId) });
+          queryClient.invalidateQueries({ queryKey: leaderboardKeys.competition(competitionId) });
+        }
 
         if (!isOnline) {
           submitLogger.info('Offline submission - scores queued for later sync');
@@ -865,6 +873,11 @@ export function useScoreSubmission({
         // Also invalidate round detail + scorecards (see handleSubmit for rationale).
         queryClient.invalidateQueries({ queryKey: roundKeys.detail(roundId) });
         queryClient.invalidateQueries({ queryKey: scorecardKeys.list({ roundId }) });
+        // Refresh competition detail + leaderboard so in-progress standings update live.
+        if (competitionId && competitionId !== 'standalone') {
+          queryClient.invalidateQueries({ queryKey: competitionDetailsKeys.detail(competitionId) });
+          queryClient.invalidateQueries({ queryKey: leaderboardKeys.competition(competitionId) });
+        }
 
         showDialog({
           title: 'Submitted (Unverified)',
