@@ -14,6 +14,7 @@ import type { DialogConfig } from '@/hooks/useConfirmationDialog';
 import { useDeleteRound } from '@/hooks/rounds/mutations';
 import { activeRoundSession } from '@/services/activeRoundSession';
 import { scoringLogger } from '@/utils/debugLogger';
+import { useScorecardStore } from '@/store/scorecardStore';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import type { Hole } from '@/types';
@@ -25,7 +26,7 @@ export interface UseScorecardSubmissionParams {
   holes: Hole[];
   playerCount: number;
   getCompletedHolesCount: () => number;
-  submitScorecards: () => Promise<void>;
+  submitScorecards: (options?: { bypassed?: boolean; playerIds?: string[] }) => Promise<void>;
   resetRound: () => void;
   onIncompleteRound: (completedCount: number) => void;
   onSubmitError: () => void;
@@ -71,7 +72,9 @@ export function useScorecardSubmission({
       playerCount,
     });
     try {
-      await submitScorecards();
+      const { allowedPlayerIds, groupScorecards } = useScorecardStore.getState();
+      const scopeIds = allowedPlayerIds.length > 0 ? allowedPlayerIds : [...groupScorecards.keys()];
+      await submitScorecards({ playerIds: scopeIds });
       scoringLogger.info('SUBMIT: Scorecard submission successful');
 
       // Round is submitted — clear the resume-on-launch session.

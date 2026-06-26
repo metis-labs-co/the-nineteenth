@@ -138,7 +138,7 @@ export default function PlayerScorecardScreen({ navigation, route }: Props) {
       playerId: playerId?.substring(0, 8),
     });
     try {
-      await submitScorecards();
+      await submitScorecards({ playerIds: [playerId] });
       scoringLogger.info('SUBMIT: Scorecard submission successful');
 
       // Update round status to completed
