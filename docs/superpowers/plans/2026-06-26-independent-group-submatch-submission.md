@@ -929,3 +929,269 @@ Against the real shape (team round, 8-player field, 2 pairings of 4, one scorer 
 - **Type consistency:** `submitScorecards` options type
   `{ bypassed?: boolean; playerIds?: string[] }` is used identically at the interface and all
   three call sites; `updateRoundStatus(roundId)` signature unchanged.
+
+---
+
+# Hardening Tasks (v3) — final-review follow-ups
+
+Addresses the final whole-branch review. **I-1** (Important): scope silently reverts to
+whole-field if `usePairings` is unresolved at submit. **M-5**: residual no-arg
+`submitScorecards()` callers complete all cards. **M-7**: the scope-resolution crux is
+untested by CI. (M-4 skipped — `useMismatchResolutionFlow` is export-only/unused. M-6
+skipped — H1's pairing fallback mitigates the two-writer fragility.)
+
+## v3 Global Constraints
+
+- Backward compatible: single-group / standalone / scoring-pairs / 2-player match-play
+  unaffected. Match-play screens (`MatchPlayScoringScreen`, `MatchPlayScorecardScreen`) keep
+  their no-arg `submitScorecards()` (correct single 2-player context) — do NOT change them.
+- `PairingWithPlayers` imports from `@/types` and has `playerIds: string[]`.
+
+---
+
+### Task H1: Robust, tested group-scope resolver (I-1 + M-7 + DRY)
+
+Replace the four duplicated `allowedPlayerIds.length>0 ? … : groupScorecards.keys()`
+derivations in `useScoreSubmission` with one resolver that falls back to the user's pairing
+(not the whole field) when `allowedPlayerIds` is empty.
+
+**Files:**
+- Create: `src/screens/scoring/ReviewScorecardScreen/hooks/resolveGroupScope.ts`
+- Test: `src/__tests__/screens/scoring/resolveGroupScope.test.ts`
+- Modify: `src/screens/scoring/ReviewScorecardScreen/hooks/useScoreSubmission.ts` (gate ~421-423; submit sites ~584-585, ~793-794, ~930-931; add `usePairings`)
+
+**Interfaces:**
+- Produces: `resolveGroupScopeIds(params: { allowedPlayerIds: string[]; pairings: PairingWithPlayers[] | undefined; currentUserId: string | undefined; groupScorecardPlayerIds: string[] }): string[]`
+
+- [ ] **Step 1: Write the failing test**
+
+`src/__tests__/screens/scoring/resolveGroupScope.test.ts`:
+
+```typescript
+import { resolveGroupScopeIds } from '@/screens/scoring/ReviewScorecardScreen/hooks/resolveGroupScope';
+import type { PairingWithPlayers } from '@/types';
+
+const pairing = (id: string, playerIds: string[]): PairingWithPlayers =>
+  ({ id, round_id: 'r', playerIds, players: [] } as unknown as PairingWithPlayers);
+
+describe('resolveGroupScopeIds', () => {
+  const base = {
+    allowedPlayerIds: [] as string[],
+    pairings: undefined as PairingWithPlayers[] | undefined,
+    currentUserId: 'U' as string | undefined,
+    groupScorecardPlayerIds: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'],
+  };
+
+  it('prefers allowedPlayerIds when present', () => {
+    expect(resolveGroupScopeIds({ ...base, allowedPlayerIds: ['A', 'B'] })).toEqual(['A', 'B']);
+  });
+
+  it("falls back to the user's pairing when allowedPlayerIds is empty", () => {
+    const pairings = [pairing('p1', ['A', 'B', 'U', 'D']), pairing('p2', ['E', 'F', 'G', 'H'])];
+    expect(resolveGroupScopeIds({ ...base, pairings })).toEqual(['A', 'B', 'U', 'D']);
+  });
+
+  it('falls back to all scorecards when no pairing matches the user', () => {
+    const pairings = [pairing('p1', ['A', 'B']), pairing('p2', ['E', 'F'])];
+    expect(resolveGroupScopeIds({ ...base, pairings })).toEqual(base.groupScorecardPlayerIds);
+  });
+
+  it('falls back to all scorecards when pairings are unresolved', () => {
+    expect(resolveGroupScopeIds({ ...base, pairings: undefined })).toEqual(base.groupScorecardPlayerIds);
+  });
+});
+```
+
+- [ ] **Step 2: Run to verify it fails**
+
+Run: `pnpm test -- resolveGroupScope`
+Expected: FAIL — module does not exist yet.
+
+- [ ] **Step 3: Implement the resolver**
+
+`src/screens/scoring/ReviewScorecardScreen/hooks/resolveGroupScope.ts`:
+
+```typescript
+import type { PairingWithPlayers } from '@/types';
+
+/**
+ * Resolve the players this device is responsible for submitting (its on-course
+ * group / pair). Priority:
+ *   1. allowedPlayerIds — set by the scoring screen (toggle-aware effective scope).
+ *   2. the user's pairing — robust fallback when the scoring screen hasn't yet
+ *      populated allowedPlayerIds (e.g. pairings just resolved). Prevents silently
+ *      reverting to the whole field on a multi-group team round.
+ *   3. all loaded scorecards — legacy whole-field (single group / standalone).
+ */
+export function resolveGroupScopeIds(params: {
+  allowedPlayerIds: string[];
+  pairings: PairingWithPlayers[] | undefined;
+  currentUserId: string | undefined;
+  groupScorecardPlayerIds: string[];
+}): string[] {
+  const { allowedPlayerIds, pairings, currentUserId, groupScorecardPlayerIds } = params;
+  if (allowedPlayerIds.length > 0) return allowedPlayerIds;
+  if (currentUserId && pairings) {
+    const userPairing = pairings.find((p) => p.playerIds.includes(currentUserId));
+    if (userPairing && userPairing.playerIds.length > 0) return userPairing.playerIds;
+  }
+  return groupScorecardPlayerIds;
+}
+```
+
+- [ ] **Step 4: Run to verify it passes**
+
+Run: `pnpm test -- resolveGroupScope`
+Expected: PASS (4/4).
+
+- [ ] **Step 5: Wire it into useScoreSubmission**
+
+In `src/screens/scoring/ReviewScorecardScreen/hooks/useScoreSubmission.ts`:
+
+(a) Add imports (with the other imports):
+
+```typescript
+import { usePairings } from '@/hooks/rounds';
+import { resolveGroupScopeIds } from './resolveGroupScope';
+```
+
+(Check the correct export path for `usePairings` — it is defined in
+`src/hooks/rounds/pairings.ts` and re-exported via `src/hooks/rounds/index.ts`; use
+`@/hooks/rounds`.)
+
+(b) Near the top of the hook body (after the params are destructured, alongside other
+hook calls), add the pairings query and a single scope resolver:
+
+```typescript
+  const { data: roundPairings } = usePairings(currentRoundId ?? routeRoundId ?? undefined);
+
+  const getGroupScopeIds = useCallback((): string[] => {
+    const { allowedPlayerIds, groupScorecards } = useScorecardStore.getState();
+    return resolveGroupScopeIds({
+      allowedPlayerIds,
+      pairings: roundPairings,
+      currentUserId,
+      groupScorecardPlayerIds: [...groupScorecards.keys()],
+    });
+  }, [roundPairings, currentUserId]);
+```
+
+(c) Replace the gate derivation (~lines 421-423):
+
+```typescript
+        const { allowedPlayerIds: scopeIds, groupScorecards: scopeCards } =
+          useScorecardStore.getState();
+        const groupPlayerIds =
+          scopeIds.length > 0 ? scopeIds : [...scopeCards.keys()];
+```
+
+with:
+
+```typescript
+        const groupPlayerIds = getGroupScopeIds();
+```
+
+(d) Replace EACH of the three submit-site derivations (~584-585, ~793-794, ~930-931):
+
+```typescript
+        const { allowedPlayerIds: aIds, groupScorecards: gCards } = useScorecardStore.getState();
+        const submitScopeIds = aIds.length > 0 ? aIds : [...gCards.keys()];
+```
+
+with:
+
+```typescript
+        const submitScopeIds = getGroupScopeIds();
+```
+
+(Leave the `submitScorecards({ ... playerIds: submitScopeIds })` calls themselves unchanged.)
+
+- [ ] **Step 6: Type-check and commit**
+
+Run: `pnpm type-check 2>&1 | grep -E "useScoreSubmission|resolveGroupScope" || echo "NO ERRORS in touched files"`
+Expected: `NO ERRORS in touched files`.
+
+```bash
+git add src/screens/scoring/ReviewScorecardScreen/hooks/resolveGroupScope.ts src/__tests__/screens/scoring/resolveGroupScope.test.ts src/screens/scoring/ReviewScorecardScreen/hooks/useScoreSubmission.ts
+git commit -m "fix(scoring): robust group-scope resolver with pairing fallback (I-1)
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
+```
+
+---
+
+### Task H2: Scope the residual whole-field submit callers (M-5)
+
+Two reachable no-arg `submitScorecards()` callers complete ALL cards. Scope them.
+Do NOT touch the match-play callers (`MatchPlayScoringScreen:384`,
+`MatchPlayScorecardScreen:225`) — their whole-field set IS the 2-player match.
+
+**Files:**
+- Modify: `src/screens/scoring/PlayerScorecardScreen/index.tsx:141`
+- Modify: `src/screens/scoring/ScorecardEntryScreen/hooks/useScorecardSubmission.ts:74`
+
+- [ ] **Step 1: Scope PlayerScorecardScreen to the viewed player**
+
+`PlayerScorecardScreen/index.tsx` submits a single player's card (`playerId` from
+`route.params`, in scope at line 49). Change line 141:
+
+```typescript
+      await submitScorecards();
+```
+
+to:
+
+```typescript
+      await submitScorecards({ playerIds: [playerId] });
+```
+
+- [ ] **Step 2: Scope useScorecardSubmission to the entry screen's group**
+
+`ScorecardEntryScreen/hooks/useScorecardSubmission.ts` runs in the scoring screen, which
+reliably sets `allowedPlayerIds`. Change line 74:
+
+```typescript
+      await submitScorecards();
+```
+
+to:
+
+```typescript
+      const { allowedPlayerIds, groupScorecards } = useScorecardStore.getState();
+      const scopeIds = allowedPlayerIds.length > 0 ? allowedPlayerIds : [...groupScorecards.keys()];
+      await submitScorecards({ playerIds: scopeIds });
+```
+
+Add `import { useScorecardStore } from '@/store/scorecardStore';` if not already imported in
+that file (check first; it likely already imports it to get `submitScorecards`).
+
+- [ ] **Step 3: Type-check and commit**
+
+Run: `pnpm type-check 2>&1 | grep -E "PlayerScorecardScreen|useScorecardSubmission" || echo "NO ERRORS in touched files"`
+Expected: `NO ERRORS in touched files`.
+
+```bash
+git add src/screens/scoring/PlayerScorecardScreen/index.tsx src/screens/scoring/ScorecardEntryScreen/hooks/useScorecardSubmission.ts
+git commit -m "fix(scoring): scope residual whole-field scorecard submits (M-5)
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
+```
+
+---
+
+### Task H3: Verify hardening
+
+- [ ] **Step 1: Run affected suites**
+
+Run: `pnpm test -- resolveGroupScope scoreMismatchService scorecardStore useRoundFinalization`
+Expected: PASS.
+
+- [ ] **Step 2: Type-check touched files**
+
+Run: `pnpm type-check 2>&1 | grep -E "useScoreSubmission|resolveGroupScope|PlayerScorecardScreen|useScorecardSubmission" || echo "NO ERRORS in touched files"`
+Expected: `NO ERRORS in touched files`.
+
+- [ ] **Step 3: Confirm match-play untouched**
+
+Run: `grep -n "submitScorecards()" src/screens/scoring/MatchPlayScoringScreen/index.tsx src/screens/scoring/MatchPlayScorecardScreen/index.tsx`
+Expected: both still call no-arg `submitScorecards()` (intentionally unchanged).
