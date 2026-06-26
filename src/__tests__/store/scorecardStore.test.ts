@@ -83,12 +83,22 @@ jest.mock('@/services/supabase/client', () => {
     },
     error: null,
   };
+  // Mutable result for the `players` table lookup (live handicap refresh on
+  // resume). Tests set this via __setPlayersResult. A `__reject` flag makes the
+  // terminal `.in()` reject, simulating an offline/network failure.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test mock state
+  let playersResult: any = { data: null, error: null };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test mock chain
   const makeChain = (result: any) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- self-referential chain
     const chain: any = {
       select: jest.fn(() => chain),
       eq: jest.fn(() => chain),
+      in: jest.fn(() =>
+        result && result.__reject
+          ? Promise.reject(new Error('network error'))
+          : Promise.resolve(result)
+      ),
       maybeSingle: jest.fn(() => Promise.resolve(result)),
       single: jest.fn(() => Promise.resolve(result)),
     };
@@ -97,12 +107,34 @@ jest.mock('@/services/supabase/client', () => {
   return {
     supabase: {
       from: jest.fn((table: string) =>
-        makeChain(table === 'rounds' ? roundsResult : { data: null, error: null })
+        makeChain(
+          table === 'rounds'
+            ? roundsResult
+            : table === 'players'
+              ? playersResult
+              : { data: null, error: null }
+        )
       ),
     },
     getCurrentUser: jest.fn(() => Promise.resolve({ id: 'test-user-id' })),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
+    __setPlayersResult: (r: any) => {
+      playersResult = r;
+    },
+    __resetPlayersResult: () => {
+      playersResult = { data: null, error: null };
+    },
   };
 });
+
+// Test-only handles into the supabase mock above (typed loosely via requireMock
+// so they don't need to exist on the real module's exports).
+const { __setPlayersResult, __resetPlayersResult } = jest.requireMock(
+  '@/services/supabase/client'
+) as {
+  __setPlayersResult: (r: unknown) => void;
+  __resetPlayersResult: () => void;
+};
 
 // Mock the debug logger
 jest.mock('@/utils/debugLogger', () => {
@@ -287,6 +319,63 @@ describe('ScorecardStore', () => {
         updatedAt: new Date(),
       }));
     };
+
+    // Regression: a round opened on the device long ago freezes each player's
+    // handicap into SQLite (ScorecardDAO.player_handicap). On resume, the cached
+    // player must be refreshed from the live `players` table so scoring — and the
+    // handicap snapshot written at submit — use the player's CURRENT handicap,
+    // not the stale value from when the round was first opened.
+    describe('live handicap refresh on resume', () => {
+      const STALE_PLAYER_ID = '44444444-4444-4444-a444-444444444444';
+
+      afterEach(() => {
+        __resetPlayersResult();
+      });
+
+      it('refreshes a stale cached player handicap from the live players table', async () => {
+        const stalePlayer = createTestPlayer({
+          id: STALE_PLAYER_ID,
+          name: 'Ben',
+          handicap: 13.2, // frozen value from when the round was first opened
+        });
+        const mockScorecards = createMockScorecards([stalePlayer], testRoundId);
+        (getScorecardsByRound as jest.Mock).mockReset().mockResolvedValue(mockScorecards);
+        (getHoles as jest.Mock).mockReset().mockResolvedValue(testHoles);
+        // Live profile handicap has since dropped to 10.7
+        __setPlayersResult({
+          data: [{ id: STALE_PLAYER_ID, handicap: 10.7, handicap_index: null, gender: null }],
+          error: null,
+        });
+
+        await getStore().loadFromOffline(testRoundId);
+
+        const player = getStore().currentPlayers.find((p) => p.id === STALE_PLAYER_ID);
+        expect(player?.handicap).toBe(10.7);
+        // the cached scorecard's embedded player is refreshed too (used at submit)
+        expect(
+          getStore().groupScorecards.get(STALE_PLAYER_ID)?.player?.handicap
+        ).toBe(10.7);
+      });
+
+      it('keeps the cached handicap when the live fetch fails (offline)', async () => {
+        const stalePlayer = createTestPlayer({
+          id: STALE_PLAYER_ID,
+          name: 'Ben',
+          handicap: 13.2,
+        });
+        const mockScorecards = createMockScorecards([stalePlayer], testRoundId);
+        (getScorecardsByRound as jest.Mock).mockReset().mockResolvedValue(mockScorecards);
+        (getHoles as jest.Mock).mockReset().mockResolvedValue(testHoles);
+        __setPlayersResult({ __reject: true }); // simulate offline / network failure
+
+        const loaded = await getStore().loadFromOffline(testRoundId);
+
+        expect(loaded).toBe(true);
+        expect(
+          getStore().currentPlayers.find((p) => p.id === STALE_PLAYER_ID)?.handicap
+        ).toBe(13.2);
+      });
+    });
 
     it('loads cached scorecards from SQLite', async () => {
       const mockScorecards = createMockScorecards(testPlayers, testRoundId);
