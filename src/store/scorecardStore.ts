@@ -98,7 +98,7 @@ interface ScorecardState {
   getHoleInfo: (holeNumber: number) => Hole | undefined;
   isHoleComplete: (hole: number) => boolean;
   getCompletedHolesCount: () => number;
-  submitScorecards: () => Promise<void>;
+  submitScorecards: (options?: { bypassed?: boolean; playerIds?: string[] }) => Promise<void>;
   resetRound: () => void;
 
   // Multi-ball scoring functions
@@ -307,8 +307,11 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
       return count;
     },
 
-    submitScorecards: async () => {
+    submitScorecards: async (options) => {
       const { groupScorecards, currentRoundId, selectedTeeData, holes, gameType, nineType } = get();
+      const scopeIds = options?.playerIds;
+      const targetIds =
+        scopeIds && scopeIds.length > 0 ? new Set(scopeIds) : null;
 
       storeLogger.info('Submitting scorecards', {
         roundId: currentRoundId?.substring(0, 8) + '...',
@@ -351,6 +354,9 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
       let errorCount = 0;
 
       for (const [playerId, scorecard] of newScorecards) {
+        if (targetIds && !targetIds.has(playerId)) {
+          continue; // group-scoped submit: leave other groups' cards untouched
+        }
         try {
           const updatedScorecard: Scorecard = {
             ...scorecard,

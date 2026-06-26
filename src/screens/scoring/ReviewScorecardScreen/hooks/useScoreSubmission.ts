@@ -121,7 +121,7 @@ interface UseScoreSubmissionParams {
   scorecardCount: number;
   validateScores: () => IncompleteHole[];
   setShowIncompleteModal: (show: boolean) => void;
-  submitScorecards: (options?: { bypassed?: boolean }) => Promise<void>;
+  submitScorecards: (options?: { bypassed?: boolean; playerIds?: string[] }) => Promise<void>;
   resetRound: () => void;
   navigation: NativeStackNavigationProp<RootStackParamList, 'ReviewScorecard'>;
   // Scoring pairs mismatch detection
@@ -581,7 +581,9 @@ export function useScoreSubmission({
           isStandalone: !competitionId || competitionId === 'standalone',
           isOnline,
         });
-        await submitScorecards();
+        const { allowedPlayerIds: aIds, groupScorecards: gCards } = useScorecardStore.getState();
+        const submitScopeIds = aIds.length > 0 ? aIds : [...gCards.keys()];
+        await submitScorecards({ playerIds: submitScopeIds });
         submitLogger.info('submitScorecards completed successfully');
 
         if (roundId && isOnline) {
@@ -788,7 +790,9 @@ export function useScoreSubmission({
         submitLogger.info('Bypass scores applied');
 
         // Continue with normal submission (with bypassed flag)
-        await submitScorecards({ bypassed: true });
+        const { allowedPlayerIds: aIds, groupScorecards: gCards } = useScorecardStore.getState();
+        const submitScopeIds = aIds.length > 0 ? aIds : [...gCards.keys()];
+        await submitScorecards({ bypassed: true, playerIds: submitScopeIds });
         submitLogger.info('Bypassed submission completed');
 
         if (isOnline) {
@@ -923,7 +927,9 @@ export function useScoreSubmission({
     setIsSubmitting(true);
     try {
       submitLogger.info('Attempting manual sync');
-      await submitScorecards();
+      const { allowedPlayerIds: aIds, groupScorecards: gCards } = useScorecardStore.getState();
+      const submitScopeIds = aIds.length > 0 ? aIds : [...gCards.keys()];
+      await submitScorecards({ playerIds: submitScopeIds });
       setPendingSyncs(0);
       setSyncError(null);
       submitLogger.info('Manual sync completed successfully');

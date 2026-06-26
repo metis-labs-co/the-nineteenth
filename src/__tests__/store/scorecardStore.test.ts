@@ -873,6 +873,44 @@ describe('ScorecardStore', () => {
 
       expect(saveScorecard).toHaveBeenCalledTimes(testPlayers.length);
     });
+
+    it('only completes scorecards for the passed playerIds (group-scoped submit)', async () => {
+      const PLAYER_A = 'aaaaaaaa-aaaa-4aaa-a111-111111111111';
+      const PLAYER_B = 'bbbbbbbb-bbbb-4bbb-b111-111111111111';
+      const PLAYER_C = 'cccccccc-cccc-4ccc-a111-111111111111';
+      const PLAYER_D = 'dddddddd-dddd-4ddd-b111-111111111111';
+
+      const fourPlayers = [
+        createTestPlayer({ id: PLAYER_A, name: 'Player A', handicap: 10 }),
+        createTestPlayer({ id: PLAYER_B, name: 'Player B', handicap: 14 }),
+        createTestPlayer({ id: PLAYER_C, name: 'Player C', handicap: 18 }),
+        createTestPlayer({ id: PLAYER_D, name: 'Player D', handicap: 22 }),
+      ];
+
+      const store = getStore();
+      // Reset first so we start clean (the beforeEach already seeded 3 players)
+      store.resetRound();
+      await store.initializeRound(testRoundId, fourPlayers, testHoles);
+
+      // Add a score for each player so scorecards are in-progress
+      for (const player of fourPlayers) {
+        await store.setPlayerScore(player.id, 1, 4);
+      }
+
+      // All four should be in-progress before submit
+      const before = useScorecardStore.getState().groupScorecards;
+      expect(before.get(PLAYER_A)!.status).toBe('in-progress');
+      expect(before.get(PLAYER_C)!.status).toBe('in-progress');
+
+      // Submit only group 1 (A + B)
+      await useScorecardStore.getState().submitScorecards({ playerIds: [PLAYER_A, PLAYER_B] });
+
+      const cards = useScorecardStore.getState().groupScorecards;
+      expect(cards.get(PLAYER_A)!.status).toBe('completed');
+      expect(cards.get(PLAYER_B)!.status).toBe('completed');
+      expect(cards.get(PLAYER_C)!.status).not.toBe('completed'); // other group untouched
+      expect(cards.get(PLAYER_D)!.status).not.toBe('completed');
+    });
   });
 
   // ==========================================================================
