@@ -415,7 +415,13 @@ export function useScoreSubmission({
       try {
         // Players this device is submitting (its on-course group / pair). Used
         // to scope the readiness gate so different groups submit independently.
-        const groupPlayerIds = [...useScorecardStore.getState().groupScorecards.keys()];
+        // Scope the readiness gate to the players this device is responsible for
+        // (its on-course group / pair). `allowedPlayerIds` is set by the scoring
+        // screen; fall back to the full field when it is empty (legacy behaviour).
+        const { allowedPlayerIds: scopeIds, groupScorecards: scopeCards } =
+          useScorecardStore.getState();
+        const groupPlayerIds =
+          scopeIds.length > 0 ? scopeIds : [...scopeCards.keys()];
         submitLogger.info('Checking submission readiness', {
           scoringPairsEnabled,
           groupPlayerCount: groupPlayerIds.length,
