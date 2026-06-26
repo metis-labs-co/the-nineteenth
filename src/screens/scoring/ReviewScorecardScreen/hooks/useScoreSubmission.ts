@@ -413,12 +413,19 @@ export function useScoreSubmission({
     //    rounds short-circuit inside the service and submit normally.
     if (currentUserId && roundId && isOnline) {
       try {
-        submitLogger.info('Checking submission readiness', { scoringPairsEnabled });
+        // Players this device is submitting (its on-course group / pair). Used
+        // to scope the readiness gate so different groups submit independently.
+        const groupPlayerIds = [...useScorecardStore.getState().groupScorecards.keys()];
+        submitLogger.info('Checking submission readiness', {
+          scoringPairsEnabled,
+          groupPlayerCount: groupPlayerIds.length,
+        });
         const readiness = await checkSubmissionReadiness(
           roundId,
           currentUserId,
           scoringPairsEnabled,
           holeCount,
+          groupPlayerIds,
         );
 
         if (!readiness.canSubmit) {
