@@ -36,7 +36,13 @@ type PairingRow = { player_ids: string[] };
  * Wire supabase.from() to return appropriate mock chains for each table.
  * Returns the `update` spy so tests can assert on it.
  */
-function setupSupabaseMocks(scorecards: ScorecardRow[], pairings: PairingRow[]): jest.Mock {
+type SubMatchRow = { status: string };
+
+function setupSupabaseMocks(
+  scorecards: ScorecardRow[],
+  pairings: PairingRow[],
+  subMatches: SubMatchRow[] = []
+): jest.Mock {
   const updateSpy = jest.fn().mockReturnValue({
     eq: jest.fn().mockReturnValue({
       select: jest.fn().mockResolvedValue({
@@ -58,6 +64,12 @@ function setupSupabaseMocks(scorecards: ScorecardRow[], pairings: PairingRow[]):
         return {
           select: jest.fn().mockReturnValue({
             eq: jest.fn().mockResolvedValue({ data: pairings, error: null }),
+          }),
+        };
+      case 'sub_matches':
+        return {
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockResolvedValue({ data: subMatches, error: null }),
           }),
         };
       case 'rounds':
@@ -167,6 +179,40 @@ describe('useRoundFinalization — updateRoundStatus', () => {
     const pairings = [{ player_ids: ['player-1', 'player-2', 'player-3', 'player-4'] }];
 
     const updateSpy = setupSupabaseMocks(scorecards, pairings);
+
+    const { result } = renderHook(() => useRoundFinalization());
+
+    await act(async () => {
+      await result.current.updateRoundStatus(ROUND_ID);
+    });
+
+    expect(updateSpy).toHaveBeenCalledWith({ status: 'completed' });
+  });
+
+  // Split rounds: players live in `sub_matches`, not `pairings`. The round must
+  // only complete once EVERY sub-match is terminal — submitting one sub-match
+  // must not flip the whole round (the original "round shows complete" bug).
+  it('does NOT complete a split round while a sub-match is still open', async () => {
+    // One sub-match scored, the other still upcoming. No pairings (split).
+    const scorecards = makeCards(['completed', 'completed']); // first sub-match's cards
+    const subMatches: SubMatchRow[] = [{ status: 'completed' }, { status: 'upcoming' }];
+
+    const updateSpy = setupSupabaseMocks(scorecards, [], subMatches);
+
+    const { result } = renderHook(() => useRoundFinalization());
+
+    await act(async () => {
+      await result.current.updateRoundStatus(ROUND_ID);
+    });
+
+    expect(updateSpy).not.toHaveBeenCalled();
+  });
+
+  it('completes a split round once every sub-match is terminal', async () => {
+    const scorecards = makeCards(['completed', 'completed', 'completed', 'completed']);
+    const subMatches: SubMatchRow[] = [{ status: 'completed' }, { status: 'forfeited' }];
+
+    const updateSpy = setupSupabaseMocks(scorecards, [], subMatches);
 
     const { result } = renderHook(() => useRoundFinalization());
 

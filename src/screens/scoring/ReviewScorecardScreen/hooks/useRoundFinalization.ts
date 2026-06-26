@@ -43,27 +43,55 @@ export function useRoundFinalization() {
       const terminalCount = cards.filter((c) => TERMINAL.has(c.status)).length;
       const allTerminal = cards.length > 0 && terminalCount === cards.length;
 
-      // Expected field size = distinct players across the round's pairings.
+      // Split rounds group players in `sub_matches` (NOT `pairings`), so the
+      // pairings-based field-size guard below sees 0 players and would let the
+      // FIRST sub-match's submit flip the whole round to completed (the
+      // "round shows complete" bug). For split rounds the correct invariant is:
+      // complete only once EVERY sub-match is terminal — which is also what
+      // result aggregation already requires (see finalizePairResults).
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- generated-types workaround
-      const { data: pairingRows } = await (supabase as any)
-        .from('pairings')
-        .select('player_ids')
+      const { data: subMatchRows } = await (supabase as any)
+        .from('sub_matches')
+        .select('status')
         .eq('round_id', roundId);
-      const expected = pairingRows
-        ? new Set(
-            (pairingRows as { player_ids: string[] }[]).flatMap((p) => p.player_ids ?? [])
-          ).size
-        : 0;
-      const enoughCards = expected === 0 ? true : terminalCount >= expected;
+      const subMatches: { status: string }[] = subMatchRows ?? [];
 
-      if (!allTerminal || !enoughCards) {
-        submitLogger.info('Round not yet complete — leaving status unchanged', {
-          roundId: roundId.substring(0, 8) + '...',
-          terminalCount,
-          totalCards: cards.length,
-          expected,
-        });
-        return;
+      if (subMatches.length > 0) {
+        const TERMINAL_SM = new Set(['completed', 'forfeited']);
+        const terminalSubMatches = subMatches.filter((s) => TERMINAL_SM.has(s.status)).length;
+        if (terminalSubMatches !== subMatches.length) {
+          submitLogger.info('Split round not yet complete — sub-matches still open', {
+            roundId: roundId.substring(0, 8) + '...',
+            terminalSubMatches,
+            totalSubMatches: subMatches.length,
+          });
+          return;
+        }
+        // Every sub-match is terminal → fall through to mark the round completed.
+      } else {
+        // Non-split round: gate on scorecards. Expected field size = distinct
+        // players across the round's pairings.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- generated-types workaround
+        const { data: pairingRows } = await (supabase as any)
+          .from('pairings')
+          .select('player_ids')
+          .eq('round_id', roundId);
+        const expected = pairingRows
+          ? new Set(
+              (pairingRows as { player_ids: string[] }[]).flatMap((p) => p.player_ids ?? [])
+            ).size
+          : 0;
+        const enoughCards = expected === 0 ? true : terminalCount >= expected;
+
+        if (!allTerminal || !enoughCards) {
+          submitLogger.info('Round not yet complete — leaving status unchanged', {
+            roundId: roundId.substring(0, 8) + '...',
+            terminalCount,
+            totalCards: cards.length,
+            expected,
+          });
+          return;
+        }
       }
 
       submitLogger.info('Updating round status to completed', { roundId: roundId.substring(0, 8) + '...' });
