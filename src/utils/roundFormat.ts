@@ -13,3 +13,14 @@ export function isSplitAltShotRound(round: {
     (round.game_type === 'alt-shot' || round.team_format === 'alt-shot')
   );
 }
+
+/**
+ * True when a round is a split match-play round (1v1 singles / Ryder-cup-style
+ * sub-matches). Gates the sub-match leaderboard on ViewRound and the competition.
+ */
+export function isSplitMatchPlayRound(round: {
+  round_format?: string | null;
+  game_type?: string | null;
+}): boolean {
+  return round.round_format === 'split' && round.game_type === 'match-play';
+}

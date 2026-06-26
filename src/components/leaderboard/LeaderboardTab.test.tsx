@@ -1401,4 +1401,42 @@ describe('LeaderboardTab', () => {
       expect(screen.getByTestId('submatch-leaderboard-r2')).toBeTruthy();
     });
   });
+
+  // ===========================================================================
+  // TEAM-VIEW ONLY: SPLIT MATCH-PLAY SUB-MATCH LEADERBOARD
+  // ===========================================================================
+
+  describe('Round Results — split match-play leaderboard (Team-view only)', () => {
+    beforeEach(() => {
+      mockUseCompetitionLeaderboard.mockReturnValue({
+        data: [createIndividualEntry('p1', 'John', 15, 36, 1, 1)],
+        teamData: [],
+        isLoading: false,
+        error: null,
+      });
+    });
+
+    const completedStrokeR1 = createMockRound({
+      id: 'r1', round_number: 1, status: 'completed', game_type: 'stableford', team_format: null,
+    });
+    const matchPlayR2 = createMockRound({
+      id: 'r2', round_number: 2, status: 'in-progress',
+      round_format: 'split', game_type: 'match-play', team_format: 'match-play-team', is_team_round: true,
+    });
+
+    it('renders the sub-match leaderboard for a split match-play round in the Team view', () => {
+      render(
+        <LeaderboardTab {...defaultProps} teamMode="fixed" selectedView="team" onViewChange={() => {}} rounds={[matchPlayR2, completedStrokeR1]} />
+      );
+      expect(screen.getByTestId('submatch-leaderboard-r2')).toBeTruthy();
+    });
+
+    it('hides the split match-play leaderboard in the Individual view (keeps other rounds)', () => {
+      render(
+        <LeaderboardTab {...defaultProps} teamMode="fixed" selectedView="individual" onViewChange={() => {}} rounds={[matchPlayR2, completedStrokeR1]} />
+      );
+      expect(screen.queryByTestId('submatch-leaderboard-r2')).toBeNull();
+      expect(screen.getByTestId('round-leaderboard-1')).toBeTruthy();
+    });
+  });
 });

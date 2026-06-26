@@ -23,7 +23,7 @@ import {
   InProgressRoundLeaderboard,
   IN_PROGRESS_SUPPORTED_GAME_TYPES,
 } from './InProgressRoundLeaderboard';
-import { isSplitAltShotRound } from '@/utils/roundFormat';
+import { isSplitAltShotRound, isSplitMatchPlayRound } from '@/utils/roundFormat';
 import { RoundSubMatchLeaderboard } from './RoundSubMatchLeaderboard';
 import { LeaderboardHeader } from './LeaderboardHeader';
 import { useCompetitionLeaderboard, type LeaderboardFilter, type CompetitionLeaderboardEntry } from '@/hooks/useCompetitionLeaderboard';
@@ -487,7 +487,7 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
           {orderedRounds.map(({ round, inProgress }) => {
             const gameType = round.game_type as GameType;
 
-            if (isSplitAltShotRound(round)) {
+            if (isSplitAltShotRound(round) || isSplitMatchPlayRound(round)) {
               // Alt-shot is a pure team format — only show its sub-match
               // leaderboard in the Team view; skip it in the Individual view.
               if (effectiveView !== 'team') return null;
