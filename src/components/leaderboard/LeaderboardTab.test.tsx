@@ -129,6 +129,16 @@ jest.mock('./RoundLeaderboard', () => {
   };
 });
 
+// Mock RoundSubMatchLeaderboard
+jest.mock('./RoundSubMatchLeaderboard', () => {
+  const { View, Text } = require('react-native');
+  return {
+    RoundSubMatchLeaderboard: ({ roundId }: { roundId: string }) => (
+      <View testID={`submatch-leaderboard-${roundId}`}><Text>SubMatch LB</Text></View>
+    ),
+  };
+});
+
 // =====================================================
 // TEST FIXTURES
 // =====================================================
@@ -910,6 +920,28 @@ describe('LeaderboardTab', () => {
 
       // Completed rounds should not have auto-refresh
       expect(screen.queryByTestId('auto-refresh-round-1')).toBeNull();
+    });
+
+    it('renders the sub-match leaderboard for an in-progress split alt-shot round', () => {
+      const splitAltShotRound = createMockRound({
+        id: 'round-1',
+        round_number: 1,
+        round_format: 'split',
+        game_type: 'alt-shot',
+        team_format: 'alt-shot',
+        is_team_round: true,
+        status: 'in-progress',
+      });
+      mockUseCompetitionLeaderboard.mockReturnValue({
+        data: [createIndividualEntry('p1', 'John', 15, 36, 1, 1)],
+        isLoading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      render(<LeaderboardTab {...defaultProps} rounds={[splitAltShotRound]} />);
+
+      expect(screen.getByTestId('submatch-leaderboard-round-1')).toBeTruthy();
     });
 
     it('shows multiple round leaderboards', () => {

@@ -23,6 +23,8 @@ import {
   InProgressRoundLeaderboard,
   IN_PROGRESS_SUPPORTED_GAME_TYPES,
 } from './InProgressRoundLeaderboard';
+import { isSplitAltShotRound } from '@/utils/roundFormat';
+import { RoundSubMatchLeaderboard } from './RoundSubMatchLeaderboard';
 import { useCompetitionLeaderboard, type LeaderboardFilter, type CompetitionLeaderboardEntry } from '@/hooks/useCompetitionLeaderboard';
 import { useTeams } from '@/hooks/rounds';
 import { spacing, typography, borderRadius } from '@/constants/theme';
@@ -472,6 +474,17 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
               back to RoundLeaderboard. */}
           {inProgressRounds.map((round) => {
             const gameType = round.game_type as GameType;
+            if (isSplitAltShotRound(round)) {
+              return (
+                <View key={round.id} style={styles.roundLeaderboardContainer}>
+                  <RoundSubMatchLeaderboard
+                    roundId={round.id}
+                    competitionId={competitionId}
+                    currentUserId={currentUserId}
+                  />
+                </View>
+              );
+            }
             const canRenderLive =
               !round.is_team_round && IN_PROGRESS_SUPPORTED_GAME_TYPES.has(gameType);
 
@@ -507,18 +520,26 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
           {/* Completed Rounds */}
           {completedRounds.map((round) => (
             <View key={round.id} style={styles.roundLeaderboardContainer}>
-              <RoundLeaderboard
-                roundId={round.id}
-                gameType={round.game_type as GameType}
-                isTeamRound={round.is_team_round || false}
-                currentUserId={currentUserId}
-                autoRefresh={false}
-                filterView={effectiveView}
-                playerTeamLookup={
-                  effectiveView === 'individual' && hasTeams ? playerTeamLookup : undefined
-                }
-                testID={`round-leaderboard-${round.round_number}`}
-              />
+              {isSplitAltShotRound(round) ? (
+                <RoundSubMatchLeaderboard
+                  roundId={round.id}
+                  competitionId={competitionId}
+                  currentUserId={currentUserId}
+                />
+              ) : (
+                <RoundLeaderboard
+                  roundId={round.id}
+                  gameType={round.game_type as GameType}
+                  isTeamRound={round.is_team_round || false}
+                  currentUserId={currentUserId}
+                  autoRefresh={false}
+                  filterView={effectiveView}
+                  playerTeamLookup={
+                    effectiveView === 'individual' && hasTeams ? playerTeamLookup : undefined
+                  }
+                  testID={`round-leaderboard-${round.round_number}`}
+                />
+              )}
             </View>
           ))}
         </View>
