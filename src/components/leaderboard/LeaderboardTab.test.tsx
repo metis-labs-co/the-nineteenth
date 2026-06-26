@@ -139,6 +139,16 @@ jest.mock('./RoundSubMatchLeaderboard', () => {
   };
 });
 
+// Mock LeaderboardHeader (assert round number + that the alt-shot entry gets a header)
+jest.mock('./LeaderboardHeader', () => {
+  const { View, Text } = require('react-native');
+  return {
+    LeaderboardHeader: ({ roundNumber }: { roundNumber: number }) => (
+      <View testID={`lb-header-${roundNumber}`}><Text>Round {roundNumber}</Text></View>
+    ),
+  };
+});
+
 // =====================================================
 // TEST FIXTURES
 // =====================================================
@@ -1284,6 +1294,49 @@ describe('LeaderboardTab', () => {
       const round2Leaderboards = screen.getAllByTestId('round-leaderboard-2');
       expect(round1Leaderboards.length).toBeGreaterThanOrEqual(1);
       expect(round2Leaderboards.length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  // ===========================================================================
+  // ORDERING AND ALT-SHOT HEADER TESTS
+  // ===========================================================================
+
+  describe('Round Results — ordering and alt-shot header', () => {
+    beforeEach(() => {
+      mockUseCompetitionLeaderboard.mockReturnValue({
+        data: [createIndividualEntry('p1', 'John', 15, 36, 1, 1)],
+        teamData: [],
+        isLoading: false,
+        error: null,
+      });
+    });
+
+    const completedR1 = createMockRound({ id: 'r1', round_number: 1, status: 'completed' });
+    const altShotR2 = createMockRound({
+      id: 'r2',
+      round_number: 2,
+      status: 'in-progress',
+      round_format: 'split',
+      game_type: 'alt-shot',
+      team_format: 'alt-shot',
+      is_team_round: true,
+    });
+
+    it('orders rounds by round number across statuses (completed R1 before in-progress alt-shot R2)', () => {
+      // Pass out of order (alt-shot first) to prove sorting, not input order.
+      render(<LeaderboardTab {...defaultProps} rounds={[altShotR2, completedR1]} />);
+      const json = JSON.stringify(screen.toJSON());
+      const r1Index = json.indexOf('round-leaderboard-1');     // completed R1 (RoundLeaderboard mock, testID by round_number)
+      const r2Index = json.indexOf('submatch-leaderboard-r2'); // in-progress alt-shot R2 (RoundSubMatchLeaderboard mock, testID by id)
+      expect(r1Index).toBeGreaterThan(-1);
+      expect(r2Index).toBeGreaterThan(-1);
+      expect(r1Index).toBeLessThan(r2Index);
+    });
+
+    it('renders a Round header + format pill for the split alt-shot round', () => {
+      render(<LeaderboardTab {...defaultProps} rounds={[altShotR2]} />);
+      expect(screen.getByTestId('lb-header-2')).toBeTruthy();
+      expect(screen.getByTestId('submatch-leaderboard-r2')).toBeTruthy();
     });
   });
 });

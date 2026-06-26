@@ -25,6 +25,7 @@ import {
 } from './InProgressRoundLeaderboard';
 import { isSplitAltShotRound } from '@/utils/roundFormat';
 import { RoundSubMatchLeaderboard } from './RoundSubMatchLeaderboard';
+import { LeaderboardHeader } from './LeaderboardHeader';
 import { useCompetitionLeaderboard, type LeaderboardFilter, type CompetitionLeaderboardEntry } from '@/hooks/useCompetitionLeaderboard';
 import { useTeams } from '@/hooks/rounds';
 import { spacing, typography, borderRadius } from '@/constants/theme';
@@ -290,6 +291,18 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
     [rounds]
   );
 
+  // Single round-number-ordered list across statuses, so rounds render in
+  // numeric order regardless of in-progress/completed (the per-round component
+  // is still chosen by `inProgress`). Keeps `inProgressRounds`/`completedRounds`
+  // (used by the section empty-state guards).
+  const orderedRounds = useMemo(
+    () => [
+      ...inProgressRounds.map((round) => ({ round, inProgress: true })),
+      ...completedRounds.map((round) => ({ round, inProgress: false })),
+    ].sort((a, b) => a.round.round_number - b.round.round_number),
+    [inProgressRounds, completedRounds]
+  );
+
   // Check if ALL rounds are single-ball team format (scramble/alt-shot — individual standings become irrelevant)
   const isAllScrambleFormat = useMemo(
     () => rounds.length > 0 && rounds.every((round) => round.team_format === 'scramble' || round.team_format === 'alt-shot'),
@@ -466,17 +479,28 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
             icon="calendar-outline"
           />
 
-          {/* In-Progress Rounds. For supported individual formats we render a
-              live leaderboard derived from scorecards directly — `round_results`
-              is only populated on submission, so the round_results-driven
-              RoundLeaderboard would otherwise show "No scores yet" until the
-              round is finalised. Team rounds and unsupported formats fall
-              back to RoundLeaderboard. */}
-          {inProgressRounds.map((round) => {
+          {/* All rounds in round-number order. In-progress individual formats
+              render a live leaderboard derived from scorecards (round_results
+              is only populated on submission); split alt-shot renders the live
+              sub-match leaderboard with its own header; everything else reads
+              round_results via RoundLeaderboard. */}
+          {orderedRounds.map(({ round, inProgress }) => {
             const gameType = round.game_type as GameType;
+
             if (isSplitAltShotRound(round)) {
               return (
                 <View key={round.id} style={styles.roundLeaderboardContainer}>
+                  <LeaderboardHeader
+                    roundNumber={round.round_number}
+                    gameType={gameType}
+                    isTeamRound={round.is_team_round}
+                    roundFormat={round.round_format}
+                    teamFormat={round.team_format}
+                    subMatchSize={round.sub_match_size}
+                    rulesOverride={round.rules_override}
+                    date={round.date ?? undefined}
+                    courseName={round.course?.name ?? undefined}
+                  />
                   <RoundSubMatchLeaderboard
                     roundId={round.id}
                     competitionId={competitionId}
@@ -485,51 +509,44 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
                 </View>
               );
             }
-            const canRenderLive =
-              !round.is_team_round && IN_PROGRESS_SUPPORTED_GAME_TYPES.has(gameType);
+
+            if (inProgress) {
+              const canRenderLive =
+                !round.is_team_round && IN_PROGRESS_SUPPORTED_GAME_TYPES.has(gameType);
+              return (
+                <View key={round.id} style={styles.roundLeaderboardContainer}>
+                  {canRenderLive ? (
+                    <InProgressRoundLeaderboard
+                      roundId={round.id}
+                      gameType={gameType}
+                      roundNumber={round.round_number}
+                      courseName={round.course?.name ?? undefined}
+                      currentUserId={currentUserId}
+                      testID={`round-leaderboard-${round.round_number}-live`}
+                    />
+                  ) : (
+                    <RoundLeaderboard
+                      roundId={round.id}
+                      gameType={gameType}
+                      isTeamRound={round.is_team_round || false}
+                      currentUserId={currentUserId}
+                      autoRefresh={autoRefresh}
+                      filterView={effectiveView}
+                      playerTeamLookup={
+                        effectiveView === 'individual' && hasTeams ? playerTeamLookup : undefined
+                      }
+                      testID={`round-leaderboard-${round.round_number}`}
+                    />
+                  )}
+                </View>
+              );
+            }
 
             return (
               <View key={round.id} style={styles.roundLeaderboardContainer}>
-                {canRenderLive ? (
-                  <InProgressRoundLeaderboard
-                    roundId={round.id}
-                    gameType={gameType}
-                    roundNumber={round.round_number}
-                    courseName={round.course?.name ?? undefined}
-                    currentUserId={currentUserId}
-                    testID={`round-leaderboard-${round.round_number}-live`}
-                  />
-                ) : (
-                  <RoundLeaderboard
-                    roundId={round.id}
-                    gameType={gameType}
-                    isTeamRound={round.is_team_round || false}
-                    currentUserId={currentUserId}
-                    autoRefresh={autoRefresh}
-                    filterView={effectiveView}
-                    playerTeamLookup={
-                      effectiveView === 'individual' && hasTeams ? playerTeamLookup : undefined
-                    }
-                    testID={`round-leaderboard-${round.round_number}`}
-                  />
-                )}
-              </View>
-            );
-          })}
-
-          {/* Completed Rounds */}
-          {completedRounds.map((round) => (
-            <View key={round.id} style={styles.roundLeaderboardContainer}>
-              {isSplitAltShotRound(round) ? (
-                <RoundSubMatchLeaderboard
-                  roundId={round.id}
-                  competitionId={competitionId}
-                  currentUserId={currentUserId}
-                />
-              ) : (
                 <RoundLeaderboard
                   roundId={round.id}
-                  gameType={round.game_type as GameType}
+                  gameType={gameType}
                   isTeamRound={round.is_team_round || false}
                   currentUserId={currentUserId}
                   autoRefresh={false}
@@ -539,9 +556,9 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
                   }
                   testID={`round-leaderboard-${round.round_number}`}
                 />
-              )}
-            </View>
-          ))}
+              </View>
+            );
+          })}
         </View>
       )}
 
