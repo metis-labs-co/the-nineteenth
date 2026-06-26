@@ -10,4 +10,3 @@ export { ContributionsTabContent } from './ContributionsTabContent';
 export { ScrambleLeaderboardTab } from './ScrambleLeaderboardTab';
 export { MatchPlayLeaderboardTab } from './MatchPlayLeaderboardTab';
 export { MatchScorecardTabContent } from './MatchScorecardTabContent';
-export { SubMatchLeaderboardTab } from './SubMatchLeaderboardTab';

@@ -31,6 +31,8 @@ import { BagClubPickerSheet } from '@/components/features/bag/BagClubPickerSheet
 import { clubLabel, type ClubKey } from '@/constants/clubs';
 import type { ShotLogEntry } from '@/types/database/shotLog.types';
 
+import { isSingleBallScore } from '@/types/database/base';
+import { SubMatchLeaderboardTab } from '@/components/leaderboard';
 import { useScoreReview, useScoreSubmission, useReviewScorecardTabs, useScrambleTeams } from './hooks';
 import {
   IncompleteScoresModal,
@@ -46,7 +48,6 @@ import {
   ScrambleLeaderboardTab,
   MatchPlayLeaderboardTab,
   MatchScorecardTabContent,
-  SubMatchLeaderboardTab,
 } from './components';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ReviewScorecard'>;
@@ -162,6 +163,16 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
     }
     return map;
   }, [currentUserId, holes, getPlayerScore, groupScorecards]);
+
+  // Store-backed getStrokes for SubMatchLeaderboardTab
+  const getStrokes = useCallback(
+    (playerId: string, hole: number): number | undefined => {
+      const raw = getPlayerScore(playerId, hole);
+      if (!raw) return undefined;
+      return isSingleBallScore(raw) ? raw.strokes : raw.balls?.[0]?.strokes;
+    },
+    [getPlayerScore]
+  );
 
   // Mismatch hooks
   const { data: mismatches = [] } = usePendingMismatches(roundId || undefined);
@@ -431,6 +442,7 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
       {activeTab === 'leaderboard' && isSubMatchRound && roundId && (
         <SubMatchLeaderboardTab
           roundId={roundId}
+          getStrokes={getStrokes}
           competitionId={route.params?.competitionId}
           gameType={effectiveGameType}
           teamFormat={roundDetails?.team_format ?? null}

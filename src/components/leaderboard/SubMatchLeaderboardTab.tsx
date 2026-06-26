@@ -5,9 +5,7 @@ import { spacing } from '@/constants/theme';
 import { useSubMatches } from '@/hooks/rounds';
 import { useRoundTeams } from '@/hooks/scorecard/useRoundTeams';
 import { calculatePlayingHandicap } from '@/hooks/usePlayingHandicap';
-import { useScorecardStore } from '@/store/scorecardStore';
 import { getTeamColorHex } from '@/utils/teamColor';
-import { isSingleBallScore } from '@/types/database/base';
 import { EmptyState } from '@/components/common/EmptyState';
 import { MatchPlayMatchRow } from '@/components/rounds/MatchPlayMatchRow';
 import { SubMatchNetCard, SubMatchOverallHeader } from '@/components/rounds/SubMatchNetCard';
@@ -19,12 +17,13 @@ import {
   type SubMatchPlayer,
   type SubMatchSides,
   type SubMatchLeader,
-} from '../utils/subMatchLeaderboard';
+} from '@/screens/scoring/ReviewScorecardScreen/utils/subMatchLeaderboard';
 import type { Hole, TeeBox, GameType, TeamFormat } from '@/types';
 import type { HandicapSource } from '@/types/database/enums';
 
 interface SubMatchLeaderboardTabProps {
   roundId: string;
+  getStrokes: (playerId: string, holeNumber: number) => number | undefined;
   competitionId?: string | null;
   gameType: GameType;
   teamFormat?: TeamFormat | null;
@@ -49,6 +48,7 @@ function labelForSide(
 
 export function SubMatchLeaderboardTab({
   roundId,
+  getStrokes,
   competitionId,
   gameType,
   teamFormat,
@@ -61,18 +61,8 @@ export function SubMatchLeaderboardTab({
   bottomInset,
 }: SubMatchLeaderboardTabProps) {
   const colors = useThemeColors();
-  const getPlayerScoreFromStore = useScorecardStore((s) => s.getPlayerScore);
   const { data: subMatches, isLoading: smLoading } = useSubMatches(roundId);
   const { teams, isLoading: teamsLoading } = useRoundTeams(competitionId ?? undefined, true, roundId);
-
-  const getStrokes = useMemo(
-    () => (playerId: string, holeNumber: number): number | undefined => {
-      const raw = getPlayerScoreFromStore(playerId, holeNumber);
-      if (!raw) return undefined;
-      return isSingleBallScore(raw) ? raw.strokes : raw.balls?.[0]?.strokes;
-    },
-    [getPlayerScoreFromStore]
-  );
 
   const { playerById, teamNameByPlayer, teamColorByPlayer } = useMemo(() => {
     const playerById = new Map<string, SubMatchPlayer>();
