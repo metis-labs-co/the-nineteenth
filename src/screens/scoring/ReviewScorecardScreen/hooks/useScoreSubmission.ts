@@ -428,11 +428,9 @@ export function useScoreSubmission({
     //    rounds short-circuit inside the service and submit normally.
     if (currentUserId && roundId && isOnline) {
       try {
-        // Players this device is submitting (its on-course group / pair). Used
-        // to scope the readiness gate so different groups submit independently.
         // Scope the readiness gate to the players this device is responsible for
-        // (its on-course group / pair). `allowedPlayerIds` is set by the scoring
-        // screen; fall back to the full field when it is empty (legacy behaviour).
+        // (its on-course group / pair) so different groups submit independently.
+        // See resolveGroupScope: allowedPlayerIds → user's pairing → full field.
         const groupPlayerIds = getGroupScopeIds();
         submitLogger.info('Checking submission readiness', {
           scoringPairsEnabled,
