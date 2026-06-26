@@ -46,6 +46,8 @@ export function useReviewScorecardTabs({ roundId, storeGameType, playerCount }: 
   const isStrokePlay = effectiveGameType === 'stroke';
   const isScramble = effectiveGameType === 'scramble' || roundDetails?.team_format === 'scramble'
     || effectiveGameType === 'alt-shot' || roundDetails?.team_format === 'alt-shot';
+  const isAltShot =
+    effectiveGameType === 'alt-shot' || roundDetails?.team_format === 'alt-shot';
   const isShamble = effectiveGameType === 'shamble' || roundDetails?.team_format === 'shamble';
   const isBestBall = roundDetails?.team_format === 'best-ball';
   const isMatchPlayTeam = roundDetails?.team_format === 'match-play-team';
@@ -115,7 +117,7 @@ export function useReviewScorecardTabs({ roundId, storeGameType, playerCount }: 
     if (isScramble) {
       if (!isSoloRound) tabList.push({ key: 'leaderboard' as const, label: 'Leaderboard' });
       tabList.push({ key: 'scorecard' as const, label: 'Scorecard' });
-      tabList.push({ key: 'contributions' as const, label: 'Contributions' });
+      if (!isAltShot) tabList.push({ key: 'contributions' as const, label: 'Contributions' });
     } else if (isShamble) {
       tabList.push({ key: 'scorecard' as const, label: 'Scorecard' });
       tabList.push({ key: 'contributions' as const, label: 'Team Scores' });
@@ -152,7 +154,7 @@ export function useReviewScorecardTabs({ roundId, storeGameType, playerCount }: 
     }
 
     return tabList;
-  }, [hasSkinsGame, hasWolfGame, hasPayoutsTab, hasShots, isStrokePlay, isScramble, isShamble, isBestBall, isMatchPlayTeam, hasStats, isSoloRound]);
+  }, [hasSkinsGame, hasWolfGame, hasPayoutsTab, hasShots, isStrokePlay, isScramble, isAltShot, isShamble, isBestBall, isMatchPlayTeam, hasStats, isSoloRound]);
 
   // Show the tab bar whenever there's more than a single tab. Every individual
   // format now gets a Leaderboard tab alongside Scorecard, so this is true for
