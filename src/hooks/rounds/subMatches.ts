@@ -15,7 +15,16 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { subMatchKeys, roundKeys, skinsKeys } from '@/hooks/queryKeys';
+import {
+  subMatchKeys,
+  roundKeys,
+  skinsKeys,
+  competitionDetailsKeys,
+  leaderboardKeys,
+} from '@/hooks/queryKeys';
+import { supabase } from '@/services/supabase/client';
+import { refinalizeRoundResults } from '@/services/rounds/refinalizeRoundResults';
+import { finalizeRoundStatus } from '@/services/rounds/finalizeRoundStatus';
 import {
   listSubMatchesForRound,
   replaceSubMatches,
@@ -76,6 +85,40 @@ export function useUpdateSubMatchResult(roundId: string) {
           });
           queryClient.invalidateQueries({
             queryKey: skinsKeys.activeGameBySubMatch(variables.subMatchId),
+          });
+        }
+
+        // A terminal sub-match changes the round's standings (and may finish the
+        // round). Re-finalize the round's results, then complete the round if
+        // every sub-match is now terminal — and refresh the COMPETITION-scoped
+        // caches. Without this the competition leaderboard stays stale and the
+        // round card keeps its score button enabled after the round is done.
+        try {
+          await refinalizeRoundResults(roundId);
+        } catch (err) {
+          console.warn('[useUpdateSubMatchResult] refinalize round results failed:', err);
+        }
+        try {
+          await finalizeRoundStatus(roundId);
+        } catch (err) {
+          console.warn('[useUpdateSubMatchResult] round status finalize failed:', err);
+        }
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- generated-types workaround
+        const { data: roundRow } = await (supabase.from('rounds') as any)
+          .select('competition_id')
+          .eq('id', roundId)
+          .maybeSingle();
+        const competitionId: string | null | undefined = roundRow?.competition_id;
+
+        queryClient.invalidateQueries({ queryKey: roundKeys.detail(roundId) });
+        queryClient.invalidateQueries({ queryKey: leaderboardKeys.round(roundId) });
+        if (competitionId) {
+          queryClient.invalidateQueries({
+            queryKey: competitionDetailsKeys.detail(competitionId),
+          });
+          queryClient.invalidateQueries({
+            queryKey: leaderboardKeys.competition(competitionId),
           });
         }
       }
