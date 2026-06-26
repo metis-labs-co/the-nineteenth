@@ -46,6 +46,8 @@ export type { MatchPlayLeaderboardProps } from './MatchPlayLeaderboard';
 
 export { SubMatchLeaderboardTab } from './SubMatchLeaderboardTab';
 
+export { RoundSubMatchLeaderboard } from './RoundSubMatchLeaderboard';
+
 // Utilities
 export {
   getGameTypeLabel,
