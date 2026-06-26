@@ -391,20 +391,31 @@ export default function ViewRoundScreen(props: Props) {
           />
         )}
         {vm.activeTab === 'match' && (vm.isMatchPlayRound || vm.isTeamMatchPlayRound) && (
-          <MatchTab
-            isMatchPlayRound={vm.isMatchPlayRound}
-            isTeamMatchPlayRound={vm.isTeamMatchPlayRound}
-            matchPlayPlayers={vm.matchPlayPlayers}
-            holes={round.course?.holes || null}
-            getPlayerScore={vm.getPlayerScore}
-            matchPlayData={vm.matchPlayData}
-            currentUserId={vm.user?.id}
-            roundStatus={round.status}
-            isTeamRound={round.is_team_round || false}
-            isSplitRound={vm.isSplitRound}
-            roundId={round.id}
-            startHole={round.course?.start_hole ?? 1}
-          />
+          vm.isSplitRound ? (
+            <RoundSubMatchLeaderboard
+              roundId={round.id}
+              competitionId={vm.competitionId ?? null}
+              currentUserId={vm.user?.id}
+              isRefreshing={vm.isRefreshing}
+              onRefresh={vm.handleRefresh}
+              bottomInset={insets.bottom}
+            />
+          ) : (
+            <MatchTab
+              isMatchPlayRound={vm.isMatchPlayRound}
+              isTeamMatchPlayRound={vm.isTeamMatchPlayRound}
+              matchPlayPlayers={vm.matchPlayPlayers}
+              holes={round.course?.holes || null}
+              getPlayerScore={vm.getPlayerScore}
+              matchPlayData={vm.matchPlayData}
+              currentUserId={vm.user?.id}
+              roundStatus={round.status}
+              isTeamRound={round.is_team_round || false}
+              isSplitRound={vm.isSplitRound}
+              roundId={round.id}
+              startHole={round.course?.start_hole ?? 1}
+            />
+          )
         )}
         {vm.activeTab === 'subMatches' && (
           <SubMatchesTab
