@@ -130,8 +130,10 @@ export function useViewRoundTabs({
 
     if (isScrambleRound) {
       // Split alt-shot is head-to-head 2v2: the cross-field Scorecard/Leaderboard
-      // tabs rank across all players and are wrong here. Keep only Contributions;
-      // the Sub-Matches tab already shows the pair results.
+      // tabs rank across all players and are wrong there, so they're suppressed —
+      // the Sub-Matches tab already shows the pair results. Alt-shot (combined or
+      // split) also has no Contributions tab. Net: real scramble keeps all three;
+      // combined alt-shot keeps Scorecard/Leaderboard only; split alt-shot keeps none.
       if (!isAltShotSplitRound) {
         result.push({ key: 'scrambleTeamScore', label: 'Scorecard' });
         result.push({ key: 'scrambleLeaderboard', label: 'Leaderboard' });
