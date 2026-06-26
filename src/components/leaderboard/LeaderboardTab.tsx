@@ -488,6 +488,9 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
             const gameType = round.game_type as GameType;
 
             if (isSplitAltShotRound(round)) {
+              // Alt-shot is a pure team format — only show its sub-match
+              // leaderboard in the Team view; skip it in the Individual view.
+              if (effectiveView !== 'team') return null;
               return (
                 <View key={round.id} style={styles.roundLeaderboardContainer}>
                   <LeaderboardHeader

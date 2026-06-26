@@ -1324,7 +1324,8 @@ describe('LeaderboardTab', () => {
 
     it('orders rounds by round number across statuses (completed R1 before in-progress alt-shot R2)', () => {
       // Pass out of order (alt-shot first) to prove sorting, not input order.
-      render(<LeaderboardTab {...defaultProps} rounds={[altShotR2, completedR1]} />);
+      // teamMode="fixed" keeps effectiveView='team' so the alt-shot sub-match leaderboard is visible.
+      render(<LeaderboardTab {...defaultProps} teamMode="fixed" rounds={[altShotR2, completedR1]} />);
       const json = JSON.stringify(screen.toJSON());
       const r1Index = json.indexOf('round-leaderboard-1');     // completed R1 (RoundLeaderboard mock, testID by round_number)
       const r2Index = json.indexOf('submatch-leaderboard-r2'); // in-progress alt-shot R2 (RoundSubMatchLeaderboard mock, testID by id)
@@ -1336,6 +1337,67 @@ describe('LeaderboardTab', () => {
     it('renders a Round header + format pill for the split alt-shot round', () => {
       render(<LeaderboardTab {...defaultProps} rounds={[altShotR2]} />);
       expect(screen.getByTestId('lb-header-2')).toBeTruthy();
+      expect(screen.getByTestId('submatch-leaderboard-r2')).toBeTruthy();
+    });
+  });
+
+  // ===========================================================================
+  // TEAM-VIEW ONLY: ALT-SHOT SUB-MATCH LEADERBOARD
+  // ===========================================================================
+
+  describe('Round Results — alt-shot round is Team-view only', () => {
+    beforeEach(() => {
+      mockUseCompetitionLeaderboard.mockReturnValue({
+        data: [createIndividualEntry('p1', 'John', 15, 36, 1, 1)],
+        teamData: [],
+        isLoading: false,
+        error: null,
+      });
+    });
+
+    // Mixed competition: a completed non-scramble round + an in-progress split alt-shot round.
+    const completedStrokeR1 = createMockRound({
+      id: 'r1',
+      round_number: 1,
+      status: 'completed',
+      game_type: 'stableford',
+      team_format: null,
+    });
+    const altShotR2 = createMockRound({
+      id: 'r2',
+      round_number: 2,
+      status: 'in-progress',
+      round_format: 'split',
+      game_type: 'alt-shot',
+      team_format: 'alt-shot',
+      is_team_round: true,
+    });
+
+    it('hides the alt-shot sub-match leaderboard on the Individual view (keeps other rounds)', () => {
+      render(
+        <LeaderboardTab
+          {...defaultProps}
+          teamMode="fixed"
+          selectedView="individual"
+          onViewChange={() => {}}
+          rounds={[altShotR2, completedStrokeR1]}
+        />
+      );
+      expect(screen.queryByTestId('submatch-leaderboard-r2')).toBeNull();
+      // the non-alt-shot round still appears in the individual round list
+      expect(screen.getByTestId('round-leaderboard-1')).toBeTruthy();
+    });
+
+    it('shows the alt-shot sub-match leaderboard on the Team view', () => {
+      render(
+        <LeaderboardTab
+          {...defaultProps}
+          teamMode="fixed"
+          selectedView="team"
+          onViewChange={() => {}}
+          rounds={[altShotR2, completedStrokeR1]}
+        />
+      );
       expect(screen.getByTestId('submatch-leaderboard-r2')).toBeTruthy();
     });
   });
