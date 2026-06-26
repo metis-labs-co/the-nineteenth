@@ -19,6 +19,7 @@ import { useThemeColors } from '@/context/ThemeContext';
 import type { Hole, HoleScore, MultiBallHoleScore, ShotContributions } from '@/types';
 import type { TeamWithMembers } from '@/types/database.types';
 import { altShotTeePlayer, deriveAltShotShotCounts } from '@/utils/teamScoring';
+import { calculateAltShotTeamHandicap } from '@/utils/teamScoring/altShot';
 import { useTeamScoreControls } from '@/components/scorecard/TeamScoreCard/hooks/useTeamScoreControls';
 
 interface AltShotScoreCardProps {
@@ -46,6 +47,18 @@ export const AltShotScoreCard = React.memo(function AltShotScoreCard({
 }: AltShotScoreCardProps) {
   const colors = useThemeColors();
 
+  // Alt Shot (foursomes) team handicap = 50% of the partners' combined
+  // handicaps — NOT the Scramble 25% allowance the shared hook defaults to.
+  // Passing it as an override keeps the score-entry card and per-hole strokes
+  // consistent with the finalized scoring (resultsEngine / sub-match outcome).
+  const altShotTeamHandicap = useMemo(
+    () =>
+      calculateAltShotTeamHandicap(
+        (team.members ?? []).map((m) => ({ handicap: m.player?.handicap }))
+      ),
+    [team.members]
+  );
+
   const {
     teamHandicap,
     strokesOnHole,
@@ -64,6 +77,7 @@ export const AltShotScoreCard = React.memo(function AltShotScoreCard({
     shotContributions,
     onShotContributionsChange,
     disabled,
+    teamHandicapOverride: altShotTeamHandicap,
   });
 
   const members = useMemo(() => team.members ?? [], [team.members]);
