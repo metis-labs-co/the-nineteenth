@@ -101,6 +101,52 @@ describe('finalizePairResults', () => {
     expect(byTeam['team-blue']).toBe(0);
   });
 
+  it('resolves alt-shot from scores using profile handicap when daily snapshot is absent', async () => {
+    // Equal gross (72 each) so only the handicap decides. Team red's player has
+    // HC 8 (alt-shot team HC = 50% = 4); team blue is 0. Scorecards carry NO
+    // daily_handicap_used, so the finalizer must fall back to the profile HC
+    // from the teams — otherwise both sides net 72 and it wrongly ties.
+    const holes = Array.from({ length: 18 }, (_, i) => ({
+      number: i + 1,
+      par: 4,
+      strokeIndex: i + 1,
+    })) as unknown as Hole[];
+    const scoresOf = () =>
+      Object.fromEntries(holes.map((h) => [String(h.number), { strokes: 4 }]));
+    const scorecards = [
+      { player_id: 'p1', scores: scoresOf(), daily_handicap_used: null, total_gross: 72 },
+      { player_id: 'p3', scores: scoresOf(), daily_handicap_used: null, total_gross: 72 },
+    ] as unknown as Scorecard[];
+    const teams = [
+      { id: 'team-red', members: [{ player_id: 'p1', player: { handicap: 8 } }, { player_id: 'p2', player: { handicap: 0 } }] },
+      { id: 'team-blue', members: [{ player_id: 'p3', player: { handicap: 0 } }, { player_id: 'p4', player: { handicap: 0 } }] },
+    ] as unknown as TeamWithMembers[];
+    const subMatches: SubMatch[] = [
+      subMatch({
+        status: 'upcoming',
+        result: null,
+        team_a_player_ids: ['p1', 'p2'],
+        team_b_player_ids: ['p3', 'p4'],
+      }),
+    ];
+
+    const count = await finalizePairResults({
+      roundId: 'round-1',
+      teams,
+      gameType: 'alt-shot',
+      scorecards,
+      courseHoles: holes,
+      subMatches,
+      rulesOverride: OVERRIDE,
+    });
+
+    expect(count).toBe(2);
+    const rows = saveSpy.mock.calls[0][1];
+    const byTeam = Object.fromEntries(rows.map((r: { teamId: string; rawScore: number }) => [r.teamId, r.rawScore]));
+    expect(byTeam['team-red']).toBe(1); // net 68 < 72 → win (NOT a 0.5 tie)
+    expect(byTeam['team-blue']).toBe(0);
+  });
+
   it('handles halved sub-matches as 0.5 + 0.5', async () => {
     const subMatches: SubMatch[] = [
       subMatch({ sort_order: 0, result: 'halved' }),

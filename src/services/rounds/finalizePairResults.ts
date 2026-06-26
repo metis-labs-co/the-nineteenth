@@ -276,12 +276,29 @@ export async function finalizePairResults(
     }
   }
 
-  // Daily-handicap snapshot for alt-shot's differential allowance.
+  // Handicap snapshot for alt-shot's differential allowance. Prefer the
+  // scorecard's daily_handicap_used; when absent, fall back to the player's
+  // profile handicap from the competition teams — the SAME basis the sub-match
+  // leaderboards use to display net totals. Without this fallback a round whose
+  // scorecards never captured a daily snapshot loses the handicap difference
+  // entirely, so an alt-shot win (e.g. 67 vs 71 net) is mis-scored as a tie.
+  const profileHcByPlayer = new Map<string, number>();
+  for (const t of teams ?? []) {
+    for (const m of t.members) {
+      if (typeof m.player?.handicap === 'number') {
+        profileHcByPlayer.set(m.player_id, m.player.handicap);
+      }
+    }
+  }
   const dhcByPlayer = new Map<string, number>();
   if (input.scorecards) {
     for (const sc of input.scorecards) {
-      if (typeof sc.daily_handicap_used === 'number') {
-        dhcByPlayer.set(sc.player_id, sc.daily_handicap_used);
+      const hc =
+        typeof sc.daily_handicap_used === 'number'
+          ? sc.daily_handicap_used
+          : profileHcByPlayer.get(sc.player_id);
+      if (typeof hc === 'number') {
+        dhcByPlayer.set(sc.player_id, hc);
       }
     }
   }
