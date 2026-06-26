@@ -270,15 +270,21 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
   const _colors = useThemeColors();
   const hasTeams = teamMode !== 'none';
 
-  // Get completed rounds for round-specific leaderboards
+  // Get completed rounds for round-specific leaderboards, ordered by round number
   const completedRounds = useMemo(
-    () => rounds.filter((round) => round.status === 'completed'),
+    () =>
+      rounds
+        .filter((round) => round.status === 'completed')
+        .sort((a, b) => a.round_number - b.round_number),
     [rounds]
   );
 
-  // Get in-progress rounds
+  // Get in-progress rounds, ordered by round number
   const inProgressRounds = useMemo(
-    () => rounds.filter((round) => round.status === 'in-progress'),
+    () =>
+      rounds
+        .filter((round) => round.status === 'in-progress')
+        .sort((a, b) => a.round_number - b.round_number),
     [rounds]
   );
 
