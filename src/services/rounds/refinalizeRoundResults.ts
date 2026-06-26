@@ -228,14 +228,12 @@ export async function refinalizeRoundResults(roundId: string): Promise<void> {
         });
       }
 
-      if (!round.team1_id || !round.team2_id) {
-        submitLogger.warn(
-          'Split team-only round with pair_points missing team1_id/team2_id',
-          { roundId: roundId.substring(0, 8) + '...' }
-        );
-        return;
-      }
-
+      // team1_id/team2_id are NOT required: split team-only rounds (e.g.
+      // alt-shot foursomes, which is a 'team-only' engine shape) carry no team
+      // ids on the round — the two sides are derived from competition team
+      // membership inside finalizePairResults, and sub-match outcomes are
+      // computed live from scorecards. Bailing here was the cause of empty
+      // standings (0–0) on alt-shot split rounds.
       try {
         const pairRowCount = await finalizePairResults({
           roundId,

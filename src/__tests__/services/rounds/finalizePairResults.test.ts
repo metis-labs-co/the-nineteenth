@@ -75,6 +75,32 @@ describe('finalizePairResults', () => {
     expect(byTeam['team-b']).toBe(0); // 0 + 0
   });
 
+  it('derives team sides from membership when team1Id/team2Id are absent', async () => {
+    // Alt-shot/Ryder-cup split rounds carry no team1_id/team2_id on the round;
+    // sides must be derived from competition team membership.
+    const teams = [
+      { id: 'team-red', members: [{ player_id: 'p1' }, { player_id: 'p2' }] },
+      { id: 'team-blue', members: [{ player_id: 'p3' }, { player_id: 'p4' }] },
+    ] as unknown as TeamWithMembers[];
+    const subMatches: SubMatch[] = [
+      subMatch({ result: 'a-wins', team_a_player_ids: ['p1', 'p2'], team_b_player_ids: ['p3', 'p4'] }),
+    ];
+
+    const count = await finalizePairResults({
+      roundId: 'round-1',
+      competitionId: 'comp-1',
+      teams, // provided directly → derive sides from these
+      rulesOverride: OVERRIDE,
+      subMatches,
+    });
+
+    expect(count).toBe(2);
+    const rows = saveSpy.mock.calls[0][1];
+    const byTeam = Object.fromEntries(rows.map((r: { teamId: string; rawScore: number }) => [r.teamId, r.rawScore]));
+    expect(byTeam['team-red']).toBe(1); // p1/p2 side won
+    expect(byTeam['team-blue']).toBe(0);
+  });
+
   it('handles halved sub-matches as 0.5 + 0.5', async () => {
     const subMatches: SubMatch[] = [
       subMatch({ sort_order: 0, result: 'halved' }),
