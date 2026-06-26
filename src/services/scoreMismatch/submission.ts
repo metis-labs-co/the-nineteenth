@@ -66,10 +66,14 @@ async function checkPairsReadiness(
   roundId: string,
   userId: string,
   holeCount: number,
-  _groupPlayerIds?: string[]
+  groupPlayerIds?: string[]
 ): Promise<SubmissionReadiness> {
-  // Check for pending mismatches first
-  const pendingMismatches = await getPendingMismatches(roundId);
+  // Check for pending mismatches first — scoped to this pair's players so a
+  // different pair's unresolved mismatch can't block us.
+  const pendingMismatches = filterMismatchesToPlayers(
+    await getPendingMismatches(roundId),
+    groupPlayerIds
+  );
   if (pendingMismatches.length > 0) {
     return {
       canSubmit: false,

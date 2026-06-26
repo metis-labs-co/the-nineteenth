@@ -1028,6 +1028,54 @@ describe('Submission Readiness', () => {
         checkSubmissionReadiness('', PLAYER_A_ID, false)
       ).rejects.toThrow('Round ID and User ID are required');
     });
+
+    it('pairs: ignores another group\'s pending mismatch (scoped to the pair)', async () => {
+      // Mismatch belongs to PLAYER_C_ID (another group). Our pair is A + B.
+      // No scorer assigned to A (PGRST116) → partner treated complete.
+      const otherGroupMismatch = [
+        createMismatchRecord({ id: 'mm-other', player_id: '550e8400-e29b-41d4-a716-446655440003', hole_number: 1 }),
+      ];
+      (supabase.from as jest.Mock).mockImplementation((tableName: string) => ({
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        order: jest.fn().mockReturnThis(),
+        single: jest.fn(() => Promise.resolve({ data: null, error: { code: 'PGRST116' } })),
+        then: jest.fn((resolve: (v: unknown) => unknown) => {
+          if (tableName === 'score_mismatches') return resolve({ data: otherGroupMismatch, error: null });
+          return resolve({ data: [], error: null });
+        }),
+      }));
+
+      const result = await checkSubmissionReadiness(
+        ROUND_ID, PLAYER_A_ID, true, 18, [PLAYER_A_ID, PLAYER_B_ID]
+      );
+
+      expect(result.canSubmit).toBe(true);
+    });
+
+    it('pairs: still blocks on our own pair\'s pending mismatch', async () => {
+      const ourMismatch = [
+        createMismatchRecord({ id: 'mm-ours', player_id: PLAYER_A_ID, hole_number: 1 }),
+      ];
+      (supabase.from as jest.Mock).mockImplementation((tableName: string) => ({
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        order: jest.fn().mockReturnThis(),
+        single: jest.fn(() => Promise.resolve({ data: null, error: { code: 'PGRST116' } })),
+        then: jest.fn((resolve: (v: unknown) => unknown) => {
+          if (tableName === 'score_mismatches') return resolve({ data: ourMismatch, error: null });
+          return resolve({ data: [], error: null });
+        }),
+      }));
+
+      const result = await checkSubmissionReadiness(
+        ROUND_ID, PLAYER_A_ID, true, 18, [PLAYER_A_ID, PLAYER_B_ID]
+      );
+
+      expect(result.canSubmit).toBe(false);
+      expect(result.reason).toBe('unresolved_mismatches');
+      expect(result.mismatchCount).toBe(1);
+    });
   });
 
   describe('checkSubmissionReadiness() - multi-scorer (no pairs)', () => {
