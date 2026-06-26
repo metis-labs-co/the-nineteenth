@@ -105,6 +105,12 @@ export function useViewRoundTabs({
       result.push({ key: 'leaderboard', label: 'Leaderboard' });
     }
 
+    // Split alt-shot rounds get the live sub-match leaderboard under the same
+    // 'leaderboard' tab key (rendered by RoundSubMatchLeaderboard in index.tsx).
+    if (isAltShotSplitRound) {
+      result.push({ key: 'leaderboard', label: 'Leaderboard' });
+    }
+
     // Scorecard (scramble rounds have their own dedicated scorecard tab
     // in the scramble suite below).
     if (!isScrambleRound) {

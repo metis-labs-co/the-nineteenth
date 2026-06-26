@@ -53,6 +53,8 @@ import { StablefordLeaderboardFull } from '@/components/scorecard/StablefordLead
 import { ParLeaderboardFull } from '@/components/scorecard/ParLeaderboardFull';
 import { SubMatchesTab } from './tabs/SubMatchesTab';
 import { IndividualTeamLeaderboardTab } from './tabs/IndividualTeamLeaderboardTab';
+import { RoundSubMatchLeaderboard } from '@/components/leaderboard';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ShotLogList } from '@/components/features/shots/ShotLogList';
 import { BagClubPickerSheet } from '@/components/features/bag/BagClubPickerSheet';
 import { ConfirmationDialog } from '@/components/common';
@@ -69,6 +71,7 @@ export default function ViewRoundScreen(props: Props) {
   const vm = useViewRoundScreen(props);
   const colors = useThemeColors();
   const isDark = useIsDark();
+  const insets = useSafeAreaInsets();
   const competitionIconBackground = isDark ? `${colors.primary}33` : colors.primaryLighter;
   const userScorecard = vm.scorecards?.find((sc) => sc.id === vm.userScorecardId);
 
@@ -503,6 +506,16 @@ export default function ViewRoundScreen(props: Props) {
           }
           return individualView;
         })()}
+        {vm.activeTab === 'leaderboard' && vm.isAltShotSplitRound && vm.round && (
+          <RoundSubMatchLeaderboard
+            roundId={vm.round.id}
+            competitionId={vm.competitionId ?? null}
+            currentUserId={vm.user?.id}
+            isRefreshing={vm.isRefreshing}
+            onRefresh={vm.handleRefresh}
+            bottomInset={insets.bottom}
+          />
+        )}
         {vm.activeTab === 'teamScores' && vm.isShambleRound && (
           <ShambleTeamScoresTab
             shamblePlayers={vm.shamblePlayers}

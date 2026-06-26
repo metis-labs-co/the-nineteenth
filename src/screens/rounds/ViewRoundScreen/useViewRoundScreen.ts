@@ -239,6 +239,7 @@ export function useViewRoundScreen({ route, navigation }: Props) {
     isTeamMatchPlayRound,
     isShambleRound,
     isScrambleRound,
+    isAltShotSplitRound,
     isStrokePlayRound,
     isStablefordRound,
     isParRound,
