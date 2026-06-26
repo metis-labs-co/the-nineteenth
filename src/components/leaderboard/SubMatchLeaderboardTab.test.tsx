@@ -150,4 +150,70 @@ describe('SubMatchLeaderboardTab (decoupled)', () => {
     expect(screen.getByText('Bob')).toBeTruthy();
     expect(screen.getByTestId('match-row-status')).toHaveTextContent('A/S');
   });
+
+  it('shows the forfeit outcome on an alt-shot sub-match instead of blank values', () => {
+    mockSubMatchesReturn = {
+      data: [
+        {
+          id: 'sm1',
+          round_id: 'r1',
+          sort_order: 0,
+          team_a_player_ids: ['a1', 'a2'],
+          team_b_player_ids: ['b1', 'b2'],
+          tee_time: null,
+          pairing_id: null,
+          status: 'forfeited',
+          result: 'forfeit-a', // side A (Reds) forfeited → Blues win
+          final_differential: null,
+          team_a_net_total: null,
+          team_b_net_total: null,
+          created_at: '',
+          updated_at: '',
+        },
+      ],
+      isLoading: false,
+    };
+    mockRoundTeamsReturn = {
+      teams: [
+        {
+          id: 't1',
+          name: 'Reds',
+          color: null,
+          members: [
+            { player_id: 'a1', player: { id: 'a1', name: 'Sam', handicap: 0 } },
+            { player_id: 'a2', player: { id: 'a2', name: 'Sue', handicap: 0 } },
+          ],
+        },
+        {
+          id: 't2',
+          name: 'Blues',
+          color: null,
+          members: [
+            { player_id: 'b1', player: { id: 'b1', name: 'Bob', handicap: 0 } },
+            { player_id: 'b2', player: { id: 'b2', name: 'Bea', handicap: 0 } },
+          ],
+        },
+      ],
+      isLoading: false,
+    };
+
+    render(
+      <SubMatchLeaderboardTab
+        roundId="r1"
+        competitionId="c1"
+        gameType="alt-shot"
+        teamFormat="alt-shot"
+        holes={holes as any}
+        selectedTeeData={null}
+        isRefreshing={false}
+        onRefresh={() => {}}
+        bottomInset={0}
+        getStrokes={jest.fn(() => undefined)}
+      />
+    );
+    // Forfeit shown instead of blank "—" net values, and the winner stated.
+    expect(screen.getByText('Forfeited')).toBeTruthy();
+    expect(screen.getByText('Won')).toBeTruthy();
+    expect(screen.getByTestId('net-card-status-0')).toHaveTextContent('Blues wins by forfeit');
+  });
 });

@@ -105,16 +105,33 @@ export function SubMatchLeaderboardTab({
       const rightColor = teamColorByPlayer.get(sm.team_b_player_ids[0]) ?? colors.error;
       const leftLabel = labelForSide(sm.team_a_player_ids, 'Team A', teamNameByPlayer);
       const rightLabel = labelForSide(sm.team_b_player_ids, 'Team B', teamNameByPlayer);
-      return { sm, index, sides, leftColor, rightColor, leftLabel, rightLabel };
+      // Winning side on a forfeit: forfeit-a => side A forfeited (B wins), and vice versa.
+      const forfeitWinner: 'a' | 'b' | null =
+        sm.status === 'forfeited'
+          ? sm.result === 'forfeit-a'
+            ? 'b'
+            : sm.result === 'forfeit-b'
+              ? 'a'
+              : null
+          : null;
+      return { sm, index, sides, leftColor, rightColor, leftLabel, rightLabel, forfeitWinner };
     });
   }, [subMatches, playerById, teamColorByPlayer, teamNameByPlayer, colors]);
 
   const { leaders, content } = useMemo(() => {
     const leaders: SubMatchLeader[] = [];
     const content = rows.map((row) => {
+      // A forfeit decides the sub-match regardless of scores, so it counts
+      // toward the overall tally as a win for the non-forfeiting side.
+      const pushLeader = (data: { leaderSide: 'a' | 'b' | null; hasScores: boolean }) =>
+        leaders.push(
+          row.forfeitWinner
+            ? { leaderSide: row.forfeitWinner, hasScores: true }
+            : { leaderSide: data.leaderSide, hasScores: data.hasScores }
+        );
       if (model === 'match-play') {
         const data = computeMatchPlaySubMatch(row.sides, holes, getStrokes);
-        leaders.push({ leaderSide: data.leaderSide, hasScores: data.hasScores });
+        pushLeader(data);
         return (
           <MatchPlayMatchRow
             key={row.sm.id}
@@ -125,12 +142,13 @@ export function SubMatchLeaderboardTab({
             data={data}
             highlightLeft={!!currentUserId && row.sides.a.some((p) => p.id === currentUserId)}
             highlightRight={!!currentUserId && row.sides.b.some((p) => p.id === currentUserId)}
+            forfeitWinner={row.forfeitWinner}
             testID={`submatch-row-${row.index}`}
           />
         );
       }
       const data = computeNetSubMatch(model, row.sides, holes, getStrokes);
-      leaders.push({ leaderSide: data.leaderSide, hasScores: data.hasScores });
+      pushLeader(data);
       return (
         <SubMatchNetCard
           key={row.sm.id}
@@ -140,6 +158,7 @@ export function SubMatchLeaderboardTab({
           leftColor={row.leftColor}
           rightColor={row.rightColor}
           data={data}
+          forfeitWinner={row.forfeitWinner}
         />
       );
     });

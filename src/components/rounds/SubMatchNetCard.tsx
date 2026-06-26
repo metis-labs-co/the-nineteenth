@@ -12,6 +12,8 @@ export interface SubMatchNetCardProps {
   leftColor: string;
   rightColor: string;
   data: NetCardData;
+  /** Winning side when the sub-match was forfeited ('a'=left, 'b'=right); null otherwise. */
+  forfeitWinner?: 'a' | 'b' | null;
 }
 
 function statusText(data: NetCardData, leftLabel: string, rightLabel: string): string {
@@ -30,11 +32,13 @@ function SideRow({
 }: {
   label: string;
   color: string;
-  value: number | null;
+  value: number | string | null;
   unit: string;
   isLeader: boolean;
 }) {
   const colors = useThemeColors();
+  const display =
+    value === null ? '—' : typeof value === 'string' ? value : `${value}${unit}`;
   return (
     <View style={styles.sideRow}>
       <View style={[styles.dot, { backgroundColor: color }]} />
@@ -47,7 +51,7 @@ function SideRow({
           { color: isLeader ? colors.success : colors.textPrimary, fontWeight: isLeader ? '800' : '600' },
         ]}
       >
-        {value === null ? '—' : `${value}${unit}`}
+        {display}
       </Text>
     </View>
   );
@@ -60,18 +64,29 @@ export function SubMatchNetCard({
   leftColor,
   rightColor,
   data,
+  forfeitWinner = null,
 }: SubMatchNetCardProps) {
   const colors = useThemeColors();
+  const isForfeit = forfeitWinner != null;
+  // On a forfeit, replace the net values with the forfeit outcome (the
+  // forfeiting side reads "Forfeited", the other "Won") and state who won.
+  const leftValue = isForfeit ? (forfeitWinner === 'a' ? 'Won' : 'Forfeited') : data.valueA;
+  const rightValue = isForfeit ? (forfeitWinner === 'b' ? 'Won' : 'Forfeited') : data.valueB;
+  const leftIsLeader = isForfeit ? forfeitWinner === 'a' : data.leaderSide === 'a';
+  const rightIsLeader = isForfeit ? forfeitWinner === 'b' : data.leaderSide === 'b';
+  const status = isForfeit
+    ? `${forfeitWinner === 'a' ? leftLabel : rightLabel} wins by forfeit`
+    : statusText(data, leftLabel, rightLabel);
   return (
     <View style={[styles.card, shadows.sm, { backgroundColor: colors.surface, borderColor: colors.border }]}>
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <Icon source="trophy-outline" size={16} color={colors.textSecondary} />
         <Text style={[styles.headerText, { color: colors.textSecondary }]}>Sub-Match {index + 1}</Text>
       </View>
-      <SideRow label={leftLabel} color={leftColor} value={data.valueA} unit={data.unit} isLeader={data.leaderSide === 'a'} />
-      <SideRow label={rightLabel} color={rightColor} value={data.valueB} unit={data.unit} isLeader={data.leaderSide === 'b'} />
+      <SideRow label={leftLabel} color={leftColor} value={leftValue} unit={data.unit} isLeader={leftIsLeader} />
+      <SideRow label={rightLabel} color={rightColor} value={rightValue} unit={data.unit} isLeader={rightIsLeader} />
       <Text testID={`net-card-status-${index}`} style={[styles.status, { color: colors.textSecondary }]}>
-        {statusText(data, leftLabel, rightLabel)}
+        {status}
       </Text>
     </View>
   );

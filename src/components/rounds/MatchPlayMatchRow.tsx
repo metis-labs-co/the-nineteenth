@@ -16,6 +16,8 @@ export interface MatchPlayMatchRowProps {
   /** Emphasise a name when it is the current user. */
   highlightLeft?: boolean;
   highlightRight?: boolean;
+  /** Winning side when the sub-match was forfeited ('a'=left, 'b'=right); null otherwise. */
+  forfeitWinner?: 'a' | 'b' | null;
   testID?: string;
 }
 
@@ -27,11 +29,21 @@ export function MatchPlayMatchRow({
   data,
   highlightLeft = false,
   highlightRight = false,
+  forfeitWinner = null,
   testID,
 }: MatchPlayMatchRowProps) {
   const colors = useThemeColors();
-  const statusColor =
-    data.leaderSide === 'a' ? leftColor : data.leaderSide === 'b' ? rightColor : colors.textSecondary;
+  const isForfeit = forfeitWinner != null;
+  const statusText = isForfeit ? 'Forfeit' : data.statusText;
+  const statusColor = isForfeit
+    ? forfeitWinner === 'a'
+      ? leftColor
+      : rightColor
+    : data.leaderSide === 'a'
+      ? leftColor
+      : data.leaderSide === 'b'
+        ? rightColor
+        : colors.textSecondary;
 
   return (
     <View
@@ -54,9 +66,9 @@ export function MatchPlayMatchRow({
       <Text
         testID="match-row-status"
         style={[styles.status, { color: statusColor }]}
-        accessibilityLabel={`Match status ${data.statusText}`}
+        accessibilityLabel={`Match status ${statusText}`}
       >
-        {data.statusText}
+        {statusText}
       </Text>
 
       <View style={[styles.side, styles.right]}>
