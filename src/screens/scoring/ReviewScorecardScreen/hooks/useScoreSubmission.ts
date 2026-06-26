@@ -42,6 +42,8 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import type { IncompleteHole } from './useScoreReview';
 import { useRoundFinalization } from './useRoundFinalization';
+import { usePairings } from '@/hooks/rounds';
+import { resolveGroupScopeIds } from './resolveGroupScope';
 
 // =====================================================
 // SCORE STATISTICS FOR ACHIEVEMENTS
@@ -193,6 +195,19 @@ export function useScoreSubmission({
   const [isWaitingForPartner, setIsWaitingForPartner] = useState(false);
   const [partnerName, setPartnerName] = useState<string | null>(null);
   const [partnerProgress, setPartnerProgress] = useState<{ completed: number; total: number } | null>(null);
+
+  // Pairings for group-scope resolution
+  const { data: roundPairings } = usePairings(currentRoundId ?? routeRoundId ?? undefined);
+
+  const getGroupScopeIds = useCallback((): string[] => {
+    const { allowedPlayerIds, groupScorecards } = useScorecardStore.getState();
+    return resolveGroupScopeIds({
+      allowedPlayerIds,
+      pairings: roundPairings,
+      currentUserId,
+      groupScorecardPlayerIds: [...groupScorecards.keys()],
+    });
+  }, [roundPairings, currentUserId]);
 
   // Round finalization (extracted hook)
   const { updateRoundStatus, finalizeRoundResults } = useRoundFinalization();
@@ -418,10 +433,7 @@ export function useScoreSubmission({
         // Scope the readiness gate to the players this device is responsible for
         // (its on-course group / pair). `allowedPlayerIds` is set by the scoring
         // screen; fall back to the full field when it is empty (legacy behaviour).
-        const { allowedPlayerIds: scopeIds, groupScorecards: scopeCards } =
-          useScorecardStore.getState();
-        const groupPlayerIds =
-          scopeIds.length > 0 ? scopeIds : [...scopeCards.keys()];
+        const groupPlayerIds = getGroupScopeIds();
         submitLogger.info('Checking submission readiness', {
           scoringPairsEnabled,
           groupPlayerCount: groupPlayerIds.length,
@@ -581,8 +593,7 @@ export function useScoreSubmission({
           isStandalone: !competitionId || competitionId === 'standalone',
           isOnline,
         });
-        const { allowedPlayerIds: aIds, groupScorecards: gCards } = useScorecardStore.getState();
-        const submitScopeIds = aIds.length > 0 ? aIds : [...gCards.keys()];
+        const submitScopeIds = getGroupScopeIds();
         await submitScorecards({ playerIds: submitScopeIds });
         submitLogger.info('submitScorecards completed successfully');
 
@@ -764,6 +775,7 @@ export function useScoreSubmission({
     showMultipleToasts,
     queryClient,
     user?.id,
+    getGroupScopeIds,
   ]);
 
   // Handle bypass submission (skip partner verification)
@@ -790,8 +802,7 @@ export function useScoreSubmission({
         submitLogger.info('Bypass scores applied');
 
         // Continue with normal submission (with bypassed flag)
-        const { allowedPlayerIds: aIds, groupScorecards: gCards } = useScorecardStore.getState();
-        const submitScopeIds = aIds.length > 0 ? aIds : [...gCards.keys()];
+        const submitScopeIds = getGroupScopeIds();
         await submitScorecards({ bypassed: true, playerIds: submitScopeIds });
         submitLogger.info('Bypassed submission completed');
 
@@ -913,6 +924,7 @@ export function useScoreSubmission({
     showMultipleToasts,
     queryClient,
     user?.id,
+    getGroupScopeIds,
   ]);
 
   const handleSyncPress = useCallback(async () => {
@@ -927,8 +939,7 @@ export function useScoreSubmission({
     setIsSubmitting(true);
     try {
       submitLogger.info('Attempting manual sync');
-      const { allowedPlayerIds: aIds, groupScorecards: gCards } = useScorecardStore.getState();
-      const submitScopeIds = aIds.length > 0 ? aIds : [...gCards.keys()];
+      const submitScopeIds = getGroupScopeIds();
       await submitScorecards({ playerIds: submitScopeIds });
       setPendingSyncs(0);
       setSyncError(null);
@@ -941,7 +952,7 @@ export function useScoreSubmission({
     } finally {
       setIsSubmitting(false);
     }
-  }, [isOnline, submitScorecards, pendingSyncs, showAlert]);
+  }, [isOnline, submitScorecards, pendingSyncs, showAlert, getGroupScopeIds]);
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
