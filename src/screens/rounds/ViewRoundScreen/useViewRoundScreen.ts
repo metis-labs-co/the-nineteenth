@@ -49,7 +49,7 @@ export function useViewRoundScreen({ route, navigation }: Props) {
   const {
     round, roundError, scorecards, roundPlayers, matchPlayData, competitionInfo,
     isLoadingCompetitionInfo,
-    isMatchPlayRound, isTeamMatchPlayRound, isShambleRound, isScrambleRound, isAltShotSplitRound, isStrokePlayRound, isStablefordRound, isParRound, isSplitRound, isTeamStrokeRound, isTeamRound,
+    isMatchPlayRound, isTeamMatchPlayRound, isShambleRound, isScrambleRound, isAltShotRound, isAltShotSplitRound, isStrokePlayRound, isStablefordRound, isParRound, isSplitRound, isTeamStrokeRound, isTeamRound,
     isLoading, refetchRound, refetchScorecards, refetchPlayers, refetchMatchPlay,
   } = dataFetch;
 
@@ -117,6 +117,7 @@ export function useViewRoundScreen({ route, navigation }: Props) {
     isTeamMatchPlayRound,
     isShambleRound,
     isScrambleRound,
+    isAltShotRound,
     isAltShotSplitRound,
     isStrokePlayRound,
     isStablefordRound,

@@ -11,6 +11,8 @@ interface UseViewRoundTabsParams {
    *  cross-field Scramble Scorecard/Leaderboard tabs are wrong for this
    *  format; only Contributions is kept alongside the Sub-Matches tab. */
   isAltShotSplitRound: boolean;
+  /** True for any alt-shot round (combined or split). Hides the Contributions tab. */
+  isAltShotRound: boolean;
   isStrokePlayRound: boolean;
   isStablefordRound: boolean;
   isParRound: boolean;
@@ -56,6 +58,7 @@ export function useViewRoundTabs({
   isShambleRound,
   isScrambleRound,
   isAltShotSplitRound,
+  isAltShotRound,
   isStrokePlayRound,
   isStablefordRound,
   isParRound,
@@ -133,7 +136,9 @@ export function useViewRoundTabs({
         result.push({ key: 'scrambleTeamScore', label: 'Scorecard' });
         result.push({ key: 'scrambleLeaderboard', label: 'Leaderboard' });
       }
-      result.push({ key: 'scrambleContributions', label: 'Contributions' });
+      if (!isAltShotRound) {
+        result.push({ key: 'scrambleContributions', label: 'Contributions' });
+      }
     }
 
     if (hasSkinsGame) {
@@ -164,5 +169,5 @@ export function useViewRoundTabs({
     }
 
     return result;
-  }, [isMatchPlayRound, isTeamMatchPlayRound, isShambleRound, isScrambleRound, isAltShotSplitRound, isStrokePlayRound, isStablefordRound, isParRound, isSplitRound, isTeamRound, hasSkinsGame, hasWolfGame, hasPayoutsTab, hasStats, hasShots, playerCount, groupCount, teamCount]);
+  }, [isMatchPlayRound, isTeamMatchPlayRound, isShambleRound, isScrambleRound, isAltShotSplitRound, isAltShotRound, isStrokePlayRound, isStablefordRound, isParRound, isSplitRound, isTeamRound, hasSkinsGame, hasWolfGame, hasPayoutsTab, hasStats, hasShots, playerCount, groupCount, teamCount]);
 }

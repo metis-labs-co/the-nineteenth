@@ -61,6 +61,9 @@ export function useViewRoundDataFetch({ roundId, competitionId }: UseViewRoundDa
   const isAltShotSplitRound =
     (round?.team_format === 'alt-shot' || round?.game_type === 'alt-shot') &&
     round?.round_format === 'split';
+  // Any alt-shot round (combined or split) — used to hide the Contributions tab.
+  const isAltShotRound =
+    round?.game_type === 'alt-shot' || round?.team_format === 'alt-shot';
   // Team stroke round: best-ball or aggregate team formats that still score
   // per-player into scorecards. Match-play-team uses the Match tab, scramble
   // and shamble have their own dedicated tabs — those are excluded here.
@@ -99,6 +102,7 @@ export function useViewRoundDataFetch({ roundId, competitionId }: UseViewRoundDa
     isTeamMatchPlayRound,
     isShambleRound,
     isScrambleRound,
+    isAltShotRound,
     isAltShotSplitRound,
     isStrokePlayRound,
     isStablefordRound,
