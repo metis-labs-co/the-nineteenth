@@ -72,6 +72,24 @@ describe('SubMatchLeaderboardTab (decoupled)', () => {
     expect(screen.getByText('No Sub-Matches')).toBeTruthy();
   });
 
+  it('renders empty state in non-scrolling mode (scrollable=false)', () => {
+    const getStrokes = jest.fn(() => undefined);
+    render(
+      <SubMatchLeaderboardTab
+        roundId="r1"
+        gameType="alt-shot"
+        teamFormat="alt-shot"
+        holes={[]}
+        getStrokes={getStrokes}
+        isRefreshing={false}
+        onRefresh={() => {}}
+        bottomInset={0}
+        scrollable={false}
+      />
+    );
+    expect(screen.getByText('No Sub-Matches')).toBeTruthy();
+  });
+
   it('renders a match-play row for a singles sub-match', () => {
     mockSubMatchesReturn = {
       data: [

@@ -55,6 +55,7 @@ export function RoundSubMatchLeaderboard({
       isRefreshing={isRefreshing}
       onRefresh={onRefresh ?? (() => {})}
       bottomInset={bottomInset}
+      scrollable={false}
     />
   );
 }

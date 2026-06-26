@@ -34,6 +34,7 @@ interface SubMatchLeaderboardTabProps {
   isRefreshing: boolean;
   onRefresh: () => void;
   bottomInset: number;
+  scrollable?: boolean;
 }
 
 function labelForSide(
@@ -59,6 +60,7 @@ export function SubMatchLeaderboardTab({
   isRefreshing,
   onRefresh,
   bottomInset,
+  scrollable = true,
 }: SubMatchLeaderboardTabProps) {
   const colors = useThemeColors();
   const { data: subMatches, isLoading: smLoading } = useSubMatches(roundId);
@@ -150,6 +152,35 @@ export function SubMatchLeaderboardTab({
   const tally = tallyOverall(leaders);
   const first = rows[0];
 
+  const body = !hasSubMatches ? (
+    <EmptyState
+      icon="golf"
+      title="No Sub-Matches"
+      message="Sub-matches will appear here once the round is split into matches."
+      compact
+    />
+  ) : (
+    <>
+      {showOverall && first && (
+        <SubMatchOverallHeader
+          leftLabel={first.leftLabel}
+          rightLabel={first.rightLabel}
+          leftColor={first.leftColor}
+          rightColor={first.rightColor}
+          pointsA={tally.pointsA}
+          pointsB={tally.pointsB}
+        />
+      )}
+      <View>{content}</View>
+    </>
+  );
+
+  if (!scrollable) {
+    return (
+      <View style={[styles.scrollContent, { paddingBottom: bottomInset }]}>{body}</View>
+    );
+  }
+
   return (
     <ScrollView
       style={styles.scrollView}
@@ -164,28 +195,7 @@ export function SubMatchLeaderboardTab({
       }
       showsVerticalScrollIndicator
     >
-      {!hasSubMatches ? (
-        <EmptyState
-          icon="golf"
-          title="No Sub-Matches"
-          message="Sub-matches will appear here once the round is split into matches."
-          compact
-        />
-      ) : (
-        <>
-          {showOverall && first && (
-            <SubMatchOverallHeader
-              leftLabel={first.leftLabel}
-              rightLabel={first.rightLabel}
-              leftColor={first.leftColor}
-              rightColor={first.rightColor}
-              pointsA={tally.pointsA}
-              pointsB={tally.pointsB}
-            />
-          )}
-          <View>{content}</View>
-        </>
-      )}
+      {body}
     </ScrollView>
   );
 }
