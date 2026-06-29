@@ -6,6 +6,7 @@
 
 import { getStrokesReceived } from '@/utils/scoring';
 import { getInitials } from '@/utils/displayHelpers';
+import { PICKUP_SCORE } from '@/constants/scoring';
 import {
   determineHoleWinner,
   calculateMatchStatus,
@@ -13,9 +14,6 @@ import {
 import type { HoleResult, MatchStatus } from '@/screens/scoring/MatchPlayScoringScreen/types';
 import type { Hole } from '@/types/database.types';
 import type { CalculatedData } from './types';
-
-/** Extra strokes above par+strokes-received that mark a score as a pickup. */
-const PICKUP_THRESHOLD = 2;
 
 /**
  * Calculate all match play data from holes and scores.
@@ -53,26 +51,43 @@ export function calculateAllData(
     const p1Score = getPlayerScore(player1Id, holeNum) ?? null;
     const p2Score = getPlayerScore(player2Id, holeNum) ?? null;
 
-    // Dynamic pickup threshold: par + strokes received + 2, matching the entry screen.
+    // A pickup (conceded hole) is the explicit PICKUP_SCORE sentinel, set only
+    // via the Pick Up action — never inferred from a high score, so a genuine
+    // blow-up is recorded and scored on merit (matching the entry screen).
     const p1Strokes = getStrokesReceived(player1Handicap, hole.strokeIndex);
     const p2Strokes = getStrokesReceived(player2Handicap, hole.strokeIndex);
-    const p1PickupThreshold = hole.par + p1Strokes + PICKUP_THRESHOLD;
-    const p2PickupThreshold = hole.par + p2Strokes + PICKUP_THRESHOLD;
-    const p1PickedUp = p1Score !== null && p1Score >= p1PickupThreshold;
-    const p2PickedUp = p2Score !== null && p2Score >= p2PickupThreshold;
+    const p1PickedUp = p1Score === PICKUP_SCORE;
+    const p2PickedUp = p2Score === PICKUP_SCORE;
+
+    // "Has a stroke score" = a recorded score that isn't a concession.
+    const p1HasScore = p1Score !== null && !p1PickedUp;
+    const p2HasScore = p2Score !== null && !p2PickedUp;
 
     // Compare net scores so handicap strokes received on the hole decide the winner.
-    const p1NetScore = p1Score !== null && !p1PickedUp ? p1Score - p1Strokes : null;
-    const p2NetScore = p2Score !== null && !p2PickedUp ? p2Score - p2Strokes : null;
+    const p1NetScore = p1HasScore ? p1Score - p1Strokes : null;
+    const p2NetScore = p2HasScore ? p2Score - p2Strokes : null;
 
-    const winner = determineHoleWinner(p1NetScore, p2NetScore);
+    const netWinner = determineHoleWinner(p1NetScore, p2NetScore);
+
+    // A concession only hands over the hole once the opponent has actually
+    // recorded a score; mutual concessions are halved.
+    let winner: 'player1' | 'player2' | 'halved' | null;
+    if (p1PickedUp && p2PickedUp) {
+      winner = 'halved';
+    } else if (p1PickedUp) {
+      winner = p2HasScore ? 'player2' : null;
+    } else if (p2PickedUp) {
+      winner = p1HasScore ? 'player1' : null;
+    } else {
+      winner = netWinner;
+    }
 
     holeResults[holeNum] = {
       player1Score: p1Score,
       player2Score: p2Score,
       player1PickedUp: p1PickedUp,
       player2PickedUp: p2PickedUp,
-      winner: p1PickedUp && !p2PickedUp ? 'player2' : p2PickedUp && !p1PickedUp ? 'player1' : winner,
+      winner,
     };
 
     // Calculate running status up to this hole

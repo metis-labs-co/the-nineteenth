@@ -12,6 +12,7 @@
 import React from 'react';
 import { render, screen } from '@/__tests__/utils/renderHelpers';
 import { MatchPlayScorecardTable } from './index';
+import { PICKUP_SCORE } from '@/constants/scoring';
 import type { Hole } from '@/types';
 
 // ============================================================================
@@ -44,9 +45,6 @@ function createScoreGetter(
     return scores[playerId]?.[holeNumber];
   };
 }
-
-// PICKUP_SCORE constant from scoring
-const PICKUP_SCORE = 99;
 
 // ============================================================================
 // TESTS
@@ -543,10 +541,12 @@ describe('MatchPlayScorecardTable', () => {
       expect(screen.getByText('Hole')).toBeTruthy();
     });
 
-    it('handles very high scores', () => {
+    it('handles very high scores (blow-up holes are scored, not treated as pickups)', () => {
+      // Hole 1 is par 4 → double bogey is 6. Scores well above that must still
+      // render as their real values, not collapse into a pickup "P".
       const scores = {
-        'player-1': { 1: 10 },
-        'player-2': { 1: 12 },
+        'player-1': { 1: 8 },
+        'player-2': { 1: 9 },
       };
 
       render(
@@ -558,8 +558,10 @@ describe('MatchPlayScorecardTable', () => {
         />
       );
 
-      expect(screen.getByText('10')).toBeTruthy();
-      expect(screen.getByText('12')).toBeTruthy();
+      expect(screen.getAllByText('8').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('9').length).toBeGreaterThanOrEqual(1);
+      // A blow-up score must never collapse into a pickup marker.
+      expect(screen.queryByText('P')).toBeNull();
     });
   });
 

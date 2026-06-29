@@ -14,6 +14,7 @@ import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { PICKUP_SCORE } from '@/constants/scoring';
 import { ScaledText } from '@/components/common/ScaledText';
 import { formatHandicapIndex } from '@/utils/displayHelpers';
 import type { MatchPlayer, PlayerMatchStatus } from '../types';
@@ -83,7 +84,10 @@ export function PlayerScoreCard({
   // Score entry is only disabled after submission, not when match is complete
   // This allows users to edit scores until they explicitly submit
   const canDecrement = !isPickedUp && (currentScore === null || currentScore > 1);
-  const canIncrement = !isPickedUp && (currentScore === null || currentScore < 12);
+  // Manual entry tops out one below the pickup sentinel — conceding a hole is
+  // the explicit Pick Up action, not the side effect of incrementing into a
+  // high score. This lets players record blow-up scores above double bogey.
+  const canIncrement = !isPickedUp && (currentScore === null || currentScore < PICKUP_SCORE - 1);
 
   return (
     <View style={[styles.card, { backgroundColor: colors.surfaceVariant }]}>

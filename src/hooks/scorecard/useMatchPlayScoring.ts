@@ -8,12 +8,13 @@
  * - Score updates persisted to scorecard store (SQLite + sync)
  * - Match status calculated from stored scores
  * - Hole results derived on-the-fly
- * - Dynamic pickup score calculation (par + strokes received + 2)
+ * - Pickup (conceded hole) recorded as the explicit PICKUP_SCORE sentinel
  */
 
 import { useCallback, useMemo } from 'react';
 import { useScorecardStore } from '@/store/scorecardStore';
-import { getStrokesReceived, calculatePickupScore, isPickupScore } from '@/utils/scoring';
+import { getStrokesReceived } from '@/utils/scoring';
+import { PICKUP_SCORE } from '@/constants/scoring';
 import { isSingleBallScore } from '@/types/database/base';
 import {
   determineHoleWinner,
@@ -70,9 +71,11 @@ interface ScoreColors {
   doubleBogey: string;
 }
 
-// Score bounds
+// Score bounds. Manual entry stops one below the pickup sentinel so a genuine
+// blow-up score is never mistaken for a concession — PICKUP_SCORE is reserved
+// for the explicit Pick Up action.
 const MIN_SCORE = 1;
-const MAX_SCORE = 12;
+const MAX_SCORE = PICKUP_SCORE - 1;
 
 /**
  * Hook for managing match play scoring with store persistence.
@@ -104,7 +107,6 @@ export function useMatchPlayScoring({
     // played holes entirely and key results against the wrong numbers.
     for (const holeInfo of holes) {
       const h = holeInfo.number;
-      const par = holeInfo.par;
       const strokeIndex = holeInfo.strokeIndex;
 
       const p1RawScore = p1Scorecard?.scores[h];
@@ -120,24 +122,29 @@ export function useMatchPlayScoring({
           ? p2RawScore.strokes
           : null;
 
-      // Check for pickup using dynamic threshold (par + strokes received + 2)
-      const p1PickedUp =
-        p1Score !== null && isPickupScore(p1Score, par, player1Handicap, strokeIndex);
-      const p2PickedUp =
-        p2Score !== null && isPickupScore(p2Score, par, player2Handicap, strokeIndex);
+      // A pickup (conceded hole) is the explicit PICKUP_SCORE sentinel, set
+      // only via the Pick Up action — never inferred from a high score, so a
+      // genuine blow-up (e.g. a real double bogey) is recorded as scored.
+      const p1PickedUp = p1Score === PICKUP_SCORE;
+      const p2PickedUp = p2Score === PICKUP_SCORE;
+
+      // "Has a stroke score" = a recorded score that isn't a concession.
+      const p1HasScore = p1Score !== null && !p1PickedUp;
+      const p2HasScore = p2Score !== null && !p2PickedUp;
 
       // Determine winner
       let winner: 'player1' | 'player2' | 'halved' | null = null;
 
       if (p1PickedUp && p2PickedUp) {
-        // Both picked up = halved
+        // Both conceded = halved.
         winner = 'halved';
       } else if (p1PickedUp) {
-        // Player 1 picked up = Player 2 wins
-        winner = 'player2';
+        // Player 1 conceded — Player 2 takes the hole, but only once they have
+        // actually recorded a stroke score; otherwise the hole stays undecided.
+        winner = p2HasScore ? 'player2' : null;
       } else if (p2PickedUp) {
-        // Player 2 picked up = Player 1 wins
-        winner = 'player1';
+        // Player 2 conceded — Player 1 takes the hole only if they have a score.
+        winner = p1HasScore ? 'player1' : null;
       } else {
         // Compare net scores so handicap strokes received on the hole decide the winner.
         const p1StrokesReceived = getStrokesReceived(player1Handicap, strokeIndex);
@@ -238,18 +245,11 @@ export function useMatchPlayScoring({
     [player1Id, player2Id, currentHole, holeResults, setPlayerScore, currentHolePar]
   );
 
-  // Get current hole's stroke index
-  const currentHoleStrokeIndex = useMemo(() => {
-    const holeInfo = getHoleInfo(currentHole);
-    return holeInfo?.strokeIndex ?? currentHole;
-  }, [currentHole, getHoleInfo]);
-
   // Handle pickup
   // Note: We allow score edits even after match is complete - scores are only locked after submission
   const handlePickUp = useCallback(
     (player: 'player1' | 'player2') => {
       const playerId = player === 'player1' ? player1Id : player2Id;
-      const handicap = player === 'player1' ? player1Handicap : player2Handicap;
       const currentResult = holeResults[currentHole];
       const isCurrentlyPickedUp =
         player === 'player1' ? currentResult?.player1PickedUp : currentResult?.player2PickedUp;
@@ -258,22 +258,11 @@ export function useMatchPlayScoring({
         // Toggle off - set back to par
         setPlayerScore(playerId, currentHole, currentHolePar);
       } else {
-        // Pickup - calculate dynamic pickup score (par + strokes received + 2)
-        const pickupScore = calculatePickupScore(currentHolePar, handicap, currentHoleStrokeIndex);
-        setPlayerScore(playerId, currentHole, pickupScore);
+        // Concede the hole — store the explicit pickup sentinel.
+        setPlayerScore(playerId, currentHole, PICKUP_SCORE);
       }
     },
-    [
-      player1Id,
-      player2Id,
-      player1Handicap,
-      player2Handicap,
-      currentHole,
-      currentHolePar,
-      currentHoleStrokeIndex,
-      holeResults,
-      setPlayerScore,
-    ]
+    [player1Id, player2Id, currentHole, currentHolePar, holeResults, setPlayerScore]
   );
 
   // Get player's current score on current hole
