@@ -21,6 +21,7 @@ import {
 import { teeBoxToRatings } from '@/utils/teeTransformers';
 import { getEffectiveTeeRatings } from '@/utils/teeResolution';
 import { updatePlayerHandicapIndex } from '@/services/handicap/updatePlayerHandicapIndex';
+import { isSharedBallRound } from '@/utils/roundFormat';
 
 /**
  * Check if a string is a valid UUID
@@ -377,13 +378,20 @@ function calculateHandicapData(scorecard: Scorecard): {
         }
       }
 
-      // Calculate score differential (uses raw gross score - no Net Double Bogey adjustment)
-      const differential = calculateScoreDifferential({
-        adjustedGrossScore: scorecard.totalGross || 0,
-        courseRating: finalCourseRating,
-        slopeRating: finalSlopeRating,
-      });
-      handicapDifferential = differential;
+      // Calculate score differential (uses raw gross score - no Net Double Bogey adjustment).
+      // Skip for shared-ball team formats (scramble, alt-shot): the stored
+      // total_gross is the TEAM's single-ball score, not the player's own
+      // play, so it must never become a handicap-eligible differential.
+      // Leaving handicapDifferential null excludes the round from both the
+      // handicap history and the WHS index (both filter on a non-null value).
+      if (!isSharedBallRound({ game_type: scorecard.syncGameType })) {
+        const differential = calculateScoreDifferential({
+          adjustedGrossScore: scorecard.totalGross || 0,
+          courseRating: finalCourseRating,
+          slopeRating: finalSlopeRating,
+        });
+        handicapDifferential = differential;
+      }
 
       syncLogger.debug('Calculated handicap data for scorecard', {
         dailyHandicapUsed,

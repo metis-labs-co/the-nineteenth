@@ -25,6 +25,7 @@ import {
 } from '@/services/scoreMismatch';
 import { getScoringPartner } from '@/services/scoringPairs';
 import { submitLogger } from '@/utils/debugLogger';
+import { isSharedBallRound } from '@/utils/roundFormat';
 import { useCheckAchievements } from '@/hooks/achievements/useCheckAchievements';
 import { useAchievementToast } from '@/context/AchievementToastContext';
 import { useAuth } from '@/hooks/useAuth';
@@ -285,6 +286,11 @@ export function useScoreSubmission({
         const userScorecard = storeScorecards.get(achievementPlayerId);
 
         if (!userScorecard || storeHoles.length === 0) return;
+
+        // Shared-ball team formats (scramble, alt-shot) score a single team
+        // ball, so this scorecard's birdies/eagles/score belong to the team,
+        // not the individual. Don't award individual achievements off them.
+        if (isSharedBallRound({ game_type: storeGameType })) return;
 
         const scoreStats = calculateScoreStats(userScorecard, storeHoles);
 
