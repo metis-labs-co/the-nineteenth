@@ -504,6 +504,7 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
                     rulesOverride={round.rules_override}
                     date={round.date ?? undefined}
                     courseName={round.course?.name ?? undefined}
+                    roundName={round.name}
                   />
                   <RoundSubMatchLeaderboard
                     roundId={round.id}
@@ -524,6 +525,7 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
                       roundId={round.id}
                       gameType={gameType}
                       roundNumber={round.round_number}
+                      roundName={round.name}
                       courseName={round.course?.name ?? undefined}
                       currentUserId={currentUserId}
                       testID={`round-leaderboard-${round.round_number}-live`}
@@ -539,6 +541,7 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
                       playerTeamLookup={
                         effectiveView === 'individual' && hasTeams ? playerTeamLookup : undefined
                       }
+                      roundName={round.name}
                       testID={`round-leaderboard-${round.round_number}`}
                     />
                   )}
@@ -558,6 +561,7 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
                   playerTeamLookup={
                     effectiveView === 'individual' && hasTeams ? playerTeamLookup : undefined
                   }
+                  roundName={round.name}
                   testID={`round-leaderboard-${round.round_number}`}
                 />
               </View>

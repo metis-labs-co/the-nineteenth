@@ -37,6 +37,8 @@ export interface InProgressRoundLeaderboardProps {
   gameType: GameType;
   /** Round number for the header (1-indexed) */
   roundNumber: number;
+  /** Optional round name for the header (overrides "Round N" when non-empty). */
+  roundName?: string | null;
   /** Optional course name for the header */
   courseName?: string;
   currentUserId?: string;
@@ -126,6 +128,7 @@ export const InProgressRoundLeaderboard = React.memo(function InProgressRoundLea
   roundId,
   gameType,
   roundNumber,
+  roundName,
   courseName,
   currentUserId,
   testID,
@@ -220,7 +223,7 @@ export const InProgressRoundLeaderboard = React.memo(function InProgressRoundLea
       <View style={styles.header}>
         <Icon source="calendar-outline" size={18} color={colors.textSecondary} />
         <Text style={[typography.bodyBold, styles.headerText, { color: colors.textPrimary }]}>
-          {`Round ${roundNumber}`}
+          {roundName && roundName.trim().length > 0 ? roundName : `Round ${roundNumber}`}
           {courseName ? <Text style={{ color: colors.textSecondary }}> · {courseName}</Text> : null}
         </Text>
         <LivePill />

@@ -66,6 +66,8 @@ export interface RoundLeaderboardProps {
    * individual standings). Pass only when the parent has team data available.
    */
   playerTeamLookup?: PlayerTeamLookup;
+  /** Optional round name to display in the header (falls back to "Round N"). */
+  roundName?: string | null;
 }
 
 // =====================================================
@@ -83,6 +85,7 @@ export const RoundLeaderboard = React.memo(function RoundLeaderboard({
   testID,
   filterView,
   playerTeamLookup,
+  roundName,
 }: RoundLeaderboardProps) {
   const colors = useThemeColors();
 
@@ -160,6 +163,7 @@ export const RoundLeaderboard = React.memo(function RoundLeaderboard({
           roundFormat={data?.metadata.roundFormat}
           subMatchSize={data?.metadata.subMatchSize}
           rulesOverride={data?.metadata.rulesOverride}
+          roundName={roundName}
         />
         <EmptyState
           title="No scores yet"
@@ -254,6 +258,7 @@ export const RoundLeaderboard = React.memo(function RoundLeaderboard({
         roundFormat={metadata.roundFormat}
         subMatchSize={metadata.subMatchSize}
         rulesOverride={metadata.rulesOverride}
+        roundName={roundName}
       />
 
       {/* Leaderboard Content. When a round has both team and individual
