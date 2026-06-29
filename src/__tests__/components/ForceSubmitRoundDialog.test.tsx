@@ -7,20 +7,34 @@ import * as rd from '@/hooks/useRoundDetails';
 jest.mock('@/hooks/useRoundDetails');
 
 describe('getIncompletePlayers', () => {
-  it('returns roster players whose card is missing or non-terminal, with holes played', () => {
-    const roundPlayers = [
-      { id: 'p1', name: 'Alice' },
-      { id: 'p2', name: 'Bob' },
-      { id: 'p3', name: 'Cara' },
-    ];
+  it('returns scorecards with non-terminal status, name from nested player, holes from scores', () => {
     const scorecards = [
-      { player_id: 'p1', status: 'completed', scores: { '1': {}, '2': {} } },
-      { player_id: 'p2', status: 'in-progress', scores: { '1': {}, '2': {}, '3': {} } },
-      // p3 has no scorecard
+      { player_id: 'p1', status: 'completed', scores: { '1': {}, '2': {} }, player: { name: 'Alice' } },
+      { player_id: 'p2', status: 'in-progress', scores: { '1': {}, '2': {}, '3': {} }, player: { name: 'Bob' } },
+      { player_id: 'p3', status: 'pending', scores: {}, player: null },
     ];
-    expect(getIncompletePlayers(roundPlayers as never, scorecards as never)).toEqual([
+    expect(getIncompletePlayers(scorecards as never)).toEqual([
       { playerId: 'p2', playerName: 'Bob', holesPlayed: 3 },
-      { playerId: 'p3', playerName: 'Cara', holesPlayed: 0 },
+      { playerId: 'p3', playerName: 'Unknown player', holesPlayed: 0 },
+    ]);
+  });
+
+  it('deduplicates by player_id, keeping the first occurrence', () => {
+    const scorecards = [
+      { player_id: 'p1', status: 'in-progress', scores: { '1': {}, '2': {} }, player: { name: 'Alice' } },
+      { player_id: 'p1', status: 'in-progress', scores: { '1': {} }, player: { name: 'Alice' } },
+    ];
+    expect(getIncompletePlayers(scorecards as never)).toEqual([
+      { playerId: 'p1', playerName: 'Alice', holesPlayed: 2 },
+    ]);
+  });
+
+  it('uses Unknown player when player field is missing', () => {
+    const scorecards = [
+      { player_id: 'p1', status: 'in-progress', scores: {}, player: undefined },
+    ];
+    expect(getIncompletePlayers(scorecards as never)).toEqual([
+      { playerId: 'p1', playerName: 'Unknown player', holesPlayed: 0 },
     ]);
   });
 });
@@ -29,11 +43,12 @@ describe('ForceSubmitRoundDialog', () => {
   afterEach(() => jest.restoreAllMocks());
 
   function mockHooks() {
-    (rd.useRoundPlayers as jest.Mock).mockReturnValue({
-      data: [{ id: 'p1', name: 'Alice' }, { id: 'p2', name: 'Bob' }],
-    });
+    // useRoundPlayers is no longer used by the dialog; no mock needed for it.
     (rd.useRoundScorecards as jest.Mock).mockReturnValue({
-      data: [{ player_id: 'p1', status: 'completed', scores: { '1': {} } }],
+      data: [
+        { player_id: 'p1', status: 'completed', scores: { '1': {} }, player: { name: 'Alice' } },
+        { player_id: 'p2', status: 'in-progress', scores: { '1': {}, '2': {} }, player: { name: 'Bob' } },
+      ],
     });
   }
 
@@ -56,5 +71,18 @@ describe('ForceSubmitRoundDialog', () => {
     );
     fireEvent.press(getByText('Cancel'));
     expect(onCancel).toHaveBeenCalled();
+  });
+
+  it('shows hint when there are no completed scorecards', () => {
+    (rd.useRoundScorecards as jest.Mock).mockReturnValue({
+      data: [
+        { player_id: 'p1', status: 'in-progress', scores: { '1': {} }, player: { name: 'Alice' } },
+      ],
+    });
+    const { getByText } = render(
+      <ForceSubmitRoundDialog visible roundId="r1" onConfirm={jest.fn()} onCancel={jest.fn()} />
+    );
+    // Hint text is the user-visible guard for zero completed scorecards (FIX 2)
+    expect(getByText('At least one player needs a completed scorecard.')).toBeTruthy();
   });
 });

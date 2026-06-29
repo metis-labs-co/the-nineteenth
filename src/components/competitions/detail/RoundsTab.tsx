@@ -37,6 +37,7 @@ import { EmptyState, SwipeableRow } from '@/components/common';
 import { useForceFinalizeRound } from '@/hooks/rounds';
 import ForceSubmitRoundDialog from '@/components/rounds/ForceSubmitRoundDialog';
 import { NoCompletedScorecardsError } from '@/services/rounds/forceFinalizeRound';
+import { useToast } from '@/context/ToastContext';
 
 /** Long-press threshold before drag activates. Short enough to feel snappy,
  *  long enough that vertical scrolls pass through to the parent ScrollView. */
@@ -209,24 +210,32 @@ export const RoundsTab = React.memo(function RoundsTab({
 
   const [forceSubmitRoundId, setForceSubmitRoundId] = useState<string | null>(null);
   const { mutate: forceFinalize, isPending: isForceSubmitting } = useForceFinalizeRound();
+  const { showToast } = useToast();
 
   const handleForceSubmitConfirm = useCallback(() => {
     if (!forceSubmitRoundId) return;
     forceFinalize(
       { roundId: forceSubmitRoundId, competitionId },
       {
-        onSuccess: () => setForceSubmitRoundId(null),
+        onSuccess: () => {
+          setForceSubmitRoundId(null);
+          showToast({ variant: 'success', title: 'Round submitted' });
+        },
         onError: (error) => {
           setForceSubmitRoundId(null);
-          if (error instanceof NoCompletedScorecardsError) {
-            console.warn('[RoundsTab] Force-submit blocked: no completed scorecards');
-          } else {
-            console.error('[RoundsTab] Force-submit failed:', error);
-          }
+          showToast({
+            variant: 'error',
+            title: 'Could not submit round',
+            message: error instanceof NoCompletedScorecardsError
+              ? error.message
+              : error instanceof Error
+                ? error.message
+                : 'Unknown error.',
+          });
         },
       }
     );
-  }, [forceFinalize, forceSubmitRoundId, competitionId]);
+  }, [forceFinalize, forceSubmitRoundId, competitionId, showToast]);
 
   // Track the height of a row so the drag can map translationY back to an
   // index delta. Cards are roughly the same height; we measure the first

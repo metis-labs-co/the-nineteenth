@@ -684,6 +684,7 @@ function invalidateRoundStatusCaches(
   queryClient.invalidateQueries({ queryKey: roundKeys.detail(input.roundId) });
   queryClient.invalidateQueries({ queryKey: roundKeys.lists() });
   queryClient.invalidateQueries({ queryKey: leaderboardKeys.round(input.roundId) });
+  queryClient.invalidateQueries({ queryKey: scorecardKeys.list({ roundId: input.roundId }) });
   if (input.competitionId) {
     queryClient.invalidateQueries({ queryKey: roundKeys.list(input.competitionId) });
     queryClient.invalidateQueries({ queryKey: leaderboardKeys.competition(input.competitionId) });

@@ -3,7 +3,7 @@
  *
  * Organiser confirmation for force-submitting a round while some players are
  * incomplete. Lists the players who will be marked DNF (no position/points),
- * then confirms. Fetches the roster itself so callers only manage visibility
+ * then confirms. Fetches scorecards itself so callers only manage visibility
  * and the mutation.
  */
 import React, { useMemo } from 'react';
@@ -11,30 +11,39 @@ import { View, StyleSheet, Modal, ScrollView, TouchableOpacity, TouchableWithout
 import { Text, Icon } from 'react-native-paper';
 import { GolfBallLoader } from '@/components/common/GolfBallLoader';
 import { useThemeColors } from '@/context/ThemeContext';
-import { useRoundPlayers, useRoundScorecards } from '@/hooks/useRoundDetails';
+import { useRoundScorecards } from '@/hooks/useRoundDetails';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 
 const TERMINAL = new Set(['completed', 'confirmed']);
 
-interface RosterPlayer { id: string; name: string }
-interface ScorecardRow { player_id: string; status: string; scores?: Record<string, unknown> | null }
+interface ScorecardRow {
+  player_id: string | null;
+  status: string;
+  scores?: Record<string, unknown> | null;
+  player?: { name?: string | null } | null;
+}
 export interface IncompletePlayer { playerId: string; playerName: string; holesPlayed: number }
 
-/** Roster players with a missing or non-terminal scorecard. Exported for testing. */
+/**
+ * Scorecards whose status is non-terminal, deduplicated by player_id, in
+ * scorecard order. Player name comes from the nested `player` object.
+ * Exported for testing.
+ */
 export function getIncompletePlayers(
-  roundPlayers: RosterPlayer[],
   scorecards: ScorecardRow[]
 ): IncompletePlayer[] {
-  const byPlayer = new Map(scorecards.map((sc) => [sc.player_id, sc]));
+  const seen = new Set<string>();
   const out: IncompletePlayer[] = [];
-  for (const p of roundPlayers) {
-    const sc = byPlayer.get(p.id);
-    const terminal = sc ? TERMINAL.has(sc.status) : false;
-    if (terminal) continue;
+  for (const sc of scorecards) {
+    if (TERMINAL.has(sc.status)) continue;
+    if (sc.player_id) {
+      if (seen.has(sc.player_id)) continue;
+      seen.add(sc.player_id);
+    }
     out.push({
-      playerId: p.id,
-      playerName: p.name,
-      holesPlayed: sc?.scores ? Object.keys(sc.scores).length : 0,
+      playerId: sc.player_id ?? '',
+      playerName: sc.player?.name ?? 'Unknown player',
+      holesPlayed: Object.keys(sc.scores ?? {}).length,
     });
   }
   return out;
@@ -56,16 +65,22 @@ export default function ForceSubmitRoundDialog({
   onCancel,
 }: ForceSubmitRoundDialogProps) {
   const colors = useThemeColors();
-  const { data: roundPlayers } = useRoundPlayers(roundId);
   const { data: scorecards } = useRoundScorecards(roundId);
 
   const incomplete = useMemo(
-    () => getIncompletePlayers(
-      (roundPlayers ?? []) as unknown as RosterPlayer[],
-      (scorecards ?? []) as unknown as ScorecardRow[]
-    ),
-    [roundPlayers, scorecards]
+    () => getIncompletePlayers((scorecards ?? []) as unknown as ScorecardRow[]),
+    [scorecards]
   );
+
+  const completedCount = useMemo(
+    () => (scorecards ?? []).filter(
+      (sc) => TERMINAL.has((sc as unknown as ScorecardRow).status)
+    ).length,
+    [scorecards]
+  );
+
+  // Only block submission once we know the data is loaded (scorecards defined)
+  const noCompleted = scorecards !== undefined && completedCount === 0;
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel} statusBarTranslucent>
@@ -86,7 +101,7 @@ export default function ForceSubmitRoundDialog({
                   </Text>
                   <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
                     {incomplete.map((p) => (
-                      <View key={p.playerId} style={styles.row}>
+                      <View key={p.playerId || p.playerName} style={styles.row}>
                         <Icon source="account-alert-outline" size={18} color={colors.warning} />
                         <Text style={[styles.name, { color: colors.textPrimary }]} numberOfLines={1}>
                           {p.playerName}
@@ -100,6 +115,12 @@ export default function ForceSubmitRoundDialog({
                 </>
               )}
 
+              {noCompleted && (
+                <Text style={[styles.hint, { color: colors.warning }]}>
+                  At least one player needs a completed scorecard.
+                </Text>
+              )}
+
               <View style={styles.actions}>
                 <TouchableOpacity
                   style={[styles.button, { backgroundColor: colors.surfaceVariant, borderWidth: 1, borderColor: colors.borderStrong }]}
@@ -111,9 +132,9 @@ export default function ForceSubmitRoundDialog({
                   <Text style={[styles.buttonText, { color: colors.textPrimary }]}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.button, { backgroundColor: colors.primary }, loading && styles.buttonDisabled]}
+                  style={[styles.button, { backgroundColor: colors.primary }, (loading || noCompleted) && styles.buttonDisabled]}
                   onPress={onConfirm}
-                  disabled={loading}
+                  disabled={loading || noCompleted}
                   accessibilityRole="button"
                   accessibilityLabel="Submit Round"
                 >
@@ -137,6 +158,7 @@ const styles = StyleSheet.create({
   container: { width: '100%', maxWidth: 360, borderRadius: borderRadius.xl, padding: spacing.xl },
   title: { ...typography.h3, textAlign: 'center', marginBottom: spacing.sm },
   message: { ...typography.body, textAlign: 'center', marginBottom: spacing.md, lineHeight: 22 },
+  hint: { ...typography.caption, textAlign: 'center', marginBottom: spacing.sm },
   list: { maxHeight: 200, alignSelf: 'stretch', marginBottom: spacing.md },
   listContent: { gap: spacing.xs },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xs },
