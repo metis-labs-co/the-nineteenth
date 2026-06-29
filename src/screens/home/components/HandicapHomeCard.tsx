@@ -51,6 +51,9 @@ export function HandicapHomeCard({ summary, onPress, testID }: HandicapHomeCardP
           <Text style={[styles.indexValue, { color: colors.textPrimary }]}>
             {hasData ? formatHandicapIndex(summary!.handicapIndex) : '—'}
           </Text>
+          <Text style={[styles.description, { color: colors.textSecondary }]}>
+            Your social handicap, based on your completed rounds in The Nineteenth.
+          </Text>
           {hasData ? (
             <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
               Best {summary!.qualifyingRoundsCount} of {summary!.totalRounds}
@@ -97,6 +100,10 @@ const styles = StyleSheet.create({
     ...typography.display,
     fontSize: 40,
     lineHeight: 46,
+  },
+  description: {
+    ...typography.caption,
+    marginTop: spacing.xxs,
   },
   subtitle: {
     ...typography.caption,
