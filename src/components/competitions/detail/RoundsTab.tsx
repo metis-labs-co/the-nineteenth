@@ -34,6 +34,9 @@ import type { RoundWithCourse } from './types';
 import type { GameType } from '@/types';
 import { CompetitionRoundCard } from './CompetitionRoundCard';
 import { EmptyState, SwipeableRow } from '@/components/common';
+import { useForceFinalizeRound } from '@/hooks/rounds';
+import ForceSubmitRoundDialog from '@/components/rounds/ForceSubmitRoundDialog';
+import { NoCompletedScorecardsError } from '@/services/rounds/forceFinalizeRound';
 
 /** Long-press threshold before drag activates. Short enough to feel snappy,
  *  long enough that vertical scrolls pass through to the parent ScrollView. */
@@ -42,6 +45,8 @@ const LONG_PRESS_MS = 300;
 export interface RoundsTabProps {
   rounds: RoundWithCourse[];
   isOrganizer: boolean;
+  /** Competition ID, required for force-submit cache invalidation. */
+  competitionId: string;
   /** Number of players in the competition (used to validate scoring requirements) */
   playerCount: number;
   onAddRound: () => void;
@@ -186,6 +191,7 @@ function DraggableRow({
 export const RoundsTab = React.memo(function RoundsTab({
   rounds,
   isOrganizer,
+  competitionId,
   playerCount,
   onAddRound,
   onScoreRound,
@@ -200,6 +206,27 @@ export const RoundsTab = React.memo(function RoundsTab({
 }: RoundsTabProps) {
   const canSwipeDelete = isOrganizer && !!onDeleteRound;
   const canReorder = isOrganizer && !!onReorder && rounds.length > 1;
+
+  const [forceSubmitRoundId, setForceSubmitRoundId] = useState<string | null>(null);
+  const { mutate: forceFinalize, isPending: isForceSubmitting } = useForceFinalizeRound();
+
+  const handleForceSubmitConfirm = useCallback(() => {
+    if (!forceSubmitRoundId) return;
+    forceFinalize(
+      { roundId: forceSubmitRoundId, competitionId },
+      {
+        onSuccess: () => setForceSubmitRoundId(null),
+        onError: (error) => {
+          setForceSubmitRoundId(null);
+          if (error instanceof NoCompletedScorecardsError) {
+            console.warn('[RoundsTab] Force-submit blocked: no completed scorecards');
+          } else {
+            console.error('[RoundsTab] Force-submit failed:', error);
+          }
+        },
+      }
+    );
+  }, [forceFinalize, forceSubmitRoundId, competitionId]);
 
   // Track the height of a row so the drag can map translationY back to an
   // index delta. Cards are roughly the same height; we measure the first
@@ -265,6 +292,10 @@ export const RoundsTab = React.memo(function RoundsTab({
                   allPlayersScored={allScoredStatus?.[round.id]}
                   colors={colors}
                   isDragging={isDragging}
+                  canForceSubmit={
+                    isOrganizer && round.status === 'in-progress' && (round.sub_match_size ?? 0) === 0
+                  }
+                  onForceSubmit={(id) => setForceSubmitRoundId(id)}
                 />
               );
 
@@ -314,6 +345,14 @@ export const RoundsTab = React.memo(function RoundsTab({
           <Text style={[styles.addRoundButtonText, { color: colors.primary }]}>Add another round</Text>
         </TouchableOpacity>
       )}
+
+      <ForceSubmitRoundDialog
+        visible={!!forceSubmitRoundId}
+        roundId={forceSubmitRoundId ?? ''}
+        loading={isForceSubmitting}
+        onConfirm={handleForceSubmitConfirm}
+        onCancel={() => setForceSubmitRoundId(null)}
+      />
     </View>
   );
 });
