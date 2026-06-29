@@ -14,6 +14,7 @@ import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
 import { updatePlayerHandicapIndex } from '@/services/handicap/updatePlayerHandicapIndex';
 import { syncLogger } from '@/utils/debugLogger';
 import { getEffectiveTeeRatings } from '@/utils/teeResolution';
+import { isSharedBallRound } from '@/utils/roundFormat';
 import { getStrokesReceived, calculateStablefordPointsNet } from '@/utils/scoring';
 import type { TeeBox, Hole, HoleScore } from '@/types/database/base';
 import { isSingleBallScore } from '@/types/database/base';
@@ -53,6 +54,7 @@ interface RoundRecord {
   id: string;
   course_id: string;
   game_type: string | null;
+  team_format: string | null;
   selected_tee: TeeBox | null;
   nine_type: NineType | null;
   courses: { holes: Hole[] | null } | null;
@@ -178,7 +180,7 @@ export async function recalculateScorecardDifferential(
 
   // 2. Fetch the round with course data
   const { data: roundData, error: roundError } = await from('rounds')
-    .select('id, course_id, game_type, selected_tee, nine_type, courses!course_id (holes)')
+    .select('id, course_id, game_type, team_format, selected_tee, nine_type, courses!course_id (holes)')
     .eq('id', scorecard.round_id)
     .single();
 
@@ -190,6 +192,13 @@ export async function recalculateScorecardDifferential(
 
   if (!round.course_id) {
     throw new Error('Round has no associated course');
+  }
+
+  // Shared-ball team formats (scramble, alt-shot) share a single ball, so the
+  // scorecard's total_gross is the team's score — never a handicap-eligible
+  // individual differential. Refuse to (re)compute one.
+  if (isSharedBallRound({ game_type: round.game_type, team_format: round.team_format })) {
+    throw new Error('Shared-ball team round (scramble/alt-shot) is not handicap eligible');
   }
 
   // 2b. Check for per-player tee override from round_players
