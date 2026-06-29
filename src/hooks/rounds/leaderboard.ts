@@ -54,6 +54,59 @@ export {
 // TYPES
 // =====================================================
 
+/** A roster player who did not finish (no position / no points). */
+export interface DnfEntry {
+  playerId: string;
+  playerName: string;
+}
+
+const TERMINAL_CARD = new Set(['completed', 'confirmed']);
+
+/** Minimal scorecard shape needed to derive DNF (player + status + name). */
+interface DnfScorecard {
+  player_id: string | null;
+  status: string | null;
+  players: { name: string } | null;
+}
+
+/** Minimal result-row shape needed to know which players already have a result. */
+interface DnfResultRow {
+  player_id: string | null;
+  is_team_result: boolean | null;
+  teams: { team_members?: { player_id: string }[] } | null;
+}
+
+/**
+ * DNF = a roster player (has a scorecard) whose card is NOT terminal and who
+ * has no individual result row and is not covered by a team result row.
+ * Exported for unit testing.
+ */
+export function computeDnfEntries(
+  scorecards: DnfScorecard[],
+  results: DnfResultRow[]
+): DnfEntry[] {
+  const covered = new Set<string>();
+  for (const r of results) {
+    if (r.player_id) covered.add(r.player_id);
+    const members = r.teams?.team_members;
+    if (Array.isArray(members)) {
+      for (const m of members) if (m.player_id) covered.add(m.player_id);
+    }
+  }
+
+  const dnf: DnfEntry[] = [];
+  const seen = new Set<string>();
+  for (const sc of scorecards) {
+    if (!sc.player_id) continue;
+    if (TERMINAL_CARD.has(sc.status ?? '')) continue;
+    if (covered.has(sc.player_id)) continue;
+    if (seen.has(sc.player_id)) continue;
+    seen.add(sc.player_id);
+    dnf.push({ playerId: sc.player_id, playerName: sc.players?.name ?? 'Unknown player' });
+  }
+  return dnf;
+}
+
 /** Round metadata included in the response */
 export interface RoundMetadata {
   gameType: GameType;
@@ -82,6 +135,8 @@ export interface RoundLeaderboardResponse {
   teamEntries: import('@/utils/roundLeaderboardFormatters').RoundLeaderboardEntry[];
   /** Individual rows (`is_team_result=false`) for this round, sorted by position. */
   individualEntries: import('@/utils/roundLeaderboardFormatters').RoundLeaderboardEntry[];
+  /** Roster players who did not finish — shown separately, no position/points. */
+  dnfEntries: DnfEntry[];
   metadata: RoundMetadata;
 }
 
@@ -184,10 +239,10 @@ async function fetchRoundLeaderboard(roundId: string): Promise<RoundLeaderboardR
     .eq('round_id', roundId)
     .order('position', { ascending: true, nullsFirst: false });
 
-  // Fetch scorecards separately to get bypass status
+  // Fetch scorecards separately for bypass status AND DNF derivation.
   const { data: scorecards } = await supabase
     .from('scorecards')
-    .select('player_id, bypassed')
+    .select('player_id, bypassed, status, players!player_id ( name )')
     .eq('round_id', roundId);
 
   // Build a map of player_id -> bypassed status
@@ -205,6 +260,11 @@ async function fetchRoundLeaderboard(roundId: string): Promise<RoundLeaderboardR
   }
 
   const typedResults = (results || []) as unknown as RoundResultRow[];
+
+  const dnfEntries = computeDnfEntries(
+    (scorecards ?? []) as unknown as DnfScorecard[],
+    (results ?? []) as unknown as DnfResultRow[]
+  );
 
   // Transform results to leaderboard entries
   const entries = typedResults.map((result) =>
@@ -245,6 +305,7 @@ async function fetchRoundLeaderboard(roundId: string): Promise<RoundLeaderboardR
     entries: sortedEntries,
     teamEntries,
     individualEntries,
+    dnfEntries,
     metadata,
   };
 }
