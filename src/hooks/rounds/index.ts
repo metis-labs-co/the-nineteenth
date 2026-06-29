@@ -76,6 +76,8 @@ export {
   useRecalculateRoundResults,
   useUpdateRoundRules,
   useForceSyncRoundScorecards,
+  useForceFinalizeRound,
+  useReopenRound,
 } from './mutations';
 
 export type {

@@ -21,6 +21,8 @@ import {
 import { recalculateScorecardDifferential } from '@/services/handicap/recalculateScorecardDifferential';
 import { upsertRoundPlayerTee } from '@/services/competitionPlayers/competitionPlayersService';
 import { refinalizeRoundResults } from '@/services/rounds/refinalizeRoundResults';
+import { forceFinalizeRound } from '@/services/rounds/forceFinalizeRound';
+import { reopenRound } from '@/services/rounds/reopenRound';
 import { getScorecardsByRound, markScorecardsAsSynced, deleteScorecardsByRound } from '@/services/offline/database';
 import { syncScorecard } from '@/services/offline/sync';
 import { useToast } from '@/context/ToastContext';
@@ -661,5 +663,63 @@ export function useForceSyncRoundScorecards() {
     onError: (error) => {
       console.error('[useForceSyncRoundScorecards] Failed:', error);
     },
+  });
+}
+
+// =====================================================
+// FORCE-FINALIZE / RE-OPEN ROUND (ORGANISER)
+// =====================================================
+
+export interface ForceFinalizeRoundInput {
+  roundId: string;
+  /** Competition ID for cache invalidation. */
+  competitionId?: string;
+}
+
+/** Shared cache invalidation for force-finalize / re-open. */
+function invalidateRoundStatusCaches(
+  queryClient: ReturnType<typeof useQueryClient>,
+  input: ForceFinalizeRoundInput
+) {
+  queryClient.invalidateQueries({ queryKey: roundKeys.detail(input.roundId) });
+  queryClient.invalidateQueries({ queryKey: roundKeys.lists() });
+  queryClient.invalidateQueries({ queryKey: leaderboardKeys.round(input.roundId) });
+  queryClient.invalidateQueries({ queryKey: scorecardKeys.list({ roundId: input.roundId }) });
+  if (input.competitionId) {
+    queryClient.invalidateQueries({ queryKey: roundKeys.list(input.competitionId) });
+    queryClient.invalidateQueries({ queryKey: leaderboardKeys.competition(input.competitionId) });
+    queryClient.invalidateQueries({ queryKey: competitionKeys.detail(input.competitionId) });
+    queryClient.invalidateQueries({ queryKey: competitionDetailsKeys.detail(input.competitionId) });
+  }
+}
+
+/**
+ * Organiser force-submit: mark the round completed regardless of incomplete
+ * players, then re-finalize results (incomplete players become DNF).
+ */
+export function useForceFinalizeRound() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: ForceFinalizeRoundInput) => {
+      await forceFinalizeRound(input.roundId);
+    },
+    onSuccess: (_, input) => invalidateRoundStatusCaches(queryClient, input),
+    onError: (error) => console.error('[useForceFinalizeRound] Failed:', error),
+  });
+}
+
+/**
+ * Organiser re-open: flip a completed round back to in-progress so a DNF
+ * player can finish. Re-finalize happens via normal submission or the
+ * existing Recalculate Results action.
+ */
+export function useReopenRound() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: ForceFinalizeRoundInput) => {
+      await reopenRound(input.roundId);
+    },
+    onSuccess: (_, input) => invalidateRoundStatusCaches(queryClient, input),
+    onError: (error) => console.error('[useReopenRound] Failed:', error),
   });
 }

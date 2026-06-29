@@ -124,6 +124,15 @@ export const RoundLeaderboard = React.memo(function RoundLeaderboard({
     [data, filterView]
   );
 
+  // DNF section: only on completed rounds, only when there are unfinished
+  // players, and not in the team-only filtered view (DNF is individual).
+  const dnfEntries = data?.dnfEntries ?? [];
+  const showDnf =
+    !!data &&
+    data.metadata.status === 'completed' &&
+    filterView !== 'team' &&
+    dnfEntries.length > 0;
+
   // Loading state
   if (isLoading) {
     return (
@@ -306,6 +315,26 @@ export const RoundLeaderboard = React.memo(function RoundLeaderboard({
           </ScaledText>
         </View>
       )}
+
+      {/* Did Not Finish — roster players with no result row. No position/points. */}
+      {showDnf && (
+        <View style={[styles.card, { backgroundColor: colors.surface }, dnfStyles.section]}>
+          <ScaledText category="caption" style={[dnfStyles.label, { color: colors.textSecondary }]}>
+            Did Not Finish
+          </ScaledText>
+          {dnfEntries.map((d) => (
+            <View key={d.playerId} style={dnfStyles.row}>
+              <IconAlertTriangle size={16} color={colors.textTertiary} />
+              <ScaledText category="body" style={[dnfStyles.name, { color: colors.textPrimary }]}>
+                {d.playerName}
+              </ScaledText>
+            </View>
+          ))}
+          <ScaledText category="caption" style={[dnfStyles.hint, { color: colors.textTertiary }]}>
+            No position or points — round submitted before they finished.
+          </ScaledText>
+        </View>
+      )}
     </View>
   );
 });
@@ -325,6 +354,33 @@ const legendStyles = StyleSheet.create({
   },
   text: {
     ...typography.caption,
+  },
+});
+
+const dnfStyles = StyleSheet.create({
+  section: {
+    marginTop: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  label: {
+    ...typography.captionBold,
+    textTransform: 'uppercase',
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.sm,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  name: {
+    ...typography.body,
+  },
+  hint: {
+    ...typography.caption,
+    paddingTop: spacing.sm,
   },
 });
 

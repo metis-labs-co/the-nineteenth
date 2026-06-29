@@ -458,6 +458,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
           <RoundsTab
             rounds={rounds}
             isOrganizer={isOrganizer}
+            competitionId={id}
             playerCount={players.length}
             onAddRound={handleAddRound}
             onScoreRound={handleScoreRound}

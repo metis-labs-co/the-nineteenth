@@ -54,6 +54,10 @@ export interface CompetitionRoundCardProps {
    */
   isDragging?: boolean;
   colors: ColorPalette;
+  /** Organiser can force-submit this (in-progress, non-split) round. */
+  canForceSubmit?: boolean;
+  /** Open the force-submit confirmation for this round. */
+  onForceSubmit?: (roundId: string) => void;
 }
 
 /**
@@ -96,6 +100,8 @@ export const CompetitionRoundCard = React.memo(function CompetitionRoundCard({
   skinsConfig: skinsConfigOverride,
   isDragging = false,
   colors,
+  canForceSubmit,
+  onForceSubmit,
 }: CompetitionRoundCardProps) {
   const isDark = useIsDark();
 
@@ -351,6 +357,20 @@ export const CompetitionRoundCard = React.memo(function CompetitionRoundCard({
             </TouchableOpacity>
           )}
         </View>
+
+        {/* Organiser force-submit — finalize now, unfinished players → DNF. */}
+        {canForceSubmit && onForceSubmit && (
+          <TouchableOpacity
+            style={[styles.forceSubmitButton, { borderColor: colors.border }]}
+            onPress={() => onForceSubmit(round.id)}
+            accessibilityRole="button"
+            accessibilityLabel={`Submit round ${roundNumber} now`}
+            activeOpacity={0.7}
+          >
+            <Icon source="flag-checkered" size={18} color={colors.primary} />
+            <Text style={[styles.forceSubmitLabel, { color: colors.primary }]}>Submit Round Now</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </Animated.View>
   );
@@ -492,6 +512,20 @@ const styles = StyleSheet.create({
     ...typography.smallBold,
   },
   actionButtonLabelPrimary: {
+    ...typography.smallBold,
+  },
+  forceSubmitButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+    height: 44,
+    borderWidth: 1,
+    borderRadius: borderRadius.md,
+    backgroundColor: 'transparent',
+  },
+  forceSubmitLabel: {
     ...typography.smallBold,
   },
 });

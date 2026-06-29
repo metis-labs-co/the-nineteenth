@@ -269,6 +269,7 @@ function createMockResponse(
     entries,
     teamEntries: entries.filter((e) => e.isTeamResult),
     individualEntries: entries.filter((e) => !e.isTeamResult),
+    dnfEntries: [],
     metadata: {
       gameType,
       isTeamRound,
