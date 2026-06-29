@@ -32,6 +32,8 @@ export interface LeaderboardHeaderProps {
   courseName?: string;
   /** Round number */
   roundNumber: number;
+  /** Optional user-defined round name; shown instead of "Round N" when set. */
+  roundName?: string | null;
   /**
    * Optional fields used to derive the preset-accurate format label
    * (e.g. "Team Stableford (aggregate)" instead of just "Stableford"). When
@@ -49,12 +51,16 @@ export const LeaderboardHeader = React.memo(function LeaderboardHeader({
   date,
   courseName,
   roundNumber,
+  roundName,
   teamFormat,
   roundFormat,
   subMatchSize,
   rulesOverride,
 }: LeaderboardHeaderProps) {
   const colors = useThemeColors();
+
+  const title =
+    roundName && roundName.trim().length > 0 ? roundName : `Round ${roundNumber}`;
 
   // Resolve the most specific format label available. The engine label
   // (e.g. "Stableford") is shared across many presets — when the parent has
@@ -82,7 +88,7 @@ export const LeaderboardHeader = React.memo(function LeaderboardHeader({
     <View style={styles.header}>
       <View style={styles.headerTop}>
         <ScaledText category="title" style={[styles.roundTitle, { color: colors.textPrimary }]}>
-          Round {roundNumber}
+          {title}
         </ScaledText>
         <View style={styles.badgeRow}>
           <Pill
