@@ -31,7 +31,14 @@ import { useRoundDetails, useRoundScorecards, useRoundPlayers } from '@/hooks/us
 import { useRoundPlayerTees } from '@/hooks/rounds';
 import { useCompetitionInfo } from '@/hooks';
 import { useDeleteRound } from '@/hooks/useDeleteRound';
-import { useRecalculateRoundResults, useForceSyncRoundScorecards } from '@/hooks/rounds';
+import {
+  useRecalculateRoundResults,
+  useForceSyncRoundScorecards,
+  useForceFinalizeRound,
+  useReopenRound,
+} from '@/hooks/rounds';
+import ForceSubmitRoundDialog from '@/components/rounds/ForceSubmitRoundDialog';
+import { NoCompletedScorecardsError } from '@/services/rounds/forceFinalizeRound';
 import { useSkinsGamesByRound, useCreateSkinsGame } from '@/hooks/useSkins';
 import { supabase } from '@/services/supabase/client';
 import { roundKeys } from '@/hooks/queryKeys';
@@ -104,6 +111,10 @@ export default function RoundSettingsScreen() {
     return round.status === 'upcoming';
   }, [user?.id, round, isStandalone, competitionInfo?.organizer_id]);
 
+  const isSplitRound = (round?.sub_match_size ?? 0) > 0;
+  const canForceSubmit = isOrganizer && !isStandalone && round?.status === 'in-progress' && !isSplitRound;
+  const canReopen = isOrganizer && !isStandalone && round?.status === 'completed';
+
   // Local state
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showSkinsConfigSheet, setShowSkinsConfigSheet] = useState(false);
@@ -113,6 +124,8 @@ export default function RoundSettingsScreen() {
   const [showEditNameSheet, setShowEditNameSheet] = useState(false);
   const [showEditPairingSheet, setShowEditPairingSheet] = useState(false);
   const [showAlert, setShowAlert] = useState<{ title: string; message: string } | null>(null);
+  const [showForceSubmitDialog, setShowForceSubmitDialog] = useState(false);
+  const [showReopenDialog, setShowReopenDialog] = useState(false);
 
   // Teams for split-preset re-seed branch (ryder_cup_singles). Empty when
   // the round is standalone or the competition has no teams.
@@ -139,6 +152,8 @@ export default function RoundSettingsScreen() {
     useRecalculateRoundResults();
   const { mutate: forceSyncScorecards, isPending: isForceSyncing } =
     useForceSyncRoundScorecards();
+  const { mutate: forceFinalize, isPending: isForceSubmitting } = useForceFinalizeRound();
+  const { mutate: reopen, isPending: isReopening } = useReopenRound();
   const { mutate: createSkinsGame } = useCreateSkinsGame();
   const { mutate: updateSkinsGame } = useMutation({
     mutationFn: async ({ gameId, updates }: { gameId: string; updates: Partial<SkinsConfig> }) => {
@@ -218,6 +233,55 @@ export default function RoundSettingsScreen() {
       }
     );
   }, [recalculateResults, roundId, competitionId]);
+
+  const handleForceSubmitConfirm = useCallback(() => {
+    forceFinalize(
+      { roundId, competitionId },
+      {
+        onSuccess: () => {
+          setShowForceSubmitDialog(false);
+          setShowAlert({
+            title: 'Round Submitted',
+            message: 'The round has been finalized. Unfinished players were marked Did Not Finish.',
+          });
+        },
+        onError: (error) => {
+          setShowForceSubmitDialog(false);
+          setShowAlert({
+            title: 'Could Not Submit',
+            message:
+              error instanceof NoCompletedScorecardsError
+                ? error.message
+                : error instanceof Error
+                ? error.message
+                : 'Unknown error.',
+          });
+        },
+      }
+    );
+  }, [forceFinalize, roundId, competitionId]);
+
+  const handleReopenConfirm = useCallback(() => {
+    reopen(
+      { roundId, competitionId },
+      {
+        onSuccess: () => {
+          setShowReopenDialog(false);
+          setShowAlert({
+            title: 'Round Re-opened',
+            message: 'Players can finish their scorecards. Re-submit or use Recalculate Results when done.',
+          });
+        },
+        onError: (error) => {
+          setShowReopenDialog(false);
+          setShowAlert({
+            title: 'Could Not Re-open',
+            message: error instanceof Error ? error.message : 'Unknown error.',
+          });
+        },
+      }
+    );
+  }, [reopen, roundId, competitionId]);
 
   // Force-push the local SQLite scorecards for this round up to Supabase.
   // Recovery lever for the case where background sync silently failed and
@@ -533,6 +597,38 @@ export default function RoundSettingsScreen() {
           </View>
         )}
 
+        {/* Submit Round — organiser force-submit while the round is in
+            progress, even if some players haven't finished (they become DNF). */}
+        {canForceSubmit && (
+          <>
+            <Divider style={styles.divider} />
+            <View style={styles.editTeesSection}>
+              <Text style={[styles.sectionHeader, { color: colors.textPrimary }]}>Submit Round</Text>
+              <TouchableOpacity
+                style={[
+                  styles.editTeesButton,
+                  { borderColor: colors.border, backgroundColor: colors.surface },
+                  isForceSubmitting && { opacity: 0.6 },
+                ]}
+                onPress={() => setShowForceSubmitDialog(true)}
+                disabled={isForceSubmitting}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Submit round now"
+              >
+                <Icon source="flag-checkered" size={20} color={colors.primary} />
+                <Text style={[styles.editTeesButtonText, { color: colors.textPrimary }]}>
+                  {isForceSubmitting ? 'Submitting…' : 'Submit Round Now'}
+                </Text>
+                <Icon source="chevron-right" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+              <Text style={[styles.editTeesHint, { color: colors.textSecondary }]}>
+                Finalize this round now. Players who haven&apos;t finished will be marked Did Not Finish (no position or points). You can re-open the round later if needed.
+              </Text>
+            </View>
+          </>
+        )}
+
         {/* Scoring Section — organiser / super-admin only on a completed
             round. Gating on round.status (rather than scorecards.length)
             keeps the Recalculate lever available even when sync is still
@@ -618,6 +714,34 @@ export default function RoundSettingsScreen() {
               <Text style={[styles.editTeesHint, { color: colors.textSecondary }]}>
                 Pushes the locally-saved scorecards on this device up to the cloud. Use if scores entered on this phone aren&apos;t showing up on the leaderboard.
               </Text>
+
+              {/* Re-open Round — flip back to in-progress so a DNF player can
+                  finish. Competition status reverts automatically. */}
+              {canReopen && (
+                <>
+                  <TouchableOpacity
+                    style={[
+                      styles.editTeesButton,
+                      { borderColor: colors.border, backgroundColor: colors.surface, marginTop: spacing.md },
+                      isReopening && { opacity: 0.6 },
+                    ]}
+                    onPress={() => setShowReopenDialog(true)}
+                    disabled={isReopening}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel="Re-open round"
+                  >
+                    <Icon source="lock-open-variant-outline" size={20} color={colors.primary} />
+                    <Text style={[styles.editTeesButtonText, { color: colors.textPrimary }]}>
+                      {isReopening ? 'Re-opening…' : 'Re-open Round'}
+                    </Text>
+                    <Icon source="chevron-right" size={20} color={colors.textSecondary} />
+                  </TouchableOpacity>
+                  <Text style={[styles.editTeesHint, { color: colors.textSecondary }]}>
+                    Sets the round back to in progress so players can finish. Re-submit or use Recalculate Results afterwards.
+                  </Text>
+                </>
+              )}
             </View>
           </>
         )}
@@ -672,6 +796,27 @@ export default function RoundSettingsScreen() {
         confirmLabel="OK"
         onConfirm={() => setShowAlert(null)}
         onCancel={() => setShowAlert(null)}
+      />
+
+      {/* Force-submit confirmation (lists DNF players) */}
+      <ForceSubmitRoundDialog
+        visible={showForceSubmitDialog}
+        roundId={roundId}
+        loading={isForceSubmitting}
+        onConfirm={handleForceSubmitConfirm}
+        onCancel={() => setShowForceSubmitDialog(false)}
+      />
+
+      {/* Re-open confirmation */}
+      <ConfirmationDialog
+        visible={showReopenDialog}
+        title="Re-open Round"
+        message="This sets the round back to in progress so players can finish their scorecards. The competition status will update automatically."
+        confirmLabel="Re-open"
+        onConfirm={handleReopenConfirm}
+        onCancel={() => setShowReopenDialog(false)}
+        loading={isReopening}
+        icon="lock-open-variant-outline"
       />
 
       {/* Edit Tees Sheet */}
