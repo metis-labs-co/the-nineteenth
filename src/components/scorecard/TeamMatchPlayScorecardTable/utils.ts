@@ -11,7 +11,8 @@
  * decided on net scores (same as the score-entry screen).
  */
 
-import { getStrokesReceived, isPickupScore } from '@/utils/scoring';
+import { getStrokesReceived } from '@/utils/scoring';
+import { PICKUP_SCORE } from '@/constants/scoring';
 import {
   determineHoleWinner,
   calculateMatchStatus,
@@ -40,7 +41,7 @@ function findBestContributor(
   for (const member of team.members) {
     const gross = getGross(member.id);
     if (gross == null) continue;
-    if (isPickupScore(gross, hole.par, member.handicap, hole.strokeIndex)) continue;
+    if (gross === PICKUP_SCORE) continue;
     const strokes = getStrokesReceived(member.handicap, hole.strokeIndex);
     const net = gross - strokes;
     if (
@@ -61,7 +62,6 @@ function findBestContributor(
  */
 function isTeamPickedUp(
   team: MatchTeam,
-  hole: Hole,
   getGross: (playerId: string) => number | undefined
 ): boolean {
   let sawAny = false;
@@ -69,7 +69,7 @@ function isTeamPickedUp(
     const gross = getGross(member.id);
     if (gross == null) continue;
     sawAny = true;
-    if (!isPickupScore(gross, hole.par, member.handicap, hole.strokeIndex)) {
+    if (gross !== PICKUP_SCORE) {
       return false;
     }
   }
@@ -104,18 +104,23 @@ export function calculateTeamMatchData(
     const t1Best = findBestContributor(team1, hole, getGrossForHole);
     const t2Best = findBestContributor(team2, hole, getGrossForHole);
 
-    const t1PickedUp = isTeamPickedUp(team1, hole, getGrossForHole);
-    const t2PickedUp = isTeamPickedUp(team2, hole, getGrossForHole);
+    const t1PickedUp = isTeamPickedUp(team1, getGrossForHole);
+    const t2PickedUp = isTeamPickedUp(team2, getGrossForHole);
 
     const baseWinner = determineHoleWinner(t1Best?.net ?? null, t2Best?.net ?? null);
-    // If one team fully pickd up and the other has any score, that team loses.
+    // A team that fully conceded loses the hole, but only once the opponent has
+    // actually carded a (non-pickup) score; mutual concessions are halved.
     const winner =
-      t1PickedUp && !t2PickedUp
-        ? 'player2'
-        : t2PickedUp && !t1PickedUp
-          ? 'player1'
-          : t1PickedUp && t2PickedUp
-            ? 'halved'
+      t1PickedUp && t2PickedUp
+        ? 'halved'
+        : t1PickedUp
+          ? t2Best
+            ? 'player2'
+            : null
+          : t2PickedUp
+            ? t1Best
+              ? 'player1'
+              : null
             : baseWinner;
 
     holeResults[holeNum] = {

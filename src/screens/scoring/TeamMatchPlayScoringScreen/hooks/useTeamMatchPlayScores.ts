@@ -13,11 +13,8 @@ import { useCallback, useMemo } from 'react';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { isSingleBallScore } from '@/types/database';
 import { useThemeColors } from '@/context/ThemeContext';
-import {
-  getStrokesReceived,
-  calculatePickupScore,
-  isPickupScore,
-} from '@/utils/scoring';
+import { getStrokesReceived } from '@/utils/scoring';
+import { PICKUP_SCORE } from '@/constants/scoring';
 import { determineTeamHoleWinner } from '../utils';
 import type { MatchTeam } from '../types';
 import type { Hole } from '@/types';
@@ -25,8 +22,9 @@ import type { Hole } from '@/types';
 /**
  * Return the best (lowest-net) team member on a hole.
  * Ties broken by lowest gross, then by team-member order.
- * Picked-up members are excluded — their gross of `par + strokes + 2` would
- * otherwise bubble up as the "best" for a team where everyone conceded.
+ * Conceded members (the explicit PICKUP_SCORE sentinel) are excluded so a
+ * concession never bubbles up as a team's "best"; a genuine blow-up score is
+ * NOT a concession and counts normally.
  * Returns { playerId, gross, net } for the best contributor, or null if no
  * team member has a non-pickup score on the hole.
  */
@@ -40,7 +38,7 @@ function findBestNetContributor(
   for (const member of team.members) {
     const gross = getGross(member.id);
     if (gross === null) continue;
-    if (isPickupScore(gross, hole.par, member.handicap, hole.strokeIndex)) continue;
+    if (gross === PICKUP_SCORE) continue;
     const strokes = getStrokesReceived(member.handicap, hole.strokeIndex);
     const net = gross - strokes;
     if (best === null || net < best.net || (net === best.net && gross < best.gross)) {
@@ -48,6 +46,49 @@ function findBestNetContributor(
     }
   }
   return best;
+}
+
+/**
+ * Has every member who carded a score on this hole conceded (PICKUP_SCORE)?
+ * True only when at least one member has a score and all such scores are
+ * pickups — i.e. the team has effectively conceded the hole.
+ */
+function isTeamConceded(
+  team: MatchTeam,
+  getGross: (playerId: string) => number | null
+): boolean {
+  let sawAny = false;
+  for (const member of team.members) {
+    const gross = getGross(member.id);
+    if (gross === null) continue;
+    sawAny = true;
+    if (gross !== PICKUP_SCORE) return false;
+  }
+  return sawAny;
+}
+
+/**
+ * Resolve a team hole winner with concession awareness: a team that has
+ * conceded the hole loses it, but only once the opponent has actually carded a
+ * (non-pickup) score. Mutual concessions are halved; otherwise the lower team
+ * best net wins.
+ */
+function resolveTeamHoleWinner(
+  team1: MatchTeam,
+  team2: MatchTeam,
+  hole: Hole | undefined,
+  getGross: (playerId: string) => number | null
+): 'team1' | 'team2' | 'halved' | null {
+  if (!hole) return null;
+  const t1Best = findBestNetContributor(team1, hole, getGross);
+  const t2Best = findBestNetContributor(team2, hole, getGross);
+  const t1Conceded = isTeamConceded(team1, getGross);
+  const t2Conceded = isTeamConceded(team2, getGross);
+
+  if (t1Conceded && t2Conceded) return 'halved';
+  if (t1Conceded) return t2Best ? 'team2' : null;
+  if (t2Conceded) return t1Best ? 'team1' : null;
+  return determineTeamHoleWinner(t1Best?.net ?? null, t2Best?.net ?? null);
 }
 
 export function useTeamMatchPlayScores(
@@ -99,13 +140,12 @@ export function useTeamMatchPlayScores(
   const team1BestScore = team1BestContribCurrent?.gross ?? null;
   const team2BestScore = team2BestContribCurrent?.gross ?? null;
 
-  // Hole winner is decided on team best *net* score.
-  const currentHoleWinner = useMemo(() => {
-    return determineTeamHoleWinner(
-      team1BestContribCurrent?.net ?? null,
-      team2BestContribCurrent?.net ?? null
-    );
-  }, [team1BestContribCurrent, team2BestContribCurrent]);
+  // Hole winner is decided on team best *net* score, with concession awareness
+  // (a fully-conceded team loses the hole only once the opponent has scored).
+  const currentHoleWinner = useMemo(
+    () => resolveTeamHoleWinner(team1, team2, currentHoleData, getPlayerScoreValue),
+    [team1, team2, currentHoleData, getPlayerScoreValue]
+  );
 
   // Get player score for any hole (dynamic version for swipe rendering).
   // Depends on `groupScorecards` so consumers re-compute when scores update.
@@ -140,13 +180,13 @@ export function useTeamMatchPlayScores(
     [getHoleByNumber, getPlayerScoreForHole]
   );
 
-  // Determine hole winner for any hole (comparing team best net scores).
+  // Determine hole winner for any hole (concession-aware net best-ball).
   const getHoleWinnerForHole = useCallback(
     (holeNumber: number): 'team1' | 'team2' | 'halved' | null => {
       const hole = getHoleByNumber(holeNumber);
-      const t1 = findBestNetContributor(team1, hole, (id) => getPlayerScoreForHole(id, holeNumber));
-      const t2 = findBestNetContributor(team2, hole, (id) => getPlayerScoreForHole(id, holeNumber));
-      return determineTeamHoleWinner(t1?.net ?? null, t2?.net ?? null);
+      return resolveTeamHoleWinner(team1, team2, hole, (id) =>
+        getPlayerScoreForHole(id, holeNumber)
+      );
     },
     [getHoleByNumber, getPlayerScoreForHole, team1, team2]
   );
@@ -174,17 +214,13 @@ export function useTeamMatchPlayScores(
     [getHoleByNumber, findMember]
   );
 
-  // Whether the stored score on a given hole represents a pickup.
+  // Whether the stored score on a given hole represents a pickup (the explicit
+  // PICKUP_SCORE sentinel — never inferred from a high score).
   const isPlayerPickedUpOnHole = useCallback(
     (playerId: string, holeNumber: number): boolean => {
-      const hole = getHoleByNumber(holeNumber);
-      const member = findMember(playerId);
-      if (!hole || !member) return false;
-      const gross = getPlayerScoreForHole(playerId, holeNumber);
-      if (gross === null) return false;
-      return isPickupScore(gross, hole.par, member.handicap, hole.strokeIndex);
+      return getPlayerScoreForHole(playerId, holeNumber) === PICKUP_SCORE;
     },
-    [getHoleByNumber, findMember, getPlayerScoreForHole]
+    [getPlayerScoreForHole]
   );
 
   // Toggle pickup for a player on the current hole.
@@ -200,12 +236,8 @@ export function useTeamMatchPlayScores(
         return;
       }
 
-      const pickupScore = calculatePickupScore(
-        currentHoleData.par,
-        member.handicap,
-        currentHoleData.strokeIndex
-      );
-      await setPlayerScore(playerId, currentHole, pickupScore);
+      // Concede the hole — store the explicit pickup sentinel.
+      await setPlayerScore(playerId, currentHole, PICKUP_SCORE);
     },
     [findMember, currentHole, currentHoleData, isPlayerPickedUpOnHole, setPlayerScore]
   );

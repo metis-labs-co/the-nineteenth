@@ -15,6 +15,7 @@ import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { PICKUP_SCORE } from '@/constants/scoring';
 import type { MatchTeam, TeamMatchStatusDisplay } from '../types';
 
 interface PlayerScoreRowProps {
@@ -64,7 +65,10 @@ function PlayerScoreRow({
 
   const disabled = isMatchComplete;
   const canDecrement = !disabled && !isPickedUp && (score === null || score > 1);
-  const canIncrement = !disabled && !isPickedUp && (score === null || score < 12);
+  // Manual entry tops out one below the pickup sentinel; conceding is the
+  // explicit Pick Up action, so blow-up scores above double bogey are allowed.
+  const canIncrement =
+    !disabled && !isPickedUp && (score === null || score < PICKUP_SCORE - 1);
   const canPickUp = !disabled;
 
   const dotCount = Math.min(strokesReceived, MAX_STROKE_DOTS);

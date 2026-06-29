@@ -5,9 +5,10 @@
  * decided on the lowest net score per team, not gross.
  */
 
-import { renderHook } from '@testing-library/react-native';
+import { renderHook, act } from '@testing-library/react-native';
 import { useTeamMatchPlayScores } from './useTeamMatchPlayScores';
 import { useScorecardStore } from '@/store/scorecardStore';
+import { PICKUP_SCORE } from '@/constants/scoring';
 import type { Hole } from '@/types';
 import type { MatchTeam } from '../types';
 
@@ -149,5 +150,69 @@ describe('useTeamMatchPlayScores — net-score best ball', () => {
 
     expect(result.current.getBestContributorForHole(team1, 3)).toBe('p1b');
     expect(result.current.getTeamBestScoreForHole(team1, 3)).toBe(4);
+  });
+});
+
+describe('useTeamMatchPlayScores — pickup (concession) semantics', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  const team1 = buildTeam('t1', 'Team 1', [{ id: 'p1a', name: 'A', handicap: 0 }]);
+  const team2 = buildTeam('t2', 'Team 2', [{ id: 'p2a', name: 'C', handicap: 0 }]);
+
+  it('counts a blow-up score above double bogey as a real contributor, not a pickup', () => {
+    // Hole 1 par 4 → double bogey is 6. A 7 must score normally, not concede.
+    setupStoreMock({ p1a: { 1: 7 } });
+
+    const { result } = renderHook(() => useTeamMatchPlayScores(team1, team2, 1, holes));
+
+    expect(result.current.isPlayerPickedUpOnHole('p1a', 1)).toBe(false);
+    expect(result.current.getBestContributorForHole(team1, 1)).toBe('p1a');
+    expect(result.current.getTeamBestScoreForHole(team1, 1)).toBe(7);
+  });
+
+  it('detects a pickup only at the explicit PICKUP_SCORE sentinel', () => {
+    setupStoreMock({ p1a: { 1: PICKUP_SCORE } });
+
+    const { result } = renderHook(() => useTeamMatchPlayScores(team1, team2, 1, holes));
+
+    expect(result.current.isPlayerPickedUpOnHole('p1a', 1)).toBe(true);
+    // A conceded member is not a valid best contributor.
+    expect(result.current.getBestContributorForHole(team1, 1)).toBeNull();
+  });
+
+  it('stores the pickup sentinel when a player is picked up', async () => {
+    setupStoreMock({});
+
+    const { result } = renderHook(() => useTeamMatchPlayScores(team1, team2, 1, holes));
+
+    await act(async () => {
+      await result.current.pickUpPlayer('p1a');
+    });
+
+    expect(mockSetPlayerScore).toHaveBeenCalledWith('p1a', 1, PICKUP_SCORE);
+  });
+
+  it('awards the hole to the opponent when a team concedes and the opponent has a score', () => {
+    setupStoreMock({ p1a: { 1: PICKUP_SCORE }, p2a: { 1: 4 } });
+
+    const { result } = renderHook(() => useTeamMatchPlayScores(team1, team2, 1, holes));
+
+    expect(result.current.getHoleWinnerForHole(1)).toBe('team2');
+  });
+
+  it('leaves the hole undecided when a team concedes but the opponent has no score', () => {
+    setupStoreMock({ p1a: { 1: PICKUP_SCORE } });
+
+    const { result } = renderHook(() => useTeamMatchPlayScores(team1, team2, 1, holes));
+
+    expect(result.current.getHoleWinnerForHole(1)).toBeNull();
+  });
+
+  it('halves the hole when both teams concede', () => {
+    setupStoreMock({ p1a: { 1: PICKUP_SCORE }, p2a: { 1: PICKUP_SCORE } });
+
+    const { result } = renderHook(() => useTeamMatchPlayScores(team1, team2, 1, holes));
+
+    expect(result.current.getHoleWinnerForHole(1)).toBe('halved');
   });
 });
