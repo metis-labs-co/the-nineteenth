@@ -37,6 +37,7 @@ import { useNotificationStore } from '@/store/notificationStore';
 import { useToast } from '@/context/ToastContext';
 import { pushService, type PermissionStatus } from '@/services/notifications';
 import { isActivityDetailNotificationType } from '@/services/notifications/activityDeepLink';
+import { isNavigationReady } from '@/navigation/navigationRef';
 import type { RootStackParamList } from '@/navigation/types';
 import type { Notification } from '@/types/database.types';
 import type { PushNotificationData } from '@/types/push.types';
@@ -274,21 +275,43 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       handleNotificationResponse
     );
 
-    // Check for notification that opened the app (cold start)
-    pushService.getLastNotificationResponse().then((response) => {
-      if (response) {
-        if (__DEV__) {
-          console.log('[NotificationProvider] App opened from notification:', response.notification.request.identifier);
-        }
-        handleNotificationResponse(response);
+    // Check for notification that opened the app (cold start).
+    //
+    // On a cold start the NavigationContainer (and the authenticated session it
+    // depends on) finishes initialising slightly after this effect runs. Firing
+    // the deep-link navigation immediately can drop the navigation (target route
+    // not registered yet) or run the target screen's query before the auth
+    // session has rehydrated — surfacing as a spurious "couldn't load" on the
+    // destination screen. Mirror the active-round restore in RootNavigator and
+    // wait for navigation to be ready (bounded) before handling the tap.
+    let coldStartCancelled = false;
+    (async () => {
+      const response = await pushService.getLastNotificationResponse();
+      if (coldStartCancelled || !response) return;
+
+      const start = Date.now();
+      while (!isNavigationReady() && Date.now() - start < 5000) {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        if (coldStartCancelled) return;
       }
-    });
+      if (coldStartCancelled) return;
+
+      if (__DEV__) {
+        console.log(
+          '[NotificationProvider] App opened from notification:',
+          response.notification.request.identifier,
+          `(navReady=${isNavigationReady()}, waitedMs=${Date.now() - start})`
+        );
+      }
+      handleNotificationResponse(response);
+    })();
 
     // Cleanup listeners on unmount
     return () => {
       if (__DEV__) {
         console.log('[NotificationProvider] Cleaning up push notification listeners');
       }
+      coldStartCancelled = true;
       foregroundSubscription.remove();
       responseSubscription.remove();
       pushListenersSetup.current = false;
