@@ -7,6 +7,10 @@ describe('resolveSubMatchModel', () => {
     expect(resolveSubMatchModel('match-play', 'match-play-team')).toBe('match-play');
   });
 
+  it('maps the match-play-team format to the match-play model even when game_type is not match-play', () => {
+    expect(resolveSubMatchModel('stroke', 'match-play-team')).toBe('match-play');
+  });
+
   it('maps alt-shot and aggregate to net, best-ball to points', () => {
     expect(resolveSubMatchModel('alt-shot', 'alt-shot')).toBe('alt-shot');
     expect(resolveSubMatchModel('stroke', 'aggregate')).toBe('aggregate');

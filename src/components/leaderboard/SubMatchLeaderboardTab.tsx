@@ -96,27 +96,74 @@ export function SubMatchLeaderboardTab({
   const model = resolveSubMatchModel(gameType, teamFormat);
 
   const rows = useMemo(() => {
-    return (subMatches ?? []).map((sm, index) => {
-      const sides: SubMatchSides = {
-        a: sm.team_a_player_ids.map((id) => playerById.get(id)).filter((p): p is SubMatchPlayer => !!p),
-        b: sm.team_b_player_ids.map((id) => playerById.get(id)).filter((p): p is SubMatchPlayer => !!p),
-      };
-      const leftColor = teamColorByPlayer.get(sm.team_a_player_ids[0]) ?? colors.success;
-      const rightColor = teamColorByPlayer.get(sm.team_b_player_ids[0]) ?? colors.error;
-      const leftLabel = labelForSide(sm.team_a_player_ids, 'Team A', teamNameByPlayer);
-      const rightLabel = labelForSide(sm.team_b_player_ids, 'Team B', teamNameByPlayer);
-      // Winning side on a forfeit: forfeit-a => side A forfeited (B wins), and vice versa.
-      const forfeitWinner: 'a' | 'b' | null =
-        sm.status === 'forfeited'
-          ? sm.result === 'forfeit-a'
-            ? 'b'
-            : sm.result === 'forfeit-b'
-              ? 'a'
-              : null
-          : null;
-      return { sm, index, sides, leftColor, rightColor, leftLabel, rightLabel, forfeitWinner };
+    const sidesFor = (aIds: string[], bIds: string[]): SubMatchSides => ({
+      a: aIds.map((id) => playerById.get(id)).filter((p): p is SubMatchPlayer => !!p),
+      b: bIds.map((id) => playerById.get(id)).filter((p): p is SubMatchPlayer => !!p),
     });
-  }, [subMatches, playerById, teamColorByPlayer, teamNameByPlayer, colors]);
+
+    if ((subMatches?.length ?? 0) > 0) {
+      return (subMatches ?? []).map((sm, index) => {
+        const sides = sidesFor(sm.team_a_player_ids, sm.team_b_player_ids);
+        const leftColor = teamColorByPlayer.get(sm.team_a_player_ids[0]) ?? colors.success;
+        const rightColor = teamColorByPlayer.get(sm.team_b_player_ids[0]) ?? colors.error;
+        const leftLabel = labelForSide(sm.team_a_player_ids, 'Team A', teamNameByPlayer);
+        const rightLabel = labelForSide(sm.team_b_player_ids, 'Team B', teamNameByPlayer);
+        // Winning side on a forfeit: forfeit-a => side A forfeited (B wins), and vice versa.
+        const forfeitWinner: 'a' | 'b' | null =
+          sm.status === 'forfeited'
+            ? sm.result === 'forfeit-a'
+              ? 'b'
+              : sm.result === 'forfeit-b'
+                ? 'a'
+                : null
+            : null;
+        return {
+          key: sm.id,
+          index,
+          sides,
+          leftColor,
+          rightColor,
+          leftLabel,
+          rightLabel,
+          // Per-match rows show the players on each side.
+          leftName: sides.a.map((p) => p.name).join(' & ') || 'TBD',
+          rightName: sides.b.map((p) => p.name).join(' & ') || 'TBD',
+          forfeitWinner,
+        };
+      });
+    }
+
+    // No sub-matches: synthesize a single combined team-vs-team row so a
+    // "single match" team match-play round renders as one row of this same
+    // leaderboard (whole team A vs whole team B, scored best-ball net).
+    if (model === 'match-play' && teams.length >= 2) {
+      const aIds = (teams[0].members || [])
+        .map((m) => m.player_id)
+        .filter((id): id is string => !!id);
+      const bIds = (teams[1].members || [])
+        .map((m) => m.player_id)
+        .filter((id): id is string => !!id);
+      const sides = sidesFor(aIds, bIds);
+      if (sides.a.length === 0 || sides.b.length === 0) return [];
+      return [
+        {
+          key: 'combined',
+          index: 0,
+          sides,
+          leftColor: teamColorByPlayer.get(aIds[0]) ?? colors.success,
+          rightColor: teamColorByPlayer.get(bIds[0]) ?? colors.error,
+          leftLabel: teams[0].name,
+          rightLabel: teams[1].name,
+          // A whole-team match shows the team names, not every member.
+          leftName: teams[0].name,
+          rightName: teams[1].name,
+          forfeitWinner: null as 'a' | 'b' | null,
+        },
+      ];
+    }
+
+    return [];
+  }, [subMatches, playerById, teamColorByPlayer, teamNameByPlayer, colors, model, teams]);
 
   const { leaders, content } = useMemo(() => {
     const leaders: SubMatchLeader[] = [];
@@ -134,9 +181,9 @@ export function SubMatchLeaderboardTab({
         pushLeader(data);
         return (
           <MatchPlayMatchRow
-            key={row.sm.id}
-            leftName={row.sides.a.map((p) => p.name).join(' & ') || 'TBD'}
-            rightName={row.sides.b.map((p) => p.name).join(' & ') || 'TBD'}
+            key={row.key}
+            leftName={row.leftName}
+            rightName={row.rightName}
             leftColor={row.leftColor}
             rightColor={row.rightColor}
             data={data}
@@ -151,7 +198,7 @@ export function SubMatchLeaderboardTab({
       pushLeader(data);
       return (
         <SubMatchNetCard
-          key={row.sm.id}
+          key={row.key}
           index={row.index}
           leftLabel={row.leftLabel}
           rightLabel={row.rightLabel}
@@ -166,12 +213,13 @@ export function SubMatchLeaderboardTab({
   }, [rows, model, holes, getStrokes, currentUserId]);
 
   const isLoading = smLoading || teamsLoading;
-  const hasSubMatches = (subMatches?.length ?? 0) > 0;
-  const showOverall = hasSubMatches && teams.length >= 2;
+  // The Ryder-cup tally header only makes sense across real sub-matches; a
+  // single synthesized team-vs-team row is the result on its own.
+  const showOverall = (subMatches?.length ?? 0) > 0 && teams.length >= 2;
   const tally = tallyOverall(leaders);
   const first = rows[0];
 
-  const body = !hasSubMatches ? (
+  const body = rows.length === 0 ? (
     <EmptyState
       icon="golf"
       title="No Sub-Matches"

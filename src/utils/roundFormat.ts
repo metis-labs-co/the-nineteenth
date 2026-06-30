@@ -26,6 +26,18 @@ export function isSplitMatchPlayRound(round: {
 }
 
 /**
+ * True when a round is a team match-play round (full team vs full team, scored
+ * best-ball net). Covers both the combined single team-vs-team match and split
+ * team sub-matches, regardless of how `game_type` is stored. Used to route
+ * these rounds to the sub-match leaderboard in the competition leaderboard.
+ */
+export function isTeamMatchPlayRound(round: {
+  team_format?: string | null;
+}): boolean {
+  return round.team_format === 'match-play-team';
+}
+
+/**
  * True when a round is a "shared-ball" team format — scramble or alt-shot
  * (foursomes). In these formats the team plays a single ball, so a player's
  * stored `total_gross` is the TEAM's score, not their own individual play.

@@ -23,7 +23,7 @@ import {
   InProgressRoundLeaderboard,
   IN_PROGRESS_SUPPORTED_GAME_TYPES,
 } from './InProgressRoundLeaderboard';
-import { isSplitAltShotRound, isSplitMatchPlayRound } from '@/utils/roundFormat';
+import { isSplitAltShotRound, isSplitMatchPlayRound, isTeamMatchPlayRound } from '@/utils/roundFormat';
 import { RoundSubMatchLeaderboard } from './RoundSubMatchLeaderboard';
 import { LeaderboardHeader } from './LeaderboardHeader';
 import { useCompetitionLeaderboard, type LeaderboardFilter, type CompetitionLeaderboardEntry } from '@/hooks/useCompetitionLeaderboard';
@@ -487,10 +487,16 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
           {orderedRounds.map(({ round, inProgress }) => {
             const gameType = round.game_type as GameType;
 
-            if (isSplitAltShotRound(round) || isSplitMatchPlayRound(round)) {
-              // Split alt-shot and split (1v1 singles) match-play are team
-              // formats — only show the sub-match leaderboard in the Team view;
-              // skip it in the Individual view.
+            if (
+              isSplitAltShotRound(round) ||
+              isSplitMatchPlayRound(round) ||
+              isTeamMatchPlayRound(round)
+            ) {
+              // Split alt-shot, split (1v1 singles) match-play, and team
+              // match-play are all team formats — only show the sub-match
+              // leaderboard in the Team view; skip it in the Individual view.
+              // Team match-play with no sub-matches renders as a single
+              // team-vs-team row (handled inside SubMatchLeaderboardTab).
               if (effectiveView !== 'team') return null;
               return (
                 <View key={round.id} style={styles.roundLeaderboardContainer}>

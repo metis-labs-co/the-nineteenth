@@ -36,6 +36,7 @@ export function resolveSubMatchModel(
   teamFormat: TeamFormat | null | undefined
 ): SubMatchModel {
   if (gameType === 'match-play') return 'match-play';
+  if (teamFormat === 'match-play-team') return 'match-play';
   if (teamFormat === 'alt-shot') return 'alt-shot';
   if (teamFormat === 'best-ball') return 'best-ball';
   return 'aggregate';

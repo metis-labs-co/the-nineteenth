@@ -151,6 +151,86 @@ describe('SubMatchLeaderboardTab (decoupled)', () => {
     expect(screen.getByTestId('match-row-status')).toHaveTextContent('A/S');
   });
 
+  it('synthesizes a single team-vs-team row for a team match-play round with no sub-matches', () => {
+    // Combined team match play: no sub_matches rows, but two full teams. The
+    // leaderboard should render ONE match-play row labelled with team names
+    // (not the per-member names, and not the empty state).
+    mockSubMatchesReturn = { data: [], isLoading: false };
+    mockRoundTeamsReturn = {
+      teams: [
+        {
+          id: 't1',
+          name: 'Reds',
+          color: null,
+          members: [
+            { player_id: 'a1', player: { id: 'a1', name: 'Sam', handicap: 0 } },
+            { player_id: 'a2', player: { id: 'a2', name: 'Sue', handicap: 0 } },
+          ],
+        },
+        {
+          id: 't2',
+          name: 'Blues',
+          color: null,
+          members: [
+            { player_id: 'b1', player: { id: 'b1', name: 'Bob', handicap: 0 } },
+            { player_id: 'b2', player: { id: 'b2', name: 'Bea', handicap: 0 } },
+          ],
+        },
+      ],
+      isLoading: false,
+    };
+
+    render(
+      <SubMatchLeaderboardTab
+        roundId="r1"
+        competitionId="c1"
+        gameType="match-play"
+        teamFormat={'match-play-team' as any}
+        holes={holes as any}
+        selectedTeeData={null}
+        isRefreshing={false}
+        onRefresh={() => {}}
+        bottomInset={0}
+        getStrokes={jest.fn(() => undefined)}
+      />
+    );
+    expect(screen.queryByText('No Sub-Matches')).toBeNull();
+    expect(screen.getByText('Reds')).toBeTruthy();
+    expect(screen.getByText('Blues')).toBeTruthy();
+    // Members are not listed individually on the whole-team row.
+    expect(screen.queryByText('Sam')).toBeNull();
+    expect(screen.getByTestId('match-row-status')).toHaveTextContent('A/S');
+  });
+
+  it('shows the empty state for a team match-play round with only one team', () => {
+    mockSubMatchesReturn = { data: [], isLoading: false };
+    mockRoundTeamsReturn = {
+      teams: [
+        {
+          id: 't1',
+          name: 'Reds',
+          color: null,
+          members: [{ player_id: 'a1', player: { id: 'a1', name: 'Sam', handicap: 0 } }],
+        },
+      ],
+      isLoading: false,
+    };
+
+    render(
+      <SubMatchLeaderboardTab
+        roundId="r1"
+        gameType="match-play"
+        teamFormat={'match-play-team' as any}
+        holes={holes as any}
+        isRefreshing={false}
+        onRefresh={() => {}}
+        bottomInset={0}
+        getStrokes={jest.fn(() => undefined)}
+      />
+    );
+    expect(screen.getByText('No Sub-Matches')).toBeTruthy();
+  });
+
   it('shows the forfeit outcome on an alt-shot sub-match instead of blank values', () => {
     mockSubMatchesReturn = {
       data: [
