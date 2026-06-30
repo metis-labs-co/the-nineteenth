@@ -55,11 +55,11 @@ export function persistedMatchData(sm: {
 /**
  * Picks the authoritative source for a match-play row display.
  *
- * Live computation wins when the match engine has reached a decided result
- * (`live.isComplete === true`) — this means actual hole-by-hole scores have
- * conclusively settled the match. The persisted manual result is only used
- * as a fallback when live has not yet produced a decided result (e.g. the
- * round has no scores at all, or scores are still in progress).
+ * A manually-entered result (`persisted.isManual`) wins outright — an organiser
+ * override takes precedence over hole-by-hole scores. Otherwise the live
+ * computation wins when the match engine has reached a decided result
+ * (`live.isComplete`), and the persisted result is used only as a fallback when
+ * live has not yet decided (no/partial scores).
  */
 export function selectMatchSource(
   live: MatchPlayRowData,

@@ -20,7 +20,7 @@ describe('updateSubMatchResult — finalHolesRemaining', () => {
       id: 'sm-1', round_id: 'r1', sort_order: 0,
       team_a_player_ids: ['a'], team_b_player_ids: ['b'],
       status: 'completed', result: 'a-wins', final_differential: 6,
-      final_holes_remaining: 5, team_a_net_total: null, team_b_net_total: null,
+      final_holes_remaining: 5, manual_result: false, team_a_net_total: null, team_b_net_total: null,
       tee_time: null, pairing_id: null,
     });
     (supabase.from as jest.Mock).mockImplementation(chain.from);
@@ -40,7 +40,7 @@ describe('updateSubMatchResult — finalHolesRemaining', () => {
       id: 'sm-1', round_id: 'r1', sort_order: 0,
       team_a_player_ids: ['a'], team_b_player_ids: ['b'],
       status: 'forfeited', result: 'forfeit-a', final_differential: null,
-      final_holes_remaining: null, team_a_net_total: null, team_b_net_total: null,
+      final_holes_remaining: null, manual_result: false, team_a_net_total: null, team_b_net_total: null,
       tee_time: null, pairing_id: null,
     });
     (supabase.from as jest.Mock).mockImplementation(chain.from);
