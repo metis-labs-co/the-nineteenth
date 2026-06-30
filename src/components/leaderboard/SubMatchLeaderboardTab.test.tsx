@@ -319,16 +319,19 @@ describe('selectMatchSource', () => {
     holesUpDown: '3UP',
     leaderSide: 'a' as const,
     hasScores: true,
+    isManual: false,
   };
   const persistedManual6and5 = {
     holesUpDown: '6&5',
     leaderSide: 'a' as const,
     hasScores: true,
+    isManual: false,
   };
 
-  it('(a) prefers live when live.isComplete is true, ignoring the persisted manual result', () => {
-    // Scored sub-match: live is decided (isComplete). Even if persisted says
-    // "3UP", the live margin wins — manual entry must not override real scores.
+  it('(a) prefers live when live.isComplete is true and the persisted result is not manual', () => {
+    // Scored sub-match: live is decided (isComplete) and persisted.isManual is
+    // false. The live margin wins — a non-manual persisted result must not
+    // override real scores.
     const source = selectMatchSource(liveDecided, persistedManual);
     expect(source).toBe(liveDecided);
     expect(source.statusText).toBe('2 UP');

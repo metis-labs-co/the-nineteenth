@@ -338,6 +338,8 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
       differential: number;
     }) => {
       if (!isSplitRound || !activeSubMatch) return;
+      // Never overwrite an organiser's manually-entered result with a scored one.
+      if (activeSubMatch.manual_result) return;
       const result =
         winner === 'team1' ? 'a-wins' : winner === 'team2' ? 'b-wins' : 'halved';
       await updateSubMatchResult({
