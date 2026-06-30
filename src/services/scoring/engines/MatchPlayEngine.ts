@@ -20,6 +20,7 @@ import { DEFAULT_ENGINE_CONFIG } from '../types';
 import { getPlayingHandicap, calculateStrokesForHole } from '../utils/handicapUtils';
 import { calculateNetScore } from '../utils/netScoreUtils';
 import { assignPositions, createLeaderboardEntry } from '../utils/leaderboardUtils';
+import { formatMatchMargin } from '@/utils/matchMargin';
 
 /**
  * Match Play scoring engine.
@@ -239,21 +240,13 @@ export class MatchPlayEngine implements IScoringEngine {
 
     if (netUp > 0) {
       result = 'player1';
-      if (holesRemaining > 0) {
-        margin = `${netUp}&${holesRemaining}`;
-      } else {
-        margin = `${netUp}UP`;
-      }
+      margin = formatMatchMargin(netUp, holesRemaining, false);
     } else if (netUp < 0) {
       result = 'player2';
-      if (holesRemaining > 0) {
-        margin = `${Math.abs(netUp)}&${holesRemaining}`;
-      } else {
-        margin = `${Math.abs(netUp)}UP`;
-      }
+      margin = formatMatchMargin(Math.abs(netUp), holesRemaining, false);
     } else if (holesPlayed === 18) {
       result = 'halved';
-      margin = 'A/S';
+      margin = formatMatchMargin(0, 0, true);
     } else {
       result = 'incomplete';
     }
