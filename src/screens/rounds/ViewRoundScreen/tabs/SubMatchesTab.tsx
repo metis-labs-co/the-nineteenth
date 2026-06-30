@@ -68,6 +68,7 @@ import type {
   RoundFormat,
 } from '@/types/database/enums';
 import { EditPairingConfigSheet } from '@/components/rounds/EditPairingConfigSheet';
+import SubMatchResultSheet, { type ManualSubMatchResult } from '@/components/rounds/SubMatchResultSheet';
 
 /**
  * Theme-aware background for the tee-time pill. In light mode the
@@ -238,6 +239,7 @@ export function SubMatchesTab({
   // the round_format from the preset. Visibility on the action button is
   // additionally gated on organiser + upcoming + standings-driven.
   const [showEditPairingSheet, setShowEditPairingSheet] = useState(false);
+  const [resultSheetFor, setResultSheetFor] = useState<{ id: string; aLabel: string; bLabel: string } | null>(null);
   const canEditPairings =
     !!competitionId &&
     isOrganizer &&
@@ -438,6 +440,24 @@ export function SubMatchesTab({
       });
     },
     [updateSubMatchResult, showDialog, dismissDialog, teamNameByPlayer]
+  );
+
+  const handleManualResult = useCallback(
+    async (r: ManualSubMatchResult) => {
+      if (!resultSheetFor) return;
+      try {
+        await updateSubMatchResult({
+          subMatchId: resultSheetFor.id,
+          status: 'completed',
+          result: r.result,
+          finalDifferential: r.finalDifferential,
+          finalHolesRemaining: r.finalHolesRemaining,
+        });
+      } finally {
+        setResultSheetFor(null);
+      }
+    },
+    [resultSheetFor, updateSubMatchResult]
   );
 
   // Pairings-backed "Groups" view model. Used when the round isn't a
@@ -1059,6 +1079,12 @@ export function SubMatchesTab({
                   playerLookup={playerLookup}
                   isOrganizer={isOrganizer}
                   onForfeit={handleForfeit}
+                  onSetResult={
+                    isOrganizer
+                      ? (id, aLabel, bLabel) =>
+                          setResultSheetFor({ id, aLabel, bLabel })
+                      : undefined
+                  }
                   onPress={handleSubMatchPress}
                   onEditTeeTime={
                     roundStatus === 'upcoming' ? handleOpenTeeTimeEditor : undefined
@@ -1127,6 +1153,14 @@ export function SubMatchesTab({
         testID="pairing-tee-time-picker"
       />
       <ConfirmationDialog {...dialogConfig} onCancel={dismissDialog} />
+
+      <SubMatchResultSheet
+        visible={!!resultSheetFor}
+        teamALabel={resultSheetFor?.aLabel ?? 'Team A'}
+        teamBLabel={resultSheetFor?.bLabel ?? 'Team B'}
+        onSubmit={handleManualResult}
+        onCancel={() => setResultSheetFor(null)}
+      />
 
       {/* Edit Pairings sheet — opened from the Groups action row. */}
       {canEditPairings && roundFormat && roundNumber !== undefined && competitionId && (
@@ -1397,6 +1431,9 @@ interface SubMatchCardProps {
   playerLookup: Map<string, PlayerLookupEntry>;
   isOrganizer: boolean;
   onForfeit: (sm: SubMatch, forfeitingSide: 'a' | 'b') => void;
+  /** Called when the organiser taps "Set result"; receives the sub-match id
+   *  and the resolved A/B side labels so the sheet can show them. */
+  onSetResult?: (id: string, aLabel: string, bLabel: string) => void;
   /** Tapping the card body (anywhere outside an inner button) navigates
    *  to the SubMatchDetail screen. Inner touchables (forfeit, tee-time
    *  edit) handle their own taps and don't bubble up. */
@@ -1454,6 +1491,7 @@ function SubMatchCard({
   playerLookup,
   isOrganizer,
   onForfeit,
+  onSetResult,
   onPress,
   onEditTeeTime,
   strokeMode = false,
@@ -1613,33 +1651,53 @@ function SubMatchCard({
       {isOrganizer &&
         subMatch.status !== 'completed' &&
         subMatch.status !== 'forfeited' &&
-        subMatch.team_a_player_ids.length > 1 &&
-        subMatch.team_b_player_ids.length > 1 && (
+        (onSetResult ||
+          (subMatch.team_a_player_ids.length > 1 &&
+            subMatch.team_b_player_ids.length > 1)) && (
           <View style={[styles.forfeitRow, { borderTopColor: colors.border }]}>
-            <TouchableOpacity
-              style={[styles.forfeitButton, { borderColor: colors.border }]}
-              onPress={() => onForfeit(subMatch, 'a')}
-              activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityLabel={`Forfeit ${teamALabel}`}
-            >
-              <Icon source="flag-remove-outline" size={14} color={colors.textSecondary} />
-              <Text style={[styles.forfeitText, { color: colors.textSecondary }]}>
-                Forfeit {teamALabel}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.forfeitButton, { borderColor: colors.border }]}
-              onPress={() => onForfeit(subMatch, 'b')}
-              activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityLabel={`Forfeit ${teamBLabel}`}
-            >
-              <Icon source="flag-remove-outline" size={14} color={colors.textSecondary} />
-              <Text style={[styles.forfeitText, { color: colors.textSecondary }]}>
-                Forfeit {teamBLabel}
-              </Text>
-            </TouchableOpacity>
+            {subMatch.team_a_player_ids.length > 1 &&
+              subMatch.team_b_player_ids.length > 1 && (
+                <>
+                  <TouchableOpacity
+                    style={[styles.forfeitButton, { borderColor: colors.border }]}
+                    onPress={() => onForfeit(subMatch, 'a')}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Forfeit ${teamALabel}`}
+                  >
+                    <Icon source="flag-remove-outline" size={14} color={colors.textSecondary} />
+                    <Text style={[styles.forfeitText, { color: colors.textSecondary }]}>
+                      Forfeit {teamALabel}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.forfeitButton, { borderColor: colors.border }]}
+                    onPress={() => onForfeit(subMatch, 'b')}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Forfeit ${teamBLabel}`}
+                  >
+                    <Icon source="flag-remove-outline" size={14} color={colors.textSecondary} />
+                    <Text style={[styles.forfeitText, { color: colors.textSecondary }]}>
+                      Forfeit {teamBLabel}
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              )}
+            {onSetResult && (
+              <TouchableOpacity
+                style={[styles.forfeitButton, { borderColor: colors.border }]}
+                onPress={() => onSetResult(subMatch.id, teamALabel, teamBLabel)}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Set match result"
+              >
+                <Icon source="flag-checkered" size={14} color={colors.textSecondary} />
+                <Text style={[styles.forfeitText, { color: colors.textSecondary }]}>
+                  Set result
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
     </>
