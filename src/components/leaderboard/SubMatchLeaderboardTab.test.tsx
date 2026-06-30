@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, screen } from '@/__tests__/utils/renderHelpers';
-import { SubMatchLeaderboardTab } from './SubMatchLeaderboardTab';
+import { SubMatchLeaderboardTab, selectMatchSource } from './SubMatchLeaderboardTab';
+import type { MatchPlayRowData } from '@/screens/scoring/ReviewScorecardScreen/utils/subMatchLeaderboard';
 
 // ---------------------------------------------------------------------------
 // Mutable mock state — set per test so both tests see different return values
@@ -295,5 +296,59 @@ describe('SubMatchLeaderboardTab (decoupled)', () => {
     expect(screen.getByText('Forfeited')).toBeTruthy();
     expect(screen.getByText('Won')).toBeTruthy();
     expect(screen.getByTestId('net-card-status-0')).toHaveTextContent('Blues wins by forfeit');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// selectMatchSource — live-vs-persisted source selection logic (FIX 1)
+// ---------------------------------------------------------------------------
+describe('selectMatchSource', () => {
+  const liveDecided: MatchPlayRowData = {
+    statusText: '2 UP',
+    leaderSide: 'b',
+    isComplete: true,
+    hasScores: true,
+  };
+  const liveUndecided: MatchPlayRowData = {
+    statusText: 'A/S',
+    leaderSide: null,
+    isComplete: false,
+    hasScores: false,
+  };
+  const persistedManual = {
+    holesUpDown: '3UP',
+    leaderSide: 'a' as const,
+    hasScores: true,
+  };
+  const persistedManual6and5 = {
+    holesUpDown: '6&5',
+    leaderSide: 'a' as const,
+    hasScores: true,
+  };
+
+  it('(a) prefers live when live.isComplete is true, ignoring the persisted manual result', () => {
+    // Scored sub-match: live is decided (isComplete). Even if persisted says
+    // "3UP", the live margin wins — manual entry must not override real scores.
+    const source = selectMatchSource(liveDecided, persistedManual);
+    expect(source).toBe(liveDecided);
+    expect(source.statusText).toBe('2 UP');
+    expect(source.leaderSide).toBe('b');
+  });
+
+  it('(b) falls back to persisted "6&5" when live has no scores and a manual result exists', () => {
+    // No-scores sub-match with an organiser-entered manual result.
+    // Live is undecided (isComplete: false, hasScores: false), so the
+    // persisted "6&5" is the only result available and should be shown.
+    const source = selectMatchSource(liveUndecided, persistedManual6and5);
+    expect(source.statusText).toBe('6&5');
+    expect(source.leaderSide).toBe('a');
+    expect(source.isComplete).toBe(true);
+  });
+
+  it('returns live when there is no persisted result and live is undecided', () => {
+    const source = selectMatchSource(liveUndecided, null);
+    expect(source).toBe(liveUndecided);
+    expect(source.statusText).toBe('A/S');
+    expect(source.isComplete).toBe(false);
   });
 });

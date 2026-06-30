@@ -17,6 +17,7 @@ import {
   type SubMatchPlayer,
   type SubMatchSides,
   type SubMatchLeader,
+  type MatchPlayRowData,
 } from '@/screens/scoring/ReviewScorecardScreen/utils/subMatchLeaderboard';
 import { formatMatchMargin } from '@/utils/matchMargin';
 import type { Hole, TeeBox, GameType, TeamFormat } from '@/types';
@@ -46,6 +47,31 @@ export function persistedMatchData(sm: {
     };
   }
   return null;
+}
+
+/**
+ * Picks the authoritative source for a match-play row display.
+ *
+ * Live computation wins when the match engine has reached a decided result
+ * (`live.isComplete === true`) — this means actual hole-by-hole scores have
+ * conclusively settled the match. The persisted manual result is only used
+ * as a fallback when live has not yet produced a decided result (e.g. the
+ * round has no scores at all, or scores are still in progress).
+ */
+export function selectMatchSource(
+  live: MatchPlayRowData,
+  persisted: ReturnType<typeof persistedMatchData>
+): MatchPlayRowData {
+  if (live.isComplete) return live;
+  if (persisted) {
+    return {
+      statusText: persisted.holesUpDown,
+      leaderSide: persisted.leaderSide,
+      isComplete: true,
+      hasScores: persisted.hasScores,
+    };
+  }
+  return live;
 }
 
 interface SubMatchLeaderboardTabProps {
@@ -206,14 +232,8 @@ export function SubMatchLeaderboardTab({
             : { leaderSide: data.leaderSide, hasScores: data.hasScores }
         );
       if (model === 'match-play') {
-        const data = row.persisted
-          ? {
-              statusText: row.persisted.holesUpDown,
-              leaderSide: row.persisted.leaderSide,
-              isComplete: true,
-              hasScores: row.persisted.hasScores,
-            }
-          : computeMatchPlaySubMatch(row.sides, holes, getStrokes);
+        const live = computeMatchPlaySubMatch(row.sides, holes, getStrokes);
+        const data = selectMatchSource(live, row.persisted ?? null);
         pushLeader(data);
         return (
           <MatchPlayMatchRow

@@ -453,6 +453,11 @@ export function SubMatchesTab({
           finalDifferential: r.finalDifferential,
           finalHolesRemaining: r.finalHolesRemaining,
         });
+      } catch (err) {
+        Alert.alert(
+          'Unable to save result',
+          err instanceof Error ? err.message : 'Please try again.'
+        );
       } finally {
         setResultSheetFor(null);
       }
@@ -1155,6 +1160,7 @@ export function SubMatchesTab({
       <ConfirmationDialog {...dialogConfig} onCancel={dismissDialog} />
 
       <SubMatchResultSheet
+        key={resultSheetFor?.id ?? 'none'}
         visible={!!resultSheetFor}
         teamALabel={resultSheetFor?.aLabel ?? 'Team A'}
         teamBLabel={resultSheetFor?.bLabel ?? 'Team B'}
