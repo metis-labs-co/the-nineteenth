@@ -123,6 +123,7 @@ function makeSubMatch(overrides: Partial<SubMatch> = {}): SubMatch {
     status: 'upcoming',
     result: null,
     final_differential: null,
+    final_holes_remaining: null,
     team_a_net_total: null,
     team_b_net_total: null,
     created_at: new Date().toISOString(),

@@ -154,6 +154,7 @@ export interface SubMatch {
   status: SubMatchStatus;
   result: SubMatchResult | null;
   final_differential: number | null; // signed hole differential at close (e.g. 3 for 3&2)
+  final_holes_remaining: number | null; // holes remaining when match closed (e.g. 2 for 3&2)
   team_a_net_total: number | null; // stroke play pairs-aggregate only
   team_b_net_total: number | null;
   created_at: string; // ISO timestamp
