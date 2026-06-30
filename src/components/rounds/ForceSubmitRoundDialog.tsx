@@ -11,10 +11,9 @@ import { View, StyleSheet, Modal, ScrollView, TouchableOpacity, TouchableWithout
 import { Text, Icon } from 'react-native-paper';
 import { GolfBallLoader } from '@/components/common/GolfBallLoader';
 import { useThemeColors } from '@/context/ThemeContext';
-import { useRoundScorecards } from '@/hooks/useRoundDetails';
+import { useRoundScorecards, useRoundDetails } from '@/hooks/useRoundDetails';
+import { getHoleCount } from '@/constants/scoring';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
-
-const TERMINAL = new Set(['completed', 'confirmed']);
 
 interface ScorecardRow {
   player_id: string | null;
@@ -25,17 +24,19 @@ interface ScorecardRow {
 export interface IncompletePlayer { playerId: string; playerName: string; holesPlayed: number }
 
 /**
- * Scorecards whose status is non-terminal, deduplicated by player_id, in
- * scorecard order. Player name comes from the nested `player` object.
- * Exported for testing.
+ * Players who will be DNF: their card has fewer than `holeCount` holes scored.
+ * A full card counts (it will be promoted to completed on submit). Deduped by
+ * player_id, in scorecard order. Exported for testing.
  */
 export function getIncompletePlayers(
-  scorecards: ScorecardRow[]
+  scorecards: ScorecardRow[],
+  holeCount: number
 ): IncompletePlayer[] {
   const seen = new Set<string>();
   const out: IncompletePlayer[] = [];
   for (const sc of scorecards) {
-    if (TERMINAL.has(sc.status)) continue;
+    const holesPlayed = Object.keys(sc.scores ?? {}).length;
+    if (holesPlayed >= holeCount) continue; // full card → counts, not DNF
     if (sc.player_id) {
       if (seen.has(sc.player_id)) continue;
       seen.add(sc.player_id);
@@ -43,7 +44,7 @@ export function getIncompletePlayers(
     out.push({
       playerId: sc.player_id ?? '',
       playerName: sc.player?.name ?? 'Unknown player',
-      holesPlayed: Object.keys(sc.scores ?? {}).length,
+      holesPlayed,
     });
   }
   return out;
@@ -66,21 +67,13 @@ export default function ForceSubmitRoundDialog({
 }: ForceSubmitRoundDialogProps) {
   const colors = useThemeColors();
   const { data: scorecards } = useRoundScorecards(roundId);
+  const { data: round } = useRoundDetails(roundId);
+  const holeCount = getHoleCount(round?.nine_type ?? 'full');
 
   const incomplete = useMemo(
-    () => getIncompletePlayers((scorecards ?? []) as unknown as ScorecardRow[]),
-    [scorecards]
+    () => getIncompletePlayers((scorecards ?? []) as unknown as ScorecardRow[], holeCount),
+    [scorecards, holeCount]
   );
-
-  const completedCount = useMemo(
-    () => (scorecards ?? []).filter(
-      (sc) => TERMINAL.has((sc as unknown as ScorecardRow).status)
-    ).length,
-    [scorecards]
-  );
-
-  // Only block submission once we know the data is loaded (scorecards defined)
-  const noCompleted = scorecards !== undefined && completedCount === 0;
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel} statusBarTranslucent>
@@ -115,12 +108,6 @@ export default function ForceSubmitRoundDialog({
                 </>
               )}
 
-              {noCompleted && (
-                <Text style={[styles.hint, { color: colors.warning }]}>
-                  At least one player needs a completed scorecard.
-                </Text>
-              )}
-
               <View style={styles.actions}>
                 <TouchableOpacity
                   style={[styles.button, { backgroundColor: colors.surfaceVariant, borderWidth: 1, borderColor: colors.borderStrong }]}
@@ -132,9 +119,9 @@ export default function ForceSubmitRoundDialog({
                   <Text style={[styles.buttonText, { color: colors.textPrimary }]}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.button, { backgroundColor: colors.primary }, (loading || noCompleted) && styles.buttonDisabled]}
+                  style={[styles.button, { backgroundColor: colors.primary }, loading && styles.buttonDisabled]}
                   onPress={onConfirm}
-                  disabled={loading || noCompleted}
+                  disabled={loading}
                   accessibilityRole="button"
                   accessibilityLabel="Submit Round"
                 >
@@ -158,7 +145,6 @@ const styles = StyleSheet.create({
   container: { width: '100%', maxWidth: 360, borderRadius: borderRadius.xl, padding: spacing.xl },
   title: { ...typography.h3, textAlign: 'center', marginBottom: spacing.sm },
   message: { ...typography.body, textAlign: 'center', marginBottom: spacing.md, lineHeight: 22 },
-  hint: { ...typography.caption, textAlign: 'center', marginBottom: spacing.sm },
   list: { maxHeight: 200, alignSelf: 'stretch', marginBottom: spacing.md },
   listContent: { gap: spacing.xs },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xs },

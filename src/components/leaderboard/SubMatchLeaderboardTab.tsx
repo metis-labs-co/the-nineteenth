@@ -17,9 +17,62 @@ import {
   type SubMatchPlayer,
   type SubMatchSides,
   type SubMatchLeader,
+  type MatchPlayRowData,
 } from '@/screens/scoring/ReviewScorecardScreen/utils/subMatchLeaderboard';
+import { formatMatchMargin } from '@/utils/matchMargin';
 import type { Hole, TeeBox, GameType, TeamFormat } from '@/types';
 import type { HandicapSource } from '@/types/database/enums';
+
+/** Match-row display data derived from a sub-match's PERSISTED result (manual or
+ *  scored). Returns null when there is no decisive persisted result to show, so
+ *  the caller falls back to live score computation. Forfeits are handled
+ *  separately via `forfeitWinner`. */
+export function persistedMatchData(sm: {
+  status: string;
+  result: string | null;
+  final_differential: number | null;
+  final_holes_remaining: number | null;
+}): { holesUpDown: string; leaderSide: 'a' | 'b' | null; hasScores: boolean } | null {
+  if (sm.status !== 'completed') return null;
+  if (sm.result === 'halved') {
+    return { holesUpDown: formatMatchMargin(0, 0, true), leaderSide: null, hasScores: true };
+  }
+  if (sm.result === 'a-wins' || sm.result === 'b-wins') {
+    const up = sm.final_differential ?? 0;
+    const rem = sm.final_holes_remaining ?? 0;
+    return {
+      holesUpDown: formatMatchMargin(up, rem, false),
+      leaderSide: sm.result === 'a-wins' ? 'a' : 'b',
+      hasScores: true,
+    };
+  }
+  return null;
+}
+
+/**
+ * Picks the authoritative source for a match-play row display.
+ *
+ * Live computation wins when the match engine has reached a decided result
+ * (`live.isComplete === true`) — this means actual hole-by-hole scores have
+ * conclusively settled the match. The persisted manual result is only used
+ * as a fallback when live has not yet produced a decided result (e.g. the
+ * round has no scores at all, or scores are still in progress).
+ */
+export function selectMatchSource(
+  live: MatchPlayRowData,
+  persisted: ReturnType<typeof persistedMatchData>
+): MatchPlayRowData {
+  if (live.isComplete) return live;
+  if (persisted) {
+    return {
+      statusText: persisted.holesUpDown,
+      leaderSide: persisted.leaderSide,
+      isComplete: true,
+      hasScores: persisted.hasScores,
+    };
+  }
+  return live;
+}
 
 interface SubMatchLeaderboardTabProps {
   roundId: string;
@@ -129,6 +182,7 @@ export function SubMatchLeaderboardTab({
           leftName: sides.a.map((p) => p.name).join(' & ') || 'TBD',
           rightName: sides.b.map((p) => p.name).join(' & ') || 'TBD',
           forfeitWinner,
+          persisted: persistedMatchData(sm), // <-- new
         };
       });
     }
@@ -158,6 +212,7 @@ export function SubMatchLeaderboardTab({
           leftName: teams[0].name,
           rightName: teams[1].name,
           forfeitWinner: null as 'a' | 'b' | null,
+          persisted: null as ReturnType<typeof persistedMatchData>,
         },
       ];
     }
@@ -177,7 +232,8 @@ export function SubMatchLeaderboardTab({
             : { leaderSide: data.leaderSide, hasScores: data.hasScores }
         );
       if (model === 'match-play') {
-        const data = computeMatchPlaySubMatch(row.sides, holes, getStrokes);
+        const live = computeMatchPlaySubMatch(row.sides, holes, getStrokes);
+        const data = selectMatchSource(live, row.persisted ?? null);
         pushLeader(data);
         return (
           <MatchPlayMatchRow

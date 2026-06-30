@@ -32,6 +32,7 @@ function subMatch(overrides: Partial<SubMatch>): SubMatch {
     status: 'completed',
     result: 'a-wins',
     final_differential: 2,
+    final_holes_remaining: null,
     team_a_net_total: null,
     team_b_net_total: null,
     created_at: '',

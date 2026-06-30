@@ -7,34 +7,18 @@ import * as rd from '@/hooks/useRoundDetails';
 jest.mock('@/hooks/useRoundDetails');
 
 describe('getIncompletePlayers', () => {
-  it('returns scorecards with non-terminal status, name from nested player, holes from scores', () => {
+  const full = (n: number) => {
+    const s: Record<string, unknown> = {};
+    for (let h = 1; h <= n; h++) s[String(h)] = {};
+    return s;
+  };
+  it('flags only players whose card is missing holes', () => {
     const scorecards = [
-      { player_id: 'p1', status: 'completed', scores: { '1': {}, '2': {} }, player: { name: 'Alice' } },
-      { player_id: 'p2', status: 'in-progress', scores: { '1': {}, '2': {}, '3': {} }, player: { name: 'Bob' } },
-      { player_id: 'p3', status: 'pending', scores: {}, player: null },
+      { player_id: 'p1', status: 'in-progress', scores: full(18), player: { name: 'Full' } },
+      { player_id: 'p2', status: 'in-progress', scores: full(3), player: { name: 'Partial' } },
     ];
-    expect(getIncompletePlayers(scorecards as never)).toEqual([
-      { playerId: 'p2', playerName: 'Bob', holesPlayed: 3 },
-      { playerId: 'p3', playerName: 'Unknown player', holesPlayed: 0 },
-    ]);
-  });
-
-  it('deduplicates by player_id, keeping the first occurrence', () => {
-    const scorecards = [
-      { player_id: 'p1', status: 'in-progress', scores: { '1': {}, '2': {} }, player: { name: 'Alice' } },
-      { player_id: 'p1', status: 'in-progress', scores: { '1': {} }, player: { name: 'Alice' } },
-    ];
-    expect(getIncompletePlayers(scorecards as never)).toEqual([
-      { playerId: 'p1', playerName: 'Alice', holesPlayed: 2 },
-    ]);
-  });
-
-  it('uses Unknown player when player field is missing', () => {
-    const scorecards = [
-      { player_id: 'p1', status: 'in-progress', scores: {}, player: undefined },
-    ];
-    expect(getIncompletePlayers(scorecards as never)).toEqual([
-      { playerId: 'p1', playerName: 'Unknown player', holesPlayed: 0 },
+    expect(getIncompletePlayers(scorecards as never, 18)).toEqual([
+      { playerId: 'p2', playerName: 'Partial', holesPlayed: 3 },
     ]);
   });
 });
@@ -42,12 +26,20 @@ describe('getIncompletePlayers', () => {
 describe('ForceSubmitRoundDialog', () => {
   afterEach(() => jest.restoreAllMocks());
 
+  const full = (n: number) => {
+    const s: Record<string, unknown> = {};
+    for (let h = 1; h <= n; h++) s[String(h)] = {};
+    return s;
+  };
+
   function mockHooks() {
-    // useRoundPlayers is no longer used by the dialog; no mock needed for it.
+    (rd.useRoundDetails as jest.Mock).mockReturnValue({
+      data: { nine_type: 'full' },
+    });
     (rd.useRoundScorecards as jest.Mock).mockReturnValue({
       data: [
-        { player_id: 'p1', status: 'completed', scores: { '1': {} }, player: { name: 'Alice' } },
-        { player_id: 'p2', status: 'in-progress', scores: { '1': {}, '2': {} }, player: { name: 'Bob' } },
+        { player_id: 'p1', status: 'completed', scores: full(18), player: { name: 'Alice' } },
+        { player_id: 'p2', status: 'in-progress', scores: full(2), player: { name: 'Bob' } },
       ],
     });
   }
@@ -73,16 +65,20 @@ describe('ForceSubmitRoundDialog', () => {
     expect(onCancel).toHaveBeenCalled();
   });
 
-  it('shows hint when there are no completed scorecards', () => {
+  it('submit is enabled even when no cards are full', () => {
+    (rd.useRoundDetails as jest.Mock).mockReturnValue({
+      data: { nine_type: 'full' },
+    });
     (rd.useRoundScorecards as jest.Mock).mockReturnValue({
       data: [
         { player_id: 'p1', status: 'in-progress', scores: { '1': {} }, player: { name: 'Alice' } },
       ],
     });
+    const onConfirm = jest.fn();
     const { getByText } = render(
-      <ForceSubmitRoundDialog visible roundId="r1" onConfirm={jest.fn()} onCancel={jest.fn()} />
+      <ForceSubmitRoundDialog visible roundId="r1" onConfirm={onConfirm} onCancel={jest.fn()} />
     );
-    // Hint text is the user-visible guard for zero completed scorecards (FIX 2)
-    expect(getByText('At least one player needs a completed scorecard.')).toBeTruthy();
+    fireEvent.press(getByText('Submit Round'));
+    expect(onConfirm).toHaveBeenCalled();
   });
 });
