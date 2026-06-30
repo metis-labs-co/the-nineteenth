@@ -49,4 +49,39 @@ describe('updateSubMatchResult — finalHolesRemaining', () => {
 
     expect(chain._update.mock.calls[0][0]).not.toHaveProperty('final_holes_remaining');
   });
+
+  it('persists manual_result when provided', async () => {
+    const chain = mockUpdateChain({
+      id: 'sm-1', round_id: 'r1', sort_order: 0,
+      team_a_player_ids: ['a'], team_b_player_ids: ['b'],
+      status: 'completed', result: 'a-wins', final_differential: 6,
+      final_holes_remaining: 5, manual_result: true,
+      team_a_net_total: null, team_b_net_total: null, tee_time: null, pairing_id: null,
+    });
+    (supabase.from as jest.Mock).mockImplementation(chain.from);
+
+    await updateSubMatchResult({
+      subMatchId: 'sm-1', status: 'completed', result: 'a-wins',
+      finalDifferential: 6, finalHolesRemaining: 5, manualResult: true,
+    });
+
+    expect(chain._update).toHaveBeenCalledWith(
+      expect.objectContaining({ manual_result: true })
+    );
+  });
+
+  it('omits manual_result from the patch when undefined', async () => {
+    const chain = mockUpdateChain({
+      id: 'sm-1', round_id: 'r1', sort_order: 0,
+      team_a_player_ids: ['a'], team_b_player_ids: ['b'],
+      status: 'completed', result: 'a-wins', final_differential: 2,
+      final_holes_remaining: null, manual_result: false,
+      team_a_net_total: null, team_b_net_total: null, tee_time: null, pairing_id: null,
+    });
+    (supabase.from as jest.Mock).mockImplementation(chain.from);
+
+    await updateSubMatchResult({ subMatchId: 'sm-1', status: 'completed', result: 'a-wins', finalDifferential: 2 });
+
+    expect(chain._update.mock.calls[0][0]).not.toHaveProperty('manual_result');
+  });
 });

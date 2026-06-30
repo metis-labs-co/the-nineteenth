@@ -124,6 +124,7 @@ function makeSubMatch(overrides: Partial<SubMatch> = {}): SubMatch {
     result: null,
     final_differential: null,
     final_holes_remaining: null,
+    manual_result: false,
     team_a_net_total: null,
     team_b_net_total: null,
     created_at: new Date().toISOString(),
