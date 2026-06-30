@@ -151,6 +151,47 @@ export async function refinalizeRoundResults(roundId: string): Promise<void> {
       .eq('status', 'completed') as unknown as { data: Scorecard[] | null; error: PostgrestError | null };
 
     if (scError || !scorecards || scorecards.length === 0) {
+      // Split pair-points rounds (Ryder-Cup singles, split match play, alt-shot
+      // foursomes) score entirely from sub-match outcomes, which are stored
+      // self-contained on the `sub_matches` rows. When the organiser finalizes
+      // such a round via manual sub-match results (or forfeits) WITHOUT any
+      // completed scorecards, finalization must still write the pair-point team
+      // rows. Bailing here left the competition standings with no contribution
+      // from the round (empty round_results).
+      if (!scError && isPairPointsOverride(round.round_format, effectiveOverride)) {
+        submitLogger.info('Finalizing split pair-points round from sub-matches (no completed scorecards)', {
+          roundId: roundId.substring(0, 8) + '...',
+        });
+        try {
+          await deleteIndividualRoundResults(roundId);
+        } catch (err) {
+          submitLogger.error('Failed to clear stale individual rows', err, {
+            roundId: roundId.substring(0, 8) + '...',
+          });
+        }
+        try {
+          const pairRowCount = await finalizePairResults({
+            roundId,
+            team1Id: round.team1_id,
+            team2Id: round.team2_id,
+            competitionId: round.competition_id,
+            gameType: round.game_type as GameType,
+            scorecards: [],
+            rulesOverride: effectiveOverride,
+            perRoundRulesEnabled,
+          });
+          submitLogger.info('Pair results persisted (no completed scorecards)', {
+            roundId: roundId.substring(0, 8) + '...',
+            pairRowCount,
+          });
+        } catch (err) {
+          submitLogger.error('Pair finalization failed (no completed scorecards)', err, {
+            roundId: roundId.substring(0, 8) + '...',
+          });
+        }
+        return;
+      }
+
       submitLogger.warn('No completed scorecards found for finalization', { roundId: roundId.substring(0, 8) + '...' });
       return;
     }
