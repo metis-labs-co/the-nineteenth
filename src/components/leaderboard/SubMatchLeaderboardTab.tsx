@@ -13,10 +13,10 @@ import {
   resolveSubMatchModel,
   computeMatchPlaySubMatch,
   computeNetSubMatch,
-  tallyOverall,
+  tallyByTeam,
   type SubMatchPlayer,
   type SubMatchSides,
-  type SubMatchLeader,
+  type TeamMatchLeader,
   type MatchPlayRowData,
 } from '@/screens/scoring/ReviewScorecardScreen/utils/subMatchLeaderboard';
 import { formatMatchMargin } from '@/utils/matchMargin';
@@ -234,15 +234,17 @@ export function SubMatchLeaderboardTab({
   }, [subMatches, playerById, teamColorByPlayer, teamNameByPlayer, colors, model, teams]);
 
   const { leaders, content } = useMemo(() => {
-    const leaders: SubMatchLeader[] = [];
+    const leaders: TeamMatchLeader[] = [];
     const content = rows.map((row) => {
+      const teamA = row.sides.a[0] ? teamNameByPlayer.get(row.sides.a[0].id) ?? null : null;
+      const teamB = row.sides.b[0] ? teamNameByPlayer.get(row.sides.b[0].id) ?? null : null;
       // A forfeit decides the sub-match regardless of scores, so it counts
       // toward the overall tally as a win for the non-forfeiting side.
       const pushLeader = (data: { leaderSide: 'a' | 'b' | null; hasScores: boolean }) =>
         leaders.push(
           row.forfeitWinner
-            ? { leaderSide: row.forfeitWinner, hasScores: true }
-            : { leaderSide: data.leaderSide, hasScores: data.hasScores }
+            ? { teamA, teamB, leaderSide: row.forfeitWinner, hasScores: true }
+            : { teamA, teamB, leaderSide: data.leaderSide, hasScores: data.hasScores }
         );
       if (model === 'match-play') {
         const live = computeMatchPlaySubMatch(row.sides, holes, getStrokes);
@@ -279,13 +281,13 @@ export function SubMatchLeaderboardTab({
       );
     });
     return { leaders, content };
-  }, [rows, model, holes, getStrokes, currentUserId]);
+  }, [rows, model, holes, getStrokes, currentUserId, teamNameByPlayer]);
 
   const isLoading = smLoading || teamsLoading;
   // The Ryder-cup tally header only makes sense across real sub-matches; a
   // single synthesized team-vs-team row is the result on its own.
   const showOverall = (subMatches?.length ?? 0) > 0 && teams.length >= 2;
-  const tally = tallyOverall(leaders);
+  const tally = tallyByTeam(leaders);
   const first = rows[0];
 
   const body = rows.length === 0 ? (
@@ -303,8 +305,8 @@ export function SubMatchLeaderboardTab({
           rightLabel={first.rightLabel}
           leftColor={first.leftColor}
           rightColor={first.rightColor}
-          pointsA={tally.pointsA}
-          pointsB={tally.pointsB}
+          pointsA={tally.get(first.leftLabel) ?? 0}
+          pointsB={tally.get(first.rightLabel) ?? 0}
         />
       )}
       <View>{content}</View>

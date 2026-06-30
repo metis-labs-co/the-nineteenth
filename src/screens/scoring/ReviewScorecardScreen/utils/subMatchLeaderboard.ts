@@ -228,6 +228,36 @@ export interface SubMatchLeader {
   hasScores: boolean;
 }
 
+/** A decided sub-match with its two sides resolved to competition team names. */
+export interface TeamMatchLeader {
+  teamA: string | null;
+  teamB: string | null;
+  leaderSide: 'a' | 'b' | null;
+  hasScores: boolean;
+}
+
+/**
+ * Tally sub-match wins by resolved competition team rather than by positional
+ * A/B side. Ryder-cup singles alternate which team is side A, so summing by
+ * side mis-attributes (e.g. side B winning all four reads as 4-0). Win → 1 to
+ * the winner's team; a started-but-level match splits 0.5/0.5; an unstarted
+ * match contributes nothing.
+ */
+export function tallyByTeam(leaders: TeamMatchLeader[]): Map<string, number> {
+  const points = new Map<string, number>();
+  const add = (team: string | null, n: number) => {
+    if (!team) return;
+    points.set(team, (points.get(team) ?? 0) + n);
+  };
+  for (const r of leaders) {
+    if (!r.hasScores) continue;
+    if (r.leaderSide === 'a') add(r.teamA, 1);
+    else if (r.leaderSide === 'b') add(r.teamB, 1);
+    else { add(r.teamA, 0.5); add(r.teamB, 0.5); }
+  }
+  return points;
+}
+
 /**
  * Live projected Team A vs Team B tally: the side currently ahead in a
  * sub-match earns 1 point, a level-but-started sub-match splits 0.5/0.5, and an
