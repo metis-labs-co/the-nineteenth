@@ -36,7 +36,6 @@ import { CompetitionRoundCard } from './CompetitionRoundCard';
 import { EmptyState, SwipeableRow } from '@/components/common';
 import { useForceFinalizeRound } from '@/hooks/rounds';
 import ForceSubmitRoundDialog from '@/components/rounds/ForceSubmitRoundDialog';
-import { NoCompletedScorecardsError } from '@/services/rounds/forceFinalizeRound';
 import { useToast } from '@/context/ToastContext';
 
 /** Long-press threshold before drag activates. Short enough to feel snappy,
@@ -226,11 +225,9 @@ export const RoundsTab = React.memo(function RoundsTab({
           showToast({
             variant: 'error',
             title: 'Could not submit round',
-            message: error instanceof NoCompletedScorecardsError
+            message: error instanceof Error
               ? error.message
-              : error instanceof Error
-                ? error.message
-                : 'Unknown error.',
+              : 'Unknown error.',
           });
         },
       }

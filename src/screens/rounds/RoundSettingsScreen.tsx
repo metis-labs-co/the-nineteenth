@@ -38,7 +38,6 @@ import {
   useReopenRound,
 } from '@/hooks/rounds';
 import ForceSubmitRoundDialog from '@/components/rounds/ForceSubmitRoundDialog';
-import { NoCompletedScorecardsError } from '@/services/rounds/forceFinalizeRound';
 import { useSkinsGamesByRound, useCreateSkinsGame } from '@/hooks/useSkins';
 import { supabase } from '@/services/supabase/client';
 import { roundKeys } from '@/hooks/queryKeys';
@@ -250,9 +249,7 @@ export default function RoundSettingsScreen() {
           setShowAlert({
             title: 'Could Not Submit',
             message:
-              error instanceof NoCompletedScorecardsError
-                ? error.message
-                : error instanceof Error
+              error instanceof Error
                 ? error.message
                 : 'Unknown error.',
           });
