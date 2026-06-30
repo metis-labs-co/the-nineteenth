@@ -32,10 +32,12 @@ export function persistedMatchData(sm: {
   result: string | null;
   final_differential: number | null;
   final_holes_remaining: number | null;
-}): { holesUpDown: string; leaderSide: 'a' | 'b' | null; hasScores: boolean } | null {
+  manual_result?: boolean;
+}): { holesUpDown: string; leaderSide: 'a' | 'b' | null; hasScores: boolean; isManual: boolean } | null {
   if (sm.status !== 'completed') return null;
+  const isManual = sm.manual_result === true;
   if (sm.result === 'halved') {
-    return { holesUpDown: formatMatchMargin(0, 0, true), leaderSide: null, hasScores: true };
+    return { holesUpDown: formatMatchMargin(0, 0, true), leaderSide: null, hasScores: true, isManual };
   }
   if (sm.result === 'a-wins' || sm.result === 'b-wins') {
     const up = sm.final_differential ?? 0;
@@ -44,6 +46,7 @@ export function persistedMatchData(sm: {
       holesUpDown: formatMatchMargin(up, rem, false),
       leaderSide: sm.result === 'a-wins' ? 'a' : 'b',
       hasScores: true,
+      isManual,
     };
   }
   return null;
@@ -62,6 +65,16 @@ export function selectMatchSource(
   live: MatchPlayRowData,
   persisted: ReturnType<typeof persistedMatchData>
 ): MatchPlayRowData {
+  // A manually-entered result is authoritative — it overrides hole scores even
+  // when the live engine has reached a decided result.
+  if (persisted?.isManual) {
+    return {
+      statusText: persisted.holesUpDown,
+      leaderSide: persisted.leaderSide,
+      isComplete: true,
+      hasScores: persisted.hasScores,
+    };
+  }
   if (live.isComplete) return live;
   if (persisted) {
     return {
