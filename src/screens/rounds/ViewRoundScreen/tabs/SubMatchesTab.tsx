@@ -452,6 +452,7 @@ export function SubMatchesTab({
           result: r.result,
           finalDifferential: r.finalDifferential,
           finalHolesRemaining: r.finalHolesRemaining,
+          manualResult: true,
         });
       } catch (err) {
         Alert.alert(
