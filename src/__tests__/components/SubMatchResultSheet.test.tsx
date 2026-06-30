@@ -39,11 +39,13 @@ describe('SubMatchResultSheet', () => {
 
   it('hides the margin inputs and submits null margin when Halved is chosen', () => {
     const onSubmit = jest.fn();
-    const { getByText, getByLabelText, queryByLabelText } = render(
+    const { getByText, getByLabelText, queryByText } = render(
       <SubMatchResultSheet visible teamALabel="A" teamBLabel="B" onSubmit={onSubmit} onCancel={jest.fn()} />
     );
+    // Verify stepper label is visible before switching to Halved
+    expect(getByText('Holes up')).toBeTruthy();
     fireEvent.press(getByLabelText('Winner Halved'));
-    expect(queryByLabelText('Holes up')).toBeNull();
+    expect(queryByText('Holes up')).toBeNull();
     fireEvent.press(getByText('Save result'));
     expect(onSubmit).toHaveBeenCalledWith({
       result: 'halved', finalDifferential: null, finalHolesRemaining: null,

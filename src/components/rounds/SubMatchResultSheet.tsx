@@ -9,6 +9,7 @@ import React, { useMemo, useState } from 'react';
 import { View, StyleSheet, Modal, TouchableOpacity, TouchableWithoutFeedback } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { GolfBallLoader } from '@/components/common/GolfBallLoader';
+import { SystemModalTheme } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
 import { formatMatchMargin } from '@/utils/matchMargin';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
@@ -46,6 +47,40 @@ export interface SubMatchResultSheetProps {
 
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
 
+interface StepperProps {
+  label: string;
+  value: number;
+  set: (n: number) => void;
+  min: number;
+  max: number;
+  colors: ReturnType<typeof useThemeColors>;
+}
+
+function Stepper({ label, value, set, min, max, colors }: StepperProps) {
+  return (
+    <View style={styles.stepperRow}>
+      <Text style={[styles.stepperLabel, { color: colors.textSecondary }]}>{label}</Text>
+      <View style={styles.stepperControls}>
+        <TouchableOpacity
+          style={[styles.stepBtn, { borderColor: colors.border }]}
+          onPress={() => set(clamp(value - 1, min, max))}
+          accessibilityRole="button" accessibilityLabel={`Decrease ${label}`}
+        >
+          <Icon source="minus" size={18} color={colors.textPrimary} />
+        </TouchableOpacity>
+        <Text style={[styles.stepValue, { color: colors.textPrimary }]}>{value}</Text>
+        <TouchableOpacity
+          style={[styles.stepBtn, { borderColor: colors.border }]}
+          onPress={() => set(clamp(value + 1, min, max))}
+          accessibilityRole="button" accessibilityLabel={`Increase ${label}`}
+        >
+          <Icon source="plus" size={18} color={colors.textPrimary} />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
 export default function SubMatchResultSheet({
   visible,
   teamALabel,
@@ -71,33 +106,9 @@ export default function SubMatchResultSheet({
     { key: 'b', label: teamBLabel },
   ];
 
-  const Stepper = ({ label, value, set, min, max }: {
-    label: string; value: number; set: (n: number) => void; min: number; max: number;
-  }) => (
-    <View style={styles.stepperRow}>
-      <Text style={[styles.stepperLabel, { color: colors.textSecondary }]}>{label}</Text>
-      <View style={styles.stepperControls}>
-        <TouchableOpacity
-          style={[styles.stepBtn, { borderColor: colors.border }]}
-          onPress={() => set(clamp(value - 1, min, max))}
-          accessibilityRole="button" accessibilityLabel={`Decrease ${label}`}
-        >
-          <Icon source="minus" size={18} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={[styles.stepValue, { color: colors.textPrimary }]}>{value}</Text>
-        <TouchableOpacity
-          style={[styles.stepBtn, { borderColor: colors.border }]}
-          onPress={() => set(clamp(value + 1, min, max))}
-          accessibilityRole="button" accessibilityLabel={`Increase ${label}`}
-        >
-          <Icon source="plus" size={18} color={colors.textPrimary} />
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel} statusBarTranslucent>
+      <SystemModalTheme>
       <TouchableWithoutFeedback onPress={onCancel}>
         <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
           <TouchableWithoutFeedback>
@@ -129,8 +140,8 @@ export default function SubMatchResultSheet({
 
               {winner !== 'halved' && (
                 <>
-                  <Stepper label="Holes up" value={holesUp} set={setHolesUp} min={1} max={17} />
-                  <Stepper label="Holes to play" value={holesRemaining} set={setHolesRemaining} min={0} max={17} />
+                  <Stepper label="Holes up" value={holesUp} set={setHolesUp} min={1} max={17} colors={colors} />
+                  <Stepper label="Holes to play" value={holesRemaining} set={setHolesRemaining} min={0} max={17} colors={colors} />
                 </>
               )}
 
@@ -159,6 +170,7 @@ export default function SubMatchResultSheet({
           </TouchableWithoutFeedback>
         </View>
       </TouchableWithoutFeedback>
+      </SystemModalTheme>
     </Modal>
   );
 }
