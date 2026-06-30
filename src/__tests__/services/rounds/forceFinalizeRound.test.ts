@@ -166,9 +166,9 @@ describe('forceFinalizeRound', () => {
                 error: null,
               }),
           }),
-          update: (patch: { status: string }) => ({
-            eq: () => {
-              promoted.push({ id: 'matched', status: patch.status });
+          update: (patch: Record<string, unknown>) => ({
+            eq: (_col: string, id: string) => {
+              promoted.push({ id, status: patch.status as string });
               return Promise.resolve({ data: null, error: null });
             },
           }),
@@ -183,7 +183,84 @@ describe('forceFinalizeRound', () => {
     await forceFinalizeRound('r1');
 
     // sc1 (18 holes) promoted to completed; sc2 (1 hole) NOT promoted
-    expect(promoted.some((p) => p.status === 'completed')).toBe(true);
+    expect(promoted).toEqual([{ id: 'sc1', status: 'completed' }]);
     expect(refSpy).toHaveBeenCalledWith('r1');
+  });
+
+  it('promotes a full 9-hole card (front9) and leaves an 8-hole card as DNF', async () => {
+    // front9 round: 9 holes required; sc1 has 9 scored (full), sc2 has 8 scored (partial)
+    const nineHoleScores: Record<string, unknown> = {};
+    for (let h = 1; h <= 9; h++) nineHoleScores[String(h)] = { strokes: 4 };
+
+    const eightHoleScores: Record<string, unknown> = {};
+    for (let h = 1; h <= 8; h++) eightHoleScores[String(h)] = { strokes: 4 };
+
+    const promoted: { id: string; status: string }[] = [];
+    (supabase.from as jest.Mock).mockImplementation((table: string) => {
+      if (table === 'rounds') {
+        return {
+          select: () => ({
+            eq: () => ({
+              single: () =>
+                Promise.resolve({
+                  data: { nine_type: 'front9', game_type: 'stableford' },
+                  error: null,
+                }),
+            }),
+          }),
+          update: (patch: { status: string }) => ({
+            eq: () => ({
+              select: () =>
+                Promise.resolve({
+                  data: [{ id: 'r2', status: patch.status }],
+                  error: null,
+                }),
+            }),
+          }),
+        };
+      }
+      if (table === 'scorecards') {
+        return {
+          select: () => ({
+            eq: () =>
+              Promise.resolve({
+                data: [
+                  {
+                    id: 'sc1',
+                    player_id: 'p1',
+                    status: 'in-progress',
+                    scores: nineHoleScores,
+                    daily_handicap_used: 0,
+                  },
+                  {
+                    id: 'sc2',
+                    player_id: 'p2',
+                    status: 'in-progress',
+                    scores: eightHoleScores,
+                    daily_handicap_used: 0,
+                  },
+                ],
+                error: null,
+              }),
+          }),
+          update: (patch: Record<string, unknown>) => ({
+            eq: (_col: string, id: string) => {
+              promoted.push({ id, status: patch.status as string });
+              return Promise.resolve({ data: null, error: null });
+            },
+          }),
+        };
+      }
+      throw new Error(`unexpected table ${table}`);
+    });
+    const refSpy = jest
+      .spyOn(refinalize, 'refinalizeRoundResults')
+      .mockResolvedValue(undefined);
+
+    await forceFinalizeRound('r2');
+
+    // sc1 (9 holes, full front9) promoted; sc2 (8 holes) NOT promoted
+    expect(promoted).toEqual([{ id: 'sc1', status: 'completed' }]);
+    expect(refSpy).toHaveBeenCalledWith('r2');
   });
 });

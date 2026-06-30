@@ -42,7 +42,12 @@ export async function forceFinalizeRound(roundId: string): Promise<void> {
     daily_handicap_used: number | null;
   }[] = cardRows ?? [];
 
-  const holes = await getRoundHoles(roundId);
+  let holes: Awaited<ReturnType<typeof getRoundHoles>> = [];
+  try {
+    holes = await getRoundHoles(roundId);
+  } catch (err) {
+    submitLogger.error('forceFinalizeRound: getRoundHoles failed (non-fatal)', err, { roundId: roundId.substring(0, 8) + '...' });
+  }
 
   // Promote any non-terminal card that has a score on every hole.
   for (const card of cards) {
