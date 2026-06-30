@@ -18,8 +18,35 @@ import {
   type SubMatchSides,
   type SubMatchLeader,
 } from '@/screens/scoring/ReviewScorecardScreen/utils/subMatchLeaderboard';
+import { formatMatchMargin } from '@/utils/matchMargin';
 import type { Hole, TeeBox, GameType, TeamFormat } from '@/types';
 import type { HandicapSource } from '@/types/database/enums';
+
+/** Match-row display data derived from a sub-match's PERSISTED result (manual or
+ *  scored). Returns null when there is no decisive persisted result to show, so
+ *  the caller falls back to live score computation. Forfeits are handled
+ *  separately via `forfeitWinner`. */
+export function persistedMatchData(sm: {
+  status: string;
+  result: string | null;
+  final_differential: number | null;
+  final_holes_remaining: number | null;
+}): { holesUpDown: string; leaderSide: 'a' | 'b' | null; hasScores: boolean } | null {
+  if (sm.status !== 'completed') return null;
+  if (sm.result === 'halved') {
+    return { holesUpDown: formatMatchMargin(0, 0, true), leaderSide: null, hasScores: true };
+  }
+  if (sm.result === 'a-wins' || sm.result === 'b-wins') {
+    const up = sm.final_differential ?? 0;
+    const rem = sm.final_holes_remaining ?? 0;
+    return {
+      holesUpDown: formatMatchMargin(up, rem, false),
+      leaderSide: sm.result === 'a-wins' ? 'a' : 'b',
+      hasScores: true,
+    };
+  }
+  return null;
+}
 
 interface SubMatchLeaderboardTabProps {
   roundId: string;
@@ -129,6 +156,7 @@ export function SubMatchLeaderboardTab({
           leftName: sides.a.map((p) => p.name).join(' & ') || 'TBD',
           rightName: sides.b.map((p) => p.name).join(' & ') || 'TBD',
           forfeitWinner,
+          persisted: persistedMatchData(sm), // <-- new
         };
       });
     }
@@ -158,6 +186,7 @@ export function SubMatchLeaderboardTab({
           leftName: teams[0].name,
           rightName: teams[1].name,
           forfeitWinner: null as 'a' | 'b' | null,
+          persisted: null as ReturnType<typeof persistedMatchData>,
         },
       ];
     }
@@ -177,7 +206,14 @@ export function SubMatchLeaderboardTab({
             : { leaderSide: data.leaderSide, hasScores: data.hasScores }
         );
       if (model === 'match-play') {
-        const data = computeMatchPlaySubMatch(row.sides, holes, getStrokes);
+        const data = row.persisted
+          ? {
+              statusText: row.persisted.holesUpDown,
+              leaderSide: row.persisted.leaderSide,
+              isComplete: true,
+              hasScores: row.persisted.hasScores,
+            }
+          : computeMatchPlaySubMatch(row.sides, holes, getStrokes);
         pushLeader(data);
         return (
           <MatchPlayMatchRow
