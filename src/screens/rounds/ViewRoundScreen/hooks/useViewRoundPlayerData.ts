@@ -6,7 +6,9 @@
  */
 
 import { useCallback, useMemo } from 'react';
-import type { HoleScore, MultiBallHoleScore, Player } from '@/types';
+import type { HoleScore, MultiBallHoleScore, Player, Hole, TeeBox } from '@/types';
+import type { HandicapSource } from '@/types/database/enums';
+import { buildDailyHandicapMap } from '@/utils/leaderboardHandicaps';
 
 interface UseViewRoundPlayerDataParams {
   isShambleRound: boolean;
@@ -16,8 +18,15 @@ interface UseViewRoundPlayerDataParams {
   isMatchPlayRound: boolean;
   scorecards: Array<{
     player_id: string;
-    player?: { name?: string; handicap?: number | null; email?: string } | null;
+    player?: {
+      name?: string;
+      handicap?: number | null;
+      email?: string;
+      gender?: 'male' | 'female' | null;
+    } | null;
     scores?: Record<string, HoleScore | MultiBallHoleScore>;
+    /** Daily handicap captured at scoring time (preferred over the raw index). */
+    daily_handicap_used?: number | null;
   }> | undefined;
   roundPlayers: Array<{
     id: string;
@@ -25,6 +34,12 @@ interface UseViewRoundPlayerDataParams {
     handicap?: number | null;
     email?: string;
   }> | undefined;
+  /** Round holes — used to derive course par for the DHC fallback compute. */
+  holes?: Hole[];
+  /** Round default tee — slope/CR used when a card has no stored DHC. */
+  selectedTee?: TeeBox | null;
+  /** Round handicap source (null → 'profile'). */
+  handicapSource?: HandicapSource | null;
 }
 
 function buildPlayersFromData(
@@ -74,6 +89,9 @@ export function useViewRoundPlayerData({
   isMatchPlayRound,
   scorecards,
   roundPlayers,
+  holes,
+  selectedTee,
+  handicapSource,
 }: UseViewRoundPlayerDataParams) {
   // Convert round players to Player type for ContributionLeaderboard (shamble)
   const shamblePlayers: Player[] = useMemo(() => {
@@ -90,6 +108,25 @@ export function useViewRoundPlayerData({
 
   // Backwards-compatible alias — older callers still reference strokePlayPlayers.
   const strokePlayPlayers: Player[] = leaderboardPlayers;
+
+  // Daily (playing) handicap per player for the stableford/par/stroke-play
+  // leaderboards so their points/net match the scorecard. Prefer each card's
+  // stored `daily_handicap_used`; fall back to a GA→daily compute from the tee.
+  const leaderboardDailyHandicaps: Record<string, number> = useMemo(() => {
+    if (!isStablefordRound && !isParRound && !isStrokePlayRound) return {};
+    const inputs = (scorecards ?? []).map((sc) => ({
+      playerId: sc.player_id,
+      gaHandicap: sc.player?.handicap ?? 0,
+      storedDailyHandicap: sc.daily_handicap_used,
+      gender: sc.player?.gender ?? null,
+    }));
+    return buildDailyHandicapMap(
+      inputs,
+      holes ?? [],
+      selectedTee ?? null,
+      handicapSource ?? 'profile',
+    );
+  }, [isStablefordRound, isParRound, isStrokePlayRound, scorecards, holes, selectedTee, handicapSource]);
 
   // Get match play players for individual match play rounds
   const matchPlayPlayers = useMemo(() => {
@@ -154,6 +191,7 @@ export function useViewRoundPlayerData({
   return {
     shamblePlayers,
     leaderboardPlayers,
+    leaderboardDailyHandicaps,
     strokePlayPlayers,
     matchPlayPlayers,
     getPlayerScore,

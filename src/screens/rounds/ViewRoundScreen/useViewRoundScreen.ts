@@ -15,6 +15,7 @@ import { useShotLogByRound } from '@/hooks/shots';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import type { TabKey } from './types';
+import type { Hole } from '@/types';
 import {
   useViewRoundDataFetch,
   useViewRoundPermissions,
@@ -150,6 +151,9 @@ export function useViewRoundScreen({ route, navigation }: Props) {
     isMatchPlayRound,
     scorecards,
     roundPlayers,
+    holes: round?.course?.holes as Hole[] | undefined,
+    selectedTee: round?.selected_tee,
+    handicapSource: round?.handicap_source,
   });
 
   // Scramble data
@@ -278,6 +282,7 @@ export function useViewRoundScreen({ route, navigation }: Props) {
     // Stroke play data
     strokePlayPlayers: playerData.strokePlayPlayers,
     leaderboardPlayers: playerData.leaderboardPlayers,
+    leaderboardDailyHandicaps: playerData.leaderboardDailyHandicaps,
     getStrokePlayPlayerScore: playerData.getStrokePlayPlayerScore,
 
     // Scramble data

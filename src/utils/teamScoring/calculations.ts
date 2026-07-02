@@ -9,8 +9,13 @@ import type { TeamWithMembers } from '@/types/database/team.types';
 import type { SubMatch } from '@/types/database/round.types';
 import type { TeamLeaderboardEntry } from '@/utils/roundLeaderboardFormatters';
 import { isSingleBallScore } from '@/types/database/base';
-import { PICKUP_SCORE } from '@/constants/scoring';
-import { calculateNetScore, calculateStablefordPoints, calculateParScore } from '../scoring';
+import {
+  calculateNetScore,
+  calculateParScore,
+  calculateStablefordPointsNet,
+  getStrokesReceived,
+  getEffectiveGrossStrokes,
+} from '../scoring';
 import type { TeamMemberScore, BestBallHoleResult } from './types';
 
 /**
@@ -171,7 +176,8 @@ function getStrokesFromScore(
 export function getBestBallTeamPoints(
   team: TeamWithMembers,
   holes: Hole[],
-  getPlayerScore: (playerId: string, holeNumber: number) => HoleScore | MultiBallHoleScore | undefined
+  getPlayerScore: (playerId: string, holeNumber: number) => HoleScore | MultiBallHoleScore | undefined,
+  dailyHandicaps?: Record<string, number>
 ): BestBallTeamPointsResult {
   let totalPoints = 0;
   let holesScored = 0;
@@ -182,9 +188,15 @@ export function getBestBallTeamPoints(
     for (const member of members) {
       const player = member.player;
       if (!player) continue;
-      const strokes = getStrokesFromScore(getPlayerScore(player.id, hole.number));
-      if (!strokes || strokes === PICKUP_SCORE) continue;
-      const points = calculateStablefordPoints(strokes, player.handicap ?? 0, hole);
+      const rawStrokes = getStrokesFromScore(getPlayerScore(player.id, hole.number));
+      if (!rawStrokes) continue;
+      // Score off the round's daily (playing) handicap — matching the scorecard
+      // and the team leaderboard — falling back to the raw index when unknown.
+      const handicap = dailyHandicaps?.[player.id] ?? player.handicap ?? 0;
+      const strokesReceived = getStrokesReceived(handicap, hole.strokeIndex);
+      const effectiveStrokes = getEffectiveGrossStrokes(rawStrokes, hole.par, strokesReceived);
+      if (effectiveStrokes === null) continue;
+      const points = calculateStablefordPointsNet(effectiveStrokes, hole.par, strokesReceived);
       if (bestForHole === null || points > bestForHole) {
         bestForHole = points;
       }
@@ -218,15 +230,20 @@ export interface BestBallHoleContribution {
 export function getBestBallHoleContribution(
   team: TeamWithMembers,
   hole: Hole,
-  getPlayerScore: (playerId: string, holeNumber: number) => HoleScore | MultiBallHoleScore | undefined
+  getPlayerScore: (playerId: string, holeNumber: number) => HoleScore | MultiBallHoleScore | undefined,
+  dailyHandicaps?: Record<string, number>
 ): BestBallHoleContribution | null {
   let best: BestBallHoleContribution | null = null;
   for (const member of team.members ?? []) {
     const player = member.player;
     if (!player) continue;
-    const strokes = getStrokesFromScore(getPlayerScore(player.id, hole.number));
-    if (!strokes || strokes === PICKUP_SCORE) continue;
-    const points = calculateStablefordPoints(strokes, player.handicap ?? 0, hole);
+    const rawStrokes = getStrokesFromScore(getPlayerScore(player.id, hole.number));
+    if (!rawStrokes) continue;
+    const handicap = dailyHandicaps?.[player.id] ?? player.handicap ?? 0;
+    const strokesReceived = getStrokesReceived(handicap, hole.strokeIndex);
+    const effectiveStrokes = getEffectiveGrossStrokes(rawStrokes, hole.par, strokesReceived);
+    if (effectiveStrokes === null) continue;
+    const points = calculateStablefordPointsNet(effectiveStrokes, hole.par, strokesReceived);
     if (!best || points > best.points) {
       best = { playerId: player.id, playerName: player.name, points };
     }
@@ -265,7 +282,8 @@ function getGroupHoleScore(
   hole: Hole,
   getPlayerScore: (playerId: string, holeNumber: number) => HoleScore | MultiBallHoleScore | undefined,
   gameType: GameType,
-  teamFormat: TeamFormat
+  teamFormat: TeamFormat,
+  dailyHandicaps?: Record<string, number>
 ): { holeTotal: number; contributors: Map<string, number> } | null {
   const memberById = new Map<string, TeamWithMembers['members'][number]>();
   for (const member of team.members ?? []) {
@@ -277,17 +295,25 @@ function getGroupHoleScore(
     const member = memberById.get(playerId);
     const player = member?.player;
     if (!player) continue;
-    const strokes = getStrokesFromScore(getPlayerScore(player.id, hole.number));
-    if (!strokes || strokes === PICKUP_SCORE) continue;
-    const handicap = player.handicap ?? 0;
+    const rawStrokes = getStrokesFromScore(getPlayerScore(player.id, hole.number));
+    if (!rawStrokes) continue;
+    // Score off the round's daily (playing) handicap — matching the scorecard
+    // and the individual leaderboards — falling back to the raw index only when
+    // no daily handicap is known.
+    const handicap = dailyHandicaps?.[player.id] ?? player.handicap ?? 0;
+    const strokesReceived = getStrokesReceived(handicap, hole.strokeIndex);
+    // Pickups (>= PICKUP_SCORE) resolve to WHS net double bogey rather than
+    // being dropped, matching how the scorecard and individual boards count them.
+    const effectiveStrokes = getEffectiveGrossStrokes(rawStrokes, hole.par, strokesReceived);
+    if (effectiveStrokes === null) continue;
     let value: number;
     if (gameType === 'stableford') {
-      value = calculateStablefordPoints(strokes, handicap, hole);
+      value = calculateStablefordPointsNet(effectiveStrokes, hole.par, strokesReceived);
     } else if (gameType === 'par') {
-      value = calculateParScore(strokes, hole.par, handicap);
+      value = calculateParScore(effectiveStrokes, hole.par, strokesReceived);
     } else {
-      // stroke (and any other stroke-based variant)
-      value = calculateNetScore(strokes, handicap, hole);
+      // stroke (and any other stroke-based variant): net strokes for the hole.
+      value = effectiveStrokes - strokesReceived;
     }
     memberValues.push({ playerId: player.id, value });
   }
@@ -372,6 +398,10 @@ interface BuildLiveTeamEntriesParams {
    *  members), not across the whole team. Omit (or pass empty) for plain
    *  team rounds where the team and the playing group are the same. */
   subMatches?: SubMatch[];
+  /** Map of playerId → daily (playing) handicap so per-member scoring matches
+   *  the scorecard. Prefer the round's `daily_handicap_used`; falls back to the
+   *  raw profile index per player when absent. */
+  dailyHandicaps?: Record<string, number>;
 }
 
 /**
@@ -397,6 +427,7 @@ export function buildLiveTeamEntries({
   teamFormat,
   getPlayerScore,
   subMatches,
+  dailyHandicaps,
 }: BuildLiveTeamEntriesParams): TeamLeaderboardEntry[] {
   const entries = teams.map((team) => {
     const groups = getTeamGroupsForRound(team, subMatches);
@@ -406,7 +437,7 @@ export function buildLiveTeamEntries({
       let holeTotal = 0;
       let anyContribution = false;
       for (const group of groups) {
-        const result = getGroupHoleScore(group, team, hole, getPlayerScore, gameType, teamFormat);
+        const result = getGroupHoleScore(group, team, hole, getPlayerScore, gameType, teamFormat, dailyHandicaps);
         if (result !== null) {
           holeTotal += result.holeTotal;
           anyContribution = true;
@@ -431,7 +462,7 @@ export function buildLiveTeamEntries({
       members: (team.members ?? []).map((m) => ({
         playerId: m.player_id,
         playerName: m.player?.name ?? 'Unknown',
-        handicap: m.player?.handicap ?? 0,
+        handicap: dailyHandicaps?.[m.player_id] ?? m.player?.handicap ?? 0,
         contributedScore: contributedByPlayer.get(m.player_id) ?? 0,
       })),
       scoreData: {

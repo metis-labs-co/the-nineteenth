@@ -268,6 +268,18 @@ export function ScorecardScoreContent({
     [playerHandicapMap]
   );
 
+  // Per-player daily (playing) handicap for the best-ball team header, taken
+  // from the same handicap map the individual score cards use — so the team
+  // total matches the cards and the team leaderboard rather than the raw index.
+  const teamDailyHandicaps = useMemo<Record<string, number>>(() => {
+    const map: Record<string, number> = {};
+    if (!playerHandicapMap) return map;
+    for (const [playerId, display] of playerHandicapMap) {
+      if (typeof display.dailyHandicap === 'number') map[playerId] = display.dailyHandicap;
+    }
+    return map;
+  }, [playerHandicapMap]);
+
   // Determine which players to render based on scoring pairs setting
   // When scoring pairs are off, an optional `playersOverride` (e.g. group filter) wins over the full list
   const playersToRender =
@@ -453,6 +465,7 @@ export function ScorecardScoreContent({
                   holes={holes}
                   currentHole={currentHoleData}
                   getPlayerScore={getPlayerScore}
+                  dailyHandicaps={teamDailyHandicaps}
                 />
                 {members.map((member) => {
                   const player = member.player;

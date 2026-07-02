@@ -486,6 +486,7 @@ export default function ViewRoundScreen(props: Props) {
               holes={round.course?.holes as Hole[] || []}
               getPlayerScore={vm.getStrokePlayPlayerScore}
               currentUserId={vm.user?.id}
+              dailyHandicaps={vm.leaderboardDailyHandicaps}
             />
           ) : vm.isStablefordRound ? (
             <StablefordLeaderboardFull
@@ -493,6 +494,7 @@ export default function ViewRoundScreen(props: Props) {
               holes={(round.course?.holes as Hole[]) || []}
               getPlayerScore={vm.getStrokePlayPlayerScore}
               currentUserId={vm.user?.id}
+              dailyHandicaps={vm.leaderboardDailyHandicaps}
             />
           ) : (
             <ParLeaderboardFull
@@ -500,6 +502,7 @@ export default function ViewRoundScreen(props: Props) {
               holes={(round.course?.holes as Hole[]) || []}
               getPlayerScore={vm.getStrokePlayPlayerScore}
               currentUserId={vm.user?.id}
+              dailyHandicaps={vm.leaderboardDailyHandicaps}
             />
           );
 
@@ -515,6 +518,7 @@ export default function ViewRoundScreen(props: Props) {
                 getPlayerScore={vm.getStrokePlayPlayerScore}
                 subMatches={vm.subMatches}
                 currentUserId={vm.user?.id}
+                dailyHandicaps={vm.leaderboardDailyHandicaps}
                 individualView={individualView}
               />
             );
