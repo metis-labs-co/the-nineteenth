@@ -4,7 +4,7 @@
  * Helper functions for calculating match play data and formatting status text.
  */
 
-import { getStrokesReceived } from '@/utils/scoring';
+import { getMatchPlayStrokes } from '@/utils/scoring';
 import { getInitials } from '@/utils/displayHelpers';
 import { PICKUP_SCORE } from '@/constants/scoring';
 import {
@@ -54,8 +54,13 @@ export function calculateAllData(
     // A pickup (conceded hole) is the explicit PICKUP_SCORE sentinel, set only
     // via the Pick Up action — never inferred from a high score, so a genuine
     // blow-up is recorded and scored on merit (matching the entry screen).
-    const p1Strokes = getStrokesReceived(player1Handicap, hole.strokeIndex);
-    const p2Strokes = getStrokesReceived(player2Handicap, hole.strokeIndex);
+    // Difference method: only the handicap difference is allocated, entirely to
+    // the higher-handicap player, so the displayed shots match the match result.
+    const { a: p1Strokes, b: p2Strokes } = getMatchPlayStrokes(
+      player1Handicap,
+      player2Handicap,
+      hole.strokeIndex
+    );
     const p1PickedUp = p1Score === PICKUP_SCORE;
     const p2PickedUp = p2Score === PICKUP_SCORE;
 
