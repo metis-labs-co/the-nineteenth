@@ -14,7 +14,7 @@ import type { WinnerInfo } from '@/components/common';
 import type { HoleScore, MultiBallHoleScore, Hole, TeeBox } from '@/types/database/base';
 import type { HandicapSource } from '@/types/database/enums';
 import { isSingleBallScore } from '@/types/database/base';
-import { getStrokesReceived } from '@/utils/scoring';
+import { getMatchPlayStrokes } from '@/utils/scoring';
 import {
   calculatePlayerStats,
   type ScorecardPlayerData,
@@ -904,8 +904,6 @@ function computeMatchPlayResult(
 } | null {
   const dhc1 = p1.daily_handicap_used ?? 0;
   const dhc2 = p2.daily_handicap_used ?? 0;
-  const handicapDiff = Math.abs(dhc1 - dhc2);
-  const player1GivesStrokes = dhc1 < dhc2;
 
   const sortedHoles = [...holes].sort((a, b) => a.number - b.number);
   const totalHoles = sortedHoles.length;
@@ -926,13 +924,13 @@ function computeMatchPlayResult(
         : null;
     if (gross1 == null || gross2 == null) continue;
 
-    let strokes1 = 0;
-    let strokes2 = 0;
-    if (handicapDiff > 0) {
-      const sr = getStrokesReceived(handicapDiff, hole.strokeIndex);
-      if (player1GivesStrokes) strokes2 = sr;
-      else strokes1 = sr;
-    }
+    // Difference method: the lower-DHC player plays off scratch and the
+    // higher-DHC player receives the difference on this hole.
+    const { a: strokes1, b: strokes2 } = getMatchPlayStrokes(
+      dhc1,
+      dhc2,
+      hole.strokeIndex
+    );
 
     const net1 = gross1 - strokes1;
     const net2 = gross2 - strokes2;
