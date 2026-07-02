@@ -36,6 +36,8 @@ interface IndividualTeamLeaderboardTabProps {
    *  per sub-match (and summed) instead of across the whole team. */
   subMatches?: SubMatch[];
   currentUserId?: string;
+  /** Map of playerId → daily handicap so per-member scoring matches the scorecard. */
+  dailyHandicaps?: Record<string, number>;
   /** Pre-rendered individual leaderboard. The wrapper just toggles its
    *  visibility against the team view — the parent picks the right
    *  format-specific component (StrokePlay / Stableford / Par). */
@@ -50,6 +52,7 @@ export function IndividualTeamLeaderboardTab({
   getPlayerScore,
   subMatches,
   currentUserId,
+  dailyHandicaps,
   individualView,
 }: IndividualTeamLeaderboardTabProps) {
   const [view, setView] = useState<LeaderboardView>('team');
@@ -63,8 +66,9 @@ export function IndividualTeamLeaderboardTab({
       teamFormat,
       getPlayerScore,
       subMatches,
+      dailyHandicaps,
     });
-  }, [teams, holes, gameType, teamFormat, getPlayerScore, subMatches]);
+  }, [teams, holes, gameType, teamFormat, getPlayerScore, subMatches, dailyHandicaps]);
 
   return (
     <View style={styles.container}>

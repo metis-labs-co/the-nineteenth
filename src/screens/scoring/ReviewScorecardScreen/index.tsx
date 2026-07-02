@@ -32,6 +32,7 @@ import { clubLabel, type ClubKey } from '@/constants/clubs';
 import type { ShotLogEntry } from '@/types/database/shotLog.types';
 
 import { isSingleBallScore } from '@/types/database/base';
+import { buildDailyHandicapMap } from '@/utils/leaderboardHandicaps';
 import { SubMatchLeaderboardTab } from '@/components/leaderboard';
 import { useScoreReview, useScoreSubmission, useReviewScorecardTabs, useScrambleTeams } from './hooks';
 import {
@@ -163,6 +164,24 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
     }
     return map;
   }, [currentUserId, holes, getPlayerScore, groupScorecards]);
+
+  // Daily (playing) handicap per player for the stableford/par leaderboard so
+  // its points match the scorecard, which scores off the round's daily handicap
+  // (derived from the tee slope/CR) rather than the raw index. Cards under
+  // review are in-progress (no stored snapshot yet), so this computes GA→daily
+  // from the selected tee — the same live recompute the scorecard performs.
+  const leaderboardDailyHandicaps = useMemo<Record<string, number>>(() => {
+    const inputs = currentPlayers.map((p) => {
+      const base =
+        handicapSource === 'none'
+          ? 0
+          : handicapSource === 'calculated'
+            ? p.handicapIndex ?? p.handicap ?? 0
+            : p.handicap ?? 0;
+      return { playerId: p.id, gaHandicap: base, gender: p.gender ?? null };
+    });
+    return buildDailyHandicapMap(inputs, holes, selectedTeeData, handicapSource ?? 'profile');
+  }, [currentPlayers, holes, selectedTeeData, handicapSource]);
 
   // Store-backed getStrokes for SubMatchLeaderboardTab
   const getStrokes = useCallback(
@@ -499,6 +518,7 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
               ? (playerId) => navigation.navigate('PlayerScorecard', { playerId, roundId })
               : undefined
           }
+          dailyHandicaps={leaderboardDailyHandicaps}
           isRefreshing={isRefreshing}
           onRefresh={handleRefresh}
           bottomInset={insets.bottom}

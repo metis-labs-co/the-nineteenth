@@ -30,7 +30,9 @@ import { useRoundDetails, useRoundScorecards, useRoundPlayers } from '@/hooks/us
 import { StablefordLeaderboardFull } from '@/components/scorecard/StablefordLeaderboardFull';
 import { StrokePlayLeaderboardFull } from '@/components/scorecard/StrokePlayLeaderboardFull';
 import { ParLeaderboardFull } from '@/components/scorecard/ParLeaderboardFull';
-import type { GameType, Hole, HoleScore, MultiBallHoleScore, Player } from '@/types';
+import { buildDailyHandicapMap } from '@/utils/leaderboardHandicaps';
+import type { GameType, Hole, HoleScore, MultiBallHoleScore, Player, TeeBox } from '@/types';
+import type { HandicapSource } from '@/types/database/enums';
 
 export interface InProgressRoundLeaderboardProps {
   roundId: string;
@@ -181,6 +183,25 @@ export const InProgressRoundLeaderboard = React.memo(function InProgressRoundLea
     [scorecards],
   );
 
+  // Daily (playing) handicap per player so the stableford/par/stroke-play
+  // leaderboard's points/net match the scorecard — prefer each card's stored
+  // daily_handicap_used, else compute GA→daily from the round tee.
+  const dailyHandicaps: Record<string, number> = useMemo(() => {
+    if (gameType !== 'stableford' && gameType !== 'par' && gameType !== 'stroke') return {};
+    const inputs = (scorecards ?? []).map((sc) => ({
+      playerId: sc.player_id,
+      gaHandicap: sc.player?.handicap ?? 0,
+      storedDailyHandicap: (sc as { daily_handicap_used?: number | null }).daily_handicap_used,
+      gender: (sc.player as { gender?: 'male' | 'female' | null } | undefined)?.gender ?? null,
+    }));
+    return buildDailyHandicapMap(
+      inputs,
+      holes,
+      (round as { selected_tee?: TeeBox | null } | undefined)?.selected_tee ?? null,
+      (round as { handicap_source?: HandicapSource | null } | undefined)?.handicap_source ?? 'profile',
+    );
+  }, [gameType, scorecards, holes, round]);
+
   const renderLeaderboard = () => {
     if (gameType === 'stableford') {
       return (
@@ -189,6 +210,7 @@ export const InProgressRoundLeaderboard = React.memo(function InProgressRoundLea
           holes={holes}
           getPlayerScore={getPlayerScore}
           currentUserId={currentUserId}
+          dailyHandicaps={dailyHandicaps}
           testID={testID ? `${testID}-stableford` : undefined}
         />
       );
@@ -200,6 +222,7 @@ export const InProgressRoundLeaderboard = React.memo(function InProgressRoundLea
           holes={holes}
           getPlayerScore={getPlayerScore}
           currentUserId={currentUserId}
+          dailyHandicaps={dailyHandicaps}
           testID={testID ? `${testID}-par` : undefined}
         />
       );
@@ -210,6 +233,7 @@ export const InProgressRoundLeaderboard = React.memo(function InProgressRoundLea
         holes={holes}
         getPlayerScore={getPlayerScore}
         currentUserId={currentUserId}
+        dailyHandicaps={dailyHandicaps}
         testID={testID ? `${testID}-stroke` : undefined}
       />
     );

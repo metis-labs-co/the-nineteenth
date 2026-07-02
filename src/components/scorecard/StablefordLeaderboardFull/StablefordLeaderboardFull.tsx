@@ -17,14 +17,25 @@ import {
 import { useThemeColors } from '@/context/ThemeContext';
 import type { Player, Hole, HoleScore, MultiBallHoleScore } from '@/types';
 import { isSingleBallScore } from '@/types/database';
-import { calculateStablefordPoints } from '@/utils/scoring';
-import { PICKUP_SCORE } from '@/constants/scoring';
+import {
+  getStrokesReceived,
+  getEffectiveGrossStrokes,
+  calculateStablefordPointsNet,
+} from '@/utils/scoring';
 
 export interface StablefordLeaderboardFullProps {
   players: Player[];
   holes: Hole[];
   getPlayerScore: (playerId: string, holeNumber: number) => HoleScore | MultiBallHoleScore | undefined;
   currentUserId?: string;
+  /**
+   * Map of playerId → daily (playing) handicap for the round. When an entry is
+   * present it is used as the strokes-received basis so the leaderboard points
+   * match the scorecard, which scores off the round's daily handicap
+   * (`daily_handicap_used`) rather than the raw profile index. Falls back to the
+   * player's raw `handicap` when a player is missing from the map.
+   */
+  dailyHandicaps?: Record<string, number>;
   /** When provided, each player row becomes tappable and calls this with the
    *  player's id (used to open that player's individual scorecard). */
   onPlayerPress?: (playerId: string) => void;
@@ -52,6 +63,7 @@ export const StablefordLeaderboardFull = React.memo(function StablefordLeaderboa
   getPlayerScore,
   holes,
   currentUserId,
+  dailyHandicaps,
   onPlayerPress,
   testID,
 }: StablefordLeaderboardFullProps) {
@@ -59,6 +71,9 @@ export const StablefordLeaderboardFull = React.memo(function StablefordLeaderboa
 
   const leaderboardData = useMemo((): LeaderboardRow[] => {
     const rows = players.map((player) => {
+      // Score off the round's daily (playing) handicap — matching the scorecard.
+      // Fall back to the raw profile index only when no daily handicap is known.
+      const dailyHandicap = dailyHandicaps?.[player.id] ?? player.handicap ?? 0;
       let points = 0;
       let holesCompleted = 0;
 
@@ -67,20 +82,24 @@ export const StablefordLeaderboardFull = React.memo(function StablefordLeaderboa
         if (!score) continue;
         if (!isSingleBallScore(score)) continue;
 
-        // Pickup counts as a completed hole worth 0 points (per Stableford rules).
-        if (score.strokes === PICKUP_SCORE) {
-          holesCompleted++;
-          continue;
-        }
+        const strokesReceived = getStrokesReceived(dailyHandicap, hole.strokeIndex);
+        // Pickups (>= PICKUP_SCORE) resolve to net double bogey (0 points) and
+        // still count as a completed hole — same WHS handling as the scorecard.
+        const effectiveStrokes = getEffectiveGrossStrokes(
+          score.strokes,
+          hole.par,
+          strokesReceived
+        );
+        if (effectiveStrokes === null) continue;
 
-        points += calculateStablefordPoints(score.strokes, player.handicap ?? 0, hole);
+        points += calculateStablefordPointsNet(effectiveStrokes, hole.par, strokesReceived);
         holesCompleted++;
       }
 
       return {
         playerId: player.id,
         playerName: player.name,
-        handicap: player.handicap ?? 0,
+        handicap: dailyHandicap,
         position: 0,
         points,
         holesCompleted,
@@ -100,7 +119,7 @@ export const StablefordLeaderboardFull = React.memo(function StablefordLeaderboa
     }
 
     return rows;
-  }, [players, getPlayerScore, holes, currentUserId]);
+  }, [players, getPlayerScore, holes, currentUserId, dailyHandicaps]);
 
   const maxCompletedHole = useMemo(() => {
     return Math.max(...leaderboardData.map((row) => row.holesCompleted), 0);

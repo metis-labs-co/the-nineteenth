@@ -27,6 +27,10 @@ interface BestBallTeamHeaderProps {
     playerId: string,
     holeNumber: number
   ) => HoleScore | MultiBallHoleScore | undefined;
+  /** Map of playerId → daily (playing) handicap so the team best-ball total
+   *  matches the scorecard / team leaderboard rather than scoring off the raw
+   *  profile index. */
+  dailyHandicaps?: Record<string, number>;
 }
 
 export const BestBallTeamHeader = React.memo(function BestBallTeamHeader({
@@ -34,17 +38,18 @@ export const BestBallTeamHeader = React.memo(function BestBallTeamHeader({
   holes,
   currentHole,
   getPlayerScore,
+  dailyHandicaps,
 }: BestBallTeamHeaderProps) {
   const colors = useThemeColors();
 
   const { totalPoints } = useMemo(
-    () => getBestBallTeamPoints(team, holes, getPlayerScore),
-    [team, holes, getPlayerScore]
+    () => getBestBallTeamPoints(team, holes, getPlayerScore, dailyHandicaps),
+    [team, holes, getPlayerScore, dailyHandicaps]
   );
 
   const contribution = useMemo(
-    () => getBestBallHoleContribution(team, currentHole, getPlayerScore),
-    [team, currentHole, getPlayerScore]
+    () => getBestBallHoleContribution(team, currentHole, getPlayerScore, dailyHandicaps),
+    [team, currentHole, getPlayerScore, dailyHandicaps]
   );
 
   const memberCount = team.members?.length ?? 0;
