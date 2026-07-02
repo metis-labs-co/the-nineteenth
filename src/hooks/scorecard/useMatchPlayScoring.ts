@@ -13,7 +13,7 @@
 
 import { useCallback, useMemo } from 'react';
 import { useScorecardStore } from '@/store/scorecardStore';
-import { getStrokesReceived } from '@/utils/scoring';
+import { getMatchPlayStrokes } from '@/utils/scoring';
 import { PICKUP_SCORE } from '@/constants/scoring';
 import { isSingleBallScore } from '@/types/database/base';
 import {
@@ -146,9 +146,12 @@ export function useMatchPlayScoring({
         // Player 2 conceded — Player 1 takes the hole only if they have a score.
         winner = p1HasScore ? 'player1' : null;
       } else {
-        // Compare net scores so handicap strokes received on the hole decide the winner.
-        const p1StrokesReceived = getStrokesReceived(player1Handicap, strokeIndex);
-        const p2StrokesReceived = getStrokesReceived(player2Handicap, strokeIndex);
+        // Compare net scores using match-play difference method (higher handicap gets all strokes)
+        const { a: p1StrokesReceived, b: p2StrokesReceived } = getMatchPlayStrokes(
+          player1Handicap,
+          player2Handicap,
+          strokeIndex
+        );
         const p1NetScore = p1Score !== null ? p1Score - p1StrokesReceived : null;
         const p2NetScore = p2Score !== null ? p2Score - p2StrokesReceived : null;
         winner = determineHoleWinner(p1NetScore, p2NetScore);
