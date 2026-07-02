@@ -33,7 +33,7 @@ import { useCompetitionInfo } from '@/hooks/competitions';
 import { resolveSubMatchForUser } from '@/utils/subMatches';
 import { supabase } from '@/services/supabase/client';
 import { matchPlayLogger } from '@/utils/debugLogger';
-import { getStrokesReceived } from '@/utils/scoring';
+import { getMatchPlayStrokes } from '@/utils/scoring';
 import { resolvePlayerTee } from '@/utils/teeResolution';
 import { getTeeColor } from '@/services/courses';
 import { calculatePlayingHandicap } from '@/hooks/usePlayingHandicap';
@@ -126,6 +126,41 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
     player2Id: resolvedPlayer2Id,
   });
 
+  // Use course holes if available, otherwise default
+  const safeHoles = useMemo(() => {
+    if (holes && holes.length > 0) {
+      return holes;
+    }
+    return DEFAULT_HOLES;
+  }, [holes]);
+
+  const teeData = storeTeeData || selectedTeeBox;
+
+  // Calculate playing handicap + display info for both players (daily HC when tee/rating data is available)
+  const player1HandicapResult = useMemo(() => {
+    const result = calculatePlayingHandicap({
+      player: player1,
+      selectedTeeData: teeData,
+      holes: safeHoles,
+      handicapSource,
+      gameType: 'match-play',
+    });
+    return result;
+  }, [player1, teeData, safeHoles, handicapSource]);
+  const player1Handicap = player1HandicapResult.playingHandicap;
+
+  const player2HandicapResult = useMemo(() => {
+    const result = calculatePlayingHandicap({
+      player: player2,
+      selectedTeeData: teeData,
+      holes: safeHoles,
+      handicapSource,
+      gameType: 'match-play',
+    });
+    return result;
+  }, [player2, teeData, safeHoles, handicapSource]);
+  const player2Handicap = player2HandicapResult.playingHandicap;
+
   // Use the new hook for score management - persists to store
   const {
     handleScoreSelect: storeHandleScoreSelect,
@@ -144,8 +179,8 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
     player2Id: player2.id,
     player1Name: player1.name,
     player2Name: player2.name,
-    player1Handicap: player1.handicap,
-    player2Handicap: player2.handicap,
+    player1Handicap: player1Handicap,
+    player2Handicap: player2Handicap,
     currentHole,
   });
 
@@ -196,43 +231,9 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
   // Get the tee color string for HoleHeader (uses tee color to look up yardages)
   const selectedTeeColor = selectedTeeBox?.color ?? 'white';
 
-  // Use course holes if available, otherwise default
-  const safeHoles = useMemo(() => {
-    if (holes && holes.length > 0) {
-      return holes;
-    }
-    return DEFAULT_HOLES;
-  }, [holes]);
-
   const currentHoleData = safeHoles[currentHole - 1];
 
-  // Calculate playing handicap + display info for both players (daily HC when tee/rating data is available)
-  const teeData = storeTeeData || selectedTeeBox;
   const baseLabel = handicapSource === 'calculated' ? 'SHC' : 'HC';
-
-  const player1HandicapResult = useMemo(() => {
-    const result = calculatePlayingHandicap({
-      player: player1,
-      selectedTeeData: teeData,
-      holes: safeHoles,
-      handicapSource,
-      gameType: 'match-play',
-    });
-    return result;
-  }, [player1, teeData, safeHoles, handicapSource]);
-  const player1Handicap = player1HandicapResult.playingHandicap;
-
-  const player2HandicapResult = useMemo(() => {
-    const result = calculatePlayingHandicap({
-      player: player2,
-      selectedTeeData: teeData,
-      holes: safeHoles,
-      handicapSource,
-      gameType: 'match-play',
-    });
-    return result;
-  }, [player2, teeData, safeHoles, handicapSource]);
-  const player2Handicap = player2HandicapResult.playingHandicap;
 
   // Resolve per-player tee colour for the dot next to the player's name.
   // Uses the per-player override from the store, falling back to the round default.
@@ -479,6 +480,11 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
 
       const holeResult = getHoleResult(holeNumber);
       const holeResultDisplay = getHoleResultDisplay(holeResult);
+      const { a: p1ShotsOnHole, b: p2ShotsOnHole } = getMatchPlayStrokes(
+        player1Handicap,
+        player2Handicap,
+        holeData.strokeIndex
+      );
 
       // Calculate navigation state for this hole — bound to the round's
       // actual hole range so back-9 / combo rounds don't fall off the end.
@@ -509,7 +515,7 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
                 par={holeData.par}
                 isMatchComplete={isMatchComplete}
                 matchStatus={player1MatchStatus}
-                strokesReceived={getStrokesReceived(player1Handicap, holeData.strokeIndex)}
+                strokesReceived={p1ShotsOnHole}
                 onScoreAdjust={(delta) => handleScoreAdjust('player1', delta)}
                 onParSelect={() => handleScoreSelect('player1', holeData.par)}
                 onPickUp={() => handlePickUp('player1')}
@@ -537,7 +543,7 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
                 par={holeData.par}
                 isMatchComplete={isMatchComplete}
                 matchStatus={player2MatchStatus}
-                strokesReceived={getStrokesReceived(player2Handicap, holeData.strokeIndex)}
+                strokesReceived={p2ShotsOnHole}
                 onScoreAdjust={(delta) => handleScoreAdjust('player2', delta)}
                 onParSelect={() => handleScoreSelect('player2', holeData.par)}
                 onPickUp={() => handlePickUp('player2')}
