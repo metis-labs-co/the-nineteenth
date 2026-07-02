@@ -70,8 +70,8 @@ On a player's live scorecard and post-round scorecard, the **lower-handicap play
 
 ## Error handling / edge cases
 
-- Equal handicaps → 0/0 (no shots either side).
-- Handicap ≤ 0 or diff 0 → 0 shots (existing `getStrokesReceived` guard: `handicap <= 0 → 0`).
+- Equal handicaps → 0/0 (no shots either side). The `getStrokesReceived` guard is applied to the *difference*, so it zeroes only when the difference is 0 (equal handicaps). Two plus-handicap (negative) players with a difference still allocate correctly to the higher (less-minus) player.
+- Difference exactly 0 → 0/0.
 - Difference > 18 → base `floor(diff/18)` stroke on every hole plus a second stroke on the lowest-SI holes, handled by the existing primitive.
 - Missing score on a hole → winner is `null`/unresolved, as today (`determineHoleWinner` unchanged).
 
