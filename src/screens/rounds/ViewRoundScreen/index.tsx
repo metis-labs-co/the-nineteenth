@@ -391,7 +391,11 @@ export default function ViewRoundScreen(props: Props) {
           />
         )}
         {vm.activeTab === 'match' && (vm.isMatchPlayRound || vm.isTeamMatchPlayRound) && (
-          vm.isSplitRound ? (
+          // Split rounds (singles or team) and combined team match play both use
+          // the sub-match leaderboard: split shows a row per sub-match; combined
+          // team match play renders as a single team-vs-team row (synthesized in
+          // SubMatchLeaderboardTab). Combined singles match play keeps MatchTab.
+          vm.isSplitRound || vm.isTeamMatchPlayRound ? (
             <RoundSubMatchLeaderboard
               roundId={round.id}
               competitionId={vm.competitionId ?? null}
