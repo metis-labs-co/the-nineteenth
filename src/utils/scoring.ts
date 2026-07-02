@@ -30,6 +30,29 @@ export function getStrokesReceived(handicap: number, strokeIndex: number): numbe
 }
 
 /**
+ * Match-play per-hole stroke allocation (difference method).
+ *
+ * The lower-handicap player plays off scratch; the higher-handicap player
+ * receives the whole handicap difference, allocated by stroke index using the
+ * standard {@link getStrokesReceived} rule. Equal handicaps yield no strokes
+ * either side. Uses the regular per-hole stroke index — no match-play-specific
+ * index is available from our course data.
+ *
+ * @returns strokes received by each player on the hole (`{ a, b }`).
+ */
+export function getMatchPlayStrokes(
+  handicapA: number,
+  handicapB: number,
+  strokeIndex: number
+): { a: number; b: number } {
+  const diff = Math.abs(handicapA - handicapB);
+  const strokes = getStrokesReceived(diff, strokeIndex);
+  if (handicapA > handicapB) return { a: strokes, b: 0 };
+  if (handicapB > handicapA) return { a: 0, b: strokes };
+  return { a: 0, b: 0 };
+}
+
+/**
  * Pickup score offset: strokes above "par + strokes received" that represent
  * a conceded hole in match-play formats. Example: par 4 + 1 stroke + 2 = 7.
  */
