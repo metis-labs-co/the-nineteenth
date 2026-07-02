@@ -64,6 +64,10 @@ export function getMatchPlayStrokes(
 
 playing/daily handicap (100% allowance, rounded) → `getMatchPlayStrokes(hcpA, hcpB, strokeIndex)` → per-player strokes on the hole → net = gross − strokes → `determineHoleWinner` / match status. Same for live scoring, scorecard display, engine, and round-list result.
 
+### Post-implementation note (5th call site found in review)
+
+The final whole-branch review found a fifth call site the plan missed: the live scoring **screen** `src/screens/scoring/MatchPlayScoringScreen/index.tsx` renders its own per-hole "+N SHOTS" figure. Two defects there: it used the old full-handicap method for the shots, and it fed the `useMatchPlayScoring` hook **raw** handicaps while every other path uses the **playing/daily** handicap. Fixed together — the playing-handicap computation was moved above the hook so both the hook (hole winners / match status) and the shots display use the same playing handicaps via `getMatchPlayStrokes`. This also aligns the live match status with the engine/scorecard/round-list, which all use playing/daily handicaps.
+
 ## User-visible change
 
 On a player's live scorecard and post-round scorecard, the **lower-handicap player now shows no shots**; only the handicap *difference* is dotted onto the higher-handicap player's lowest-SI holes. Hole winners shown live now always agree with the final result chip.
