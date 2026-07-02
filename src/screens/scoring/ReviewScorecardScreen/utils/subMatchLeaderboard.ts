@@ -6,6 +6,41 @@ import { getStrokesReceived, calculateStablefordPoints } from '@/utils/scoring';
 import { computeAltShotTeamRoundScore } from '@/utils/teamScoring/altShot';
 import type { AltShotTeamMember } from '@/utils/teamScoring/altShot';
 import type { Scorecard } from '@/types/database/scorecard.types';
+import { isSingleBallScore } from '@/types/database/base';
+import type { HoleScore, MultiBallHoleScore } from '@/types/database/base';
+
+/** A raw hole-score value as stored on a scorecard (single- or multi-ball). */
+export type RawHoleScore = HoleScore | MultiBallHoleScore;
+
+/** Extract gross strokes from a raw hole-score value; undefined when unscored. */
+export function extractStrokes(raw: RawHoleScore | undefined): number | undefined {
+  if (!raw) return undefined;
+  return isSingleBallScore(raw) ? raw.strokes : raw.balls?.[0]?.strokes;
+}
+
+/**
+ * Build a {@link GetStrokes} that reads a player's gross strokes from the local
+ * in-progress store first — so the current scorer's own (possibly unsynced)
+ * edits always win — and falls back to the round's server scorecards for
+ * players in *other* groups.
+ *
+ * The Review-screen scoring store only holds the current scorer's own playing
+ * group, so a sub-match leaderboard fed solely from it can only ever update the
+ * user's own match. Merging in `useRoundScorecards` lets every sub-match update
+ * live as other groups' scores sync to the server, matching the ViewRound and
+ * competition leaderboards.
+ */
+export function createMergedGetStrokes(
+  getLocalRaw: (playerId: string, holeNumber: number) => RawHoleScore | undefined,
+  serverScorecards: Pick<Scorecard, 'player_id' | 'scores'>[] | undefined
+): GetStrokes {
+  return (playerId, holeNumber) => {
+    const local = extractStrokes(getLocalRaw(playerId, holeNumber));
+    if (local !== undefined) return local;
+    const sc = serverScorecards?.find((s) => s.player_id === playerId);
+    return extractStrokes(sc?.scores?.[String(holeNumber)]);
+  };
+}
 
 /** Which scoring model a sub-match round uses for its per-match display. */
 export type SubMatchModel = 'match-play' | 'alt-shot' | 'aggregate' | 'best-ball';

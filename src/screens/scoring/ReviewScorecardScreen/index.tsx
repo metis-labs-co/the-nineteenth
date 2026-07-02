@@ -31,8 +31,9 @@ import { BagClubPickerSheet } from '@/components/features/bag/BagClubPickerSheet
 import { clubLabel, type ClubKey } from '@/constants/clubs';
 import type { ShotLogEntry } from '@/types/database/shotLog.types';
 
-import { isSingleBallScore } from '@/types/database/base';
 import { SubMatchLeaderboardTab } from '@/components/leaderboard';
+import { useRoundScorecards } from '@/hooks/rounds';
+import { createMergedGetStrokes } from './utils/subMatchLeaderboard';
 import { useScoreReview, useScoreSubmission, useReviewScorecardTabs, useScrambleTeams } from './hooks';
 import {
   IncompleteScoresModal,
@@ -94,6 +95,12 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
   // a co-scorer submits a partner's scorecard, so the in-screen leaderboards
   // stay in sync without waiting for the 30s poll.
   useScorecardsRealtime(roundId || undefined, route.params?.competitionId);
+
+  // The scoring store (`getPlayerScore`) only holds the current scorer's own
+  // playing group, so a store-only sub-match leaderboard can never update other
+  // groups' matches live. Pull the round's server scorecards too and merge them
+  // (local edits win) so every sub-match updates as other groups' scores sync.
+  const { data: roundScorecards } = useRoundScorecards(roundId ?? '');
 
   // Tab definitions and game type detection
   const {
@@ -164,14 +171,12 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
     return map;
   }, [currentUserId, holes, getPlayerScore, groupScorecards]);
 
-  // Store-backed getStrokes for SubMatchLeaderboardTab
-  const getStrokes = useCallback(
-    (playerId: string, hole: number): number | undefined => {
-      const raw = getPlayerScore(playerId, hole);
-      if (!raw) return undefined;
-      return isSingleBallScore(raw) ? raw.strokes : raw.balls?.[0]?.strokes;
-    },
-    [getPlayerScore]
+  // getStrokes for SubMatchLeaderboardTab: local store first (the current
+  // scorer's own group, including unsynced edits), server scorecards as
+  // fallback for players in other groups so all sub-matches update live.
+  const getStrokes = useMemo(
+    () => createMergedGetStrokes(getPlayerScore, roundScorecards),
+    [getPlayerScore, roundScorecards]
   );
 
   // Mismatch hooks

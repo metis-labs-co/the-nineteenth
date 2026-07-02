@@ -1,5 +1,13 @@
-import { resolveSubMatchModel, computeMatchPlaySubMatch, computeNetSubMatch, tallyOverall } from './subMatchLeaderboard';
+import {
+  resolveSubMatchModel,
+  computeMatchPlaySubMatch,
+  computeNetSubMatch,
+  tallyOverall,
+  extractStrokes,
+  createMergedGetStrokes,
+} from './subMatchLeaderboard';
 import type { Hole } from '@/types';
+import type { HoleScore, MultiBallHoleScore } from '@/types/database/base';
 
 describe('resolveSubMatchModel', () => {
   it('maps match-play game type to the match-play model', () => {
@@ -109,6 +117,58 @@ describe('computeNetSubMatch', () => {
     expect(r.valueB).toBeNull();
     expect(r.leaderSide).toBeNull();
     expect(r.hasScores).toBe(false);
+  });
+});
+
+describe('extractStrokes', () => {
+  it('returns strokes from a single-ball score', () => {
+    expect(extractStrokes({ strokes: 4 } as HoleScore)).toBe(4);
+  });
+
+  it('returns the first ball’s strokes from a multi-ball score', () => {
+    expect(
+      extractStrokes({ balls: [{ strokes: 5 }, { strokes: 6 }] } as MultiBallHoleScore)
+    ).toBe(5);
+  });
+
+  it('returns undefined for missing or empty scores', () => {
+    expect(extractStrokes(undefined)).toBeUndefined();
+    expect(extractStrokes({ balls: [] } as MultiBallHoleScore)).toBeUndefined();
+  });
+});
+
+describe('createMergedGetStrokes', () => {
+  const server: { player_id: string; scores: Record<string, HoleScore> }[] = [
+    { player_id: 'other1', scores: { '1': { strokes: 5 }, '2': { strokes: 6 } } },
+    { player_id: 'mine', scores: { '1': { strokes: 9 } } }, // stale server copy of my own card
+  ];
+
+  it('prefers the local store for the current scorer’s own group', () => {
+    // Local has my fresh score (4); server has a stale 9 for the same hole.
+    const getLocal = (pid: string, h: number) =>
+      pid === 'mine' && h === 1 ? ({ strokes: 4 } as HoleScore) : undefined;
+    const get = createMergedGetStrokes(getLocal, server);
+    expect(get('mine', 1)).toBe(4);
+  });
+
+  it('falls back to server scorecards for players in other groups', () => {
+    const get = createMergedGetStrokes(() => undefined, server);
+    expect(get('other1', 1)).toBe(5);
+    expect(get('other1', 2)).toBe(6);
+  });
+
+  it('returns undefined when neither source has the hole', () => {
+    const get = createMergedGetStrokes(() => undefined, server);
+    expect(get('other1', 9)).toBeUndefined();
+    expect(get('nobody', 1)).toBeUndefined();
+  });
+
+  it('tolerates missing server scorecards (offline / not yet loaded)', () => {
+    const getLocal = (pid: string, h: number) =>
+      pid === 'mine' && h === 1 ? ({ strokes: 4 } as HoleScore) : undefined;
+    const get = createMergedGetStrokes(getLocal, undefined);
+    expect(get('mine', 1)).toBe(4);
+    expect(get('other1', 1)).toBeUndefined();
   });
 });
 
