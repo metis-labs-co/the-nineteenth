@@ -25,6 +25,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { CACHE_TIMES, GC_TIMES } from '@/constants/cacheConfig';
 import type { RoundInvitationStatus } from '@/types/database/enums';
 import type { TeeBox } from '@/types/database/base';
+import type { Tee } from '@/types/database.types';
+import { teeToTeeBox } from '@/utils/teeTransformers';
 
 // =====================================================
 // TYPES
@@ -56,8 +58,12 @@ export interface ScheduledRoundCourse {
   name: string;
   holes: unknown[] | null;
   num_holes: number | null;
-  /** Tees from the tees table (may be empty for courses entered before the tees migration). */
-  tees: unknown[] | null;
+  /**
+   * Tees from the tees table, mapped to the TeeBox (camelCase) shape the
+   * scoring wizard expects. May be empty for courses entered before the tees
+   * migration.
+   */
+  tees: TeeBox[] | null;
 }
 
 /**
@@ -105,7 +111,7 @@ async function fetchScheduledRound(roundId: string): Promise<ScheduledRoundDetai
         name,
         holes,
         num_holes,
-        tees_from_table:tees ( id, name, color, course_rating, slope_rating )
+        tees_from_table:tees (*)
       ),
       round_players (
         player_id,
@@ -129,15 +135,32 @@ async function fetchScheduledRound(roundId: string): Promise<ScheduledRoundDetai
     throw new Error(`Failed to fetch scheduled round: ${error.message}`);
   }
 
-  const raw = data as Record<string, unknown>;
+  return mapRowToScheduledRoundDetail(data as Record<string, unknown>);
+}
+
+/**
+ * Map a raw `rounds` row (with embedded course + round_players) to the
+ * ScheduledRoundDetail shape the screen consumes.
+ *
+ * The embedded `tees` rows arrive in the normalized snake_case tees-table
+ * shape (`slope`, `course_rating`, …). They are mapped through `teeToTeeBox`
+ * so `course.tees` is the camelCase TeeBox[] the scoring wizard expects —
+ * mirroring the pattern in `hooks/clubs/helpers.ts`.
+ *
+ * Exported for unit testing.
+ */
+export function mapRowToScheduledRoundDetail(
+  raw: Record<string, unknown>
+): ScheduledRoundDetail {
   const courseRaw = raw.courses as Record<string, unknown> | null;
 
   let course: ScheduledRoundCourse | null = null;
   if (courseRaw) {
     const { tees_from_table, ...courseRest } = courseRaw;
+    const teeRows = (tees_from_table as Tee[] | null) ?? [];
     course = {
       ...(courseRest as Omit<ScheduledRoundCourse, 'tees'>),
-      tees: (tees_from_table as unknown[] | null) ?? null,
+      tees: teeRows.length > 0 ? teeRows.map(teeToTeeBox) : null,
     };
   }
 
