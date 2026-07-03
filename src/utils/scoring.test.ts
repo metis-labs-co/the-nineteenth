@@ -94,17 +94,23 @@ describe('getFourBallStrokes', () => {
   });
 
   it('reduces to the singles difference method for a two-player match', () => {
-    for (const si of [1, 3, 7, 12, 18]) {
-      const m = getFourBallStrokes(
-        [
-          { playerId: 'a', handicap: 20 },
-          { playerId: 'b', handicap: 15 },
-        ],
-        si
-      );
-      const singles = getMatchPlayStrokes(20, 15, si);
-      expect(m.get('a')).toBe(singles.a);
-      expect(m.get('b')).toBe(singles.b);
+    const pairs: [number, number][] = [
+      [20, 15],
+      [-3, -5], // plus handicaps: the -3 player is the higher handicap
+    ];
+    for (const [ha, hb] of pairs) {
+      for (const si of [1, 3, 7, 12, 18]) {
+        const m = getFourBallStrokes(
+          [
+            { playerId: 'a', handicap: ha },
+            { playerId: 'b', handicap: hb },
+          ],
+          si
+        );
+        const singles = getMatchPlayStrokes(ha, hb, si);
+        expect(m.get('a')).toBe(singles.a);
+        expect(m.get('b')).toBe(singles.b);
+      }
     }
   });
 

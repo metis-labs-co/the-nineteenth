@@ -205,10 +205,14 @@ export async function finalizeTeamMatchPlayRound(
 
   // All players in the match (both teams) with their stored daily handicaps,
   // for relative-to-lowest stroke allocation.
-  const allMatchPlayers = [...team1Scorecards, ...team2Scorecards].map((sc) => ({
-    playerId: sc.player_id,
-    handicap: sc.daily_handicap_used ?? 0,
-  }));
+  // Build the lowest-handicap reference from scorecards that actually have a
+  // stored daily handicap. A missing value must NOT be coerced to 0, or it
+  // would become the match's artificial lowest and inflate everyone else's
+  // strokes; such a player simply plays off scratch (0 strokes, via the
+  // `?? 0` at the net lookup below).
+  const allMatchPlayers = [...team1Scorecards, ...team2Scorecards]
+    .filter((sc) => sc.daily_handicap_used != null)
+    .map((sc) => ({ playerId: sc.player_id, handicap: sc.daily_handicap_used as number }));
 
   // Iterate the round's actual holes — back-9 / combo rounds carry numbers
   // 10..18 (or 10..27), not 1..18.
