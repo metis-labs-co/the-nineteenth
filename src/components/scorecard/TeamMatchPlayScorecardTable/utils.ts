@@ -11,7 +11,7 @@
  * decided on net scores (same as the score-entry screen).
  */
 
-import { getStrokesReceived } from '@/utils/scoring';
+import { getFourBallStrokes } from '@/utils/scoring';
 import { PICKUP_SCORE } from '@/constants/scoring';
 import {
   determineHoleWinner,
@@ -34,15 +34,15 @@ interface TeamHoleContribution {
  */
 function findBestContributor(
   team: MatchTeam,
-  hole: Hole,
-  getGross: (playerId: string) => number | undefined
+  getGross: (playerId: string) => number | undefined,
+  strokesForHole: Map<string, number>
 ): TeamHoleContribution | null {
   let best: TeamHoleContribution | null = null;
   for (const member of team.members) {
     const gross = getGross(member.id);
     if (gross == null) continue;
     if (gross === PICKUP_SCORE) continue;
-    const strokes = getStrokesReceived(member.handicap, hole.strokeIndex);
+    const strokes = strokesForHole.get(member.id) ?? 0;
     const net = gross - strokes;
     if (
       best === null ||
@@ -83,6 +83,11 @@ export function calculateTeamMatchData(
   getPlayerScore: (playerId: string, holeNumber: number) => number | undefined
 ): TeamCalculatedData {
   const holeResults: Record<number, HoleResult> = {};
+  // All players in the match (both teams), for relative-to-lowest allocation.
+  const allPlayers = [...team1.members, ...team2.members].map((m) => ({
+    playerId: m.id,
+    handicap: m.handicap,
+  }));
   const runningStatus: Record<number, MatchStatus> = {};
 
   let front9Par = 0;
@@ -101,8 +106,9 @@ export function calculateTeamMatchData(
     const holeNum = hole.number;
 
     const getGrossForHole = (playerId: string) => getPlayerScore(playerId, holeNum);
-    const t1Best = findBestContributor(team1, hole, getGrossForHole);
-    const t2Best = findBestContributor(team2, hole, getGrossForHole);
+    const strokesForHole = getFourBallStrokes(allPlayers, hole.strokeIndex);
+    const t1Best = findBestContributor(team1, getGrossForHole, strokesForHole);
+    const t2Best = findBestContributor(team2, getGrossForHole, strokesForHole);
 
     const t1PickedUp = isTeamPickedUp(team1, getGrossForHole);
     const t2PickedUp = isTeamPickedUp(team2, getGrossForHole);
