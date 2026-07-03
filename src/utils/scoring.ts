@@ -53,6 +53,29 @@ export function getMatchPlayStrokes(
 }
 
 /**
+ * Four-ball match-play per-hole stroke allocation (relative-to-lowest method).
+ *
+ * Among all players in the match (both teams), the lowest playing handicap
+ * plays off scratch; every other player receives the difference from that
+ * lowest handicap, allocated by stroke index via {@link getStrokesReceived}.
+ * Tied-lowest players all receive 0. Uses the regular per-hole stroke index.
+ *
+ * @returns strokes received on the hole, keyed by playerId.
+ */
+export function getFourBallStrokes(
+  players: { playerId: string; handicap: number }[],
+  strokeIndex: number
+): Map<string, number> {
+  const result = new Map<string, number>();
+  if (players.length === 0) return result;
+  const lowest = Math.min(...players.map((p) => p.handicap));
+  for (const p of players) {
+    result.set(p.playerId, getStrokesReceived(p.handicap - lowest, strokeIndex));
+  }
+  return result;
+}
+
+/**
  * Pickup score offset: strokes above "par + strokes received" that represent
  * a conceded hole in match-play formats. Example: par 4 + 1 stroke + 2 = 7.
  */
