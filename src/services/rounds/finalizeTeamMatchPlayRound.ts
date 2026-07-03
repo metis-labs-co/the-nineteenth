@@ -22,7 +22,7 @@ import type { PostgrestError } from '@supabase/supabase-js';
 
 import { getCompetitionTeams } from '@/services/teams/teamQueries';
 import { saveRoundResults } from './roundResultsService';
-import { getStrokesReceived } from '@/utils/scoring';
+import { getFourBallStrokes } from '@/utils/scoring';
 import {
   calculateTeamMatchStatus,
   countHolesWon,
@@ -203,6 +203,13 @@ export async function finalizeTeamMatchPlayRound(
   // Hole-by-hole best-ball net comparison.
   const holeResults: Record<number, TeamHoleResult> = {};
 
+  // All players in the match (both teams) with their stored daily handicaps,
+  // for relative-to-lowest stroke allocation.
+  const allMatchPlayers = [...team1Scorecards, ...team2Scorecards].map((sc) => ({
+    playerId: sc.player_id,
+    handicap: sc.daily_handicap_used ?? 0,
+  }));
+
   // Iterate the round's actual holes — back-9 / combo rounds carry numbers
   // 10..18 (or 10..27), not 1..18.
   for (const hole of holes) {
@@ -211,19 +218,19 @@ export async function finalizeTeamMatchPlayRound(
     const team1Nets: number[] = [];
     const team2Nets: number[] = [];
 
+    // Relative-to-lowest: strokes are each player's difference from the lowest
+    // handicap in the match (both teams), allocated by stroke index.
+    const strokesForHole = getFourBallStrokes(allMatchPlayers, hole.strokeIndex);
+
     for (const sc of team1Scorecards) {
       const gross = getHoleGross(sc.scores, h);
       if (gross == null) continue;
-      const dailyHc = sc.daily_handicap_used ?? 0;
-      const strokesReceived = getStrokesReceived(dailyHc, hole.strokeIndex);
-      team1Nets.push(gross - strokesReceived);
+      team1Nets.push(gross - (strokesForHole.get(sc.player_id) ?? 0));
     }
     for (const sc of team2Scorecards) {
       const gross = getHoleGross(sc.scores, h);
       if (gross == null) continue;
-      const dailyHc = sc.daily_handicap_used ?? 0;
-      const strokesReceived = getStrokesReceived(dailyHc, hole.strokeIndex);
-      team2Nets.push(gross - strokesReceived);
+      team2Nets.push(gross - (strokesForHole.get(sc.player_id) ?? 0));
     }
 
     if (team1Nets.length === 0 || team2Nets.length === 0) continue;
