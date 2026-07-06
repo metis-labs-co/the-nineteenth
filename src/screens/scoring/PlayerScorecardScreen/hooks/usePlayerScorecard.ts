@@ -7,7 +7,7 @@
  * Supports both single-ball and multi-ball scoring modes.
  */
 
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { useRoundScorecards, useRoundDetails } from '@/hooks/rounds/queries';
 import {
@@ -99,6 +99,10 @@ interface UsePlayerScorecardResult {
   back9Holes: HoleRowData[];
   isLoading: boolean;
   isInitialized: boolean;
+  /** True when the read-only (DB) load failed — e.g. a round/scorecard the viewer can't read. */
+  isError: boolean;
+  /** Retry the read-only (DB) fetch. No-op in the live scoring path. */
+  refetch: () => void;
   /** True when viewing a completed/other round (data loaded from DB, not the live scoring store). */
   isReadOnly: boolean;
   /** First hole played (1 normally, 10 for back-9 rounds) — for hole-number display. */
@@ -136,12 +140,31 @@ export function usePlayerScorecard(playerId: string, roundId?: string): UsePlaye
   const readOnlyEnabled = !!roundId && isReadOnly;
 
   // Read-only sources (DB). Gated so live scoring doesn't trigger extra fetches.
-  const { data: roScorecards, isLoading: roScLoading } = useRoundScorecards(roundId ?? '', {
+  const {
+    data: roScorecards,
+    isLoading: roScLoading,
+    isError: roScError,
+    refetch: refetchScorecards,
+  } = useRoundScorecards(roundId ?? '', {
     enabled: readOnlyEnabled,
   });
-  const { data: roRound, isLoading: roRoundLoading } = useRoundDetails(roundId ?? '', {
+  const {
+    data: roRound,
+    isLoading: roRoundLoading,
+    isError: roRoundError,
+    refetch: refetchRound,
+  } = useRoundDetails(roundId ?? '', {
     enabled: readOnlyEnabled,
   });
+
+  // Surface genuine load failures (e.g. a round/scorecard the viewer can't read)
+  // so the screen can show a retryable error instead of a misleading empty state.
+  // Only meaningful for the read-only (DB) path; the live store path never errors here.
+  const isError = isReadOnly && (roScError || roRoundError);
+  const refetch = useCallback(() => {
+    void refetchScorecards();
+    void refetchRound();
+  }, [refetchScorecards, refetchRound]);
 
   const roScorecardRaw = useMemo(
     () => roScorecards?.find((sc) => sc.player_id === playerId),
@@ -509,6 +532,8 @@ export function usePlayerScorecard(playerId: string, roundId?: string): UsePlaye
     back9Holes,
     isLoading,
     isInitialized,
+    isError,
+    refetch,
     isReadOnly,
     startHole,
     // Multi-ball support

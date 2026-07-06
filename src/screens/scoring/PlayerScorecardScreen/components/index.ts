@@ -5,6 +5,7 @@ export { ScorecardTableMultiBall } from './ScorecardTableMultiBall';
 export { ScorecardTableBallsAsPlayers } from './ScorecardTableBallsAsPlayers';
 export {
   ScorecardLoadingState,
+  ScorecardLoadError,
   ScorecardPlayerNotFound,
   ScorecardNoScores,
 } from './ScorecardEmptyStates';
