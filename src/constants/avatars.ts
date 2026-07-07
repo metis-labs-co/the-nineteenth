@@ -91,14 +91,17 @@ export const AVATARS: AvatarOption[] = [
     },
   },
   {
+    // NOTE: id retained as 'avatar-violet' for backward-compat with users who
+    // already selected this slot (stored as photo_url "avatar:avatar-violet").
+    // The visual is now a bright lemon yellow — violet was too close to purple.
     id: 'avatar-violet',
-    name: 'Violet',
+    name: 'Yellow',
     colorPalette: {
-      darkest: '#4a0a5d',
-      dark: '#7a2e8e',
-      mid: '#8a349d',
-      light: '#b249c7',
-      lightest: '#bc4dcf',
+      darkest: '#6b650a',
+      dark: '#b3a814',
+      mid: '#d1c519',
+      light: '#e8dc2d',
+      lightest: '#f2e63c',
     },
   },
   {
@@ -115,12 +118,14 @@ export const AVATARS: AvatarOption[] = [
   {
     id: 'avatar-orange',
     name: 'Orange',
+    // Retuned to a true orange (~28° hue). The previous values sat at ~42°
+    // (yellow-orange), so it read as yellow and clashed with Gold.
     colorPalette: {
-      darkest: '#5d3d0a',
-      dark: '#8e6e2e',
-      mid: '#9d7d34',
-      light: '#c7a149',
-      lightest: '#cfab4d',
+      darkest: '#5d310a',
+      dark: '#8e5019',
+      mid: '#9d581c',
+      light: '#c77228',
+      lightest: '#cf7929',
     },
   },
   {
