@@ -9,7 +9,8 @@
       "distribution": "internal",
       "ios": {
         "simulator": true
-      }
+      },
+      "channel": "development"
     },
     "preview": {
       "distribution": "internal",
@@ -28,7 +29,8 @@
         "EXPO_PUBLIC_REVENUECAT_IOS_API_KEY": "appl_NAnUuRZUiyoQcOxCBiQkvTjzwxY",
         "EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY": "test_EUzwJGhjDCnDbhKcDTUiEreNPFT",
         "EXPO_PUBLIC_GOLFAPI_IO_KEY": "d7687382-3e9a-473a-a799-c81ab7454092"
-      }
+      },
+      "channel": "preview"
     },
     "staging": {
       "distribution": "store",
