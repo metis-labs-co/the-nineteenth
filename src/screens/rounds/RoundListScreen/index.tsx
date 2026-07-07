@@ -16,7 +16,8 @@ import {
   FlatList,
   RefreshControl,
 } from 'react-native';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
+import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useSubscriptionContext, useIsSuperAdmin } from '@/context/SubscriptionContext';
@@ -47,6 +48,8 @@ import type { RoundItem, RoundPlayerInfo } from './types';
 export default function RoundsScreen() {
   const colors = useThemeColors();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const route = useRoute<RouteProp<RootStackParamList, 'AllRounds'>>();
+  const initialFilter = route.params?.initialFilter ?? 'all';
   const { user } = useAuth();
   const { limits } = useSubscriptionContext();
   const isSuperAdmin = useIsSuperAdmin();
@@ -76,7 +79,7 @@ export default function RoundsScreen() {
 
   // Hooks for data and state management
   const { rounds, isLoading, isRefetching, refetch, roundsPlayedCount } = useRoundList();
-  const { roundTypeFilter, setRoundTypeFilter, filteredHistoryRounds, activeRounds } = useRoundFilters(rounds);
+  const { roundTypeFilter, setRoundTypeFilter, filteredHistoryRounds, activeRounds } = useRoundFilters(rounds, initialFilter);
 
   // In-progress rounds in the RoundWithCourse shape the shared
   // InProgressRoundSection carousel expects. This screen only lists

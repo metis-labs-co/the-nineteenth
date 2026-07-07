@@ -22,6 +22,7 @@ import { GAME_TYPE_LABELS } from '@/constants/statusConfig';
 import { GAME_TYPE_DESCRIPTIONS } from '@/constants/gameTypeDescriptions';
 import type { GameType } from '@/types/database/enums';
 import type { PlayerStatistics } from '@/hooks/usePlayerStatistics';
+import type { RoundTypeFilter } from '@/screens/rounds/RoundListScreen/types';
 
 // =====================================================
 // TYPES
@@ -47,6 +48,21 @@ export const OverviewStats = React.memo(function OverviewStats({ stats }: Overvi
     [navigation]
   );
 
+  const handleRoundsPlayedPress = useCallback(() => {
+    navigation.navigate('AllRounds');
+  }, [navigation]);
+
+  const handleCompetePress = useCallback(() => {
+    navigation.navigate('MainTabs', { screen: 'CompeteTab' });
+  }, [navigation]);
+
+  const handleFilteredRoundsPress = useCallback(
+    (initialFilter: RoundTypeFilter) => {
+      navigation.navigate('AllRounds', { initialFilter });
+    },
+    [navigation]
+  );
+
   return (
     <>
       {/* Overview Stats */}
@@ -57,12 +73,16 @@ export const OverviewStats = React.memo(function OverviewStats({ stats }: Overvi
           value={stats.roundsPlayed}
           icon="flag-checkered"
           iconColor={colors.primary}
+          onPress={handleRoundsPlayedPress}
+          accessibilityHint="Opens your list of rounds"
         />
         <StatCard
           title="Wins"
           value={stats.competitionsWon}
           icon="trophy"
           iconColor={colors.success}
+          onPress={handleCompetePress}
+          accessibilityHint="Opens the Compete tab"
         />
         <StatCard
           title="Holes Played"
@@ -82,6 +102,8 @@ export const OverviewStats = React.memo(function OverviewStats({ stats }: Overvi
           subtitle="rounds"
           icon="trophy-outline"
           iconColor={colors.warning}
+          onPress={handleCompetePress}
+          accessibilityHint="Opens the Compete tab"
         />
         <StatCard
           title="Practice"
@@ -89,6 +111,8 @@ export const OverviewStats = React.memo(function OverviewStats({ stats }: Overvi
           subtitle="rounds"
           icon="golf"
           iconColor={colors.info}
+          onPress={() => handleFilteredRoundsPress('practice')}
+          accessibilityHint="Opens your practice rounds"
         />
         <StatCard
           title="Match Play"
@@ -96,6 +120,8 @@ export const OverviewStats = React.memo(function OverviewStats({ stats }: Overvi
           subtitle="rounds"
           icon="sword-cross"
           iconColor={colors.error}
+          onPress={() => handleFilteredRoundsPress('matchplay')}
+          accessibilityHint="Opens your match play rounds"
         />
         <StatCard
           title="Handicap"
@@ -103,6 +129,8 @@ export const OverviewStats = React.memo(function OverviewStats({ stats }: Overvi
           subtitle="rounds"
           icon="scale-balance"
           iconColor={colors.success}
+          onPress={() => handleFilteredRoundsPress('handicap')}
+          accessibilityHint="Opens your handicap rounds"
         />
         {stats.nineHoleRoundsPlayed > 0 && (
           <StatCard
@@ -111,6 +139,8 @@ export const OverviewStats = React.memo(function OverviewStats({ stats }: Overvi
             subtitle="rounds"
             icon="numeric-9-circle-outline"
             iconColor={colors.primary}
+            onPress={() => handleFilteredRoundsPress('ninehole')}
+            accessibilityHint="Opens your 9-hole rounds"
           />
         )}
       </View>

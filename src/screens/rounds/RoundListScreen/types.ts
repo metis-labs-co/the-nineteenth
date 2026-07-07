@@ -10,7 +10,15 @@ export interface PlayingPartner {
   handicap?: number;
 }
 
-export type RoundTypeFilter = 'all' | 'practice' | 'match' | 'skins' | 'wolf';
+export type RoundTypeFilter =
+  | 'all'
+  | 'practice'
+  | 'match'
+  | 'matchplay'
+  | 'skins'
+  | 'wolf'
+  | 'handicap'
+  | 'ninehole';
 
 // Player info for round (matches RoundListCard's internal type)
 export interface RoundPlayerInfo {

@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, Pressable, StyleSheet } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { withOpacity } from '@/constants/colors';
@@ -27,6 +27,10 @@ export interface StatCardProps {
   icon?: string;
   /** Optional icon color (defaults to primary) */
   iconColor?: string;
+  /** Optional tap handler. When provided, the card becomes a button. */
+  onPress?: () => void;
+  /** Optional accessibility hint describing what happens on tap. */
+  accessibilityHint?: string;
 }
 
 // =====================================================
@@ -39,14 +43,59 @@ export const StatCard = React.memo(function StatCard({
   subtitle,
   icon,
   iconColor,
+  onPress,
+  accessibilityHint,
 }: StatCardProps) {
   const colors = useThemeColors();
   const resolvedIconColor = iconColor || colors.primary;
+  const isPressable = typeof onPress === 'function';
 
   // Build accessibility label for screen readers
   const accessibilityLabel = subtitle
     ? `${title}: ${value}, ${subtitle}`
     : `${title}: ${value}`;
+
+  const cardInner = (
+    <>
+      {icon && (
+        <View
+          style={[styles.iconContainer, { backgroundColor: withOpacity(resolvedIconColor, 0.08) }]}
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+        >
+          <Icon source={icon} size={22} color={resolvedIconColor} />
+        </View>
+      )}
+      <View style={styles.content}>
+        <Text style={[styles.value, { color: colors.textPrimary }]}>{value}</Text>
+        <Text style={[styles.title, { color: colors.textSecondary }]}>{title}</Text>
+        {subtitle && (
+          <Text style={[styles.subtitle, { color: colors.textTertiary }]}>{subtitle}</Text>
+        )}
+      </View>
+    </>
+  );
+
+  if (isPressable) {
+    return (
+      <View style={styles.wrapper}>
+        <Pressable
+          style={({ pressed }) => [
+            styles.card,
+            { backgroundColor: colors.surface },
+            shadows.sm,
+            pressed && styles.cardPressed,
+          ]}
+          onPress={onPress}
+          accessibilityRole="button"
+          accessibilityLabel={accessibilityLabel}
+          accessibilityHint={accessibilityHint}
+        >
+          {cardInner}
+        </Pressable>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.wrapper}>
@@ -56,22 +105,7 @@ export const StatCard = React.memo(function StatCard({
         accessibilityRole="text"
         accessibilityLabel={accessibilityLabel}
       >
-        {icon && (
-          <View
-            style={[styles.iconContainer, { backgroundColor: withOpacity(resolvedIconColor, 0.08) }]}
-            accessibilityElementsHidden
-            importantForAccessibility="no-hide-descendants"
-          >
-            <Icon source={icon} size={22} color={resolvedIconColor} />
-          </View>
-        )}
-        <View style={styles.content}>
-          <Text style={[styles.value, { color: colors.textPrimary }]}>{value}</Text>
-          <Text style={[styles.title, { color: colors.textSecondary }]}>{title}</Text>
-          {subtitle && (
-            <Text style={[styles.subtitle, { color: colors.textTertiary }]}>{subtitle}</Text>
-          )}
-        </View>
+        {cardInner}
       </View>
     </View>
   );
@@ -92,6 +126,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     minHeight: 80,
+  },
+  cardPressed: {
+    opacity: 0.7,
   },
   iconContainer: {
     width: 44,

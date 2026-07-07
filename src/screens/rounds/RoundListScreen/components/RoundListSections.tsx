@@ -18,6 +18,9 @@ const ROUND_TYPE_FILTERS: { key: RoundTypeFilter; label: string }[] = [
   { key: 'all', label: 'All' },
   { key: 'practice', label: 'Practice' },
   { key: 'match', label: 'Match' },
+  { key: 'matchplay', label: 'Match Play' },
+  { key: 'handicap', label: 'Handicap' },
+  { key: 'ninehole', label: '9-Hole' },
   { key: 'skins', label: 'Skins' },
   { key: 'wolf', label: 'Wolf' },
 ];
@@ -133,6 +136,7 @@ const styles = StyleSheet.create({
   },
   filterRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.sm,
     marginBottom: spacing.md,
   },

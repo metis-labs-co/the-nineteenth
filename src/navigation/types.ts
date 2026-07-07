@@ -11,6 +11,7 @@ import type {
   CompositeScreenProps,
   NavigatorScreenParams,
 } from '@react-navigation/native';
+import type { RoundTypeFilter } from '@/screens/rounds/RoundListScreen/types';
 
 /**
  * Root Stack - Top-level navigation
@@ -57,7 +58,7 @@ export type RootStackParamList = {
   // Rounds
   Rounds: { competitionId: string };
   RoundDetail: { id: string };
-  AllRounds: undefined; // Full standalone-rounds list (formerly the Rounds tab)
+  AllRounds: { initialFilter?: RoundTypeFilter } | undefined; // Full standalone-rounds list (formerly the Rounds tab)
   ScheduledRound: { roundId: string }; // Upcoming scheduled round detail + start-day flow
   AddRound: { competitionId: string };
   EditRound: { roundId: string; competitionId?: string }; // Edit round details (organizers only)

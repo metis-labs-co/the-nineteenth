@@ -277,6 +277,7 @@ export function usePlayerStatistics(
 
       // Track practice vs competition rounds and game type breakdown
       let practiceRoundsCount = 0;
+      let competitionRoundsCount = 0;
       let matchPlayRoundsCount = 0;
       let handicapRoundsCount = 0;
       let nineHoleRoundsCount = 0;
@@ -331,6 +332,12 @@ export function usePlayerStatistics(
         const isPracticeRound = isStandaloneRound && effectiveHandicapSource === 'none';
         if (isHandicapRound) {
           handicapRoundsCount++;
+        }
+        // A competition round is one linked to a competition. Count it directly
+        // rather than deriving it by subtraction, so standalone handicap rounds
+        // (source 'profile') are never miscounted as competition rounds.
+        if (!isStandaloneRound) {
+          competitionRoundsCount++;
         }
 
         // Count game types
@@ -717,7 +724,7 @@ export function usePlayerStatistics(
       return {
         roundsPlayed,
         practiceRoundsPlayed: practiceRoundsCount,
-        competitionRoundsPlayed: roundsPlayed - practiceRoundsCount,
+        competitionRoundsPlayed: competitionRoundsCount,
         matchPlayRoundsPlayed: matchPlayRoundsCount,
         handicapRoundsPlayed: handicapRoundsCount,
         nineHoleRoundsPlayed: nineHoleRoundsCount,
