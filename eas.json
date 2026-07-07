@@ -51,6 +51,7 @@
       }
     },
     "production": {
+      "channel": "production",
       "autoIncrement": true,
       "cache": {
         "key": "production-v1"
