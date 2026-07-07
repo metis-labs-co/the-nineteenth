@@ -41,6 +41,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { roundKeys, scorecardKeys, competitionDetailsKeys, leaderboardKeys } from '@/hooks/queryKeys';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
+import { buildPostSubmitResetState } from '@/navigation/postSubmitNavigation';
 import type { IncompleteHole } from './useScoreReview';
 import { useRoundFinalization } from './useRoundFinalization';
 import { usePairings } from '@/hooks/rounds';
@@ -384,20 +385,11 @@ export function useScoreSubmission({
     resetRound();
     if (roundId) {
       submitLogger.info('Navigating to ViewRound (resetting stack)', { roundId: roundId.substring(0, 8) + '...' });
-      // Reset navigation stack so back button goes to rounds list, not score entry
-      navigation.reset({
-        index: 1,
-        routes: [
-          { name: 'MainTabs' },
-          {
-            name: 'ViewRound',
-            params: {
-              roundId,
-              competitionId: competitionId !== 'standalone' ? competitionId : undefined,
-            },
-          },
-        ],
-      });
+      // Reset the stack so back goes to the competition (rounds list) for
+      // competition rounds, or the tabs for standalone rounds — never back
+      // into the scoring flow. See buildPostSubmitResetState for why
+      // CompetitionDetail must sit beneath ViewRound.
+      navigation.reset(buildPostSubmitResetState(roundId, competitionId));
     } else {
       submitLogger.info('Navigating to dashboard (no round ID)');
       navigation.popToTop();
