@@ -8,9 +8,10 @@
  * Gesture API (LongPress + Pan composed with `Gesture.Simultaneous`) rather
  * than a list library. The 300ms long-press requirement means short
  * vertical swipes pass through to the parent ScrollView for normal scroll;
- * only a deliberate hold engages drag. On release the new order is
- * computed from the pan offset and the surrounding cards re-layout via
- * the standard rounds-list re-render.
+ * only a deliberate hold engages drag. During the drag the surrounding cards
+ * animate to open a gap at the projected drop slot (driven by shared drag
+ * state — see `DraggableRow`); on release the new order is computed from the
+ * pan offset and persisted via `onReorder`.
  */
 
 import React, { useCallback, useState } from 'react';
@@ -71,10 +72,12 @@ export interface RoundsTabProps {
 }
 
 /**
- * Single draggable row wrapper. Owns its own pan/long-press gestures and
- * the translateY shared value. Other rows are unaffected during drag —
- * they snap to their new positions when the parent re-renders after
- * `onMove` updates the ordering.
+ * Single draggable row wrapper. Owns its own long-press + pan gestures and
+ * its finger-follow `dragY`. While another row is being dragged, this row
+ * reads the parent-owned `activeIndex` / `activeOffsetY` shared values to
+ * compute where the dragged card is hovering and shifts by one slot to open
+ * the gap; the actively-dragged row itself never shifts and floats on top.
+ * The combined transform is `translateY = dragY + shift`.
  */
 interface DraggableRowProps {
   index: number;
