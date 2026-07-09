@@ -77,11 +77,19 @@ export function EditRoundPointsSheet({
       ? { win: 1, tie: 0.5, loss: 0 }
       : { win: 2, tie: 1, loss: 0 };
 
-  const currentPoints: WinTieLossPoints = override[pointsKey] ?? defaultPoints;
+  // The value actually in effect for this round. For split rounds the
+  // finalizer reads `pair_points ?? team_points`, so a legacy round with its
+  // real points still parked under `team_points` (no pair_points seed) must
+  // display and edit those values rather than falling through to generic
+  // defaults — otherwise the editor silently hides the round's real scoring.
+  const effectivePoints: WinTieLossPoints =
+    round.round_format === 'split'
+      ? (override.pair_points ?? override.team_points ?? defaultPoints)
+      : (override[pointsKey] ?? defaultPoints);
 
-  const [win, setWin] = useState(String(currentPoints.win));
-  const [tie, setTie] = useState(String(currentPoints.tie));
-  const [loss, setLoss] = useState(String(currentPoints.loss));
+  const [win, setWin] = useState(String(effectivePoints.win));
+  const [tie, setTie] = useState(String(effectivePoints.tie));
+  const [loss, setLoss] = useState(String(effectivePoints.loss));
 
   // Bonus point controls — only relevant for pair_points + split rounds
   const showBonus = pointsKey === 'pair_points' && round.round_format === 'split';
@@ -91,7 +99,11 @@ export function EditRoundPointsSheet({
   // Reset fields when sheet re-opens (new round or re-open after dismiss)
   useEffect(() => {
     if (visible) {
-      const pts = (round.rules_override as RoundRulesOverride | null)?.[pointsKey] ?? defaultPoints;
+      const ro0 = round.rules_override as RoundRulesOverride | null;
+      const pts: WinTieLossPoints =
+        round.round_format === 'split'
+          ? (ro0?.pair_points ?? ro0?.team_points ?? defaultPoints)
+          : (ro0?.[pointsKey] ?? defaultPoints);
       setWin(String(pts.win));
       setTie(String(pts.tie));
       setLoss(String(pts.loss));
@@ -134,6 +146,12 @@ export function EditRoundPointsSheet({
     };
     // Preserve all other override fields; only replace the points block.
     const next: RoundRulesOverride = { ...override, [pointsKey]: points };
+    // Split rounds always write to pair_points (the finalizer's read target).
+    // If a legacy team_points block still exists, drop it so it can't shadow
+    // or orphan-linger alongside the newly-written pair_points.
+    if (round.round_format === 'split' && next.team_points) {
+      delete next.team_points;
+    }
     if (showBonus) {
       const existingTie: MarginBonusConfig['tie'] = override.bonus_points?.tie ?? 'split';
       next.bonus_points = bonusEnabled
