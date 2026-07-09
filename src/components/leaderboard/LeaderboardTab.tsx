@@ -17,7 +17,7 @@ import { IconUsers, IconUser, IconCalendar } from '@tabler/icons-react-native';
 import { LeaderboardTable } from './LeaderboardTable';
 import { TeamLeaderboardTable, type TeamLeaderboardEntry } from './TeamLeaderboardTable';
 import { TeamPointsToWinBanner } from './TeamPointsToWinBanner';
-import { summarizeCompetition } from '@/utils/competitionPoints/roundPointsSummary';
+import { summarizeCompetition, summarizeRoundPoints } from '@/utils/competitionPoints/roundPointsSummary';
 import { RoundLeaderboard } from './RoundLeaderboard';
 import {
   InProgressRoundLeaderboard,
@@ -399,16 +399,22 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
     return toTeamLeaderboardEntries(leaderboard, rounds);
   }, [leaderboard, effectiveView, rounds]);
 
+  // Members per team, derived from loaded team rosters (mirrors
+  // PointsConfigSection's derivation). Shared by teamPointsToWin and the
+  // per-round points badge below. 0 when teams haven't loaded yet.
+  const membersPerTeam = useMemo(() => {
+    const counts = (teams ?? []).map((t) => t.members.length).filter((n) => n > 0);
+    return counts.length > 0 ? Math.max(...counts) : 0;
+  }, [teams]);
+
   // Points target for the team standings overview. Only meaningful for per-round
-  // team competitions. membersPerTeam mirrors PointsConfigSection's derivation.
+  // team competitions.
   const teamPointsToWin = useMemo(() => {
     if (effectiveView !== 'team' || !hasTeams || !perRoundRulesEnabled) return null;
-    const counts = (teams ?? []).map((t) => t.members.length).filter((n) => n > 0);
-    if (counts.length === 0) return null; // teams not loaded yet — avoid a wrong banner
-    const membersPerTeam = Math.max(...counts);
+    if (membersPerTeam === 0) return null; // teams not loaded yet — avoid a wrong banner
     const { total, toWin } = summarizeCompetition(rounds, { membersPerTeam });
     return { total, toWin };
-  }, [effectiveView, hasTeams, perRoundRulesEnabled, teams, rounds]);
+  }, [effectiveView, hasTeams, perRoundRulesEnabled, membersPerTeam, rounds]);
 
   // Render loading state
   if (isLoading) {
@@ -522,6 +528,14 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
                     date={round.date ?? undefined}
                     courseName={round.course?.name ?? undefined}
                     roundName={round.name}
+                    pointsBadge={
+                      hasTeams &&
+                      perRoundRulesEnabled &&
+                      membersPerTeam > 0 &&
+                      (round.rules_override?.pair_points || round.rules_override?.team_points)
+                        ? summarizeRoundPoints(round, { membersPerTeam }).detail
+                        : undefined
+                    }
                   />
                   <RoundSubMatchLeaderboard
                     roundId={round.id}

@@ -45,6 +45,14 @@ export const styles = StyleSheet.create({
     ...typography.caption,
     fontWeight: '600',
   },
+  pointsBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: borderRadius.full,
+  },
+  pointsBadgeText: {
+    ...typography.captionBold,
+  },
   headerMeta: {
     flexDirection: 'row',
     alignItems: 'center',
