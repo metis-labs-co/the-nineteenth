@@ -92,6 +92,26 @@ function refFromUrl(url) {
   return m ? m[1] : null;
 }
 
+// Return the text of `.env` with each key in `overrides` set to its prod value.
+// Existing lines for those keys are replaced in place (comments/other keys kept
+// verbatim); any override key not already present is appended.
+function composeProdEnvFile(originalText, overrides) {
+  const keys = new Set(Object.keys(overrides));
+  const seen = new Set();
+  const lines = originalText.split('\n').map((line) => {
+    const m = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=/.exec(line);
+    if (m && keys.has(m[1])) {
+      seen.add(m[1]);
+      return `${m[1]}=${overrides[m[1]]}`;
+    }
+    return line;
+  });
+  for (const k of keys) {
+    if (!seen.has(k)) lines.push(`${k}=${overrides[k]}`);
+  }
+  return lines.join('\n');
+}
+
 function confirm(question) {
   return new Promise((resolve) => {
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
@@ -135,21 +155,33 @@ async function main() {
   fs.rmSync(distDir, { recursive: true, force: true });
 
   console.log(`\n▸ Exporting production bundle → ${distDir}\n`);
-  // Force prod backend config the SAME way `eas build` does: inject
-  // eas.json build.production.env into the bundler's environment. `expo export`
-  // bundles locally, where `.env` (staging) would otherwise win — dotenv (loaded
-  // by app.config.js) and @expo/env both skip vars already set in process.env,
-  // so these injected values take precedence, while keys that live ONLY in `.env`
-  // (Google client IDs, GolfAPI URL, offline flags) still pass through. Only the
-  // production branch gets this treatment; other branches keep their own env.
-  const exportEnv =
-    args.branch === 'production' ? { ...process.env, ...prodEnv } : process.env;
-  if (args.branch === 'production') {
-    console.log('  (injecting eas.json build.production.env so prod config wins over .env)\n');
+  // Force prod backend config into the bundle. `expo export` bundles locally,
+  // and Expo's env loader (@expo/env) overrides process.env from `.env` files —
+  // so injecting into the child environment does NOT win. The only reliable way
+  // is to control the file Expo reads: temporarily rewrite `.env` so the backend
+  // keys hold prod values (from eas.json build.production.env), while every other
+  // line — Google client IDs, GolfAPI URL, offline flags — is preserved verbatim.
+  // `.env` is restored immediately after the export in a `finally`; a tmpdir
+  // backup guards against a crash mid-export.
+  const envPath = path.join(repoRoot, '.env');
+  const envBackupPath = path.join(os.tmpdir(), `nineteenth-env-backup-${process.pid}`);
+  let envSwapped = false;
+  if (args.branch === 'production' && fs.existsSync(envPath)) {
+    const originalEnvText = fs.readFileSync(envPath, 'utf8');
+    fs.writeFileSync(envBackupPath, originalEnvText);
+    fs.writeFileSync(envPath, composeProdEnvFile(originalEnvText, prodEnv));
+    envSwapped = true;
+    console.log('  (temporarily forced prod backend values into .env for the export)\n');
   }
-  run('npx', ['expo', 'export', '--platform', args.platform, '--output-dir', distDir], {
-    env: exportEnv,
-  });
+  try {
+    run('npx', ['expo', 'export', '--platform', args.platform, '--output-dir', distDir]);
+  } finally {
+    if (envSwapped) {
+      fs.copyFileSync(envBackupPath, envPath);
+      fs.rmSync(envBackupPath, { force: true });
+      console.log('  (.env restored)\n');
+    }
+  }
 
   // Only the production branch gets the prod-vs-staging assertions.
   if (args.branch === 'production') {
