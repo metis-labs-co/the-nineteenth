@@ -8,6 +8,7 @@ import type { AltShotTeamMember } from '@/utils/teamScoring/altShot';
 import type { Scorecard } from '@/types/database/scorecard.types';
 import { isSingleBallScore } from '@/types/database/base';
 import type { HoleScore, MultiBallHoleScore } from '@/types/database/base';
+import type { RoundRulesOverride } from '@/types/database/roundRules.types';
 
 /** A raw hole-score value as stored on a scorecard (single- or multi-ball). */
 export type RawHoleScore = HoleScore | MultiBallHoleScore;
@@ -278,19 +279,41 @@ export interface TeamMatchLeader {
  * the winner's team; a started-but-level match splits 0.5/0.5; an unstarted
  * match contributes nothing.
  */
-export function tallyByTeam(leaders: TeamMatchLeader[]): Map<string, number> {
-  const points = new Map<string, number>();
+export function tallyByTeam(
+  leaders: TeamMatchLeader[],
+  points: { win: number; tie: number } = { win: 1, tie: 0.5 }
+): Map<string, number> {
+  const tally = new Map<string, number>();
   const add = (team: string | null, n: number) => {
     if (!team) return;
-    points.set(team, (points.get(team) ?? 0) + n);
+    tally.set(team, (tally.get(team) ?? 0) + n);
   };
   for (const r of leaders) {
     if (!r.hasScores) continue;
-    if (r.leaderSide === 'a') add(r.teamA, 1);
-    else if (r.leaderSide === 'b') add(r.teamB, 1);
-    else { add(r.teamA, 0.5); add(r.teamB, 0.5); }
+    if (r.leaderSide === 'a') add(r.teamA, points.win);
+    else if (r.leaderSide === 'b') add(r.teamB, points.win);
+    else {
+      add(r.teamA, points.tie);
+      add(r.teamB, points.tie);
+    }
   }
-  return points;
+  return tally;
+}
+
+/**
+ * Per-match display points for a split sub-match round. Split rounds are scored
+ * per match via `pair_points`; legacy singles match-play rounds stored the value
+ * under `team_points` (the points editor wrote there when no pair_points seed
+ * existed), so fall back to it. Non-split rounds use the flat 1 / 0.5 tally.
+ */
+export function resolveSplitMatchDisplayPoints(round: {
+  round_format?: string | null;
+  rules_override?: RoundRulesOverride | null;
+}): { win: number; tie: number } {
+  if (round.round_format !== 'split') return { win: 1, tie: 0.5 };
+  const pts = round.rules_override?.pair_points ?? round.rules_override?.team_points;
+  if (!pts) return { win: 1, tie: 0.5 };
+  return { win: pts.win, tie: pts.tie };
 }
 
 /**
