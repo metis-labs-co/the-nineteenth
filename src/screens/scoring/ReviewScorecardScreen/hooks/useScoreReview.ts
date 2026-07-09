@@ -5,8 +5,10 @@
 import { useMemo, useCallback, useState } from 'react';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { generateDefaultHoles } from '@/utils/scorecardCalculations';
+import { detectBallCount, hasMultiBallScores } from '@/utils/multiBallScorecard';
 import { isSingleBallScore } from '@/types/database/base';
 import type { ScorecardTablePlayer } from '@/components/scorecard';
+import type { BallCount } from '@/types/multiball.types';
 import type { Hole, Player, Scorecard, GameType, HoleScore, MultiBallHoleScore, TeeBox } from '@/types/index';
 import type { HandicapSource } from '@/types/database/enums';
 
@@ -40,6 +42,10 @@ interface UseScoreReviewReturn {
   handicapSource: HandicapSource;
   startHole: number;
 
+  // Multi-ball (solo practice) display
+  isMultiBall: boolean;
+  ballCount: BallCount;
+
   // Actions
   setCurrentHole: (hole: number) => void;
   resetRound: () => void;
@@ -61,6 +67,8 @@ export function useScoreReview({ routeHoles }: UseScoreReviewParams): UseScoreRe
     handicapSource,
     startHole,
     allowedPlayerIds,
+    isMultiBall: storeIsMultiBall,
+    ballCount: storeBallCount,
   } = useScorecardStore();
 
   const [showIncompleteModal, setShowIncompleteModal] = useState(false);
@@ -90,6 +98,16 @@ export function useScoreReview({ routeHoles }: UseScoreReviewParams): UseScoreRe
       };
     });
   }, [currentPlayers, groupScorecards]);
+
+  // Multi-ball is a solo practice format. Trust the store's round config, but
+  // fall back to the stored scores so a cold-started review (store not yet
+  // configured) still renders the balls that were actually scored.
+  const soloScores = tablePlayerData.length === 1 ? tablePlayerData[0].scores : null;
+
+  const isMultiBall = storeIsMultiBall || hasMultiBallScores(soloScores);
+  const ballCount = (
+    Math.max(storeBallCount, detectBallCount(soloScores))
+  ) as BallCount;
 
   // Validate that all scores are entered for all players on all holes.
   // When scoring pairs are active, only the user's assigned set (self +
@@ -137,6 +155,8 @@ export function useScoreReview({ routeHoles }: UseScoreReviewParams): UseScoreRe
     currentRoundId,
     gameType,
     getPlayerScore,
+    isMultiBall,
+    ballCount,
 
     // Handicap display
     selectedTeeData,
