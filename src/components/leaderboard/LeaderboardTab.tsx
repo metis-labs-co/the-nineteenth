@@ -26,6 +26,7 @@ import {
 import { isSplitAltShotRound, isSplitMatchPlayRound, isTeamMatchPlayRound } from '@/utils/roundFormat';
 import { RoundSubMatchLeaderboard } from './RoundSubMatchLeaderboard';
 import { LeaderboardHeader } from './LeaderboardHeader';
+import { buildPositionalRoundNumbers } from './roundNumbering';
 import { useCompetitionLeaderboard, type LeaderboardFilter, type CompetitionLeaderboardEntry } from '@/hooks/useCompetitionLeaderboard';
 import { useTeams } from '@/hooks/rounds';
 import { spacing, typography, borderRadius } from '@/constants/theme';
@@ -213,6 +214,7 @@ function toTeamLeaderboardEntries(
 ): TeamLeaderboardEntry[] {
   // Build a lookup for round metadata so the breakdown can show round number + course
   const roundsById = new Map(rounds.map((r) => [r.id, r]));
+  const positionalByRoundId = buildPositionalRoundNumbers(rounds);
 
   return entries.map((entry) => {
     // Calculate average handicap from team members
@@ -221,17 +223,18 @@ function toTeamLeaderboardEntries(
         ? entry.teamMembers.reduce((sum, m) => sum + m.handicap, 0) / entry.teamMembers.length
         : 0;
 
-    // Build per-round breakdown, ordered by round_number where available
+    // Build per-round breakdown, ordered by positional round number
     const roundBreakdown = entry.roundPoints
       .map((rp) => {
         const round = roundsById.get(rp.roundId);
+        const positional = positionalByRoundId.get(rp.roundId);
         return {
           roundId: rp.roundId,
-          roundLabel: round ? `R${round.round_number}` : 'R?',
+          roundLabel: positional ? `R${positional}` : 'R?',
           courseName: round?.course?.name ?? undefined,
           position: rp.position,
           points: rp.points,
-          _sortKey: round?.round_number ?? Number.MAX_SAFE_INTEGER,
+          _sortKey: positional ?? Number.MAX_SAFE_INTEGER,
         };
       })
       .sort((a, b) => a._sortKey - b._sortKey)
@@ -278,7 +281,7 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
     () =>
       rounds
         .filter((round) => round.status === 'completed')
-        .sort((a, b) => a.round_number - b.round_number),
+        .sort((a, b) => a.display_order - b.display_order),
     [rounds]
   );
 
@@ -287,7 +290,7 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
     () =>
       rounds
         .filter((round) => round.status === 'in-progress')
-        .sort((a, b) => a.round_number - b.round_number),
+        .sort((a, b) => a.display_order - b.display_order),
     [rounds]
   );
 
@@ -299,8 +302,16 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
     () => [
       ...inProgressRounds.map((round) => ({ round, inProgress: true })),
       ...completedRounds.map((round) => ({ round, inProgress: false })),
-    ].sort((a, b) => a.round.round_number - b.round.round_number),
+    ].sort((a, b) => a.round.display_order - b.round.display_order),
     [inProgressRounds, completedRounds]
+  );
+
+  // User-facing round numbers: 1-based position within the display_order-sorted
+  // list, so gaps left by deleted/reordered rounds don't surface (matches the
+  // Rounds tab). `round.round_number` is a stable id with gaps — display only.
+  const positionalRoundNumbers = useMemo(
+    () => buildPositionalRoundNumbers(rounds),
+    [rounds]
   );
 
   // Check if ALL rounds are single-ball team format (scramble/alt-shot — individual standings become irrelevant)
@@ -501,7 +512,7 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
               return (
                 <View key={round.id} style={styles.roundLeaderboardContainer}>
                   <LeaderboardHeader
-                    roundNumber={round.round_number}
+                    roundNumber={positionalRoundNumbers.get(round.id) ?? round.round_number}
                     gameType={gameType}
                     isTeamRound={round.is_team_round}
                     roundFormat={round.round_format}
@@ -530,7 +541,7 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
                     <InProgressRoundLeaderboard
                       roundId={round.id}
                       gameType={gameType}
-                      roundNumber={round.round_number}
+                      roundNumber={positionalRoundNumbers.get(round.id) ?? round.round_number}
                       roundName={round.name}
                       courseName={round.course?.name ?? undefined}
                       currentUserId={currentUserId}

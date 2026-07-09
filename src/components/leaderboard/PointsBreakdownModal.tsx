@@ -14,6 +14,7 @@ import { BottomSheet } from '@/components/common/BottomSheet';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import type { RoundWithCourse } from '@/components/competitions/detail/types';
+import { buildPositionalRoundNumbers } from './roundNumbering';
 
 interface RoundPoints {
   roundId: string;
@@ -63,14 +64,21 @@ export function PointsBreakdownModal({
     return map;
   }, [rounds]);
 
-  // Sort round points by round number
+  // Positional round numbers: 1-based position within the display_order-sorted
+  // list, matching the Rounds tab (round.round_number is a stable id with gaps).
+  const positionalByRoundId = useMemo(
+    () => buildPositionalRoundNumbers(rounds),
+    [rounds]
+  );
+
+  // Sort round points by positional round number
   const sortedRoundPoints = useMemo(() => {
     return [...roundPoints].sort((a, b) => {
-      const roundA = roundInfoMap.get(a.roundId);
-      const roundB = roundInfoMap.get(b.roundId);
-      return (roundA?.round_number ?? 0) - (roundB?.round_number ?? 0);
+      const posA = positionalByRoundId.get(a.roundId) ?? Number.MAX_SAFE_INTEGER;
+      const posB = positionalByRoundId.get(b.roundId) ?? Number.MAX_SAFE_INTEGER;
+      return posA - posB;
     });
-  }, [roundPoints, roundInfoMap]);
+  }, [roundPoints, positionalByRoundId]);
 
   // Calculate average points per round
   const avgPoints = roundsPlayed > 0 ? (totalPoints / roundsPlayed).toFixed(1) : '0';
@@ -179,7 +187,7 @@ export function PointsBreakdownModal({
                   <View style={styles.roundInfo}>
                     <View style={styles.roundHeader}>
                       <Text style={[styles.roundNumber, { color: colors.textPrimary }]}>
-                        Round {roundInfo?.round_number ?? index + 1}
+                        Round {positionalByRoundId.get(rp.roundId) ?? index + 1}
                       </Text>
                       {roundInfo?.date && (
                         <Text style={[styles.roundDate, { color: colors.textSecondary }]}>

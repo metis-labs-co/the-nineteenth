@@ -1315,6 +1315,7 @@ describe('LeaderboardTab', () => {
     const altShotR2 = createMockRound({
       id: 'r2',
       round_number: 2,
+      display_order: 2,
       status: 'in-progress',
       round_format: 'split',
       game_type: 'alt-shot',
@@ -1336,7 +1337,9 @@ describe('LeaderboardTab', () => {
 
     it('renders a Round header + format pill for the split alt-shot round', () => {
       render(<LeaderboardTab {...defaultProps} rounds={[altShotR2]} />);
-      expect(screen.getByTestId('lb-header-2')).toBeTruthy();
+      // Positional numbering: it's the only round in the list, so it's "Round 1"
+      // regardless of its round_number/display_order value.
+      expect(screen.getByTestId('lb-header-1')).toBeTruthy();
       expect(screen.getByTestId('submatch-leaderboard-r2')).toBeTruthy();
     });
   });
@@ -1366,6 +1369,7 @@ describe('LeaderboardTab', () => {
     const altShotR2 = createMockRound({
       id: 'r2',
       round_number: 2,
+      display_order: 2,
       status: 'in-progress',
       round_format: 'split',
       game_type: 'alt-shot',
@@ -1420,7 +1424,7 @@ describe('LeaderboardTab', () => {
       id: 'r1', round_number: 1, status: 'completed', game_type: 'stableford', team_format: null,
     });
     const matchPlayR2 = createMockRound({
-      id: 'r2', round_number: 2, status: 'in-progress',
+      id: 'r2', round_number: 2, display_order: 2, status: 'in-progress',
       round_format: 'split', game_type: 'match-play', team_format: 'match-play-team', is_team_round: true,
     });
 
