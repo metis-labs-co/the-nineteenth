@@ -346,7 +346,7 @@ export const DistanceToPin = React.memo(function DistanceToPin({
       >
         <Icon
           source="map-marker"
-          size={16}
+          size={22}
           color={isClose ? colors.success : colors.textSecondary}
         />
         <Text
@@ -413,8 +413,9 @@ const styles = StyleSheet.create({
     ...typography.small,
   },
   distanceText: {
-    ...typography.small,
-    fontWeight: '600',
+    fontSize: 19,
+    lineHeight: 24,
+    fontWeight: '700',
   },
 });
 
