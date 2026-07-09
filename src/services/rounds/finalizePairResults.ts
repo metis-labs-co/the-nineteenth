@@ -113,7 +113,10 @@ export function isPairPointsOverride(
   override: RoundRulesOverride | null | undefined
 ): boolean {
   if (roundFormat !== 'split') return false;
-  return !!override?.pair_points;
+  // Split rounds are scored per-match. New rounds store per-match points under
+  // pair_points; legacy singles match-play rounds stored them under team_points
+  // (the points editor wrote there when no pair_points seed existed).
+  return !!(override?.pair_points ?? override?.team_points);
 }
 
 async function fetchSubMatchesForRound(roundId: string): Promise<SubMatch[]> {
@@ -249,7 +252,9 @@ export async function finalizePairResults(
   // on disk; they simply aren't applied while mode is off.
   if (perRoundRulesEnabled === false) return 0;
 
-  const pairPoints = rulesOverride?.pair_points;
+  // Split rounds only reach here via the dispatcher's isPairPointsOverride gate,
+  // so team_points here means legacy per-match points.
+  const pairPoints = rulesOverride?.pair_points ?? rulesOverride?.team_points;
   if (!pairPoints) return 0;
 
   const subMatches = input.subMatches ?? (await fetchSubMatchesForRound(roundId));

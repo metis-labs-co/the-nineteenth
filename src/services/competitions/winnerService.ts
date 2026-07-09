@@ -2,13 +2,15 @@
 import { getCompetitionResults } from '@/services/rounds/roundResultsService';
 import { aggregateCompetitionStandings } from '@/utils/competitionPoints';
 import type { CompetitionWinnerInfo } from '@/components/competitions/CompetitionListCard';
+import type { TeamMode } from '@/types/database/enums';
 
 /**
  * Fetches the winner for a completed competition
  * Returns the first place participant (player or team) with their total points
  */
 export async function fetchCompetitionWinner(
-  competitionId: string
+  competitionId: string,
+  teamMode?: TeamMode
 ): Promise<CompetitionWinnerInfo | undefined> {
   try {
     const competitionResults = await getCompetitionResults(competitionId);
@@ -16,6 +18,14 @@ export async function fetchCompetitionWinner(
     if (!competitionResults.rounds || competitionResults.rounds.length === 0) {
       return undefined;
     }
+
+    // For team competitions, the winner is the top TEAM; for individual
+    // competitions, the top player. Team and individual rows coexist in a team
+    // competition and their point totals aren't comparable, so aggregating both
+    // together would surface the wrong winner.
+    const wantTeams = teamMode !== undefined && teamMode !== 'none';
+    const includeRow = (isTeam: boolean) =>
+      teamMode === undefined ? true : wantTeams ? isTeam : !isTeam;
 
     // Build participant lookup map
     const participantMap = new Map<string, { name: string; isTeam: boolean }>();
@@ -27,10 +37,12 @@ export async function fetchCompetitionWinner(
       const results = [];
 
       for (const result of round.results) {
+        const isTeam = result.is_team_result;
+        if (!includeRow(isTeam)) continue;
+
         const id = result.player_id || result.team_id;
         if (!id) continue;
 
-        const isTeam = result.is_team_result;
         const name = isTeam ? result.team?.name : result.player?.name;
 
         if (!participantMap.has(id) && name) {

@@ -2,6 +2,7 @@ import React, { useCallback } from 'react';
 import { useRoundDetails, useRoundScorecards } from '@/hooks/rounds';
 import { isSingleBallScore } from '@/types/database/base';
 import { SubMatchLeaderboardTab } from './SubMatchLeaderboardTab';
+import { resolveSplitMatchDisplayPoints } from '@/screens/scoring/ReviewScorecardScreen/utils/subMatchLeaderboard';
 import type { GameType, TeamFormat } from '@/types';
 
 interface RoundSubMatchLeaderboardProps {
@@ -31,6 +32,11 @@ export function RoundSubMatchLeaderboard({
   const { data: round } = useRoundDetails(roundId);
   const { data: scorecards } = useRoundScorecards(roundId);
 
+  const matchPoints = resolveSplitMatchDisplayPoints({
+    round_format: round?.round_format ?? null,
+    rules_override: round?.rules_override ?? null,
+  });
+
   const getStrokes = useCallback(
     (playerId: string, hole: number): number | undefined => {
       const sc = scorecards?.find((s) => s.player_id === playerId);
@@ -56,6 +62,7 @@ export function RoundSubMatchLeaderboard({
       onRefresh={onRefresh ?? (() => {})}
       bottomInset={bottomInset}
       scrollable={false}
+      matchPoints={matchPoints}
     />
   );
 }

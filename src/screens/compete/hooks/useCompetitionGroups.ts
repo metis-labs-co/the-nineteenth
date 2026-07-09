@@ -111,7 +111,7 @@ export function useCompetitionGroups() {
 
           // Fetch winner for completed competitions
           if (comp.status === 'completed') {
-            const winner = await fetchCompetitionWinner(comp.id);
+            const winner = await fetchCompetitionWinner(comp.id, comp.team_mode ?? 'none');
             return { ...baseCompetition, winner };
           }
 
@@ -187,7 +187,7 @@ export function useCompetitionGroups() {
 
           // Fetch winner for completed competitions
           if (comp.status === 'completed') {
-            const winner = await fetchCompetitionWinner(comp.id);
+            const winner = await fetchCompetitionWinner(comp.id, comp.team_mode ?? 'none');
             return { ...baseCompetition, winner };
           }
 

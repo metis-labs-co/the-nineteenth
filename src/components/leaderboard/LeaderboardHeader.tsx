@@ -43,6 +43,8 @@ export interface LeaderboardHeaderProps {
   roundFormat?: RoundFormat;
   subMatchSize?: number | null;
   rulesOverride?: RoundRulesOverride | null;
+  /** Optional right-aligned points/status badge (e.g. "Dinner bet · 0 pts"). */
+  pointsBadge?: string;
 }
 
 export const LeaderboardHeader = React.memo(function LeaderboardHeader({
@@ -56,6 +58,7 @@ export const LeaderboardHeader = React.memo(function LeaderboardHeader({
   roundFormat,
   subMatchSize,
   rulesOverride,
+  pointsBadge,
 }: LeaderboardHeaderProps) {
   const colors = useThemeColors();
 
@@ -101,6 +104,13 @@ export const LeaderboardHeader = React.memo(function LeaderboardHeader({
               <IconUsers size={12} color={colors.textSecondary} />
               <ScaledText category="caption" style={[styles.teamBadgeText, { color: colors.textSecondary }]}>
                 Teams
+              </ScaledText>
+            </View>
+          )}
+          {pointsBadge && (
+            <View style={[styles.pointsBadge, { backgroundColor: colors.primaryLighter }]}>
+              <ScaledText category="caption" style={[styles.pointsBadgeText, { color: colors.primary }]}>
+                {pointsBadge}
               </ScaledText>
             </View>
           )}

@@ -34,3 +34,26 @@ describe('tallyByTeam', () => {
     expect(tallyByTeam(leaders).size).toBe(0);
   });
 });
+
+describe('tallyByTeam with configured points', () => {
+  it('scales wins by the configured per-match win value (2 pts -> 4-4)', () => {
+    const leaders: TeamMatchLeader[] = [
+      { teamA: 'Australia', teamB: 'England',  leaderSide: 'b', hasScores: true },
+      { teamA: 'England',  teamB: 'Australia', leaderSide: 'b', hasScores: true },
+      { teamA: 'Australia', teamB: 'England',  leaderSide: 'b', hasScores: true },
+      { teamA: 'England',  teamB: 'Australia', leaderSide: 'b', hasScores: true },
+    ];
+    const t = tallyByTeam(leaders, { win: 2, tie: 1 });
+    expect(t.get('England')).toBe(4);
+    expect(t.get('Australia')).toBe(4);
+  });
+
+  it('uses the configured tie value for a halved match', () => {
+    const leaders: TeamMatchLeader[] = [
+      { teamA: 'England', teamB: 'Australia', leaderSide: null, hasScores: true },
+    ];
+    const t = tallyByTeam(leaders, { win: 2, tie: 1 });
+    expect(t.get('England')).toBe(1);
+    expect(t.get('Australia')).toBe(1);
+  });
+});
