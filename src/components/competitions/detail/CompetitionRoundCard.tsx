@@ -122,7 +122,7 @@ export const CompetitionRoundCard = React.memo(function CompetitionRoundCard({
         withTiming(1.2, { duration: 90, easing }),
         withTiming(0, { duration: 80, easing })
       );
-      scale.value = withTiming(1.03, { duration: 140 });
+      scale.value = withTiming(1.05, { duration: 140 });
     } else {
       cancelAnimation(rotation);
       rotation.value = withTiming(0, { duration: 140 });
