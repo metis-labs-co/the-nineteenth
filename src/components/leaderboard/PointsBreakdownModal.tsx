@@ -232,7 +232,7 @@ export function PointsBreakdownModal({
                       onPress={() => onRoundPress(rp.roundId)}
                       activeOpacity={0.7}
                       accessibilityRole="button"
-                      accessibilityLabel={`Round ${roundInfo?.round_number ?? index + 1}, ${rp.position}${getPositionSuffix(rp.position)} place, ${rp.points} points`}
+                      accessibilityLabel={`Round ${positionalByRoundId.get(rp.roundId) ?? index + 1}, ${rp.position}${getPositionSuffix(rp.position)} place, ${rp.points} points`}
                       accessibilityHint="Tap to view scorecard"
                     >
                       {rowContent}

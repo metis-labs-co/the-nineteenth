@@ -559,6 +559,7 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
                         effectiveView === 'individual' && hasTeams ? playerTeamLookup : undefined
                       }
                       roundName={round.name}
+                      roundNumber={positionalRoundNumbers.get(round.id) ?? round.round_number}
                       testID={`round-leaderboard-${round.round_number}`}
                     />
                   )}
@@ -579,6 +580,7 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
                     effectiveView === 'individual' && hasTeams ? playerTeamLookup : undefined
                   }
                   roundName={round.name}
+                  roundNumber={positionalRoundNumbers.get(round.id) ?? round.round_number}
                   testID={`round-leaderboard-${round.round_number}`}
                 />
               </View>
