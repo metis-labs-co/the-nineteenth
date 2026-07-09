@@ -86,6 +86,9 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
   const [leaderboardView, setLeaderboardView] = useState<'individual' | 'team'>(
     'individual'
   );
+  // Guards the one-shot default below so it fires exactly once when competition
+  // data first resolves and never re-fights a later manual toggle by the user.
+  const didDefaultLeaderboardView = React.useRef(false);
   const [leaderboardScrollTarget, setLeaderboardScrollTarget] = useState<
     { kind: 'player' | 'team'; id: string } | null
   >(null);
@@ -118,6 +121,18 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
     refetchLeaderboard,
     refetchTeams,
   } = useCompetitionDetailData(id);
+
+  // Team competitions open the leaderboard on the Team sub-view. Runs once when
+  // competition data first resolves; never fights a later manual toggle.
+  const competitionTeamMode = competitionData?.competition.team_mode;
+  React.useEffect(() => {
+    if (didDefaultLeaderboardView.current) return;
+    if (competitionTeamMode === undefined) return; // not loaded yet
+    if (competitionTeamMode !== 'none') {
+      setLeaderboardView('team');
+    }
+    didDefaultLeaderboardView.current = true;
+  }, [competitionTeamMode]);
 
   // Skins overview drives both the tab visibility and the tab content. We
   // fetch it up here so the conditional Tabs entry is in sync with the
