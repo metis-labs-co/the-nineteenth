@@ -27,12 +27,14 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withTiming,
+  type SharedValue,
 } from 'react-native-reanimated';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import type { ColorPalette } from '@/context/ThemeContext';
 import type { RoundWithCourse } from './types';
 import type { GameType } from '@/types';
 import { CompetitionRoundCard } from './CompetitionRoundCard';
+import { getHoverIndex, computeReorderShift } from './reorderMath';
 import { EmptyState, SwipeableRow } from '@/components/common';
 import { useForceFinalizeRound } from '@/hooks/rounds';
 import ForceSubmitRoundDialog from '@/components/rounds/ForceSubmitRoundDialog';
@@ -78,9 +80,12 @@ interface DraggableRowProps {
   index: number;
   totalCount: number;
   reorderEnabled: boolean;
-  rowHeight: number;
+  slotHeight: number;
+  /** Parent-owned: index of the row being dragged, -1 when idle. */
+  activeIndex: SharedValue<number>;
+  /** Parent-owned: live pan translationY of the dragged row. */
+  activeOffsetY: SharedValue<number>;
   onMove: (fromIndex: number, toIndex: number) => void;
-  onActiveChange: (isActive: boolean) => void;
   onLayout: (e: LayoutChangeEvent) => void;
   children: (isDragging: boolean) => React.ReactNode;
 }
@@ -89,60 +94,52 @@ function DraggableRow({
   index,
   totalCount,
   reorderEnabled,
-  rowHeight,
+  slotHeight,
+  activeIndex,
+  activeOffsetY,
   onMove,
-  onActiveChange,
   onLayout,
   children,
 }: DraggableRowProps) {
+  // This row's own finger-follow translation (non-zero only while IT is the
+  // dragged row). Siblings keep this at 0 and move via the shift term instead.
   const dragY = useSharedValue(0);
   const elevated = useSharedValue(0);
-  // React state mirrors the active flag so child cards (which run their
-  // wiggle from a prop) re-render when drag starts/ends.
+  // Mirrors the active flag so the child card (which runs its wiggle from a
+  // prop) re-renders when this row's drag starts/ends.
   const [isActive, setIsActive] = useState(false);
-
-  const setActiveJS = useCallback(
-    (active: boolean) => {
-      setIsActive(active);
-      onActiveChange(active);
-    },
-    [onActiveChange]
-  );
 
   const finishDrag = useCallback(
     (translationY: number) => {
-      if (rowHeight <= 0) return;
-      const indexDelta = Math.round(translationY / rowHeight);
-      const newIndex = Math.max(
-        0,
-        Math.min(totalCount - 1, index + indexDelta)
-      );
+      if (slotHeight <= 0) return;
+      const indexDelta = Math.round(translationY / slotHeight);
+      const newIndex = Math.max(0, Math.min(totalCount - 1, index + indexDelta));
       if (newIndex !== index) {
         onMove(index, newIndex);
       }
     },
-    [index, totalCount, rowHeight, onMove]
+    [index, totalCount, slotHeight, onMove]
   );
 
-  // LongPress fires after the hold threshold. Pan is composed simultaneously
-  // and only activates after the long-press, so short vertical swipes pass
-  // through to the parent ScrollView (no scroll fight).
   const longPress = Gesture.LongPress()
     .minDuration(LONG_PRESS_MS)
     .enabled(reorderEnabled)
     .onStart(() => {
       'worklet';
       elevated.value = 1;
-      runOnJS(setActiveJS)(true);
+      activeIndex.value = index;
+      activeOffsetY.value = 0;
+      runOnJS(setIsActive)(true);
     })
     .onFinalize(() => {
       'worklet';
-      // Only the pan's onEnd fires the actual move; this just resets the
-      // elevated state if the pan never activated (e.g. user lifted finger
-      // immediately after long-press without panning).
+      // If the pan never engaged (finger lifted right after the long-press),
+      // release the elevated/active state and clear the shared drag flag.
       if (dragY.value === 0) {
         elevated.value = 0;
-        runOnJS(setActiveJS)(false);
+        activeIndex.value = -1;
+        activeOffsetY.value = 0;
+        runOnJS(setIsActive)(false);
       }
     });
 
@@ -152,36 +149,48 @@ function DraggableRow({
     .onUpdate((e) => {
       'worklet';
       dragY.value = e.translationY;
+      activeOffsetY.value = e.translationY;
     })
     .onEnd((e) => {
       'worklet';
       runOnJS(finishDrag)(e.translationY);
       dragY.value = withTiming(0, { duration: 180 });
       elevated.value = 0;
-      runOnJS(setActiveJS)(false);
+      activeIndex.value = -1;
+      activeOffsetY.value = 0;
+      runOnJS(setIsActive)(false);
     })
     .onFinalize(() => {
       'worklet';
       // Safety net for cancelled gestures.
       dragY.value = withTiming(0, { duration: 180 });
       elevated.value = 0;
-      runOnJS(setActiveJS)(false);
+      activeIndex.value = -1;
+      activeOffsetY.value = 0;
+      runOnJS(setIsActive)(false);
     });
 
   const composed = Gesture.Simultaneous(longPress, pan);
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: dragY.value }],
-    zIndex: elevated.value ? 100 : 1,
-    elevation: elevated.value ? 12 : 0,
-  }));
+  const animatedStyle = useAnimatedStyle(() => {
+    const hover = getHoverIndex(
+      activeIndex.value,
+      activeOffsetY.value,
+      slotHeight,
+      totalCount
+    );
+    const shiftDir = computeReorderShift(index, activeIndex.value, hover);
+    const shift = withTiming(shiftDir * slotHeight, { duration: 150 });
+    return {
+      transform: [{ translateY: dragY.value + shift }],
+      zIndex: elevated.value ? 100 : 1,
+      elevation: elevated.value ? 12 : 0,
+    };
+  });
 
   return (
     <GestureDetector gesture={composed}>
-      <Animated.View
-        style={[styles.row, animatedStyle]}
-        onLayout={onLayout}
-      >
+      <Animated.View style={[styles.row, animatedStyle]} onLayout={onLayout}>
         {children(isActive)}
       </Animated.View>
     </GestureDetector>
@@ -234,19 +243,20 @@ export const RoundsTab = React.memo(function RoundsTab({
     );
   }, [forceFinalize, forceSubmitRoundId, competitionId, showToast]);
 
-  // Track the height of a row so the drag can map translationY back to an
-  // index delta. Cards are roughly the same height; we measure the first
-  // one to land. Includes the bottom margin so each "step" in the drag is
-  // exactly one row.
-  const [rowHeight, setRowHeight] = useState(0);
+  // Parent-owned drag state, shared with every DraggableRow so siblings can
+  // compute where the dragged card is hovering and shift to open a gap.
+  const activeIndex = useSharedValue(-1);
+  const activeOffsetY = useSharedValue(0);
+
+  // A "slot" is one card plus its bottom margin. onLayout measures the card
+  // without margin, so we add spacing.md back to keep the opened gap and the
+  // release drop index aligned. Lock to the first non-zero measurement so the
+  // math stays stable across re-renders (the active card scales during drag).
+  const [slotHeight, setSlotHeight] = useState(0);
   const handleRowLayout = useCallback((e: LayoutChangeEvent) => {
     const measured = e.nativeEvent.layout.height;
     if (measured > 0) {
-      setRowHeight((current) =>
-        // Lock to the first non-zero measurement to keep drag math stable
-        // across re-renders (cards can shrink during drag for the active row).
-        current === 0 ? measured : current
-      );
+      setSlotHeight((current) => (current === 0 ? measured + spacing.md : current));
     }
   }, []);
 
@@ -260,11 +270,6 @@ export const RoundsTab = React.memo(function RoundsTab({
     },
     [rounds, onReorder]
   );
-
-  const handleActiveChange = useCallback(() => {
-    // Hook left in place for future polish (e.g. dimming non-active rows).
-    // Currently a no-op; per-row wiggle is driven by the render-prop arg.
-  }, []);
 
   return (
     <View>
@@ -326,9 +331,10 @@ export const RoundsTab = React.memo(function RoundsTab({
                 index={index}
                 totalCount={rounds.length}
                 reorderEnabled={canReorder}
-                rowHeight={rowHeight}
+                slotHeight={slotHeight}
+                activeIndex={activeIndex}
+                activeOffsetY={activeOffsetY}
                 onMove={handleMove}
-                onActiveChange={handleActiveChange}
                 onLayout={handleRowLayout}
               >
                 {renderCard}
