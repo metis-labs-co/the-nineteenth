@@ -57,6 +57,7 @@ function parseArgs(argv) {
     else if (a === '--rollout') out.rollout = argv[++i];
     else if (a === '--branch') out.branch = argv[++i];
     else if (a === '-y' || a === '--yes') out.yes = true;
+    else if (a === '--') continue; // pnpm forwards this separator verbatim; ignore it
     else if (!a.startsWith('-')) positional.push(a);
     else {
       console.error(`Unknown flag: ${a}`);
