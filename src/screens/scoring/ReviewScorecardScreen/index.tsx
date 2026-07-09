@@ -34,7 +34,7 @@ import type { ShotLogEntry } from '@/types/database/shotLog.types';
 import { buildDailyHandicapMap } from '@/utils/leaderboardHandicaps';
 import { SubMatchLeaderboardTab } from '@/components/leaderboard';
 import { useRoundScorecards } from '@/hooks/rounds';
-import { createMergedGetStrokes } from './utils/subMatchLeaderboard';
+import { createMergedGetStrokes, resolveSplitMatchDisplayPoints } from './utils/subMatchLeaderboard';
 import { useScoreReview, useScoreSubmission, useReviewScorecardTabs, useScrambleTeams } from './hooks';
 import {
   IncompleteScoresModal,
@@ -196,6 +196,17 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
   const getStrokes = useMemo(
     () => createMergedGetStrokes(getPlayerScore, roundScorecards),
     [getPlayerScore, roundScorecards]
+  );
+
+  // Per-match points for the sub-match tally header, resolved from the
+  // round's configured rules (defaults to flat 1 / 0.5 when unset).
+  const matchPoints = useMemo(
+    () =>
+      resolveSplitMatchDisplayPoints({
+        round_format: roundDetails?.round_format ?? null,
+        rules_override: roundDetails?.rules_override ?? null,
+      }),
+    [roundDetails?.round_format, roundDetails?.rules_override]
   );
 
   // Mismatch hooks
@@ -477,6 +488,7 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
           isRefreshing={isRefreshing}
           onRefresh={handleRefresh}
           bottomInset={insets.bottom}
+          matchPoints={matchPoints}
         />
       )}
 

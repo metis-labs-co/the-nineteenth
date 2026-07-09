@@ -101,6 +101,8 @@ interface SubMatchLeaderboardTabProps {
   onRefresh: () => void;
   bottomInset: number;
   scrollable?: boolean;
+  /** Per-match points for the overall tally header. Defaults to flat 1 / 0.5. */
+  matchPoints?: { win: number; tie: number };
 }
 
 function labelForSide(
@@ -127,6 +129,7 @@ export function SubMatchLeaderboardTab({
   onRefresh,
   bottomInset,
   scrollable = true,
+  matchPoints = { win: 1, tie: 0.5 },
 }: SubMatchLeaderboardTabProps) {
   const colors = useThemeColors();
   const { data: subMatches, isLoading: smLoading } = useSubMatches(roundId);
@@ -287,7 +290,7 @@ export function SubMatchLeaderboardTab({
   // The Ryder-cup tally header only makes sense across real sub-matches; a
   // single synthesized team-vs-team row is the result on its own.
   const showOverall = (subMatches?.length ?? 0) > 0 && teams.length >= 2;
-  const tally = tallyByTeam(leaders);
+  const tally = tallyByTeam(leaders, matchPoints);
   const first = rows[0];
 
   const body = rows.length === 0 ? (
