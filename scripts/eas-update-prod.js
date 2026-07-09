@@ -135,7 +135,21 @@ async function main() {
   fs.rmSync(distDir, { recursive: true, force: true });
 
   console.log(`\n▸ Exporting production bundle → ${distDir}\n`);
-  run('npx', ['expo', 'export', '--platform', args.platform, '--output-dir', distDir]);
+  // Force prod backend config the SAME way `eas build` does: inject
+  // eas.json build.production.env into the bundler's environment. `expo export`
+  // bundles locally, where `.env` (staging) would otherwise win — dotenv (loaded
+  // by app.config.js) and @expo/env both skip vars already set in process.env,
+  // so these injected values take precedence, while keys that live ONLY in `.env`
+  // (Google client IDs, GolfAPI URL, offline flags) still pass through. Only the
+  // production branch gets this treatment; other branches keep their own env.
+  const exportEnv =
+    args.branch === 'production' ? { ...process.env, ...prodEnv } : process.env;
+  if (args.branch === 'production') {
+    console.log('  (injecting eas.json build.production.env so prod config wins over .env)\n');
+  }
+  run('npx', ['expo', 'export', '--platform', args.platform, '--output-dir', distDir], {
+    env: exportEnv,
+  });
 
   // Only the production branch gets the prod-vs-staging assertions.
   if (args.branch === 'production') {
