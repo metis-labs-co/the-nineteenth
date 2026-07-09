@@ -25,7 +25,9 @@ import { Text, Icon } from 'react-native-paper';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   runOnJS,
+  useAnimatedReaction,
   useAnimatedStyle,
+  useDerivedValue,
   useSharedValue,
   withTiming,
   type SharedValue,
@@ -175,21 +177,41 @@ function DraggableRow({
 
   const composed = Gesture.Simultaneous(longPress, pan);
 
-  const animatedStyle = useAnimatedStyle(() => {
+  // Discrete shift direction for THIS row while another row is being dragged:
+  // -1 = slide up to fill, +1 = slide down, 0 = stay put (idle, self, or out of
+  // range). Recomputed on the UI thread whenever the drag position crosses a
+  // slot boundary. Kept as a bare direction so the reaction below fires only on
+  // real boundary crossings, not on every pan frame.
+  const shiftDir = useDerivedValue(() => {
     const hover = getHoverIndex(
       activeIndex.value,
       activeOffsetY.value,
       slotHeight,
       totalCount
     );
-    const shiftDir = computeReorderShift(index, activeIndex.value, hover);
-    const shift = withTiming(shiftDir * slotHeight, { duration: 150 });
-    return {
-      transform: [{ translateY: dragY.value + shift }],
-      zIndex: elevated.value ? 100 : 1,
-      elevation: elevated.value ? 12 : 0,
-    };
-  });
+    return computeReorderShift(index, activeIndex.value, hover);
+  }, [index, totalCount, slotHeight]);
+
+  // The row's animated gap offset, driven imperatively — the canonical
+  // Reanimated pattern. Starting a `withTiming` inside `useAnimatedStyle`
+  // instead re-issues it every frame, so the animation never settles and the
+  // gap never visibly opens; here a single timing runs per boundary crossing.
+  const shift = useSharedValue(0);
+  useAnimatedReaction(
+    () => shiftDir.value,
+    (dir, prev) => {
+      if (dir !== prev) {
+        shift.value = withTiming(dir * slotHeight, { duration: 160 });
+      }
+    },
+    [slotHeight]
+  );
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: dragY.value + shift.value }],
+    zIndex: elevated.value ? 100 : 1,
+    elevation: elevated.value ? 12 : 0,
+  }));
 
   return (
     <GestureDetector gesture={composed}>
