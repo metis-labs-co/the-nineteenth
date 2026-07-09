@@ -61,7 +61,16 @@ export function EditRoundPointsSheet({
   const { mutate, isPending } = useUpdateRoundRules();
 
   const override = (round.rules_override ?? {}) as RoundRulesOverride;
-  const pointsKey: PointsKey = override.pair_points ? 'pair_points' : 'team_points';
+  // Split rounds are scored per match -> pair_points. Combined rounds award the
+  // whole-round result -> team_points. Previously this keyed off whichever block
+  // already existed, so a split singles round with no pair_points seed wrote
+  // team_points, which no finalizer consumed.
+  const pointsKey: PointsKey =
+    round.round_format === 'split'
+      ? 'pair_points'
+      : override.pair_points
+        ? 'pair_points'
+        : 'team_points';
 
   const defaultPoints: WinTieLossPoints =
     pointsKey === 'pair_points'
