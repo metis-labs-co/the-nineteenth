@@ -416,6 +416,20 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
     return { total, toWin };
   }, [effectiveView, hasTeams, perRoundRulesEnabled, membersPerTeam, rounds]);
 
+  // Per-round points/status badge (e.g. "Dinner bet · 0 points") shown on a
+  // round's leaderboard header. Only meaningful for per-round team
+  // competitions where the round has an explicit points override configured.
+  const roundPointsBadge = useCallback(
+    (round: RoundWithCourse): string | undefined =>
+      hasTeams &&
+      perRoundRulesEnabled &&
+      membersPerTeam > 0 &&
+      (round.rules_override?.pair_points || round.rules_override?.team_points)
+        ? summarizeRoundPoints(round, { membersPerTeam }).detail
+        : undefined,
+    [hasTeams, perRoundRulesEnabled, membersPerTeam]
+  );
+
   // Render loading state
   if (isLoading) {
     return (
@@ -528,14 +542,7 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
                     date={round.date ?? undefined}
                     courseName={round.course?.name ?? undefined}
                     roundName={round.name}
-                    pointsBadge={
-                      hasTeams &&
-                      perRoundRulesEnabled &&
-                      membersPerTeam > 0 &&
-                      (round.rules_override?.pair_points || round.rules_override?.team_points)
-                        ? summarizeRoundPoints(round, { membersPerTeam }).detail
-                        : undefined
-                    }
+                    pointsBadge={roundPointsBadge(round)}
                   />
                   <RoundSubMatchLeaderboard
                     roundId={round.id}
@@ -574,6 +581,7 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
                       }
                       roundName={round.name}
                       roundNumber={positionalRoundNumbers.get(round.id) ?? round.round_number}
+                      pointsBadge={roundPointsBadge(round)}
                       testID={`round-leaderboard-${round.round_number}`}
                     />
                   )}
@@ -595,6 +603,7 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
                   }
                   roundName={round.name}
                   roundNumber={positionalRoundNumbers.get(round.id) ?? round.round_number}
+                  pointsBadge={roundPointsBadge(round)}
                   testID={`round-leaderboard-${round.round_number}`}
                 />
               </View>

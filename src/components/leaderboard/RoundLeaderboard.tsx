@@ -75,6 +75,8 @@ export interface RoundLeaderboardProps {
    * gaps and must not be shown to users).
    */
   roundNumber?: number;
+  /** Optional right-aligned points/status badge (e.g. "Dinner bet · 0 points"). */
+  pointsBadge?: string;
 }
 
 // =====================================================
@@ -94,6 +96,7 @@ export const RoundLeaderboard = React.memo(function RoundLeaderboard({
   playerTeamLookup,
   roundName,
   roundNumber,
+  pointsBadge,
 }: RoundLeaderboardProps) {
   const colors = useThemeColors();
 
@@ -186,6 +189,7 @@ export const RoundLeaderboard = React.memo(function RoundLeaderboard({
           subMatchSize={data?.metadata.subMatchSize}
           rulesOverride={data?.metadata.rulesOverride}
           roundName={roundName}
+          pointsBadge={pointsBadge}
         />
         <EmptyState
           title="No scores yet"
@@ -281,6 +285,7 @@ export const RoundLeaderboard = React.memo(function RoundLeaderboard({
         subMatchSize={metadata.subMatchSize}
         rulesOverride={metadata.rulesOverride}
         roundName={roundName}
+        pointsBadge={pointsBadge}
       />
 
       {/* Leaderboard Content. When a round has both team and individual
