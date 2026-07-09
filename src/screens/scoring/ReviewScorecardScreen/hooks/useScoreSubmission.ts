@@ -673,6 +673,10 @@ export function useScoreSubmission({
           submitLogger.info('Invalidating round list query', { userId: userId.substring(0, 8) + '...' });
           queryClient.invalidateQueries({ queryKey: ['rounds', userId] });
         }
+        // Home "Continue scoring" carousel: this user's card is now terminal,
+        // so the round should drop off Home even while it stays in-progress
+        // for other players (prefix matches every user variant).
+        queryClient.invalidateQueries({ queryKey: ['home', 'inProgressRounds'] });
         // Also invalidate the round detail + scorecards so ViewRound shows
         // the new status / submitted scores on its next mount instead of
         // serving stale cache (no swipe-to-refresh needed).
@@ -868,6 +872,8 @@ export function useScoreSubmission({
           submitLogger.info('Invalidating round list query (bypass)', { userId: userId.substring(0, 8) + '...' });
           queryClient.invalidateQueries({ queryKey: ['rounds', userId] });
         }
+        // Home "Continue scoring" carousel — see handleSubmit for rationale.
+        queryClient.invalidateQueries({ queryKey: ['home', 'inProgressRounds'] });
         // Also invalidate round detail + scorecards (see handleSubmit for rationale).
         queryClient.invalidateQueries({ queryKey: roundKeys.detail(roundId) });
         queryClient.invalidateQueries({ queryKey: scorecardKeys.list({ roundId }) });

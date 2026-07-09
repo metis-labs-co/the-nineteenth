@@ -16,6 +16,7 @@ import { supabase } from '@/services/supabase/client';
 import { CACHE_TIMES, GC_TIMES } from '@/constants/cacheConfig';
 import { useAuth } from '@/hooks/useAuth';
 import { isSingleBallScore } from '@/types/database/base';
+import type { ScorecardStatus } from '@/types/database/enums';
 import type {
   Hole,
   HoleScore,
@@ -93,6 +94,11 @@ export function useInProgressRounds() {
       const rounds = (data ?? []) as RoundWithCourse[];
       const roundIds = rounds.map((r) => r.id);
       if (roundIds.length === 0) return rounds;
+
+      // Competition rounds the signed-in user has personally finished — their
+      // own scorecard is terminal (completed/confirmed). Populated from the
+      // scorecard fetch below and used to drop these rounds from the carousel.
+      const userTerminalRoundIds = new Set<string>();
 
       // Standalone-round players for the home carousel. Competition rounds
       // already show their roster on the comp detail screen, so we only
@@ -197,7 +203,7 @@ export function useInProgressRounds() {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase typed-row workaround
           .from('scorecards') as any)
           .select(
-            'round_id, scores, daily_handicap_used, ga_handicap_used, total_points, player:players!player_id(id, name, handicap, handicap_index, gender)'
+            'round_id, status, scores, daily_handicap_used, ga_handicap_used, total_points, player:players!player_id(id, name, handicap, handicap_index, gender)'
           )
           .eq('player_id', user.id)
           .in('round_id', roundIds);
@@ -208,6 +214,9 @@ export function useInProgressRounds() {
           const scorecardByRound = new Map<string, ProgressScorecardRow>();
           for (const sc of scData as ProgressScorecardRow[]) {
             scorecardByRound.set(sc.round_id, sc);
+            if (isTerminalScorecardStatus(sc.status)) {
+              userTerminalRoundIds.add(sc.round_id);
+            }
           }
           for (const round of rounds) {
             const sc = scorecardByRound.get(round.id);
@@ -216,9 +225,20 @@ export function useInProgressRounds() {
         }
       } catch {
         // Progress is decorative — the card falls back to course/format info.
+        // (If this fetch fails, no rounds are filtered out below, so the
+        // carousel degrades to the previous status-only behaviour.)
       }
 
-      return rounds;
+      // Drop competition rounds this user has personally finished. Competition
+      // rounds stay `in-progress` until EVERY player submits, so without this
+      // an organiser who has already scored and submitted their own group keeps
+      // getting nagged on Home to "continue scoring" a round they're done with.
+      // Standalone rounds are left untouched — the owner drives the whole group
+      // from one device, so their own card being terminal doesn't mean the
+      // round is finished.
+      return rounds.filter(
+        (round) => shouldShowInProgressRound(round, userTerminalRoundIds)
+      );
     },
     enabled: !!user?.id,
     staleTime: CACHE_TIMES.SHORT,
@@ -228,9 +248,42 @@ export function useInProgressRounds() {
   });
 }
 
+/** Scorecard statuses that mean the user has nothing left to score. */
+const TERMINAL_SCORECARD_STATUSES: ReadonlySet<ScorecardStatus> = new Set([
+  'completed',
+  'confirmed',
+]);
+
+/** True when the user's scorecard is submitted (completed or confirmed). */
+export function isTerminalScorecardStatus(
+  status: ScorecardStatus | null | undefined
+): boolean {
+  return status != null && TERMINAL_SCORECARD_STATUSES.has(status);
+}
+
+/**
+ * Whether an in-progress round should still appear in the Home "Continue
+ * scoring" carousel. It should, UNLESS it is a competition round the
+ * signed-in user has personally finished (their own scorecard is terminal):
+ * competition rounds stay `in-progress` until every player submits, but this
+ * user has nothing left to score. Standalone rounds always stay visible while
+ * in-progress — the owner scores the whole group, so their own card being
+ * terminal does not mean the round is done.
+ */
+export function shouldShowInProgressRound(
+  round: { id: string; competition_id?: string | null },
+  userTerminalRoundIds: ReadonlySet<string>
+): boolean {
+  if (round.competition_id && userTerminalRoundIds.has(round.id)) {
+    return false;
+  }
+  return true;
+}
+
 /** Slice of the scorecards row needed to compute live round progress. */
 interface ProgressScorecardRow {
   round_id: string;
+  status: ScorecardStatus | null;
   scores: Record<string, HoleScore | MultiBallHoleScore> | null;
   daily_handicap_used: number | null;
   ga_handicap_used: number | null;

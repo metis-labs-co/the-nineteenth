@@ -685,6 +685,9 @@ function invalidateRoundStatusCaches(
   queryClient.invalidateQueries({ queryKey: roundKeys.lists() });
   queryClient.invalidateQueries({ queryKey: leaderboardKeys.round(input.roundId) });
   queryClient.invalidateQueries({ queryKey: scorecardKeys.list({ roundId: input.roundId }) });
+  // Home "Continue scoring" carousel keys off round status; force-submit /
+  // re-open flips it, so refresh it too (prefix matches every user variant).
+  queryClient.invalidateQueries({ queryKey: ['home', 'inProgressRounds'] });
   if (input.competitionId) {
     queryClient.invalidateQueries({ queryKey: roundKeys.list(input.competitionId) });
     queryClient.invalidateQueries({ queryKey: leaderboardKeys.competition(input.competitionId) });
