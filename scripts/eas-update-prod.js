@@ -92,6 +92,27 @@ function refFromUrl(url) {
   return m ? m[1] : null;
 }
 
+// Metro caches TRANSFORMED modules — with EXPO_PUBLIC_* values already inlined —
+// in a persistent on-disk cache that `expo export --clear` does NOT purge. Left
+// in place, a stale transform from an earlier (staging) bundle is reused even
+// after .env is corrected, so the OTA silently ships staging config. Delete the
+// known cache locations before exporting to force a clean re-transform.
+function nukeMetroCache() {
+  const tmp = os.tmpdir();
+  const targets = [
+    path.join(tmp, 'metro-cache'),
+    path.join(repoRoot, 'node_modules', '.cache'),
+  ];
+  try {
+    for (const name of fs.readdirSync(tmp)) {
+      if (name.startsWith('metro-file-map-')) targets.push(path.join(tmp, name));
+    }
+  } catch {
+    /* tmpdir unreadable — nothing to clean */
+  }
+  for (const t of targets) fs.rmSync(t, { recursive: true, force: true });
+}
+
 // Return the text of `.env` with each key in `overrides` set to its prod value.
 // Existing lines for those keys are replaced in place (comments/other keys kept
 // verbatim); any override key not already present is appended.
@@ -174,7 +195,20 @@ async function main() {
     console.log('  (temporarily forced prod backend values into .env for the export)\n');
   }
   try {
-    run('npx', ['expo', 'export', '--platform', args.platform, '--output-dir', distDir]);
+    // Purge Metro's persistent transform cache first (see nukeMetroCache) — the
+    // in-flag `--clear` alone does NOT clear it, so a stale staging transform
+    // would otherwise be reused despite the corrected .env above.
+    console.log('  (clearing Metro cache to force a clean re-transform)\n');
+    nukeMetroCache();
+    run('npx', [
+      'expo',
+      'export',
+      '--platform',
+      args.platform,
+      '--clear',
+      '--output-dir',
+      distDir,
+    ]);
   } finally {
     if (envSwapped) {
       fs.copyFileSync(envBackupPath, envPath);
