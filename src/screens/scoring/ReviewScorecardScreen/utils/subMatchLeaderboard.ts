@@ -275,9 +275,17 @@ export interface TeamMatchLeader {
 /**
  * Tally sub-match wins by resolved competition team rather than by positional
  * A/B side. Ryder-cup singles alternate which team is side A, so summing by
- * side mis-attributes (e.g. side B winning all four reads as 4-0). Win → 1 to
- * the winner's team; a started-but-level match splits 0.5/0.5; an unstarted
- * match contributes nothing.
+ * side mis-attributes (e.g. side B winning all four reads as 4-0). The winning
+ * team earns `points.win`; a started-but-level match splits `points.tie` to
+ * each side; an unstarted match contributes nothing. The defaults reproduce the
+ * flat 1 / 0.5 tally.
+ *
+ * Note: this is a DISPLAY tally and intentionally awards win/tie only — it does
+ * not credit `loss` points to the losing side. `finalizePairResults` (which
+ * persists the round's competition points) does add `pair_points.loss`, so with
+ * a config where loss > 0 this header total can differ from the round's
+ * persisted standings contribution. Every current config uses loss: 0, where
+ * the two agree.
  */
 export function tallyByTeam(
   leaders: TeamMatchLeader[],
