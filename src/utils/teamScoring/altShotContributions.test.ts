@@ -14,7 +14,9 @@ describe('altShotTeePlayer', () => {
 
 describe('deriveAltShotShotCounts', () => {
   it('returns all-zero when strokes is missing, zero, or a pickup', () => {
-    for (const strokes of [undefined, 0, 99]) {
+    // PICKUP_SCORE (10) is the app-wide max-strokes sentinel; any score at or
+    // above it is a pickup and must derive no shots.
+    for (const strokes of [undefined, 0, 10, 12, 99]) {
       const r = deriveAltShotShotCounts(A, B, 1, strokes);
       expect(r[A]).toEqual({ drives: 0, approaches: 0, putts: 0, total: 0 });
       expect(r[B]).toEqual({ drives: 0, approaches: 0, putts: 0, total: 0 });

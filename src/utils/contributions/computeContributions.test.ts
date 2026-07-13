@@ -56,6 +56,42 @@ describe('computeContributions — best-ball', () => {
     expect(board.rounds[0].dataMissing).toBe(false);
   });
 
+  it('excludes picked-up holes (score >= PICKUP_SCORE) from holes won', () => {
+    // Hole 2: both players pick up (stored as the max-strokes sentinel 10).
+    // That hole must be skipped entirely — not counted as a 0.5/0.5 tie.
+    const input: ComputeContributionsInput = {
+      rounds: [
+        bestBallRound({
+          teams: [
+            {
+              teamId: 't1',
+              teamName: 'Eagles',
+              color: 'avatar-green',
+              members: [
+                { playerId: 'a', playerName: 'Ann', handicap: 0 },
+                { playerId: 'b', playerName: 'Bob', handicap: 0 },
+              ],
+              strokesByPlayerHole: {
+                a: { 1: 4, 2: 10, 3: 4 }, // hole 1 win, hole 2 pickup, hole 3 tie
+                b: { 1: 5, 2: 10, 3: 4 },
+              },
+            },
+          ],
+        }),
+      ],
+    };
+    const board = computeContributions(input);
+    const team = board.rounds[0].teams[0];
+    const ann = team.players.find((p) => p.playerId === 'a')!;
+    const bob = team.players.find((p) => p.playerId === 'b')!;
+
+    // Only holes 1 (Ann) and 3 (tie) count → 2 holes scored, hole 2 dropped.
+    expect(ann.value).toBe(1.5); // hole 1 + 0.5 of hole 3
+    expect(bob.value).toBe(0.5); // 0.5 of hole 3
+    expect(ann.share).toBeCloseTo(1.5 / 2);
+    expect(bob.share).toBeCloseTo(0.5 / 2);
+  });
+
   it('uses stableford points (higher wins) for stableford rounds', () => {
     const input: ComputeContributionsInput = {
       rounds: [bestBallRound({ gameType: 'stableford' })],

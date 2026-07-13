@@ -7,14 +7,14 @@
  * stroke count, every shot's owner is fully determined — no manual entry needed.
  */
 
+import { PICKUP_SCORE } from '@/constants/scoring';
+
 export interface AltShotHoleBreakdown {
   drives: number;
   approaches: number;
   putts: number;
   total: number;
 }
-
-const PICKUP_SCORE = 99;
 
 /** Which player tees off on a given hole. First-tee = odd holes, partner = even. */
 export function altShotTeePlayer(
@@ -44,7 +44,7 @@ export function deriveAltShotShotCounts(
     [partnerPlayerId]: { drives: 0, approaches: 0, putts: 0, total: 0 },
   };
 
-  if (!strokes || strokes <= 0 || strokes === pickupScore) {
+  if (!strokes || strokes <= 0 || strokes >= pickupScore) {
     return result;
   }
 
