@@ -112,6 +112,27 @@ jest.mock('./TeamLeaderboardTable', () => {
   };
 });
 
+// Mock TeamHeadToHeadCard (rendered instead of TeamLeaderboardTable when there
+// are exactly two teams). Shallow like the other sub-component mocks — the
+// card's own rendering/expand behaviour is covered by TeamHeadToHeadCard.test.tsx.
+jest.mock('./TeamHeadToHeadCard', () => {
+  const { View, Text } = require('react-native');
+  return {
+    TeamHeadToHeadCard: ({ entries, testID, currentUserId }: any) => (
+      <View testID={testID || 'team-head-to-head-card'}>
+        <Text>TeamHeadToHeadCard</Text>
+        {currentUserId && <Text testID="h2h-current-user">{currentUserId}</Text>}
+        {entries?.map((entry: any) => (
+          <View key={entry.teamId} testID={`h2h-team-${entry.teamId}`}>
+            <Text>{entry.teamName}</Text>
+            <Text>{entry.totalPoints} pts</Text>
+          </View>
+        ))}
+      </View>
+    ),
+  };
+});
+
 // Mock RoundLeaderboard
 jest.mock('./RoundLeaderboard', () => {
   const { View, Text } = require('react-native');
@@ -683,11 +704,13 @@ describe('LeaderboardTab', () => {
         />
       );
 
-      // Team Standings rendered with both teams.
+      // Team Standings rendered with both teams. Exactly two teams renders the
+      // head-to-head scoreboard (not the ranked table) — see LeaderboardTab's
+      // `teamEntries.length === 2` branch.
       expect(screen.getByText('Team Standings')).toBeTruthy();
-      expect(screen.getByTestId('competition-team-leaderboard')).toBeTruthy();
-      expect(screen.getByTestId('team-row-team-a')).toBeTruthy();
-      expect(screen.getByTestId('team-row-team-b')).toBeTruthy();
+      expect(screen.getByTestId('competition-team-headtohead')).toBeTruthy();
+      expect(screen.getByText('Team A')).toBeTruthy();
+      expect(screen.getByText('Team B')).toBeTruthy();
       // Hook called with teams filter, not individuals.
       expect(mockUseCompetitionLeaderboard).toHaveBeenCalledWith(
         'comp-1',
