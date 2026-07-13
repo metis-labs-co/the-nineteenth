@@ -11,6 +11,7 @@
 
 import { useState, useCallback } from 'react';
 import { supabase } from '@/services/supabase/client';
+import { fetchPlayerListByIds } from '@/services/api/players';
 import {
   prepareHoleScores,
   validateHoleScores,
@@ -30,12 +31,6 @@ interface RoundTeamRow {
   team_config?: {
     teams?: { id: string; name: string; memberIds: string[] }[];
   } | null;
-}
-
-interface PlayerRow {
-  id: string;
-  name: string;
-  handicap: number | null;
 }
 
 interface ProcessSkinsInput {
@@ -59,21 +54,10 @@ async function processIndividualGame(
   hole: ProcessSkinsInput['hole'],
   processSkinsHoleMutation: ReturnType<typeof useProcessSkinsHole>
 ): Promise<ProcessSkinsResult | null> {
-  const { data: rawPlayers } = await supabase
-    .from('players')
-    .select('id, name, handicap')
-    .in('id', skinsGame.participant_ids);
-
-  const players = (rawPlayers ?? []) as unknown as PlayerRow[];
-  if (players.length === 0) {
+  const participants = await fetchPlayerListByIds(skinsGame.participant_ids);
+  if (participants.length === 0) {
     return { processed: false, error: 'No participants found' };
   }
-
-  const participants = players.map((p) => ({
-    id: p.id,
-    name: p.name,
-    handicap: p.handicap,
-  }));
 
   const holeScores = prepareHoleScores(
     participants.map((p) => ({ id: p.id, handicap: p.handicap })),

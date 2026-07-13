@@ -7,6 +7,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
+import { fetchPlayerListByIds } from '@/services/api/players';
 import { skinsKeys } from '@/hooks/queryKeys';
 import { CACHE_TIMES, GC_TIMES } from '@/constants/cacheConfig';
 import { createError } from '@/services/errors';
@@ -113,18 +114,9 @@ export function useActiveSkinsGameForRound(roundId: string | undefined) {
       }
 
       // Individual skins - fetch player participants
-      const { data: rawPlayers } = await supabase
-        .from('players')
-        .select('id, name, handicap')
-        .in('id', game.participant_ids);
-
-      const players = (rawPlayers ?? []) as unknown as PlayerRow[];
-
-      const participants: SkinsParticipant[] = players.map((p) => ({
-        id: p.id,
-        name: p.name,
-        handicap: p.handicap,
-      }));
+      const participants: SkinsParticipant[] = await fetchPlayerListByIds(
+        game.participant_ids
+      );
 
       return {
         ...game,

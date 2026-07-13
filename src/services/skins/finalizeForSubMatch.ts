@@ -11,6 +11,7 @@
  */
 
 import { supabase } from '@/services/supabase/client';
+import { fetchPlayerListByIds } from '@/services/api/players';
 import {
   calculateFinalPayoutsWithCarryover,
 } from '@/utils/skins';
@@ -19,12 +20,6 @@ import type {
   SkinsResult,
   SkinsParticipant,
 } from '@/types/database/skins.types';
-
-interface PlayerRow {
-  id: string;
-  name: string;
-  handicap: number | null;
-}
 
 export interface FinalizeForSubMatchResult {
   finalized: boolean;
@@ -76,17 +71,9 @@ export async function finalizeSkinsForSubMatch(
 
     const results = (rawResults ?? []) as unknown as SkinsResult[];
 
-    const { data: rawPlayers } = await supabase
-      .from('players')
-      .select('id, name, handicap')
-      .in('id', game.participant_ids);
-
-    const players = (rawPlayers ?? []) as unknown as PlayerRow[];
-    const participants: SkinsParticipant[] = players.map((p) => ({
-      id: p.id,
-      name: p.name,
-      handicap: p.handicap,
-    }));
+    const participants: SkinsParticipant[] = await fetchPlayerListByIds(
+      game.participant_ids
+    );
 
     const payoutResult = calculateFinalPayoutsWithCarryover(game, results, participants);
 

@@ -7,6 +7,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
+import { fetchPlayersByIds } from '@/services/api/players';
 import { skinsKeys } from '@/hooks/queryKeys';
 import { CACHE_TIMES, GC_TIMES } from '@/constants/cacheConfig';
 import { createError } from '@/services/errors';
@@ -17,12 +18,6 @@ import type {
 } from '@/types/database/skins.types';
 
 type SkinsGameRow = SkinsGame;
-
-interface PlayerRow {
-  id: string;
-  name: string;
-  handicap: number | null;
-}
 
 export function useSkinsGamesBySubMatch(subMatchId: string | undefined) {
   return useQuery({
@@ -45,15 +40,7 @@ export function useSkinsGamesBySubMatch(subMatchId: string | undefined) {
 
       const allParticipantIds = [...new Set(games.flatMap((g) => g.participant_ids))];
 
-      const { data: rawPlayers } = await supabase
-        .from('players')
-        .select('id, name, handicap')
-        .in('id', allParticipantIds);
-
-      const players = (rawPlayers ?? []) as unknown as PlayerRow[];
-      const playerMap = new Map(
-        players.map((p) => [p.id, { id: p.id, name: p.name, handicap: p.handicap }])
-      );
+      const playerMap = await fetchPlayersByIds(allParticipantIds);
 
       return games.map((game) => ({
         ...game,
