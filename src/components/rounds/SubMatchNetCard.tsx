@@ -12,6 +12,10 @@ export interface SubMatchNetCardProps {
   leftColor: string;
   rightColor: string;
   data: NetCardData;
+  /** Players on the left side (e.g. "Sam Winzar & Sam Kay"), shown under the team name. */
+  leftPlayers?: string;
+  /** Players on the right side, shown under the team name. */
+  rightPlayers?: string;
   /** Winning side when the sub-match was forfeited ('a'=left, 'b'=right); null otherwise. */
   forfeitWinner?: 'a' | 'b' | null;
 }
@@ -25,12 +29,14 @@ function statusText(data: NetCardData, leftLabel: string, rightLabel: string): s
 
 function SideRow({
   label,
+  players,
   color,
   value,
   unit,
   isLeader,
 }: {
   label: string;
+  players?: string;
   color: string;
   value: number | string | null;
   unit: string;
@@ -42,9 +48,16 @@ function SideRow({
   return (
     <View style={styles.sideRow}>
       <View style={[styles.dot, { backgroundColor: color }]} />
-      <Text numberOfLines={1} style={[styles.sideLabel, { color: colors.textPrimary }]}>
-        {label}
-      </Text>
+      <View style={styles.sideLabelCol}>
+        <Text numberOfLines={1} style={[styles.sideLabel, { color: colors.textPrimary }]}>
+          {label}
+        </Text>
+        {players ? (
+          <Text numberOfLines={1} style={[styles.sidePlayers, { color: colors.textSecondary }]}>
+            {players}
+          </Text>
+        ) : null}
+      </View>
       <Text
         style={[
           styles.sideValue,
@@ -64,6 +77,8 @@ export function SubMatchNetCard({
   leftColor,
   rightColor,
   data,
+  leftPlayers,
+  rightPlayers,
   forfeitWinner = null,
 }: SubMatchNetCardProps) {
   const colors = useThemeColors();
@@ -83,8 +98,8 @@ export function SubMatchNetCard({
         <Icon source="trophy-outline" size={16} color={colors.textSecondary} />
         <Text style={[styles.headerText, { color: colors.textSecondary }]}>Sub-Match {index + 1}</Text>
       </View>
-      <SideRow label={leftLabel} color={leftColor} value={leftValue} unit={data.unit} isLeader={leftIsLeader} />
-      <SideRow label={rightLabel} color={rightColor} value={rightValue} unit={data.unit} isLeader={rightIsLeader} />
+      <SideRow label={leftLabel} players={leftPlayers} color={leftColor} value={leftValue} unit={data.unit} isLeader={leftIsLeader} />
+      <SideRow label={rightLabel} players={rightPlayers} color={rightColor} value={rightValue} unit={data.unit} isLeader={rightIsLeader} />
       <Text testID={`net-card-status-${index}`} style={[styles.status, { color: colors.textSecondary }]}>
         {status}
       </Text>
@@ -144,7 +159,9 @@ const styles = StyleSheet.create({
   headerText: { ...typography.caption, fontWeight: '600' },
   sideRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xs },
   dot: { width: 10, height: 10, borderRadius: 5 },
-  sideLabel: { ...typography.body, flex: 1 },
+  sideLabelCol: { flex: 1 },
+  sideLabel: { ...typography.body },
+  sidePlayers: { ...typography.caption, marginTop: 1 },
   sideValue: { ...typography.body },
   status: { ...typography.caption, textAlign: 'center', marginTop: spacing.sm },
   overallRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.lg },
