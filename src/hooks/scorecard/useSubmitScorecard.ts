@@ -20,6 +20,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useCheckAchievements } from '@/hooks/achievements/useCheckAchievements';
 import { useAchievementToast } from '@/context/AchievementToastContext';
 import { isSingleBallScore } from '@/types/database/base';
+import { getScoreCategory } from '@/utils/scoring';
 import type { Scorecard, Hole, GameType } from '@/types';
 import type { AchievementEventData, AchievementDefinition } from '@/types/database/achievement.types';
 import type { CosmeticDefinition } from '@/types/database/cosmetic.types';
@@ -88,25 +89,26 @@ function calculateScoreStats(
 
     holesPlayed++;
     totalGross += strokes;
-    const diff = strokes - hole.par;
 
     // Check for hole-in-one
     if (strokes === 1) {
       holeInOne = true;
     }
 
-    // Categorize by score type
-    if (diff <= -3) {
+    // Categorize by score type via the canonical classifier. A pickup
+    // (strokes >= PICKUP_SCORE) returns null and is counted in no category.
+    const category = getScoreCategory(strokes, hole.par);
+    if (category === 'albatross') {
       albatross++;
-    } else if (diff === -2) {
+    } else if (category === 'eagle') {
       eagles++;
-    } else if (diff === -1) {
+    } else if (category === 'birdie') {
       birdies++;
-    } else if (diff === 0) {
+    } else if (category === 'par') {
       pars++;
-    } else if (diff === 1) {
+    } else if (category === 'bogey') {
       bogeys++;
-    } else {
+    } else if (category === 'double-bogey' || category === 'triple-plus') {
       doubleBogeys++;
     }
   }
