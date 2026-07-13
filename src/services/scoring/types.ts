@@ -10,7 +10,6 @@ import type {
   HoleScore as DatabaseHoleScore,
   RoundResultData,
 } from '@/types/database';
-import { STABLEFORD_POINTS } from '@/constants/scoring';
 
 /**
  * Internal hole score representation with hole number
@@ -159,17 +158,10 @@ export interface CourseHoleData {
 // ============================================================================
 
 /**
- * Get Stableford points for a net score relative to par
- * Uses STABLEFORD_POINTS from @/constants/scoring
+ * Get Stableford points for a net score relative to par.
+ * Re-exported from the canonical implementation in `@/utils/scoring`.
  */
-export function getStablefordPoints(netToPar: number): number {
-  if (netToPar <= -3) return STABLEFORD_POINTS.ALBATROSS_OR_BETTER;
-  if (netToPar === -2) return STABLEFORD_POINTS.EAGLE;
-  if (netToPar === -1) return STABLEFORD_POINTS.BIRDIE;
-  if (netToPar === 0) return STABLEFORD_POINTS.PAR;
-  if (netToPar === 1) return STABLEFORD_POINTS.BOGEY;
-  return STABLEFORD_POINTS.DOUBLE_OR_WORSE;
-}
+export { getStablefordPoints } from '@/utils/scoring';
 
 // ============================================================================
 // Re-exports for convenience
