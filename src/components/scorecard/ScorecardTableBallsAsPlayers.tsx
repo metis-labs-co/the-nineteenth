@@ -17,10 +17,10 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
-import { ScoreIndicator } from '@/components/scorecard';
+import { ScoreIndicator } from './ScoreIndicator';
 import { getBallLabel } from '@/types/multiball.types';
 import { getScoreColor } from '@/utils/scoring';
-import type { MultiBallHoleRowData, MultiBallStats } from '../hooks';
+import type { MultiBallHoleRowData, MultiBallStats } from '@/utils/multiBallScorecard';
 import type { BallCount } from '@/types/multiball.types';
 
 // Layout constants

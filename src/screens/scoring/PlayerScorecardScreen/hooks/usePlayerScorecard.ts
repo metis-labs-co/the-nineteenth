@@ -17,11 +17,24 @@ import {
 } from '@/utils/scoring';
 import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
 import { getBaseHandicap } from '@/utils/scorecardCalculations';
-import { isMultiBallScore, isSingleBallScore } from '@/types/database/base';
+import {
+  buildMultiBallHoleData,
+  buildMultiBallStats,
+  detectBallCount,
+  hasMultiBallScores,
+} from '@/utils/multiBallScorecard';
+import { isSingleBallScore } from '@/types/database/base';
 import type { HandicapSource } from '@/types/database/enums';
-import type { Hole, Player, Scorecard, HoleScore } from '@/types';
+import type { Hole, Player, Scorecard } from '@/types';
 import type { BallCount } from '@/types/multiball.types';
+import type { MultiBallHoleRowData, MultiBallStats } from '@/utils/multiBallScorecard';
 import { PICKUP_SCORE } from '@/constants/scoring';
+
+export type {
+  BallScoreData,
+  MultiBallHoleRowData,
+  MultiBallStats,
+} from '@/utils/multiBallScorecard';
 
 export interface PlayerStats {
   front9Gross: number;
@@ -55,38 +68,6 @@ export interface HoleRowData {
   isPickup: boolean;
   fairwayHit: boolean | undefined;
   greenInRegulation: boolean | undefined;
-}
-
-// Multi-ball specific types
-export interface BallScoreData {
-  strokes: number | undefined;
-  stablefordPoints: number;
-  isPickup: boolean;
-  fairwayHit: boolean | undefined;
-  greenInRegulation: boolean | undefined;
-}
-
-export interface MultiBallHoleRowData {
-  hole: Hole;
-  strokesReceived: number;
-  balls: BallScoreData[];
-}
-
-export interface MultiBallStats {
-  // Per-ball stats indexed by ball number (1-based)
-  ballStats: {
-    [ballNumber: number]: {
-      front9Gross: number;
-      back9Gross: number;
-      front9Stableford: number;
-      back9Stableford: number;
-      totalGross: number;
-      totalStableford: number;
-    };
-  };
-  front9Par: number;
-  back9Par: number;
-  totalPar: number;
 }
 
 interface UsePlayerScorecardResult {
@@ -213,20 +194,12 @@ export function usePlayerScorecard(playerId: string, roundId?: string): UsePlaye
   // Multi-ball flags. The live store tracks these directly; read-only detects from data.
   const isMultiBall = useMemo(() => {
     if (isLive) return storeIsMultiBall;
-    const scores = roScorecardRaw?.scores;
-    if (!scores) return false;
-    return Object.values(scores).some((s) => isMultiBallScore(s));
+    return hasMultiBallScores(roScorecardRaw?.scores);
   }, [isLive, storeIsMultiBall, roScorecardRaw]);
 
   const ballCount: BallCount = useMemo(() => {
     if (isLive) return storeBallCount;
-    const scores = roScorecardRaw?.scores;
-    if (!scores) return 1;
-    let max = 1;
-    for (const s of Object.values(scores)) {
-      if (isMultiBallScore(s)) max = Math.max(max, s.balls.length);
-    }
-    return max as BallCount;
+    return detectBallCount(roScorecardRaw?.scores);
   }, [isLive, storeBallCount, roScorecardRaw]);
 
   // Get holes data
@@ -413,42 +386,11 @@ export function usePlayerScorecard(playerId: string, roundId?: string): UsePlaye
   const multiBallHoleData: MultiBallHoleRowData[] = useMemo(() => {
     if (!isMultiBall || ballCount <= 1) return [];
 
-    return holes.map((hole) => {
-      const score = scorecard?.scores[hole.number];
-      // Use daily handicap for strokes received calculation
-      const strokesReceived = getStrokesReceived(dailyHandicap, hole.strokeIndex);
-
-      // Get ball scores from multi-ball structure
-      const balls: BallScoreData[] = [];
-
-      if (score && isMultiBallScore(score)) {
-        // Multi-ball score structure: { balls: HoleScore[] }
-        for (let i = 0; i < ballCount; i++) {
-          const ballScore = score.balls[i] as HoleScore | undefined;
-          const strokes = ballScore?.strokes;
-          const isPickup = strokes !== undefined && strokes >= PICKUP_SCORE;
-          const fairwayHit = ballScore?.fairwayHit;
-          const greenInRegulation = ballScore?.greenInRegulation;
-
-          let stablefordPoints = 0;
-          if (strokes && strokes > 0 && !isPickup) {
-            stablefordPoints = calculateStablefordPointsNet(strokes, hole.par, strokesReceived);
-          }
-
-          balls.push({ strokes, stablefordPoints, isPickup, fairwayHit, greenInRegulation });
-        }
-      } else {
-        // No scores yet - create empty ball data
-        for (let i = 0; i < ballCount; i++) {
-          balls.push({ strokes: undefined, stablefordPoints: 0, isPickup: false, fairwayHit: undefined, greenInRegulation: undefined });
-        }
-      }
-
-      return {
-        hole,
-        strokesReceived,
-        balls,
-      };
+    return buildMultiBallHoleData({
+      holes,
+      scores: scorecard?.scores,
+      dailyHandicap,
+      ballCount,
     });
   }, [holes, scorecard, dailyHandicap, isMultiBall, ballCount]);
 
@@ -462,65 +404,10 @@ export function usePlayerScorecard(playerId: string, roundId?: string): UsePlaye
   }, [multiBallHoleData]);
 
   // Calculate multi-ball statistics per ball
-  const multiBallStats: MultiBallStats = useMemo(() => {
-    const ballStats: MultiBallStats['ballStats'] = {};
-
-    // Initialize stats for each ball
-    for (let b = 1; b <= ballCount; b++) {
-      ballStats[b] = {
-        front9Gross: 0,
-        back9Gross: 0,
-        front9Stableford: 0,
-        back9Stableford: 0,
-        totalGross: 0,
-        totalStableford: 0,
-      };
-    }
-
-    let front9Par = 0;
-    let back9Par = 0;
-
-    multiBallHoleData.forEach((data) => {
-      const { hole, balls } = data;
-
-      if (hole.number <= 9) {
-        front9Par += hole.par;
-      } else {
-        back9Par += hole.par;
-      }
-
-      // Accumulate stats for each ball
-      balls.forEach((ball, index) => {
-        const ballNumber = index + 1;
-        const stats = ballStats[ballNumber];
-        if (!stats) return;
-
-        if (ball.strokes && !ball.isPickup) {
-          if (hole.number <= 9) {
-            stats.front9Gross += ball.strokes;
-            stats.front9Stableford += ball.stablefordPoints;
-          } else {
-            stats.back9Gross += ball.strokes;
-            stats.back9Stableford += ball.stablefordPoints;
-          }
-        }
-      });
-    });
-
-    // Calculate totals
-    for (let b = 1; b <= ballCount; b++) {
-      const stats = ballStats[b];
-      stats.totalGross = stats.front9Gross + stats.back9Gross;
-      stats.totalStableford = stats.front9Stableford + stats.back9Stableford;
-    }
-
-    return {
-      ballStats,
-      front9Par,
-      back9Par,
-      totalPar: front9Par + back9Par,
-    };
-  }, [multiBallHoleData, ballCount]);
+  const multiBallStats: MultiBallStats = useMemo(
+    () => buildMultiBallStats(multiBallHoleData, ballCount),
+    [multiBallHoleData, ballCount]
+  );
 
   return {
     player,

@@ -84,6 +84,8 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
     selectedTeeData,
     handicapSource,
     startHole,
+    isMultiBall,
+    ballCount,
     setCurrentHole,
     resetRound,
     submitScorecards,
@@ -431,6 +433,8 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
           selectedTeeData={selectedTeeData}
           handicapSource={handicapSource}
           startHole={startHole}
+          isMultiBall={isMultiBall}
+          ballCount={ballCount}
         />
       )}
 
