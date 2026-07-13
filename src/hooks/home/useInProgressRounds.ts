@@ -28,6 +28,10 @@ import {
   calculatePlayerStats,
   type ScorecardPlayerInfo,
 } from '@/utils/scorecardCalculations';
+import {
+  fetchAcceptedCompetitionIds,
+  applyUserRoundScope,
+} from './roundScope';
 import type { RoundWithCourse } from '@/components/competitions/detail/types';
 
 const ROUND_SELECT = `
@@ -48,41 +52,20 @@ export function useInProgressRounds() {
       if (!user?.id) return [];
 
       // Step 1: find all competition IDs the user is an accepted player in.
+      const competitionIds = await fetchAcceptedCompetitionIds(
+        user.id,
+        'useInProgressRounds'
+      );
+
+      // Step 2: fetch in-progress rounds, scoped to standalone rounds the user
+      // owns OR competition rounds in accepted comps.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase typed-row workaround
-      const { data: cpData, error: cpError } = await (supabase
-        .from('competition_players') as any)
-        .select('competition_id')
-        .eq('player_id', user.id)
-        .eq('status', 'accepted');
-
-      if (cpError) {
-        console.error(
-          '[useInProgressRounds] Error fetching competition players:',
-          cpError
-        );
-      }
-
-      const competitionIds = ((cpData ?? []) as { competition_id: string }[])
-        .map((cp) => cp.competition_id)
-        .filter(Boolean);
-
-      // Step 2: fetch in-progress rounds.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase typed-row workaround
-      let query = (supabase.from('rounds') as any)
+      const baseQuery = (supabase.from('rounds') as any)
         .select(ROUND_SELECT)
         .eq('status', 'in-progress')
         .is('deleted_at', null)
         .order('updated_at', { ascending: false });
-
-      if (competitionIds.length > 0) {
-        // user_id = me (standalone owned by user) OR competition rounds in
-        // accepted comps. The empty-comp-list path skips the OR branch.
-        query = query.or(
-          `user_id.eq.${user.id},competition_id.in.(${competitionIds.join(',')})`
-        );
-      } else {
-        query = query.eq('user_id', user.id).is('competition_id', null);
-      }
+      const query = applyUserRoundScope(baseQuery, user.id, competitionIds);
 
       const { data, error } = await query;
 
