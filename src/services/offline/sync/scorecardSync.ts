@@ -12,7 +12,7 @@ import type { Scorecard, PendingSync, HoleScore } from '@/types';
 import { isSingleBallScore } from '@/types/database/base';
 import { syncLogger, logScorecardSummary } from '@/utils/debugLogger';
 import { calculateScoreDifferential, getRatingsForGender } from '@/utils/handicapDifferential';
-import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
+import { calculateNineAwareDailyHandicap } from '@/utils/dailyHandicap';
 import {
   getStrokesReceived,
   calculateStablefordPointsNet,
@@ -323,12 +323,8 @@ function calculateHandicapData(scorecard: Scorecard): {
       const nineType = scorecard.syncNineType ?? 'full';
       let finalCourseRating = ratings.courseRating;
       let finalSlopeRating = ratings.slopeRating;
-      let has9HoleRatings = false;
 
       if (nineType !== 'full' && teeData) {
-        const nineRatingField = nineType === 'front9' ? teeData.courseRatingFront9 : teeData.courseRatingBack9;
-        has9HoleRatings = nineRatingField != null;
-
         const { slope, cr } = getEffectiveTeeRatings(
           {
             name: teeData.name,
@@ -349,33 +345,28 @@ function calculateHandicapData(scorecard: Scorecard): {
       courseRatingUsed = finalCourseRating;
       slopeRatingUsed = finalSlopeRating;
 
-      // Calculate daily handicap if player has a WHS handicap index
+      // Calculate daily handicap if player has a WHS handicap index.
+      // Shared with the on-course scoring display via calculateNineAwareDailyHandicap
+      // so the value shown while scoring can never diverge from what is persisted.
       if (playerHandicap != null) {
         // Capture the WHS handicap index used for this round (historical snapshot)
         gaHandicapUsed = playerHandicap;
 
-        if (nineType !== 'full' && !has9HoleRatings) {
-          // No 9-hole ratings available: calculate 18-hole daily handicap then halve it
-          // Use 18-hole par (coursePar × 2 approximation since coursePar is already 9-hole filtered)
-          const fullPar = coursePar * 2;
-          const fullDailyResult = calculateGADailyHandicap({
-            gaHandicap: playerHandicap,
-            slopeRating: ratings.slopeRating,
-            courseRating: ratings.courseRating,
-            par: fullPar,
-            gender: playerGender,
-          });
-          dailyHandicapUsed = Math.round(fullDailyResult.dailyHandicap / 2);
-        } else {
-          const dailyResult = calculateGADailyHandicap({
-            gaHandicap: playerHandicap,
-            slopeRating: finalSlopeRating,
-            courseRating: finalCourseRating,
-            par: coursePar,
-            gender: playerGender,
-          });
-          dailyHandicapUsed = dailyResult.dailyHandicap;
-        }
+        // coursePar is already 9-hole filtered for 9-hole rounds, matching the
+        // helper's expectation that `par` is the par of the holes being played.
+        const dailyResult = calculateNineAwareDailyHandicap({
+          gaHandicap: playerHandicap,
+          nineType,
+          par: coursePar,
+          slopeRating: ratings.slopeRating,
+          courseRating: ratings.courseRating,
+          slopeRatingFront9: teeData.slopeRatingFront9,
+          courseRatingFront9: teeData.courseRatingFront9,
+          slopeRatingBack9: teeData.slopeRatingBack9,
+          courseRatingBack9: teeData.courseRatingBack9,
+          gender: playerGender,
+        });
+        dailyHandicapUsed = dailyResult.dailyHandicap;
       }
 
       // Calculate score differential (uses raw gross score - no Net Double Bogey adjustment).

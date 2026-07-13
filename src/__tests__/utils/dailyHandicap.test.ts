@@ -13,6 +13,7 @@
 
 import {
   calculateGADailyHandicap,
+  calculateNineAwareDailyHandicap,
   getConsistencyFactor,
   GA_HANDICAP_MULTIPLIER,
   GA_CONSISTENCY_FACTOR_MALE,
@@ -482,6 +483,166 @@ describe('Daily Handicap Calculation', () => {
         // Expected: 18
         expect(result.dailyHandicap).toBe(18);
       });
+    });
+  });
+});
+
+describe('calculateNineAwareDailyHandicap', () => {
+  // Realistic blue-tee ratings for the regression scenario
+  const BLUE_TEE = {
+    slopeRating: 128,
+    courseRating: 71.0,
+    // No dedicated 9-hole ratings (common for API-sourced courses)
+  };
+
+  it('passes through unchanged for a full 18-hole round', () => {
+    const nineAware = calculateNineAwareDailyHandicap({
+      gaHandicap: 8.3,
+      nineType: 'full',
+      par: 72,
+      slopeRating: BLUE_TEE.slopeRating,
+      courseRating: BLUE_TEE.courseRating,
+      gender: 'male',
+    });
+    const direct = calculateGADailyHandicap({
+      gaHandicap: 8.3,
+      slopeRating: BLUE_TEE.slopeRating,
+      courseRating: BLUE_TEE.courseRating,
+      par: 72,
+      gender: 'male',
+    });
+
+    expect(nineAware.dailyHandicap).toBe(direct.dailyHandicap);
+  });
+
+  describe('9-hole round with no dedicated 9-hole ratings (halving fallback)', () => {
+    // Regression: an 8.3 index on a 9-hole round must NOT balloon to ~41.
+    // The bug paired the 9-hole par (36) with the full 18-hole course rating (71),
+    // producing a course-rating adjustment of +35.
+    it('does not inflate the daily handicap by pairing 9-hole par with 18-hole CR', () => {
+      const naiveBuggy = calculateGADailyHandicap({
+        gaHandicap: 8.3,
+        slopeRating: BLUE_TEE.slopeRating,
+        courseRating: BLUE_TEE.courseRating,
+        par: 36, // 9-hole par against 18-hole CR — the bug
+        gender: 'male',
+      });
+      // Documents the reported symptom
+      expect(naiveBuggy.dailyHandicap).toBe(41);
+
+      const fixed = calculateNineAwareDailyHandicap({
+        gaHandicap: 8.3,
+        nineType: 'front9',
+        par: 36,
+        slopeRating: BLUE_TEE.slopeRating,
+        courseRating: BLUE_TEE.courseRating,
+        gender: 'male',
+      });
+
+      // Full 18-hole DHC ≈ 8, halved ≈ 4 — nowhere near 41.
+      expect(fixed.dailyHandicap).toBe(4);
+      expect(fixed.dailyHandicap).toBeLessThan(naiveBuggy.dailyHandicap);
+    });
+
+    it('equals round(full 18-hole daily handicap / 2)', () => {
+      const fullDaily = calculateGADailyHandicap({
+        gaHandicap: 12,
+        slopeRating: 125,
+        courseRating: 72.4,
+        par: 72, // full 18-hole par (9-hole par 36 × 2)
+        gender: 'male',
+      });
+
+      const front9 = calculateNineAwareDailyHandicap({
+        gaHandicap: 12,
+        nineType: 'front9',
+        par: 36,
+        slopeRating: 125,
+        courseRating: 72.4,
+        gender: 'male',
+      });
+
+      expect(front9.dailyHandicap).toBe(Math.round(fullDaily.dailyHandicap / 2));
+    });
+
+    it('applies the same halving fallback for a back9 round', () => {
+      const front9 = calculateNineAwareDailyHandicap({
+        gaHandicap: 8.3,
+        nineType: 'front9',
+        par: 36,
+        slopeRating: BLUE_TEE.slopeRating,
+        courseRating: BLUE_TEE.courseRating,
+        gender: 'male',
+      });
+      const back9 = calculateNineAwareDailyHandicap({
+        gaHandicap: 8.3,
+        nineType: 'back9',
+        par: 36,
+        slopeRating: BLUE_TEE.slopeRating,
+        courseRating: BLUE_TEE.courseRating,
+        gender: 'male',
+      });
+
+      expect(back9.dailyHandicap).toBe(front9.dailyHandicap);
+    });
+
+    it('halves the reported course handicap too', () => {
+      const fixed = calculateNineAwareDailyHandicap({
+        gaHandicap: 8.3,
+        nineType: 'front9',
+        par: 36,
+        slopeRating: BLUE_TEE.slopeRating,
+        courseRating: BLUE_TEE.courseRating,
+        gender: 'male',
+      });
+      // Full course handicap 8.3 × 128/113 ≈ 9.4, halved ≈ 4.7
+      expect(fixed.courseHandicap).toBeCloseTo(4.7, 1);
+    });
+  });
+
+  describe('9-hole round with dedicated 9-hole ratings', () => {
+    it('uses the front9 slope and course rating directly', () => {
+      const fixed = calculateNineAwareDailyHandicap({
+        gaHandicap: 8.3,
+        nineType: 'front9',
+        par: 36,
+        slopeRating: 128,
+        courseRating: 71.0,
+        slopeRatingFront9: 122,
+        courseRatingFront9: 35.6,
+        gender: 'male',
+      });
+      const expected = calculateGADailyHandicap({
+        gaHandicap: 8.3,
+        slopeRating: 122,
+        courseRating: 35.6,
+        par: 36,
+        gender: 'male',
+      });
+
+      expect(fixed.dailyHandicap).toBe(expected.dailyHandicap);
+    });
+
+    it('selects back9 ratings for a back9 round', () => {
+      const fixed = calculateNineAwareDailyHandicap({
+        gaHandicap: 8.3,
+        nineType: 'back9',
+        par: 36,
+        slopeRating: 128,
+        courseRating: 71.0,
+        slopeRatingBack9: 133,
+        courseRatingBack9: 35.9,
+        gender: 'male',
+      });
+      const expected = calculateGADailyHandicap({
+        gaHandicap: 8.3,
+        slopeRating: 133,
+        courseRating: 35.9,
+        par: 36,
+        gender: 'male',
+      });
+
+      expect(fixed.dailyHandicap).toBe(expected.dailyHandicap);
     });
   });
 });

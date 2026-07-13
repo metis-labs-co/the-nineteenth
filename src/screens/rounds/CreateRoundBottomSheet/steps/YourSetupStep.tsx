@@ -16,9 +16,11 @@ import { useIsPremium } from '@/context/SubscriptionContext';
 import { Pill } from '@/components/common';
 import { HandicapEditSheet } from '@/components/rounds';
 import { useAuth } from '@/hooks/useAuth';
-import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
+import { calculateNineAwareDailyHandicap } from '@/utils/dailyHandicap';
+import { filterHolesByNineType } from '@/utils/holeTransformers';
 import type { TeeBox, GameType } from '@/types/database.types';
 import type { HandicapSource } from '@/types/database';
+import type { NineType } from '@/types/database/enums';
 import type { BallCount } from '@/types/multiball.types';
 import { BALL_COUNT_OPTIONS } from '@/types/multiball.types';
 import type { SelectedCourse } from '../types';
@@ -28,6 +30,8 @@ import { GAME_TYPE_DESCRIPTIONS } from '@/constants/gameTypeDescriptions';
 interface YourSetupStepProps {
   selectedCourse: SelectedCourse | null;
   selectedTee: TeeBox | null;
+  /** Which holes are being played — drives 9-hole daily handicap calculation */
+  nineType: NineType;
   selectedMatchType: GameType;
   availableTees: TeeBox[];
   onTeeChange: (tee: TeeBox) => void;
@@ -59,6 +63,7 @@ const formatHC = (value: number | null | undefined): string => {
 export const YourSetupStep = memo(function YourSetupStep({
   selectedCourse,
   selectedTee,
+  nineType,
   selectedMatchType,
   availableTees,
   onTeeChange,
@@ -101,15 +106,23 @@ export const YourSetupStep = memo(function YourSetupStep({
     if (!selectedTee?.slopeRating || !selectedTee?.courseRating) return { profile: null, calculated: null };
     const holes = selectedCourse?.holes;
     if (!Array.isArray(holes) || holes.length === 0) return { profile: null, calculated: null };
-    const coursePar = holes.reduce((sum, h) => sum + h.par, 0);
+    // Sum par over only the holes actually being played so a 9-hole round pairs
+    // a 9-hole par with a matching (9-hole or halved) course rating.
+    const playedHoles = filterHolesByNineType(holes, nineType);
+    const coursePar = playedHoles.reduce((sum, h) => sum + h.par, 0);
     if (coursePar <= 0) return { profile: null, calculated: null };
 
     const calc = (baseHC: number) =>
-      calculateGADailyHandicap({
+      calculateNineAwareDailyHandicap({
         gaHandicap: baseHC,
-        slopeRating: selectedTee.slopeRating!,
-        courseRating: selectedTee.courseRating!,
+        nineType,
         par: coursePar,
+        slopeRating: selectedTee.slopeRating,
+        courseRating: selectedTee.courseRating,
+        slopeRatingFront9: selectedTee.slopeRatingFront9,
+        courseRatingFront9: selectedTee.courseRatingFront9,
+        slopeRatingBack9: selectedTee.slopeRatingBack9,
+        courseRatingBack9: selectedTee.courseRatingBack9,
         gender: player?.gender,
       }).dailyHandicap;
 
@@ -117,7 +130,7 @@ export const YourSetupStep = memo(function YourSetupStep({
       profile: gaHandicap != null ? calc(gaHandicap) : null,
       calculated: (socialIndex ?? gaHandicap) != null ? calc(socialIndex ?? gaHandicap ?? 0) : null,
     };
-  }, [selectedTee, selectedCourse?.holes, gaHandicap, socialIndex, player?.gender]);
+  }, [selectedTee, selectedCourse?.holes, nineType, gaHandicap, socialIndex, player?.gender]);
 
   const isPractice = handicapSource === 'none';
   const hasTees = availableTees.length > 0;

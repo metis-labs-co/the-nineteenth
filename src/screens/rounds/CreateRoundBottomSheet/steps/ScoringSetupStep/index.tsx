@@ -27,6 +27,7 @@ import type { TeeBox, GameType } from '@/types/database.types';
 import type { ScoringPairCreateInput, SkinsConfig } from '@/types';
 import type { WolfConfig } from '@/types/database/wolf.types';
 import type { HandicapSource } from '@/types/database';
+import type { NineType } from '@/types/database/enums';
 import type { SelectedCourse, PlayingPartner, ScrambleTeam } from '../../types';
 
 import { RoundSummary } from './RoundSummary';
@@ -39,6 +40,8 @@ import { WolfSection } from './WolfSection';
 interface ScoringSetupStepProps {
   selectedCourse: SelectedCourse | null;
   selectedTee: TeeBox | null;
+  /** Which holes are being played — drives 9-hole daily handicap calculation */
+  nineType: NineType;
   selectedMatchType: GameType;
   selectedPartners: PlayingPartner[];
   // Scoring pairs
@@ -76,6 +79,7 @@ interface ScoringSetupStepProps {
 export const ScoringSetupStep = memo(function ScoringSetupStep({
   selectedCourse,
   selectedTee,
+  nineType,
   selectedMatchType,
   selectedPartners,
   scoringPairsEnabled,
@@ -143,6 +147,7 @@ export const ScoringSetupStep = memo(function ScoringSetupStep({
             onHandicapSourceChange={onHandicapSourceChange}
             selectedTee={selectedTee}
             holes={selectedCourse?.holes}
+            nineType={nineType}
             selectedPartners={selectedPartners}
             onRefreshCourseData={onRefreshCourseData}
             isRefreshing={isRefreshingCourseData}
