@@ -220,6 +220,8 @@ export function SubMatchLeaderboardTab({
           rightLabel={row.rightLabel}
           leftColor={row.leftColor}
           rightColor={row.rightColor}
+          leftPlayers={row.leftName}
+          rightPlayers={row.rightName}
           data={data}
           forfeitWinner={row.forfeitWinner}
         />

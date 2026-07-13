@@ -33,6 +33,39 @@ describe('SubMatchNetCard', () => {
     expect(screen.getByTestId('net-card-status-0')).toHaveTextContent('Team A leads by 2');
   });
 
+  it('shows the players under each team name when provided', () => {
+    render(
+      <SubMatchNetCard
+        index={0}
+        leftLabel="England"
+        rightLabel="Australia"
+        leftColor="#0a0"
+        rightColor="#a00"
+        leftPlayers="Sam Winzar & Sam Kay"
+        rightPlayers="A. Biggs & B. Beckerleg"
+        data={{ ...baseData, valueA: 71, valueB: 73, leaderSide: 'a' }}
+      />
+    );
+    expect(screen.getByText('England')).toBeTruthy();
+    expect(screen.getByText('Sam Winzar & Sam Kay')).toBeTruthy();
+    expect(screen.getByText('Australia')).toBeTruthy();
+    expect(screen.getByText('A. Biggs & B. Beckerleg')).toBeTruthy();
+  });
+
+  it('omits the players line when not provided', () => {
+    render(
+      <SubMatchNetCard
+        index={0}
+        leftLabel="Team A"
+        rightLabel="Team B"
+        leftColor="#0a0"
+        rightColor="#a00"
+        data={{ ...baseData, valueA: 34, valueB: 36, leaderSide: 'a' }}
+      />
+    );
+    expect(screen.queryByText('Sam Winzar & Sam Kay')).toBeNull();
+  });
+
   it('shows "Not started" with no scores', () => {
     render(
       <SubMatchNetCard
