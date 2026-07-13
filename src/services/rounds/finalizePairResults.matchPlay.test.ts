@@ -12,6 +12,7 @@
 
 import { finalizePairResults } from '@/services/rounds/finalizePairResults';
 import * as roundResultsService from '@/services/rounds/roundResultsService';
+import * as teamQueries from '@/services/teams/teamQueries';
 import type { Hole, Scorecard, SubMatch, TeamWithMembers } from '@/types/database.types';
 import type { RoundRulesOverride } from '@/types/database/roundRules.types';
 
@@ -58,6 +59,16 @@ function member(playerId: string): TeamWithMembers['members'][number] {
     player_id: playerId,
     joined_at: '',
     player: { id: playerId, name: playerId, handicap: 0 } as unknown as TeamWithMembers['members'][number]['player'],
+  };
+}
+
+/** Like `member`, but with a custom (non-zero) profile handicap. */
+function memberHc(playerId: string, handicap: number): TeamWithMembers['members'][number] {
+  return {
+    team_id: '',
+    player_id: playerId,
+    joined_at: '',
+    player: { id: playerId, name: playerId, handicap } as unknown as TeamWithMembers['members'][number]['player'],
   };
 }
 
@@ -232,5 +243,208 @@ describe('finalizePairResults — match-play recompute', () => {
     // manual_result honoured: team-a (a1) wins despite b1's better live scores.
     expect(byTeam['team-a']).toBe(2);
     expect(byTeam['team-b']).toBe(0);
+  });
+});
+
+describe('finalizePairResults — match-play playing handicaps (net, not scratch)', () => {
+  let saveSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    saveSpy = jest.spyOn(roundResultsService, 'saveRoundResults').mockResolvedValue([]);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  // a1 (hc 0) vs b1 (hc 10): b1 receives 1 stroke on every hole below (all
+  // stroke indexes 1-3, all <= 10). Gross: a1 pars every hole (4), b1 bogeys
+  // holes 1-2 (5) and pars hole 3 (4).
+  //   Scratch/no-handicap read (what the old `?? 0` default would produce):
+  //     hole1 a1(4) beats b1(5) -> a; hole2 same -> a; hole3 4 vs 4 -> halved
+  //     => team-a wins 2 up.
+  //   Correct net read (b1's daily/playing handicap of 10 applied):
+  //     hole1 net 4 vs 4 -> halved; hole2 net 4 vs 4 -> halved;
+  //     hole3 net 4 vs 3 (b1's par nets a birdie) -> b1/team-b wins
+  //     => team-b wins 1 up.
+  // The two disagree on the WINNER, so this proves the resolver used the
+  // real (non-zero, differing) handicaps rather than defaulting both to 0.
+  const HC_TEAMS: TeamWithMembers[] = [
+    {
+      id: 'team-a',
+      competition_id: 'comp-1',
+      name: 'Team A',
+      color: null,
+      created_at: '',
+      updated_at: '',
+      members: [memberHc('a1', 0)],
+    },
+    {
+      id: 'team-b',
+      competition_id: 'comp-1',
+      name: 'Team B',
+      color: null,
+      created_at: '',
+      updated_at: '',
+      members: [memberHc('b1', 10)],
+    },
+  ];
+
+  const hcScorecards: Scorecard[] = [card('a1', 4), card('b1', 4)];
+  // Override hole-by-hole so b1 bogeys 1-2 and pars hole 3.
+  hcScorecards[1].scores = { '1': { strokes: 5 }, '2': { strokes: 5 }, '3': { strokes: 4 } };
+
+  const hcSubMatches: SubMatch[] = [
+    subMatch({
+      sort_order: 0,
+      team_a_player_ids: ['a1'],
+      team_b_player_ids: ['b1'],
+      result: 'a-wins', // stale/irrelevant — live is decisive (all 3 holes played)
+    }),
+  ];
+
+  it('applies each player\'s real playing handicap (net result), not a scratch (0) default, when `teams` is supplied directly', async () => {
+    const count = await finalizePairResults({
+      roundId: 'round-1',
+      team1Id: 'team-a',
+      team2Id: 'team-b',
+      rulesOverride: OVERRIDE,
+      subMatches: hcSubMatches,
+      gameType: 'match-play',
+      teams: HC_TEAMS,
+      allScorecards: hcScorecards,
+      courseHoles: HOLES,
+    });
+
+    expect(count).toBe(2);
+    const [, rows] = saveSpy.mock.calls[0];
+    const byTeam = Object.fromEntries(
+      rows.map((r: { teamId: string; rawScore: number }) => [r.teamId, r.rawScore])
+    );
+    // Net-corrected winner is team-b (b1's handicap flips the outright
+    // scratch winner from team-a to team-b).
+    expect(byTeam['team-b']).toBe(2);
+    expect(byTeam['team-a']).toBe(0);
+  });
+
+  it('fetches competition teams for a match-play round even when team1Id/team2Id are already set, so handicaps are never silently 0 (Finding 1 regression)', async () => {
+    const getTeamsSpy = jest
+      .spyOn(teamQueries, 'getCompetitionTeams')
+      .mockResolvedValue(HC_TEAMS);
+
+    const count = await finalizePairResults({
+      roundId: 'round-1',
+      team1Id: 'team-a',
+      team2Id: 'team-b',
+      competitionId: 'comp-1',
+      rulesOverride: OVERRIDE,
+      subMatches: hcSubMatches,
+      gameType: 'match-play',
+      // `teams` deliberately omitted — this is the exact shape the real
+      // caller (refinalizeRoundResults) uses: team1Id/team2Id + competitionId,
+      // no pre-fetched `teams`. Before the fix, the teams-fetch condition
+      // (`!teams && !(team1Id && team2Id) && competitionId`) skipped the
+      // fetch entirely whenever team ids were set, so `teams` stayed
+      // undefined and every player's playing handicap fell back to `?? 0`.
+      allScorecards: hcScorecards,
+      courseHoles: HOLES,
+    });
+
+    expect(getTeamsSpy).toHaveBeenCalledWith('comp-1');
+    expect(count).toBe(2);
+    const [, rows] = saveSpy.mock.calls[0];
+    const byTeam = Object.fromEntries(
+      rows.map((r: { teamId: string; rawScore: number }) => [r.teamId, r.rawScore])
+    );
+    expect(byTeam['team-b']).toBe(2);
+    expect(byTeam['team-a']).toBe(0);
+  });
+});
+
+describe('finalizePairResults — match-play combined-margin bonus uses live holes-up', () => {
+  let saveSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    saveSpy = jest.spyOn(roundResultsService, 'saveRoundResults').mockResolvedValue([]);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  // a3 (hc 0) vs b3 (hc 10), same handicap-driven partial flip as the earlier
+  // "playing handicaps" fixture: b3 receives 1 stroke on every hole (all
+  // stroke indexes 1-3, all <= 10). a3 pars every hole (4); b3 bogeys holes
+  // 1-2 (5, net 4 — halved) and pars hole 3 (4, net 3 — b3 wins). Live result:
+  // team-b wins 1 up. The sub-match's PERSISTED final_differential is a stale
+  // 3 (as if it had closed out 3 up) attached to a persisted 'a-wins' — both
+  // the wrong side AND the wrong magnitude versus the live 1-up result.
+  const BONUS_TEAMS: TeamWithMembers[] = [
+    {
+      id: 'team-a',
+      competition_id: 'comp-1',
+      name: 'Team A',
+      color: null,
+      created_at: '',
+      updated_at: '',
+      members: [memberHc('a3', 0)],
+    },
+    {
+      id: 'team-b',
+      competition_id: 'comp-1',
+      name: 'Team B',
+      color: null,
+      created_at: '',
+      updated_at: '',
+      members: [memberHc('b3', 10)],
+    },
+  ];
+
+  it('derives the bonus margin from the live recomputed outcome, not a stale persisted final_differential', async () => {
+    const subMatches: SubMatch[] = [
+      subMatch({
+        sort_order: 0,
+        team_a_player_ids: ['a3'],
+        team_b_player_ids: ['b3'],
+        result: 'a-wins',
+        final_differential: 3, // stale: wrong side AND wrong magnitude
+      }),
+    ];
+
+    const scorecards: Scorecard[] = [card('a3', 4)];
+    const b3Card = card('b3', 4);
+    b3Card.scores = { '1': { strokes: 5 }, '2': { strokes: 5 }, '3': { strokes: 4 } };
+    scorecards.push(b3Card);
+
+    const OVERRIDE_WITH_BONUS: RoundRulesOverride = {
+      ...OVERRIDE,
+      bonus_points: { enabled: true, metric: 'combined_match_margin', points: 1, tie: 'split' },
+    };
+
+    const count = await finalizePairResults({
+      roundId: 'round-1',
+      team1Id: 'team-a',
+      team2Id: 'team-b',
+      rulesOverride: OVERRIDE_WITH_BONUS,
+      subMatches,
+      gameType: 'match-play',
+      teams: BONUS_TEAMS,
+      allScorecards: scorecards,
+      courseHoles: HOLES,
+    });
+
+    expect(count).toBe(2);
+    const [, rows] = saveSpy.mock.calls[0];
+    const marginByTeam = Object.fromEntries(
+      rows.map((r: { teamId: string; rawResultData: { net_margin?: number } }) => [
+        r.teamId,
+        r.rawResultData.net_margin,
+      ])
+    );
+    // Live-corrected: team-b wins the sub-match 1 up (not the stale 3),
+    // so team-b's net margin is +1 and team-a's is -1 — the persisted
+    // final_differential of 3 must NOT leak into the bonus magnitude.
+    expect(marginByTeam['team-b']).toBe(1);
+    expect(marginByTeam['team-a']).toBe(-1);
   });
 });

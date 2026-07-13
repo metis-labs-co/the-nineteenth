@@ -18,10 +18,14 @@
  * `game_type: 'match-play'` rounds are the exception: they bypass both steps
  * above entirely and are resolved via `resolveMatchPlaySubMatchOutcome` — the
  * same engine the live sub-match leaderboard uses (playing-handicap net,
- * manual override > live > persisted precedence). This keeps a match-play
- * round's persisted standings identical to what its header already shows,
- * instead of trusting a possibly-stale `sub_matches.result` or falling back to
- * a best-ball stroke-total comparison that doesn't apply to match play.
+ * manual override > live > persisted precedence). This is intended to keep a
+ * match-play round's persisted standings identical to what its header already
+ * shows, instead of trusting a possibly-stale `sub_matches.result` or falling
+ * back to a best-ball stroke-total comparison that doesn't apply to match
+ * play — but that equivalence only holds when the caller supplies the same
+ * inputs the header uses (the round's selected tee / handicap source, and
+ * competition `teams` for playing-handicap lookup); with mismatched or
+ * missing inputs the two can diverge.
  *
  * Each sub-match awards `pair_points.win` / `.tie` / `.loss` to the two sides.
  * Points across all decided sub-matches sum to each team's round total, which
@@ -57,6 +61,7 @@ import {
 } from './pairPointsCalculation';
 import {
   resolveMatchPlaySubMatchOutcome,
+  computeMatchPlaySignedMargin,
   type SubMatchSides,
   type SubMatchPlayer,
 } from '@/screens/scoring/ReviewScorecardScreen/utils/subMatchLeaderboard';
@@ -294,9 +299,14 @@ export async function finalizePairResults(
   const subMatches = input.subMatches ?? (await fetchSubMatchesForRound(roundId));
   if (subMatches.length === 0) return 0;
 
-  // Teams: needed to derive side identity when team1Id/team2Id aren't set.
+  // Teams: needed to derive side identity when team1Id/team2Id aren't set, AND
+  // (for match play) to build the playing-handicap map the live resolver needs
+  // — so fetch even when team1Id/team2Id ARE set for a match-play round.
+  // Without this, a match-play round with team ids already assigned never
+  // fetched teams at all, and every player's playing handicap silently
+  // defaulted to 0 (scratch) below.
   let teams = input.teams;
-  if (!teams && !(team1Id && team2Id) && input.competitionId) {
+  if (!teams && input.competitionId && (gameType === 'match-play' || !(team1Id && team2Id))) {
     teams = await getCompetitionTeams(input.competitionId);
   }
   const teamsForDerive = (teams ?? []).map((t) => ({
@@ -417,6 +427,10 @@ export async function finalizePairResults(
     if (!sideIds) continue;
 
     let outcome: SideOutcome | null;
+    // Populated for match-play so the bonus block below can reuse the same
+    // sides (and thus the same live engine) instead of recomputing the
+    // outcome from a stale persisted final_differential.
+    let matchPlaySides: SubMatchSides | null = null;
     if (gameType === 'match-play') {
       // Match play: resolved via the same engine the live sub-match
       // leaderboard uses (playing-handicap net, manual > live > persisted),
@@ -427,13 +441,13 @@ export async function finalizePairResults(
         name: nameByPlayer.get(id) ?? id,
         handicap: playingHcByPlayer.get(id) ?? 0,
       });
-      const sides: SubMatchSides = {
+      matchPlaySides = {
         a: sm.team_a_player_ids.map(toSubMatchPlayer),
         b: sm.team_b_player_ids.map(toSubMatchPlayer),
       };
       outcome = resolveMatchPlaySubMatchOutcome({
         sm,
-        sides,
+        sides: matchPlaySides,
         holes,
         getStrokes: getStrokesForMatchPlay,
       });
@@ -473,7 +487,33 @@ export async function finalizePairResults(
     }
 
     if (bonusCfg?.enabled) {
-      if (typeof sm.final_differential === 'number') {
+      if (gameType === 'match-play' && matchPlaySides && holes.length > 0) {
+        // Match play: derive the margin from the SAME live engine used for
+        // `outcome` above, not the possibly-stale persisted final_differential
+        // — a recomputed (flipped) outcome must carry a matching magnitude.
+        // Falls back to the persisted (unsigned) final_differential only when
+        // live scores can't produce a margin (e.g. a pure manual-result
+        // sub-match with no hole-by-hole scores entered at all).
+        const liveMargin = computeMatchPlaySignedMargin(
+          matchPlaySides,
+          holes,
+          getStrokesForMatchPlay
+        );
+        if (liveMargin !== null) {
+          addMargin(sideIds.sideATeamId, liveMargin);
+          addMargin(sideIds.sideBTeamId, -liveMargin);
+        } else if (typeof sm.final_differential === 'number') {
+          const magnitude = Math.abs(sm.final_differential);
+          if (outcome === 'a-wins') {
+            addMargin(sideIds.sideATeamId, magnitude);
+            addMargin(sideIds.sideBTeamId, -magnitude);
+          } else if (outcome === 'b-wins') {
+            addMargin(sideIds.sideATeamId, -magnitude);
+            addMargin(sideIds.sideBTeamId, magnitude);
+          }
+          // halved → contributes 0 to each (no-op)
+        }
+      } else if (typeof sm.final_differential === 'number') {
         // Persisted match-play scoring: final_differential is UNSIGNED; sign by outcome.
         const magnitude = Math.abs(sm.final_differential);
         if (outcome === 'a-wins') {

@@ -221,6 +221,50 @@ export function selectMatchSource(
  * persisted > live) — and maps the resolved `leaderSide`/`hasScores` onto the
  * outcome shape `finalizePairResults` expects.
  */
+/**
+ * Extract the numeric holes-up magnitude from a `calculateMatchStatus` margin
+ * string ("3 & 2" -> 3, "2 up" -> 2, "All Square" -> 0). `parseInt` naturally
+ * stops at the first non-digit character for both formats, so a single call
+ * covers them; a non-numeric/unexpected string falls back to 0 rather than
+ * throwing.
+ */
+function parseMarginMagnitude(margin: string): number {
+  const n = parseInt(margin, 10);
+  return Number.isNaN(n) ? 0 : n;
+}
+
+/**
+ * Live signed holes-up margin for a match-play sub-match, from side A's
+ * perspective (positive = A ahead, negative = B ahead, 0 = level). Uses the
+ * SAME engine (`calculateTeamMatchData` + `calculateMatchStatus`) as
+ * `computeMatchPlaySubMatch` / `resolveMatchPlaySubMatchOutcome`, so a caller
+ * that recomputes the outcome live (e.g. `finalizePairResults`'s combined
+ * margin bonus) can source the magnitude from the same place instead of a
+ * possibly-stale persisted `final_differential`.
+ *
+ * Returns null when no hole has a decided winner yet (nothing to report).
+ */
+export function computeMatchPlaySignedMargin(
+  sides: SubMatchSides,
+  holes: Hole[],
+  getStrokes: GetStrokes
+): number | null {
+  const team1 = toMatchSide(sides.a, 'a');
+  const team2 = toMatchSide(sides.b, 'b');
+  const calc = calculateTeamMatchData(holes, team1, team2, getStrokes);
+  const hasScores = Object.values(calc.holeResults).some((r) => r.winner !== null);
+  if (!hasScores) return null;
+
+  const status = calculateMatchStatus(calc.holeResults, holes.length);
+  if (status.status === 'complete') {
+    if (status.winner === 'halved') return 0;
+    const magnitude = parseMarginMagnitude(status.margin);
+    return status.winner === 'player1' ? magnitude : -magnitude;
+  }
+  if (status.leader === null) return 0;
+  return status.leader === 'player1' ? status.holesUp : -status.holesUp;
+}
+
 export function resolveMatchPlaySubMatchOutcome(params: {
   sm: {
     status: string;
