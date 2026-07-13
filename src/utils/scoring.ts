@@ -346,6 +346,47 @@ export function getScoreColor(score: number, par: number, themeColors?: ColorPal
 }
 
 /**
+ * Canonical gross score categories relative to par, finest granularity.
+ * Consumers that display a coarser breakdown fold neighbouring categories
+ * themselves (e.g. albatross → eagles).
+ */
+export type ScoreCategory =
+  | 'albatross'
+  | 'eagle'
+  | 'birdie'
+  | 'par'
+  | 'bogey'
+  | 'double-bogey'
+  | 'triple-plus';
+
+/**
+ * Classify a gross hole score relative to par — the single source of truth for
+ * score-distribution counting across the app.
+ *
+ * Returns `null` when the hole should not be counted in a gross distribution:
+ * - no score (undefined, zero, or negative)
+ * - a pickup (strokes at or above {@link PICKUP_SCORE}, the max-strokes sentinel);
+ *   the player never holed out, so it belongs to no gross category. Net/points
+ *   views handle pickups separately via {@link getEffectiveGrossStrokes}.
+ */
+export function getScoreCategory(
+  strokes: number | undefined | null,
+  par: number
+): ScoreCategory | null {
+  if (!strokes || strokes <= 0) return null;
+  if (strokes >= PICKUP_SCORE) return null;
+
+  const diff = strokes - par;
+  if (diff <= -3) return 'albatross';
+  if (diff === -2) return 'eagle';
+  if (diff === -1) return 'birdie';
+  if (diff === 0) return 'par';
+  if (diff === 1) return 'bogey';
+  if (diff === 2) return 'double-bogey';
+  return 'triple-plus';
+}
+
+/**
  * Calculate statistics from hole scores
  * Accepts any object with a `scores` property matching the HoleScore format
  * Works with both app-level (number keys) and database (string keys) Scorecard types
@@ -383,13 +424,18 @@ export function calculateStatistics(
   
   holes.forEach((hole) => {
     const holeScore = scorecard.scores[hole.number];
-    if (!holeScore?.strokes) return;
-    
-    const diff = holeScore.strokes - hole.par;
-    if (diff <= -1) birdiesOrBetter++;
-    else if (diff === 0) pars++;
-    else if (diff === 1) bogeys++;
-    else doubleBogeyOrWorse++;
+    const category = getScoreCategory(holeScore?.strokes, hole.par);
+    if (!category) return; // no score or pickup
+
+    if (category === 'albatross' || category === 'eagle' || category === 'birdie') {
+      birdiesOrBetter++;
+    } else if (category === 'par') {
+      pars++;
+    } else if (category === 'bogey') {
+      bogeys++;
+    } else {
+      doubleBogeyOrWorse++; // double-bogey or triple-plus
+    }
   });
   
   return {

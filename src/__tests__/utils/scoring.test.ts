@@ -22,6 +22,7 @@ import {
   calculateTeamMatchPlayHoleResult,
   calculateMatchPlayStatus,
   calculateStatistics,
+  getScoreCategory,
   sortLeaderboard,
   getScoreDescription,
   getScoreColor,
@@ -721,6 +722,30 @@ describe('Statistics Calculation', () => {
     });
   });
 
+  describe('getScoreCategory', () => {
+    it('classifies gross scores relative to par, albatross distinct', () => {
+      expect(getScoreCategory(1, 4)).toBe('albatross'); // -3
+      expect(getScoreCategory(2, 4)).toBe('eagle'); // -2
+      expect(getScoreCategory(3, 4)).toBe('birdie'); // -1
+      expect(getScoreCategory(4, 4)).toBe('par');
+      expect(getScoreCategory(5, 4)).toBe('bogey');
+      expect(getScoreCategory(6, 4)).toBe('double-bogey');
+      expect(getScoreCategory(7, 4)).toBe('triple-plus');
+      expect(getScoreCategory(9, 4)).toBe('triple-plus'); // still below pickup sentinel
+    });
+
+    it('returns null for no score', () => {
+      expect(getScoreCategory(undefined, 4)).toBeNull();
+      expect(getScoreCategory(0, 4)).toBeNull();
+      expect(getScoreCategory(-1, 4)).toBeNull();
+    });
+
+    it('returns null for a pickup (strokes >= PICKUP_SCORE = 10)', () => {
+      expect(getScoreCategory(10, 4)).toBeNull();
+      expect(getScoreCategory(12, 5)).toBeNull();
+    });
+  });
+
   describe('getScoreDescription', () => {
     it('returns correct descriptions', () => {
       expect(getScoreDescription(1, 4)).toBe('Albatross');
@@ -1126,8 +1151,13 @@ describe('Edge Cases', () => {
 
       const stats = calculateStatistics(scorecard as any, holes);
 
-      // Picked-up score of 10 on par 4 = +6 = doubleBogeyOrWorse
-      expect(stats.doubleBogeyOrWorse).toBe(1);
+      // A pickup (strokes >= PICKUP_SCORE) is excluded from the gross
+      // distribution — it must not masquerade as a double bogey / blow-up.
+      expect(stats.doubleBogeyOrWorse).toBe(0);
+      // Only the two holed-out holes (2 & 3) are counted.
+      expect(
+        stats.birdiesOrBetter + stats.pars + stats.bogeys + stats.doubleBogeyOrWorse
+      ).toBe(2);
     });
   });
 
