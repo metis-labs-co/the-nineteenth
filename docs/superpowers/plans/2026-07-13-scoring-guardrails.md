@@ -13,7 +13,7 @@
 - Package manager is **pnpm**. Never use `npm`/`yarn`.
 - Path alias: `@/` → `src/`. Use it in test imports.
 - Test runner is **jest**; run subsets with `pnpm test --testPathPattern='<regex>'`.
-- Typecheck command is **`pnpm typecheck`** (already wired into the `Stop` hook).
+- Typecheck command is **`pnpm type-check`** (already wired into the `Stop` hook).
 - This work happens in the worktree at `.claude/worktrees/scoring-guardrails`. Per project memory, **do NOT symlink `node_modules`** into the worktree — run `pnpm install` in-worktree once before running any test/typecheck (see Task 0).
 - **Do NOT change scoring source logic.** These tasks only add docs, tests, agent, rules, and config. Characterization tests assert *current* behaviour; if a value surprises you, investigate — do not "fix" the source under this plan.
 - All commits end with the `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>` trailer.
@@ -32,7 +32,7 @@ Expected: completes without error; `node_modules/` present (NOT a symlink — ve
 
 - [ ] **Step 2: Sanity-check the toolchain**
 
-Run: `pnpm test --testPathPattern='utils/scoring\.test' && pnpm typecheck`
+Run: `pnpm test --testPathPattern='utils/scoring\.test' && pnpm type-check`
 Expected: the existing `src/utils/scoring.test.ts` passes and typecheck succeeds. This confirms the harness before we add anything.
 
 No commit (no file changes).
@@ -554,7 +554,7 @@ golden tests including `altShotSplit.golden` under `services/rounds/`:
     "Stop": [
       {
         "hooks": [
-          { "type": "command", "command": "pnpm typecheck" },
+          { "type": "command", "command": "pnpm type-check" },
           {
             "type": "command",
             "command": "pnpm test --testPathPattern='(golden|services/scoring|components/scorecard|utils/(scoring|dailyHandicap|teamHandicap|competitionPoints|matchMargin))' --silent"
@@ -698,7 +698,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 
 Run:
 ```bash
-pnpm typecheck
+pnpm type-check
 pnpm test --testPathPattern='(services/scoring|utils/(scoring|dailyHandicap|subMatches)|components/scorecard)'
 ```
 Expected: typecheck clean; scoring subset green. Diff any failures against the

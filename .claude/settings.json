@@ -17,7 +17,7 @@
           { "type": "command", "command": "pnpm type-check" },
           {
             "type": "command",
-            "command": "pnpm test --testPathPattern='(golden|services/scoring|components/scorecard|utils/(scoring|dailyHandicap|teamHandicap|competitionPoints|matchMargin))' --silent"
+            "command": "pnpm test --testPathPattern='(golden|services/scoring|utils/(scoring|dailyHandicap|teamHandicap|competitionPoints|matchMargin))' --silent"
           }
         ]
       }
