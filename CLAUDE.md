@@ -417,6 +417,30 @@ const styles = StyleSheet.create({
 
 ---
 
+## Scoring changes (guardrails)
+
+Scoring is a high-blast-radius domain: 10+ score-card variants share one
+calculation layer. Before editing anything under `src/services/scoring`, the
+scoring Zustand store slices (`src/store/{scorecardStore,scoreUpdateSlice,
+initializeRoundSlice}.ts`), shared handicap/points/margin utils
+(`src/utils/{scoring,scorecardCalculations,dailyHandicap,competitionPoints,
+matchMargin,subMatches,teamHandicap,leaderboardHandicaps}.ts`), or
+`src/components/scorecard/**`:
+
+1. **Read** `docs/guides/SCORING_ARCHITECTURE.md` (map, blast-radius table, invariants).
+2. **Run** the `scoring-impact-analyst` agent on the target file(s) and state the
+   reported blast radius before editing.
+3. **State** which characterization test(s) cover the change (see
+   `docs/guides/scoring-invariant-coverage.md`). If the behaviour you are about
+   to change is UNPROTECTED, add a characterization test that locks current
+   behaviour FIRST, then make the change.
+4. **Cards are presentational** — do NOT re-implement scoring math inside a card.
+   Numbers come from a util/selector.
+5. After the change, run the scoring subset:
+   `pnpm test --testPathPattern='(services/scoring|utils/(scoring|dailyHandicap|subMatches)|components/scorecard)'`.
+
+---
+
 ## API Integration Strategy
 
 ### Golf Course Data
