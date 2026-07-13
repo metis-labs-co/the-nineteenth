@@ -9,6 +9,7 @@ import type { Scorecard } from '@/types/database/scorecard.types';
 import { isSingleBallScore } from '@/types/database/base';
 import type { HoleScore, MultiBallHoleScore } from '@/types/database/base';
 import type { RoundRulesOverride } from '@/types/database/roundRules.types';
+import { formatMatchMargin } from '@/utils/matchMargin';
 
 /** A raw hole-score value as stored on a scorecard (single- or multi-ball). */
 export type RawHoleScore = HoleScore | MultiBallHoleScore;
@@ -145,6 +146,70 @@ export function computeMatchPlaySubMatch(
     isComplete: false,
     hasScores,
   };
+}
+
+/** Match-row display data derived from a sub-match's PERSISTED result (manual or
+ *  scored). Returns null when there is no decisive persisted result to show, so
+ *  the caller falls back to live score computation. Forfeits are handled
+ *  separately via `forfeitWinner`. */
+export function persistedMatchData(sm: {
+  status: string;
+  result: string | null;
+  final_differential: number | null;
+  final_holes_remaining: number | null;
+  manual_result?: boolean;
+}): { holesUpDown: string; leaderSide: 'a' | 'b' | null; hasScores: boolean; isManual: boolean } | null {
+  if (sm.status !== 'completed') return null;
+  const isManual = sm.manual_result === true;
+  if (sm.result === 'halved') {
+    return { holesUpDown: formatMatchMargin(0, 0, true), leaderSide: null, hasScores: true, isManual };
+  }
+  if (sm.result === 'a-wins' || sm.result === 'b-wins') {
+    const up = sm.final_differential ?? 0;
+    const rem = sm.final_holes_remaining ?? 0;
+    return {
+      holesUpDown: formatMatchMargin(up, rem, false),
+      leaderSide: sm.result === 'a-wins' ? 'a' : 'b',
+      hasScores: true,
+      isManual,
+    };
+  }
+  return null;
+}
+
+/**
+ * Picks the authoritative source for a match-play row display.
+ *
+ * A manually-entered result (`persisted.isManual`) wins outright — an organiser
+ * override takes precedence over hole-by-hole scores. Otherwise the live
+ * computation wins when the match engine has reached a decided result
+ * (`live.isComplete`), and the persisted result is used only as a fallback when
+ * live has not yet decided (no/partial scores).
+ */
+export function selectMatchSource(
+  live: MatchPlayRowData,
+  persisted: ReturnType<typeof persistedMatchData>
+): MatchPlayRowData {
+  // A manually-entered result is authoritative — it overrides hole scores even
+  // when the live engine has reached a decided result.
+  if (persisted?.isManual) {
+    return {
+      statusText: persisted.holesUpDown,
+      leaderSide: persisted.leaderSide,
+      isComplete: true,
+      hasScores: persisted.hasScores,
+    };
+  }
+  if (live.isComplete) return live;
+  if (persisted) {
+    return {
+      statusText: persisted.holesUpDown,
+      leaderSide: persisted.leaderSide,
+      isComplete: true,
+      hasScores: persisted.hasScores,
+    };
+  }
+  return live;
 }
 
 export interface NetCardData {
