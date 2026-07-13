@@ -90,7 +90,11 @@ export const LeaderboardHeader = React.memo(function LeaderboardHeader({
   return (
     <View style={styles.header}>
       <View style={styles.headerTop}>
-        <ScaledText category="title" style={[styles.roundTitle, { color: colors.textPrimary }]}>
+        <ScaledText
+          category="title"
+          style={[styles.roundTitle, { color: colors.textPrimary }]}
+          numberOfLines={1}
+        >
           {title}
         </ScaledText>
         <View style={styles.badgeRow}>
