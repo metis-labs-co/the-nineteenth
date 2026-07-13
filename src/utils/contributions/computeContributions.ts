@@ -19,9 +19,8 @@ import type {
   TeamContribution,
 } from './types';
 import { deriveAltShotShotCounts } from '@/utils/teamScoring';
+import { PICKUP_SCORE } from '@/constants/scoring';
 import type { AltShotPairInput } from './types';
-
-const PICKUP_SCORE = 99; // sentinel used elsewhere in the app for picked-up holes
 
 /** Higher value wins for stableford/par; lower (net strokes) wins otherwise. */
 function higherIsBetter(gameType: GameType): boolean {
@@ -43,7 +42,7 @@ function holeValue(
   hole: Hole,
   gameType: GameType
 ): number | null {
-  if (!strokes || strokes === PICKUP_SCORE) return null;
+  if (!strokes || strokes >= PICKUP_SCORE) return null;
   if (gameType === 'stableford') return calculateStablefordPoints(strokes, handicap, hole);
   if (gameType === 'par') {
     const strokesReceived = getStrokesOnHole(handicap, hole);
@@ -58,7 +57,7 @@ function aggregateValue(
   handicap: number,
   hole: Hole
 ): number | null {
-  if (!strokes || strokes === PICKUP_SCORE) return null;
+  if (!strokes || strokes >= PICKUP_SCORE) return null;
   return calculateStablefordPoints(strokes, handicap, hole);
 }
 
