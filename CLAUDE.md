@@ -52,6 +52,7 @@ Detailed implementation guides for specific topics:
 - **[API_INTEGRATION.md](docs/guides/API_INTEGRATION.md)** - Golf course API integration and caching
 - **[DEPLOYMENT.md](docs/guides/DEPLOYMENT.md)** - CI/CD, EAS builds, app store deployments, monitoring
 - **[SCORING_PAIRS.md](docs/guides/SCORING_PAIRS.md)** - Designated scoring pairs for competitive rounds
+- **[SCORING_ARCHITECTURE.md](docs/guides/SCORING_ARCHITECTURE.md)** - Scoring domain map, blast-radius table, per-format invariants (read before editing scoring)
 - **[SKINS_GAME.md](docs/guides/SKINS_GAME.md)** - Skins gambling side-game configuration and settlement
 - **[WOLF_GAME.md](docs/guides/WOLF_GAME.md)** - Wolf strategic partner selection side-game
 - **[SUBSCRIPTION_TIERS.md](docs/guides/SUBSCRIPTION_TIERS.md)** - Subscription tier system, limits, grandfathering, admin management
@@ -413,6 +414,30 @@ const styles = StyleSheet.create({
 - Sheet-styled footers/sections inside a modal screen are covered by wrapping the screen root.
 
 **Complete guide**: See [STYLING_GUIDE.md](docs/guides/STYLING_GUIDE.md) for patterns, design tokens, and best practices (including "Modals & Sheets — Solid Surfaces").
+
+---
+
+## Scoring changes (guardrails)
+
+Scoring is a high-blast-radius domain: 10+ score-card variants share one
+calculation layer. Before editing anything under `src/services/scoring`, the
+scoring Zustand store slices (`src/store/{scorecardStore,scoreUpdateSlice,
+initializeRoundSlice}.ts`), shared handicap/points/margin utils
+(`src/utils/{scoring,scorecardCalculations,dailyHandicap,competitionPoints,
+matchMargin,subMatches,teamHandicap,leaderboardHandicaps}.ts`), or
+`src/components/scorecard/**`:
+
+1. **Read** `docs/guides/SCORING_ARCHITECTURE.md` (map, blast-radius table, invariants).
+2. **Run** the `scoring-impact-analyst` agent on the target file(s) and state the
+   reported blast radius before editing.
+3. **State** which characterization test(s) cover the change (see
+   `docs/guides/scoring-invariant-coverage.md`). If the behaviour you are about
+   to change is UNPROTECTED, add a characterization test that locks current
+   behaviour FIRST, then make the change.
+4. **Cards are presentational** — do NOT re-implement scoring math inside a card.
+   Numbers come from a util/selector.
+5. After the change, run the scoring subset:
+   `pnpm test --testPathPattern='(golden|services/scoring|utils/(scoring|dailyHandicap|subMatches)|components/scorecard)'`.
 
 ---
 
