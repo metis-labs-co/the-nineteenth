@@ -12,7 +12,7 @@
 
 - Package manager is **pnpm**. Never use `npm`/`yarn`.
 - Path alias: `@/` → `src/`. Use it in test imports.
-- Test runner is **jest**; run subsets with `pnpm test -- --testPathPattern='<regex>'`.
+- Test runner is **jest**; run subsets with `pnpm test --testPathPattern='<regex>'`.
 - Typecheck command is **`pnpm typecheck`** (already wired into the `Stop` hook).
 - This work happens in the worktree at `.claude/worktrees/scoring-guardrails`. Per project memory, **do NOT symlink `node_modules`** into the worktree — run `pnpm install` in-worktree once before running any test/typecheck (see Task 0).
 - **Do NOT change scoring source logic.** These tasks only add docs, tests, agent, rules, and config. Characterization tests assert *current* behaviour; if a value surprises you, investigate — do not "fix" the source under this plan.
@@ -32,7 +32,7 @@ Expected: completes without error; `node_modules/` present (NOT a symlink — ve
 
 - [ ] **Step 2: Sanity-check the toolchain**
 
-Run: `pnpm test -- --testPathPattern='utils/scoring\.test' && pnpm typecheck`
+Run: `pnpm test --testPathPattern='utils/scoring\.test' && pnpm typecheck`
 Expected: the existing `src/utils/scoring.test.ts` passes and typecheck succeeds. This confirms the harness before we add anything.
 
 No commit (no file changes).
@@ -248,7 +248,7 @@ describe('INVARIANT I3: pickup counts as net double bogey', () => {
 
 - [ ] **Step 2: Run it and confirm it PASSES against current code**
 
-Run: `pnpm test -- --testPathPattern='scoring\.golden'`
+Run: `pnpm test --testPathPattern='scoring\.golden'`
 Expected: PASS. (Characterization tests pass immediately; they exist to fail on
 *future* drift.) If any assertion FAILS, the formula assumption is wrong —
 inspect `src/utils/scoring.ts`, correct the expected value to match current
@@ -258,7 +258,7 @@ behaviour, and note the corrected invariant in the arch map. Do not change sourc
 
 Temporarily edit `src/utils/scoring.ts` `getMatchPlayStrokes` to `return { a: 0, b: 0 }`, run the test, confirm I1 FAILS, then revert the edit.
 
-Run: `pnpm test -- --testPathPattern='scoring\.golden'`
+Run: `pnpm test --testPathPattern='scoring\.golden'`
 Expected after revert: PASS again. (This confirms the tripwire works.)
 
 - [ ] **Step 4: Write the nine-aware daily-handicap golden test (I4)**
@@ -293,7 +293,7 @@ assertions with numeric literals before you commit — no `TODO` may remain.
 
 - [ ] **Step 5: Run the daily-handicap golden test**
 
-Run: `pnpm test -- --testPathPattern='dailyHandicap\.golden'`
+Run: `pnpm test --testPathPattern='dailyHandicap\.golden'`
 Expected: PASS with concrete frozen values.
 
 - [ ] **Step 6: Write the coverage checklist**
@@ -354,7 +354,7 @@ numeric `expect(...).toBe(...)` assertions — no `console.log`, no TODO.
 
 - [ ] **Step 3: Run and confirm PASS**
 
-Run: `pnpm test -- --testPathPattern='subMatches\.golden'`
+Run: `pnpm test --testPathPattern='subMatches\.golden'`
 Expected: PASS with frozen values.
 
 - [ ] **Step 4: Write the combined alt-shot golden test (I6)**
@@ -366,7 +366,7 @@ finalize path, observe, and freeze net-lowest + 50%-handicap outputs as literals
 
 - [ ] **Step 5: Run and confirm PASS**
 
-Run: `pnpm test -- --testPathPattern='altShotCombined\.golden'`
+Run: `pnpm test --testPathPattern='altShotCombined\.golden'`
 Expected: PASS.
 
 - [ ] **Step 6: Update coverage checklist and commit**
@@ -487,7 +487,7 @@ matchMargin,subMatches,teamHandicap,leaderboardHandicaps}.ts`), or
 4. **Cards are presentational** — do NOT re-implement scoring math inside a card.
    Numbers come from a util/selector.
 5. After the change, run the scoring subset:
-   `pnpm test -- --testPathPattern='(services/scoring|utils/(scoring|dailyHandicap|subMatches)|components/scorecard)'`.
+   `pnpm test --testPathPattern='(services/scoring|utils/(scoring|dailyHandicap|subMatches)|components/scorecard)'`.
 ```
 
 - [ ] **Step 2: Verify placement**
@@ -544,7 +544,7 @@ adding the scoring test subset + a PreToolUse reminder scoped to scoring paths):
           { "type": "command", "command": "pnpm typecheck" },
           {
             "type": "command",
-            "command": "pnpm test -- --testPathPattern='(services/scoring|utils/(scoring|dailyHandicap|subMatches)\\.golden|components/scorecard)' --silent"
+            "command": "pnpm test --testPathPattern='(services/scoring|utils/(scoring|dailyHandicap|subMatches)\\.golden|components/scorecard)' --silent"
           }
         ]
       }
@@ -603,7 +603,7 @@ nothing with `exit=0`.
 
 - [ ] **Step 5: Verify the Stop hook command runs**
 
-Run: `pnpm test -- --testPathPattern='(utils/(scoring|dailyHandicap|subMatches)\.golden)' --silent`
+Run: `pnpm test --testPathPattern='(utils/(scoring|dailyHandicap|subMatches)\.golden)' --silent`
 Expected: the golden tests pass (this is the subset the Stop hook will run).
 
 - [ ] **Step 6: Commit**
@@ -677,7 +677,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 Run:
 ```bash
 pnpm typecheck
-pnpm test -- --testPathPattern='(services/scoring|utils/(scoring|dailyHandicap|subMatches)|components/scorecard)'
+pnpm test --testPathPattern='(services/scoring|utils/(scoring|dailyHandicap|subMatches)|components/scorecard)'
 ```
 Expected: typecheck clean; scoring subset green. Diff any failures against the
 Jest baseline noted in project memory (~243 pre-existing failures on main) — only
