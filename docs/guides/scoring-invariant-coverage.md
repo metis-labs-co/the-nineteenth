@@ -1,5 +1,7 @@
 # Scoring Invariant Coverage
 
+> Invariant definitions and the blast-radius map: see [SCORING_ARCHITECTURE.md](./SCORING_ARCHITECTURE.md).
+
 | Invariant | Locked by | Status |
 |---|---|---|
 | I1 singles match-play difference method | `utils/scoring.golden.test.ts` | ✅ |

@@ -95,8 +95,8 @@ describe('resolveAltShotSubMatchOutcome — split alt-shot differential (I5, gol
   });
 
   it('rounds an exact .5 handicap differential up (nearest, .5 rounds up)', () => {
-    // Team A (a1 hc 10, a2 hc 0) → 5. Team B (b1 hc 0, b2 hc 4.5) → 2.25.
-    // diff = round(|5 - 2.25|) = round(2.75) = 3, awarded to side A.
+    // Team A (a1 hc 10, a2 hc 0) → 5. Team B (b1 hc 0, b2 hc 4.5) → 2.3.
+    // diff = round(|5 - 2.3|) = round(2.7) = 3, awarded to side A.
     // A gross 13 → net 10. B gross 11 → net 11. 10 < 11 → a-wins.
     const outcome = resolveAltShotSubMatchOutcome({
       teamAPlayerIds: ['a1', 'a2'],
