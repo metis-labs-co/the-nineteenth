@@ -15,6 +15,14 @@
  *      each pair, the same comparison the round-screen leaderboard shows
  *      (`buildLiveTeamEntries` in src/utils/teamScoring/calculations.ts).
  *
+ * `game_type: 'match-play'` rounds are the exception: they bypass both steps
+ * above entirely and are resolved via `resolveMatchPlaySubMatchOutcome` — the
+ * same engine the live sub-match leaderboard uses (playing-handicap net,
+ * manual override > live > persisted precedence). This keeps a match-play
+ * round's persisted standings identical to what its header already shows,
+ * instead of trusting a possibly-stale `sub_matches.result` or falling back to
+ * a best-ball stroke-total comparison that doesn't apply to match play.
+ *
  * Each sub-match awards `pair_points.win` / `.tie` / `.loss` to the two sides.
  * Points across all decided sub-matches sum to each team's round total, which
  * is also its `competition_points` contribution for the round.
@@ -47,6 +55,12 @@ import {
   computeAltShotHolesUpMargin,
   type SideOutcome,
 } from './pairPointsCalculation';
+import {
+  resolveMatchPlaySubMatchOutcome,
+  type SubMatchSides,
+  type SubMatchPlayer,
+} from '@/screens/scoring/ReviewScorecardScreen/utils/subMatchLeaderboard';
+import { calculatePlayingHandicap } from '@/hooks/player';
 import { decideMarginBonus } from './marginBonus';
 import type {
   GameType,
@@ -57,6 +71,8 @@ import type {
   SubMatch,
   TeamWithMembers,
 } from '@/types/database.types';
+import type { TeeBox, HandicapSource } from '@/types/database';
+import type { NineType } from '@/types/database/enums';
 import type { RoundRulesOverride } from '@/types/database/roundRules.types';
 
 export interface FinalizePairResultsInput {
@@ -102,6 +118,24 @@ export interface FinalizePairResultsInput {
   courseHoles?: Hole[];
   /** Optional pre-fetched competition teams; fetched via competitionId when omitted. */
   teams?: TeamWithMembers[];
+  /**
+   * Selected tee for the round — feeds the playing-handicap calculation used
+   * by the match-play resolver (daily handicap needs slope/course rating).
+   * Only consulted when `gameType === 'match-play'`.
+   */
+  selectedTee?: TeeBox | null;
+  /** Handicap source (profile vs. calculated) for the match-play playing-handicap calculation. */
+  handicapSource?: HandicapSource | null;
+  /** Nine-type context (front9/back9/full) for the match-play playing-handicap calculation. */
+  nineType?: NineType;
+  /**
+   * The round's scorecards regardless of status (completed, in-progress,
+   * closed-out). Used only by the match-play resolver, which — unlike the
+   * best-ball `scorecards` live lookup above — must keep counting a match
+   * whose card is still in-progress or was closed out early. Falls back to
+   * `scorecards` when omitted.
+   */
+  allScorecards?: Scorecard[];
 }
 
 /**
@@ -274,12 +308,51 @@ export async function finalizePairResults(
   // interpret them. Holes are needed too; fetch them lazily if absent.
   let getHoleValue: ((playerId: string, hole: Hole) => number | null) | null = null;
   let holes: Hole[] = input.courseHoles ?? [];
-  if (input.scorecards && input.scorecards.length > 0 && gameType) {
+  const matchPlayScorecards = input.allScorecards ?? input.scorecards;
+  const needsHoles =
+    (input.scorecards && input.scorecards.length > 0 && gameType) ||
+    (gameType === 'match-play' && matchPlayScorecards && matchPlayScorecards.length > 0);
+  if (needsHoles) {
     if (holes.length === 0) holes = await fetchCourseHolesForRound(roundId);
-    if (holes.length > 0) {
-      getHoleValue = buildHoleValueLookup(input.scorecards, gameType);
+  }
+  if (input.scorecards && input.scorecards.length > 0 && gameType && holes.length > 0) {
+    getHoleValue = buildHoleValueLookup(input.scorecards, gameType);
+  }
+
+  // Playing-handicap map for the match-play resolver — mirrors the live
+  // sub-match leaderboard's SubMatchPlayer.handicap exactly (calculatePlayingHandicap
+  // per player, using the round's selected tee / handicap source / nine type).
+  const playingHcByPlayer = new Map<string, number>();
+  const nameByPlayer = new Map<string, string>();
+  if (gameType === 'match-play') {
+    for (const t of teams ?? []) {
+      for (const m of t.members) {
+        if (!m.player_id) continue;
+        if (m.player?.name) nameByPlayer.set(m.player_id, m.player.name);
+        const { playingHandicap } = calculatePlayingHandicap({
+          player: m.player ?? null,
+          selectedTeeData: input.selectedTee ?? null,
+          holes,
+          handicapSource: input.handicapSource ?? null,
+          gameType,
+          nineType: input.nineType,
+        });
+        playingHcByPlayer.set(m.player_id, playingHandicap);
+      }
     }
   }
+
+  // Gross (never net) per-hole strokes lookup for the match-play resolver —
+  // reads ALL statuses (not just completed) so an in-progress or closed-out
+  // match card still counts, matching the live sub-match leaderboard.
+  const matchPlayByPlayer = new Map<string, Scorecard>();
+  for (const sc of matchPlayScorecards ?? []) {
+    matchPlayByPlayer.set(sc.player_id, sc);
+  }
+  const getStrokesForMatchPlay = (playerId: string, holeNumber: number): number | undefined => {
+    const gross = getHoleGross(matchPlayByPlayer.get(playerId)?.scores, holeNumber);
+    return gross ?? undefined;
+  };
 
   // Handicap snapshot for alt-shot's differential allowance. Prefer the
   // scorecard's daily_handicap_used; when absent, fall back to the player's
@@ -343,24 +416,47 @@ export async function finalizePairResults(
           : null;
     if (!sideIds) continue;
 
-    // Persisted result wins; otherwise compute from scorecards.
-    let outcome = persistedOutcome(sm);
-    if (!outcome && gameType === 'alt-shot' && holes.length > 0) {
-      outcome = resolveAltShotSubMatchOutcome({
-        teamAPlayerIds: sm.team_a_player_ids,
-        teamBPlayerIds: sm.team_b_player_ids,
-        holes,
-        getGross,
-        dailyHandicaps: dhcByPlayer,
+    let outcome: SideOutcome | null;
+    if (gameType === 'match-play') {
+      // Match play: resolved via the same engine the live sub-match
+      // leaderboard uses (playing-handicap net, manual > live > persisted),
+      // never the stale persisted result or the best-ball scores fallback —
+      // those diverge from what the round's header currently shows.
+      const toSubMatchPlayer = (id: string): SubMatchPlayer => ({
+        id,
+        name: nameByPlayer.get(id) ?? id,
+        handicap: playingHcByPlayer.get(id) ?? 0,
       });
-    } else if (!outcome && getHoleValue && gameType) {
-      outcome = resolveSubMatchOutcomeFromScores({
-        teamAPlayerIds: sm.team_a_player_ids,
-        teamBPlayerIds: sm.team_b_player_ids,
+      const sides: SubMatchSides = {
+        a: sm.team_a_player_ids.map(toSubMatchPlayer),
+        b: sm.team_b_player_ids.map(toSubMatchPlayer),
+      };
+      outcome = resolveMatchPlaySubMatchOutcome({
+        sm,
+        sides,
         holes,
-        getHoleValue,
-        higherIsBetter: higherIsBetter(gameType),
+        getStrokes: getStrokesForMatchPlay,
       });
+    } else {
+      // Persisted result wins; otherwise compute from scorecards.
+      outcome = persistedOutcome(sm);
+      if (!outcome && gameType === 'alt-shot' && holes.length > 0) {
+        outcome = resolveAltShotSubMatchOutcome({
+          teamAPlayerIds: sm.team_a_player_ids,
+          teamBPlayerIds: sm.team_b_player_ids,
+          holes,
+          getGross,
+          dailyHandicaps: dhcByPlayer,
+        });
+      } else if (!outcome && getHoleValue && gameType) {
+        outcome = resolveSubMatchOutcomeFromScores({
+          teamAPlayerIds: sm.team_a_player_ids,
+          teamBPlayerIds: sm.team_b_player_ids,
+          holes,
+          getHoleValue,
+          higherIsBetter: higherIsBetter(gameType),
+        });
+      }
     }
     if (!outcome) continue;
 
