@@ -19,10 +19,13 @@ export const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     marginBottom: spacing.sm,
   },
+  // Title on its own line (ellipsized), badges wrap onto the line(s) below —
+  // so a long round name plus several pills (format / Teams / points badge)
+  // never spill off-screen.
   headerTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: spacing.xs,
     marginBottom: spacing.sm,
   },
   roundTitle: {
@@ -31,6 +34,7 @@ export const styles = StyleSheet.create({
   badgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
     gap: spacing.sm,
   },
   teamBadge: {
