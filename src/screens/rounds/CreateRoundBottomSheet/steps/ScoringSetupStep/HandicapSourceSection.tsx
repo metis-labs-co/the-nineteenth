@@ -17,9 +17,11 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { useIsPremium } from '@/context/SubscriptionContext';
 import { SegmentedButton } from '@/components/common';
 import { useAuth } from '@/hooks/useAuth';
-import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
+import { calculateNineAwareDailyHandicap } from '@/utils/dailyHandicap';
+import { filterHolesByNineType } from '@/utils/holeTransformers';
 import type { TeeBox } from '@/types/database.types';
 import type { HandicapSource, Hole } from '@/types/database';
+import type { NineType } from '@/types/database/enums';
 import type { PlayingPartner } from '../../types';
 
 interface HandicapSourceSectionProps {
@@ -29,6 +31,8 @@ interface HandicapSourceSectionProps {
   selectedTee?: TeeBox | null;
   /** Course holes for par calculation (passed directly to avoid async fetch) */
   holes?: Hole[] | null;
+  /** Which holes are being played — drives 9-hole daily handicap calculation */
+  nineType?: NineType;
   /** Playing partners selected for the round */
   selectedPartners?: PlayingPartner[];
   /** Callback to refresh course/tee data when slope/CR is missing */
@@ -51,6 +55,7 @@ export const HandicapSourceSection = memo(function HandicapSourceSection({
   onHandicapSourceChange,
   selectedTee,
   holes,
+  nineType = 'full',
   selectedPartners = [],
   onRefreshCourseData,
   isRefreshing = false,
@@ -70,8 +75,10 @@ export const HandicapSourceSection = memo(function HandicapSourceSection({
 
   // Build player list with handicap info (current user + partners)
   const allPlayers = useMemo((): PlayerHandicapInfo[] => {
+    // Sum par over only the holes being played so a 9-hole round pairs a
+    // 9-hole par with a matching (9-hole or halved) course rating.
     const coursePar = Array.isArray(holes) && holes.length > 0
-      ? holes.reduce((sum, h) => sum + h.par, 0)
+      ? filterHolesByNineType(holes, nineType).reduce((sum, h) => sum + h.par, 0)
       : 0;
 
     const calcDaily = (
@@ -80,11 +87,16 @@ export const HandicapSourceSection = memo(function HandicapSourceSection({
       gender?: 'male' | 'female' | null
     ): number | null => {
       if (baseHC == null || !tee?.slopeRating || !tee?.courseRating || coursePar <= 0) return null;
-      return calculateGADailyHandicap({
+      return calculateNineAwareDailyHandicap({
         gaHandicap: baseHC,
+        nineType,
+        par: coursePar,
         slopeRating: tee.slopeRating,
         courseRating: tee.courseRating,
-        par: coursePar,
+        slopeRatingFront9: tee.slopeRatingFront9,
+        courseRatingFront9: tee.courseRatingFront9,
+        slopeRatingBack9: tee.slopeRatingBack9,
+        courseRatingBack9: tee.courseRatingBack9,
         gender: gender ?? undefined,
       }).dailyHandicap;
     };
@@ -129,7 +141,7 @@ export const HandicapSourceSection = memo(function HandicapSourceSection({
     }
 
     return players;
-  }, [player, selectedPartners, handicapSource, selectedTee, holes]);
+  }, [player, selectedPartners, handicapSource, selectedTee, holes, nineType]);
 
   const hintText = handicapSource === 'calculated'
     ? 'Uses Social Handicap Index from your app rounds (profile handicap fallback)'

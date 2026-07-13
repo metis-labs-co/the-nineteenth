@@ -756,6 +756,7 @@ export default function CreateRoundBottomSheet({
         <YourSetupStep
           selectedCourse={wizard.data.selectedCourse}
           selectedTee={wizard.data.selectedTee}
+          nineType={wizard.data.nineType}
           selectedMatchType={wizard.data.selectedMatchType}
           availableTees={availableTees}
           onTeeChange={wizard.handleCurrentUserTeeChange}
@@ -790,6 +791,7 @@ export default function CreateRoundBottomSheet({
           <ScoringSetupStep
             selectedCourse={wizard.data.selectedCourse}
             selectedTee={wizard.data.selectedTee}
+            nineType={wizard.data.nineType}
             selectedMatchType={wizard.data.selectedMatchType}
             selectedPartners={wizard.data.selectedPartners}
             scoringPairsEnabled={wizard.data.scoringPairsEnabled}

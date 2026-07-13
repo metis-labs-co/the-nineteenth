@@ -145,6 +145,7 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
     selectedTeeData,
     handicapSource,
     playerTeeMap,
+    nineType,
     startHole,
     currentRoundId,
     setAllowedPlayers,
@@ -177,6 +178,7 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
         selectedTeeData: playerTee,
         holes,
         handicapSource,
+        nineType, // 9-hole rounds pair a 9-hole par with a matching course rating
         gameType: undefined, // Game type allowance applied separately per format
       });
       map.set(player.id, {
@@ -187,7 +189,7 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
       });
     }
     return map;
-  }, [currentPlayers, playerTeeMap, selectedTeeData, holes, handicapSource]);
+  }, [currentPlayers, playerTeeMap, selectedTeeData, holes, handicapSource, nineType]);
 
   // Show tee color dots next to player names (always when tee data is available)
   const showTeeDots = selectedTeeData != null || playerTeeMap.size > 0;
