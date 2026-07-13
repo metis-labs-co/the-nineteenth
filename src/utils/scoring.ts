@@ -8,12 +8,8 @@ import { colors, ColorPalette } from '@/constants/theme';
  * based on their handicap and the hole's stroke index
  */
 export function getStrokesOnHole(playerHandicap: number, hole: Hole): number {
-  if (playerHandicap <= 0) return 0;
-
-  const baseStrokes = Math.floor(playerHandicap / 18);
-  const additionalStroke = hole.strokeIndex <= (playerHandicap % 18) ? 1 : 0;
-
-  return baseStrokes + additionalStroke;
+  // Thin wrapper over getStrokesReceived for callers that hold a full Hole.
+  return getStrokesReceived(playerHandicap, hole.strokeIndex);
 }
 
 /**
@@ -203,20 +199,27 @@ export function calculateStablefordPoints(
  * - 1 over par: 1 point (bogey)
  * - 2+ over par: 0 points (double bogey or worse)
  */
+/**
+ * Extended Stableford points for a net score relative to par — the single
+ * source of truth for the points lookup table.
+ * (`services/scoring` re-exports this.)
+ */
+export function getStablefordPoints(netToPar: number): number {
+  if (netToPar <= -3) return STABLEFORD_POINTS.ALBATROSS_OR_BETTER;
+  if (netToPar === -2) return STABLEFORD_POINTS.EAGLE;
+  if (netToPar === -1) return STABLEFORD_POINTS.BIRDIE;
+  if (netToPar === 0) return STABLEFORD_POINTS.PAR;
+  if (netToPar === 1) return STABLEFORD_POINTS.BOGEY;
+  return STABLEFORD_POINTS.DOUBLE_OR_WORSE;
+}
+
 export function calculateStablefordPointsNet(
   strokes: number,
   par: number,
   strokesReceived: number
 ): number {
   const netStrokes = strokes - strokesReceived;
-  const relativeToPar = netStrokes - par;
-
-  if (relativeToPar <= -3) return STABLEFORD_POINTS.ALBATROSS_OR_BETTER;
-  if (relativeToPar === -2) return STABLEFORD_POINTS.EAGLE;
-  if (relativeToPar === -1) return STABLEFORD_POINTS.BIRDIE;
-  if (relativeToPar === 0) return STABLEFORD_POINTS.PAR;
-  if (relativeToPar === 1) return STABLEFORD_POINTS.BOGEY;
-  return STABLEFORD_POINTS.DOUBLE_OR_WORSE;
+  return getStablefordPoints(netStrokes - par);
 }
 
 /**
