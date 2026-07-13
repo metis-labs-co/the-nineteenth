@@ -252,7 +252,7 @@ describe('MatchPlayScorecardTable', () => {
       );
 
       // AS may appear multiple times in status column
-      expect(screen.getAllByText('AS').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('A/S').length).toBeGreaterThanOrEqual(1);
     });
 
     it('shows player name with UP when leading', () => {
@@ -293,7 +293,7 @@ describe('MatchPlayScorecardTable', () => {
       // After hole 2: John 1 UP (halved)
       // After hole 3: AS (Jane wins hole 3)
       // Look for AS in the status column
-      expect(screen.getAllByText('AS').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('A/S').length).toBeGreaterThanOrEqual(1);
     });
   });
 
@@ -419,7 +419,7 @@ describe('MatchPlayScorecardTable', () => {
 
       // Look for HALVED in the total row or AS for all square
       const halvedElements = screen.queryAllByText('HALVED');
-      const asElements = screen.queryAllByText('AS');
+      const asElements = screen.queryAllByText('A/S');
       expect(halvedElements.length + asElements.length).toBeGreaterThanOrEqual(1);
     });
   });
@@ -467,7 +467,7 @@ describe('MatchPlayScorecardTable', () => {
         />
       );
 
-      expect(screen.getAllByText('AS').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('A/S').length).toBeGreaterThanOrEqual(1);
     });
   });
 

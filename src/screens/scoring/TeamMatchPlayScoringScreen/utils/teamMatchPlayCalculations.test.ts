@@ -416,7 +416,7 @@ describe('getTeamMatchStatusDisplay', () => {
 
     it('returns AS for team1', () => {
       const display = getTeamMatchStatusDisplay(status, 'team1');
-      expect(display.text).toBe('AS');
+      expect(display.text).toBe('A/S');
       expect(display.fullText).toBe('All Square');
       expect(display.type).toBe('halved');
       expect(display.holesUpDown).toBe(0);
@@ -424,7 +424,7 @@ describe('getTeamMatchStatusDisplay', () => {
 
     it('returns AS for team2', () => {
       const display = getTeamMatchStatusDisplay(status, 'team2');
-      expect(display.text).toBe('AS');
+      expect(display.text).toBe('A/S');
       expect(display.fullText).toBe('All Square');
       expect(display.type).toBe('halved');
       expect(display.holesUpDown).toBe(0);
@@ -487,13 +487,13 @@ describe('getTeamMatchStatusDisplay', () => {
 
     it('returns AS for both teams', () => {
       const display1 = getTeamMatchStatusDisplay(status, 'team1');
-      expect(display1.text).toBe('AS');
+      expect(display1.text).toBe('A/S');
       expect(display1.fullText).toBe('All Square');
       expect(display1.type).toBe('square');
       expect(display1.holesUpDown).toBe(0);
 
       const display2 = getTeamMatchStatusDisplay(status, 'team2');
-      expect(display2.text).toBe('AS');
+      expect(display2.text).toBe('A/S');
       expect(display2.type).toBe('square');
     });
   });

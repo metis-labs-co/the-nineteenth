@@ -517,8 +517,8 @@ describe('useMatchPlayScoring', () => {
 
       const { result } = renderHook(() => useMatchPlayScoring(defaultParams));
 
-      expect(result.current.player1MatchStatus.text).toBe('AS');
-      expect(result.current.player2MatchStatus.text).toBe('AS');
+      expect(result.current.player1MatchStatus.text).toBe('A/S');
+      expect(result.current.player2MatchStatus.text).toBe('A/S');
     });
   });
 

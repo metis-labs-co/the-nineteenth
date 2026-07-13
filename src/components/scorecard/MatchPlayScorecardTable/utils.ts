@@ -161,7 +161,7 @@ export function getRunningStatusText(
   }
 
   if (status.leader === null) {
-    return 'AS';
+    return 'A/S';
   }
 
   const leaderInitials = getInitials(status.leader === 'player1' ? player1Name : player2Name);
