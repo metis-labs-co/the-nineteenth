@@ -27,6 +27,19 @@ jest.mock('@/hooks/useCompetitionLeaderboard', () => ({
   useCompetitionLeaderboard: (...args: unknown[]) => mockUseCompetitionLeaderboard(...args),
 }));
 
+// Mock the useTeams hook (drives the configured-team-count gate for the
+// head-to-head vs. ranked-table branch, independent of how many teams have
+// scored per `useCompetitionLeaderboard`). Defaults to "not loaded" so
+// existing tests (which don't care about configured team count) keep
+// falling back to TeamLeaderboardTable; the regression test below overrides
+// it to a genuine 2-team roster.
+const mockUseTeams = jest.fn();
+
+jest.mock('@/hooks/rounds', () => ({
+  ...jest.requireActual('@/hooks/rounds'),
+  useTeams: (...args: unknown[]) => mockUseTeams(...args),
+}));
+
 // Mock icons
 jest.mock('@tabler/icons-react-native', () => {
   const { View, Text } = require('react-native');
@@ -303,6 +316,12 @@ describe('LeaderboardTab', () => {
     jest.clearAllMocks();
     mockUseCompetitionLeaderboard.mockReturnValue({
       data: null,
+      isLoading: true,
+      error: null,
+      refetch: jest.fn(),
+    });
+    mockUseTeams.mockReturnValue({
+      data: undefined,
       isLoading: true,
       error: null,
       refetch: jest.fn(),
@@ -695,6 +714,34 @@ describe('LeaderboardTab', () => {
         error: null,
         refetch: jest.fn(),
       });
+      // A genuine 2-team competition: `useTeams` (configured team roster) must
+      // also report exactly 2 teams for the head-to-head card to render — see
+      // LeaderboardTab's `teams?.length === 2 && teamEntries.length === 2` gate.
+      mockUseTeams.mockReturnValue({
+        data: [
+          {
+            id: 'team-a',
+            competition_id: 'comp-1',
+            name: 'Team A',
+            color: null,
+            created_at: '2025-01-01T00:00:00.000Z',
+            updated_at: '2025-01-01T00:00:00.000Z',
+            members: [{ team_id: 'team-a', player_id: 'p1', joined_at: '2025-01-01T00:00:00.000Z' }],
+          },
+          {
+            id: 'team-b',
+            competition_id: 'comp-1',
+            name: 'Team B',
+            color: null,
+            created_at: '2025-01-01T00:00:00.000Z',
+            updated_at: '2025-01-01T00:00:00.000Z',
+            members: [{ team_id: 'team-b', player_id: 'p2', joined_at: '2025-01-01T00:00:00.000Z' }],
+          },
+        ],
+        isLoading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
 
       render(
         <LeaderboardTab
@@ -704,9 +751,10 @@ describe('LeaderboardTab', () => {
         />
       );
 
-      // Team Standings rendered with both teams. Exactly two teams renders the
+      // Team Standings rendered with both teams. A genuinely 2-team
+      // competition (both configured roster and scored entries) renders the
       // head-to-head scoreboard (not the ranked table) — see LeaderboardTab's
-      // `teamEntries.length === 2` branch.
+      // `teams?.length === 2 && teamEntries.length === 2` branch.
       expect(screen.getByText('Team Standings')).toBeTruthy();
       expect(screen.getByTestId('competition-team-headtohead')).toBeTruthy();
       expect(screen.getByText('Team A')).toBeTruthy();

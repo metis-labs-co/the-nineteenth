@@ -495,7 +495,7 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
               toWin={teamPointsToWin.toWin}
             />
           )}
-          {teamEntries.length === 2 ? (
+          {teams?.length === 2 && teamEntries.length === 2 ? (
             <TeamHeadToHeadCard
               entries={[teamEntries[0], teamEntries[1]]}
               teamColors={teamColorById}
