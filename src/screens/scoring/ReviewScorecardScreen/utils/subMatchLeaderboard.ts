@@ -212,6 +212,37 @@ export function selectMatchSource(
   return live;
 }
 
+/**
+ * Reproduces the live tally's per-sub-match decision as a finalize-time
+ * `SideOutcome`, so persisting round results agrees with what the sub-match
+ * leaderboard is currently showing. Composes the same three building blocks
+ * the display row uses — `computeMatchPlaySubMatch` (live), `persistedMatchData`
+ * (stored), `selectMatchSource` (precedence: manual > live-when-complete >
+ * persisted > live) — and maps the resolved `leaderSide`/`hasScores` onto the
+ * outcome shape `finalizePairResults` expects.
+ */
+export function resolveMatchPlaySubMatchOutcome(params: {
+  sm: {
+    status: string;
+    result: string | null;
+    final_differential: number | null;
+    final_holes_remaining: number | null;
+    manual_result?: boolean;
+  };
+  sides: SubMatchSides;
+  holes: Hole[];
+  getStrokes: GetStrokes;
+}): 'a-wins' | 'b-wins' | 'halved' | null {
+  const { sm, sides, holes, getStrokes } = params;
+  const live = computeMatchPlaySubMatch(sides, holes, getStrokes);
+  const persisted = persistedMatchData(sm);
+  const data = selectMatchSource(live, persisted);
+  if (!data.hasScores) return null;
+  if (data.leaderSide === 'a') return 'a-wins';
+  if (data.leaderSide === 'b') return 'b-wins';
+  return 'halved';
+}
+
 export interface NetCardData {
   /** Side A's net (alt-shot/aggregate) or points (best-ball); null if unscored. */
   valueA: number | null;
