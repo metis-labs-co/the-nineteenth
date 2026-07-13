@@ -15,7 +15,7 @@ describe('persistedMatchData', () => {
   it('formats a went-the-distance win as XUP', () => {
     expect(persistedMatchData({
       status: 'completed', result: 'b-wins', final_differential: 2, final_holes_remaining: null,
-    })).toEqual({ holesUpDown: '2UP', leaderSide: 'b', hasScores: true, isManual: false });
+    })).toEqual({ holesUpDown: '2 UP', leaderSide: 'b', hasScores: true, isManual: false });
   });
   it('returns null when the sub-match has no persisted decisive result', () => {
     expect(persistedMatchData({

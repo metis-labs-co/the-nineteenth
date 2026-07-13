@@ -6,8 +6,8 @@ describe('formatMatchMargin', () => {
     expect(formatMatchMargin(3, 2, false)).toBe('3&2');
   });
   it('formats a win that went the distance as "XUP"', () => {
-    expect(formatMatchMargin(1, 0, false)).toBe('1UP');
-    expect(formatMatchMargin(4, 0, false)).toBe('4UP');
+    expect(formatMatchMargin(1, 0, false)).toBe('1 UP');
+    expect(formatMatchMargin(4, 0, false)).toBe('4 UP');
   });
   it('formats a halved match as "A/S"', () => {
     expect(formatMatchMargin(0, 0, true)).toBe('A/S');
