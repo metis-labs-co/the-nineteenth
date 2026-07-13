@@ -16,7 +16,9 @@ import { SegmentedButton } from '@/components/common/SegmentedButton';
 import { IconUsers, IconUser, IconCalendar } from '@tabler/icons-react-native';
 import { LeaderboardTable } from './LeaderboardTable';
 import { TeamLeaderboardTable, type TeamLeaderboardEntry } from './TeamLeaderboardTable';
+import { TeamHeadToHeadCard } from './TeamHeadToHeadCard';
 import { TeamPointsToWinBanner } from './TeamPointsToWinBanner';
+import { getTeamColorHex } from '@/utils/teamColor';
 import { summarizeCompetition, summarizeRoundPoints } from '@/utils/competitionPoints/roundPointsSummary';
 import { RoundLeaderboard } from './RoundLeaderboard';
 import {
@@ -357,6 +359,17 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
 
   const playerTeamLookup = useMemo(() => buildPlayerTeamLookup(teams), [teams]);
 
+  // teamId -> hex colour lookup, shared by TeamHeadToHeadCard so the two-team
+  // scoreboard uses each team's stored avatar colour (falling back to the
+  // legacy index-based theme cycle for teams without one).
+  const teamColorById = useMemo(() => {
+    const map = new Map<string, string>();
+    (teams ?? []).forEach((team, index) => {
+      map.set(team.id, getTeamColorHex(team.color, index, _colors));
+    });
+    return map;
+  }, [teams, _colors]);
+
   // Handle view change (forwards to parent when controlled, else updates local state)
   const handleViewChange = useCallback(
     (next: LeaderboardView) => {
@@ -482,13 +495,23 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
               toWin={teamPointsToWin.toWin}
             />
           )}
-          <TeamLeaderboardTable
-            leaderboard={teamEntries}
-            currentUserId={currentUserId}
-            isLoading={false}
-            showTiedIndicator
-            testID="competition-team-leaderboard"
-          />
+          {teams?.length === 2 && teamEntries.length === 2 ? (
+            <TeamHeadToHeadCard
+              entries={[teamEntries[0], teamEntries[1]]}
+              teamColors={teamColorById}
+              currentUserId={currentUserId}
+              rounds={rounds}
+              testID="competition-team-headtohead"
+            />
+          ) : (
+            <TeamLeaderboardTable
+              leaderboard={teamEntries}
+              currentUserId={currentUserId}
+              isLoading={false}
+              showTiedIndicator
+              testID="competition-team-leaderboard"
+            />
+          )}
         </>
       ) : (
         <LeaderboardTable
