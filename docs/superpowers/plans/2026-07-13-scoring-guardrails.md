@@ -328,33 +328,37 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ### Task 3: Characterization tests — format finalizers (observe-then-lock)
 
 **Files:**
-- Create: `src/utils/subMatches.golden.test.ts` (I5)
+- Create: `src/__tests__/services/rounds/altShotSplit.golden.test.ts` (I5)
 - Create: `src/__tests__/services/scoring/altShotCombined.golden.test.ts` (I6)
 - Modify: `docs/guides/scoring-invariant-coverage.md` (flip I5/I6 to ✅)
 
 **Interfaces:**
-- Consumes: the alt-shot split entry point in `@/utils/subMatches` and the alt-shot combined finalize path (locate via `grep -rn "combined" src/services/rounds src/utils/subMatches.ts`).
+- Consumes: the alt-shot split/combined finalize logic. **Per the Task 1 finding, the split differential math lives in `src/services/rounds/finalizePairResults.ts`, NOT `utils/subMatches.ts`** (`subMatches.ts` only exports `resolveSubMatchForUser`). Locate the exact entry points in Step 1.
 - Produces: locks I5/I6; completes the coverage checklist.
 
 - [ ] **Step 1: Locate the exact entry functions**
 
 ```bash
-grep -rnE "export (function|const)" src/utils/subMatches.ts
-grep -rln "alt.?shot\|altShot\|foursome" src/services --include="*.ts" | grep -v test
+grep -rnE "export (function|const)" src/services/rounds/finalizePairResults.ts
+grep -rln "alt.?shot\|altShot\|foursome\|combined" src/services/rounds --include="*.ts" | grep -v test
 ```
-Identify (a) the function that computes the split differential total-net, and
+Identify (a) the exported function in `finalizePairResults.ts` (or a sibling in
+`src/services/rounds/`) that computes the split differential total-net, and
 (b) the finalize function for combined alt-shot. Note their exact signatures.
+If the split logic is not directly exported/callable in isolation, test it
+through the nearest exported finalize entry point and lock its observable output.
 
 - [ ] **Step 2: Write the split golden test (I5) with observe-then-lock**
 
-Create `src/utils/subMatches.golden.test.ts`. Build a representative fixture (a
-pair with known per-hole nets), call the split function, observe the output
-once, and freeze it as concrete literal assertions. The committed file must have
-numeric `expect(...).toBe(...)` assertions — no `console.log`, no TODO.
+Create `src/__tests__/services/rounds/altShotSplit.golden.test.ts`. Build a
+representative fixture (a pair with known per-hole nets), call the split finalize
+function, observe the output once, and freeze it as concrete literal assertions.
+The committed file must have numeric `expect(...).toBe(...)` assertions — no
+`console.log`, no TODO.
 
 - [ ] **Step 3: Run and confirm PASS**
 
-Run: `pnpm test --testPathPattern='subMatches\.golden'`
+Run: `pnpm test --testPathPattern='altShotSplit\.golden'`
 Expected: PASS with frozen values.
 
 - [ ] **Step 4: Write the combined alt-shot golden test (I6)**
@@ -374,7 +378,7 @@ Expected: PASS.
 Flip I5 and I6 to ✅ in `docs/guides/scoring-invariant-coverage.md`, then:
 
 ```bash
-git add src/utils/subMatches.golden.test.ts src/__tests__/services/scoring/altShotCombined.golden.test.ts docs/guides/scoring-invariant-coverage.md
+git add src/__tests__/services/rounds/altShotSplit.golden.test.ts src/__tests__/services/scoring/altShotCombined.golden.test.ts docs/guides/scoring-invariant-coverage.md
 git commit -m "test(scoring): characterization tests for alt-shot split/combined (I5-I6)
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
