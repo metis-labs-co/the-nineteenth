@@ -513,20 +513,29 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ### Task 6: Enforcement hooks
 
 **Files:**
-- Modify: `.claude/settings.json`
+- Create: `.claude/settings.json` (does NOT exist in this worktree — untracked in the main checkout; `.claude/` is gitignored, so both artifacts are force-added)
+- Create: `.claude/hooks/scoring-edit-nudge.py`
 
 **Interfaces:**
 - Consumes: the rule, the scoring test subset command.
 
-- [ ] **Step 1: Read the current settings**
+**Design decisions (confirmed with maintainer):**
+- PreToolUse hook is a **NON-BLOCKING nudge** — exit 0, emit a reminder via
+  `hookSpecificOutput.additionalContext` (NOT exit 2, which would BLOCK the edit).
+- Stop hook runs **typecheck + the scoring test subset**.
+- Config is **force-tracked** in the repo (`.claude/` is gitignored here).
 
-Run: `cat .claude/settings.json`
-Expected: the existing `Stop` hook running `pnpm typecheck`.
+- [ ] **Step 1: Confirm no settings.json exists in the worktree**
 
-- [ ] **Step 2: Add a PreToolUse nudge and extend the Stop hook**
+Run: `ls -la .claude/settings.json 2>/dev/null || echo "absent — will create fresh"`
+Expected: absent. (`.claude/settings.json` is untracked in the main checkout and
+did not travel to this worktree; we create a fresh, tracked one on this branch.)
 
-Replace `.claude/settings.json` with (preserving the existing typecheck hook and
-adding the scoring test subset + a PreToolUse reminder scoped to scoring paths):
+- [ ] **Step 2: Create `.claude/settings.json`**
+
+Create `.claude/settings.json` with the PreToolUse nudge + Stop hook (typecheck
+then the scoring test subset). The Stop test pattern uses `golden` to catch ALL
+golden tests including `altShotSplit.golden` under `services/rounds/`:
 
 ```json
 {
@@ -548,7 +557,7 @@ adding the scoring test subset + a PreToolUse reminder scoped to scoring paths):
           { "type": "command", "command": "pnpm typecheck" },
           {
             "type": "command",
-            "command": "pnpm test --testPathPattern='(services/scoring|utils/(scoring|dailyHandicap|subMatches)\\.golden|components/scorecard)' --silent"
+            "command": "pnpm test --testPathPattern='(golden|services/scoring|components/scorecard|utils/(scoring|dailyHandicap|teamHandicap|competitionPoints|matchMargin))' --silent"
           }
         ]
       }
@@ -557,11 +566,12 @@ adding the scoring test subset + a PreToolUse reminder scoped to scoring paths):
 }
 ```
 
-- [ ] **Step 3: Write the nudge hook script**
+- [ ] **Step 3: Write the non-blocking nudge hook script**
 
-Create `.claude/hooks/scoring-edit-nudge.py`. It reads the tool input on stdin,
-and if the edited path is in a scoring area, emits a reminder to stderr with a
-non-blocking exit code (the message is surfaced to the model; it does not block):
+Create `.claude/hooks/scoring-edit-nudge.py`. It reads the tool input on stdin;
+if the edited path is a scoring path, it emits a reminder via
+`hookSpecificOutput.additionalContext` and exits 0 — the reminder is added to the
+model's context and the edit **proceeds** (non-blocking):
 
 ```python
 #!/usr/bin/env python3
@@ -580,44 +590,52 @@ SCORING = re.compile(
     r"|src/components/scorecard/)"
 )
 if path and SCORING.search(path):
-    sys.stderr.write(
-        "SCORING GUARDRAIL: you are editing high-blast-radius scoring code. "
-        "Before continuing, confirm you have (1) read docs/guides/SCORING_ARCHITECTURE.md, "
-        "(2) run the scoring-impact-analyst agent, (3) a characterization test covering this change. "
-        "See the 'Scoring changes' rule in CLAUDE.md.\n"
+    reminder = (
+        "SCORING GUARDRAIL: this edit touches high-blast-radius scoring code. "
+        "Confirm you have (1) read docs/guides/SCORING_ARCHITECTURE.md, "
+        "(2) run the scoring-impact-analyst agent for the blast radius, and "
+        "(3) a characterization test covering this change. "
+        "See the 'Scoring changes' rule in CLAUDE.md."
     )
-    sys.exit(2)  # exit 2 = surface stderr to the model, non-fatal reminder
-sys.exit(0)
+    print(json.dumps({
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "additionalContext": reminder,
+        }
+    }))
+sys.exit(0)  # always 0 — non-blocking; additionalContext surfaces the reminder
 ```
 
-> Note: exit code 2 on PreToolUse feeds stderr back to the model as a reminder.
-> If the project prefers a fully silent/non-interrupting nudge, change to
-> `sys.exit(0)` and print to stdout instead — but exit 2 is what makes the
-> reminder visible. Confirm the desired behaviour with the maintainer during review.
-
-- [ ] **Step 4: Make the hook executable and test it**
+- [ ] **Step 4: Make the hook executable and test both branches**
 
 ```bash
 chmod +x .claude/hooks/scoring-edit-nudge.py
 echo '{"tool_input":{"file_path":"src/utils/scoring.ts"}}' | python3 .claude/hooks/scoring-edit-nudge.py; echo "exit=$?"
 echo '{"tool_input":{"file_path":"src/components/Button.tsx"}}' | python3 .claude/hooks/scoring-edit-nudge.py; echo "exit=$?"
 ```
-Expected: first prints the guardrail reminder with `exit=2`; second prints
-nothing with `exit=0`.
+Expected: first prints a JSON object containing `"additionalContext"` and the
+text `SCORING GUARDRAIL`, with `exit=0`; second prints nothing, `exit=0`.
+Also confirm the JSON is valid: pipe the first command's stdout through
+`python3 -c "import json,sys; json.load(sys.stdin)"` and expect no error.
 
-- [ ] **Step 5: Verify the Stop hook command runs**
+- [ ] **Step 5: Verify the Stop hook test command runs and measure its cost**
 
-Run: `pnpm test --testPathPattern='(utils/(scoring|dailyHandicap|subMatches)\.golden)' --silent`
-Expected: the golden tests pass (this is the subset the Stop hook will run).
+Run: `time pnpm test --testPathPattern='(golden|services/scoring|components/scorecard|utils/(scoring|dailyHandicap|teamHandicap|competitionPoints|matchMargin))' --silent`
+Expected: the subset passes (diff any failures against the ~243 pre-existing
+baseline noted in the plan's Global Constraints / project memory). **Record the
+wall-clock time and test count in your report** — this runs on every session end,
+so the maintainer needs to know the cost (and can trim `components/scorecard` if
+it's too slow).
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 6: Commit (force-add — `.claude/` is gitignored)**
 
 ```bash
-git add .claude/settings.json .claude/hooks/scoring-edit-nudge.py
+git add -f .claude/settings.json .claude/hooks/scoring-edit-nudge.py
 git commit -m "chore(claude): scoring-path PreToolUse nudge + Stop-hook scoring tests
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ```
+Confirm both files are tracked afterwards: `git ls-files .claude/settings.json .claude/hooks/scoring-edit-nudge.py` should list both.
 
 ---
 
