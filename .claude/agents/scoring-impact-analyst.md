@@ -11,9 +11,21 @@ blast-radius report so the editor knows what they might break.
 Steps:
 1. Read `docs/guides/SCORING_ARCHITECTURE.md` and
    `docs/guides/scoring-invariant-coverage.md`.
-2. For each target file, run `grep -rln "<module path/name>" src --include="*.ts"
-   --include="*.tsx" | grep -v test` to list every consumer. Also list test files
-   separately.
+2. For each target file, find EVERY consumer with a MULTI-PRONGED search and
+   union the results — a single path-only grep UNDER-reports blast radius, and
+   under-reporting is the exact failure this agent exists to prevent, so err
+   toward the wider search:
+   - **Alias path**: `grep -rln "@/utils/<module>\|services/scoring/<module>" src
+     --include="*.ts" --include="*.tsx"`.
+   - **Relative imports**: `grep -rln "from '\.\{1,2\}/<module>'" src
+     --include="*.ts" --include="*.tsx"` to catch `from '../<module>'` and
+     `from './<module>'` importers that never match the alias path.
+   - **Barrel re-exports**: check whether the module is re-exported by a barrel,
+     e.g. `grep -n "export \* from './<module>'" src/utils/index.ts`. If it is,
+     ALSO grep for bare-barrel importers (`grep -rln "from '@/utils'" src ...`)
+     as potential INDIRECT consumers, and label them "indirect via barrel".
+   Union all three prongs, then `grep -v test` the union to list every consumer.
+   Also list test files separately.
 3. Classify the target: **shared math** (engines / utils / store slices) or
    **leaf presentational** (a single card/screen). Shared math = wide blast radius.
 4. Map the target to the invariants (I1…) it participates in and the
