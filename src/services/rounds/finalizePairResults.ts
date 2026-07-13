@@ -331,7 +331,10 @@ export async function finalizePairResults(
 
   // Playing-handicap map for the match-play resolver — mirrors the live
   // sub-match leaderboard's SubMatchPlayer.handicap exactly (calculatePlayingHandicap
-  // per player, using the round's selected tee / handicap source / nine type).
+  // per player, using the round's selected tee / handicap source). nineType is
+  // intentionally omitted so it defaults to 'full', matching the live view
+  // (SubMatchLeaderboardTab passes no nineType); competition rounds are always
+  // full-18, so this can't diverge.
   const playingHcByPlayer = new Map<string, number>();
   const nameByPlayer = new Map<string, string>();
   if (gameType === 'match-play') {
@@ -345,7 +348,6 @@ export async function finalizePairResults(
           holes,
           handicapSource: input.handicapSource ?? null,
           gameType,
-          nineType: input.nineType,
         });
         playingHcByPlayer.set(m.player_id, playingHandicap);
       }
