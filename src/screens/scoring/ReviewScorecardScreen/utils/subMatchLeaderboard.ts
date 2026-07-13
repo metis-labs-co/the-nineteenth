@@ -9,6 +9,7 @@ import type { Scorecard } from '@/types/database/scorecard.types';
 import { isSingleBallScore } from '@/types/database/base';
 import type { HoleScore, MultiBallHoleScore } from '@/types/database/base';
 import type { RoundRulesOverride } from '@/types/database/roundRules.types';
+import { formatMatchMargin } from '@/utils/matchMargin';
 
 /** A raw hole-score value as stored on a scorecard (single- or multi-ball). */
 export type RawHoleScore = HoleScore | MultiBallHoleScore;
@@ -145,6 +146,145 @@ export function computeMatchPlaySubMatch(
     isComplete: false,
     hasScores,
   };
+}
+
+/** Match-row display data derived from a sub-match's PERSISTED result (manual or
+ *  scored). Returns null when there is no decisive persisted result to show, so
+ *  the caller falls back to live score computation. Forfeits are handled
+ *  separately via `forfeitWinner`. */
+export function persistedMatchData(sm: {
+  status: string;
+  result: string | null;
+  final_differential: number | null;
+  final_holes_remaining: number | null;
+  manual_result?: boolean;
+}): { holesUpDown: string; leaderSide: 'a' | 'b' | null; hasScores: boolean; isManual: boolean } | null {
+  if (sm.status !== 'completed') return null;
+  const isManual = sm.manual_result === true;
+  if (sm.result === 'halved') {
+    return { holesUpDown: formatMatchMargin(0, 0, true), leaderSide: null, hasScores: true, isManual };
+  }
+  if (sm.result === 'a-wins' || sm.result === 'b-wins') {
+    const up = sm.final_differential ?? 0;
+    const rem = sm.final_holes_remaining ?? 0;
+    return {
+      holesUpDown: formatMatchMargin(up, rem, false),
+      leaderSide: sm.result === 'a-wins' ? 'a' : 'b',
+      hasScores: true,
+      isManual,
+    };
+  }
+  return null;
+}
+
+/**
+ * Picks the authoritative source for a match-play row display.
+ *
+ * A manually-entered result (`persisted.isManual`) wins outright — an organiser
+ * override takes precedence over hole-by-hole scores. Otherwise the live
+ * computation wins when the match engine has reached a decided result
+ * (`live.isComplete`), and the persisted result is used only as a fallback when
+ * live has not yet decided (no/partial scores).
+ */
+export function selectMatchSource(
+  live: MatchPlayRowData,
+  persisted: ReturnType<typeof persistedMatchData>
+): MatchPlayRowData {
+  // A manually-entered result is authoritative — it overrides hole scores even
+  // when the live engine has reached a decided result.
+  if (persisted?.isManual) {
+    return {
+      statusText: persisted.holesUpDown,
+      leaderSide: persisted.leaderSide,
+      isComplete: true,
+      hasScores: persisted.hasScores,
+    };
+  }
+  if (live.isComplete) return live;
+  if (persisted) {
+    return {
+      statusText: persisted.holesUpDown,
+      leaderSide: persisted.leaderSide,
+      isComplete: true,
+      hasScores: persisted.hasScores,
+    };
+  }
+  return live;
+}
+
+/**
+ * Reproduces the live tally's per-sub-match decision as a finalize-time
+ * `SideOutcome`, so persisting round results agrees with what the sub-match
+ * leaderboard is currently showing. Composes the same three building blocks
+ * the display row uses — `computeMatchPlaySubMatch` (live), `persistedMatchData`
+ * (stored), `selectMatchSource` (precedence: manual > live-when-complete >
+ * persisted > live) — and maps the resolved `leaderSide`/`hasScores` onto the
+ * outcome shape `finalizePairResults` expects.
+ */
+/**
+ * Extract the numeric holes-up magnitude from a `calculateMatchStatus` margin
+ * string ("3 & 2" -> 3, "2 up" -> 2, "All Square" -> 0). `parseInt` naturally
+ * stops at the first non-digit character for both formats, so a single call
+ * covers them; a non-numeric/unexpected string falls back to 0 rather than
+ * throwing.
+ */
+function parseMarginMagnitude(margin: string): number {
+  const n = parseInt(margin, 10);
+  return Number.isNaN(n) ? 0 : n;
+}
+
+/**
+ * Live signed holes-up margin for a match-play sub-match, from side A's
+ * perspective (positive = A ahead, negative = B ahead, 0 = level). Uses the
+ * SAME engine (`calculateTeamMatchData` + `calculateMatchStatus`) as
+ * `computeMatchPlaySubMatch` / `resolveMatchPlaySubMatchOutcome`, so a caller
+ * that recomputes the outcome live (e.g. `finalizePairResults`'s combined
+ * margin bonus) can source the magnitude from the same place instead of a
+ * possibly-stale persisted `final_differential`.
+ *
+ * Returns null when no hole has a decided winner yet (nothing to report).
+ */
+export function computeMatchPlaySignedMargin(
+  sides: SubMatchSides,
+  holes: Hole[],
+  getStrokes: GetStrokes
+): number | null {
+  const team1 = toMatchSide(sides.a, 'a');
+  const team2 = toMatchSide(sides.b, 'b');
+  const calc = calculateTeamMatchData(holes, team1, team2, getStrokes);
+  const hasScores = Object.values(calc.holeResults).some((r) => r.winner !== null);
+  if (!hasScores) return null;
+
+  const status = calculateMatchStatus(calc.holeResults, holes.length);
+  if (status.status === 'complete') {
+    if (status.winner === 'halved') return 0;
+    const magnitude = parseMarginMagnitude(status.margin);
+    return status.winner === 'player1' ? magnitude : -magnitude;
+  }
+  if (status.leader === null) return 0;
+  return status.leader === 'player1' ? status.holesUp : -status.holesUp;
+}
+
+export function resolveMatchPlaySubMatchOutcome(params: {
+  sm: {
+    status: string;
+    result: string | null;
+    final_differential: number | null;
+    final_holes_remaining: number | null;
+    manual_result?: boolean;
+  };
+  sides: SubMatchSides;
+  holes: Hole[];
+  getStrokes: GetStrokes;
+}): 'a-wins' | 'b-wins' | 'halved' | null {
+  const { sm, sides, holes, getStrokes } = params;
+  const live = computeMatchPlaySubMatch(sides, holes, getStrokes);
+  const persisted = persistedMatchData(sm);
+  const data = selectMatchSource(live, persisted);
+  if (!data.hasScores) return null;
+  if (data.leaderSide === 'a') return 'a-wins';
+  if (data.leaderSide === 'b') return 'b-wins';
+  return 'halved';
 }
 
 export interface NetCardData {
