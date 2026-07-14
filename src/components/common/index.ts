@@ -176,6 +176,8 @@ export { LogoHorizontal } from './LogoHorizontal';
 export { SystemModalTheme } from './SystemModalTheme';
 export { SheetFooterActions } from './SheetFooterActions';
 export type { SheetFooterActionsProps } from './SheetFooterActions';
+export { GameIndicatorBadge } from './GameIndicatorBadge';
+export type { GameIndicatorBadgeProps } from './GameIndicatorBadge';
 
 // === Hooks ===
 // Shared hooks for common component behaviors
