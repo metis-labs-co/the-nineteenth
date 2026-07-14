@@ -174,6 +174,8 @@ export { Logo } from './Logo';
 export { LogoHorizontal } from './LogoHorizontal';
 
 export { SystemModalTheme } from './SystemModalTheme';
+export { SheetFooterActions } from './SheetFooterActions';
+export type { SheetFooterActionsProps } from './SheetFooterActions';
 
 // === Hooks ===
 // Shared hooks for common component behaviors
