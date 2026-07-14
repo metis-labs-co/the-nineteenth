@@ -10,6 +10,7 @@ import type {
   GeneratePairingsResult,
 } from '@/types';
 import type { TeamFormat } from '@/types/database.types';
+import { indexById } from '@/utils/collections';
 import { formatTime } from './formatting';
 
 /**
@@ -589,7 +590,7 @@ function bucketByOrder(
 ): PairingPlayer[][] | null {
   if (orderedIds.length !== players.length) return null;
 
-  const byId = new Map(players.map((p) => [p.id, p]));
+  const byId = indexById(players);
   const ordered: PairingPlayer[] = [];
   for (const id of orderedIds) {
     const player = byId.get(id);

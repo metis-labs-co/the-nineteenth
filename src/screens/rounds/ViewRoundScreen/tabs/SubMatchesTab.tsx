@@ -14,6 +14,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { indexById } from '@/utils/collections';
 import { Alert, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -520,7 +521,7 @@ export function SubMatchesTab({
       return;
     }
     const startTime = (roundTeeTime ?? '07:00:00').substring(0, 5);
-    const playerById = new Map(players.map((p) => [p.id, p]));
+    const playerById = indexById(players);
     try {
       // Build the per-team view up front — used by team-together and
       // team-balanced strategies, and by the scoring-pair regen below.

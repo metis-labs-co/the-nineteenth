@@ -1,5 +1,6 @@
 // src/components/competitions/detail/sections/PointsConfigSection.tsx
 import React, { useMemo, useState } from 'react';
+import { indexById } from '@/utils/collections';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useThemeColors, useIsDark } from '@/context/ThemeContext';
@@ -74,7 +75,7 @@ export function PointsConfigSection({
   );
 
   const roundsById = useMemo(
-    () => new Map(rounds.map((rd) => [rd.id, rd])),
+    () => indexById(rounds),
     [rounds]
   );
 

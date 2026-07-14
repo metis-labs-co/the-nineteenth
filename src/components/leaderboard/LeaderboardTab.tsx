@@ -9,6 +9,7 @@
  */
 
 import React, { useState, useMemo, useCallback } from 'react';
+import { indexById } from '@/utils/collections';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { ErrorState, LoadingSpinner, SectionHeader } from '@/components/common';
@@ -215,7 +216,7 @@ function toTeamLeaderboardEntries(
   rounds: RoundWithCourse[]
 ): TeamLeaderboardEntry[] {
   // Build a lookup for round metadata so the breakdown can show round number + course
-  const roundsById = new Map(rounds.map((r) => [r.id, r]));
+  const roundsById = indexById(rounds);
   const positionalByRoundId = buildPositionalRoundNumbers(rounds);
 
   return entries.map((entry) => {
