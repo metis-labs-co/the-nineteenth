@@ -15,6 +15,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import { CACHE_TIMES, GC_TIMES } from '@/constants/cacheConfig';
 import { useAuth } from '@/hooks/useAuth';
+import { fetchRoundIdsWithSideGame } from '@/services/api/rounds';
 import { isSingleBallScore } from '@/types/database/base';
 import type { ScorecardStatus } from '@/types/database/enums';
 import type {
@@ -131,50 +132,13 @@ export function useInProgressRounds() {
         }
       }
 
-      // Skins games: mark `has_skins` for rounds with active/completed games.
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase typed-row workaround
-        const { data: skinsData, error: skinsError } = await (supabase
-          .from('skins_games') as any)
-          .select('round_id')
-          .in('round_id', roundIds)
-          .in('status', ['active', 'completed']);
-
-        if (skinsError && skinsError.code !== 'PGRST205') {
-          console.error('[useInProgressRounds] skins_games error:', skinsError);
-        } else if (skinsData) {
-          const set = new Set(
-            (skinsData as { round_id: string }[]).map((r) => r.round_id)
-          );
-          for (const round of rounds) {
-            round.has_skins = set.has(round.id);
-          }
-        }
-      } catch {
-        // skins_games table may not exist on older deployments
-      }
-
-      // Wolf games: mark `has_wolf` for rounds with active/completed games.
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase typed-row workaround
-        const { data: wolfData, error: wolfError } = await (supabase
-          .from('wolf_games') as any)
-          .select('round_id')
-          .in('round_id', roundIds)
-          .in('status', ['active', 'completed']);
-
-        if (wolfError && wolfError.code !== 'PGRST205') {
-          console.error('[useInProgressRounds] wolf_games error:', wolfError);
-        } else if (wolfData) {
-          const set = new Set(
-            (wolfData as { round_id: string }[]).map((r) => r.round_id)
-          );
-          for (const round of rounds) {
-            round.has_wolf = set.has(round.id);
-          }
-        }
-      } catch {
-        // wolf_games table may not exist on older deployments
+      // Side games: mark `has_skins` / `has_wolf` for rounds with
+      // active/completed games.
+      const skinsSet = await fetchRoundIdsWithSideGame('skins_games', roundIds);
+      const wolfSet = await fetchRoundIdsWithSideGame('wolf_games', roundIds);
+      for (const round of rounds) {
+        round.has_skins = skinsSet.has(round.id);
+        round.has_wolf = wolfSet.has(round.id);
       }
 
       // Live progress for the carousel card ("Hole 7 · +2 · 21 pts"): the
