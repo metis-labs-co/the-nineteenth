@@ -1,0 +1,18 @@
+# Guard: never commit a real Google Maps API key into the native files.
+# Committed state must use the placeholder __GMS_KEY__, which is filled at build
+# time by scripts/inject-maps-key.js (locally: `pnpm inject-maps-key`; on EAS:
+# the eas-build-post-install hook). After a local build, run:
+#     git checkout -- ios/TheNineteenth/AppDelegate.swift ios/TheNineteenth/Info.plist
+#
+# Only files staged in THIS commit are checked, so unrelated commits are never
+# blocked.
+staged=$(git diff --cached --name-only)
+for f in "ios/TheNineteenth/AppDelegate.swift" "ios/TheNineteenth/Info.plist"; do
+  echo "$staged" | grep -qx "$f" || continue
+  if git show ":$f" 2>/dev/null | grep -Eq 'AIza[0-9A-Za-z_-]{20,}'; then
+    echo "pre-commit: a Google Maps API key is staged in $f."
+    echo "Restore the placeholder before committing:"
+    echo "    git checkout -- $f"
+    exit 1
+  fi
+done
