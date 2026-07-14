@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Single source of truth for the push/CI gate: type-check + green test subset
 // + eslint on changed files. Reused by the husky pre-push hook and CI.
-import { execSync } from 'node:child_process';
+import { execSync, execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 
 const GREEN_SUBSET =
@@ -11,6 +11,18 @@ function run(label, cmd) {
   process.stdout.write(`\n▶ ${label}\n`);
   try {
     execSync(cmd, { stdio: 'inherit' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Like run(), but invokes a binary with an argv array (no shell) so that
+// untrusted values (branch names, filenames) can never be interpreted as shell.
+function runArgv(label, file, args) {
+  process.stdout.write(`\n▶ ${label}\n`);
+  try {
+    execFileSync(file, args, { stdio: 'inherit' });
     return true;
   } catch {
     return false;
@@ -32,9 +44,13 @@ function changedTsFiles(base) {
   if (!base) return [];
   let out;
   try {
-    out = execSync(`git diff --name-only --diff-filter=ACMR ${base}...HEAD`, {
-      encoding: 'utf8',
-    });
+    // argv array (no shell): base can be a user/CI-influenced branch name, so it
+    // must never be interpolated into a shell command string.
+    out = execFileSync(
+      'git',
+      ['diff', '--name-only', '--diff-filter=ACMR', `${base}...HEAD`],
+      { encoding: 'utf8' }
+    );
   } catch {
     return []; // unresolvable base -> lint nothing (never error the gate on this)
   }
@@ -58,10 +74,13 @@ if (changed.length === 0) {
   process.stdout.write('\n▶ lint (changed files): none to lint — skipping\n');
   results.push(['lint (changed files)', true]);
 } else {
-  const fileArgs = changed.map((f) => JSON.stringify(f)).join(' ');
   results.push([
     'lint (changed files)',
-    run(`lint (${changed.length} changed file(s), base ${base})`, `pnpm exec eslint ${fileArgs}`),
+    runArgv(`lint (${changed.length} changed file(s), base ${base})`, 'pnpm', [
+      'exec',
+      'eslint',
+      ...changed,
+    ]),
   ]);
 }
 
