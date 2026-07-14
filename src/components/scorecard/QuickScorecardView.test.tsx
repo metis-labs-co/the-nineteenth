@@ -49,6 +49,7 @@ jest.mock('@/context/ThemeContext', () => ({
     bogey: '#FF9800',
     doubleBogey: '#F44336',
   }),
+  useIsDark: () => false,
 }));
 
 // Mock react-native-paper

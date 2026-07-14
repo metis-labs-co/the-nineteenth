@@ -40,10 +40,19 @@ jest.mock('@/context/ThemeContext', () => ({
     bogey: '#FF9800',
     doubleBogey: '#F44336',
   }),
+  useIsDark: () => false,
 }));
 
 // Mock settings store
 jest.mock('@/store/settingsStore', () => ({
+  useSettingsStore: jest.fn(() => ({
+    distanceUnit: 'yards',
+  })),
+  useFormattedDistance: () => ({
+    formatDistance: (yards: number) => `${yards}y`,
+    unit: 'yards',
+    unitLabel: 'y',
+  }),
   useStatsVisibility: () => ({
     showPutts: false,
     showFairwayHit: false,
