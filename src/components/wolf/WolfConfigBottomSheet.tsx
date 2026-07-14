@@ -27,7 +27,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 
 import { BottomSheet } from '@/components/common/BottomSheet';
-import { RadioButtonOption } from '@/screens/profile/components/RadioButtonOption';
+import { ScoringTypeField } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, borderRadius, typography, shadows, wolfColor } from '@/constants/theme';
 import { useWolfOrderManagement } from './useWolfOrderManagement';
@@ -188,30 +188,7 @@ export function WolfConfigBottomSheet({
           <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
             SCORING TYPE
           </Text>
-          <Controller
-            control={control}
-            name="scoring_type"
-            render={({ field: { onChange, value } }) => (
-              <View style={styles.radioGroup}>
-                <RadioButtonOption
-                  label="Gross"
-                  description="Raw strokes - no handicap adjustment"
-                  selected={value === 'gross'}
-                  onSelect={() => onChange('gross')}
-                  icon="numeric"
-                  testID="wolf-scoring-gross"
-                />
-                <RadioButtonOption
-                  label="Net"
-                  description="Handicap-adjusted strokes"
-                  selected={value === 'net'}
-                  onSelect={() => onChange('net')}
-                  icon="percent"
-                  testID="wolf-scoring-net"
-                />
-              </View>
-            )}
-          />
+          <ScoringTypeField control={control} name="scoring_type" testIDPrefix="wolf" />
         </View>
 
         {/* BLIND WOLF SECTION */}
@@ -347,9 +324,6 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: spacing.md,
-  },
-  radioGroup: {
-    gap: spacing.sm,
   },
   toggleRow: {
     flexDirection: 'row',

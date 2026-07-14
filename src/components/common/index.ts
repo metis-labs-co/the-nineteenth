@@ -178,6 +178,8 @@ export { SheetFooterActions } from './SheetFooterActions';
 export type { SheetFooterActionsProps } from './SheetFooterActions';
 export { GameIndicatorBadge } from './GameIndicatorBadge';
 export type { GameIndicatorBadgeProps } from './GameIndicatorBadge';
+export { ScoringTypeField } from './ScoringTypeField';
+export type { ScoringTypeFieldProps } from './ScoringTypeField';
 
 // === Hooks ===
 // Shared hooks for common component behaviors

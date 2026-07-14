@@ -27,6 +27,7 @@ import { z } from 'zod';
 import { BottomSheet } from '@/components/common/BottomSheet';
 import { FormInput } from '@/components/common/FormInput';
 import { RadioButtonOption } from '@/screens/profile/components/RadioButtonOption';
+import { ScoringTypeField } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, borderRadius, typography, shadows } from '@/constants/theme';
 import type { SkinsConfig, SkinsPotType, SkinsScoringType } from '@/types/database/skins.types';
@@ -273,30 +274,7 @@ export function SkinsConfigBottomSheet({
             SCORING TYPE
           </Text>
 
-          <Controller
-            control={control}
-            name="scoring_type"
-            render={({ field: { onChange, value } }) => (
-              <View style={styles.radioGroup}>
-                <RadioButtonOption
-                  label="Gross"
-                  description="Raw strokes - no handicap adjustment"
-                  selected={value === 'gross'}
-                  onSelect={() => onChange('gross')}
-                  icon="numeric"
-                  testID="skins-scoring-gross"
-                />
-                <RadioButtonOption
-                  label="Net"
-                  description="Handicap-adjusted strokes"
-                  selected={value === 'net'}
-                  onSelect={() => onChange('net')}
-                  icon="percent"
-                  testID="skins-scoring-net"
-                />
-              </View>
-            )}
-          />
+          <ScoringTypeField control={control} name="scoring_type" testIDPrefix="skins" />
         </View>
 
         {/* PARTICIPANTS INFO — wrapper-supplied slot, or default copy */}
