@@ -4,6 +4,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
+import { fetchRoundIdsWithSideGame } from '@/services/api/rounds';
 import { useAuth } from '@/hooks/useAuth';
 import { useSubscriptionContext } from '@/context/SubscriptionContext';
 import { isUnlimited, isNoLimit } from '@/types/subscription.types';
@@ -455,73 +456,13 @@ export function useRoundList(): UseRoundListReturn {
         .filter(r => r.status === 'completed')
         .map(r => r.id);
 
-      // 6. Fetch skins games for all rounds to set hasSkins flag
+      // 6-7. Fetch skins/wolf games for all rounds to set hasSkins/hasWolf flags
       const allRoundIds = allRounds.map(r => r.id);
-      if (allRoundIds.length > 0) {
-        try {
-          interface SkinsGameRow {
-            round_id: string;
-          }
-
-          const { data: skinsGamesData, error: skinsGamesError } = await (supabase
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
-            .from('skins_games') as any)
-            .select('round_id')
-            .in('round_id', allRoundIds)
-            .in('status', ['active', 'completed']);
-
-          if (skinsGamesError) {
-            if (skinsGamesError.code !== 'PGRST205') {
-              console.error('Error fetching skins games:', skinsGamesError);
-            }
-          } else if (skinsGamesData) {
-            // Create a set of round IDs that have skins games
-            const roundsWithSkins = new Set(
-              (skinsGamesData as SkinsGameRow[]).map(sg => sg.round_id)
-            );
-
-            // Update hasSkins flag on rounds
-            for (const round of allRounds) {
-              round.hasSkins = roundsWithSkins.has(round.id);
-            }
-          }
-        } catch {
-          // skins_games table may not exist yet
-        }
-      }
-
-      // 7. Fetch wolf games for all rounds to set hasWolf flag
-      if (allRoundIds.length > 0) {
-        try {
-          interface WolfGameRow {
-            round_id: string;
-          }
-
-          const { data: wolfGamesData, error: wolfGamesError } = await (supabase
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
-            .from('wolf_games') as any)
-            .select('round_id')
-            .in('round_id', allRoundIds)
-            .in('status', ['active', 'completed']);
-
-          if (wolfGamesError) {
-            if (wolfGamesError.code !== 'PGRST205') {
-              console.error('Error fetching wolf games:', wolfGamesError);
-            }
-          } else if (wolfGamesData) {
-            // Create a set of round IDs that have wolf games
-            const roundsWithWolf = new Set(
-              (wolfGamesData as WolfGameRow[]).map(wg => wg.round_id)
-            );
-
-            // Update hasWolf flag on rounds
-            for (const round of allRounds) {
-              round.hasWolf = roundsWithWolf.has(round.id);
-            }
-          }
-        } catch {
-          // wolf_games table may not exist yet
-        }
+      const roundsWithSkins = await fetchRoundIdsWithSideGame('skins_games', allRoundIds);
+      const roundsWithWolf = await fetchRoundIdsWithSideGame('wolf_games', allRoundIds);
+      for (const round of allRounds) {
+        round.hasSkins = roundsWithSkins.has(round.id);
+        round.hasWolf = roundsWithWolf.has(round.id);
       }
 
       // 8. Fetch scorecards for completed rounds; compute userScore and winner
