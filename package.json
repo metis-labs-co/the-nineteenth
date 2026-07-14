@@ -9,6 +9,7 @@
     "web": "expo start --web",
     "lint": "eslint . --ext .ts,.tsx",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
+    "verify:gate": "node scripts/verify-gate.mjs",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "type-check": "tsc --noEmit",
     "test": "jest",
