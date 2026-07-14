@@ -175,7 +175,7 @@ describe('ClubCard', () => {
     it('renders club name and location as subtitle', () => {
       render(<ClubCard {...defaultProps} />);
       // Location is shown as a separate subtitle line
-      expect(screen.getByText('Melbourne, VIC')).toBeTruthy();
+      expect(screen.getByText('Melbourne · VIC')).toBeTruthy();
     });
 
     it('renders hole count when holes exist', () => {
@@ -319,7 +319,7 @@ describe('ClubCard', () => {
 
     it('renders location', () => {
       render(<ClubCard {...defaultProps} item={multiCourseItem} />);
-      expect(screen.getByText('Melbourne, VIC')).toBeTruthy();
+      expect(screen.getByText('Melbourne · VIC')).toBeTruthy();
     });
 
     it('renders total holes when available', () => {

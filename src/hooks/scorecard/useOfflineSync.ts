@@ -13,6 +13,7 @@ import {
   getSyncState as _getSyncState,
   getIsOnline,
   manualSync,
+  retryFailedSyncs,
   initSyncService,
 } from '@/services/offline/sync';
 import { initDatabase, getPendingSyncCount } from '@/services/offline/database';
@@ -24,6 +25,7 @@ interface OfflineSyncState {
   status: SyncStatus;
   isOnline: boolean;
   pendingCount: number;
+  failedCount: number;
   lastSyncAt: Date | null;
   error: string | null;
 }
@@ -38,6 +40,7 @@ export function useOfflineSync() {
     status: 'idle',
     isOnline: true,
     pendingCount: 0,
+    failedCount: 0,
     lastSyncAt: null,
     error: null,
   });
@@ -63,6 +66,7 @@ export function useOfflineSync() {
             status: syncState.status as SyncStatus,
             isOnline: getIsOnline(),
             pendingCount: syncState.pendingCount,
+            failedCount: syncState.failedCount,
             lastSyncAt: syncState.lastSyncAt,
             error: syncState.error,
           });
@@ -97,12 +101,14 @@ export function useOfflineSync() {
     }
 
     try {
-      return await manualSync();
+      return state.failedCount > 0
+        ? await retryFailedSyncs()
+        : await manualSync();
     } catch (error) {
       console.error('[useOfflineSync] Manual sync failed:', error);
       return false;
     }
-  }, [state.isOnline]);
+  }, [state.failedCount, state.isOnline]);
 
   return {
     ...state,

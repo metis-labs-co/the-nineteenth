@@ -44,6 +44,7 @@ let mockRunAsync: jest.Mock;
 let mockGetFirstAsync: jest.Mock;
 let mockGetAllAsync: jest.Mock;
 let mockCloseAsync: jest.Mock;
+let mockWithTransactionAsync: jest.Mock;
 
 // Mock database instance
 const createMockDatabase = () => {
@@ -52,6 +53,7 @@ const createMockDatabase = () => {
   mockGetFirstAsync = jest.fn().mockResolvedValue(null);
   mockGetAllAsync = jest.fn().mockResolvedValue([]);
   mockCloseAsync = jest.fn().mockResolvedValue(undefined);
+  mockWithTransactionAsync = jest.fn(async (callback: () => Promise<void>) => callback());
 
   return {
     execAsync: mockExecAsync,
@@ -59,6 +61,7 @@ const createMockDatabase = () => {
     getFirstAsync: mockGetFirstAsync,
     getAllAsync: mockGetAllAsync,
     closeAsync: mockCloseAsync,
+    withTransactionAsync: mockWithTransactionAsync,
   };
 };
 
@@ -736,7 +739,12 @@ describe('Pending Sync Operations', () => {
       const sync: Omit<PendingSync, 'id'> = {
         type: 'scorecard',
         action: 'update',
-        data: { scorecardId: 'sc-1', score: 4 },
+        data: {
+          scorecardId: 'sc-1',
+          roundId: '550e8400-e29b-41d4-a716-446655440000',
+          playerId: '550e8400-e29b-41d4-a716-446655440001',
+          score: 4,
+        },
         timestamp: new Date('2025-01-15T10:00:00Z'),
         retryCount: 0,
       };
@@ -763,6 +771,7 @@ describe('Pending Sync Operations', () => {
           type: 'scorecard',
           action: 'create',
           data: {},
+          entityKey: 'scorecard:test',
           timestamp: new Date(),
           retryCount: 0,
         })
@@ -843,7 +852,7 @@ describe('Pending Sync Operations', () => {
       await removePendingSync(123);
 
       expect(mockRunAsync).toHaveBeenCalledWith(
-        'DELETE FROM pending_syncs WHERE id = ?',
+        expect.stringContaining('DELETE FROM pending_syncs'),
         [123]
       );
     });
@@ -854,8 +863,8 @@ describe('Pending Sync Operations', () => {
       await incrementSyncRetryCount(456);
 
       expect(mockRunAsync).toHaveBeenCalledWith(
-        'UPDATE pending_syncs SET retry_count = retry_count + 1 WHERE id = ?',
-        [456]
+        expect.stringContaining('SET retry_count = retry_count + 1'),
+        expect.arrayContaining([456])
       );
     });
   });
@@ -868,7 +877,7 @@ describe('Pending Sync Operations', () => {
 
       expect(result).toBe(5);
       expect(mockGetFirstAsync).toHaveBeenCalledWith(
-        'SELECT COUNT(*) as count FROM pending_syncs'
+        expect.stringContaining("WHERE status = 'pending'")
       );
     });
 

@@ -159,7 +159,7 @@ jest.mock('@/services/supabase/client', () => ({
 }));
 
 // Mock push service
-jest.mock('@/services/notifications/pushService', () => ({
+jest.mock('@/services/notifications', () => ({
   pushService: {
     getExpoPushToken: jest.fn(() =>
       Promise.resolve({ success: true, data: 'ExponentPushToken[xxx]' })
@@ -466,7 +466,7 @@ describe('useAuth', () => {
         await result.current.logout();
       });
 
-      const { pushService } = require('@/services/notifications/pushService');
+      const { pushService } = require('@/services/notifications');
       expect(pushService.getExpoPushToken).toHaveBeenCalled();
       expect(pushService.unregisterPushToken).toHaveBeenCalled();
     });

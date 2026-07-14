@@ -23,7 +23,7 @@ exports[`ScoringPairsSection Snapshots matches snapshot for disabled state 1`] =
     <View
       style={
         {
-          "backgroundColor": "#f9fafb",
+          "backgroundColor": "#f3f4f6",
           "flex": 1,
         }
       }
@@ -221,7 +221,7 @@ exports[`ScoringPairsSection Snapshots matches snapshot for empty state 1`] = `
     <View
       style={
         {
-          "backgroundColor": "#f9fafb",
+          "backgroundColor": "#f3f4f6",
           "flex": 1,
         }
       }
@@ -469,7 +469,7 @@ exports[`ScoringPairsSection Snapshots matches snapshot for enabled with circula
     <View
       style={
         {
-          "backgroundColor": "#f9fafb",
+          "backgroundColor": "#f3f4f6",
           "flex": 1,
         }
       }
@@ -1151,7 +1151,7 @@ exports[`ScoringPairsSection Snapshots matches snapshot for enabled with recipro
     <View
       style={
         {
-          "backgroundColor": "#f9fafb",
+          "backgroundColor": "#f3f4f6",
           "flex": 1,
         }
       }
@@ -1730,7 +1730,7 @@ exports[`ScoringPairsSection Snapshots matches snapshot for loading state 1`] = 
     <View
       style={
         {
-          "backgroundColor": "#f9fafb",
+          "backgroundColor": "#f3f4f6",
           "flex": 1,
         }
       }
@@ -1978,7 +1978,7 @@ exports[`ScoringPairsSection Snapshots matches snapshot for locked state 1`] = `
     <View
       style={
         {
-          "backgroundColor": "#f9fafb",
+          "backgroundColor": "#f3f4f6",
           "flex": 1,
         }
       }

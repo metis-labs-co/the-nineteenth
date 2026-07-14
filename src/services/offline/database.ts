@@ -43,5 +43,9 @@ export {
   removePendingSync,
   incrementSyncRetryCount,
   getPendingSyncCount,
+  getFailedSyncCount,
+  getQueuedEntityKeys,
+  markPendingSyncFailed,
+  resetFailedSyncs,
   clearAllPendingSyncs,
 } from './dao/SyncQueueDAO';

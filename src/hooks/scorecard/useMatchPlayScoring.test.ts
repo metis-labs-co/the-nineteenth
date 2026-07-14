@@ -105,7 +105,10 @@ describe('useMatchPlayScoring', () => {
 
   describe('initialization', () => {
     it('initializes with no hole results when no scores exist', () => {
-      const { result } = renderHook(() => useMatchPlayScoring(defaultParams));
+      const { result } = renderHook(() => useMatchPlayScoring({
+        ...defaultParams,
+        player2Handicap: defaultParams.player1Handicap,
+      }));
 
       expect(result.current.holeResults).toBeDefined();
       expect(result.current.matchStatus.status).toBe('in_progress');
@@ -113,7 +116,12 @@ describe('useMatchPlayScoring', () => {
     });
 
     it('returns correct match status text for all square', () => {
-      const { result } = renderHook(() => useMatchPlayScoring(defaultParams));
+      const { result } = renderHook(() =>
+        useMatchPlayScoring({
+          ...defaultParams,
+          player2Handicap: defaultParams.player1Handicap,
+        })
+      );
 
       expect(result.current.matchStatusText).toBe('All Square with 18 to play');
     });
@@ -334,7 +342,10 @@ describe('useMatchPlayScoring', () => {
         'player-2': { 1: { strokes: 4 } },
       });
 
-      const { result } = renderHook(() => useMatchPlayScoring(defaultParams));
+      const { result } = renderHook(() => useMatchPlayScoring({
+        ...defaultParams,
+        player2Handicap: defaultParams.player1Handicap,
+      }));
 
       const holeResult = result.current.getHoleResult(1);
 
@@ -347,7 +358,10 @@ describe('useMatchPlayScoring', () => {
         'player-2': { 1: { strokes: 4 } },
       });
 
-      const { result } = renderHook(() => useMatchPlayScoring(defaultParams));
+      const { result } = renderHook(() => useMatchPlayScoring({
+        ...defaultParams,
+        player2Handicap: defaultParams.player1Handicap,
+      }));
 
       const holeResult = result.current.getHoleResult(1);
 
@@ -355,31 +369,31 @@ describe('useMatchPlayScoring', () => {
     });
 
     it('applies handicap strokes when comparing equal gross scores', () => {
-      // Hole 11 has SI 11. P1 HC 18 gets a stroke there (11 ≤ 18);
-      // P2 HC 10 does not (11 > 10). Equal gross 4/4 should resolve to P1 on net.
+      // Match-play difference is 8, so the higher-handicap player receives a
+      // stroke on SI 1..8. Equal gross on SI 8 resolves to P1 on net.
       setupStoreMock({
-        'player-1': { 11: { strokes: 4 } },
-        'player-2': { 11: { strokes: 4 } },
+        'player-1': { 8: { strokes: 4 } },
+        'player-2': { 8: { strokes: 4 } },
       });
 
       const { result } = renderHook(() =>
-        useMatchPlayScoring({ ...defaultParams, currentHole: 11 })
+        useMatchPlayScoring({ ...defaultParams, currentHole: 8 })
       );
 
-      expect(result.current.getHoleResult(11).winner).toBe('player1');
+      expect(result.current.getHoleResult(8).winner).toBe('player1');
     });
 
     it('halves the hole when both players receive the same strokes on the hole', () => {
-      // Hole 1 SI 1: both P1 (HC 18) and P2 (HC 10) receive 1 stroke, so equal
-      // gross stays halved on net too.
+      // Hole 9 is outside the 8-stroke handicap difference, so neither player
+      // receives a stroke and equal gross remains halved.
       setupStoreMock({
-        'player-1': { 1: { strokes: 5 } },
-        'player-2': { 1: { strokes: 5 } },
+        'player-1': { 9: { strokes: 5 } },
+        'player-2': { 9: { strokes: 5 } },
       });
 
       const { result } = renderHook(() => useMatchPlayScoring(defaultParams));
 
-      expect(result.current.getHoleResult(1).winner).toBe('halved');
+      expect(result.current.getHoleResult(9).winner).toBe('halved');
     });
 
     it('records a blow-up score above double bogey as a real score, not a pickup', () => {
@@ -390,7 +404,10 @@ describe('useMatchPlayScoring', () => {
         'player-2': { 1: { strokes: 4 } },
       });
 
-      const { result } = renderHook(() => useMatchPlayScoring(defaultParams));
+      const { result } = renderHook(() => useMatchPlayScoring({
+        ...defaultParams,
+        player2Handicap: defaultParams.player1Handicap,
+      }));
 
       const holeResult = result.current.getHoleResult(1);
 
@@ -406,7 +423,10 @@ describe('useMatchPlayScoring', () => {
         'player-2': { 1: { strokes: 4 } },
       });
 
-      const { result } = renderHook(() => useMatchPlayScoring(defaultParams));
+      const { result } = renderHook(() => useMatchPlayScoring({
+        ...defaultParams,
+        player2Handicap: defaultParams.player1Handicap,
+      }));
 
       const holeResult = result.current.getHoleResult(1);
 
@@ -448,7 +468,10 @@ describe('useMatchPlayScoring', () => {
         'player-2': { 1: { strokes: 5 }, 2: { strokes: 4 } },
       });
 
-      const { result } = renderHook(() => useMatchPlayScoring(defaultParams));
+      const { result } = renderHook(() => useMatchPlayScoring({
+        ...defaultParams,
+        player2Handicap: defaultParams.player1Handicap,
+      }));
 
       expect(result.current.matchStatus.status).toBe('in_progress');
       if (result.current.matchStatus.status === 'in_progress') {
@@ -464,7 +487,10 @@ describe('useMatchPlayScoring', () => {
         'player-2': { 1: { strokes: 5 }, 2: { strokes: 4 } },
       });
 
-      const { result } = renderHook(() => useMatchPlayScoring(defaultParams));
+      const { result } = renderHook(() => useMatchPlayScoring({
+        ...defaultParams,
+        player2Handicap: defaultParams.player1Handicap,
+      }));
 
       expect(result.current.matchStatus.status).toBe('in_progress');
       if (result.current.matchStatus.status === 'in_progress') {
@@ -515,7 +541,12 @@ describe('useMatchPlayScoring', () => {
         'player-2': { 1: { strokes: 4 } },
       });
 
-      const { result } = renderHook(() => useMatchPlayScoring(defaultParams));
+      const { result } = renderHook(() =>
+        useMatchPlayScoring({
+          ...defaultParams,
+          player2Handicap: defaultParams.player1Handicap,
+        })
+      );
 
       expect(result.current.player1MatchStatus.text).toBe('A/S');
       expect(result.current.player2MatchStatus.text).toBe('A/S');

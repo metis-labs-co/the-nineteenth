@@ -75,7 +75,7 @@ jest.mock('@/hooks/useAuth', () => ({
 }));
 
 // Mock push service
-jest.mock('@/services/notifications/pushService', () => ({
+jest.mock('@/services/notifications', () => ({
   pushService: {
     getPermissionStatus: jest.fn(() => Promise.resolve(mockPermissionStatus)),
     requestPermissions: jest.fn(() => Promise.resolve('granted')),
@@ -260,7 +260,7 @@ describe('usePushNotifications', () => {
         await result.current.registerToken();
       });
 
-      const { pushService } = require('@/services/notifications/pushService');
+      const { pushService } = require('@/services/notifications');
       expect(pushService.registerPushToken).toHaveBeenCalledWith('user-123');
     });
 
@@ -276,7 +276,7 @@ describe('usePushNotifications', () => {
         await result.current.unregisterToken();
       });
 
-      const { pushService } = require('@/services/notifications/pushService');
+      const { pushService } = require('@/services/notifications');
       expect(pushService.getExpoPushToken).toHaveBeenCalled();
       expect(pushService.unregisterPushToken).toHaveBeenCalled();
     });
@@ -383,7 +383,7 @@ describe('usePushNotifications', () => {
         await result.current.requestPermission();
       });
 
-      const { pushService } = require('@/services/notifications/pushService');
+      const { pushService } = require('@/services/notifications');
       expect(pushService.requestPermissions).toHaveBeenCalled();
     });
 
@@ -399,7 +399,7 @@ describe('usePushNotifications', () => {
         await result.current.refreshPermissionStatus();
       });
 
-      const { pushService } = require('@/services/notifications/pushService');
+      const { pushService } = require('@/services/notifications');
       expect(pushService.getPermissionStatus).toHaveBeenCalled();
     });
   });
@@ -409,7 +409,7 @@ describe('usePushNotifications', () => {
       const wrapper = createWrapper();
       renderHook(() => usePushNotifications(), { wrapper });
 
-      const { pushService } = require('@/services/notifications/pushService');
+      const { pushService } = require('@/services/notifications');
       expect(pushService.addNotificationReceivedListener).toHaveBeenCalled();
       expect(pushService.addNotificationResponseListener).toHaveBeenCalled();
     });
@@ -418,7 +418,7 @@ describe('usePushNotifications', () => {
       const wrapper = createWrapper();
       renderHook(() => usePushNotifications(), { wrapper });
 
-      const { pushService } = require('@/services/notifications/pushService');
+      const { pushService } = require('@/services/notifications');
       expect(pushService.getLastNotificationResponse).toHaveBeenCalled();
     });
   });

@@ -41,7 +41,10 @@ import { lightColors, darkColors } from '@/constants/theme';
 import { activeBrand } from '@/config/brands';
 import { useWatchBridge } from '@/watch/useWatchBridge';
 
+// React Native resolves static image assets through require().
+// eslint-disable-next-line @typescript-eslint/no-var-requires
 const darkBackdrop = require('./assets/images/dark-backdrop-bg.png');
+// eslint-disable-next-line @typescript-eslint/no-var-requires
 const lightBackdrop = require('./assets/images/light-backdrop-bg.png');
 
 // ============================================================================

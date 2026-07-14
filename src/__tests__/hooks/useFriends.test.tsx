@@ -482,7 +482,7 @@ describe('useAcceptFriendRequest', () => {
       await result.current.mutateAsync('friendship-2');
     });
 
-    expect(result.current.isSuccess).toBe(true);
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
   });
 
   it('updates status to accepted', async () => {

@@ -432,9 +432,9 @@ describe('DetailsTab', () => {
   // ===========================================================================
 
   describe('Settings Section', () => {
-    it('displays settings section header', () => {
+    it('displays competition settings', () => {
       render(<DetailsTab {...defaultProps} />);
-      expect(screen.getByText('Settings')).toBeTruthy();
+      expect(screen.getByText('Handicap')).toBeTruthy();
     });
 
     it('displays competition type', () => {
@@ -518,13 +518,13 @@ describe('DetailsTab', () => {
     it('shows add prize pool button for organizers', () => {
       const mockOnAddPrizePool = jest.fn();
       render(<DetailsTab {...defaultProps} isOrganizer={true} prizePool={null} onManagePrizePools={mockOnAddPrizePool} />);
-      const addButton = screen.getByLabelText('Add prize pool');
+      const addButton = screen.getByLabelText('Manage prize pools');
       expect(addButton).toBeTruthy();
     });
 
     it('does not show add prize pool button for non-organizers', () => {
       render(<DetailsTab {...defaultProps} isOrganizer={false} prizePool={null} />);
-      expect(screen.queryByLabelText('Add prize pool')).toBeNull();
+      expect(screen.queryByLabelText('Manage prize pools')).toBeNull();
     });
   });
 
@@ -560,7 +560,7 @@ describe('DetailsTab', () => {
     it('add prize pool button has accessibility role button', () => {
       const mockOnAddPrizePool = jest.fn();
       render(<DetailsTab {...defaultProps} isOrganizer={true} prizePool={null} onManagePrizePools={mockOnAddPrizePool} />);
-      const addButton = screen.getByLabelText('Add prize pool');
+      const addButton = screen.getByLabelText('Manage prize pools');
       expect(addButton.props.accessibilityRole).toBe('button');
     });
   });
@@ -621,16 +621,16 @@ describe('DetailsTab', () => {
       expect(screen.getByText('upcoming')).toBeTruthy();
     });
 
-    it('displays in-progress status', () => {
+    it('hides the redundant info card for in-progress competitions', () => {
       const comp = createTestCompetition({ status: 'in-progress' });
       render(<DetailsTab {...defaultProps} competition={comp} />);
-      expect(screen.getByText('in-progress')).toBeTruthy();
+      expect(screen.queryByText('in-progress')).toBeNull();
     });
 
-    it('displays completed status', () => {
+    it('hides the redundant info card for completed competitions', () => {
       const comp = createTestCompetition({ status: 'completed' });
       render(<DetailsTab {...defaultProps} competition={comp} />);
-      expect(screen.getByText('completed')).toBeTruthy();
+      expect(screen.queryByText('completed')).toBeNull();
     });
   });
 
@@ -641,18 +641,18 @@ describe('DetailsTab', () => {
   describe('Prize Pool Section', () => {
     it('displays prize pool section header', () => {
       render(<DetailsTab {...defaultProps} />);
-      expect(screen.getByText('Prize Pool')).toBeTruthy();
+      expect(screen.getByText('Prize Pools')).toBeTruthy();
     });
 
     it('shows empty state when no prize pool', () => {
       render(<DetailsTab {...defaultProps} prizePool={null} />);
-      expect(screen.getByText('No Prize Pool Configured')).toBeTruthy();
+      expect(screen.getByText('No Prize Pools Configured')).toBeTruthy();
     });
 
     it('shows add button for organizers when no prize pool', () => {
       const mockOnAddPrizePool = jest.fn();
       render(<DetailsTab {...defaultProps} prizePool={null} isOrganizer={true} onManagePrizePools={mockOnAddPrizePool} />);
-      const addButton = screen.getByLabelText('Add prize pool');
+      const addButton = screen.getByLabelText('Manage prize pools');
       expect(addButton).toBeTruthy();
       fireEvent.press(addButton);
       expect(mockOnAddPrizePool).toHaveBeenCalled();
@@ -660,7 +660,7 @@ describe('DetailsTab', () => {
 
     it('does not show add button for non-organizers', () => {
       render(<DetailsTab {...defaultProps} prizePool={null} isOrganizer={false} />);
-      expect(screen.queryByLabelText('Add prize pool')).toBeNull();
+      expect(screen.queryByLabelText('Manage prize pools')).toBeNull();
     });
 
     it('shows prize pool summary when pool exists', () => {
@@ -721,7 +721,7 @@ describe('DetailsTab', () => {
 
     it('updates when rounds change', () => {
       const { rerender } = render(<DetailsTab {...defaultProps} />);
-      expect(screen.getByText('Courses (1)')).toBeTruthy();
+      expect(screen.getByText('Handicap')).toBeTruthy();
 
       const course2 = createTestCourse({ id: 'course-2', name: 'Kingston Heath' });
       const newRounds: RoundWithCourse[] = [
@@ -730,7 +730,7 @@ describe('DetailsTab', () => {
       ];
       rerender(<DetailsTab {...defaultProps} rounds={newRounds} />);
 
-      expect(screen.getByText('Courses (2)')).toBeTruthy();
+      expect(screen.getByText('Handicap')).toBeTruthy();
     });
   });
 });

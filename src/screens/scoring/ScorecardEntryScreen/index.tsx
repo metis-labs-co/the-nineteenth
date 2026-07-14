@@ -127,6 +127,8 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
     isInitialized,
     isSyncing,
     pendingSyncCount,
+    failedSyncCount,
+    syncError,
     isMultiBall,
     ballCount: storeBallCount,
     setCurrentHole,
@@ -736,6 +738,8 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
         isOnline={isOnline}
         isSyncing={isSyncing}
         pendingSyncCount={pendingSyncCount}
+        failedSyncCount={failedSyncCount}
+        syncError={syncError}
         onSyncPress={triggerSync}
         scoringPairsEnabled={scoringPairsEnabled}
         playersToScore={playersToScore}

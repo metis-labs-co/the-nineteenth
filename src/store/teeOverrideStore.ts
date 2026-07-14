@@ -28,7 +28,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
  * The `(string & {})` member preserves literal autocomplete for back/front
  * while still allowing arbitrary UUID strings.
  */
-export type TeeOverride = 'back' | 'front' | (string & {});
+export type TeeOverride = 'back' | 'front' | (string & Record<never, never>);
 
 interface TeeOverrideState {
   /** `${roundId}::${holeNumber}` → chosen tee. Missing key = use default. */

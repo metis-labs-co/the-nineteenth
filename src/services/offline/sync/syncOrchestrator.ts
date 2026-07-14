@@ -13,6 +13,10 @@ import {
   getUnsyncedScorecards,
   addPendingSync,
   getPendingSyncCount,
+  getFailedSyncCount,
+  getQueuedEntityKeys,
+  markPendingSyncFailed,
+  resetFailedSyncs,
   clearAllPendingSyncs,
   clearInvalidMockData,
 } from '../database';
@@ -54,9 +58,12 @@ function updateState(partial: Partial<SyncState>): void {
 /**
  * Update pending sync count
  */
-async function updatePendingCount(): Promise<void> {
-  const count = await getPendingSyncCount();
-  updateState({ pendingCount: count });
+async function updateSyncCounts(): Promise<void> {
+  const [pendingCount, failedCount] = await Promise.all([
+    getPendingSyncCount(),
+    getFailedSyncCount(),
+  ]);
+  updateState({ pendingCount, failedCount });
 }
 
 /**
@@ -68,14 +75,16 @@ export function initSyncService(): () => void {
   // Set up callbacks for network state changes
   setOnOnlineCallback(syncAll);
   setOnStatusChangeCallback((isOnline) => {
-    updateState({ status: isOnline ? 'idle' : 'offline' });
+    updateState({
+      status: isOnline ? (currentState.failedCount > 0 ? 'error' : 'idle') : 'offline',
+    });
   });
 
   // Initialize network state monitoring
   const unsubscribe = initNetworkState();
 
   // Initial pending count
-  updatePendingCount();
+  updateSyncCounts();
 
   return unsubscribe;
 }
@@ -137,9 +146,16 @@ export async function syncAll(): Promise<boolean> {
           retryCount: sync.retryCount,
         });
         await processPendingSync(sync);
-        await removePendingSync(sync.id!);
+        const acknowledged = await removePendingSync(sync.id!, sync.revision ?? 1);
+        if (!acknowledged) {
+          syncLogger.info('A newer queued revision arrived during sync; leaving it pending', {
+            id: sync.id,
+            revision: sync.revision,
+          });
+          continue;
+        }
         successCount++;
-        syncLogger.debug('Sync processed successfully', { id: sync.id });
+        syncLogger.debug('Sync processed successfully', { id: sync.id, revision: sync.revision });
         // Track if any scorecard syncs succeeded
         if (sync.type === 'scorecard') {
           scorecardsWereSynced = true;
@@ -163,13 +179,14 @@ export async function syncAll(): Promise<boolean> {
           errorMessage.includes('row-level security policy') || errorMessage.includes('42501');
 
         if (isRlsError) {
-          syncLogger.warn('RLS POLICY ERROR: Dropping sync - user lacks access to round (likely deleted or membership revoked)', {
+          syncLogger.warn('RLS POLICY ERROR: Retaining sync for explicit recovery', {
             id: sync.id,
             type: sync.type,
             roundId: sync.data?.roundId?.substring(0, 8) + '...',
             playerId: sync.data?.playerId?.substring(0, 8) + '...',
           });
-          await removePendingSync(sync.id!);
+          await markPendingSyncFailed(sync.id!, sync.revision ?? 1, errorMessage);
+          failCount++;
           continue;
         }
 
@@ -181,15 +198,15 @@ export async function syncAll(): Promise<boolean> {
         });
         failCount++;
 
-        if (sync.retryCount < MAX_RETRY_COUNT) {
-          await incrementSyncRetryCount(sync.id!);
+        const failureCount = sync.retryCount + 1;
+        if (failureCount < MAX_RETRY_COUNT) {
+          await incrementSyncRetryCount(sync.id!, sync.revision ?? 1, errorMessage);
           syncLogger.debug('Incremented retry count', {
             id: sync.id,
-            newRetryCount: sync.retryCount + 1,
+            newRetryCount: failureCount,
           });
         } else {
-          // Max retries reached, remove from queue
-          syncLogger.error('PERMANENT SYNC FAILURE: Removing sync after max retries - scorecard data may be lost', undefined, {
+          syncLogger.error('SYNC FAILURE RETAINED: Automatic retries exhausted', undefined, {
             id: sync.id,
             type: sync.type,
             roundId: sync.data?.roundId?.substring(0, 8) + '...',
@@ -197,13 +214,19 @@ export async function syncAll(): Promise<boolean> {
             maxRetries: MAX_RETRY_COUNT,
             lastError: errorMessage,
           });
-          await removePendingSync(sync.id!);
+          await markPendingSyncFailed(sync.id!, sync.revision ?? 1, errorMessage);
         }
       }
     }
 
     // Also sync any unsynced scorecards
-    const unsyncedScorecards = await getUnsyncedScorecards();
+    const [allUnsyncedScorecards, queuedEntityKeys] = await Promise.all([
+      getUnsyncedScorecards(),
+      getQueuedEntityKeys(),
+    ]);
+    const unsyncedScorecards = allUnsyncedScorecards.filter(
+      (scorecard) => !queuedEntityKeys.has(scorecardEntityKey(scorecard))
+    );
 
     if (unsyncedScorecards.length > 0) {
       syncLogger.info('Syncing unsynced scorecards', { count: unsyncedScorecards.length });
@@ -234,8 +257,7 @@ export async function syncAll(): Promise<boolean> {
               roundId: scorecard.roundId.substring(0, 8) + '...',
               playerId: scorecard.playerId.substring(0, 8) + '...',
             });
-            // Mark as synced to stop retry attempts - the round likely doesn't exist or user has no access
-            await markScorecardsAsSynced([scorecard.id]);
+            await retainFallbackFailure(scorecard, errorMessage, true);
             rlsFailedRoundIds.add(scorecard.roundId);
             // Don't count as failure since we handled it
           } else {
@@ -244,6 +266,7 @@ export async function syncAll(): Promise<boolean> {
               roundId: scorecard.roundId.substring(0, 8) + '...',
             });
             failCount++;
+            await retainFallbackFailure(scorecard, errorMessage, false);
           }
         }
       }
@@ -264,7 +287,7 @@ export async function syncAll(): Promise<boolean> {
       invalidateScorecardCache(); // Invalidate all scorecard caches
     }
 
-    await updatePendingCount();
+    await updateSyncCounts();
 
     if (failCount > 0) {
       syncLogger.warn('Sync completed with errors', { successCount, failCount });
@@ -277,7 +300,10 @@ export async function syncAll(): Promise<boolean> {
     }
 
     updateState({
-      status: 'idle',
+      status: currentState.failedCount > 0 ? 'error' : 'idle',
+      error: currentState.failedCount > 0
+        ? `${currentState.failedCount} score change${currentState.failedCount === 1 ? '' : 's'} not uploaded`
+        : null,
       lastSyncAt: new Date(),
     });
 
@@ -310,7 +336,7 @@ async function processPendingSync(sync: PendingSync): Promise<void> {
       await processScorecardSync(sync);
       break;
     default:
-      syncLogger.warn('Unknown sync type', { type: sync.type });
+      throw new Error(`Unsupported sync type: ${sync.type}`);
   }
 }
 
@@ -364,7 +390,7 @@ export async function queueScorecardSync(
     action,
   });
 
-  await updatePendingCount();
+  await updateSyncCounts();
 
   // Try to sync immediately if online
   if (getIsOnline() && !getIsSyncing()) {
@@ -393,6 +419,18 @@ export async function manualSync(): Promise<boolean> {
   return syncAll();
 }
 
+/** Retry entries retained after exhausting automatic attempts. */
+export async function retryFailedSyncs(): Promise<boolean> {
+  if (!getIsOnline()) {
+    updateState({ status: 'offline', error: 'No network connection' });
+    return false;
+  }
+
+  await resetFailedSyncs();
+  await updateSyncCounts();
+  return syncAll();
+}
+
 /**
  * Clear all pending syncs and invalid data (manual cleanup)
  */
@@ -400,8 +438,30 @@ export async function clearSyncQueue(): Promise<{ pendingCleared: number; invali
   syncLogger.info('Clearing sync queue');
   const pendingCleared = await clearAllPendingSyncs();
   const invalidCleared = await clearInvalidMockData();
-  await updatePendingCount();
-  updateState({ status: 'idle', error: null });
+  await updateSyncCounts();
+  updateState({ status: 'idle', error: null, failedCount: 0 });
   syncLogger.info('Sync queue cleared', { pendingCleared, invalidCleared });
   return { pendingCleared, invalidCleared };
+}
+
+function scorecardEntityKey(scorecard: Scorecard): string {
+  return `scorecard:${scorecard.roundId}:${scorecard.playerId}`;
+}
+
+async function retainFallbackFailure(
+  scorecard: Scorecard,
+  error: string,
+  permanent: boolean
+): Promise<void> {
+  await addPendingSync({
+    type: 'scorecard',
+    action: 'update',
+    data: scorecard,
+    entityKey: scorecardEntityKey(scorecard),
+    timestamp: new Date(),
+    retryCount: permanent ? MAX_RETRY_COUNT : 1,
+    status: permanent ? 'failed' : 'pending',
+    lastError: error,
+    lastAttemptAt: new Date(),
+  });
 }

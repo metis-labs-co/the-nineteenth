@@ -17,6 +17,10 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 // Import RootNavigator after all mocks are set up
 import RootNavigator from '@/navigation/RootNavigator';
 
+jest.mock('@/hooks/useHasSeenWelcome', () => ({
+  useHasSeenWelcome: () => ({ hasSeenWelcome: true, isLoading: false }),
+}));
+
 // ============================================================================
 // MOCKS
 // ============================================================================
@@ -432,6 +436,16 @@ jest.mock('@/screens/leagues/ChallengeDetailScreen', () => {
   };
 });
 
+jest.mock('@/screens/leagues/PartnershipSetupScreen', () => function MockScreen() {
+  return require('react').createElement(require('react-native').View, { testID: 'partnership-setup-screen' });
+});
+jest.mock('@/screens/leagues/TagPartnershipRoundScreen', () => function MockScreen() {
+  return require('react').createElement(require('react-native').View, { testID: 'tag-partnership-round-screen' });
+});
+jest.mock('@/screens/leagues/LeagueQuickAddRoundScreen', () => function MockScreen() {
+  return require('react').createElement(require('react-native').View, { testID: 'league-quick-add-round-screen' });
+});
+
 // Biometric Lock
 jest.mock('@/hooks/useBiometricLock', () => ({
   useBiometricLock: () => ({
@@ -449,6 +463,9 @@ jest.mock('@/components/biometric', () => {
     BiometricLockScreen: function MockScreen() {
       return React.createElement(View, { testID: 'biometric-lock-screen' });
     },
+    BiometricEnrollPrompt: function MockPrompt() {
+      return React.createElement(View, { testID: 'biometric-enroll-prompt' });
+    },
   };
 });
 
@@ -458,6 +475,8 @@ jest.mock('@/components/common', () => ({
     const { View } = require('react-native');
     return <View testID="loading-spinner" />;
   },
+  AppIcon: () => require('react').createElement(require('react-native').View, { testID: 'app-icon' }),
+  LogoHorizontal: () => require('react').createElement(require('react-native').View, { testID: 'logo-horizontal' }),
 }));
 
 // ============================================================================
@@ -703,7 +722,7 @@ describe('Auth Guards', () => {
         player: playerNeedsOnboarding,
       });
 
-      const { rerender } = renderRootNavigator();
+      const { unmount } = renderRootNavigator();
 
       // Initially should show onboarding
       await waitFor(() => {
@@ -718,20 +737,9 @@ describe('Auth Guards', () => {
         player: mockPlayer, // Now has handicap_updated_at set
       });
 
-      // Re-render to trigger state change
-      const queryClient = createTestQueryClient();
-      rerender(
-        <SafeAreaProvider
-          initialMetrics={{
-            frame: { x: 0, y: 0, width: 390, height: 844 },
-            insets: { top: 47, left: 0, right: 0, bottom: 34 },
-          }}
-        >
-          <QueryClientProvider client={queryClient}>
-            <RootNavigator theme={mockTheme} />
-          </QueryClientProvider>
-        </SafeAreaProvider>
-      );
+      // A root auth transition remounts the navigator in the application.
+      unmount();
+      renderRootNavigator();
 
       // After onboarding, should show main app
       await waitFor(() => {

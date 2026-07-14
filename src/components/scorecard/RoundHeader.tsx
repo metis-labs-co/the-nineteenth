@@ -51,6 +51,8 @@ export interface RoundHeaderProps {
   isOnline: boolean;
   isSyncing: boolean;
   pendingSyncCount: number;
+  failedSyncCount?: number;
+  syncError?: string | null;
   onSyncPress: () => void;
 
   /** Scoring-pairs banner (stroke play only — leave default false otherwise). */
@@ -77,6 +79,8 @@ export function RoundHeader({
   isOnline,
   isSyncing,
   pendingSyncCount,
+  failedSyncCount = 0,
+  syncError,
   onSyncPress,
   scoringPairsEnabled = false,
   playersToScore = [],
@@ -171,8 +175,13 @@ export function RoundHeader({
     return undefined;
   }, [isSyncing, syncLineAnim]);
 
-  const offlineStatus: 'online' | 'offline' | 'syncing' | 'error' =
-    isOnline ? 'online' : 'offline';
+  const offlineStatus: 'online' | 'offline' | 'syncing' | 'error' = !isOnline
+    ? 'offline'
+    : isSyncing
+      ? 'syncing'
+      : failedSyncCount > 0 || syncError
+        ? 'error'
+        : 'online';
 
   const renderRightContent = () => (
     <View style={styles.rightContent}>
@@ -196,8 +205,12 @@ export function RoundHeader({
 
       <OfflineIndicator
         status={offlineStatus}
-        pendingSyncs={pendingSyncCount}
+        pendingSyncs={pendingSyncCount + failedSyncCount}
+        errorMessage={syncError || (failedSyncCount > 0
+          ? `${failedSyncCount} score change${failedSyncCount === 1 ? '' : 's'} not uploaded`
+          : undefined)}
         onSyncPress={onSyncPress}
+        isSyncing={isSyncing}
       />
 
       {isSyncing && (

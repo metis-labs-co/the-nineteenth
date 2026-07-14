@@ -4,7 +4,7 @@ exports[`RoundPlayersTab Snapshots matches snapshot with empty state 1`] = `
 <View
   style={
     {
-      "backgroundColor": "#f9fafb",
+      "backgroundColor": "#f3f4f6",
       "flex": 1,
     }
   }
@@ -40,7 +40,7 @@ exports[`RoundPlayersTab Snapshots matches snapshot with null holes 1`] = `
 <View
   style={
     {
-      "backgroundColor": "#f9fafb",
+      "backgroundColor": "#f3f4f6",
       "flex": 1,
     }
   }
@@ -497,7 +497,7 @@ exports[`RoundPlayersTab Snapshots matches snapshot with players and scores 1`] 
 <View
   style={
     {
-      "backgroundColor": "#f9fafb",
+      "backgroundColor": "#f3f4f6",
       "flex": 1,
     }
   }
@@ -1590,7 +1590,7 @@ exports[`RoundPlayersTab Snapshots matches snapshot with players not started 1`]
 <View
   style={
     {
-      "backgroundColor": "#f9fafb",
+      "backgroundColor": "#f3f4f6",
       "flex": 1,
     }
   }

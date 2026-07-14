@@ -51,6 +51,21 @@ export default function CompetitionDetailsStep({
   const checkFeature = useCheckFeature();
   const teamFormatsAccess = checkFeature('team_formats');
   const canUseTeams = teamFormatsAccess.allowed;
+  const defaultValues: CompetitionDetailsFormData = {
+    name: '',
+    description: '',
+    competitionType: 'event',
+    startDate: '',
+    endDate: '',
+    handicapSystem: 'whs',
+    handicapSource: 'profile',
+    inviteCode: '',
+    enableTeams: false,
+    maxPlayers: null,
+    lockAtCapacity: true,
+    organizerIsPlayer: true,
+    ...initialData,
+  };
 
   const {
     control,
@@ -60,20 +75,7 @@ export default function CompetitionDetailsStep({
   } = useForm<CompetitionDetailsFormData>({
     resolver: zodResolver(competitionDetailsSchema),
     mode: 'onSubmit', // Only validate when clicking Next
-    defaultValues: initialData || {
-      name: '',
-      description: '',
-      competitionType: 'event',
-      startDate: '',
-      endDate: '',
-      handicapSystem: 'whs', // Always WHS - no toggle exposed
-      handicapSource: 'profile', // Default to profile handicap (Social Index is premium)
-      inviteCode: '',
-      enableTeams: false,
-      maxPlayers: null,
-      lockAtCapacity: true,
-      organizerIsPlayer: true,
-    },
+    defaultValues,
   });
 
   // Watch competition type to conditionally show end date

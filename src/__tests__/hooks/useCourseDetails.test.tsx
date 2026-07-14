@@ -50,10 +50,10 @@ const mockTees = [
   { name: 'Red', color: 'red', rating: 68.0, slope: 120, distance: 5600 },
 ];
 
-// Course as returned by Supabase (with nested venue)
+// Course as returned by Supabase (with nested club)
 const mockCourseFromDB = {
   id: 'course-123',
-  venue_id: 'venue-123',
+  club_id: 'venue-123',
   name: 'Championship Course',
   description: 'A challenging 18-hole championship course with stunning views.',
   holes: mockHoles,
@@ -62,7 +62,7 @@ const mockCourseFromDB = {
   course_rating: 72.5,
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
-  venue: mockVenue,
+  club: mockVenue,
 };
 
 // Legacy mockCourse reference for tests
@@ -95,6 +95,25 @@ jest.mock('@/hooks/useFavoriteCourses', () => ({
     isFavorite: (courseId: string) => mockFavoriteIds.includes(courseId),
     isLoading: false,
   }),
+}));
+
+jest.mock('@/hooks/courses/favorites', () => ({
+  useIsFavorite: (courseId: string) => mockFavoriteIds.includes(courseId),
+  useFavoriteEnrichment: () => ({
+    isFavorite: (courseId: string) => mockFavoriteIds.includes(courseId),
+    enrichCourses: (courses: { id: string }[]) =>
+      courses.map((course) => ({
+        ...course,
+        is_favorite: mockFavoriteIds.includes(course.id),
+      })),
+    isLoading: false,
+  }),
+  useAddFavorite: jest.fn(),
+  useRemoveFavorite: jest.fn(),
+}));
+
+jest.mock('@/hooks/useAuth', () => ({
+  useAuth: () => ({ user: { id: 'user-123' }, player: { id: 'user-123' } }),
 }));
 
 // Mock Supabase client
@@ -249,8 +268,8 @@ describe('useCourseDetails', () => {
     });
   });
 
-  describe('Venue Data', () => {
-    it('includes venue in response', async () => {
+  describe('Club Data', () => {
+    it('includes club in response', async () => {
       const wrapper = createWrapper();
       const { result } = renderHook(() => useCourseDetails('course-123'), {
         wrapper,
@@ -260,9 +279,9 @@ describe('useCourseDetails', () => {
         expect(result.current.isLoading).toBe(false);
       });
 
-      // The hook includes venue property in returned data
+      // The hook includes club property in returned data
       if (result.current.data) {
-        expect(result.current.data).toHaveProperty('venue');
+        expect(result.current.data).toHaveProperty('club');
       }
     });
   });

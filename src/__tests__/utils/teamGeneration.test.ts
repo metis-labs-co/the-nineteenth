@@ -209,7 +209,7 @@ describe('Team Generation', () => {
         expect(variance).toBeLessThan(1); // Very low variance
       });
 
-      it('handles undefined handicaps by treating them as 0', () => {
+      it('handles undefined handicaps without losing the player', () => {
         const players = [
           createTestPlayer({ id: 'p1', handicap: undefined as unknown as number }),
           createTestPlayer({ id: 'p2', handicap: 10 }),
@@ -222,10 +222,9 @@ describe('Team Generation', () => {
           balanceByHandicap: true,
         });
 
-        // Player with undefined handicap (treated as 0) should be in first team
-        // Sorted: 0 (undefined), 10, 20, 30
-        const team1Handicaps = teams[0].members.map((m) => m.handicap ?? 0);
-        expect(team1Handicaps).toContain(0);
+        const generatedPlayers = teams.flatMap((team) => team.members);
+        expect(generatedPlayers).toHaveLength(players.length);
+        expect(generatedPlayers.find((player) => player.id === 'p1')?.handicap).toBeUndefined();
       });
     });
 

@@ -7,7 +7,7 @@
  * @see src/hooks/scorecard/useSubmitScorecard.ts
  */
 
-import { renderHook, act } from '@testing-library/react-native';
+import { renderHook, act, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
 import { useSubmitScorecards, useUpdateScore } from '@/hooks/scorecard/useSubmitScorecard';
@@ -370,8 +370,10 @@ describe('useUpdateScore', () => {
     });
 
     // Verify mutation completed successfully
-    expect(result.current.isSuccess).toBe(true);
-    expect(result.current.isError).toBe(false);
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+      expect(result.current.isError).toBe(false);
+    });
   });
 
   it('should rollback on mutation error', async () => {

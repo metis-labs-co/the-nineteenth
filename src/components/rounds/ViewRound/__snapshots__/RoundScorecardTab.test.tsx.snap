@@ -4,7 +4,7 @@ exports[`RoundScorecardTab Snapshots matches snapshot with empty state 1`] = `
 <View
   style={
     {
-      "backgroundColor": "#f9fafb",
+      "backgroundColor": "#f3f4f6",
       "flex": 1,
     }
   }
@@ -40,7 +40,7 @@ exports[`RoundScorecardTab Snapshots matches snapshot with players 1`] = `
 <View
   style={
     {
-      "backgroundColor": "#f9fafb",
+      "backgroundColor": "#f3f4f6",
       "flex": 1,
     }
   }

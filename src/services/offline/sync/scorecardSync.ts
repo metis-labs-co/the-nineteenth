@@ -46,10 +46,26 @@ export async function processScorecardSync(sync: PendingSync): Promise<void> {
       await syncScorecard(data as Scorecard, { skipServerCheck: true });
       break;
     case 'delete':
-      syncLogger.info('Delete scorecard (not implemented)', { dataId: data.id });
+      await deleteRemoteScorecard(data as Scorecard);
       break;
     default:
       syncLogger.warn('Unknown action', { action });
+  }
+}
+
+async function deleteRemoteScorecard(scorecard: Scorecard): Promise<void> {
+  if (!isValidUUID(scorecard.roundId) || !isValidUUID(scorecard.playerId)) {
+    throw new Error('Cannot delete scorecard with invalid round or player identifier');
+  }
+
+  const { error } = await supabase
+    .from('scorecards')
+    .delete()
+    .eq('round_id', scorecard.roundId)
+    .eq('player_id', scorecard.playerId);
+
+  if (error) {
+    throw new Error(`Failed to delete scorecard: ${error.code ?? ''} ${error.message}`.trim());
   }
 }
 

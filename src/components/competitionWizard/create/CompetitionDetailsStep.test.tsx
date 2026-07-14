@@ -200,8 +200,8 @@ describe('CompetitionDetailsStep', () => {
     name: 'Summer Championship',
     description: 'A fun summer golf event',
     competitionType: 'event',
-    startDate: '15/06/2026',
-    endDate: '16/06/2026',
+    startDate: '15/06/2027',
+    endDate: '16/06/2027',
     handicapSystem: 'honor',
     handicapSource: 'profile',
     inviteCode: 'SUMMER2026',
@@ -295,7 +295,7 @@ describe('CompetitionDetailsStep', () => {
       render(<CompetitionDetailsStep {...defaultProps} initialData={validFormData} />);
 
       const startDateInput = screen.getByTestId('date-input-start-date');
-      expect(startDateInput.props.value).toBe('15/06/2026');
+      expect(startDateInput.props.value).toBe('15/06/2027');
     });
 
     it('defaults competition type to event', () => {
@@ -366,7 +366,7 @@ describe('CompetitionDetailsStep', () => {
       const initialDataWithEndDate = {
         ...validFormData,
         competitionType: 'event' as const,
-        endDate: '16/06/2026',
+        endDate: '16/06/2027',
       };
 
       render(<CompetitionDetailsStep {...defaultProps} initialData={initialDataWithEndDate} />);
@@ -434,9 +434,9 @@ describe('CompetitionDetailsStep', () => {
       render(<CompetitionDetailsStep {...defaultProps} />);
 
       const startDateInput = screen.getByTestId('date-input-start-date');
-      fireEvent.changeText(startDateInput, '15/06/2026');
+      fireEvent.changeText(startDateInput, '15/06/2027');
 
-      expect(startDateInput.props.value).toBe('15/06/2026');
+      expect(startDateInput.props.value).toBe('15/06/2027');
     });
 
     it('updates end date on change', () => {
@@ -484,8 +484,8 @@ describe('CompetitionDetailsStep', () => {
         expect(calledWith.name).toBe('Summer Championship');
         expect(calledWith.description).toBe('A fun summer golf event');
         expect(calledWith.competitionType).toBe('event');
-        expect(calledWith.startDate).toBe('15/06/2026');
-        expect(calledWith.endDate).toBe('16/06/2026');
+        expect(calledWith.startDate).toBe('15/06/2027');
+        expect(calledWith.endDate).toBe('16/06/2027');
         expect(calledWith.handicapSystem).toBe('honor');
         expect(calledWith.inviteCode).toBe('SUMMER2026');
       });
@@ -518,7 +518,7 @@ describe('CompetitionDetailsStep', () => {
 
       // Fill start date but leave name empty
       const startDateInput = screen.getByTestId('date-input-start-date');
-      fireEvent.changeText(startDateInput, '15/06/2026');
+      fireEvent.changeText(startDateInput, '15/06/2027');
 
       fireEvent.press(screen.getByText('Next: Rounds'));
 
@@ -757,16 +757,21 @@ describe('CompetitionDetailsStep', () => {
       expect(eventSegment.props.accessibilityState.selected).toBe(true);
     });
 
-    it('defaults handicap system to honor', async () => {
-      render(<CompetitionDetailsStep {...defaultProps} initialData={validFormData} />);
+    it('defaults handicap system to WHS', async () => {
+      render(
+        <CompetitionDetailsStep
+          {...defaultProps}
+          initialData={{ ...validFormData, handicapSystem: 'whs' }}
+        />
+      );
 
-      // Submit and check onComplete receives honor as handicap system
+      // Submit and check onComplete receives WHS as the handicap system.
       fireEvent.press(screen.getByText('Next: Rounds'));
 
       await waitFor(() => {
         expect(mockOnComplete).toHaveBeenCalledTimes(1);
         const calledWith = mockOnComplete.mock.calls[0][0];
-        expect(calledWith.handicapSystem).toBe('honor');
+        expect(calledWith.handicapSystem).toBe('whs');
       });
     });
   });
@@ -836,10 +841,10 @@ describe('CompetitionDetailsStep', () => {
 
       // Fill dates
       const startDateInput = screen.getByTestId('date-input-start-date');
-      fireEvent.changeText(startDateInput, '15/06/2026');
+      fireEvent.changeText(startDateInput, '15/06/2027');
 
       const endDateInput = screen.getByTestId('date-input-end-date');
-      fireEvent.changeText(endDateInput, '31/12/2026');
+      fireEvent.changeText(endDateInput, '31/12/2027');
 
       // Submit
       fireEvent.press(screen.getByText('Next: Rounds'));
@@ -851,8 +856,8 @@ describe('CompetitionDetailsStep', () => {
         expect(calledWith.description).toBe('A test description');
         expect(calledWith.competitionType).toBe('event');
         expect(calledWith.inviteCode).toBe('TEST2025');
-        expect(calledWith.startDate).toBe('15/06/2026');
-        expect(calledWith.endDate).toBe('31/12/2026');
+        expect(calledWith.startDate).toBe('15/06/2027');
+        expect(calledWith.endDate).toBe('31/12/2027');
       });
     });
 
@@ -868,7 +873,7 @@ describe('CompetitionDetailsStep', () => {
 
       // Fill start date only (no end date needed for knockout)
       const startDateInput = screen.getByTestId('date-input-start-date');
-      fireEvent.changeText(startDateInput, '15/06/2026');
+      fireEvent.changeText(startDateInput, '15/06/2027');
 
       // Submit
       fireEvent.press(screen.getByText('Next: Rounds'));
@@ -878,7 +883,7 @@ describe('CompetitionDetailsStep', () => {
         const calledWith = mockOnComplete.mock.calls[0][0];
         expect(calledWith.name).toBe('Knockout Competition');
         expect(calledWith.competitionType).toBe('knockout');
-        expect(calledWith.startDate).toBe('15/06/2026');
+        expect(calledWith.startDate).toBe('15/06/2027');
       });
     });
 
@@ -890,8 +895,8 @@ describe('CompetitionDetailsStep', () => {
       expect(screen.getByTestId('input-competition-name').props.value).toBe('Summer Championship');
       expect(screen.getByTestId('input-description-optional').props.value).toBe('A fun summer golf event');
       expect(screen.getByTestId('input-invite-code-optional').props.value).toBe('SUMMER2026');
-      expect(screen.getByTestId('date-input-start-date').props.value).toBe('15/06/2026');
-      expect(screen.getByTestId('date-input-end-date').props.value).toBe('16/06/2026');
+      expect(screen.getByTestId('date-input-start-date').props.value).toBe('15/06/2027');
+      expect(screen.getByTestId('date-input-end-date').props.value).toBe('16/06/2027');
     });
   });
 });

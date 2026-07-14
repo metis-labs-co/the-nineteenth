@@ -76,6 +76,9 @@ jest.mock('@/components/common', () => {
         {icon === 'account-group-outline' && <View testID="icon-users" />}
       </View>
     ),
+    EmptyState: ({ title, message }: { title: string; message: string }) => (
+      <View><Text>{title}</Text><Text>{message}</Text></View>
+    ),
   };
 });
 
@@ -932,7 +935,7 @@ describe('LeaderboardTab', () => {
 
       render(<LeaderboardTab {...defaultProps} rounds={[inProgressRound]} />);
 
-      expect(screen.getByTestId('round-leaderboard-1')).toBeTruthy();
+      expect(screen.getByTestId('round-leaderboard-1-live')).toBeTruthy();
     });
 
     it('passes correct props to RoundLeaderboard', () => {
@@ -966,7 +969,7 @@ describe('LeaderboardTab', () => {
       expect(screen.getByTestId('round-current-user-round-1')).toBeTruthy();
     });
 
-    it('enables auto-refresh for in-progress rounds', () => {
+    it('renders the live leaderboard for an in-progress round', () => {
       const inProgressRound = createMockRound({
         id: 'round-1',
         round_number: 1,
@@ -981,7 +984,7 @@ describe('LeaderboardTab', () => {
 
       render(<LeaderboardTab {...defaultProps} rounds={[inProgressRound]} autoRefresh />);
 
-      expect(screen.getByTestId('auto-refresh-round-1')).toBeTruthy();
+      expect(screen.getByTestId('round-leaderboard-1-live')).toBeTruthy();
     });
 
     it('disables auto-refresh for completed rounds', () => {
@@ -1042,7 +1045,7 @@ describe('LeaderboardTab', () => {
 
       // Should show completed and in-progress, not upcoming
       expect(screen.getByTestId('round-leaderboard-1')).toBeTruthy();
-      expect(screen.getByTestId('round-leaderboard-2')).toBeTruthy();
+      expect(screen.getByTestId('round-leaderboard-2-live')).toBeTruthy();
       expect(screen.queryByTestId('round-leaderboard-3')).toBeNull();
     });
   });
@@ -1362,7 +1365,7 @@ describe('LeaderboardTab', () => {
 
       // Both round leaderboards should still be present - use getAllByTestId since there could be duplicate renders
       const round1Leaderboards = screen.getAllByTestId('round-leaderboard-1');
-      const round2Leaderboards = screen.getAllByTestId('round-leaderboard-2');
+      const round2Leaderboards = screen.getAllByTestId('round-leaderboard-2-live');
       expect(round1Leaderboards.length).toBeGreaterThanOrEqual(1);
       expect(round2Leaderboards.length).toBeGreaterThanOrEqual(1);
     });

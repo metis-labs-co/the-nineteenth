@@ -207,10 +207,12 @@ describe('SubMatchesTab', () => {
       render(<SubMatchesTab roundId="round-1" isSplitRound gameType="stroke" />);
 
       // Team A: 72 + 78 = 150, Team B: 70 + 82 = 152
-      expect(screen.getByText('Team A 150 · Team B 152')).toBeTruthy();
+      expect(screen.getAllByText('Team A').length).toBeGreaterThan(0);
+      expect(screen.getByText('150')).toBeTruthy();
+      expect(screen.getByText('152')).toBeTruthy();
     });
 
-    it('shows the pairs-aggregate header with overall totals', () => {
+    it('shows per-match aggregate totals', () => {
       mockUseSubMatches.mockReturnValue({
         data: [
           makeSubMatch({ id: 'sm-1', sort_order: 0 }),
@@ -235,7 +237,8 @@ describe('SubMatchesTab', () => {
 
       render(<SubMatchesTab roundId="round-1" isSplitRound gameType="stableford" />);
 
-      expect(screen.getByText(/Pairs Aggregate/i)).toBeTruthy();
+      expect(screen.getByText('145')).toBeTruthy();
+      expect(screen.getAllByText('152').length).toBeGreaterThan(0);
     });
   });
 

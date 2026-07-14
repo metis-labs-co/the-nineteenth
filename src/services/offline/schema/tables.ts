@@ -83,7 +83,12 @@ export const CREATE_PENDING_SYNCS_TABLE = `
     action TEXT NOT NULL,
     data TEXT NOT NULL,
     timestamp TEXT NOT NULL,
-    retry_count INTEGER DEFAULT 0
+    retry_count INTEGER DEFAULT 0,
+    entity_key TEXT NOT NULL UNIQUE,
+    revision INTEGER NOT NULL DEFAULT 1,
+    status TEXT NOT NULL DEFAULT 'pending',
+    last_error TEXT,
+    last_attempt_at TEXT
   );
 `;
 

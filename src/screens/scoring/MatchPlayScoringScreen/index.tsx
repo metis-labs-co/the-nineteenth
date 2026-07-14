@@ -185,7 +185,7 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
   });
 
   // Sync status (drives the offline indicator + animated sync line in RoundHeader).
-  const { isSyncing, pendingSyncCount, submitScorecards } = useScorecardStore();
+  const { isSyncing, pendingSyncCount, failedSyncCount, syncError, submitScorecards } = useScorecardStore();
   const { triggerSync } = useOfflineSync();
 
   // Skins processing hook
@@ -656,6 +656,8 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
         isOnline={isOnline}
         isSyncing={isSyncing}
         pendingSyncCount={pendingSyncCount}
+        failedSyncCount={failedSyncCount}
+        syncError={syncError}
         onSyncPress={triggerSync}
         canChangeTees={canChangeTees}
         onChangeTeesPress={() => setShowChangeTeesSheet(true)}

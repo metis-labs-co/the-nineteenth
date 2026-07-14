@@ -14,6 +14,22 @@
 // Global test timeout (10 seconds)
 jest.setTimeout(10000);
 
+jest.mock('expo-video', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  return {
+    useVideoPlayer: jest.fn(() => ({ play: jest.fn(), pause: jest.fn(), loop: false })),
+    VideoView: (props) => React.createElement(View, props),
+  };
+});
+
+jest.mock('react-native-gifted-charts', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  const Chart = (props) => React.createElement(View, props);
+  return { LineChart: Chart, BarChart: Chart, PieChart: Chart };
+});
+
 // ============================================================================
 // CONSOLE OUTPUT SUPPRESSION
 // ============================================================================

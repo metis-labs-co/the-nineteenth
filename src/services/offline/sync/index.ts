@@ -37,5 +37,6 @@ export {
   syncAll,
   queueScorecardSync,
   manualSync,
+  retryFailedSyncs,
   clearSyncQueue,
 } from './syncOrchestrator';

@@ -69,7 +69,7 @@ async function fetchAll(client: ReturnType<typeof createClient>, table: string):
   let from = 0;
   const pageSize = 1000;
 
-  while (true) {
+  for (;;) {
     const { data, error } = await client
       .from(table)
       .select('*')

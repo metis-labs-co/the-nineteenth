@@ -14,6 +14,9 @@ module.exports = {
     'react/react-in-jsx-scope': 'off',
     '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
     '@typescript-eslint/explicit-module-boundary-types': 'off',
+    // Supabase dynamic queries and React Native bridges frequently require
+    // values whose generated/runtime shape cannot be expressed statically.
+    '@typescript-eslint/no-explicit-any': 'off',
     'react-hooks/rules-of-hooks': 'error',
     'react-hooks/exhaustive-deps': 'warn',
     // Disable prop-types (we use TypeScript)

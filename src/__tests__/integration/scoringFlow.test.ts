@@ -39,18 +39,44 @@ jest.mock('@/services/offline/database', () => ({
   getScorecardsByRound: (...args: unknown[]) => mockGetScorecardsByRound(...args),
   saveHoles: (...args: unknown[]) => mockSaveHoles(...args),
   getHoles: (...args: unknown[]) => mockGetHoles(...args),
+  markScorecardsAsSynced: jest.fn(() => Promise.resolve()),
+}));
+
+jest.mock('@/services/supabase/client', () => ({
+  supabase: {
+    from: jest.fn((table: string) => ({
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      in: jest.fn(() => Promise.resolve({ data: [] })),
+      maybeSingle: jest.fn(() =>
+        Promise.resolve({
+          data: table === 'rounds'
+            ? { game_type: 'stableford', handicap_source: 'profile', nine_type: 'full', selected_tee: null, course_id: null }
+            : null,
+          error: null,
+        })
+      ),
+    })),
+  },
 }));
 
 // Mock the sync service with state tracking
 let mockIsOnline = true;
 const mockQueueScorecardSync = jest.fn((..._args: unknown[]) => Promise.resolve());
-const mockSyncSubscribers: ((state: { status: string; pendingCount: number; error: null }) => void)[] = [];
+const mockSyncScorecard = jest.fn((..._args: unknown[]) => Promise.resolve());
+const mockSyncSubscribers: ((state: {
+  status: string;
+  pendingCount: number;
+  failedCount: number;
+  error: null;
+}) => void)[] = [];
 
 jest.mock('@/services/offline/sync', () => ({
   queueScorecardSync: (...args: unknown[]) => mockQueueScorecardSync(...args),
+  syncScorecard: (...args: unknown[]) => mockSyncScorecard(...args),
   subscribeSyncState: jest.fn((callback) => {
     mockSyncSubscribers.push(callback);
-    callback({ status: 'idle', pendingCount: 0, error: null });
+    callback({ status: 'idle', pendingCount: 0, failedCount: 0, error: null });
     return () => {
       const index = mockSyncSubscribers.indexOf(callback);
       if (index > -1) mockSyncSubscribers.splice(index, 1);
@@ -157,6 +183,7 @@ describe('Scoring Flow Integration Tests', () => {
     mockSaveHoles.mockResolvedValue(undefined);
     mockGetHoles.mockResolvedValue([]);
     mockQueueScorecardSync.mockResolvedValue(undefined);
+    mockSyncScorecard.mockResolvedValue(undefined);
 
     // Reset network state
     setOnlineState(true);
@@ -203,9 +230,9 @@ describe('Scoring Flow Integration Tests', () => {
         expect(scorecard.submittedAt).toBeDefined();
       }
 
-      // Verify scorecards were saved and queued for sync
+      // Online submission writes directly so completion cannot race the queue.
       expect(mockSaveScorecard).toHaveBeenCalledTimes(4);
-      expect(mockQueueScorecardSync).toHaveBeenCalledTimes(4);
+      expect(mockSyncScorecard).toHaveBeenCalledTimes(4);
     });
 
     it('correctly recalculates totals after each score update', async () => {
@@ -308,8 +335,9 @@ describe('Scoring Flow Integration Tests', () => {
       // Each player gets 5 hole scores = 20 calls
       expect(mockSaveHoleScore.mock.calls.length).toBeGreaterThanOrEqual(20);
 
-      // Verify sync was queued
-      expect(mockQueueScorecardSync).toHaveBeenCalled();
+      // Score changes are durably persisted immediately; background queueing
+      // is debounced and covered by the sync-specific unit tests.
+      expect(mockSaveScorecard).toHaveBeenCalled();
     });
 
     it('data persists correctly when scoring offline', async () => {
@@ -351,9 +379,9 @@ describe('Scoring Flow Integration Tests', () => {
 
       await store.submitScorecards();
 
-      // Should save and queue all scorecards
+      // Once online, submission performs direct confirmed writes.
       expect(mockSaveScorecard).toHaveBeenCalledTimes(4);
-      expect(mockQueueScorecardSync).toHaveBeenCalledTimes(4);
+      expect(mockSyncScorecard).toHaveBeenCalledTimes(4);
     });
   });
 
@@ -562,7 +590,7 @@ describe('Scoring Flow Integration Tests', () => {
       await store.submitScorecards();
 
       expect(mockSaveScorecard).toHaveBeenCalledTimes(4);
-      expect(mockQueueScorecardSync).toHaveBeenCalledTimes(4);
+      expect(mockSyncScorecard).toHaveBeenCalledTimes(4);
     });
   });
 

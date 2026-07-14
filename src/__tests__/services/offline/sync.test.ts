@@ -16,6 +16,7 @@ import {
   syncAll,
   queueScorecardSync,
   manualSync,
+  retryFailedSyncs,
   clearSyncQueue,
   subscribeSyncState,
 } from '@/services/offline/sync';
@@ -37,6 +38,10 @@ jest.mock('@/services/offline/database', () => ({
   getUnsyncedScorecards: jest.fn(),
   addPendingSync: jest.fn(),
   getPendingSyncCount: jest.fn(),
+  getFailedSyncCount: jest.fn(),
+  getQueuedEntityKeys: jest.fn(),
+  markPendingSyncFailed: jest.fn(),
+  resetFailedSyncs: jest.fn(),
   clearInvalidMockData: jest.fn(),
   clearAllPendingSyncs: jest.fn(),
 }));
@@ -107,12 +112,16 @@ beforeEach(() => {
   (database.getPendingSyncs as jest.Mock).mockResolvedValue([]);
   (database.getUnsyncedScorecards as jest.Mock).mockResolvedValue([]);
   (database.getPendingSyncCount as jest.Mock).mockResolvedValue(0);
+  (database.getFailedSyncCount as jest.Mock).mockResolvedValue(0);
+  (database.getQueuedEntityKeys as jest.Mock).mockResolvedValue(new Set());
   (database.clearInvalidMockData as jest.Mock).mockResolvedValue(0);
   (database.clearAllPendingSyncs as jest.Mock).mockResolvedValue(0);
-  (database.removePendingSync as jest.Mock).mockResolvedValue(undefined);
+  (database.removePendingSync as jest.Mock).mockResolvedValue(true);
   (database.addPendingSync as jest.Mock).mockResolvedValue(undefined);
   (database.markScorecardsAsSynced as jest.Mock).mockResolvedValue(undefined);
   (database.incrementSyncRetryCount as jest.Mock).mockResolvedValue(undefined);
+  (database.markPendingSyncFailed as jest.Mock).mockResolvedValue(true);
+  (database.resetFailedSyncs as jest.Mock).mockResolvedValue(0);
 });
 
 // ============================================================================
@@ -161,6 +170,7 @@ function createPendingSync(overrides: Partial<PendingSync> = {}): PendingSync {
     data: createTestScorecard(),
     timestamp: new Date('2025-01-15T10:00:00Z'),
     retryCount: 0,
+    revision: 1,
     ...overrides,
   };
 }
@@ -281,7 +291,7 @@ describe('Sync Operations', () => {
       await syncAll();
 
       expect(database.getPendingSyncs).toHaveBeenCalled();
-      expect(database.removePendingSync).toHaveBeenCalledWith(pendingSync.id);
+      expect(database.removePendingSync).toHaveBeenCalledWith(pendingSync.id, pendingSync.revision);
     });
 
     it('should mark scorecard as synced after pending queue processing to prevent double-sync overwrite', async () => {
@@ -296,6 +306,18 @@ describe('Sync Operations', () => {
       // After processing the pending sync, the scorecard should be marked as synced
       // so the unsynced-scorecards path doesn't re-sync with potentially incomplete SQLite data
       expect(database.markScorecardsAsSynced).toHaveBeenCalledWith([scorecard.id]);
+    });
+
+    it('does not acknowledge an older revision when a newer edit arrives during upload', async () => {
+      const scorecard = createTestScorecard();
+      const pendingSync = createPendingSync({ data: scorecard, revision: 4 });
+      (database.getPendingSyncs as jest.Mock).mockResolvedValue([pendingSync]);
+      (database.removePendingSync as jest.Mock).mockResolvedValue(false);
+
+      await syncAll();
+
+      expect(database.removePendingSync).toHaveBeenCalledWith(pendingSync.id, 4);
+      expect(database.markScorecardsAsSynced).not.toHaveBeenCalledWith([scorecard.id]);
     });
 
     it('should sync unsynced scorecards and mark as synced', async () => {
@@ -317,10 +339,14 @@ describe('Sync Operations', () => {
 
       await syncAll();
 
-      expect(database.incrementSyncRetryCount).toHaveBeenCalledWith(failingSync.id);
+      expect(database.incrementSyncRetryCount).toHaveBeenCalledWith(
+        failingSync.id,
+        failingSync.revision,
+        expect.any(String)
+      );
     });
 
-    it('should remove sync after max retries', async () => {
+    it('should retain sync as failed after max retries', async () => {
       const maxRetriesSync = createPendingSync({
         retryCount: 3,
         data: createTestScorecard({ roundId: 'invalid-uuid' }),
@@ -329,7 +355,15 @@ describe('Sync Operations', () => {
 
       await syncAll();
 
-      expect(database.removePendingSync).toHaveBeenCalledWith(maxRetriesSync.id);
+      expect(database.markPendingSyncFailed).toHaveBeenCalledWith(
+        maxRetriesSync.id,
+        maxRetriesSync.revision,
+        expect.any(String)
+      );
+      expect(database.removePendingSync).not.toHaveBeenCalledWith(
+        maxRetriesSync.id,
+        maxRetriesSync.revision
+      );
     });
 
     it('should invalidate caches after successful scorecard sync', async () => {
@@ -354,6 +388,18 @@ describe('Sync Operations', () => {
       const result = await manualSync();
 
       expect(result).toBe(true);
+      expect(database.getPendingSyncs).toHaveBeenCalled();
+    });
+  });
+
+  describe('retryFailedSyncs()', () => {
+    it('resets retained failures before syncing them', async () => {
+      (database.resetFailedSyncs as jest.Mock).mockResolvedValue(2);
+
+      const result = await retryFailedSyncs();
+
+      expect(result).toBe(true);
+      expect(database.resetFailedSyncs).toHaveBeenCalled();
       expect(database.getPendingSyncs).toHaveBeenCalled();
     });
   });
@@ -492,7 +538,11 @@ describe('Scorecard Sync Processing', () => {
 
     await syncAll();
 
-    expect(database.incrementSyncRetryCount).toHaveBeenCalledWith(pendingSync.id);
+    expect(database.incrementSyncRetryCount).toHaveBeenCalledWith(
+      pendingSync.id,
+      pendingSync.revision,
+      expect.any(String)
+    );
   });
 
   it('should fail for invalid player_id UUID and increment retry', async () => {
@@ -505,7 +555,11 @@ describe('Scorecard Sync Processing', () => {
 
     await syncAll();
 
-    expect(database.incrementSyncRetryCount).toHaveBeenCalledWith(pendingSync.id);
+    expect(database.incrementSyncRetryCount).toHaveBeenCalledWith(
+      pendingSync.id,
+      pendingSync.revision,
+      expect.any(String)
+    );
   });
 
   it('should handle standalone scorecards that somehow get through (no-op)', async () => {
@@ -634,7 +688,7 @@ describe('Error Handling', () => {
     initSyncService();
   });
 
-  it('should handle unknown sync types gracefully', async () => {
+  it('should retain unknown sync types instead of acknowledging them', async () => {
     const unknownTypeSync = createPendingSync({
       type: 'unknown' as PendingSync['type'],
     });
@@ -642,8 +696,9 @@ describe('Error Handling', () => {
 
     const result = await syncAll();
 
-    expect(result).toBe(true);
-    expect(database.removePendingSync).toHaveBeenCalledWith(unknownTypeSync.id);
+    expect(result).toBe(false);
+    expect(database.removePendingSync).not.toHaveBeenCalled();
+    expect(database.incrementSyncRetryCount).toHaveBeenCalled();
   });
 
   it('should handle database read errors and return false', async () => {
@@ -671,10 +726,10 @@ describe('Error Handling', () => {
     await syncAll();
 
     // Should have removed successful syncs
-    expect(database.removePendingSync).toHaveBeenCalledWith(1);
-    expect(database.removePendingSync).toHaveBeenCalledWith(3);
+    expect(database.removePendingSync).toHaveBeenCalledWith(1, 1);
+    expect(database.removePendingSync).toHaveBeenCalledWith(3, 1);
     // Should have incremented retry count for failed sync
-    expect(database.incrementSyncRetryCount).toHaveBeenCalledWith(2);
+    expect(database.incrementSyncRetryCount).toHaveBeenCalledWith(2, 1, expect.any(String));
   });
 
   it('should set error status when syncs fail', async () => {
@@ -691,7 +746,7 @@ describe('Error Handling', () => {
     expect(state.error).toBeDefined();
   });
 
-  it('should remove pending sync after max retries', async () => {
+  it('should retain pending sync after max retries', async () => {
     const maxRetriedSync = createPendingSync({
       id: 99,
       retryCount: 3, // MAX_RETRY_COUNT
@@ -701,13 +756,11 @@ describe('Error Handling', () => {
 
     await syncAll();
 
-    // Should remove, not just increment
-    expect(database.removePendingSync).toHaveBeenCalledWith(99);
-    // Should NOT increment retry count (already at max)
-    expect(database.incrementSyncRetryCount).not.toHaveBeenCalledWith(99);
+    expect(database.markPendingSyncFailed).toHaveBeenCalledWith(99, 1, expect.any(String));
+    expect(database.removePendingSync).not.toHaveBeenCalledWith(99, 1);
   });
 
-  it('should handle RLS errors by marking scorecard as synced', async () => {
+  it('should handle RLS errors by retaining the scorecard for recovery', async () => {
     const scorecard = createTestScorecard();
     (database.getPendingSyncs as jest.Mock).mockResolvedValue([]);
     (database.getUnsyncedScorecards as jest.Mock).mockResolvedValue([scorecard]);
@@ -723,11 +776,13 @@ describe('Error Handling', () => {
 
     await syncAll();
 
-    // RLS error should still mark as synced to prevent infinite retry
-    expect(database.markScorecardsAsSynced).toHaveBeenCalledWith([scorecard.id]);
+    expect(database.addPendingSync).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'failed', data: scorecard })
+    );
+    expect(database.markScorecardsAsSynced).not.toHaveBeenCalledWith([scorecard.id]);
   });
 
-  it('should drop pending-queue syncs immediately on RLS error (no retries)', async () => {
+  it('should retain pending-queue syncs immediately on RLS error (no retries)', async () => {
     // Simulates the production log: a queued scorecard sync hits RLS because
     // the user no longer has access to the round (round deleted, membership
     // revoked). Retrying would burn 3 slots and emit a misleading
@@ -750,8 +805,8 @@ describe('Error Handling', () => {
 
     await syncAll();
 
-    // Removed without ever incrementing retry count
-    expect(database.removePendingSync).toHaveBeenCalledWith(42);
+    expect(database.markPendingSyncFailed).toHaveBeenCalledWith(42, 1, expect.any(String));
+    expect(database.removePendingSync).not.toHaveBeenCalled();
     expect(database.incrementSyncRetryCount).not.toHaveBeenCalled();
   });
 });
@@ -860,6 +915,6 @@ describe('Server Data Protection', () => {
     await syncAll();
 
     // Pending queue path should ALWAYS sync regardless of server state
-    expect(database.removePendingSync).toHaveBeenCalledWith(pendingSync.id);
+    expect(database.removePendingSync).toHaveBeenCalledWith(pendingSync.id, pendingSync.revision);
   });
 });

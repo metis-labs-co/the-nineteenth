@@ -17,6 +17,10 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 // Import RootNavigator after all mocks are set up
 import RootNavigator from '@/navigation/RootNavigator';
 
+jest.mock('@/hooks/useHasSeenWelcome', () => ({
+  useHasSeenWelcome: () => ({ hasSeenWelcome: true, isLoading: false }),
+}));
+
 // ============================================================================
 // DEEP LINKING CONFIGURATION
 // ============================================================================
@@ -474,6 +478,16 @@ jest.mock('@/screens/leagues/ChallengeDetailScreen', () => {
   };
 });
 
+jest.mock('@/screens/leagues/PartnershipSetupScreen', () => function MockScreen() {
+  return require('react').createElement(require('react-native').View, { testID: 'partnership-setup-screen' });
+});
+jest.mock('@/screens/leagues/TagPartnershipRoundScreen', () => function MockScreen() {
+  return require('react').createElement(require('react-native').View, { testID: 'tag-partnership-round-screen' });
+});
+jest.mock('@/screens/leagues/LeagueQuickAddRoundScreen', () => function MockScreen() {
+  return require('react').createElement(require('react-native').View, { testID: 'league-quick-add-round-screen' });
+});
+
 // Biometric Lock
 jest.mock('@/hooks/useBiometricLock', () => ({
   useBiometricLock: () => ({
@@ -491,6 +505,9 @@ jest.mock('@/components/biometric', () => {
     BiometricLockScreen: function MockScreen() {
       return React.createElement(View, { testID: 'biometric-lock-screen' });
     },
+    BiometricEnrollPrompt: function MockPrompt() {
+      return React.createElement(View, { testID: 'biometric-enroll-prompt' });
+    },
   };
 });
 
@@ -500,6 +517,8 @@ jest.mock('@/components/common', () => ({
     const { View } = require('react-native');
     return <View testID="loading-spinner" />;
   },
+  AppIcon: () => require('react').createElement(require('react-native').View, { testID: 'app-icon' }),
+  LogoHorizontal: () => require('react').createElement(require('react-native').View, { testID: 'logo-horizontal' }),
 }));
 
 // ============================================================================

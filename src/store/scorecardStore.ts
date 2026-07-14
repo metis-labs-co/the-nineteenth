@@ -62,6 +62,7 @@ interface ScorecardState {
   isOnline: boolean;
   isSyncing: boolean;
   pendingSyncCount: number;
+  failedSyncCount: number;
   syncError: string | null;
 
   // Loading states
@@ -123,6 +124,7 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
         isOnline: getIsOnline(),
         isSyncing: syncState.status === 'syncing',
         pendingSyncCount: syncState.pendingCount,
+        failedSyncCount: syncState.failedCount,
         syncError: syncState.error,
       });
     });
@@ -147,6 +149,7 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
     isOnline: true,
     isSyncing: false,
     pendingSyncCount: 0,
+    failedSyncCount: 0,
     syncError: null,
     isLoading: false,
     isInitialized: false,

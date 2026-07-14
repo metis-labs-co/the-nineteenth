@@ -72,6 +72,11 @@ export interface PendingSyncRow {
   data: string;
   timestamp: string;
   retry_count: number;
+  entity_key: string;
+  revision: number;
+  status: 'pending' | 'failed';
+  last_error: string | null;
+  last_attempt_at: string | null;
 }
 
 /**

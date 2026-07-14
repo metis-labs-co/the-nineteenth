@@ -455,6 +455,13 @@ export interface PendingSync {
   data: any;
   timestamp: Date;
   retryCount: number;
+  /** Stable identity used to coalesce repeated writes for the same entity. */
+  entityKey?: string;
+  /** Incremented whenever a queued snapshot is replaced while sync is in flight. */
+  revision?: number;
+  status?: 'pending' | 'failed';
+  lastError?: string | null;
+  lastAttemptAt?: Date | null;
 }
 
 // Form types (for react-hook-form)

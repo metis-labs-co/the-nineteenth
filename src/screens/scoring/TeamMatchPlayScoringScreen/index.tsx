@@ -65,6 +65,8 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
     resetRound,
     isSyncing,
     pendingSyncCount,
+    failedSyncCount,
+    syncError,
     startHole,
   } = useScorecardStore();
   const isOnline = useOnlineStatus();
@@ -734,6 +736,8 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
         isOnline={isOnline}
         isSyncing={isSyncing}
         pendingSyncCount={pendingSyncCount}
+        failedSyncCount={failedSyncCount}
+        syncError={syncError}
         onSyncPress={triggerSync}
         canChangeTees={isOrganizer}
         onChangeTeesPress={() => setShowChangeTeesSheet(true)}
