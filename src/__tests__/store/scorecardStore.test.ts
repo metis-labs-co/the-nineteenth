@@ -25,6 +25,7 @@ import {
   saveHoles,
   getHoles,
   markScorecardsAsSynced,
+  markScorecardAsSynced,
 } from '@/services/offline/database';
 import { queueScorecardSync, syncScorecard, getIsOnline } from '@/services/offline/sync';
 import { storeLogger } from '@/utils/debugLogger';
@@ -56,12 +57,13 @@ jest.mock('@/services/offline/database', () => ({
   saveHoles: jest.fn(() => Promise.resolve()),
   getHoles: jest.fn(() => Promise.resolve([])),
   markScorecardsAsSynced: jest.fn(() => Promise.resolve()),
+  markScorecardAsSynced: jest.fn(() => Promise.resolve()),
 }));
 
 // Mock the sync service
 jest.mock('@/services/offline/sync', () => ({
   queueScorecardSync: jest.fn(() => Promise.resolve()),
-  syncScorecard: jest.fn(() => Promise.resolve()),
+  syncScorecard: jest.fn(() => Promise.resolve({ serverRevision: 1 })),
   subscribeSyncState: jest.fn((callback) => {
     callback({ status: 'idle', pendingCount: 0, error: null });
     return jest.fn();
@@ -918,7 +920,7 @@ describe('ScorecardStore', () => {
       // Online submit must push directly and wait for confirmation, so the
       // round can't be marked completed while a scorecard is still local-only.
       expect(syncScorecard).toHaveBeenCalledTimes(testPlayers.length);
-      expect(markScorecardsAsSynced).toHaveBeenCalledTimes(testPlayers.length);
+      expect(markScorecardAsSynced).toHaveBeenCalledTimes(testPlayers.length);
       // It must NOT rely on the fire-and-forget background queue when online.
       expect(queueScorecardSync).not.toHaveBeenCalled();
     });
