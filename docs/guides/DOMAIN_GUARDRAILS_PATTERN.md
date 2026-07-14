@@ -35,9 +35,12 @@ Both enforcement points are advisory, not gates:
 - The `PreToolUse` hook only injects `additionalContext` (a reminder) and
   always exits `0` — it never blocks the edit.
 - The `Stop` hook runs `pnpm type-check` (not `pnpm typecheck`) plus a scoped
-  `pnpm test --testPathPattern=...` subset. The scoring subset intentionally
-  excludes `components/scorecard` tests, which have pre-existing failures
-  unrelated to this work — keep the Stop hook green by scoping the pattern to
-  the invariant-bearing modules, not the whole domain tree.
+  `pnpm test --testPathPattern=...` subset covering the golden characterization
+  tests, the scoring engines, the invariant-bearing utils, and the
+  `components/scorecard` render tests (~1.4k tests, ~15s wall). **Rule: only add
+  a path once its suites pass cleanly** — a Stop hook that is red on a clean tree
+  becomes noise and trains you to ignore it. `components/scorecard` was excluded
+  at first (pre-existing stale-test failures) and folded in only after those
+  tests were repaired.
 
 Keep enforcement as *nudge + fail-loud tests*, not hard blocks.

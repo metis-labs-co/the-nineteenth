@@ -4,7 +4,7 @@ exports[`ScoreIndicator Snapshot Tests matches snapshot for birdie 1`] = `
 <View
   style={
     {
-      "backgroundColor": "#f9fafb",
+      "backgroundColor": "#f3f4f6",
       "flex": 1,
     }
   }
@@ -60,7 +60,7 @@ exports[`ScoreIndicator Snapshot Tests matches snapshot for bogey 1`] = `
 <View
   style={
     {
-      "backgroundColor": "#f9fafb",
+      "backgroundColor": "#f3f4f6",
       "flex": 1,
     }
   }
@@ -116,7 +116,7 @@ exports[`ScoreIndicator Snapshot Tests matches snapshot for compact display bird
 <View
   style={
     {
-      "backgroundColor": "#f9fafb",
+      "backgroundColor": "#f3f4f6",
       "flex": 1,
     }
   }
@@ -163,7 +163,7 @@ exports[`ScoreIndicator Snapshot Tests matches snapshot for compact display boge
 <View
   style={
     {
-      "backgroundColor": "#f9fafb",
+      "backgroundColor": "#f3f4f6",
       "flex": 1,
     }
   }
@@ -210,7 +210,7 @@ exports[`ScoreIndicator Snapshot Tests matches snapshot for compact display par 
 <View
   style={
     {
-      "backgroundColor": "#f9fafb",
+      "backgroundColor": "#f3f4f6",
       "flex": 1,
     }
   }
@@ -257,7 +257,7 @@ exports[`ScoreIndicator Snapshot Tests matches snapshot for double bogey 1`] = `
 <View
   style={
     {
-      "backgroundColor": "#f9fafb",
+      "backgroundColor": "#f3f4f6",
       "flex": 1,
     }
   }
@@ -331,7 +331,7 @@ exports[`ScoreIndicator Snapshot Tests matches snapshot for eagle 1`] = `
 <View
   style={
     {
-      "backgroundColor": "#f9fafb",
+      "backgroundColor": "#f3f4f6",
       "flex": 1,
     }
   }
@@ -405,7 +405,7 @@ exports[`ScoreIndicator Snapshot Tests matches snapshot for large size birdie 1`
 <View
   style={
     {
-      "backgroundColor": "#f9fafb",
+      "backgroundColor": "#f3f4f6",
       "flex": 1,
     }
   }
@@ -461,7 +461,7 @@ exports[`ScoreIndicator Snapshot Tests matches snapshot for no score 1`] = `
 <View
   style={
     {
-      "backgroundColor": "#f9fafb",
+      "backgroundColor": "#f3f4f6",
       "flex": 1,
     }
   }
@@ -489,7 +489,7 @@ exports[`ScoreIndicator Snapshot Tests matches snapshot for par 1`] = `
 <View
   style={
     {
-      "backgroundColor": "#f9fafb",
+      "backgroundColor": "#f3f4f6",
       "flex": 1,
     }
   }
@@ -518,7 +518,7 @@ exports[`ScoreIndicator Snapshot Tests matches snapshot for pickup 1`] = `
 <View
   style={
     {
-      "backgroundColor": "#f9fafb",
+      "backgroundColor": "#f3f4f6",
       "flex": 1,
     }
   }
@@ -547,7 +547,7 @@ exports[`ScoreIndicator Snapshot Tests matches snapshot for small size birdie 1`
 <View
   style={
     {
-      "backgroundColor": "#f9fafb",
+      "backgroundColor": "#f3f4f6",
       "flex": 1,
     }
   }

@@ -40,14 +40,41 @@ jest.mock('@/context/ThemeContext', () => ({
     bogey: '#FF9800',
     doubleBogey: '#F44336',
   }),
+  useIsDark: () => false,
 }));
 
 // Mock settings store
 jest.mock('@/store/settingsStore', () => ({
+  useSettingsStore: jest.fn(() => ({
+    distanceUnit: 'yards',
+  })),
+  useFormattedDistance: () => ({
+    formatDistance: (yards: number) => `${yards}y`,
+    unit: 'yards',
+    unitLabel: 'y',
+  }),
   useStatsVisibility: () => ({
     showPutts: false,
     showFairwayHit: false,
     showGreenInRegulation: false,
+  }),
+}));
+
+// Mock the tier-aware stats visibility hook (used by StrokePlayScoreCard via
+// HoleHeader/DistanceToPin's stats row). Component no longer reads
+// useStatsVisibility from settingsStore directly; it uses this hook, which
+// internally calls useTier() and would otherwise throw outside a
+// SubscriptionProvider.
+jest.mock('@/hooks/useStatsVisibilityWithTier', () => ({
+  useStatsVisibilityWithTier: () => ({
+    showPutts: false,
+    showFairwayHit: false,
+    showGreenInRegulation: false,
+    showFairwayMissDirection: false,
+    showGreenMissDirection: false,
+    showBunkerShots: false,
+    showHazards: false,
+    hasAnyDetailedStats: false,
   }),
 }));
 
