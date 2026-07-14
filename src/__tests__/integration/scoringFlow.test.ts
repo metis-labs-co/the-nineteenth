@@ -40,6 +40,7 @@ jest.mock('@/services/offline/database', () => ({
   saveHoles: (...args: unknown[]) => mockSaveHoles(...args),
   getHoles: (...args: unknown[]) => mockGetHoles(...args),
   markScorecardsAsSynced: jest.fn(() => Promise.resolve()),
+  markScorecardAsSynced: jest.fn(() => Promise.resolve()),
 }));
 
 jest.mock('@/services/supabase/client', () => ({
@@ -63,7 +64,7 @@ jest.mock('@/services/supabase/client', () => ({
 // Mock the sync service with state tracking
 let mockIsOnline = true;
 const mockQueueScorecardSync = jest.fn((..._args: unknown[]) => Promise.resolve());
-const mockSyncScorecard = jest.fn((..._args: unknown[]) => Promise.resolve());
+const mockSyncScorecard = jest.fn((..._args: unknown[]) => Promise.resolve({ serverRevision: 1 }));
 const mockSyncSubscribers: ((state: {
   status: string;
   pendingCount: number;
@@ -183,7 +184,7 @@ describe('Scoring Flow Integration Tests', () => {
     mockSaveHoles.mockResolvedValue(undefined);
     mockGetHoles.mockResolvedValue([]);
     mockQueueScorecardSync.mockResolvedValue(undefined);
-    mockSyncScorecard.mockResolvedValue(undefined);
+    mockSyncScorecard.mockResolvedValue({ serverRevision: 1 });
 
     // Reset network state
     setOnlineState(true);
