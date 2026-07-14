@@ -7,15 +7,13 @@
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Text } from 'react-native-paper';
+import { View, StyleSheet } from 'react-native';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 
 import { BottomSheet } from '@/components/common/BottomSheet';
-import { DateTimeFieldGroup } from '@/components/common';
-import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, typography, borderRadius } from '@/constants/theme';
+import { DateTimeFieldGroup, SheetFooterActions } from '@/components/common';
+import { spacing } from '@/constants/theme';
 import { roundKeys } from '@/hooks/queryKeys';
 import { parseLocalDateString, parseTime, formatTimeHHMM } from '@/utils/formatting';
 import { updateRound } from '@/screens/admin/EditRoundScreen/hooks/useEditRoundData';
@@ -49,7 +47,6 @@ export function EditDateTimeSheet({
   initialDate,
   initialTeeTime,
 }: EditDateTimeSheetProps) {
-  const colors = useThemeColors();
   const queryClient = useQueryClient();
 
   const [date, setDate] = useState<Date>(() => parseDbDate(initialDate));
@@ -106,28 +103,7 @@ export function EditDateTimeSheet({
         />
       </View>
 
-      <View style={[styles.footer, { borderTopColor: colors.border }]}>
-        <TouchableOpacity
-          onPress={onDismiss}
-          style={[styles.button, styles.cancelButton, { borderColor: colors.gray300 }]}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          disabled={isPending}
-        >
-          <Text style={[styles.buttonLabel, { color: colors.textSecondary }]}>Cancel</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={handleSave}
-          style={[styles.button, { backgroundColor: colors.primary }]}
-          activeOpacity={0.8}
-          accessibilityRole="button"
-          disabled={isPending}
-        >
-          <Text style={[styles.buttonLabel, { color: colors.white }]}>
-            {isPending ? 'Saving…' : 'Save'}
-          </Text>
-        </TouchableOpacity>
-      </View>
+      <SheetFooterActions onCancel={onDismiss} onSave={handleSave} saving={isPending} />
     </BottomSheet>
   );
 }
@@ -136,25 +112,6 @@ const styles = StyleSheet.create({
   body: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
-  },
-  footer: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    padding: spacing.lg,
-    borderTopWidth: 1,
-  },
-  button: {
-    flex: 1,
-    height: 48,
-    borderRadius: borderRadius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cancelButton: {
-    borderWidth: 1,
-  },
-  buttonLabel: {
-    ...typography.bodyBold,
   },
 });
 

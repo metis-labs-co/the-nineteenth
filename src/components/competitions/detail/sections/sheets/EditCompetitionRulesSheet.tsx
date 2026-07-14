@@ -25,6 +25,7 @@ import { Icon, Text } from 'react-native-paper';
 
 import { BottomSheet } from '@/components/common/BottomSheet';
 import { SegmentedButton } from '@/components/common/SegmentedButton';
+import { SheetFooterActions } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
 import { borderRadius, spacing, typography, shadows } from '@/constants/theme';
 import {
@@ -307,29 +308,7 @@ export function EditCompetitionRulesSheet({
         </View>
       </ScrollView>
 
-      {/* Footer with Cancel / Save */}
-      <View style={[styles.footer, { borderTopColor: colors.border }]}>
-        <TouchableOpacity
-          onPress={onDismiss}
-          style={[styles.button, styles.cancelButton, { borderColor: colors.gray300 }]}
-          activeOpacity={0.7}
-          disabled={isPending}
-        >
-          <Text style={[styles.buttonLabel, { color: colors.textSecondary }]}>
-            Cancel
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={handleSave}
-          style={[styles.button, { backgroundColor: colors.primary }]}
-          activeOpacity={0.8}
-          disabled={isPending}
-        >
-          <Text style={[styles.buttonLabel, { color: colors.white }]}>
-            {isPending ? 'Saving…' : 'Save'}
-          </Text>
-        </TouchableOpacity>
-      </View>
+      <SheetFooterActions onCancel={onDismiss} onSave={handleSave} saving={isPending} />
     </BottomSheet>
   );
 }
@@ -712,24 +691,5 @@ const styles = StyleSheet.create({
   },
   customLabel: {
     ...typography.body,
-  },
-  footer: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    padding: spacing.lg,
-    borderTopWidth: 1,
-  },
-  button: {
-    flex: 1,
-    height: 48,
-    borderRadius: borderRadius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cancelButton: {
-    borderWidth: 1,
-  },
-  buttonLabel: {
-    ...typography.bodyBold,
   },
 });
