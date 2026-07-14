@@ -1,7 +1,16 @@
 # CI & Gates
 
-Automated verification runs on **push** (not per response) and in **CI**, via a
-single shared script so the two never drift.
+Two layers of automated verification:
+
+- **Local push gate** (`pnpm verify:gate` via the husky pre-push hook) — a fast,
+  **scoped-green** gate that runs before every push and passes on today's
+  baseline.
+- **Server CI** (`.github/workflows/ci.yml`) — the exhaustive gate (full
+  type-check + lint + full test suite).
+
+They are intentionally different right now: the local gate is scoped so it stays
+green today; CI is exhaustive and will go green once **Sub-project B** clears the
+red baseline (~163 test failures, 61 lint errors).
 
 ## The gate: `pnpm verify:gate`
 
@@ -42,14 +51,25 @@ the one where `pnpm install` was run.
 
 ## CI (GitHub Actions)
 
-`.github/workflows/verify.yml` runs `pnpm verify:gate` on push + PR. It is
-currently a **status report**, not a required merge check. Promote it to
-required (repo Settings → Branches → protection rules) once Sub-project B
-greens the baseline and the gate is upgraded to the full suite + full lint.
+Server CI is `.github/workflows/ci.yml` (added separately). It runs the
+**exhaustive** gate on push to `main` + PR: `pnpm type-check`, `pnpm lint:ci`
+(`eslint … --max-warnings 128`), and the **full** `pnpm test` suite.
+
+Because the full suite (~163 failures) and lint (61 errors) still have red
+baselines, this CI is currently expected to **fail** — it is not yet a reliable
+signal and should not be a required merge check. **Sub-project B** exists to
+green those baselines, after which `ci.yml` passes and can be promoted to a
+required check.
+
+> This sub-project deliberately did **not** add a second workflow. A scoped
+> `verify.yml` was prototyped but dropped to avoid two competing CI files; the
+> exhaustive `ci.yml` is the single server gate, greened by Sub-project B, and
+> the fast scoped gate lives locally as the pre-push hook.
 
 ## Upgrade path (after Sub-project B)
 
 Once the full suite is green and lint errors are zero:
-- change the test step to `pnpm test` (full suite),
-- change lint to `pnpm lint` (whole project),
-- promote CI to a required check.
+- `ci.yml` goes green — promote it to a required check
+  (repo Settings → Branches → protection rules);
+- optionally widen the **local** `verify:gate` test step from the green subset
+  to the full `pnpm test`, so the pre-push gate matches CI.
