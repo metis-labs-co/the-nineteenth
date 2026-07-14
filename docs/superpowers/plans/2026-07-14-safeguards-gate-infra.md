@@ -175,51 +175,101 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 
 ---
 
-### Task 2: Husky pre-push hook
+### Task 2: Husky pre-push hook (+ preserve the Maps-key pre-commit guard)
+
+**CRITICAL context:** there is an existing **native** `.git/hooks/pre-commit`
+(a Google Maps API-key guard — blocks committing a real `AIza…` key into
+`ios/TheNineteenth/AppDelegate.swift` / `Info.plist`). It is NOT version-controlled
+(per-clone). Installing husky sets `core.hooksPath=.husky`, which makes git STOP
+running `.git/hooks/*` — silently disabling that guard. So this task must **port
+the guard into `.husky/pre-commit`** (preserving it AND upgrading it to
+committed/shareable), not just add a pre-push hook.
 
 **Files:**
 - Modify: `package.json` (add `husky` devDependency + `"prepare"` script)
 - Create: `.husky/pre-push`
+- Create: `.husky/pre-commit` (ported Maps-key guard)
 
 **Interfaces:**
 - Consumes: `pnpm verify:gate` (Task 1).
-- Produces: a blocking-but-bypassable pre-push gate.
+- Produces: a blocking-but-bypassable pre-push gate + a preserved pre-commit Maps-key guard.
 
-- [ ] **Step 1: Add husky**
+- [ ] **Step 1: Capture the existing guard**
+
+Run: `cat "$(git rev-parse --git-common-dir)/hooks/pre-commit"`
+Copy its exact body — you will port it verbatim into `.husky/pre-commit`.
+
+- [ ] **Step 2: Add husky + the `prepare` script**
 
 Run: `pnpm add -D husky`
-Expected: `husky` appears in `devDependencies`; `pnpm-lock.yaml` updates.
-
-- [ ] **Step 2: Add the `prepare` script**
-
-In `package.json` `"scripts"`, add:
+Then in `package.json` `"scripts"`, add:
 ```json
     "prepare": "husky",
 ```
 
-- [ ] **Step 3: Initialize husky and create the pre-push hook**
+- [ ] **Step 3: Initialize husky**
 
-Run: `pnpm exec husky init` (creates `.husky/` and sets `core.hooksPath`). If it created a `.husky/pre-commit`, delete it: `rm -f .husky/pre-commit`.
+Run: `pnpm exec husky init` (creates `.husky/`, sets `core.hooksPath=.husky`).
+If it created a starter `.husky/pre-commit`, you will OVERWRITE it in Step 4 (do
+NOT just delete it — the Maps-key guard must live there).
 
-Create/overwrite `.husky/pre-push` with:
+- [ ] **Step 4: Create `.husky/pre-commit` with the ported Maps-key guard**
+
+Write `.husky/pre-commit` with the EXACT guard body captured in Step 1:
+```sh
+# Guard: never commit a real Google Maps API key into the native files.
+# Committed state must use the placeholder __GMS_KEY__, filled at build time by
+# scripts/inject-maps-key.js. After a local build, restore placeholders.
+# Only files staged in THIS commit are checked.
+staged=$(git diff --cached --name-only)
+for f in "ios/TheNineteenth/AppDelegate.swift" "ios/TheNineteenth/Info.plist"; do
+  echo "$staged" | grep -qx "$f" || continue
+  if git show ":$f" 2>/dev/null | grep -Eq 'AIza[0-9A-Za-z_-]{20,}'; then
+    echo "pre-commit: a Google Maps API key is staged in $f."
+    echo "Restore the placeholder before committing:"
+    echo "    git checkout -- $f"
+    exit 1
+  fi
+done
+```
+`chmod +x .husky/pre-commit`. (Verify the ported body matches Step 1's capture.)
+
+- [ ] **Step 5: Create `.husky/pre-push`**
+
+Write `.husky/pre-push`:
 ```sh
 pnpm verify:gate
 ```
-Make it executable: `chmod +x .husky/pre-push`.
+`chmod +x .husky/pre-push`.
 
-- [ ] **Step 4: Verify the hook fires and blocks**
+- [ ] **Step 6: Verify BOTH hooks work**
 
 ```bash
-# Simulate: the hook script runs verify:gate on the current tree
-sh .husky/pre-push; echo "exit=$?"
+# pre-push runs the gate:
+sh .husky/pre-push; echo "pre-push exit=$?"          # expect 0 on clean tree
+# pre-commit passes when no native iOS files staged:
+sh .husky/pre-commit; echo "pre-commit(clean) exit=$?"  # expect 0
+# pre-commit BLOCKS a staged real key (simulate without a real key):
+printf 'let k = "AIzaSyABCDEFGHIJKLMNOPQRSTUVWXYZ01234567"\n' >> ios/TheNineteenth/AppDelegate.swift 2>/dev/null && \
+  git add ios/TheNineteenth/AppDelegate.swift && \
+  ( sh .husky/pre-commit; echo "pre-commit(key) exit=$?" ) ; \
+  git restore --staged ios/TheNineteenth/AppDelegate.swift && git checkout -- ios/TheNineteenth/AppDelegate.swift
 ```
-Expected: runs the gate; `exit=0` on a clean tree. (A non-zero exit is what makes `git push` abort.) Document that `git push --no-verify` bypasses it.
+Expected: pre-push exit 0; pre-commit(clean) exit 0; pre-commit(key) prints the
+guard message and exit 1. **Ensure the working tree is clean afterward** (the
+`git checkout --` restores AppDelegate.swift). If `ios/TheNineteenth/AppDelegate.swift`
+does not exist in this checkout, note that and just verify pre-commit exits 0 on
+a clean tree (the guard is a no-op when the files aren't staged).
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
-git add package.json pnpm-lock.yaml .husky/pre-push
-git commit -m "chore(gate): husky pre-push hook runs verify:gate (bypass: --no-verify)
+git add package.json pnpm-lock.yaml .husky/pre-push .husky/pre-commit
+git commit -m "chore(gate): husky pre-push (verify:gate) + port Maps-key pre-commit guard
+
+Preserves the existing native .git/hooks/pre-commit Maps-key guard (husky's
+core.hooksPath would otherwise disable it) and version-controls it.
+Bypass a push with git push --no-verify.
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ```
