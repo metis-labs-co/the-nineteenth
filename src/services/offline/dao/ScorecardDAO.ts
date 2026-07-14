@@ -49,6 +49,7 @@ async function rowToScorecard(row: ScorecardRow): Promise<Scorecard> {
     submittedBy: row.submitted_by || undefined,
     createdAt: fromSQLiteDate(row.created_at),
     updatedAt: fromSQLiteDate(row.updated_at),
+    serverRevision: row.server_revision,
     isStandalone: row.is_standalone === 1,
     // Handicap calculation metadata (for fallback sync path)
     teeData,
@@ -83,8 +84,8 @@ export async function saveScorecard(scorecard: Scorecard): Promise<void> {
         `INSERT OR REPLACE INTO ${TABLE_NAMES.SCORECARDS}
          (id, round_id, player_id, player_name, player_handicap, total_gross, total_net, total_points,
           status, submitted_at, submitted_by, created_at, updated_at, is_synced, is_standalone,
-          tee_data, course_par, player_gender, player_handicap_used)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          tee_data, course_par, player_gender, player_handicap_used, server_revision)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           scorecard.id,
           scorecard.roundId,
@@ -105,6 +106,7 @@ export async function saveScorecard(scorecard: Scorecard): Promise<void> {
           scorecard.coursePar ?? null,
           scorecard.playerGender ?? null,
           scorecard.playerHandicap ?? null,
+          scorecard.serverRevision ?? null,
         ]
       );
 
@@ -244,6 +246,20 @@ export async function markScorecardsAsSynced(scorecardIds: string[]): Promise<vo
       [id]
     );
   }
+}
+
+/** Mark one scorecard synced and persist the revision acknowledged by the server. */
+export async function markScorecardAsSynced(
+  scorecardId: string,
+  serverRevision: number
+): Promise<void> {
+  const database = await getDb();
+  await database.runAsync(
+    `UPDATE ${TABLE_NAMES.SCORECARDS}
+        SET is_synced = 1, server_revision = ?
+      WHERE id = ?`,
+    [serverRevision, scorecardId]
+  );
 }
 
 /**

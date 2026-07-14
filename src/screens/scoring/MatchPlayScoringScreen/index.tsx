@@ -29,6 +29,7 @@ import { useIsSuperAdmin } from '@/store/subscriptionStore';
 import { useMatchPlayData, useMatchPlayScoring, useOfflineSync } from '@/hooks/scorecard';
 import { useProcessSkinsIfNeeded, useOnlineStatus, useAuth } from '@/hooks';
 import { useRoundDetails, useSubMatches } from '@/hooks/rounds';
+import { useDeleteRound } from '@/hooks/rounds/mutations';
 import { useCompetitionInfo } from '@/hooks/competitions';
 import { resolveSubMatchForUser } from '@/utils/subMatches';
 import { supabase } from '@/services/supabase/client';
@@ -51,6 +52,7 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
 
   // Confirmation dialog hook
   const { dialogConfig, showDialog, showAlert, dismissDialog } = useConfirmationDialog();
+  const deleteRoundMutation = useDeleteRound();
 
   // Online status for round status update
   const isOnline = useOnlineStatus();
@@ -361,12 +363,16 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
       icon: 'trash-can-outline',
       onConfirm: () => {
         dismissDialog();
-        // TODO: Implement actual deletion
-        matchPlayLogger.info('MATCH PLAY: Delete requested', { roundId });
-        navigation.goBack();
+        deleteRoundMutation.mutate(
+          { roundId, competitionId: isStandalone ? undefined : competitionId },
+          {
+            onSuccess: () => navigation.goBack(),
+            onError: () => showAlert('Delete failed', 'The match could not be deleted. Please try again.'),
+          }
+        );
       },
     });
-  }, [navigation, roundId, showDialog, dismissDialog]);
+  }, [competitionId, deleteRoundMutation, dismissDialog, isStandalone, navigation, roundId, showAlert, showDialog]);
 
   // Show submit confirmation dialog
   const handleSubmitMatch = useCallback(() => {

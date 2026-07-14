@@ -390,6 +390,8 @@ export interface Scorecard {
   submittedBy?: string;
   createdAt: Date;
   updatedAt: Date;
+  /** Last server revision successfully read or written by this device. */
+  serverRevision?: number | null;
   /** True if this is a standalone/local round that shouldn't sync to server */
   isStandalone?: boolean;
 

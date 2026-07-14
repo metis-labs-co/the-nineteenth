@@ -30,7 +30,8 @@ export const CREATE_SCORECARDS_TABLE = `
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     is_synced INTEGER DEFAULT 0,
-    is_standalone INTEGER DEFAULT 0
+    is_standalone INTEGER DEFAULT 0,
+    server_revision INTEGER
   );
 `;
 

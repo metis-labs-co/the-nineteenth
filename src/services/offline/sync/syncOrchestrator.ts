@@ -9,7 +9,7 @@ import {
   getPendingSyncs,
   removePendingSync,
   incrementSyncRetryCount,
-  markScorecardsAsSynced,
+  markScorecardAsSynced,
   getUnsyncedScorecards,
   addPendingSync,
   getPendingSyncCount,
@@ -37,7 +37,7 @@ import {
   setOnStatusChangeCallback,
   initNetworkState,
 } from './networkState';
-import { processScorecardSync, syncScorecard, isValidUUID } from './scorecardSync';
+import { processScorecardSync, syncScorecard, isValidUUID, ScorecardConflictError, type ScorecardSyncResult } from './scorecardSync';
 
 // Re-export types for consumers
 export type { SyncState, SyncStatus, SyncListener } from './types';
@@ -135,6 +135,7 @@ export async function syncAll(): Promise<boolean> {
 
     let successCount = 0;
     let failCount = 0;
+    let conflictCount = 0;
     let scorecardsWereSynced = false;
 
     for (const sync of pendingSyncs) {
@@ -145,7 +146,7 @@ export async function syncAll(): Promise<boolean> {
           action: sync.action,
           retryCount: sync.retryCount,
         });
-        await processPendingSync(sync);
+        const result = await processPendingSync(sync);
         const acknowledged = await removePendingSync(sync.id!, sync.revision ?? 1);
         if (!acknowledged) {
           syncLogger.info('A newer queued revision arrived during sync; leaving it pending', {
@@ -163,11 +164,18 @@ export async function syncAll(): Promise<boolean> {
           // path (below) from re-syncing potentially incomplete SQLite data and
           // overwriting the complete data we just synced from the queue.
           if (sync.data?.id) {
-            await markScorecardsAsSynced([sync.data.id]);
+            await markScorecardAsSynced(sync.data.id, result?.serverRevision ?? sync.data.serverRevision ?? 0);
           }
         }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
+
+        if (error instanceof ScorecardConflictError) {
+          await markPendingSyncFailed(sync.id!, sync.revision ?? 1, errorMessage);
+          failCount++;
+          conflictCount++;
+          continue;
+        }
 
         // RLS policy errors (42501) mean the current user has no permission
         // to write this row — almost always because the round/competition
@@ -237,8 +245,8 @@ export async function syncAll(): Promise<boolean> {
       for (const scorecard of unsyncedScorecards) {
         try {
           syncLogger.debug('Syncing unsynced scorecard', logScorecardSummary(scorecard));
-          await syncScorecard(scorecard);
-          await markScorecardsAsSynced([scorecard.id]);
+          const result = await syncScorecard(scorecard);
+          await markScorecardAsSynced(scorecard.id, result.serverRevision);
           successCount++;
           scorecardsWereSynced = true;
           syncLogger.debug('Unsynced scorecard synced successfully', {
@@ -251,7 +259,11 @@ export async function syncAll(): Promise<boolean> {
           const isRlsError =
             errorMessage.includes('row-level security policy') || errorMessage.includes('42501');
 
-          if (isRlsError) {
+          if (error instanceof ScorecardConflictError) {
+            failCount++;
+            conflictCount++;
+            await retainFallbackFailure(scorecard, errorMessage, true);
+          } else if (isRlsError) {
             syncLogger.error('RLS POLICY ERROR: Scorecard cannot be synced - round may have been deleted', undefined, {
               id: scorecard.id.substring(0, 20) + '...',
               roundId: scorecard.roundId.substring(0, 8) + '...',
@@ -293,7 +305,9 @@ export async function syncAll(): Promise<boolean> {
       syncLogger.warn('Sync completed with errors', { successCount, failCount });
       updateState({
         status: 'error',
-        error: `${failCount} sync(s) failed`,
+        error: conflictCount > 0
+          ? `${conflictCount} scorecard${conflictCount === 1 ? '' : 's'} changed on another device. Local scores were kept.`
+          : `${failCount} sync(s) failed`,
         lastSyncAt: new Date(),
       });
       return false;
@@ -324,7 +338,7 @@ export async function syncAll(): Promise<boolean> {
 /**
  * Process a single pending sync
  */
-async function processPendingSync(sync: PendingSync): Promise<void> {
+async function processPendingSync(sync: PendingSync): Promise<ScorecardSyncResult | void> {
   syncLogger.debug('Processing pending sync entry', {
     id: sync.id,
     type: sync.type,
@@ -333,8 +347,7 @@ async function processPendingSync(sync: PendingSync): Promise<void> {
 
   switch (sync.type) {
     case 'scorecard':
-      await processScorecardSync(sync);
-      break;
+      return processScorecardSync(sync);
     default:
       throw new Error(`Unsupported sync type: ${sync.type}`);
   }

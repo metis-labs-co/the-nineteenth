@@ -460,21 +460,23 @@ serve(async (req: Request) => {
     // Read request body
     const body = await req.text();
 
-    // Verify Authorization header (if secret is configured)
-    // RevenueCat sends the value set in their dashboard as the Authorization header
-    if (webhookSecret) {
-      const authHeader = req.headers.get('Authorization');
+    // This function deliberately bypasses Supabase's JWT gateway because
+    // RevenueCat sends a configured static Authorization value. Never fall
+    // back to unauthenticated processing when the server secret is missing.
+    if (!webhookSecret) {
+      console.error('[Webhook] REVENUECAT_WEBHOOK_SECRET is not configured');
+      return new Response(
+        JSON.stringify({ error: 'Server configuration error' }),
+        { status: 503, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
 
-      if (!verifyAuthorization(authHeader, webhookSecret)) {
-        console.warn('[Webhook] Invalid Authorization header');
-        return new Response(
-          JSON.stringify({ error: 'Unauthorized' }),
-          { status: 401, headers: { 'Content-Type': 'application/json' } }
-        );
-      }
-    } else {
-      console.warn(
-        '[Webhook] REVENUECAT_WEBHOOK_SECRET not configured - skipping authorization check'
+    const authHeader = req.headers.get('Authorization');
+    if (!verifyAuthorization(authHeader, webhookSecret)) {
+      console.warn('[Webhook] Invalid Authorization header');
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { 'Content-Type': 'application/json' } }
       );
     }
 

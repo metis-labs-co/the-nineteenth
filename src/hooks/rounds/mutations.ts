@@ -23,7 +23,7 @@ import { upsertRoundPlayerTee } from '@/services/competitionPlayers/competitionP
 import { refinalizeRoundResults } from '@/services/rounds/refinalizeRoundResults';
 import { forceFinalizeRound } from '@/services/rounds/forceFinalizeRound';
 import { reopenRound } from '@/services/rounds/reopenRound';
-import { getScorecardsByRound, markScorecardsAsSynced, deleteScorecardsByRound } from '@/services/offline/database';
+import { getScorecardsByRound, markScorecardAsSynced, deleteScorecardsByRound } from '@/services/offline/database';
 import { syncScorecard } from '@/services/offline/sync';
 import { useToast } from '@/context/ToastContext';
 import type { TeeBox } from '@/types';
@@ -588,8 +588,7 @@ export interface ForceSyncRoundScorecardsResult {
  * leaderboard read empty from Supabase.
  *
  * This hook is the manual recovery lever: it reads from local SQLite for
- * THIS round only, calls `syncScorecard` per row (skipServerCheck=true so
- * we don't bail when the server has zero rows), and on success marks the
+ * THIS round only, calls the revision-guarded `syncScorecard` per row, and on success marks the
  * row synced in SQLite. After all pushes complete, it re-runs
  * `refinalizeRoundResults` so the leaderboard reflects the freshly-landed
  * data.
@@ -612,8 +611,8 @@ export function useForceSyncRoundScorecards() {
 
       for (const sc of eligible) {
         try {
-          await syncScorecard(sc, { skipServerCheck: true });
-          await markScorecardsAsSynced([sc.id]);
+          const result = await syncScorecard(sc);
+          await markScorecardAsSynced(sc.id, result.serverRevision);
           pushed++;
         } catch (error) {
           failed++;

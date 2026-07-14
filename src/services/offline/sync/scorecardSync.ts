@@ -34,7 +34,7 @@ export function isValidUUID(str: string): boolean {
 /**
  * Process scorecard sync action
  */
-export async function processScorecardSync(sync: PendingSync): Promise<void> {
+export async function processScorecardSync(sync: PendingSync): Promise<ScorecardSyncResult | void> {
   const { action, data } = sync;
 
   syncLogger.debug('Processing scorecard sync', { action, dataId: data?.id });
@@ -42,9 +42,7 @@ export async function processScorecardSync(sync: PendingSync): Promise<void> {
   switch (action) {
     case 'create':
     case 'update':
-      // Pending queue has authoritative submission data — skip server comparison
-      await syncScorecard(data as Scorecard, { skipServerCheck: true });
-      break;
+      return syncScorecard(data as Scorecard);
     case 'delete':
       await deleteRemoteScorecard(data as Scorecard);
       break;
@@ -72,10 +70,33 @@ async function deleteRemoteScorecard(scorecard: Scorecard): Promise<void> {
 /**
  * Sync a scorecard to Supabase
  */
-export async function syncScorecard(
-  scorecard: Scorecard,
-  options?: { skipServerCheck?: boolean }
-): Promise<void> {
+export interface ScorecardSyncResult {
+  serverRevision: number;
+}
+
+export class ScorecardConflictError extends Error {
+  readonly serverRevision: number;
+  readonly serverStatus: string | null;
+  readonly serverScores: Record<string, unknown>;
+
+  constructor(row: ScorecardWriteResult) {
+    super('This scorecard changed on another device. Your local scores were kept and were not uploaded.');
+    this.name = 'ScorecardConflictError';
+    this.serverRevision = Number(row.server_revision);
+    this.serverStatus = row.server_status;
+    this.serverScores = row.server_scores ?? {};
+  }
+}
+
+interface ScorecardWriteResult {
+  applied: boolean;
+  conflict: boolean;
+  server_revision: number | null;
+  server_status: string | null;
+  server_scores: Record<string, unknown> | null;
+}
+
+export async function syncScorecard(scorecard: Scorecard): Promise<ScorecardSyncResult> {
   syncLogger.info('Syncing scorecard to Supabase', logScorecardSummary(scorecard));
 
   // Skip standalone rounds - they are local-only and don't sync to server
@@ -83,7 +104,7 @@ export async function syncScorecard(
     syncLogger.info('Skipping standalone scorecard (local-only)', {
       id: scorecard.id.substring(0, 20) + '...',
     });
-    return;
+    return { serverRevision: scorecard.serverRevision ?? 0 };
   }
 
   // Validate that round_id and player_id are valid UUIDs
@@ -223,37 +244,7 @@ export async function syncScorecard(
     slope_rating_used: handicapData.slopeRatingUsed,
   };
 
-  // Check if server has more complete data before overwriting (unless skipServerCheck is set)
-  if (!options?.skipServerCheck) {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types workaround
-      const { data: existingScorecard } = await (supabase.from('scorecards') as any)
-        .select('scores')
-        .eq('round_id', scorecard.roundId)
-        .eq('player_id', scorecard.playerId)
-        .maybeSingle();
-
-      if (existingScorecard?.scores) {
-        const serverHoleCount = Object.keys(existingScorecard.scores).length;
-        if (serverHoleCount > holesWithScores) {
-          syncLogger.warn('Skipping sync - server has more complete data', {
-            serverHoles: serverHoleCount,
-            localHoles: holesWithScores,
-            roundId: scorecard.roundId.substring(0, 8) + '...',
-            playerId: scorecard.playerId.substring(0, 8) + '...',
-          });
-          return;
-        }
-      }
-    } catch (checkError) {
-      // Non-blocking — if the check fails, proceed with sync
-      syncLogger.warn('Server check failed, proceeding with sync', {
-        error: checkError instanceof Error ? checkError.message : String(checkError),
-      });
-    }
-  }
-
-  syncLogger.debug('Upserting to Supabase', {
+  syncLogger.debug('Writing scorecard with optimistic concurrency', {
     roundId: scorecard.roundId.substring(0, 8) + '...',
     playerId: scorecard.playerId.substring(0, 8) + '...',
     status: scorecardData.status,
@@ -261,18 +252,17 @@ export async function syncScorecard(
     hasHandicapDifferential: handicapData.handicapDifferential !== null,
   });
 
-  // Use type assertion due to Supabase types configuration
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
-  const { error, data: _data } = await (
-    supabase
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types workaround
-      .from('scorecards') as any
-  ).upsert(scorecardData, {
-    onConflict: 'round_id,player_id',
+  // Generated Supabase types lag the migration until the next schema generation.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error, data } = await (supabase.rpc as any)('write_scorecard_snapshot', {
+    p_round_id: scorecard.roundId,
+    p_player_id: scorecard.playerId,
+    p_expected_revision: scorecard.serverRevision ?? 0,
+    p_snapshot: scorecardData,
   });
 
   if (error) {
-    syncLogger.error('Supabase upsert error', error, {
+    syncLogger.error('Supabase scorecard write error', error, {
       errorCode: error.code,
       errorMessage: error.message,
       errorDetails: error.details,
@@ -281,6 +271,17 @@ export async function syncScorecard(
       playerId: scorecard.playerId.substring(0, 8) + '...',
     });
     throw new Error(`Failed to sync scorecard: ${error.message}`);
+  }
+
+  const result = (Array.isArray(data) ? data[0] : data) as ScorecardWriteResult | undefined;
+  if (!result) {
+    throw new Error('Failed to sync scorecard: server returned an invalid concurrency response');
+  }
+  if (!result.applied || result.conflict) {
+    throw new ScorecardConflictError(result);
+  }
+  if (typeof result.server_revision !== 'number') {
+    throw new Error('Failed to sync scorecard: server returned an invalid concurrency response');
   }
 
   syncLogger.info('Scorecard synced successfully', {
@@ -305,6 +306,7 @@ export async function syncScorecard(
 
   // Sync score entries for mismatch detection
   await syncScoreEntries(scorecard);
+  return { serverRevision: result.server_revision };
 }
 
 /**

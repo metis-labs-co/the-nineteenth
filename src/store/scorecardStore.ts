@@ -19,7 +19,7 @@ import type { NineType } from '@/types/database/enums';
 import type { BallCount } from '@/types/multiball.types';
 import type { MultiBallHoleScore, BallTotals } from '@/types/database/base';
 import { isSingleBallScore } from '@/types/database/base';
-import { saveScorecard, saveHoles, markScorecardsAsSynced } from '@/services/offline/database';
+import { saveScorecard, saveHoles, markScorecardAsSynced } from '@/services/offline/database';
 import {
   queueScorecardSync,
   syncScorecard,
@@ -388,8 +388,10 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
             // the scorecard never reaches the server — leaving it scoreless and
             // missing from handicap history / stats. Throwing on failure keeps
             // the round un-completed and therefore recoverable.
-            await syncScorecard(updatedScorecard, { skipServerCheck: true });
-            await markScorecardsAsSynced([updatedScorecard.id]);
+            const result = await syncScorecard(updatedScorecard);
+            updatedScorecard.serverRevision = result.serverRevision;
+            newScorecards.set(playerId, updatedScorecard);
+            await markScorecardAsSynced(updatedScorecard.id, result.serverRevision);
           } else {
             // Offline: queue for durable retry on reconnect. The submission
             // flow leaves the round status unchanged while offline, so no

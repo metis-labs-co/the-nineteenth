@@ -122,6 +122,11 @@ export const MIGRATIONS: Migration[] = [
     up: `CREATE UNIQUE INDEX IF NOT EXISTS idx_pending_sync_entity_key
           ON pending_syncs(entity_key)`,
   },
+  {
+    version: 18,
+    name: 'add_scorecard_server_revision',
+    up: `ALTER TABLE scorecards ADD COLUMN server_revision INTEGER`,
+  },
 ];
 
 /**

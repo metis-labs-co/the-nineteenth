@@ -11,6 +11,7 @@
 import { useCallback, useEffect } from 'react';
 import { BackHandler } from 'react-native';
 import { teamMatchPlayLogger } from '@/utils/debugLogger';
+import { useDeleteRound } from '@/hooks/rounds/mutations';
 
 interface UseTeamMatchPlayNavigationParams {
   currentHole: number;
@@ -44,6 +45,7 @@ export function useTeamMatchPlayNavigation({
   showDialog,
   dismissDialog,
 }: UseTeamMatchPlayNavigationParams) {
+  const deleteRound = useDeleteRound();
   // Navigation handlers — bound to the round's actual hole range so back-9
   // (10..18) and combo (10..27) rounds don't overshoot.
   const handlePreviousHole = useCallback(() => {
@@ -89,12 +91,13 @@ export function useTeamMatchPlayNavigation({
       icon: 'trash-can-outline',
       onConfirm: () => {
         dismissDialog();
-        // TODO: Implement actual deletion
-        teamMatchPlayLogger.info('TEAM MATCH PLAY: Delete requested', { roundId });
-        navigation.goBack();
+        deleteRound.mutate({ roundId }, {
+          onSuccess: () => navigation.goBack(),
+          onError: (error) => teamMatchPlayLogger.error('TEAM MATCH PLAY: Delete failed', error, { roundId }),
+        });
       },
     });
-  }, [navigation, roundId, showDialog, dismissDialog]);
+  }, [deleteRound, navigation, roundId, showDialog, dismissDialog]);
 
   return {
     handlePreviousHole,

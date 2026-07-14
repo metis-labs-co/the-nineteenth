@@ -22,6 +22,7 @@ export {
   deleteScorecard,
   deleteScorecardsByRound,
   markScorecardsAsSynced,
+  markScorecardAsSynced,
   getUnsyncedScorecards,
   markAllScorecardsAsSynced,
   markAllForResync,
