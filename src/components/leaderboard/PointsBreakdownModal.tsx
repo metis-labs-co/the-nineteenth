@@ -15,6 +15,7 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import type { RoundWithCourse } from '@/components/competitions/detail/types';
 import { buildPositionalRoundNumbers } from './roundNumbering';
+import { formatDateDisplay } from '@/utils/formatting';
 
 interface RoundPoints {
   roundId: string;
@@ -85,8 +86,7 @@ export function PointsBreakdownModal({
 
   const formatDate = (dateStr: string | null | undefined) => {
     if (!dateStr) return '';
-    const date = new Date(dateStr);
-    return date.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+    return formatDateDisplay(dateStr, { day: 'numeric', month: 'short' });
   };
 
   const getPositionSuffix = (pos: number): string => {
