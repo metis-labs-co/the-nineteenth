@@ -60,6 +60,24 @@ jest.mock('@/store/settingsStore', () => ({
   }),
 }));
 
+// Mock the tier-aware stats visibility hook (used by StrokePlayScoreCard via
+// HoleHeader/DistanceToPin's stats row). Component no longer reads
+// useStatsVisibility from settingsStore directly; it uses this hook, which
+// internally calls useTier() and would otherwise throw outside a
+// SubscriptionProvider.
+jest.mock('@/hooks/useStatsVisibilityWithTier', () => ({
+  useStatsVisibilityWithTier: () => ({
+    showPutts: false,
+    showFairwayHit: false,
+    showGreenInRegulation: false,
+    showFairwayMissDirection: false,
+    showGreenMissDirection: false,
+    showBunkerShots: false,
+    showHazards: false,
+    hasAnyDetailedStats: false,
+  }),
+}));
+
 // Mock react-native-paper
 jest.mock('react-native-paper', () => {
   const { View, Text: RNText } = require('react-native');
