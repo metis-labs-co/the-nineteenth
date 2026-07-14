@@ -42,6 +42,7 @@ export {
   // Assertion helpers
   assertCondition,
   assertNotNull,
+  assertNoDbError,
   // Types
   type ErrorCode,
 } from './AppError';

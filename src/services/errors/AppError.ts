@@ -245,3 +245,21 @@ export function assertNotNull<T>(
     throw new AppError(message, code);
   }
 }
+
+/**
+ * Throw a standardized DATABASE {@link AppError} when a Supabase query returned
+ * an error. Collapses the ubiquitous
+ * `if (error) throw createError(\`Failed to X: ${error.message}\`, 'DATABASE')`
+ * block into one call: `assertNoDbError(error, 'fetch prize pool')`.
+ *
+ * @param error - The `{ error }` from a Supabase result (null/undefined = ok)
+ * @param action - Verb phrase describing the operation, e.g. 'fetch prize pool'
+ */
+export function assertNoDbError(
+  error: { message: string } | null | undefined,
+  action: string
+): void {
+  if (error) {
+    throw createError(`Failed to ${action}: ${error.message}`, 'DATABASE');
+  }
+}
