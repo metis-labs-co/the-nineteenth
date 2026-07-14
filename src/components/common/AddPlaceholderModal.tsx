@@ -29,6 +29,7 @@ import {
   Keyboard,
 } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
+import { isHandicapInRange, HANDICAP_RANGE_ERROR } from '@/constants/scoring';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useCreatePlaceholderPlayer } from '@/hooks/usePlaceholderPlayers';
@@ -103,8 +104,8 @@ export function AddPlaceholderModal({
       setHandicapError('Handicap must be a number');
       return false;
     }
-    if (numValue < 0 || numValue > 54) {
-      setHandicapError('Handicap must be between 0 and 54');
+    if (!isHandicapInRange(numValue)) {
+      setHandicapError(HANDICAP_RANGE_ERROR);
       return false;
     }
     setHandicapError(undefined);

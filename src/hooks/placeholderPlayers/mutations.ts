@@ -14,6 +14,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import { createModuleLogger } from '@/utils/debugLogger';
+import { isHandicapInRange, HANDICAP_RANGE_ERROR } from '@/constants/scoring';
 import { placeholderPlayersKeys, playerKeys, scorecardKeys, competitionKeys } from '@/hooks/queryKeys';
 import { useAuth } from '@/hooks/useAuth';
 import type {
@@ -73,8 +74,8 @@ export function useCreatePlaceholderPlayer() {
       }
 
       if (input.handicap !== undefined && input.handicap !== null) {
-        if (input.handicap < 0 || input.handicap > 54) {
-          throw new Error('Handicap must be between 0 and 54');
+        if (!isHandicapInRange(input.handicap)) {
+          throw new Error(HANDICAP_RANGE_ERROR);
         }
       }
 

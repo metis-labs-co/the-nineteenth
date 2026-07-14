@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { parse, isValid, startOfDay, isAfter, isEqual } from 'date-fns';
+import { isHandicapInRange, HANDICAP_RANGE_ERROR } from '@/constants/scoring';
 
 /**
  * Zod validation schemas for competition creation
@@ -413,8 +414,8 @@ export const playerSchema = z.object({
     .string()
     .optional()
     .refine(
-      (hc) => !hc || (!Number.isNaN(parseFloat(hc)) && parseFloat(hc) >= -5 && parseFloat(hc) <= 54),
-      'Handicap must be between -5 and 54'
+      (hc) => !hc || isHandicapInRange(parseFloat(hc)),
+      HANDICAP_RANGE_ERROR
     ),
   golf_id: z
     .string()

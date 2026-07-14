@@ -14,6 +14,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { StyleSheet, View, ScrollView, TouchableOpacity } from 'react-native';
 import type { PlayerGender } from '@/types/database/player.types';
+import { isHandicapInRange, HANDICAP_RANGE_ERROR } from '@/constants/scoring';
 import {
   LoadingSpinner,
   GolfBallLoader,
@@ -80,8 +81,8 @@ const editProfileSchema = z.object({
     .string()
     .optional()
     .refine(
-      (val) => !val || (!isNaN(parseFloat(val)) && parseFloat(val) >= 0 && parseFloat(val) <= 54),
-      'Handicap must be between 0 and 54'
+      (val) => !val || isHandicapInRange(parseFloat(val)),
+      HANDICAP_RANGE_ERROR
     ),
   golf_id: z
     .string()
