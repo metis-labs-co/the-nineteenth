@@ -8,6 +8,7 @@
 
 import { useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { getLocalDateString } from '@/utils/formatting';
 import { useRoundList } from '@/screens/rounds/RoundListScreen/hooks/useRoundList';
 import { useCompetitions } from '@/hooks/competitions/queries';
 import { useLeagues } from '@/hooks/leagues/queries';
@@ -402,7 +403,7 @@ export function useHomeData(): HomeData {
     useUpcomingRounds();
 
   const upcomingRounds = useMemo(() => {
-    const todayIso = new Date().toISOString().slice(0, 10);
+    const todayIso = getLocalDateString();
     return (rounds?.active ?? [])
       .filter((r) => r.status === 'upcoming')
       .filter((r) => {

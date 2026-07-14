@@ -18,6 +18,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import { CACHE_TIMES, GC_TIMES } from '@/constants/cacheConfig';
 import { useAuth } from '@/hooks/useAuth';
+import { getLocalDateString } from '@/utils/formatting';
 import {
   fetchAcceptedCompetitionIds,
   applyUserRoundScope,
@@ -32,14 +33,6 @@ const ROUND_SELECT = `
   ),
   competition:competitions(id, name, description)
 `;
-
-function todayIsoDate(): string {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
 
 /**
  * `clubs.latitude` / `clubs.longitude` are TypeScript-only convenience
@@ -84,7 +77,7 @@ export function useUpcomingRounds() {
 
       // Step 2: fetch upcoming rounds (standalone owned by user OR
       // competition rounds in accepted comps), dated today or later.
-      const today = todayIsoDate();
+      const today = getLocalDateString();
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase typed-row workaround
       const baseQuery = (supabase.from('rounds') as any)
         .select(ROUND_SELECT)

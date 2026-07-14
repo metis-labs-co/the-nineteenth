@@ -11,6 +11,7 @@ import { Alert } from 'react-native';
 import { File, Paths } from 'expo-file-system/next';
 import * as Sharing from 'expo-sharing';
 import { supabase } from '@/services/supabase/client';
+import { getLocalDateString } from '@/utils/formatting';
 
 export function useDataExport() {
   const mutation = useMutation({
@@ -30,7 +31,7 @@ export function useDataExport() {
       }
 
       // Save JSON to a temporary file using expo-file-system/next API
-      const filename = `the-nineteenth-data-export-${new Date().toISOString().split('T')[0]}.json`;
+      const filename = `the-nineteenth-data-export-${getLocalDateString()}.json`;
       const file = new File(Paths.cache, filename);
       file.create();
       file.write(JSON.stringify(data, null, 2));
