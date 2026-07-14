@@ -5,6 +5,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import { fetchRoundIdsWithSideGame } from '@/services/api/rounds';
+import { parseClubLocation } from '@/utils/gpsCalculations';
 import { useAuth } from '@/hooks/useAuth';
 import { useSubscriptionContext } from '@/context/SubscriptionContext';
 import { isUnlimited, isNoLimit } from '@/types/subscription.types';
@@ -43,18 +44,6 @@ function countScoredHoles(scores: Record<string, unknown> | null | undefined): n
     const balls = (s as MultiBallHoleScore).balls;
     return Array.isArray(balls) && balls.some((b) => b.strokes != null && b.strokes > 0);
   }).length;
-}
-
-function parseClubLocation(
-  location: { type: 'Point'; coordinates: [number, number] } | null | undefined,
-): { latitude: number | null; longitude: number | null } {
-  if (!location?.coordinates || location.coordinates.length < 2) {
-    return { latitude: null, longitude: null };
-  }
-  return {
-    longitude: location.coordinates[0],
-    latitude: location.coordinates[1],
-  };
 }
 
 export function useRoundList(): UseRoundListReturn {

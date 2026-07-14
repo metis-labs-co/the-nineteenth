@@ -19,6 +19,7 @@ import { supabase } from '@/services/supabase/client';
 import { CACHE_TIMES, GC_TIMES } from '@/constants/cacheConfig';
 import { useAuth } from '@/hooks/useAuth';
 import { getLocalDateString } from '@/utils/formatting';
+import { parseClubLocation } from '@/utils/gpsCalculations';
 import {
   fetchAcceptedCompetitionIds,
   applyUserRoundScope,
@@ -52,10 +53,10 @@ function hydrateClubCoords(rounds: RoundWithCourse[]): RoundWithCourse[] {
       | null
       | undefined;
     if (!club) continue;
-    const loc = club.location;
-    if (loc?.coordinates && loc.coordinates.length >= 2) {
-      club.longitude = loc.coordinates[0];
-      club.latitude = loc.coordinates[1];
+    const { latitude, longitude } = parseClubLocation(club.location);
+    if (latitude != null && longitude != null) {
+      club.latitude = latitude;
+      club.longitude = longitude;
     }
   }
   return rounds;
