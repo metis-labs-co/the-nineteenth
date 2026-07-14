@@ -14,6 +14,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
+import { indexById } from '@/utils/collections';
 import { supabase } from '@/services/supabase/client';
 import { skinsKeys } from '@/hooks/queryKeys';
 import { CACHE_TIMES, GC_TIMES } from '@/constants/cacheConfig';
@@ -141,7 +142,7 @@ export function useCompetitionSkinsGames(competitionId: string | undefined) {
           .select('id, sort_order')
           .in('id', subMatchIds);
         const subMatches = (rawSubMatches ?? []) as unknown as SubMatchRow[];
-        subMatchById = new Map(subMatches.map((sm) => [sm.id, sm]));
+        subMatchById = indexById(subMatches);
       }
 
       // 4. Payouts for the games we found.
@@ -191,7 +192,7 @@ export function useCompetitionSkinsGames(competitionId: string | undefined) {
         }
       }
 
-      const roundById = new Map(rounds.map((r) => [r.id, r]));
+      const roundById = indexById(rounds);
 
       return games.map<CompetitionSkinsCard>((g) => {
         const round = roundById.get(g.round_id);

@@ -9,6 +9,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
+import { indexById } from '@/utils/collections';
 import { supabase } from '@/services/supabase/client';
 import { wolfKeys } from '@/hooks/queryKeys';
 import { CACHE_TIMES, GC_TIMES } from '@/constants/cacheConfig';
@@ -164,8 +165,8 @@ export function useWolfGameHistory(
       const payouts = (rawPayouts ?? []) as unknown as WolfPayoutRow[];
 
       // Build lookup maps
-      const courseMap = new Map(courses.map((c) => [c.id, c]));
-      const competitionMap = new Map(competitions.map((c) => [c.id, c]));
+      const courseMap = indexById(courses);
+      const competitionMap = indexById(competitions);
       const roundMap = new Map(
         rounds.map((r) => [
           r.id,
