@@ -60,23 +60,9 @@ export function useCompetitions() {
   return useQuery({
     queryKey: competitionKeys.lists(),
     queryFn: async (): Promise<Competition[]> => {
-      // TODO: Replace with actual API call when backend is ready
-      // The backend should filter competitions by:
-      // 1. User is organizer (competitions.organizer_id = current_user_id)
-      // 2. User is player (competition_players.player_id = current_user_id AND status = 'accepted')
-      //
-      // Example Supabase query:
-      // const { data: organized } = await supabase
-      //   .from('competitions')
-      //   .select('*')
-      //   .eq('organizer_id', userId);
-      //
-      // const { data: participating } = await supabase
-      //   .from('competition_players')
-      //   .select('competition:competitions(*)')
-      //   .eq('player_id', userId)
-      //   .eq('status', 'accepted');
-
+      // Returns competitions the user organizes OR has joined as an accepted
+      // player (unioned across competitions + competition_players in
+      // apiClient.getCompetitions).
       const competitions = await apiClient.getCompetitions();
       return competitions;
     },
@@ -121,19 +107,10 @@ export function useFilteredCompetitions(filters?: CompetitionsFilter) {
   return useQuery({
     queryKey: competitionKeys.list(filters),
     queryFn: async (): Promise<Competition[]> => {
-      // TODO: Implement filtered API call when backend is ready
-      // Pass filters to backend for server-side filtering
-      //
-      // Example:
-      // const response = await apiClient.get<Competition[]>('/competitions', {
-      //   params: filters
-      // });
-      // return response.data;
-
+      // getCompetitions already returns the user's organizer + accepted-player
+      // competitions; this hook applies status/role filtering client-side.
       const competitions = await apiClient.getCompetitions();
 
-      // Client-side filtering (temporary until backend supports it)
-      // Note: This is inefficient - move to server-side when backend is ready
       if (!filters) return competitions;
 
       return competitions.filter((comp) => {
@@ -156,8 +133,8 @@ export function useFilteredCompetitions(filters?: CompetitionsFilter) {
           }
         }
 
-        // Role filtering would require user context
-        // TODO: Implement when auth context is available
+        // Role (organizer vs player) filtering would need the current user id
+        // to compare against comp.organizerId; not currently wired up.
 
         return true;
       });

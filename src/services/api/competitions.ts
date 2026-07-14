@@ -312,29 +312,9 @@ export async function createCompetition(
   return result;
 }
 
-/**
- * Get all competitions for the current user
- */
-export async function getCompetitions(): Promise<Competition[]> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    return [];
-  }
-
-  // Get competitions where user is organizer or player
-  // Filter out soft-deleted competitions (deleted_at IS NULL)
-  const { data: competitions, error } = await supabase
-    .from('competitions')
-    .select('*')
-    .or(`organizer_id.eq.${user.id}`)
-    .is('deleted_at', null);
-
-  if (error) {
-    console.error('[API] Error fetching competitions:', error);
-    throw new Error(`Failed to fetch competitions: ${error.message}`);
-  }
-
-  return ((competitions || []) as DBCompetition[]).map((c) => ({
+/** Map a DB competition row to the domain Competition shape. */
+function mapDbCompetitionToCompetition(c: DBCompetition): Competition {
+  return {
     id: c.id,
     name: c.name,
     description: c.description ?? undefined,
@@ -356,7 +336,61 @@ export async function getCompetitions(): Promise<Competition[]> {
     organizerIsPlayer: c.organizer_is_player ?? true,
     createdAt: new Date(c.created_at),
     updatedAt: new Date(c.updated_at),
-  }));
+  };
+}
+
+/**
+ * Get all competitions the current user can see: ones they **organize** OR ones
+ * they've **joined as an accepted player**.
+ *
+ * Participant membership lives in `competition_players`, so this requires two
+ * queries unioned. The previous single `.or('organizer_id.eq...')` returned
+ * organizer competitions only — joined competitions never appeared on the Home
+ * screen and join-only users were misclassified as new. Soft-deleted rows
+ * (`deleted_at`) are filtered from both.
+ */
+export async function getCompetitions(): Promise<Competition[]> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return [];
+  }
+
+  const [organizedResult, joinedResult] = await Promise.all([
+    supabase
+      .from('competitions')
+      .select('*')
+      .eq('organizer_id', user.id)
+      .is('deleted_at', null),
+    supabase
+      .from('competition_players')
+      .select('competition:competitions!inner(*)')
+      .eq('player_id', user.id)
+      .eq('status', 'accepted')
+      .is('competition.deleted_at', null),
+  ]);
+
+  if (organizedResult.error) {
+    console.error('[API] Error fetching organized competitions:', organizedResult.error);
+    throw new Error(`Failed to fetch competitions: ${organizedResult.error.message}`);
+  }
+  if (joinedResult.error) {
+    console.error('[API] Error fetching joined competitions:', joinedResult.error);
+    throw new Error(`Failed to fetch competitions: ${joinedResult.error.message}`);
+  }
+
+  // Merge, de-duplicating by id (an organizer may also have a player row).
+  const byId = new Map<string, DBCompetition>();
+  for (const c of (organizedResult.data ?? []) as DBCompetition[]) {
+    byId.set(c.id, c);
+  }
+  const joinedRows = (joinedResult.data ?? []) as unknown as {
+    competition: DBCompetition | null;
+  }[];
+  for (const row of joinedRows) {
+    if (row.competition) byId.set(row.competition.id, row.competition);
+  }
+
+  return Array.from(byId.values()).map(mapDbCompetitionToCompetition);
 }
 
 /**
