@@ -5,7 +5,7 @@ import { Text } from 'react-native-paper';
 import { IconCalendar, IconClock } from '@tabler/icons-react-native';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography } from '@/constants/theme';
-import { parseLocalDateString } from '@/utils/formatting';
+import { formatDateDisplay } from '@/utils/formatting';
 
 /**
  * Size variants for the DateTimeDisplay component
@@ -69,11 +69,8 @@ const formatDate = (
   format: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric' }
 ): string => {
   if (!date) return '';
-  const d = typeof date === 'string'
-    ? (/^\d{4}-\d{2}-\d{2}$/.test(date) ? parseLocalDateString(date) : new Date(date))
-    : date;
-  if (isNaN(d.getTime())) return '';
-  return d.toLocaleDateString(undefined, format);
+  const formatted = formatDateDisplay(date, format);
+  return formatted === 'Date TBD' ? '' : formatted;
 };
 
 /**

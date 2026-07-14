@@ -7,6 +7,7 @@ import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
+import { formatDateDisplay } from '@/utils/formatting';
 import type { PartnershipRound, DifficultyLevel } from '@/types/database';
 
 interface PartnershipRoundCardProps {
@@ -30,8 +31,7 @@ const DIFFICULTY_LABELS: Record<DifficultyLevel, string> = {
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return '';
-  const d = new Date(dateStr);
-  return d.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' });
+  return formatDateDisplay(dateStr, { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 export const PartnershipRoundCard = React.memo(function PartnershipRoundCard({
