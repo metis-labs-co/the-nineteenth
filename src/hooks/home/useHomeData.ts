@@ -9,6 +9,7 @@
 import { useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { getLocalDateString } from '@/utils/formatting';
+import { parseClubCoords, type ClubCoordsSource } from '@/utils/gpsCalculations';
 import { useRoundList } from '@/screens/rounds/RoundListScreen/hooks/useRoundList';
 import { useCompetitions } from '@/hooks/competitions/queries';
 import { useLeagues } from '@/hooks/leagues/queries';
@@ -143,23 +144,7 @@ export interface CompetitionDay {
 function resolveClubCoords(
   round: RoundWithCourse,
 ): { lat: number; lng: number } | null {
-  const club = round.course?.clubs as
-    | {
-        latitude?: number | null;
-        longitude?: number | null;
-        location?: { coordinates?: [number, number] } | null;
-      }
-    | null
-    | undefined;
-  if (!club) return null;
-  if (club.latitude != null && club.longitude != null) {
-    return { lat: club.latitude, lng: club.longitude };
-  }
-  const coords = club.location?.coordinates;
-  if (coords && coords.length >= 2) {
-    return { lat: coords[1], lng: coords[0] };
-  }
-  return null;
+  return parseClubCoords(round.course?.clubs as ClubCoordsSource | null | undefined);
 }
 
 /**

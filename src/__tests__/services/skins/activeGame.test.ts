@@ -128,7 +128,7 @@ describe('resolveSkinsParticipants', () => {
     });
     mockFrom.mockReturnValue({ select: jest.fn(() => ({ in: inFn })) });
 
-    const result = (await resolveSkinsParticipants(game)) as {
+    const result = (await resolveSkinsParticipants(game)) as unknown as {
       teams: { id: string; name: string; members: unknown[] }[];
       participants: unknown[];
     };
@@ -158,7 +158,7 @@ describe('resolveSkinsParticipants', () => {
     const inFn = jest.fn().mockResolvedValue({ data: null, error: { message: 'nope' } });
     mockFrom.mockReturnValue({ select: jest.fn(() => ({ in: inFn })) });
 
-    const result = (await resolveSkinsParticipants(game)) as { teams: unknown[] };
+    const result = (await resolveSkinsParticipants(game)) as unknown as { teams: unknown[] };
     expect(result.teams).toEqual([]);
     expect(console.error).toHaveBeenCalled();
   });

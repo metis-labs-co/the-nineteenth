@@ -203,3 +203,49 @@ export function getCoordinatesForHole(
 ): HoleCoordinate[] {
   return groupedCoords[holeNumber] || [];
 }
+
+// ============================================================================
+// CLUB COORDINATE HELPERS
+// ============================================================================
+
+/** A club's PostGIS location, returned as GeoJSON `{ coordinates: [lng, lat] }`. */
+export interface ClubGeoLocation {
+  coordinates?: readonly number[] | null;
+}
+
+/** Club shape carrying either hydrated lat/lng or the raw GeoJSON location. */
+export interface ClubCoordsSource {
+  latitude?: number | null;
+  longitude?: number | null;
+  location?: ClubGeoLocation | null;
+}
+
+/**
+ * Parse a club's PostGIS GeoJSON location (`coordinates: [lng, lat]`) into
+ * `{ latitude, longitude }`. Returns `{ null, null }` when no valid coordinate
+ * pair is present, so the result can be spread onto a club object.
+ */
+export function parseClubLocation(
+  location: ClubGeoLocation | null | undefined
+): { latitude: number | null; longitude: number | null } {
+  const coords = location?.coordinates;
+  if (!coords || coords.length < 2) {
+    return { latitude: null, longitude: null };
+  }
+  return { latitude: coords[1], longitude: coords[0] };
+}
+
+/**
+ * Resolve a club's coordinates as `{ lat, lng }`, preferring the already-
+ * hydrated camelCase `latitude`/`longitude` fields and falling back to the raw
+ * GeoJSON `location`. Returns null when neither is available.
+ */
+export function parseClubCoords(
+  club: ClubCoordsSource | null | undefined
+): { lat: number; lng: number } | null {
+  if (club?.latitude != null && club?.longitude != null) {
+    return { lat: club.latitude, lng: club.longitude };
+  }
+  const { latitude, longitude } = parseClubLocation(club?.location);
+  return latitude != null && longitude != null ? { lat: latitude, lng: longitude } : null;
+}
