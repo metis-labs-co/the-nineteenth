@@ -53,6 +53,7 @@ Detailed implementation guides for specific topics:
 - **[DEPLOYMENT.md](docs/guides/DEPLOYMENT.md)** - CI/CD, EAS builds, app store deployments, monitoring
 - **[SCORING_PAIRS.md](docs/guides/SCORING_PAIRS.md)** - Designated scoring pairs for competitive rounds
 - **[SCORING_ARCHITECTURE.md](docs/guides/SCORING_ARCHITECTURE.md)** - Scoring domain map, blast-radius table, per-format invariants (read before editing scoring)
+- **[CI_AND_GATES.md](docs/guides/CI_AND_GATES.md)** - Push/CI gate: verify:gate, husky pre-push, GitHub Actions
 - **[SKINS_GAME.md](docs/guides/SKINS_GAME.md)** - Skins gambling side-game configuration and settlement
 - **[WOLF_GAME.md](docs/guides/WOLF_GAME.md)** - Wolf strategic partner selection side-game
 - **[SUBSCRIPTION_TIERS.md](docs/guides/SUBSCRIPTION_TIERS.md)** - Subscription tier system, limits, grandfathering, admin management
