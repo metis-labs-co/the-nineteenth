@@ -17,6 +17,7 @@ import {
   Keyboard,
 } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
+import { isHandicapInRange, HANDICAP_RANGE_ERROR } from '@/constants/scoring';
 import { FormInput } from '@/components/common';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { spacing, typography, borderRadius } from '@/constants/theme';
@@ -40,8 +41,8 @@ export function HandicapCaptureStep({
       return true;
     }
     const num = parseFloat(value);
-    if (isNaN(num) || num < 0 || num > 54) {
-      setError('Handicap must be between 0 and 54');
+    if (!isHandicapInRange(num)) {
+      setError(HANDICAP_RANGE_ERROR);
       return false;
     }
     setError(null);
