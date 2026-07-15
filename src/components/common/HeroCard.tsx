@@ -18,6 +18,7 @@ export interface HeroCardProps {
   padding?: number;
   /** Container style override (margins etc.) */
   style?: StyleProp<ViewStyle>;
+  testID?: string;
   children: React.ReactNode;
 }
 
@@ -34,6 +35,7 @@ export function HeroCard({
   glow = 'none',
   padding = spacing.lg + 2,
   style,
+  testID,
   children,
 }: HeroCardProps) {
   const gradient = GRADIENTS[variant];
@@ -44,6 +46,7 @@ export function HeroCard({
       start={{ x: 0.1, y: 0 }}
       end={{ x: 0.7, y: 1 }}
       style={[styles.card, { padding }, style]}
+      testID={testID}
     >
       {glow !== 'none' && (
         <View
@@ -88,11 +91,20 @@ export const heroPalette = {
   /** Gold accent (trophy / winnings) */
   gold: '#f2cf5c',
   goldBright: '#f6d55c',
+  /** Tinted icon squares on hero cards */
+  iconTintBlue: 'rgba(120,165,220,0.18)',
+  iconTintGold: 'rgba(242,207,92,0.18)',
   /** Track behind progress bars on the dark card */
   track: 'rgba(255,255,255,0.09)',
   /** Divider / marker lines */
   marker: 'rgba(255,255,255,0.4)',
 } as const;
+
+/**
+ * Blue CTA gradient used on hero cards (fixed in both themes, like the
+ * hero gradients above).
+ */
+export const heroCtaBlueGradient: [string, string] = ['#4f82c8', '#2d5aa0'];
 
 const styles = StyleSheet.create({
   card: {

@@ -64,6 +64,7 @@ export const ScopeChips = React.memo(function ScopeChips<
             accessibilityRole="button"
             accessibilityState={{ selected: isSelected }}
             accessibilityLabel={`${chip.eyebrow} ${chip.label}`}
+            testID={testID ? `${testID}-${chip.key}` : undefined}
           >
             <Text
               style={[
