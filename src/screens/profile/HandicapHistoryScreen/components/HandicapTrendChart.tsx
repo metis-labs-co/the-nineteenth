@@ -19,12 +19,23 @@ interface HandicapTrendChartProps {
   rounds: HandicapRound[];
   variant?: 'full' | 'compact';
   width?: number;
+  /**
+   * Presentational color overrides for rendering the compact variant on a
+   * fixed dark surface (e.g. Home's HeroCard). Defaults keep the existing
+   * theme colors; chart math is unaffected.
+   */
+  lineColor?: string;
+  averageLineColor?: string;
+  axisLabelColor?: string;
 }
 
 export const HandicapTrendChart = React.memo(function HandicapTrendChart({
   rounds,
   variant = 'full',
   width,
+  lineColor,
+  averageLineColor,
+  axisLabelColor,
 }: HandicapTrendChartProps) {
   const colors = useThemeColors();
 
@@ -85,8 +96,8 @@ export const HandicapTrendChart = React.memo(function HandicapTrendChart({
           spacing={compactWidth / Math.max(chartData.length - 1, 1)}
           initialSpacing={6}
           endSpacing={6}
-          color1={colors.primary}
-          color2={colors.warning}
+          color1={lineColor ?? colors.primary}
+          color2={averageLineColor ?? colors.warning}
           thickness={2}
           thickness2={1.5}
           curved
@@ -97,7 +108,7 @@ export const HandicapTrendChart = React.memo(function HandicapTrendChart({
           hideYAxisText
           xAxisColor="transparent"
           yAxisColor="transparent"
-          xAxisLabelTextStyle={{ color: colors.textSecondary, fontSize: 9 }}
+          xAxisLabelTextStyle={{ color: axisLabelColor ?? colors.textSecondary, fontSize: 9 }}
         />
       </View>
     );

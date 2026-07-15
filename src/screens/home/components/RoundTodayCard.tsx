@@ -67,11 +67,15 @@ export const RoundTodayCard = React.memo(function RoundTodayCard({
         accessibilityHint="Opens round details"
         style={[
           styles.card,
-          { backgroundColor: colors.surface, borderColor: colors.borderLight },
+          { backgroundColor: colors.surface, borderColor: colors.border },
         ]}
       >
         <View style={styles.row}>
-          <Icon source="golf" size={28} color={colors.primary} />
+          <View
+            style={[styles.iconSquare, { backgroundColor: colors.primaryBackground }]}
+          >
+            <Icon source="golf" size={22} color={colors.primary} />
+          </View>
           <View style={styles.text}>
             <Text style={[styles.title, { color: colors.textPrimary }]} numberOfLines={1}>
               {headlineLabel}
@@ -98,18 +102,25 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   card: {
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.xl + 2,
     borderWidth: 1,
     overflow: 'hidden',
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    padding: spacing.md,
+    gap: spacing.md,
+    padding: spacing.lg,
+  },
+  iconSquare: {
+    width: 42,
+    height: 42,
+    borderRadius: borderRadius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   text: { flex: 1 },
-  title: { ...typography.body, fontWeight: '700' },
+  title: { fontSize: 15, fontWeight: '700' },
   subtitle: { ...typography.caption, marginTop: 2 },
   divider: { height: StyleSheet.hairlineWidth, marginHorizontal: spacing.md },
 });
