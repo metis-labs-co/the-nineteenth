@@ -1,9 +1,10 @@
 /**
  * PlayerScoreCard - Score entry card for a single player in match play
  *
- * Styled to match the regular scorecard entry PlayerScoreCard pattern:
- * - Player name with handicap
- * - Match status badge
+ * Styled to the Score & Round redesign (match play screen):
+ * - Optional "YOU" eyebrow + tinted card for the logged-in player
+ * - Player name with handicap line
+ * - SHOTS stat + match status badge pill
  * - Pick Up quick action for when player gives up the hole
  * - Score stepper controls
  * - Par quick action button
@@ -13,7 +14,7 @@ import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { spacing, shadows } from '@/constants/theme';
 import { PICKUP_SCORE } from '@/constants/scoring';
 import { ScaledText } from '@/components/common/ScaledText';
 import { formatHandicapIndex } from '@/utils/displayHelpers';
@@ -42,6 +43,8 @@ interface PlayerScoreCardProps {
   baseLabel?: string;
   /** Hex colour of the tee the player is playing from (dot next to name) */
   teeDotColor?: string;
+  /** True when this card belongs to the logged-in user ("YOU" eyebrow + tinted card) */
+  isCurrentUser?: boolean;
 }
 
 export function PlayerScoreCard({
@@ -61,6 +64,7 @@ export function PlayerScoreCard({
   baseHandicap,
   baseLabel,
   teeDotColor,
+  isCurrentUser = false,
 }: PlayerScoreCardProps) {
   const colors = useThemeColors();
 
@@ -89,9 +93,18 @@ export function PlayerScoreCard({
   // high score. This lets players record blow-up scores above double bogey.
   const canIncrement = !isPickedUp && (currentScore === null || currentScore < PICKUP_SCORE - 1);
 
+  const isParSelected = currentScore === par && !isPickedUp;
+
   return (
-    <View style={[styles.card, { backgroundColor: colors.surfaceVariant }]}>
-      {/* Player Header - matches regular PlayerScoreCard */}
+    <View
+      style={[
+        styles.card,
+        isCurrentUser
+          ? { backgroundColor: colors.primaryBackground, borderColor: colors.primaryLight }
+          : { backgroundColor: colors.surface, borderColor: colors.border },
+      ]}
+    >
+      {/* Player Header */}
       <View style={styles.header}>
         <TouchableOpacity
           style={[styles.playerInfo, onPlayerPress && styles.playerInfoTappable]}
@@ -101,6 +114,11 @@ export function PlayerScoreCard({
           accessibilityLabel={`View ${player.name}'s scorecard`}
           accessibilityRole="button"
         >
+          {isCurrentUser && (
+            <ScaledText category="caption" style={[styles.youEyebrow, { color: colors.primary }]}>
+              YOU
+            </ScaledText>
+          )}
           <View style={styles.playerNameRow}>
             {teeDotColor && (
               <View
@@ -121,7 +139,7 @@ export function PlayerScoreCard({
           </ScaledText>
         </TouchableOpacity>
 
-        {/* Stats Display - matches Stableford PlayerScoreCard */}
+        {/* Stats Display: SHOTS stat + match status badge pill */}
         <View style={styles.statsContainer}>
           {/* Shots received on this hole */}
           <View style={styles.statItem}>
@@ -173,34 +191,39 @@ export function PlayerScoreCard({
       {/* Divider */}
       <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
-      {/* Score Controls - matches regular PlayerScoreCard layout: [PICK UP] [Stepper] [PAR] */}
+      {/* Score Controls: [PICK UP] [Stepper] [PAR] */}
       <View style={styles.controlsContainer}>
         {/* Pick Up Button */}
-        <View style={styles.quickActionContainer}>
-          <TouchableOpacity
+        <TouchableOpacity
+          style={[
+            styles.quickActionButton,
+            { borderColor: colors.border, backgroundColor: colors.surface },
+            isPickedUp && { backgroundColor: colors.bogeyBackground, borderColor: colors.bogey },
+          ]}
+          onPress={onPickUp}
+          activeOpacity={0.7}
+          accessibilityLabel="Pick up ball"
+          accessibilityHint="Marks that you picked up your ball on this hole"
+        >
+          <ScaledText
+            category="critical"
             style={[
-              styles.quickActionButton,
-              { borderColor: colors.gray300, backgroundColor: colors.surface },
-              isPickedUp && { backgroundColor: colors.primary, borderColor: colors.primary },
+              styles.quickActionText,
+              { color: isPickedUp ? colors.bogey : colors.textSecondary },
             ]}
-            onPress={onPickUp}
-            activeOpacity={0.7}
-            accessibilityLabel="Pick up ball"
-            accessibilityHint="Marks that you picked up your ball on this hole"
           >
-            <ScaledText
-              category="critical"
-              style={[
-                styles.quickActionText,
-                { color: colors.textPrimary },
-                isPickedUp && { color: colors.white },
-              ]}
-            >
-              P
-            </ScaledText>
-          </TouchableOpacity>
-          <ScaledText category="caption" style={[styles.quickActionLabel, { color: colors.textSecondary }]}>PICK UP</ScaledText>
-        </View>
+            P
+          </ScaledText>
+          <ScaledText
+            category="caption"
+            style={[
+              styles.quickActionLabel,
+              { color: isPickedUp ? colors.bogey : colors.textSecondary },
+            ]}
+          >
+            PICK UP
+          </ScaledText>
+        </TouchableOpacity>
 
         {/* Score Stepper */}
         <View style={styles.stepperContainer}>
@@ -208,7 +231,7 @@ export function PlayerScoreCard({
           <TouchableOpacity
             style={[
               styles.stepperButton,
-              { borderColor: colors.gray300, backgroundColor: colors.surface },
+              { borderColor: colors.border, backgroundColor: colors.surface },
               !canDecrement && styles.buttonDisabled,
             ]}
             onPress={() => onScoreAdjust(-1)}
@@ -222,7 +245,7 @@ export function PlayerScoreCard({
 
           {/* Current Score Display */}
           <View style={styles.scoreDisplay}>
-            <ScaledText category="critical" style={[styles.scoreDisplayText, { color: isPickedUp ? colors.textSecondary : getScoreColor(currentScore) }]}>
+            <ScaledText category="critical" style={[styles.scoreDisplayText, { color: isPickedUp ? colors.bogey : getScoreColor(currentScore) }]}>
               {isPickedUp ? 'P' : (currentScore ?? '-')}
             </ScaledText>
           </View>
@@ -231,7 +254,7 @@ export function PlayerScoreCard({
           <TouchableOpacity
             style={[
               styles.stepperButton,
-              { borderColor: colors.gray300, backgroundColor: colors.surface },
+              { borderColor: colors.border, backgroundColor: colors.surface },
               !canIncrement && styles.buttonDisabled,
             ]}
             onPress={() => onScoreAdjust(1)}
@@ -245,30 +268,35 @@ export function PlayerScoreCard({
         </View>
 
         {/* Par Button */}
-        <View style={styles.quickActionContainer}>
-          <TouchableOpacity
+        <TouchableOpacity
+          style={[
+            styles.quickActionButton,
+            { borderColor: colors.border, backgroundColor: colors.surface },
+            isParSelected && { backgroundColor: colors.primaryBackground, borderColor: colors.primary },
+          ]}
+          onPress={onParSelect}
+          activeOpacity={0.7}
+          accessibilityLabel={`Set ${player.name} score to par ${par}`}
+        >
+          <ScaledText
+            category="critical"
             style={[
-              styles.quickActionButton,
-              { borderColor: colors.gray300, backgroundColor: colors.surface },
-              currentScore === par && !isPickedUp && { backgroundColor: colors.primary, borderColor: colors.primary },
+              styles.quickActionText,
+              { color: isParSelected ? colors.primaryDark : colors.textPrimary },
             ]}
-            onPress={onParSelect}
-            activeOpacity={0.7}
-            accessibilityLabel={`Set ${player.name} score to par ${par}`}
           >
-            <ScaledText
-              category="critical"
-              style={[
-                styles.quickActionText,
-                { color: colors.textPrimary },
-                currentScore === par && !isPickedUp && { color: colors.white },
-              ]}
-            >
-              {par}
-            </ScaledText>
-          </TouchableOpacity>
-          <ScaledText category="caption" style={[styles.quickActionLabel, { color: colors.textSecondary }]}>PAR</ScaledText>
-        </View>
+            {par}
+          </ScaledText>
+          <ScaledText
+            category="caption"
+            style={[
+              styles.quickActionLabel,
+              { color: isParSelected ? colors.primaryDark : colors.textSecondary },
+            ]}
+          >
+            PAR
+          </ScaledText>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -276,8 +304,9 @@ export function PlayerScoreCard({
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 15,
     ...shadows.sm,
   },
   header: {
@@ -290,16 +319,21 @@ const styles = StyleSheet.create({
     marginRight: spacing.md,
   },
   playerInfoTappable: {
-    borderRadius: borderRadius.md,
+    borderRadius: 12,
     padding: spacing.xs,
     marginLeft: -spacing.xs,
     marginTop: -spacing.xs,
+  },
+  youEyebrow: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    marginBottom: 3,
   },
   playerNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    marginBottom: spacing.xs,
   },
   teeDot: {
     width: 10,
@@ -309,105 +343,107 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   playerName: {
-    ...typography.h3,
+    fontSize: 18,
+    fontWeight: '800',
     flexShrink: 1,
   },
   handicapLabel: {
-    ...typography.body,
+    fontSize: 12,
+    marginTop: 2,
   },
   statsContainer: {
     flexDirection: 'row',
-    gap: spacing.lg,
+    alignItems: 'center',
+    gap: spacing.md,
   },
   statItem: {
     alignItems: 'center',
   },
   statValue: {
-    fontSize: 32,
-    fontWeight: '700',
-    lineHeight: 38,
+    fontSize: 24,
+    fontWeight: '800',
+    lineHeight: 28,
   },
   statLabel: {
-    ...typography.small,
-    fontWeight: '600',
-    marginTop: spacing.xs,
+    fontSize: 10,
+    fontWeight: '700',
+    marginTop: 3,
   },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.md,
+    paddingHorizontal: 11,
+    height: 38,
+    borderRadius: 12,
     minWidth: 48,
-    gap: 2,
+    gap: 3,
   },
   statusBadgeNumber: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: '800',
   },
   statusBadgeText: {
-    ...typography.smallBold,
+    fontSize: 16,
+    fontWeight: '800',
     letterSpacing: 0.5,
   },
   divider: {
     height: 1,
-    marginVertical: spacing.lg,
+    marginVertical: 14,
   },
   controlsContainer: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-  },
-  // Quick action buttons (Pick Up, Par)
-  quickActionContainer: {
     alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
   },
+  // Quick action buttons (Pick Up, Par) — label lives inside the button
   quickActionButton: {
-    width: 64,
-    height: 64,
-    borderRadius: borderRadius.md,
+    width: 60,
+    height: 62,
+    borderRadius: 14,
     borderWidth: 1.5,
     justifyContent: 'center',
     alignItems: 'center',
+    gap: 2,
   },
   quickActionText: {
-    fontSize: 28,
-    fontWeight: '600',
+    fontSize: 19,
+    fontWeight: '800',
   },
   quickActionLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    marginTop: spacing.sm,
-    letterSpacing: 0.5,
+    fontSize: 8,
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
   // Stepper
   stepperContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
+    gap: 9,
   },
   stepperButton: {
-    width: 64,
-    height: 64,
-    borderRadius: borderRadius.md,
+    width: 58,
+    height: 62,
+    borderRadius: 14,
     borderWidth: 1.5,
     justifyContent: 'center',
     alignItems: 'center',
   },
   stepperButtonText: {
-    fontSize: 32,
-    fontWeight: '400',
+    fontSize: 29,
+    fontWeight: '500',
   },
   scoreDisplay: {
-    width: 56,
-    height: 64,
+    width: 52,
+    height: 62,
     justifyContent: 'center',
     alignItems: 'center',
   },
   scoreDisplayText: {
     fontSize: 40,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   buttonDisabled: {
     opacity: 0.4,
