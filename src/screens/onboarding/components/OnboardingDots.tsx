@@ -2,13 +2,14 @@
  * OnboardingDots - Progress indicator for onboarding steps
  *
  * Shows visual dots indicating current position in the onboarding flow.
- * Active dot is wider (24px) while inactive dots are smaller (8px).
- * Dots are clickable for direct navigation.
+ * Active dot is an elongated primary pill (22px) while inactive dots are
+ * small (7px) faded rounds. Dots are clickable for direct navigation.
  */
 
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { spacing, borderRadius } from '@/constants/theme';
+import { withOpacity } from '@/constants/colors';
 import { useThemeColors } from '@/context/ThemeContext';
 
 interface OnboardingDotsProps {
@@ -39,8 +40,10 @@ export function OnboardingDots({
             style={[
               styles.dot,
               {
-                backgroundColor: isActive ? colors.primary : colors.border,
-                width: isActive ? 24 : 8,
+                backgroundColor: isActive
+                  ? colors.primary
+                  : withOpacity(colors.textPrimary, 0.22),
+                width: isActive ? 22 : 7,
               },
             ]}
             accessibilityLabel={`Step ${index + 1} of ${totalSteps}${isActive ? ', current step' : ''}`}
@@ -60,8 +63,8 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   dot: {
-    height: 8,
-    borderRadius: borderRadius.sm,
+    height: 7,
+    borderRadius: borderRadius.full,
   },
 });
 
