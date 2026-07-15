@@ -11,9 +11,9 @@ import { spacing, borderRadius } from '@/constants/theme';
 import { SectionHeader } from '@/components/common';
 import { LimitIndicator } from '@/components/subscription';
 import { RoundListCard } from '@/components/rounds';
+import { InProgressRoundSection } from '@/components/competitions/detail/sections';
 import type { RoundWithCourse } from '@/components/competitions/detail/types';
 import type { GameType } from '@/types/database.types';
-import { InProgressRoundCard } from './InProgressRoundCard';
 import type { RoundTypeFilter, RoundItem } from '../types';
 
 const ROUND_TYPE_FILTERS: { key: RoundTypeFilter; label: string }[] = [
@@ -63,8 +63,8 @@ export function RoundListSections({
 }: RoundListSectionsProps) {
   const colors = useThemeColors();
 
-  // 1-based display number per round (the contract InProgressRoundCard
-  // inherits from the shared in-progress carousel).
+  // 1-based display number per round (the contract InProgressRoundSection
+  // expects from CompetitionDetail).
   const roundDisplayNumbers = useMemo(() => {
     const map: Record<string, number> = {};
     inProgressRounds.forEach((r, idx) => {
@@ -78,17 +78,13 @@ export function RoundListSections({
       {(inProgressRounds.length > 0 || upcomingRounds.length > 0) && (
         <View style={styles.inProgressSection}>
           <SectionHeader title="In Progress" />
-          {inProgressRounds.map((round) => (
-            <View key={round.id} style={styles.activeCard}>
-              <InProgressRoundCard
-                round={round}
-                number={roundDisplayNumbers[round.id] ?? round.round_number ?? 0}
-                onScoreRound={onResumeRound}
-                onViewRound={onViewRound}
-                onDeleteRound={onDeleteInProgressRound}
-              />
-            </View>
-          ))}
+          <InProgressRoundSection
+            rounds={inProgressRounds}
+            onScoreRound={onResumeRound}
+            onViewRound={onViewRound}
+            onDeleteRound={onDeleteInProgressRound}
+            roundDisplayNumbers={roundDisplayNumbers}
+          />
           {upcomingRounds.map((round) => (
             <View key={round.id} style={styles.activeCard}>
               <RoundListCard
