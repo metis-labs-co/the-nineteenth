@@ -18,7 +18,7 @@ import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useIsDark, useThemeColors } from '@/context/ThemeContext';
+import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows, skinsColor, wolfColor } from '@/constants/theme';
 import { useSkinsGamesByRound } from '@/hooks/useSkins';
 import { useWolfGameByRound } from '@/hooks/wolf';
@@ -68,8 +68,6 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
   onUpgradePress,
 }: RoundDetailsTabProps) {
   const colors = useThemeColors();
-  const isDark = useIsDark();
-  const courseIconBackground = isDark ? `${colors.primary}33` : colors.primaryLighter;
   const navigation = useNavigation<NavigationProp>();
   const distanceUnit = useSettingsStore((state) => state.distanceUnit);
   const useMetres = distanceUnit === 'metres';
@@ -257,22 +255,22 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
           <RoundCoverPhotoButton
             roundId={round.id}
             canAdd={canAddPhotos}
-            size={64}
-            backgroundColor={courseIconBackground}
+            size={44}
+            backgroundColor={colors.primaryBackground}
           />
           <View style={styles.headerInfo}>
             <Text style={[styles.courseName, { color: colors.textPrimary }]}>
               {round.course?.name || 'Course TBD'}
             </Text>
 
-            {/* Club Link */}
+            {/* Club Link — muted supporting line per redesign */}
             {club && (
               <TouchableOpacity style={styles.clubLink} onPress={handleClubPress} activeOpacity={0.7}>
-                <Icon source="map-marker" size={16} color={colors.primary} />
-                <Text style={[styles.clubLinkText, { color: colors.primary }]}>
+                <Icon source="map-marker" size={14} color={colors.textSecondary} />
+                <Text style={[styles.clubLinkText, { color: colors.textSecondary }]}>
                   {location || club.name}
                 </Text>
-                <Icon source="chevron-right" size={16} color={colors.primary} />
+                <Icon source="chevron-right" size={14} color={colors.textSecondary} />
               </TouchableOpacity>
             )}
           </View>
@@ -600,8 +598,8 @@ function DetailRow({
 
   const content = (
     <>
-      <View style={styles.detailIconContainer}>
-        <Icon source={icon} size={20} color={colors.primary} />
+      <View style={[styles.detailIconContainer, { backgroundColor: colors.primaryBackground }]}>
+        <Icon source={icon} size={17} color={colors.primary} />
       </View>
       <View style={styles.detailContent}>
         <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>{label}</Text>
@@ -644,7 +642,7 @@ const styles = StyleSheet.create({
 
   // Header Card
   headerCard: {
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.xl,
     borderWidth: 1,
     overflow: 'hidden',
     ...shadows.sm,
@@ -666,16 +664,20 @@ const styles = StyleSheet.create({
     marginLeft: spacing.md,
   },
   courseName: {
-    ...typography.h3,
+    // Design: 15.5px / 800 course title
+    fontSize: 15.5,
+    fontWeight: '800',
+    lineHeight: 20,
   },
   clubLink: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: spacing.sm,
-    gap: spacing.xs,
+    marginTop: spacing.xs,
+    gap: spacing.xxs,
   },
   clubLinkText: {
-    ...typography.small,
+    fontSize: 12,
+    lineHeight: 16,
   },
   courseChevron: {
     justifyContent: 'center',
@@ -702,10 +704,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statValue: {
-    ...typography.h3,
+    fontSize: 17,
+    fontWeight: '800',
+    lineHeight: 22,
   },
   statLabel: {
-    ...typography.caption,
+    fontSize: 10.5,
+    fontWeight: '700',
+    letterSpacing: 0.4,
     marginTop: 2,
   },
   statDivider: {
@@ -730,7 +736,7 @@ const styles = StyleSheet.create({
 
   // Details Card
   detailsCard: {
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.xl,
     borderWidth: 1,
     overflow: 'hidden',
     ...shadows.sm,
@@ -741,9 +747,10 @@ const styles = StyleSheet.create({
     padding: spacing.md,
   },
   detailIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: borderRadius.md,
+    // Design: 32px tinted icon square, radius 9
+    width: 32,
+    height: 32,
+    borderRadius: 9,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -760,10 +767,15 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   detailLabel: {
-    ...typography.body,
+    // Design: 13.5px muted label
+    fontSize: 13.5,
+    lineHeight: 18,
   },
   detailValue: {
-    ...typography.bodyBold,
+    // Design: 13.5px / 700 value
+    fontSize: 13.5,
+    fontWeight: '700',
+    lineHeight: 18,
   },
   formatPillContainer: {
     flexDirection: 'row',

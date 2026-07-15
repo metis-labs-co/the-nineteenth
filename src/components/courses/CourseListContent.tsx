@@ -218,10 +218,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   listContent: {
-    paddingTop: spacing.md,
+    paddingTop: spacing.xs,
   },
   listSeparator: {
-    height: spacing.sm,
+    height: spacing.sm + 2,
   },
   apiSearchingContainer: {
     flexDirection: 'row',

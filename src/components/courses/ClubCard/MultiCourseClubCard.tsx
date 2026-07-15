@@ -84,7 +84,7 @@ export const MultiCourseClubCard = React.memo(function MultiCourseClubCard({
       >
         <View style={styles.clubHeaderContent}>
           {/* Club Icon */}
-          <View style={[styles.clubIconContainer, { backgroundColor: colors.primaryLighter }]}>
+          <View style={[styles.clubIconContainer, { backgroundColor: colors.primaryBackground }]}>
             <Icon source="home-city" size={24} color={colors.primary} />
           </View>
 
@@ -96,8 +96,8 @@ export const MultiCourseClubCard = React.memo(function MultiCourseClubCard({
               </Text>
               {/* Home badge for multi-course clubs */}
               {displayItem.is_home && (
-                <View style={[styles.homeBadge, { backgroundColor: colors.primaryLighter }]}>
-                  <Icon source="home" size={14} color={colors.primary} />
+                <View style={[styles.homeBadge, { backgroundColor: colors.primaryBackground }]}>
+                  <Icon source="home" size={13} color={colors.primary} />
                 </View>
               )}
               {/* Source badge */}
@@ -145,8 +145,8 @@ export const MultiCourseClubCard = React.memo(function MultiCourseClubCard({
             <View style={styles.expandButton}>
               <Icon
                 source={isExpanded ? 'chevron-up' : 'chevron-down'}
-                size={24}
-                color={colors.gray500}
+                size={22}
+                color={colors.textTertiary}
               />
             </View>
           </View>
@@ -155,7 +155,7 @@ export const MultiCourseClubCard = React.memo(function MultiCourseClubCard({
 
       {/* Expanded Courses List */}
       {isExpanded && (
-        <View style={[styles.coursesContainer, { borderTopColor: colors.gray200, backgroundColor: colors.gray50 }]}>
+        <View style={[styles.coursesContainer, { borderTopColor: colors.borderLight, backgroundColor: colors.surfaceVariant }]}>
           {displayItem.courses.map((course) => (
             <CourseRow
               key={course.id}
@@ -182,7 +182,7 @@ export const MultiCourseClubCard = React.memo(function MultiCourseClubCard({
 const styles = StyleSheet.create({
   cardContainer: {
     marginHorizontal: spacing.lg,
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.xl,
     borderWidth: 1,
     overflow: 'hidden',
     ...shadows.sm,
@@ -197,7 +197,7 @@ const styles = StyleSheet.create({
   clubIconContainer: {
     width: 48,
     height: 48,
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.lg,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -211,23 +211,27 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   clubName: {
-    ...typography.bodyBold,
+    fontSize: 15,
+    fontWeight: '800',
+    lineHeight: 20,
     flex: 1,
   },
   courseCountBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
+    paddingHorizontal: 7,
     borderRadius: borderRadius.full,
-    minWidth: 24,
+    minWidth: 22,
+    height: 22,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   courseCountText: {
-    ...typography.caption,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '800',
+    lineHeight: 14,
   },
   homeBadge: {
-    width: 24,
-    height: 24,
+    width: 22,
+    height: 22,
     borderRadius: borderRadius.full,
     justifyContent: 'center',
     alignItems: 'center',
@@ -244,12 +248,13 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   clubLocation: {
-    ...typography.small,
-    marginTop: spacing.xs,
+    ...typography.caption,
+    marginTop: 3,
   },
   clubHoles: {
     ...typography.caption,
-    marginTop: spacing.xs,
+    fontWeight: '700',
+    marginTop: 3,
   },
   clubActions: {
     flexDirection: 'row',

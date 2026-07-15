@@ -44,11 +44,11 @@ export function HomeTileGrid({
 
 const styles = StyleSheet.create({
   grid: {
-    gap: spacing.sm,
+    gap: spacing.md,
     marginBottom: spacing.lg,
   },
   row: {
     flexDirection: 'row',
-    gap: spacing.sm,
+    gap: spacing.md,
   },
 });

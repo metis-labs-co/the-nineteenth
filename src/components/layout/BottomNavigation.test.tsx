@@ -32,6 +32,8 @@ const mockLightColors = {
   primaryDark: '#1B5E20',
   background: '#FFFFFF',
   surface: '#FFFFFF',
+  surfaceElevated: '#FFFFFF',
+  primaryBackground: '#EEF5E8',
   textPrimary: '#1A1A1A',
   textSecondary: '#6B6B6B',
   border: '#E0E0E0',

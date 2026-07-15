@@ -14,9 +14,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNetInfo } from '@react-native-community/netinfo';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
+import { Text, Icon } from 'react-native-paper';
 import { OfflineIndicator } from '@/components/common/OfflineIndicator';
-import { PageHeader, ConfirmationDialog } from '@/components/common';
-import { Tabs } from '@/components/common/Tabs';
+import { PageHeader, ConfirmationDialog, UnderlineTabs } from '@/components/common';
 import { MismatchResolutionModal } from '@/components/scoring';
 import { spacing } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -390,14 +390,29 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
         isSyncing={isSubmitting}
       />
 
+      {/* Saved-state banner — the positive counterpart of the OfflineIndicator
+          (which is hidden while online). Shown only when everything the screen
+          already tracks is settled: online, nothing pending sync, no pending
+          mismatches, and every hole scored. */}
+      {getOfflineStatus() === 'online' &&
+        pendingSyncs === 0 &&
+        mismatches.length === 0 &&
+        incompleteHoles.length === 0 && (
+          <View style={[styles.savedBanner, { backgroundColor: colors.primaryBackground }]}>
+            <Icon source="check" size={16} color={colors.primaryDark} />
+            <Text style={[styles.savedBannerText, { color: colors.primaryDark }]}>
+              All changes saved · ready to submit
+            </Text>
+          </View>
+        )}
+
       {/* Tab Navigation */}
       {showTabs && (
         <View style={styles.tabContainer}>
-          <Tabs
+          <UnderlineTabs
             tabs={tabs}
             selectedTab={activeTab}
             onTabChange={handleTabChange}
-            size="medium"
             testID="review-scorecard-tabs"
           />
         </View>
@@ -662,5 +677,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,
     paddingBottom: spacing.sm,
+  },
+  savedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    marginHorizontal: spacing.md,
+    marginTop: spacing.sm,
+    paddingVertical: 9,
+    paddingHorizontal: spacing.md,
+    borderRadius: 12,
+  },
+  savedBannerText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
 });

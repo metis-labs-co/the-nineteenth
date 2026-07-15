@@ -1,4 +1,5 @@
 export { ProfileHeader } from './ProfileHeader';
+export { ProfileQuickStats } from './ProfileQuickStats';
 export { HomeClubSection, HomeVenueSection } from './HomeClubSection';
 export { ActivitySection } from './ActivitySection';
 export { HomeClubModal, HomeVenueModal } from './HomeClubModal';

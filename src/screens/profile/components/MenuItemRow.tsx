@@ -39,7 +39,7 @@ import React from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, typography } from '@/constants/theme';
+import { spacing, typography, borderRadius } from '@/constants/theme';
 
 export interface MenuItemRowProps {
   /** Main label text (required) */
@@ -58,6 +58,8 @@ export interface MenuItemRowProps {
   destructive?: boolean;
   /** Disable interaction (default: false) */
   disabled?: boolean;
+  /** Show a hairline divider under the row (grouped list-cards; default: false) */
+  divider?: boolean;
   /** For testing */
   testID?: string;
 }
@@ -71,17 +73,23 @@ export const MenuItemRow = React.memo(function MenuItemRow({
   showChevron = true,
   destructive = false,
   disabled = false,
+  divider = false,
   testID,
 }: MenuItemRowProps) {
   const colors = useThemeColors();
 
   // Determine icon and text colors based on state
-  const iconColor = destructive ? colors.error : colors.textSecondary;
+  const iconColor = destructive ? colors.error : colors.primary;
+  const iconBackground = destructive ? colors.errorBackground : colors.primaryBackground;
   const titleColor = destructive ? colors.error : colors.textPrimary;
 
   return (
     <TouchableOpacity
-      style={[styles.container, disabled && styles.disabled]}
+      style={[
+        styles.container,
+        divider && [styles.divider, { borderBottomColor: colors.borderLight }],
+        disabled && styles.disabled,
+      ]}
       onPress={onPress}
       disabled={disabled}
       activeOpacity={0.7}
@@ -91,9 +99,9 @@ export const MenuItemRow = React.memo(function MenuItemRow({
       accessibilityHint={destructive ? 'Tap to perform action' : 'Tap to navigate'}
       testID={testID}
     >
-      {/* Left: Icon container */}
-      <View style={styles.iconContainer}>
-        <Icon source={icon} size={24} color={iconColor} />
+      {/* Left: Icon square (34px, tinted) */}
+      <View style={[styles.iconContainer, { backgroundColor: iconBackground }]}>
+        <Icon source={icon} size={18} color={iconColor} />
       </View>
 
       {/* Center: Text container */}
@@ -115,7 +123,7 @@ export const MenuItemRow = React.memo(function MenuItemRow({
       {rightContent ? (
         <View style={styles.rightContent}>{rightContent}</View>
       ) : showChevron ? (
-        <Icon source="chevron-right" size={20} color={colors.textTertiary} />
+        <Icon source="chevron-right" size={18} color={colors.textTertiary} />
       ) : null}
     </TouchableOpacity>
   );
@@ -129,11 +137,16 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
   },
+  divider: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
   disabled: {
     opacity: 0.5,
   },
   iconContainer: {
-    width: 40,
+    width: 34,
+    height: 34,
+    borderRadius: borderRadius.md + 2,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.md,
@@ -144,6 +157,8 @@ const styles = StyleSheet.create({
   },
   title: {
     ...typography.body,
+    fontSize: 15,
+    fontWeight: '600',
   },
   subtitle: {
     ...typography.caption,

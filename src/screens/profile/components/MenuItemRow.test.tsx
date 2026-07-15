@@ -24,7 +24,11 @@ const mockColors = {
   textSecondary: '#6B7280',
   textTertiary: '#9CA3AF',
   error: '#EF4444',
+  errorBackground: '#FEF2F2',
   surface: '#FFFFFF',
+  primary: '#2E7D32',
+  primaryBackground: '#EEF5E8',
+  borderLight: '#F3F4F6',
 };
 
 jest.mock('@/context/ThemeContext', () => ({
@@ -62,6 +66,13 @@ jest.mock('@/constants/theme', () => ({
   typography: {
     body: { fontSize: 16, fontWeight: '400', lineHeight: 24 },
     caption: { fontSize: 12, fontWeight: '400', lineHeight: 16 },
+  },
+  borderRadius: {
+    sm: 4,
+    md: 8,
+    lg: 12,
+    xl: 16,
+    full: 9999,
   },
 }));
 

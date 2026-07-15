@@ -369,9 +369,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   checkbox: {
-    width: 64,
-    height: 64,
-    borderRadius: borderRadius.md,
+    width: 60,
+    height: 62,
+    borderRadius: 14,
     borderWidth: 1.5,
     justifyContent: 'center',
     alignItems: 'center',
@@ -392,25 +392,25 @@ const styles = StyleSheet.create({
   },
   puttsButton: {
     width: 56,
-    height: 64,
-    borderRadius: borderRadius.md,
+    height: 62,
+    borderRadius: 14,
     borderWidth: 1.5,
     justifyContent: 'center',
     alignItems: 'center',
   },
   puttsButtonText: {
     fontSize: 28,
-    fontWeight: '400',
+    fontWeight: '500',
   },
   puttsDisplay: {
     width: 40,
-    height: 64,
+    height: 62,
     justifyContent: 'center',
     alignItems: 'center',
   },
   puttsDisplayText: {
     fontSize: 32,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   missDirectionText: {
     fontSize: 18,

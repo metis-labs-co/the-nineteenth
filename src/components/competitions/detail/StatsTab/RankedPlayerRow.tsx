@@ -1,25 +1,26 @@
 /**
- * RankedPlayerRow - single row inside an expanded StatCategoryCard.
+ * RankedPlayerRow - single runner-up row inside a StatCategoryCard.
  *
- * Displays the player's rank (with a "T" prefix when tied), name, and
- * the stat value. Multiple players sharing a rank render as sibling rows
- * but share the same rank label visually.
+ * Design (competition-details redesign, Stats tab): position number,
+ * small dot, name, bold value — all on one compact line.
+ * Multiple players sharing a rank render as sibling rows but only the
+ * first shows the rank label.
  */
 
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { spacing, typography } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 
 export interface RankedPlayerRowProps {
-  /** Pre-formatted rank label, e.g. "1", "T2" */
+  /** Pre-formatted rank label, e.g. "2", "T2" */
   rankLabel: string;
   /** Whether to show the rank label (only the first row in a tied group shows it) */
   showRank: boolean;
   playerName: string;
   displayValue: string;
-  highlight?: boolean;
+  /** Dot colour; defaults to the theme primary when no team context exists. */
+  dotColor?: string;
 }
 
 export const RankedPlayerRow = React.memo(function RankedPlayerRow({
@@ -27,36 +28,28 @@ export const RankedPlayerRow = React.memo(function RankedPlayerRow({
   showRank,
   playerName,
   displayValue,
-  highlight = false,
+  dotColor,
 }: RankedPlayerRowProps) {
   const colors = useThemeColors();
 
   return (
-    <View style={styles.row}>
-      <View style={styles.rankColumn}>
-        {showRank && (
-          <Text
-            style={[
-              styles.rank,
-              { color: highlight ? colors.primary : colors.textSecondary },
-            ]}
-          >
-            {rankLabel}
-          </Text>
-        )}
-      </View>
+    <View
+      style={styles.row}
+      accessibilityLabel={`${rankLabel}. ${playerName}, ${displayValue}`}
+    >
+      <Text style={[styles.rank, { color: colors.textTertiary }]}>
+        {showRank ? rankLabel : ''}
+      </Text>
+      <View
+        style={[styles.dot, { backgroundColor: dotColor ?? colors.primary }]}
+      />
       <Text
-        style={[styles.name, { color: colors.textPrimary }]}
+        style={[styles.name, { color: colors.textSecondary }]}
         numberOfLines={1}
       >
         {playerName}
       </Text>
-      <Text
-        style={[
-          styles.value,
-          { color: highlight ? colors.primary : colors.textPrimary },
-        ]}
-      >
+      <Text style={[styles.value, { color: colors.textSecondary }]}>
         {displayValue}
       </Text>
     </View>
@@ -67,23 +60,26 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: spacing.sm,
-    gap: spacing.sm,
-  },
-  rankColumn: {
-    width: 32,
-    alignItems: 'flex-start',
+    gap: 8,
+    paddingVertical: 3,
   },
   rank: {
-    ...typography.small,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '700',
+    width: 18,
+  },
+  dot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
   },
   name: {
-    ...typography.body,
     flex: 1,
+    fontSize: 12.5,
   },
   value: {
-    ...typography.bodyBold,
+    fontSize: 12.5,
+    fontWeight: '700',
   },
 });
 

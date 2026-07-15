@@ -3,6 +3,9 @@
 export { LeaderboardTable } from './LeaderboardTable';
 export type { LeaderboardTableProps } from './LeaderboardTable';
 
+export { LeaderboardPodium } from './LeaderboardPodium';
+export type { LeaderboardPodiumProps } from './LeaderboardPodium';
+
 export { TeamLeaderboardView } from './TeamLeaderboardView';
 
 export { TeamLeaderboardTable } from './TeamLeaderboardTable';

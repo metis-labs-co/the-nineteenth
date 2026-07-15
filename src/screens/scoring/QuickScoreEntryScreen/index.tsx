@@ -8,10 +8,11 @@
 import React from 'react';
 import { View, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
+import { LinearGradient } from 'expo-linear-gradient';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { spacing, typography, shadows } from '@/constants/theme';
 import { PageHeader } from '@/components/common/PageHeader';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { ConfirmationDialog } from '@/components/common';
@@ -76,16 +77,32 @@ export default function QuickScoreEntryScreen({ route, navigation }: Props) {
         ItemSeparatorComponent={() => <View style={styles.separator} />}
       />
 
-      {/* Save button */}
-      <View style={[styles.saveButtonContainer, { backgroundColor: colors.background }]}>
-        <TouchableOpacity
-          style={[styles.saveButton, { backgroundColor: colors.primary }]}
-          onPress={vm.handleSave}
-          activeOpacity={0.8}
-        >
-          <Text style={[styles.saveButtonText, { color: colors.white }]}>
-            Save Scores
+      {/* Footer: holes complete + save */}
+      <View
+        style={[
+          styles.saveButtonContainer,
+          { backgroundColor: colors.surface, borderTopColor: colors.border },
+        ]}
+      >
+        <View style={styles.footerInfo}>
+          <Text style={[styles.footerLabel, { color: colors.textSecondary }]}>
+            Holes complete
           </Text>
+          <Text style={[styles.footerValue, { color: colors.textPrimary }]}>
+            {vm.totals.holesEntered} / {vm.totalHoles}
+          </Text>
+        </View>
+        <TouchableOpacity onPress={vm.handleSave} activeOpacity={0.8}>
+          <LinearGradient
+            colors={[colors.primaryLight, colors.primary]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.saveButton}
+          >
+            <Text style={[styles.saveButtonText, { color: colors.white }]}>
+              Save Scores
+            </Text>
+          </LinearGradient>
         </TouchableOpacity>
       </View>
 
@@ -132,18 +149,36 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
     padding: spacing.lg,
     paddingBottom: spacing.xl,
+    borderTopWidth: 1,
     ...shadows.md,
   },
+  footerInfo: {
+    flex: 1,
+  },
+  footerLabel: {
+    ...typography.small,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  footerValue: {
+    ...typography.bodyBold,
+    fontSize: 15,
+    fontWeight: '800',
+  },
   saveButton: {
-    height: 52,
-    borderRadius: borderRadius.lg,
+    height: 50,
+    paddingHorizontal: spacing.xl,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
   },
   saveButtonText: {
     ...typography.bodyBold,
-    fontSize: 16,
+    fontSize: 15,
   },
 });

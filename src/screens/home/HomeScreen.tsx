@@ -5,10 +5,10 @@
  * most actionable, glanceable, and motivating content in a single
  * conditional, scrollable feed (see docs/superpowers/specs/2026-04-29-home-screen-design.md).
  *
- * Reuses existing app components for visual consistency:
- * - PageHeader (used on every other top-level screen)
- * - FeatureButton (the same "Score Social Round" CTA from RoundListScreen)
- * - InProgressRoundSection (the same in-progress carousel from CompetitionDetail)
+ * Restyled per "The Nineteenth - Polished" (HOME): date label + greeting
+ * header with the shared quick-actions cluster, gradient Score CTA
+ * (ScoreRoundCta), and the continue-scoring carousel (ContinueScoringCarousel,
+ * a home-local restyle of InProgressRoundSection's carousel).
  */
 
 import React, { useCallback, useState } from 'react';
@@ -22,18 +22,13 @@ import {
 import { Text, Icon } from 'react-native-paper';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { IconPlus } from '@tabler/icons-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, layout, typography, borderRadius } from '@/constants/theme';
-import {
-  ConfirmationDialog,
-  PageHeader,
-  HeaderQuickActions,
-  FeatureButton,
-} from '@/components/common';
-import { InProgressRoundSection } from '@/components/competitions/detail/sections';
+import { ConfirmationDialog, HeaderQuickActions } from '@/components/common';
 import { FeatureLock, FeatureLockCompact } from '@/components/subscription';
+import { formatDisplayDate } from '@/utils/locale';
 import CreateRoundBottomSheet from '@/screens/rounds/CreateRoundBottomSheet';
 import { useStartNewRound, useScheduleRound } from '@/screens/rounds/RoundListScreen/hooks';
 import { useHomeData } from '@/hooks/home';
@@ -53,6 +48,8 @@ import {
   HomeTileGrid,
   MatesThisWeekSection,
   HandicapHomeCard,
+  ScoreRoundCta,
+  ContinueScoringCarousel,
 } from './components';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -64,6 +61,7 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 export default function HomeScreen() {
   const colors = useThemeColors();
   const navigation = useNavigation<Nav>();
+  const insets = useSafeAreaInsets();
 
   const [bottomSheetVisible, setBottomSheetVisible] = useState(false);
 
@@ -143,10 +141,27 @@ export default function HomeScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <PageHeader
-        title={home.greeting.firstName ? `Welcome ${home.greeting.firstName}` : 'Welcome'}
-        rightContent={<HeaderQuickActions />}
-      />
+      <View
+        style={[styles.header, { paddingTop: insets.top + spacing.sm }]}
+        accessibilityRole="header"
+      >
+        <View style={styles.headerText}>
+          <Text style={[styles.dateLabel, { color: colors.textSecondary }]}>
+            {formatDisplayDate(new Date(), {
+              weekday: 'long',
+              day: 'numeric',
+              month: 'long',
+            })}
+          </Text>
+          <Text
+            style={[styles.greeting, { color: colors.textPrimary }]}
+            numberOfLines={1}
+          >
+            {home.greeting.firstName ? `Welcome ${home.greeting.firstName}` : 'Welcome'}
+          </Text>
+        </View>
+        <HeaderQuickActions />
+      </View>
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
@@ -167,15 +182,7 @@ export default function HomeScreen() {
                 round to look at (mid-round or scheduled within 24h). The
                 bottom sheet is still reachable from the FAB / nav. */}
             {!home.inProgressRounds.length && !home.upcomingWithin24h ? (
-              <FeatureButton
-                title="Score Social Round"
-                subtitle="Start scoring a round at any course"
-                icon={
-                  <IconPlus size={24} color={colors.white} strokeWidth={2.5} />
-                }
-                onPress={openCreateRound}
-                accessibilityLabel="Score new round"
-              />
+              <ScoreRoundCta onPress={openCreateRound} />
             ) : null}
 
             <View style={styles.body}>
@@ -193,7 +200,7 @@ export default function HomeScreen() {
                     actionLabel="View all rounds"
                     onActionPress={handleViewAllRounds}
                   />
-                  <InProgressRoundSection
+                  <ContinueScoringCarousel
                     rounds={home.inProgressRounds}
                     onScoreRound={handleScoreRound}
                     onViewRound={handleViewRound}
@@ -399,6 +406,30 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+    paddingHorizontal: layout.screenPadding,
+    paddingBottom: spacing.sm,
+  },
+  headerText: {
+    flex: 1,
+  },
+  dateLabel: {
+    ...typography.caption,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+  },
+  greeting: {
+    fontSize: 26,
+    lineHeight: 32,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+    marginTop: spacing.xxs,
   },
   scrollContent: {
     paddingTop: spacing.lg,

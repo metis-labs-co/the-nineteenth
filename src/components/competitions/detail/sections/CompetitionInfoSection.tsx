@@ -84,7 +84,7 @@ export function CompetitionInfoSection({
 const styles = StyleSheet.create({
   headerCard: {
     marginBottom: spacing.lg,
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.xl + 2,
     borderWidth: 1,
     overflow: 'hidden',
     ...shadows.sm,

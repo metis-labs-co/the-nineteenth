@@ -5,9 +5,8 @@ import { Text } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { IconPlus, IconUsersPlus } from '@tabler/icons-react-native';
-import { FeatureButton, ConfirmationDialog, EmptyState, LoadingSpinner } from '@/components/common';
+import { ConfirmationDialog, EmptyState, LoadingSpinner } from '@/components/common';
 import { FeatureLockCompact, LimitIndicator } from '@/components/subscription';
-import { LeagueCard } from '@/components/leagues';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useSubscriptionContext } from '@/context/SubscriptionContext';
 import { useLeagues, useDeleteLeague } from '@/hooks/useLeagues';
@@ -15,6 +14,8 @@ import { isUnlimited, isNoLimit } from '@/types/subscription.types';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import type { RootStackParamList } from '@/navigation/types';
 import type { League } from '@/types/database';
+import { CompeteLeagueCard } from './CompeteLeagueCard';
+import { GradientCreateCta } from './CompeteCardBits';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -66,15 +67,12 @@ export function LeaguesContent() {
             context={{ currentCount: leagueCount }}
             onUpgradePress={handleUpgrade}
           >
-            <FeatureButton
+            <GradientCreateCta
               title="Create"
               subtitle="Start a league"
               icon={<IconPlus size={20} color={colors.white} strokeWidth={2.5} />}
               onPress={handleCreateLeague}
-              backgroundColor={colors.primary}
               accessibilityLabel="Create new league"
-              variant="compact"
-              showChevron={false}
             />
           </FeatureLockCompact>
         </View>
@@ -129,7 +127,7 @@ export function LeaguesContent() {
       ) : (
         <View style={styles.list}>
           {leagues.map((league) => (
-            <LeagueCard
+            <CompeteLeagueCard
               key={league.id}
               league={league}
               onPress={() => handleLeaguePress(league)}

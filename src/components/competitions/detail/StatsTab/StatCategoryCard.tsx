@@ -1,11 +1,13 @@
 /**
- * StatCategoryCard - expandable "best of" card for a single stat category.
+ * StatCategoryCard - "best of" leader card for a single stat category.
  *
- * Collapsed: icon + uppercase label + leader value + "Alex & Jordan" subtitle.
- * Expanded: full ranked list with tied players grouped under shared ranks.
+ * Design (competition-details redesign, Stats tab):
+ * - header row: bold muted category label left, faint unit right
+ * - leader row: tinted initials circle, bold name, big value on the right
+ * - divider, then compact runner-up rows (pos · dot · name · value)
  *
- * Follows the visual pattern of `LeagueRecordsSection` but wraps each
- * record in a pressable container to allow expansion.
+ * When there are more runner-ups than the collapsed preview shows, the
+ * card is pressable and expands to the full ranked list.
  */
 
 import React, { useCallback, useMemo, useState } from 'react';
@@ -17,12 +19,12 @@ import {
   UIManager,
   View,
 } from 'react-native';
-import { Icon, Text } from 'react-native-paper';
-import { spacing, typography } from '@/constants/theme';
+import { Text } from 'react-native-paper';
+import { shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import type { Category } from '@/hooks/competitionStatistics';
 import { RankedPlayerRow } from './RankedPlayerRow';
-import { formatRank, formatTiedNames } from './formatters';
+import { formatRank, formatTiedNames, initialsFor, unitForCategory } from './formatters';
 
 // Enable LayoutAnimation on Android.
 if (
@@ -32,53 +34,43 @@ if (
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
+/** Runner-up rows shown before the card expands. */
+const COLLAPSED_ROWS = 3;
+
 export interface StatCategoryCardProps {
   category: Category;
-  /** Whether this is the last card in its group (hides the bottom divider) */
-  isLast?: boolean;
 }
 
-type ToneKey = Category['tone'];
-
-function resolveToneColor(
-  tone: ToneKey,
-  colors: ReturnType<typeof useThemeColors>
-): string {
-  switch (tone) {
-    case 'birdie':
-      return colors.birdie;
-    case 'eagle':
-      return colors.eagle;
-    case 'par':
-      return colors.par;
-    case 'bogey':
-      return colors.bogey;
-    case 'success':
-      return colors.success;
-    case 'warning':
-      return colors.warning;
-    case 'primary':
-      return colors.primary;
-    case 'neutral':
-    default:
-      return colors.textSecondary;
-  }
+interface RestRow {
+  key: string;
+  rankLabel: string;
+  showRank: boolean;
+  playerName: string;
+  displayValue: string;
 }
 
 export const StatCategoryCard = React.memo(function StatCategoryCard({
   category,
-  isLast = false,
 }: StatCategoryCardProps) {
   const colors = useThemeColors();
   const [expanded, setExpanded] = useState(false);
 
-  const toneColor = useMemo(
-    () => resolveToneColor(category.tone, colors),
-    [category.tone, colors]
-  );
-
   const leaderRank = category.ranks[0];
-  const leaderSubtitle = leaderRank ? formatTiedNames(leaderRank.players) : '';
+
+  const restRows = useMemo<RestRow[]>(
+    () =>
+      category.ranks.slice(1).flatMap((rank) => {
+        const tied = rank.players.length > 1;
+        return rank.players.map((player, idx) => ({
+          key: `${rank.rank}-${player.playerId}`,
+          rankLabel: formatRank(rank.rank, tied),
+          showRank: idx === 0,
+          playerName: player.playerName,
+          displayValue: player.displayValue,
+        }));
+      }),
+    [category.ranks]
+  );
 
   const handleToggle = useCallback(() => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -89,115 +81,152 @@ export const StatCategoryCard = React.memo(function StatCategoryCard({
     return null;
   }
 
-  return (
-    <View>
-      <Pressable
-        onPress={handleToggle}
-        accessibilityRole="button"
-        accessibilityLabel={`${category.label}. Leader ${leaderSubtitle} with ${leaderRank.displayValue}. Tap to ${expanded ? 'collapse' : 'expand'}.`}
-        accessibilityState={{ expanded }}
-        style={({ pressed }) => [
-          styles.row,
-          pressed && { opacity: 0.7 },
-        ]}
-      >
-        <View
-          style={[
-            styles.iconContainer,
-            { backgroundColor: colors.surfaceVariant },
-          ]}
+  const leaderName = formatTiedNames(leaderRank.players);
+  const initials = initialsFor(leaderRank.players[0]?.playerName ?? '');
+  const unit = unitForCategory(category.key);
+  const hasMore = restRows.length > COLLAPSED_ROWS;
+  const visibleRows = expanded ? restRows : restRows.slice(0, COLLAPSED_ROWS);
+  const hiddenCount = restRows.length - visibleRows.length;
+
+  const body = (
+    <>
+      <View style={styles.headerRow}>
+        <Text style={[styles.label, { color: colors.textSecondary }]}>
+          {category.label}
+        </Text>
+        <Text style={[styles.unit, { color: colors.textTertiary }]}>
+          {unit}
+        </Text>
+      </View>
+
+      <View style={styles.leaderRow}>
+        <View style={[styles.initialsCircle, { backgroundColor: colors.primary }]}>
+          <Text style={[styles.initials, { color: colors.white }]}>
+            {initials}
+          </Text>
+        </View>
+        <Text
+          style={[styles.leaderName, { color: colors.textPrimary }]}
+          numberOfLines={1}
         >
-          <Icon source={category.icon} size={20} color={toneColor} />
-        </View>
-        <View style={styles.details}>
-          <Text
-            style={[styles.label, { color: colors.textSecondary }]}
-            numberOfLines={1}
-          >
-            {category.label}
-          </Text>
-          <Text style={[styles.value, { color: colors.textPrimary }]}>
-            {leaderRank.displayValue}
-          </Text>
-          <Text
-            style={[styles.subtitle, { color: colors.textSecondary }]}
-            numberOfLines={2}
-          >
-            {leaderSubtitle}
-          </Text>
-        </View>
-        <Icon
-          source={expanded ? 'chevron-up' : 'chevron-down'}
-          size={24}
-          color={colors.textSecondary}
-        />
-      </Pressable>
+          {leaderName}
+        </Text>
+        <Text style={[styles.leaderValue, { color: colors.primaryDark }]}>
+          {leaderRank.displayValue}
+        </Text>
+      </View>
 
-      {expanded && (
-        <View style={styles.expandedList}>
-          {category.ranks.flatMap((rank) => {
-            const tied = rank.players.length > 1;
-            return rank.players.map((player, idx) => (
-              <RankedPlayerRow
-                key={`${rank.rank}-${player.playerId}`}
-                rankLabel={formatRank(rank.rank, tied)}
-                showRank={idx === 0}
-                playerName={player.playerName}
-                displayValue={player.displayValue}
-                highlight={rank.rank === 1}
-              />
-            ));
-          })}
+      {restRows.length > 0 && (
+        <View style={[styles.restList, { borderTopColor: colors.borderLight }]}>
+          {visibleRows.map((row) => (
+            <RankedPlayerRow
+              key={row.key}
+              rankLabel={row.rankLabel}
+              showRank={row.showRank}
+              playerName={row.playerName}
+              displayValue={row.displayValue}
+            />
+          ))}
+          {hasMore && (
+            <Text style={[styles.moreHint, { color: colors.textTertiary }]}>
+              {expanded ? 'Show less' : `+${hiddenCount} more`}
+            </Text>
+          )}
         </View>
       )}
+    </>
+  );
 
-      {!isLast && (
-        <View
-          style={[styles.divider, { backgroundColor: colors.border }]}
-        />
-      )}
-    </View>
+  const cardStyle = [
+    styles.card,
+    shadows.sm,
+    { backgroundColor: colors.surface, borderColor: colors.border },
+  ];
+
+  if (!hasMore) {
+    return (
+      <View
+        style={cardStyle}
+        accessibilityLabel={`${category.label}. Leader ${leaderName} with ${leaderRank.displayValue}.`}
+      >
+        {body}
+      </View>
+    );
+  }
+
+  return (
+    <Pressable
+      onPress={handleToggle}
+      accessibilityRole="button"
+      accessibilityLabel={`${category.label}. Leader ${leaderName} with ${leaderRank.displayValue}. Tap to ${expanded ? 'collapse' : 'expand'} the full list.`}
+      accessibilityState={{ expanded }}
+      style={({ pressed }) => [...cardStyle, pressed && styles.pressed]}
+    >
+      {body}
+    </Pressable>
   );
 });
 
 const styles = StyleSheet.create({
-  row: {
+  card: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 14,
+  },
+  pressed: {
+    opacity: 0.8,
+  },
+  headerRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingVertical: spacing.md,
-    minHeight: 44,
-  },
-  iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
     alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.md,
-  },
-  details: {
-    flex: 1,
+    justifyContent: 'space-between',
   },
   label: {
-    ...typography.caption,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    fontSize: 12.5,
+    fontWeight: '700',
+    flexShrink: 1,
   },
-  value: {
-    ...typography.h3,
-    marginTop: 2,
+  unit: {
+    fontSize: 11,
+    marginLeft: 8,
   },
-  subtitle: {
-    ...typography.small,
-    marginTop: 2,
+  leaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 10,
   },
-  expandedList: {
-    paddingLeft: 40 + spacing.md, // align with details column
-    paddingBottom: spacing.sm,
+  initialsCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  divider: {
-    height: 1,
-    marginLeft: 40 + spacing.md,
+  initials: {
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  leaderName: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  leaderValue: {
+    fontSize: 22,
+    fontWeight: '800',
+  },
+  restList: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    gap: 3,
+  },
+  moreHint: {
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: 4,
+    marginLeft: 26,
   },
 });
 

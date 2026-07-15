@@ -2,19 +2,22 @@
  * BracketTab - Main bracket tab for knockout competitions
  *
  * Shows the bracket visualization with:
+ * - Champion gold banner once the final is decided
  * - Toggle between main and consolation brackets
- * - Swipeable stage pager with stage indicators
- * - Match cards for each stage
- * - Generate bracket button when bracket not yet generated
+ * - Stage pager buttons with match cards for each stage
+ * - "Seed & generate" hero when the bracket is not yet generated
  */
 
 import React, { useState, useCallback, useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
+import { HeroCard, heroPalette } from '@/components/common';
+import { heroCtaBlueGradient } from '@/components/common/HeroCard';
 import { useKnockoutBracket, useGenerateBracket } from '@/hooks/useKnockoutBracket';
-import { isValidPlayerCount } from '@/utils/bracketGeneration';
+import { isValidPlayerCount, getStageName } from '@/utils/bracketGeneration';
 import { BracketToggle } from './BracketToggle';
 import { BracketStageIndicator } from './BracketStageIndicator';
 import { BracketStageView } from './BracketStageView';
@@ -72,6 +75,20 @@ export const BracketTab = React.memo(function BracketTab({
 
   const hasConsolation = (bracketData?.consolationBracket?.length ?? 0) > 0;
 
+  // Champion of the main bracket — the winner of the decided final
+  const champion = useMemo(() => {
+    const mainBracket = bracketData?.mainBracket;
+    if (!mainBracket || mainBracket.length === 0) return null;
+    const finalMatch = mainBracket[mainBracket.length - 1]?.matches?.[0];
+    if (!finalMatch || finalMatch.status !== 'completed' || !finalMatch.winner_id) {
+      return null;
+    }
+    if (finalMatch.winner) return finalMatch.winner;
+    return finalMatch.player1?.id === finalMatch.winner_id
+      ? finalMatch.player1
+      : finalMatch.player2 ?? null;
+  }, [bracketData]);
+
   // Current active stage
   const currentStage = activeStages[activeStageIndex] ?? null;
 
@@ -103,36 +120,50 @@ export const BracketTab = React.memo(function BracketTab({
   // --- Not yet generated state ---
   if (!bracketGenerated) {
     const validCount = isValidPlayerCount(playerCount);
+    // Seeds are only assigned when the bracket is generated (seeding method is
+    // chosen in the generate sheet), so no seeds list can be shown here yet.
+    const totalStages = validCount ? Math.round(Math.log2(playerCount)) : 0;
+    const stageNames = validCount
+      ? Array.from({ length: totalStages }, (_, i) => getStageName(i, totalStages, 'main'))
+      : [];
+    const stagesText =
+      stageNames.length > 1
+        ? `${stageNames.slice(0, -1).join(', ')} and ${stageNames[stageNames.length - 1]}`
+        : stageNames[0] ?? '';
 
     return (
       <View>
-        <View style={[styles.emptyCard, { backgroundColor: colors.surface }]}>
-          <Icon source="tournament" size={48} color={colors.gray300} />
-          <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
-            Bracket not generated
-          </Text>
-          <Text style={[styles.emptyMessage, { color: colors.textSecondary }]}>
+        <HeroCard variant="blue" padding={22}>
+          <View style={[styles.heroIconSquare, { backgroundColor: heroPalette.iconTintBlue }]}>
+            <Icon source="tournament" size={26} color={heroPalette.eyebrowBlue} />
+          </View>
+          <Text style={styles.heroTitle}>Seed & generate the bracket</Text>
+          <Text style={[styles.heroDescription, { color: heroPalette.mutedBlue }]}>
             {validCount
-              ? `${playerCount} players ready. Generate the bracket to create match-ups.`
+              ? `${playerCount} players will be seeded when the bracket is generated. Draws the ${stagesText} automatically.`
               : `Need exactly 4, 8, 16, or 32 players. Currently ${playerCount} players.`}
           </Text>
           {isOrganizer && (
             <TouchableOpacity
-              style={[
-                styles.generateCtaButton,
-                { backgroundColor: validCount ? colors.primary : colors.gray300 },
-              ]}
               onPress={() => validCount && setShowGenerateSheet(true)}
               disabled={!validCount}
-              activeOpacity={0.7}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Generate bracket"
+              accessibilityState={{ disabled: !validCount }}
+              style={!validCount && styles.generateCtaDisabled}
             >
-              <Icon source="tournament" size={20} color={colors.white} />
-              <Text style={[styles.generateCtaText, { color: colors.white }]}>
-                Generate Bracket
-              </Text>
+              <LinearGradient
+                colors={heroCtaBlueGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.generateCta}
+              >
+                <Text style={styles.generateCtaText}>Generate bracket</Text>
+              </LinearGradient>
             </TouchableOpacity>
           )}
-        </View>
+        </HeroCard>
 
         <GenerateBracketSheet
           visible={showGenerateSheet}
@@ -150,7 +181,7 @@ export const BracketTab = React.memo(function BracketTab({
   // --- Loading state ---
   if (isLoading) {
     return (
-      <View style={[styles.emptyCard, { backgroundColor: colors.surface }]}>
+      <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <Text style={[styles.emptyMessage, { color: colors.textSecondary }]}>
           Loading bracket...
         </Text>
@@ -161,7 +192,7 @@ export const BracketTab = React.memo(function BracketTab({
   // --- No data ---
   if (!bracketData || activeStages.length === 0) {
     return (
-      <View style={[styles.emptyCard, { backgroundColor: colors.surface }]}>
+      <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <Icon source="alert-circle-outline" size={48} color={colors.gray300} />
         <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
           No bracket data
@@ -173,6 +204,27 @@ export const BracketTab = React.memo(function BracketTab({
   // --- Bracket view ---
   return (
     <View>
+      {/* Champion banner (final decided) */}
+      {champion && (
+        <HeroCard variant="gold" padding={spacing.lg + 2} style={styles.championBanner}>
+          <View style={styles.championRow}>
+            <View
+              style={[styles.championIconSquare, { backgroundColor: heroPalette.iconTintGold }]}
+            >
+              <Icon source="trophy-outline" size={24} color={heroPalette.gold} />
+            </View>
+            <View style={styles.championTextBlock}>
+              <Text style={[styles.championEyebrow, { color: heroPalette.eyebrowGold }]}>
+                Champion
+              </Text>
+              <Text style={styles.championName} numberOfLines={1}>
+                {champion.name}
+              </Text>
+            </View>
+          </View>
+        </HeroCard>
+      )}
+
       {/* Bracket toggle (main/consolation) */}
       <BracketToggle
         value={activeBracket}
@@ -181,7 +233,7 @@ export const BracketTab = React.memo(function BracketTab({
         style={styles.toggle}
       />
 
-      {/* Stage indicators */}
+      {/* Stage pager buttons */}
       <BracketStageIndicator
         stages={activeStages.map(s => ({ stage: s.stage, stageName: s.stageName }))}
         activeStage={currentStage?.stage ?? 0}
@@ -200,7 +252,7 @@ export const BracketTab = React.memo(function BracketTab({
       {/* Navigation hint */}
       {activeStages.length > 1 && (
         <View style={styles.navHint}>
-          <Text style={[styles.navHintText, { color: colors.textDisabled }]}>
+          <Text style={[styles.navHintText, { color: colors.textTertiary }]}>
             Tap a stage above to navigate
           </Text>
         </View>
@@ -211,10 +263,77 @@ export const BracketTab = React.memo(function BracketTab({
 
 const styles = StyleSheet.create({
   toggle: {
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md - 2,
+  },
+  // Not-generated hero (design L626-631)
+  heroIconSquare: {
+    width: 52,
+    height: 52,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroTitle: {
+    fontSize: 19,
+    fontWeight: '800',
+    color: heroPalette.text,
+    marginTop: spacing.lg,
+  },
+  heroDescription: {
+    fontSize: 13,
+    lineHeight: 19.5,
+    marginTop: spacing.sm,
+  },
+  generateCta: {
+    height: 48,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing.lg + 2,
+  },
+  generateCtaDisabled: {
+    opacity: 0.5,
+  },
+  generateCtaText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: heroPalette.text,
+  },
+  // Champion banner (design L645-648)
+  championBanner: {
+    marginBottom: spacing.md + 2,
+  },
+  championRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md + 2,
+  },
+  championIconSquare: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  championTextBlock: {
+    flex: 1,
+    minWidth: 0,
+  },
+  championEyebrow: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.1,
+    textTransform: 'uppercase',
+  },
+  championName: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: heroPalette.text,
+    marginTop: 2,
   },
   emptyCard: {
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.xl,
+    borderWidth: 1,
     padding: spacing.xl,
     alignItems: 'center',
     gap: spacing.sm,
@@ -227,24 +346,11 @@ const styles = StyleSheet.create({
     ...typography.body,
     textAlign: 'center',
   },
-  generateCtaButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    height: 44,
-    paddingHorizontal: spacing.xl,
-    borderRadius: borderRadius.lg,
-    marginTop: spacing.md,
-  },
-  generateCtaText: {
-    ...typography.bodyBold,
-  },
   navHint: {
     alignItems: 'center',
     paddingTop: spacing.sm,
   },
   navHintText: {
-    ...typography.caption,
+    fontSize: 11,
   },
 });

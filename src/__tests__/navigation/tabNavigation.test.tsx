@@ -72,6 +72,8 @@ const mockLightColors = {
   black: '#000000',
   gray200: '#EEEEEE',
   gray500: '#9E9E9E',
+  surfaceElevated: '#FFFFFF',
+  primaryBackground: '#E8F5E9',
 };
 
 jest.mock('@/context/ThemeContext', () => ({

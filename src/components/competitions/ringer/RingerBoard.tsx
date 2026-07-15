@@ -2,10 +2,12 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { View, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
-import { ErrorState } from '@/components/common';
+import { ErrorState, SegmentedButton } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { spacing, typography, shadows } from '@/constants/theme';
+import { useAuth } from '@/hooks/useAuth';
 import { useRingerBoard } from '@/hooks/competitions/useRingerBoard';
+import { getTeamColorHex } from '@/utils/teamColor';
 import type { RingerEntry } from '@/utils/ringer';
 import { RingerScorecard } from './RingerScorecard';
 import { RingerTeamCard } from './RingerTeamCard';
@@ -22,6 +24,7 @@ function firstName(name: string): string {
 
 export function RingerBoard({ competitionId }: RingerBoardProps) {
   const colors = useThemeColors();
+  const { user } = useAuth();
   const { board, isLoading, error, refetch } = useRingerBoard(competitionId);
   const [view, setView] = useState<RingerView>('individuals');
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -37,6 +40,11 @@ export function RingerBoard({ competitionId }: RingerBoardProps) {
       playerId ? (shortNameById.get(playerId) ?? '—') : '—',
     [shortNameById]
   );
+
+  const handleViewChange = useCallback((v: RingerView) => {
+    setView(v);
+    setExpandedId(null);
+  }, []);
 
   if (isLoading) {
     return (
@@ -59,48 +67,25 @@ export function RingerBoard({ competitionId }: RingerBoardProps) {
   const entries: RingerEntry[] =
     view === 'individuals' ? (board?.individuals ?? []) : (board?.teams ?? []);
 
-  const hasRounds = (board?.includedRoundLabels.length ?? 0) > 0;
+  const roundCount = board?.includedRoundLabels.length ?? 0;
+  const hasRounds = roundCount > 0;
 
   return (
     <View>
-      <View style={[styles.toggle, { backgroundColor: colors.surfaceVariant }]}>
-        {(['individuals', 'teams'] as RingerView[]).map((v) => {
-          const active = view === v;
-          return (
-            <TouchableOpacity
-              key={v}
-              style={[
-                styles.toggleBtn,
-                active && { backgroundColor: colors.surface },
-                active && shadows.sm,
-              ]}
-              onPress={() => {
-                setView(v);
-                setExpandedId(null);
-              }}
-              accessibilityRole="button"
-              accessibilityState={{ selected: active }}
-              accessibilityLabel={v === 'individuals' ? 'Individual ringer' : 'Team ringer'}
-            >
-              <Text
-                style={[
-                  typography.small,
-                  {
-                    color: active ? colors.textPrimary : colors.textSecondary,
-                    fontWeight: active ? '600' : '400',
-                  },
-                ]}
-              >
-                {v === 'individuals' ? 'Individual' : 'Teams'}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
+      <SegmentedButton<RingerView>
+        value={view}
+        onValueChange={handleViewChange}
+        buttons={[
+          { value: 'individuals', label: 'Individual' },
+          { value: 'teams', label: 'Teams' },
+        ]}
+        size="small"
+        style={styles.toggle}
+      />
 
       {hasRounds && (
-        <Text style={[typography.caption, styles.caption, { color: colors.textSecondary }]}>
-          Best score on each hole across {board?.includedRoundLabels.join(', ')}
+        <Text style={[styles.intro, { color: colors.textSecondary }]}>
+          Best score on every hole, taken across all counting rounds.
         </Text>
       )}
 
@@ -109,45 +94,113 @@ export function RingerBoard({ competitionId }: RingerBoardProps) {
           No scores yet. The ringer board fills in as rounds are played.
         </Text>
       ) : (
-        entries.map((entry) => {
-          const expanded = expandedId === entry.participantId;
-          return (
+        <>
+          <View
+            style={[
+              styles.table,
+              shadows.sm,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+            ]}
+          >
             <View
-              key={entry.participantId}
-              style={[styles.card, shadows.sm, { backgroundColor: colors.surface }]}
+              style={[
+                styles.headerRow,
+                {
+                  backgroundColor: colors.surfaceVariant,
+                  borderBottomColor: colors.borderLight,
+                },
+              ]}
             >
-              <TouchableOpacity
-                style={styles.cardHeader}
-                onPress={() => setExpandedId(expanded ? null : entry.participantId)}
-                accessibilityRole="button"
-                accessibilityLabel={`${entry.participantName}, ${entry.total} points, position ${entry.position}`}
-                accessibilityState={{ expanded }}
-              >
-                <Text style={[styles.position, typography.body, { color: colors.textSecondary }]}>
-                  {entry.tied ? `T${entry.position}` : entry.position}
-                </Text>
-                <Text
-                  style={[typography.body, styles.name, { color: colors.textPrimary }]}
-                  numberOfLines={1}
-                >
-                  {entry.participantName}
-                </Text>
-                <Text style={[typography.h4, { color: colors.primary }]}>{entry.total}</Text>
-                <Icon
-                  source={expanded ? 'chevron-up' : 'chevron-down'}
-                  size={20}
-                  color={colors.textSecondary}
-                />
-              </TouchableOpacity>
-              {expanded &&
-                (view === 'teams' ? (
-                  <RingerTeamCard entry={entry} shortNameFor={shortNameFor} />
-                ) : (
-                  <RingerScorecard entry={entry} shortNameFor={shortNameFor} />
-                ))}
+              <Text style={[styles.headerCell, styles.colPos, { color: colors.textTertiary }]}>
+                #
+              </Text>
+              <Text style={[styles.headerCell, styles.colName, { color: colors.textTertiary }]}>
+                PLAYER
+              </Text>
+              <Text style={[styles.headerCell, styles.colPts, { color: colors.textTertiary }]}>
+                PTS
+              </Text>
+              <View style={styles.colChevron} />
             </View>
-          );
-        })
+
+            {entries.map((entry, index) => {
+              const expanded = expandedId === entry.participantId;
+              const isYou = view === 'individuals' && entry.participantId === user?.id;
+              const teamDot = entry.isTeam
+                ? getTeamColorHex(entry.color, index, colors)
+                : null;
+              const isLast = index === entries.length - 1;
+
+              return (
+                <View key={entry.participantId}>
+                  <TouchableOpacity
+                    style={[
+                      styles.row,
+                      !isLast && { borderBottomColor: colors.borderLight, borderBottomWidth: 1 },
+                      isYou && { backgroundColor: colors.primaryBackground },
+                    ]}
+                    onPress={() => setExpandedId(expanded ? null : entry.participantId)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${entry.participantName}, ${entry.total} points, position ${entry.position}`}
+                    accessibilityState={{ expanded }}
+                  >
+                    <Text style={[styles.pos, styles.colPos, { color: colors.textTertiary }]}>
+                      {entry.tied ? `T${entry.position}` : entry.position}
+                    </Text>
+                    {teamDot && <View style={[styles.dot, { backgroundColor: teamDot }]} />}
+                    <View style={styles.nameCell}>
+                      <Text
+                        style={[
+                          styles.name,
+                          { color: colors.textPrimary, fontWeight: isYou ? '700' : '600' },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {entry.participantName}
+                      </Text>
+                      {isYou && (
+                        <View style={[styles.youPill, { backgroundColor: colors.primary }]}>
+                          <Text style={[styles.youPillText, { color: colors.white }]}>YOU</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={[styles.pts, styles.colPts, { color: colors.primaryDark }]}>
+                      {entry.total}
+                    </Text>
+                    <View style={styles.colChevron}>
+                      <Icon
+                        source={expanded ? 'chevron-up' : 'chevron-down'}
+                        size={18}
+                        color={colors.textTertiary}
+                      />
+                    </View>
+                  </TouchableOpacity>
+
+                  {expanded && (
+                    <View
+                      style={[
+                        styles.expandedPanel,
+                        !isLast && { borderBottomColor: colors.borderLight, borderBottomWidth: 1 },
+                      ]}
+                    >
+                      {view === 'teams' ? (
+                        <RingerTeamCard entry={entry} shortNameFor={shortNameFor} />
+                      ) : (
+                        <RingerScorecard entry={entry} shortNameFor={shortNameFor} />
+                      )}
+                    </View>
+                  )}
+                </View>
+              );
+            })}
+          </View>
+
+          {hasRounds && (
+            <Text style={[styles.footer, { color: colors.textTertiary }]}>
+              Across {roundCount} counting {roundCount === 1 ? 'round' : 'rounds'}
+            </Text>
+          )}
+        </>
       )}
     </View>
   );
@@ -156,33 +209,83 @@ export function RingerBoard({ competitionId }: RingerBoardProps) {
 const styles = StyleSheet.create({
   centered: { paddingVertical: spacing.xxl, alignItems: 'center' },
   toggle: {
-    flexDirection: 'row',
-    borderRadius: borderRadius.full,
-    padding: spacing.xs,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
   },
-  toggleBtn: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.full,
-    minHeight: 44,
-    justifyContent: 'center',
+  intro: {
+    fontSize: 12.5,
+    marginHorizontal: 2,
+    marginBottom: spacing.md,
   },
-  caption: { marginBottom: spacing.md },
   empty: { textAlign: 'center', paddingVertical: spacing.xl },
-  card: {
-    borderRadius: borderRadius.lg,
-    paddingHorizontal: spacing.md,
-    marginBottom: spacing.sm,
+  table: {
+    borderRadius: 18,
+    borderWidth: 1,
+    overflow: 'hidden',
   },
-  cardHeader: {
+  headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: spacing.md,
-    gap: spacing.md,
+    paddingVertical: 11,
+    paddingHorizontal: 14,
+    borderBottomWidth: 1,
+  },
+  headerCell: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     minHeight: 44,
   },
-  position: { width: 32 },
-  name: { flex: 1 },
+  colPos: { width: 30 },
+  colName: { flex: 1 },
+  colPts: { width: 48, textAlign: 'right' },
+  colChevron: { width: 26, alignItems: 'flex-end' },
+  pos: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 9,
+  },
+  nameCell: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    minWidth: 0,
+  },
+  name: {
+    fontSize: 14,
+    flexShrink: 1,
+  },
+  youPill: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 999,
+  },
+  youPillText: {
+    fontSize: 8.5,
+    fontWeight: '800',
+  },
+  pts: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  expandedPanel: {
+    paddingHorizontal: 14,
+    paddingBottom: spacing.sm,
+  },
+  footer: {
+    fontSize: 11,
+    textAlign: 'center',
+    marginTop: spacing.md,
+  },
 });

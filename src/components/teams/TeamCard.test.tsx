@@ -128,6 +128,9 @@ jest.mock('react-native-paper', () => {
     Divider: ({ style, ...props }: any) => (
       <View style={[{ height: 1, backgroundColor: '#ccc' }, style]} {...props} />
     ),
+    Icon: ({ source, size: _size, color: _color, ...props }: any) => (
+      <View testID={`icon-${source}`} {...props} />
+    ),
   };
 });
 
@@ -226,26 +229,26 @@ describe('TeamCard', () => {
       expect(screen.getByTestId('team-card')).toBeTruthy();
     });
 
-    it('renders average handicap stat', () => {
+    it('renders average handicap in the subtitle', () => {
       render(<TeamCard {...defaultProps} />);
-      expect(screen.getByText('Avg HC')).toBeTruthy();
-      expect(screen.getByText('20.0')).toBeTruthy(); // (15 + 25) / 2 = 20
+      // (15 + 25) / 2 = 20
+      expect(screen.getByText('2 players · Avg HC 20.0')).toBeTruthy();
     });
 
-    it('renders total handicap stat', () => {
+    it('renders the team abbreviation chip', () => {
       render(<TeamCard {...defaultProps} />);
-      expect(screen.getByText('Total HC')).toBeTruthy();
-      expect(screen.getByText('40.0')).toBeTruthy(); // 15 + 25 = 40
+      // "Team Alpha" → "ALP"
+      expect(screen.getByText('ALP')).toBeTruthy();
     });
 
     it('renders member count correctly for 2 members', () => {
       render(<TeamCard {...defaultProps} />);
-      expect(screen.getByText('2 members')).toBeTruthy();
+      expect(screen.getByText('2 players · Avg HC 20.0')).toBeTruthy();
     });
 
     it('renders member count correctly for 1 member (singular)', () => {
       render(<TeamCard team={singleMemberTeam} />);
-      expect(screen.getByText('1 member')).toBeTruthy();
+      expect(screen.getByText('1 player · Avg HC 18.0')).toBeTruthy();
     });
   });
 
@@ -257,44 +260,46 @@ describe('TeamCard', () => {
     it('calculates average handicap correctly for 2 players', () => {
       render(<TeamCard team={twoPlayerTeam} />);
       // (15 + 25) / 2 = 20.0
-      expect(screen.getByText('20.0')).toBeTruthy();
+      expect(screen.getByText('2 players · Avg HC 20.0')).toBeTruthy();
     });
 
     it('calculates average handicap correctly for 3 players', () => {
       render(<TeamCard team={threePlayerTeam} />);
       // (10 + 20 + 30) / 3 = 20.0
-      expect(screen.getByText('20.0')).toBeTruthy();
+      expect(screen.getByText('3 players · Avg HC 20.0')).toBeTruthy();
     });
 
     it('calculates average handicap correctly for 4 players', () => {
       render(<TeamCard team={fourPlayerTeam} />);
       // (12 + 18 + 24 + 30) / 4 = 21.0
-      expect(screen.getByText('21.0')).toBeTruthy();
+      expect(screen.getByText('4 players · Avg HC 21.0')).toBeTruthy();
     });
 
-    it('calculates total handicap correctly for 2 players', () => {
+    it('shows each player handicap on their member chip (2 players)', () => {
       render(<TeamCard team={twoPlayerTeam} />);
-      // 15 + 25 = 40.0
-      expect(screen.getByText('40.0')).toBeTruthy();
+      expect(screen.getByText('HC 15.0')).toBeTruthy();
+      expect(screen.getByText('HC 25.0')).toBeTruthy();
     });
 
-    it('calculates total handicap correctly for 4 players', () => {
+    it('shows each player handicap on their member chip (4 players)', () => {
       render(<TeamCard team={fourPlayerTeam} />);
-      // 12 + 18 + 24 + 30 = 84.0
-      expect(screen.getByText('84.0')).toBeTruthy();
+      expect(screen.getByText('HC 12.0')).toBeTruthy();
+      expect(screen.getByText('HC 18.0')).toBeTruthy();
+      expect(screen.getByText('HC 24.0')).toBeTruthy();
+      expect(screen.getByText('HC 30.0')).toBeTruthy();
     });
 
     it('handles team with null handicaps in calculation', () => {
       render(<TeamCard team={teamWithNullHandicaps} />);
       // Only player with handicap 15 counted, null treated as 0
-      // Total: 15 + 0 = 15, Avg: (15 + 0) / 2 = 7.5
-      expect(screen.getByText('7.5')).toBeTruthy();
-      expect(screen.getByText('15.0')).toBeTruthy();
+      // Avg: (15 + 0) / 2 = 7.5
+      expect(screen.getByText('2 players · Avg HC 7.5')).toBeTruthy();
+      expect(screen.getByText('HC 15.0')).toBeTruthy();
     });
 
     it('shows 0 for empty team statistics', () => {
       render(<TeamCard team={emptyTeam} />);
-      expect(screen.getAllByText('0.0').length).toBe(2); // avg and total
+      expect(screen.getByText('0 players · Avg HC 0.0')).toBeTruthy();
     });
 
     it('rounds handicap to one decimal place', () => {
@@ -308,7 +313,7 @@ describe('TeamCard', () => {
       );
       render(<TeamCard team={teamWithOddHandicaps} />);
       // (10 + 17 + 23) / 3 = 16.666... → 16.7
-      expect(screen.getByText('16.7')).toBeTruthy();
+      expect(screen.getByText('3 players · Avg HC 16.7')).toBeTruthy();
     });
   });
 
@@ -342,14 +347,13 @@ describe('TeamCard', () => {
 
     it('shows player handicaps in member list', () => {
       render(<TeamCard {...defaultProps} />);
-      expect(screen.getAllByText('HC:').length).toBe(2);
-      expect(screen.getByText('15')).toBeTruthy();
-      expect(screen.getByText('25')).toBeTruthy();
+      expect(screen.getByText('HC 15.0')).toBeTruthy();
+      expect(screen.getByText('HC 25.0')).toBeTruthy();
     });
 
-    it('shows N/A for null handicap', () => {
+    it('shows an em dash for null handicap', () => {
       render(<TeamCard team={teamWithNullHandicaps} />);
-      expect(screen.getByText('N/A')).toBeTruthy();
+      expect(screen.getByText('HC —')).toBeTruthy();
     });
 
     it('shows avatar image when player has photo_url', () => {
@@ -490,14 +494,14 @@ describe('TeamCard', () => {
     it('handles team with no members', () => {
       render(<TeamCard team={emptyTeam} />);
       expect(screen.getByText('Empty Team')).toBeTruthy();
-      expect(screen.getByText('0 members')).toBeTruthy();
+      expect(screen.getByText('0 players · Avg HC 0.0')).toBeTruthy();
+      expect(screen.getByText('No members in this team')).toBeTruthy();
     });
 
     it('handles team with single member', () => {
       render(<TeamCard team={singleMemberTeam} />);
-      expect(screen.getByText('1 member')).toBeTruthy();
-      // Both avg and total are 18.0 for a single member
-      expect(screen.getAllByText('18.0').length).toBe(2);
+      expect(screen.getByText('1 player · Avg HC 18.0')).toBeTruthy();
+      expect(screen.getByText('HC 18.0')).toBeTruthy();
     });
 
     it('handles long team names with ellipsis', () => {
@@ -527,7 +531,8 @@ describe('TeamCard', () => {
         ]
       );
       render(<TeamCard team={zeroHandicapTeam} />);
-      expect(screen.getAllByText('0.0').length).toBe(2);
+      expect(screen.getByText('2 players · Avg HC 0.0')).toBeTruthy();
+      expect(screen.getAllByText('HC 0.0').length).toBe(2);
     });
 
     it('handles negative handicap players (plus handicaps)', () => {
@@ -539,9 +544,10 @@ describe('TeamCard', () => {
         ]
       );
       render(<TeamCard team={negativeHandicapTeam} />);
-      // Avg: (-2 + -4) / 2 = -3
-      expect(screen.getByText('-3.0')).toBeTruthy();
-      expect(screen.getByText('-6.0')).toBeTruthy();
+      // Avg: (-2 + -4) / 2 = -3 → plus-handicap convention "+3.0"
+      expect(screen.getByText('2 players · Avg HC +3.0')).toBeTruthy();
+      expect(screen.getByText('HC +2.0')).toBeTruthy();
+      expect(screen.getByText('HC +4.0')).toBeTruthy();
     });
 
     it('handles decimal handicaps', () => {
@@ -553,9 +559,10 @@ describe('TeamCard', () => {
         ]
       );
       render(<TeamCard team={decimalHandicapTeam} />);
-      // Total: 12.4 + 15.6 = 28.0, Avg: 14.0
-      expect(screen.getByText('14.0')).toBeTruthy();
-      expect(screen.getByText('28.0')).toBeTruthy();
+      // Avg: (12.4 + 15.6) / 2 = 14.0
+      expect(screen.getByText('2 players · Avg HC 14.0')).toBeTruthy();
+      expect(screen.getByText('HC 12.4')).toBeTruthy();
+      expect(screen.getByText('HC 15.6')).toBeTruthy();
     });
 
     it('renders when members array is undefined', () => {

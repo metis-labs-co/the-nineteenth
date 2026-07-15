@@ -47,7 +47,12 @@ export interface ExpandablePlayerCardProps {
   statusIndicator?: React.ReactNode;
 }
 
-const UPGRADE_CONFIG: UpgradePromptConfig = {
+/**
+ * Upgrade prompt config for the tier-gated "compare stats" action. Exported
+ * so other player rows (e.g. the Competition Details Players tab) can offer
+ * the same gated compare affordance without duplicating the copy.
+ */
+export const COMPARE_UPGRADE_CONFIG: UpgradePromptConfig = {
   feature: 'compare_stats_filtered',
   title: 'Filtered Stats Comparison',
   message: 'Upgrade to Premium to compare stats within a specific league or competition.',
@@ -156,7 +161,7 @@ export const ExpandablePlayerCard = React.memo(function ExpandablePlayerCard({
               feature="compare_stats_filtered"
               onPress={onCompare}
               onUpgradePress={handleUpgrade}
-              upgradeConfig={UPGRADE_CONFIG}
+              upgradeConfig={COMPARE_UPGRADE_CONFIG}
               showLockBadge={false}
               accessibilityLabel={`Compare stats with ${player.name}`}
             >
