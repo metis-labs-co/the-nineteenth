@@ -11,7 +11,7 @@ import { View, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { displayHoleNumber } from '@/utils/holeTransformers';
-import { styles } from '../styles';
+import { styles, scorecardBand } from '../styles';
 import type { Hole } from '@/types/database.types';
 
 // =====================================================
@@ -21,18 +21,17 @@ import type { Hole } from '@/types/database.types';
 interface FixedHeaderCellsProps {}
 
 export const FixedHeaderCells = React.memo(function FixedHeaderCells(_props: FixedHeaderCellsProps) {
-  const colors = useThemeColors();
-
+  // Dark band is fixed in both themes (see scorecardBand in ../styles).
   return (
     <>
-      <View style={[styles.tableCell, styles.holeCell, styles.headerCell, { backgroundColor: colors.surfaceVariant }]}>
-        <Text style={[styles.headerText, { color: colors.textPrimary }]}>Hole</Text>
+      <View style={[styles.tableCell, styles.holeCell, styles.headerCell, { backgroundColor: scorecardBand.background }]}>
+        <Text style={[styles.headerLabelText, { color: scorecardBand.label }]}>Hole</Text>
       </View>
-      <View style={[styles.tableCell, styles.indexCell, styles.headerCell, { backgroundColor: colors.surfaceVariant }]}>
-        <Text style={[styles.headerText, { color: colors.textPrimary }]}>SI</Text>
+      <View style={[styles.tableCell, styles.indexCell, styles.headerCell, { backgroundColor: scorecardBand.background }]}>
+        <Text style={[styles.headerLabelText, { color: scorecardBand.muted }]}>SI</Text>
       </View>
-      <View style={[styles.tableCell, styles.parCell, styles.headerCell, { backgroundColor: colors.surfaceVariant }]}>
-        <Text style={[styles.headerText, { color: colors.textPrimary }]}>Par</Text>
+      <View style={[styles.tableCell, styles.parCell, styles.headerCell, { backgroundColor: scorecardBand.background }]}>
+        <Text style={[styles.headerLabelText, { color: scorecardBand.muted }]}>Par</Text>
       </View>
     </>
   );
@@ -122,18 +121,17 @@ interface FixedGrossCellsProps {
 }
 
 export const FixedGrossCells = React.memo(function FixedGrossCells({ parTotal }: FixedGrossCellsProps) {
-  const colors = useThemeColors();
-
+  // Dark band is fixed in both themes (see scorecardBand in ../styles).
   return (
     <>
-      <View style={[styles.tableCell, styles.holeCell, styles.totalCell, { backgroundColor: colors.surfaceVariant }]}>
-        <Text style={[styles.totalLabelText, { color: colors.textPrimary }]}>Gross</Text>
+      <View style={[styles.tableCell, styles.holeCell, styles.totalCell, { backgroundColor: scorecardBand.background }]}>
+        <Text style={[styles.totalLabelText, { color: scorecardBand.label }]}>Gross</Text>
       </View>
-      <View style={[styles.tableCell, styles.indexCell, styles.totalCell, { backgroundColor: colors.surfaceVariant }]}>
-        <Text style={[styles.totalText, { color: colors.textPrimary }]}>-</Text>
+      <View style={[styles.tableCell, styles.indexCell, styles.totalCell, { backgroundColor: scorecardBand.background }]}>
+        <Text style={[styles.totalText, { color: scorecardBand.muted }]}>-</Text>
       </View>
-      <View style={[styles.tableCell, styles.parCell, styles.totalCell, { backgroundColor: colors.surfaceVariant }]}>
-        <Text style={[styles.totalText, { color: colors.textPrimary }]}>{parTotal}</Text>
+      <View style={[styles.tableCell, styles.parCell, styles.totalCell, { backgroundColor: scorecardBand.background }]}>
+        <Text style={[styles.totalText, { color: scorecardBand.text }]}>{parTotal}</Text>
       </View>
     </>
   );
@@ -148,14 +146,14 @@ export const FixedNetCells = React.memo(function FixedNetCells() {
 
   return (
     <>
-      <View style={[styles.tableCell, styles.holeCell, styles.totalCell, { backgroundColor: colors.surfaceVariant }]}>
-        <Text style={[styles.totalLabelText, { color: colors.textPrimary }]}>Net</Text>
+      <View style={[styles.tableCell, styles.holeCell, styles.totalCell, { backgroundColor: colors.surface }]}>
+        <Text style={[styles.totalLabelText, { color: colors.textSecondary }]}>Net</Text>
       </View>
-      <View style={[styles.tableCell, styles.indexCell, styles.totalCell, { backgroundColor: colors.surfaceVariant }]}>
-        <Text style={[styles.totalText, { color: colors.textPrimary }]}>-</Text>
+      <View style={[styles.tableCell, styles.indexCell, styles.totalCell, { backgroundColor: colors.surface }]}>
+        <Text style={[styles.totalText, { color: colors.textTertiary }]}>-</Text>
       </View>
-      <View style={[styles.tableCell, styles.parCell, styles.totalCell, { backgroundColor: colors.surfaceVariant }]}>
-        <Text style={[styles.totalText, { color: colors.textPrimary }]}>-</Text>
+      <View style={[styles.tableCell, styles.parCell, styles.totalCell, { backgroundColor: colors.surface }]}>
+        <Text style={[styles.totalText, { color: colors.textTertiary }]}>-</Text>
       </View>
     </>
   );
@@ -175,14 +173,14 @@ export const FixedStablefordCells = React.memo(function FixedStablefordCells({ g
 
   return (
     <>
-      <View style={[styles.tableCell, styles.holeCell, styles.stablefordCell, { backgroundColor: colors.primary }]}>
-        <Text style={[styles.stablefordLabelText, { color: colors.textOnColored }]}>{label}</Text>
+      <View style={[styles.tableCell, styles.holeCell, styles.stablefordCell, { backgroundColor: colors.primaryBackground }]}>
+        <Text style={[styles.stablefordLabelText, { color: colors.primaryDark }]}>{label}</Text>
       </View>
-      <View style={[styles.tableCell, styles.indexCell, styles.stablefordCell, { backgroundColor: colors.primary }]}>
-        <Text style={[styles.stablefordText, { color: colors.textOnColored }]}>-</Text>
+      <View style={[styles.tableCell, styles.indexCell, styles.stablefordCell, { backgroundColor: colors.primaryBackground }]}>
+        <Text style={[styles.stablefordText, { color: colors.primaryDark }]}>-</Text>
       </View>
-      <View style={[styles.tableCell, styles.parCell, styles.stablefordCell, { backgroundColor: colors.primary }]}>
-        <Text style={[styles.stablefordText, { color: colors.textOnColored }]}>-</Text>
+      <View style={[styles.tableCell, styles.parCell, styles.stablefordCell, { backgroundColor: colors.primaryBackground }]}>
+        <Text style={[styles.stablefordText, { color: colors.primaryDark }]}>-</Text>
       </View>
     </>
   );

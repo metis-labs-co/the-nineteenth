@@ -16,7 +16,7 @@ import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
 import { PICKUP_SCORE } from '@/constants/scoring';
 import { ScoreIndicator } from '../../ScoreIndicator';
 import { spacing, borderRadius } from '@/constants/theme';
-import { styles } from '../styles';
+import { styles, scorecardBand } from '../styles';
 import type { ScorecardTablePlayer, ScoreDisplayMode } from '../types';
 import { isSingleBallScore, type Hole, type TeeBox } from '@/types/database.types';
 import type { HandicapSource } from '@/types/database/enums';
@@ -48,8 +48,6 @@ export const ScrollableHeaderCells = React.memo(function ScrollableHeaderCells({
   coursePar,
   handicapSource,
 }: ScrollableHeaderCellsProps) {
-  const colors = useThemeColors();
-
   return (
     <>
       {players.map((playerData, index) => {
@@ -77,13 +75,14 @@ export const ScrollableHeaderCells = React.memo(function ScrollableHeaderCells({
           handicapLabel = 'DHC';
         }
 
+        // Dark band is fixed in both themes (see scorecardBand in ../styles).
         const content = (
           <>
-            <Text style={[styles.headerText, { color: colors.textPrimary }]} numberOfLines={1}>
+            <Text style={[styles.headerText, { color: scorecardBand.text }]} numberOfLines={1}>
               {getFirstName(playerData.player?.name)}
             </Text>
             <View style={headerLocalStyles.handicapRow}>
-              <Text style={[styles.handicapText, { color: colors.textSecondary }]}>
+              <Text style={[styles.handicapText, { color: scorecardBand.muted }]}>
                 {handicapLabel}: {formatHandicapIndex(displayHandicap, 0)}
               </Text>
               {/* Show info icon only on first player to avoid clutter */}
@@ -93,7 +92,7 @@ export const ScrollableHeaderCells = React.memo(function ScrollableHeaderCells({
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   style={headerLocalStyles.infoButton}
                 >
-                  <Icon source="information-outline" size={12} color={colors.textTertiary} />
+                  <Icon source="information-outline" size={12} color={scorecardBand.muted} />
                 </TouchableOpacity>
               )}
             </View>
@@ -104,7 +103,7 @@ export const ScrollableHeaderCells = React.memo(function ScrollableHeaderCells({
           return (
             <TouchableOpacity
               key={playerData.id}
-              style={[styles.tableCell, styles.headerCell, { ...cellSizeStyle(playerCellWidth), backgroundColor: colors.surfaceVariant }]}
+              style={[styles.tableCell, styles.headerCell, { ...cellSizeStyle(playerCellWidth), backgroundColor: scorecardBand.background }]}
               onPress={() => onPlayerPress(playerData.playerId)}
               activeOpacity={0.7}
             >
@@ -116,7 +115,7 @@ export const ScrollableHeaderCells = React.memo(function ScrollableHeaderCells({
         return (
           <View
             key={playerData.id}
-            style={[styles.tableCell, styles.headerCell, { ...cellSizeStyle(playerCellWidth), backgroundColor: colors.surfaceVariant }]}
+            style={[styles.tableCell, styles.headerCell, { ...cellSizeStyle(playerCellWidth), backgroundColor: scorecardBand.background }]}
           >
             {content}
           </View>
@@ -217,7 +216,7 @@ export const ScrollableHoleCells = React.memo(function ScrollableHoleCells({
 
           return (
             <View key={playerData.id} style={[styles.tableCell, cellSizeStyle(playerCellWidth)]}>
-              <ScoreIndicator strokes={strokes} par={hole.par} display="compact" />
+              <ScoreIndicator strokes={strokes} par={hole.par} display="bordered" size="sm" />
               <Text style={[styles.stablefordSubscript, { color: colors.textSecondary }]}>
                 {points}pt
               </Text>
@@ -227,7 +226,7 @@ export const ScrollableHoleCells = React.memo(function ScrollableHoleCells({
 
         return (
           <View key={playerData.id} style={[styles.tableCell, cellSizeStyle(playerCellWidth)]}>
-            <ScoreIndicator strokes={strokes} par={hole.par} display="compact" />
+            <ScoreIndicator strokes={strokes} par={hole.par} display="bordered" size="sm" />
           </View>
         );
       })}
@@ -326,24 +325,22 @@ interface ScrollableGrossCellsProps {
 
 export const ScrollableGrossCells = React.memo(function ScrollableGrossCells({
   playerStats,
-  parTotals,
   playerCellWidth,
   gameType,
 }: ScrollableGrossCellsProps) {
-  const colors = useThemeColors();
-
   return (
     <>
+      {/* Dark band is fixed in both themes (see scorecardBand in ../styles). */}
       {playerStats.map((stats) => (
         <View
           key={stats.playerId}
-          style={[styles.tableCell, styles.totalCell, { ...cellSizeStyle(playerCellWidth), backgroundColor: colors.surfaceVariant }]}
+          style={[styles.tableCell, styles.totalCell, { ...cellSizeStyle(playerCellWidth), backgroundColor: scorecardBand.background }]}
         >
-          <Text style={[styles.totalText, { color: getScoreColor(stats.totalGross, parTotals.total, colors) }]}>
+          <Text style={[styles.grossValueText, { color: scorecardBand.text }]}>
             {stats.totalGross || '-'}
           </Text>
           {gameType === 'stableford' && stats.hasScores && (
-            <Text style={[styles.stablefordSubscript, { color: colors.textSecondary }]}>
+            <Text style={[styles.stablefordSubscript, { color: scorecardBand.label }]}>
               {stats.totalStableford}pt
             </Text>
           )}
@@ -365,7 +362,6 @@ interface ScrollableNetCellsProps {
 
 export const ScrollableNetCells = React.memo(function ScrollableNetCells({
   playerStats,
-  parTotals,
   playerCellWidth,
 }: ScrollableNetCellsProps) {
   const colors = useThemeColors();
@@ -375,9 +371,9 @@ export const ScrollableNetCells = React.memo(function ScrollableNetCells({
       {playerStats.map((stats) => (
         <View
           key={stats.playerId}
-          style={[styles.tableCell, styles.totalCell, { ...cellSizeStyle(playerCellWidth), backgroundColor: colors.surfaceVariant }]}
+          style={[styles.tableCell, styles.totalCell, { ...cellSizeStyle(playerCellWidth), backgroundColor: colors.surface }]}
         >
-          <Text style={[styles.totalText, { color: getScoreColor(stats.totalNet, parTotals.total, colors) }]}>
+          <Text style={[styles.netValueText, { color: colors.textPrimary }]}>
             {stats.totalNet ? Math.ceil(stats.totalNet) : '-'}
           </Text>
         </View>
@@ -414,9 +410,9 @@ export const ScrollableStablefordCells = React.memo(function ScrollableStablefor
           return (
             <View
               key={stats.playerId}
-              style={[styles.tableCell, styles.stablefordCell, { ...cellSizeStyle(playerCellWidth), backgroundColor: colors.primary }]}
+              style={[styles.tableCell, styles.stablefordCell, { ...cellSizeStyle(playerCellWidth), backgroundColor: colors.primaryBackground }]}
             >
-              <Text style={[styles.stablefordText, { color: colors.textOnColored }]}>-</Text>
+              <Text style={[styles.stablefordText, { color: colors.primaryDark }]}>-</Text>
             </View>
           );
         }
@@ -428,9 +424,9 @@ export const ScrollableStablefordCells = React.memo(function ScrollableStablefor
           return (
             <View
               key={stats.playerId}
-              style={[styles.tableCell, styles.stablefordCell, { ...cellSizeStyle(playerCellWidth), backgroundColor: colors.primary }]}
+              style={[styles.tableCell, styles.stablefordCell, { ...cellSizeStyle(playerCellWidth), backgroundColor: colors.primaryBackground }]}
             >
-              <Text style={[styles.stablefordText, { color: colors.textOnColored }]}>
+              <Text style={[styles.pointsValueText, { color: colors.primary }]}>
                 {stats.hasScores ? parScoreText : '-'}
               </Text>
             </View>
@@ -440,9 +436,9 @@ export const ScrollableStablefordCells = React.memo(function ScrollableStablefor
         return (
           <View
             key={stats.playerId}
-            style={[styles.tableCell, styles.stablefordCell, { ...cellSizeStyle(playerCellWidth), backgroundColor: colors.primary }]}
+            style={[styles.tableCell, styles.stablefordCell, { ...cellSizeStyle(playerCellWidth), backgroundColor: colors.primaryBackground }]}
           >
-            <Text style={[styles.stablefordText, { color: colors.textOnColored }]}>
+            <Text style={[styles.pointsValueText, { color: colors.primary }]}>
               {stats.totalStableford}
             </Text>
           </View>
