@@ -148,12 +148,12 @@ every round's board below the overall table.
 
 - [x] P1 shared primitives
 - [x] P2 screen chrome
-- [ ] P3 details tab
-- [ ] P4 rounds tab
-- [ ] P5 standings tab
-- [ ] P6 players+teams
+- [x] P3 details tab
+- [x] P4 rounds tab
+- [x] P5 standings tab
+- [x] P6 players+teams
 - [ ] P7 stats+breakdown
 - [ ] P8 payouts+skins
-- [ ] P9 settings screen
+- [x] P9 settings screen
 - [ ] P10 knockout
 - [ ] verify:gate green
