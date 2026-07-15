@@ -180,7 +180,14 @@ export const PlayerScoreCard = React.memo(function PlayerScoreCard({
   }, [onPlayerPress, player.id]);
 
   return (
-    <View style={[styles.card, { backgroundColor: colors.surfaceVariant }]}>
+    <View
+      style={[
+        styles.card,
+        isOwnScore === true
+          ? { backgroundColor: colors.primaryBackground, borderColor: colors.primary }
+          : { backgroundColor: colors.surface, borderColor: colors.border },
+      ]}
+    >
       {/* Scoring Label - shows "Your Score" or "Partner's Score" when scoring pairs enabled */}
       {isOwnScore !== undefined && (
         <View style={styles.scoringLabelContainer}>
@@ -239,7 +246,7 @@ export const PlayerScoreCard = React.memo(function PlayerScoreCard({
           </View>
           {/* Running total or current hole points */}
           <View style={styles.statItem}>
-            <ScaledText category="critical" style={[styles.statValue, { color: colors.textPrimary }]}>
+            <ScaledText category="critical" style={[styles.statValue, { color: colors.primary }]}>
               {runningTotalPoints !== undefined ? runningTotalPoints + stablefordPoints : stablefordPoints}
             </ScaledText>
             <ScaledText category="caption" style={[styles.statLabel, { color: colors.textSecondary }]}>PTS</ScaledText>
@@ -248,7 +255,7 @@ export const PlayerScoreCard = React.memo(function PlayerScoreCard({
       </View>
 
       {/* Divider */}
-      <View style={[styles.divider, { backgroundColor: colors.border }]} />
+      <View style={[styles.divider, { backgroundColor: colors.borderLight }]} />
 
       {/* Score Controls */}
       <View style={styles.controlsContainer}>
@@ -261,6 +268,7 @@ export const PlayerScoreCard = React.memo(function PlayerScoreCard({
           disabled={disabled}
           accessibilityLabel="Pick up ball"
           accessibilityHint="Marks that you picked up your ball on this hole"
+          activePalette="bogey"
         />
 
         {/* Score Stepper */}
@@ -302,7 +310,7 @@ export const PlayerScoreCard = React.memo(function PlayerScoreCard({
       {/* Stats Row - Conditional based on settings */}
       {showStatsRow && (
         <>
-          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          <View style={[styles.divider, { backgroundColor: colors.borderLight }]} />
           <StatsRow
             showFIR={showFIR}
             showGIR={showGreenInRegulation}
@@ -343,19 +351,21 @@ export const PlayerScoreCard = React.memo(function PlayerScoreCard({
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.md,
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 15,
+    marginBottom: 13,
     ...shadows.sm,
   },
   scoringLabelContainer: {
-    marginBottom: spacing.sm,
+    marginBottom: 3,
   },
   scoringLabel: {
-    ...typography.small,
-    fontWeight: '600',
+    fontSize: 9.5,
+    fontWeight: '800',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
+    lineHeight: 12,
   },
   header: {
     flexDirection: 'row',
@@ -386,10 +396,14 @@ const styles = StyleSheet.create({
   },
   playerName: {
     ...typography.h3,
+    fontSize: 18,
+    fontWeight: '800',
     flexShrink: 1,
   },
   handicapLabel: {
     ...typography.body,
+    fontSize: 12,
+    lineHeight: 16,
   },
   teamName: {
     ...typography.caption,
@@ -404,34 +418,35 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statValue: {
-    fontSize: 32,
-    fontWeight: '700',
-    lineHeight: 38,
+    fontSize: 26,
+    fontWeight: '800',
+    lineHeight: 30,
   },
   statLabel: {
-    ...typography.small,
-    fontWeight: '600',
-    marginTop: spacing.xs,
+    fontSize: 9.5,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    marginTop: 3,
   },
   divider: {
     height: 1,
-    marginVertical: spacing.lg,
+    marginVertical: 14,
   },
   controlsContainer: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
+    gap: spacing.sm,
   },
   pointsPreviewContainer: {
     alignItems: 'center',
-    marginTop: -spacing.sm,
-    marginBottom: -spacing.sm,
+    marginTop: 11,
   },
   pointsPreviewLabel: {
-    ...typography.small,
-    fontWeight: '700',
+    fontSize: 11.5,
+    fontWeight: '800',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.7,
   },
 });
 

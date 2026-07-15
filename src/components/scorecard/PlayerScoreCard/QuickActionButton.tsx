@@ -2,15 +2,12 @@
  * QuickActionButton Component
  *
  * A reusable button for quick score actions (Pick Up, Par).
- * Displays a button with label below.
+ * Displays the value with its label stacked inside the button
+ * (Score & Round redesign — 60x62 rounded-14 tile).
  */
 
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import {
-  spacing,
-  borderRadius,
-} from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { ScaledText } from '@/components/common/ScaledText';
 
@@ -22,6 +19,12 @@ interface QuickActionButtonProps {
   disabled?: boolean;
   accessibilityLabel?: string;
   accessibilityHint?: string;
+  /**
+   * Palette used for the active state:
+   * - 'primary' (default): green tint — used for the PAR button.
+   * - 'bogey': bogey (orange) tint — used for the PICK UP button.
+   */
+  activePalette?: 'primary' | 'bogey';
 }
 
 export const QuickActionButton = React.memo(function QuickActionButton({
@@ -32,16 +35,35 @@ export const QuickActionButton = React.memo(function QuickActionButton({
   disabled = false,
   accessibilityLabel,
   accessibilityHint,
+  activePalette = 'primary',
 }: QuickActionButtonProps) {
   const colors = useThemeColors();
+
+  const activeStyles =
+    activePalette === 'bogey'
+      ? {
+          backgroundColor: colors.bogeyBackground,
+          borderColor: colors.bogey,
+          textColor: colors.bogey,
+        }
+      : {
+          backgroundColor: colors.primaryBackground,
+          borderColor: colors.primary,
+          textColor: colors.primaryDark,
+        };
+
+  const textColor = isActive ? activeStyles.textColor : colors.textSecondary;
 
   return (
     <View style={styles.container}>
       <TouchableOpacity
         style={[
           styles.button,
-          { borderColor: colors.gray300, backgroundColor: colors.surface },
-          isActive && { backgroundColor: colors.primary, borderColor: colors.primary },
+          { borderColor: colors.border, backgroundColor: colors.surfaceVariant },
+          isActive && {
+            backgroundColor: activeStyles.backgroundColor,
+            borderColor: activeStyles.borderColor,
+          },
           disabled && styles.buttonDisabled,
         ]}
         onPress={onPress}
@@ -53,16 +75,14 @@ export const QuickActionButton = React.memo(function QuickActionButton({
       >
         <ScaledText
           category="critical"
-          style={[
-            styles.buttonText,
-            { color: colors.textPrimary },
-            isActive && { color: colors.white },
-          ]}
+          style={[styles.buttonText, { color: textColor }]}
         >
           {value}
         </ScaledText>
+        <ScaledText category="caption" style={[styles.label, { color: textColor }]}>
+          {label}
+        </ScaledText>
       </TouchableOpacity>
-      <ScaledText category="caption" style={[styles.label, { color: colors.textSecondary }]}>{label}</ScaledText>
     </View>
   );
 });
@@ -72,22 +92,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   button: {
-    width: 64,
-    height: 64,
-    borderRadius: borderRadius.md,
+    width: 60,
+    height: 62,
+    borderRadius: 14,
     borderWidth: 1.5,
     justifyContent: 'center',
     alignItems: 'center',
+    gap: 2,
   },
   buttonText: {
-    fontSize: 28,
-    fontWeight: '600',
+    fontSize: 19,
+    fontWeight: '800',
+    lineHeight: 22,
   },
   label: {
-    fontSize: 11,
-    fontWeight: '600',
-    marginTop: spacing.sm,
-    letterSpacing: 0.5,
+    fontSize: 8,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+    lineHeight: 10,
   },
   buttonDisabled: {
     opacity: 0.4,
