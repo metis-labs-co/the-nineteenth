@@ -240,6 +240,22 @@ export function StatsTab({ displayPlayers: displayPlayersProp, scorecards, round
     return getNineTotal(holes, statKey);
   };
 
+  // Headline summary tiles (redesign): totals the tab already computes for
+  // the table's TOT row, surfaced as a 2-col tile grid. Only stats enabled
+  // via statsVisibility get a tile.
+  const summaryTiles: { key: string; label: string; value: string }[] = [
+    { key: 'score', label: 'GROSS', value: getTotal('score') },
+    ...(statsVisibility.showPutts
+      ? [{ key: 'putts', label: 'PUTTS', value: getTotal('putts') }]
+      : []),
+    ...(statsVisibility.showFairwayHit
+      ? [{ key: 'fir', label: 'FAIRWAYS HIT', value: getTotal('fir') }]
+      : []),
+    ...(statsVisibility.showGreenInRegulation
+      ? [{ key: 'gir', label: 'GREENS IN REG', value: getTotal('gir') }]
+      : []),
+  ];
+
   const renderNineSection = (holeList: Hole[], label: string) => (
     <View>
       {/* Hole rows */}
@@ -351,8 +367,24 @@ export function StatsTab({ displayPlayers: displayPlayersProp, scorecards, round
         </FeatureLockCompact>
       )}
 
+      {/* Headline stat tiles (2-col grid) */}
+      <View style={styles.tileGrid}>
+        {summaryTiles.map((tile) => (
+          <View
+            key={tile.key}
+            style={[
+              styles.tile,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+            ]}
+          >
+            <Text style={[styles.tileValue, { color: colors.textPrimary }]}>{tile.value}</Text>
+            <Text style={[styles.tileLabel, { color: colors.textTertiary }]}>{tile.label}</Text>
+          </View>
+        ))}
+      </View>
+
       {/* Stats table */}
-      <View style={[styles.tableContainer, { backgroundColor: colors.surface }]}>
+      <View style={[styles.tableContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         {/* Header */}
         <View style={[styles.row, styles.headerRow, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.border }]}>
           <View style={styles.holeCell}>
@@ -442,8 +474,33 @@ const styles = StyleSheet.create({
   editStatsButtonText: {
     ...typography.smallBold,
   },
+  tileGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm + 2,
+  },
+  tile: {
+    // 2-col: half width minus half the gap
+    flexBasis: '48%',
+    flexGrow: 1,
+    borderRadius: borderRadius.xl,
+    borderWidth: 1,
+    padding: spacing.md + 3,
+  },
+  tileValue: {
+    fontSize: 26,
+    fontWeight: '800',
+    lineHeight: 30,
+  },
+  tileLabel: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    letterSpacing: 0.4,
+    marginTop: spacing.xs,
+  },
   tableContainer: {
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.xl,
+    borderWidth: 1,
     overflow: 'hidden',
   },
   row: {

@@ -203,11 +203,11 @@ score→color token mappings).
 ## Status (Part 2)
 
 - [ ] S0 baseline + RoundHeader char test
-- [ ] S1 shared chrome
+- [x] S1 shared chrome
 - [ ] S2 player score card + quick strip
 - [ ] S3 match play screen
 - [ ] S4 team match play screen
-- [ ] S5 quick entry screen
-- [ ] S6 review scorecard
-- [ ] S7 view round
+- [x] S5 quick entry screen
+- [x] S6 review scorecard
+- [x] S7 view round
 - [ ] scoring subset + verify:gate green
