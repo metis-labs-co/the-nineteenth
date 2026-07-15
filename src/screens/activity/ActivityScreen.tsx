@@ -7,11 +7,12 @@
 
 import React, { useCallback, useMemo } from 'react';
 import { View, StyleSheet, FlatList, RefreshControl, ActivityIndicator } from 'react-native';
+import { Text } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, layout } from '@/constants/theme';
+import { spacing, layout, typography } from '@/constants/theme';
 import {
   PageHeader,
   HeaderQuickActions,
@@ -101,6 +102,10 @@ export default function ActivityScreen() {
           ListFooterComponent={
             isFetchingNextPage ? (
               <ActivityIndicator style={styles.footerLoader} color={colors.primary} />
+            ) : !hasNextPage ? (
+              <Text style={[styles.caughtUp, { color: colors.textTertiary }]}>
+                You&apos;re all caught up · pull to refresh
+              </Text>
             ) : null
           }
         />
@@ -124,5 +129,11 @@ const styles = StyleSheet.create({
   },
   footerLoader: {
     paddingVertical: spacing.lg,
+  },
+  caughtUp: {
+    ...typography.caption,
+    fontSize: 11,
+    textAlign: 'center',
+    marginTop: spacing.xs + 2,
   },
 });
