@@ -8,6 +8,7 @@
 import React from 'react';
 import { TouchableOpacity, StyleSheet } from 'react-native';
 import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react-native';
+import { borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 
 export type NavigationDirection = 'previous' | 'next';
@@ -33,14 +34,18 @@ export const HoleNavigationButton = React.memo(function HoleNavigationButton({
     <TouchableOpacity
       onPress={onPress}
       disabled={isDisabled}
-      style={[styles.button, isDisabled && styles.disabled]}
+      style={[
+        styles.button,
+        { backgroundColor: colors.surface, borderColor: colors.border },
+        isDisabled && styles.disabled,
+      ]}
       accessibilityLabel={accessibilityLabel}
       accessibilityRole="button"
       accessibilityState={{ disabled: isDisabled }}
       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
     >
       <IconComponent
-        size={28}
+        size={20}
         color={colors.textPrimary}
         style={isDisabled ? { opacity: 0.3 } : undefined}
       />
@@ -50,8 +55,10 @@ export const HoleNavigationButton = React.memo(function HoleNavigationButton({
 
 const styles = StyleSheet.create({
   button: {
-    width: 44,
-    height: 44,
+    width: 40,
+    height: 40,
+    borderWidth: 1,
+    borderRadius: borderRadius.lg,
     justifyContent: 'center',
     alignItems: 'center',
   },
