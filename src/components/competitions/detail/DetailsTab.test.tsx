@@ -232,7 +232,6 @@ function createTestTeam(id: string, memberCount: number): TeamWithMembers {
 // =====================================================
 
 describe('DetailsTab', () => {
-  const mockOnEdit = jest.fn();
   const mockOnUpdateCompetition = jest.fn();
 
   const defaultCompetition = createTestCompetition();

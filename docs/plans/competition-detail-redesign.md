@@ -152,8 +152,8 @@ every round's board below the overall table.
 - [x] P4 rounds tab
 - [x] P5 standings tab
 - [x] P6 players+teams
-- [ ] P7 stats+breakdown
-- [ ] P8 payouts+skins
+- [x] P7 stats+breakdown
+- [x] P8 payouts+skins
 - [x] P9 settings screen
-- [ ] P10 knockout
-- [ ] verify:gate green
+- [x] P10 knockout
+- [x] verify:gate green (type-check ✓, full jest 379 suites/9090 pass ✓, verify:gate PASSED)
