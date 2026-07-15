@@ -202,12 +202,12 @@ score→color token mappings).
 
 ## Status (Part 2)
 
-- [ ] S0 baseline + RoundHeader char test
+- [x] S0 baseline + RoundHeader char test
 - [x] S1 shared chrome
-- [ ] S2 player score card + quick strip
-- [ ] S3 match play screen
-- [ ] S4 team match play screen
+- [x] S2 player score card + quick strip
+- [x] S3 match play screen
+- [x] S4 team match play screen
 - [x] S5 quick entry screen
 - [x] S6 review scorecard
 - [x] S7 view round
-- [ ] scoring subset + verify:gate green
+- [x] scoring subset + verify:gate green (full jest 9104 pass, scoring subset 1348, gate PASSED)
