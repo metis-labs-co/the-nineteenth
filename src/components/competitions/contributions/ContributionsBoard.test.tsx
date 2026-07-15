@@ -129,13 +129,11 @@ describe('ContributionsBoard', () => {
     expect(screen.getByText('1.3×')).toBeTruthy();
     expect(screen.getByText('1.0× = pulled their weight')).toBeTruthy();
 
-    // Round header label — format is "R1 · Best Ball"
-    expect(screen.getByText('R1 · Best Ball')).toBeTruthy();
+    // Round header — format badge chip + round title are separate elements
+    expect(screen.getByText('Best Ball')).toBeTruthy();
+    expect(screen.getByText('R1')).toBeTruthy();
 
-    // Crown emoji appears on the MVP rollup row AND the per-round player row.
-    // The rollup row renders '👑' in its own Text; the player row renders '👑 '
-    // followed by firstName in the same Text node. queryAllByText with a regex
-    // matches both.
+    // Crown emoji appears on the MVP rollup row.
     expect(screen.queryAllByText(/👑/).length).toBeGreaterThan(0);
   });
 
