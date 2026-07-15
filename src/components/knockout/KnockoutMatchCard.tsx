@@ -3,14 +3,17 @@
  *
  * Shows two players, their seeds, scores, and match result.
  * Supports states: pending, ready, in_progress, completed, bye.
+ *
+ * Styled per the Competition Details redesign: blue-tint seed chips,
+ * winner row tint + check, centred "vs" divider chip, tinted footer strip,
+ * and a distinct border + YOU pill on the current user's match.
  */
 
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useThemeColors, type ColorPalette } from '@/context/ThemeContext';
-import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
-import { Badge } from '@/components/common/Badge';
+import { spacing, borderRadius, shadows } from '@/constants/theme';
 import type { KnockoutMatchWithPlayers } from '@/types/database';
 
 export interface KnockoutMatchCardProps {
@@ -19,18 +22,17 @@ export interface KnockoutMatchCardProps {
   onPress?: (match: KnockoutMatchWithPlayers) => void;
 }
 
-function getStatusBadge(status: string, colors: ColorPalette) {
+function getFooterStrip(status: string, colors: ColorPalette) {
   switch (status) {
     case 'completed':
-      return { label: 'Completed', bg: colors.successLight, text: colors.successDark, icon: 'check-circle' };
-    case 'in_progress':
-      return { label: 'In Progress', bg: colors.warningLight, text: colors.warningDark, icon: 'play-circle' };
-    case 'ready':
-      return { label: 'Upcoming', bg: colors.primaryLighter, text: colors.primaryDark, icon: 'clock-outline' };
     case 'bye':
-      return { label: 'BYE', bg: colors.gray200, text: colors.gray700, icon: 'arrow-right-bold' };
+      return { label: 'Completed', bg: colors.primaryBackground, text: colors.primaryDark };
+    case 'in_progress':
+      return { label: 'In progress', bg: colors.warningLight, text: colors.warningDark };
+    case 'ready':
+      return { label: 'Upcoming', bg: colors.infoLight, text: colors.info };
     default:
-      return { label: 'TBD', bg: colors.gray100, text: colors.gray500, icon: 'help-circle-outline' };
+      return { label: 'TBD', bg: colors.surfaceVariant, text: colors.textSecondary };
   }
 }
 
@@ -40,7 +42,7 @@ export const KnockoutMatchCard = React.memo(function KnockoutMatchCard({
   onPress,
 }: KnockoutMatchCardProps) {
   const colors = useThemeColors();
-  const badge = getStatusBadge(match.status, colors);
+  const footer = getFooterStrip(match.status, colors);
 
   const isCompleted = match.status === 'completed';
   const isBye = match.status === 'bye';
@@ -68,13 +70,13 @@ export const KnockoutMatchCard = React.memo(function KnockoutMatchCard({
       <View
         style={[
           styles.playerRow,
-          isWinner && { backgroundColor: colors.successLight },
-          isCurrentUser && !isWinner && { backgroundColor: colors.primaryLighter },
+          isWinner && { backgroundColor: colors.surfaceSelected },
+          isCurrentUser && !isWinner && { backgroundColor: colors.primaryBackground },
         ]}
       >
-        {/* Seed badge */}
-        <View style={[styles.seedBadge, { backgroundColor: colors.gray200 }]}>
-          <Text style={[styles.seedText, { color: colors.gray700 }]}>
+        {/* Seed chip */}
+        <View style={[styles.seedChip, { backgroundColor: colors.infoLight }]}>
+          <Text style={[styles.seedText, { color: colors.info }]}>
             {seed ?? '-'}
           </Text>
         </View>
@@ -84,22 +86,26 @@ export const KnockoutMatchCard = React.memo(function KnockoutMatchCard({
           <Text
             style={[
               styles.playerName,
-              { color: isLoser ? colors.textDisabled : colors.textPrimary },
+              { color: isLoser ? colors.textTertiary : colors.textPrimary },
               isWinner && styles.playerNameWinner,
             ]}
             numberOfLines={1}
           >
             {displayName}
           </Text>
-          {isCurrentUser && <Badge label="You" variant="primary" size="sm" />}
+          {isCurrentUser && (
+            <View style={[styles.youPill, { backgroundColor: colors.primary }]}>
+              <Text style={[styles.youPillText, { color: colors.white }]}>YOU</Text>
+            </View>
+          )}
         </View>
 
         {/* Score */}
         <Text
           style={[
             styles.score,
-            { color: isLoser ? colors.textDisabled : colors.textSecondary },
-            isWinner && { color: colors.successDark },
+            { color: isLoser ? colors.textTertiary : colors.textSecondary },
+            isWinner && { color: colors.primaryDark },
           ]}
         >
           {score != null ? score : '--'}
@@ -107,7 +113,7 @@ export const KnockoutMatchCard = React.memo(function KnockoutMatchCard({
 
         {/* Winner check */}
         {isWinner && (
-          <Icon source="check-circle" size={16} color={colors.success} />
+          <Icon source="check" size={15} color={colors.primaryDark} />
         )}
       </View>
     );
@@ -118,7 +124,7 @@ export const KnockoutMatchCard = React.memo(function KnockoutMatchCard({
       style={[
         styles.card,
         { backgroundColor: colors.surface, borderColor: colors.border },
-        isCurrentUserInMatch && { borderColor: colors.primary, borderWidth: 1.5 },
+        isCurrentUserInMatch && { borderColor: colors.info, borderWidth: 1.5 },
       ]}
     >
       {/* Player 1 */}
@@ -131,8 +137,10 @@ export const KnockoutMatchCard = React.memo(function KnockoutMatchCard({
       )}
 
       {/* Divider with VS */}
-      <View style={[styles.divider, { backgroundColor: colors.border }]}>
-        <Text style={[styles.vsText, { color: colors.textDisabled }]}>vs</Text>
+      <View style={[styles.divider, { backgroundColor: colors.borderLight }]}>
+        <Text style={[styles.vsText, { color: colors.textTertiary, backgroundColor: colors.surface }]}>
+          vs
+        </Text>
       </View>
 
       {/* Player 2 */}
@@ -144,15 +152,14 @@ export const KnockoutMatchCard = React.memo(function KnockoutMatchCard({
         isCompleted && !p2IsWinner
       )}
 
-      {/* Status badge */}
-      <View style={[styles.statusBadge, { backgroundColor: badge.bg }]}>
-        <Icon source={badge.icon} size={12} color={badge.text} />
-        <Text style={[styles.statusText, { color: badge.text }]}>
+      {/* Footer strip */}
+      <View style={[styles.footerStrip, { backgroundColor: footer.bg }]}>
+        <Text style={[styles.footerText, { color: footer.text }]}>
           {isCompleted && match.winner
             ? `${match.winner.name} advances`
             : isBye && match.player1
               ? `${match.player1.name} advances`
-              : badge.label}
+              : footer.label}
         </Text>
       </View>
     </View>
@@ -176,7 +183,7 @@ export const KnockoutMatchCard = React.memo(function KnockoutMatchCard({
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.xl,
     borderWidth: 1,
     overflow: 'hidden',
     ...shadows.sm,
@@ -184,35 +191,48 @@ const styles = StyleSheet.create({
   playerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    gap: spacing.sm,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md + 2,
+    gap: spacing.sm + 2,
   },
-  seedBadge: {
-    width: 24,
-    height: 24,
-    borderRadius: borderRadius.full,
+  seedChip: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
     justifyContent: 'center',
     alignItems: 'center',
   },
   seedText: {
-    ...typography.captionBold,
+    fontSize: 11,
+    fontWeight: '800',
   },
   nameContainer: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
+    gap: spacing.xs + 2,
+    minWidth: 0,
   },
   playerName: {
-    ...typography.body,
+    fontSize: 14.5,
+    fontWeight: '600',
     flexShrink: 1,
   },
   playerNameWinner: {
-    fontWeight: '600',
+    fontWeight: '800',
+  },
+  youPill: {
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: borderRadius.full,
+  },
+  youPillText: {
+    fontSize: 8,
+    fontWeight: '800',
   },
   score: {
-    ...typography.bodyBold,
+    fontSize: 13,
+    fontWeight: '800',
     minWidth: 32,
     textAlign: 'right',
   },
@@ -223,19 +243,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   vsText: {
-    ...typography.caption,
+    fontSize: 9.5,
+    fontWeight: '700',
+    lineHeight: 14,
     position: 'absolute',
     paddingHorizontal: spacing.sm,
   },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.md,
+  footerStrip: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md + 2,
   },
-  statusText: {
-    ...typography.caption,
+  footerText: {
+    fontSize: 11,
+    fontWeight: '800',
   },
 });
