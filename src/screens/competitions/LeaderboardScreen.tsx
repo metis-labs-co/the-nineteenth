@@ -22,7 +22,7 @@ import type { RootStackParamList } from '@/navigation/types';
 import { useCompetitionLeaderboard } from '@/hooks/useCompetitionLeaderboard';
 import type { LeaderboardEntry } from '@/hooks/useCompetitionLeaderboard';
 import { useAuth } from '@/hooks/useAuth';
-import { LeaderboardTable } from '@/components/leaderboard';
+import { LeaderboardTable, LeaderboardPodium } from '@/components/leaderboard';
 import { spacing, typography } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { PageHeader } from '@/components/common/PageHeader';
@@ -105,6 +105,15 @@ export default function LeaderboardScreen({ navigation, route }: Props) {
         }
         showsVerticalScrollIndicator={false}
       >
+        {/* Podium (top 3) — renders only when placings are unambiguous */}
+        {!isLoading && leaderboard && (
+          <LeaderboardPodium
+            entries={leaderboard}
+            currentUserId={user?.id}
+            testID="leaderboard-podium"
+          />
+        )}
+
         <LeaderboardTable
           leaderboard={leaderboard || []}
           currentUserId={user?.id}
