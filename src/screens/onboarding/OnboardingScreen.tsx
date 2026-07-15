@@ -13,7 +13,7 @@
  * - Skip button (always visible)
  * - Progress dots
  * - Push notification permission request
- * - Handicap input with validation (0-54)
+ * - Handicap input with validation (-5 to 54)
  * - Home club selection (optional)
  */
 
@@ -32,6 +32,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/hooks/useAuth';
 import { useScreenInfoStore } from '@/store/screenInfoStore';
 import { spacing, typography } from '@/constants/theme';
+import { MAX_HANDICAP } from '@/constants/scoring';
 import { ThemeProvider, useThemeColors } from '@/context/ThemeContext';
 
 // Step components
@@ -130,7 +131,7 @@ function OnboardingContent() {
       setIsSubmitting(true);
       try {
         const handicapValue =
-          skipHandicap || !handicap ? 54 : parseFloat(handicap);
+          skipHandicap || !handicap ? MAX_HANDICAP : parseFloat(handicap);
 
         // Reset screen welcome modals so they show for first-time users
         resetAllScreensSeen();

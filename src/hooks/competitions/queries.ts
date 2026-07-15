@@ -5,7 +5,6 @@
  *
  * Hooks:
  * - useCompetitions: Fetch all competitions for current user
- * - useFilteredCompetitions: Fetch competitions with filters
  * - useCompetitionDetailsData: Fetch comprehensive competition details
  * - useCompetitionInfo: Fetch minimal competition info for headers
  */
@@ -79,73 +78,6 @@ export function useCompetitions() {
     refetchOnWindowFocus: false, // Don't refetch when app comes to foreground
     refetchOnReconnect: true, // Refetch when network reconnects
     refetchOnMount: true, // Refetch when component mounts if data is stale
-  });
-}
-
-// =====================================================
-// useFilteredCompetitions
-// =====================================================
-
-/**
- * Hook variant with filters for organizing vs participating competitions
- *
- * Usage:
- * ```tsx
- * // Get only competitions user organized
- * const { data: myCompetitions } = useCompetitions({ role: 'organizer' });
- *
- * // Get only competitions user is playing in
- * const { data: participating } = useCompetitions({ role: 'player' });
- * ```
- */
-export interface CompetitionsFilter {
-  role?: 'organizer' | 'player' | 'all';
-  status?: 'upcoming' | 'active' | 'completed';
-}
-
-export function useFilteredCompetitions(filters?: CompetitionsFilter) {
-  return useQuery({
-    queryKey: competitionKeys.list(filters),
-    queryFn: async (): Promise<Competition[]> => {
-      // getCompetitions already returns the user's organizer + accepted-player
-      // competitions; this hook applies status/role filtering client-side.
-      const competitions = await apiClient.getCompetitions();
-
-      if (!filters) return competitions;
-
-      return competitions.filter((comp) => {
-        // Filter by status if provided
-        if (filters.status) {
-          const now = new Date();
-          const startDate = new Date(comp.startDate);
-          const endDate = comp.endDate ? new Date(comp.endDate) : startDate;
-
-          switch (filters.status) {
-            case 'upcoming':
-              if (startDate <= now) return false;
-              break;
-            case 'active':
-              if (startDate > now || endDate < now) return false;
-              break;
-            case 'completed':
-              if (endDate >= now) return false;
-              break;
-          }
-        }
-
-        // Role (organizer vs player) filtering would need the current user id
-        // to compare against comp.organizerId; not currently wired up.
-
-        return true;
-      });
-    },
-
-    // Same cache configuration as base hook
-    staleTime: CACHE_TIMES.STANDARD,
-    gcTime: GC_TIMES.STANDARD,
-    retry: 2,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: true,
   });
 }
 

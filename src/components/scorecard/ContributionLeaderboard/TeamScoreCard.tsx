@@ -11,6 +11,7 @@ import { Text, Icon } from 'react-native-paper';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import type { TeamScoreSummary } from './useContributionData';
+import { formatRelativeToPar } from '@/utils/formatting';
 
 interface TeamScoreCardProps {
   summary: TeamScoreSummary;
@@ -23,11 +24,6 @@ export const TeamScoreCard = React.memo(function TeamScoreCard({
 }: TeamScoreCardProps) {
   const colors = useThemeColors();
   const { grossTotal, netTotal, stablefordTotal, holesScored, toParNet } = summary;
-
-  const formatToPar = useCallback((value: number): string => {
-    if (value === 0) return 'E';
-    return value > 0 ? `+${value}` : `${value}`;
-  }, []);
 
   const getToParColor = useCallback(
     (value: number): string => {
@@ -53,7 +49,7 @@ export const TeamScoreCard = React.memo(function TeamScoreCard({
       {/* To Par Banner */}
       <View style={[styles.toParBanner, { backgroundColor: getToParColor(toParNet) + '15' }]}>
         <Text style={[styles.toParValue, { color: getToParColor(toParNet) }]}>
-          {formatToPar(toParNet)}
+          {formatRelativeToPar(toParNet)}
         </Text>
         <Text style={[styles.toParLabel, { color: getToParColor(toParNet) }]}>
           {toParNet < 0 ? 'under par' : toParNet > 0 ? 'over par' : 'even par'}

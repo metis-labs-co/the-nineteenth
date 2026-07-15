@@ -188,7 +188,7 @@ export async function unregisterPushToken(token: string): Promise<PushServiceRes
 
   try {
     // Note: Type assertion needed as generated types may have stricter parameter types
-    const { data, error } = await supabase.rpc(
+    const { error } = await supabase.rpc(
       'disable_push_token' as never,
       { p_token: token } as never
     );

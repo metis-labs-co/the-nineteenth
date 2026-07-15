@@ -5,8 +5,8 @@
  */
 
 // Re-export query hooks
-export { useCompetitions, useFilteredCompetitions, useCompetitionDetailsData, fetchCompetitionDetails, getCurrentPlayerStanding, useCompetitionInfo } from './queries';
-export type { CompetitionsFilter, UseCompetitionDetailsDataOptions, CompetitionInfo, UseCompetitionInfoOptions } from './queries';
+export { useCompetitions, useCompetitionDetailsData, fetchCompetitionDetails, getCurrentPlayerStanding, useCompetitionInfo } from './queries';
+export type { UseCompetitionDetailsDataOptions, CompetitionInfo, UseCompetitionInfoOptions } from './queries';
 
 // Re-export mutation hooks
 export { useCreateCompetition, useRemoveCompetitionPlayer } from './mutations';

@@ -2,13 +2,12 @@
 import { useMemo } from 'react';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { useCompetitionDetailsData } from './queries';
-import { supabase } from '@/services/supabase/client';
 import { getRoundHoles } from '@/services/courses/getRoundHoles';
+import { fetchFinishedScorecardsForRound } from '@/services/scorecards/fetchFinishedScorecardsForRound';
 import { getCompetitionTeams } from '@/services/teams/teamQueries';
 import { ringerKeys } from '@/hooks/queryKeys';
 import { computeRingerBoard } from '@/utils/ringer';
 import type { RingerBoardResult, RingerRoundInput } from '@/utils/ringer';
-import type { Scorecard as DBScorecard } from '@/types/database/scorecard.types';
 
 interface UseRingerBoardResult {
   board: RingerBoardResult | null;
@@ -21,27 +20,6 @@ interface UseRingerBoardResult {
 function isScramble(round: { team_format?: string | null; game_type?: string }): boolean {
   return round.team_format === 'scramble' || round.game_type === 'scramble'
     || round.team_format === 'alt-shot' || round.game_type === 'alt-shot';
-}
-
-/**
- * Fetch only finished (completed/confirmed) scorecards for a round from Supabase.
- * In-progress scorecards are excluded because `daily_handicap_used` is only
- * populated once a scorecard is finished; incomplete cards would score at scratch.
- * Returns DB-typed scorecards (snake_case) so fields like
- * `player_id` and `daily_handicap_used` are present for the ringer engine.
- */
-async function fetchRingerScorecards(roundId: string): Promise<DBScorecard[]> {
-  const { data, error } = await supabase
-    .from('scorecards')
-    .select('*')
-    .eq('round_id', roundId)
-    .in('status', ['completed', 'confirmed']);
-
-  if (error) {
-    throw new Error(`Failed to fetch scorecards for round ${roundId}: ${error.message}`);
-  }
-
-  return (data ?? []) as DBScorecard[];
 }
 
 export function useRingerBoard(competitionId: string | undefined): UseRingerBoardResult {
@@ -70,7 +48,7 @@ export function useRingerBoard(competitionId: string | undefined): UseRingerBoar
   const scorecardResults = useQueries({
     queries: qualifyingRounds.map((r) => ({
       queryKey: ringerKeys.scorecards(r.id),
-      queryFn: () => fetchRingerScorecards(r.id),
+      queryFn: () => fetchFinishedScorecardsForRound(r.id),
       staleTime: 1000 * 60 * 5,
       gcTime: 1000 * 60 * 30,
     })),
