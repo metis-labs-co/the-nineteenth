@@ -7,6 +7,12 @@
 export { DetailsTab } from './DetailsTab';
 export type { DetailsTabProps } from './DetailsTab';
 
+export { CompetitionStatusBanner } from './CompetitionStatusBanner';
+export type { CompetitionStatusBannerProps } from './CompetitionStatusBanner';
+
+export { ManageGrid } from './ManageGrid';
+export type { ManageGridProps } from './ManageGrid';
+
 export { RoundsTab } from './RoundsTab';
 export type { RoundsTabProps } from './RoundsTab';
 

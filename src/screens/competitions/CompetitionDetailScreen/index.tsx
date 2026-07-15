@@ -487,6 +487,12 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
             }
             onScoreRound={handleScoreRound}
             onViewRound={handleViewRound}
+            onAddRound={isOrganizer ? handleAddRound : undefined}
+            onOpenSettings={
+              isOrganizer
+                ? () => navigation.navigate('CompetitionSettings', { competitionId: id })
+                : undefined
+            }
           />
         )}
 
@@ -527,6 +533,12 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
             maxPlayers={competition.max_players ?? null}
             organizerIsPlayer={competition.organizer_is_player !== false}
             inviteCode={competition.invite_code}
+            teams={competition.team_mode !== 'none' ? teams || [] : undefined}
+            onViewStandings={
+              competition.competition_type !== 'knockout'
+                ? () => setActiveTab('leaderboard')
+                : undefined
+            }
           />
         )}
 

@@ -2,9 +2,11 @@
  * DetailsTab - Competition details
  *
  * Shows:
+ * - Status banner (countdown / live round / winner)
  * - Competition header card
+ * - Organiser quick-action Manage grid
  * - Mini-leaderboard standing (you ± 1, individual + team) for players
- * - Competition settings
+ * - Scoring & format summary
  * - Prize pool section
  */
 
@@ -14,6 +16,8 @@ import type { Competition, GameType, TeamWithMembers } from '@/types/database.ty
 import type { CompetitionPrizePool, PrizePoolPlacement } from '@/types';
 import type { MiniLeaderboardData } from '@/utils/miniLeaderboard';
 import { type RoundWithCourse } from './types';
+import { CompetitionStatusBanner } from './CompetitionStatusBanner';
+import { ManageGrid } from './ManageGrid';
 import {
   CompetitionInfoSection,
   InProgressRoundSection,
@@ -60,6 +64,10 @@ export interface DetailsTabProps {
   onScoreRound?: (roundId: string, gameType: GameType, isTeamRound: boolean) => void;
   /** Open the round detail screen (used by the In Progress quick link). */
   onViewRound?: (roundId: string) => void;
+  /** Open the add-round flow (organiser Manage grid). */
+  onAddRound?: () => void;
+  /** Navigate to the Competition Settings screen (organiser Manage grid). */
+  onOpenSettings?: () => void;
 }
 
 export const DetailsTab = React.memo(function DetailsTab({
@@ -85,6 +93,8 @@ export const DetailsTab = React.memo(function DetailsTab({
   onViewTeams,
   onScoreRound,
   onViewRound,
+  onAddRound,
+  onOpenSettings,
 }: DetailsTabProps) {
   const showMiniLeaderboard =
     isPlayer &&
@@ -110,6 +120,13 @@ export const DetailsTab = React.memo(function DetailsTab({
 
   return (
     <View>
+      <CompetitionStatusBanner
+        competition={competition}
+        rounds={rounds}
+        miniIndividual={miniIndividual}
+        miniTeam={miniTeam}
+      />
+
       {showCompetitionInfo && <CompetitionInfoSection competition={competition} />}
 
       {inProgressRounds.length > 0 && onScoreRound && onViewRound && (
@@ -118,6 +135,18 @@ export const DetailsTab = React.memo(function DetailsTab({
           onScoreRound={onScoreRound}
           onViewRound={onViewRound}
           roundDisplayNumbers={roundDisplayNumbers}
+        />
+      )}
+
+      {isOrganizer && (
+        <ManageGrid
+          competition={competition}
+          rounds={rounds}
+          teams={teams}
+          isOrganizer={isOrganizer}
+          onAddRound={onAddRound}
+          onViewTeams={onViewTeams}
+          onOpenSettings={onOpenSettings}
         />
       )}
 
