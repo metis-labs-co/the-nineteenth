@@ -12,11 +12,12 @@
  */
 
 import React, { useCallback } from 'react';
-import { StyleSheet, TouchableOpacity, Platform, View } from 'react-native';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { IconHome, IconTrophy, IconUser, IconActivity, IconMap } from '@tabler/icons-react-native';
-import { spacing, typography, shadows, layout } from '@/constants/theme';
+import { spacing, typography, layout, borderRadius } from '@/constants/theme';
+import { withOpacity } from '@/constants/colors';
 import { useThemeColors, type ColorPalette } from '@/context/ThemeContext';
 
 /**
@@ -96,7 +97,7 @@ const getTabIcon = (
   isActive: boolean,
   colors: ColorPalette
 ): React.ReactNode => {
-  const iconColor = isActive ? colors.primary : colors.gray500;
+  const iconColor = isActive ? colors.primaryDark : colors.gray500;
   const iconSize = 24;
 
   switch (key) {
@@ -159,7 +160,12 @@ const TabItem = React.memo(function TabItem({
       accessibilityRole="tab"
       accessibilityState={{ selected: isActive }}
     >
-      <View style={styles.iconContainer}>
+      <View
+        style={[
+          styles.iconContainer,
+          isActive && { backgroundColor: colors.primaryBackground },
+        ]}
+      >
         {getTabIcon(tab.key, isActive, colors)}
         {badge !== undefined && badge !== 0 && <Badge count={badge} colors={colors} />}
       </View>
@@ -167,7 +173,7 @@ const TabItem = React.memo(function TabItem({
         style={[
           styles.tabLabel,
           { color: colors.gray500 },
-          isActive && { color: colors.primary, fontWeight: '600' },
+          isActive && { color: colors.primaryDark, fontWeight: '700' },
         ]}
         numberOfLines={1}
       >
@@ -204,8 +210,11 @@ export const BottomNavigation = React.memo(function BottomNavigation({
         styles.container,
         {
           paddingBottom: Math.max(insets.bottom, spacing.sm),
-          backgroundColor: colors.surface,
-          borderTopColor: colors.gray200,
+          // Translucent surface approximating the design's blurred nav bar
+          // (expo-blur is not a dependency; high-alpha surface reads the same
+          // over the photographic backdrop in both themes).
+          backgroundColor: withOpacity(colors.surfaceElevated, 0.92),
+          borderTopColor: colors.border,
         },
       ]}
       accessibilityRole="tablist"
@@ -227,16 +236,9 @@ export const BottomNavigation = React.memo(function BottomNavigation({
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    borderTopWidth: 1,
+    borderTopWidth: StyleSheet.hairlineWidth,
     paddingTop: spacing.sm,
-    ...Platform.select({
-      ios: {
-        ...shadows.lg,
-      },
-      android: {
-        elevation: 8,
-      },
-    }),
+    paddingHorizontal: spacing.sm,
   },
   tabItem: {
     flex: 1,
@@ -252,21 +254,24 @@ const styles = StyleSheet.create({
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
-    width: 32,
-    height: 32,
+    width: 46,
+    height: 30,
+    borderRadius: borderRadius.full,
   },
   tabLabel: {
     ...typography.caption,
+    fontSize: 11,
+    fontWeight: '500',
     marginTop: spacing.xs,
     textAlign: 'center',
   },
   tabLabelActive: {
-    fontWeight: '600',
+    fontWeight: '700',
   },
   badge: {
     position: 'absolute',
     top: -4,
-    right: -8,
+    right: 0,
     borderRadius: 10,
     minWidth: 18,
     height: 18,

@@ -8,6 +8,7 @@
 import React from 'react';
 import { StyleSheet, View, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
+import { SectionLabel } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 
@@ -34,51 +35,54 @@ export const HomeClubSection = React.memo(function HomeClubSection({
   const colors = useThemeColors();
 
   return (
-    <TouchableOpacity
-      style={[styles.container, { backgroundColor: colors.surface }]}
-      activeOpacity={0.7}
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={homeClub ? `Change home club: ${homeClub.name}` : 'Set home club'}
-      accessibilityHint="Tap to change your home club"
-    >
-      <View
+    <View style={styles.section}>
+      <SectionLabel style={styles.sectionLabel}>Home Club</SectionLabel>
+      <TouchableOpacity
         style={[
-          styles.iconContainer,
-          { backgroundColor: homeClub ? colors.primaryLighter : colors.gray100 },
+          styles.container,
+          { backgroundColor: colors.surface, borderColor: colors.border },
         ]}
+        activeOpacity={0.7}
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={homeClub ? `Change home club: ${homeClub.name}` : 'Set home club'}
+        accessibilityHint="Tap to change your home club"
       >
-        <Icon
-          source={homeClub ? 'home' : 'home-outline'}
-          size={20}
-          color={homeClub ? colors.primary : colors.gray400}
-        />
-      </View>
+        <View
+          style={[
+            styles.iconContainer,
+            { backgroundColor: homeClub ? colors.primaryBackground : colors.surfaceVariant },
+          ]}
+        >
+          <Icon
+            source={homeClub ? 'home' : 'home-outline'}
+            size={22}
+            color={homeClub ? colors.primary : colors.textTertiary}
+          />
+        </View>
 
-      <View style={styles.clubInfo}>
-        <Text style={[styles.label, { color: colors.textSecondary }]}>
-          Home Club
-        </Text>
-        {homeClub ? (
-          <>
-            <Text style={[styles.clubName, { color: colors.textPrimary }]}>
-              {homeClub.name}
-            </Text>
-            {homeClub.courses && homeClub.courses.length > 0 && (
-              <Text style={[styles.coursesCount, { color: colors.textSecondary }]}>
-                {homeClub.courses.length} course{homeClub.courses.length !== 1 ? 's' : ''}
+        <View style={styles.clubInfo}>
+          {homeClub ? (
+            <>
+              <Text style={[styles.clubName, { color: colors.textPrimary }]}>
+                {homeClub.name}
               </Text>
-            )}
-          </>
-        ) : (
-          <Text style={[styles.clubName, { color: colors.textTertiary }]}>
-            Tap to set
-          </Text>
-        )}
-      </View>
+              {homeClub.courses && homeClub.courses.length > 0 && (
+                <Text style={[styles.coursesCount, { color: colors.textSecondary }]}>
+                  {homeClub.courses.length} course{homeClub.courses.length !== 1 ? 's' : ''}
+                </Text>
+              )}
+            </>
+          ) : (
+            <Text style={[styles.clubName, { color: colors.textTertiary }]}>
+              Tap to set
+            </Text>
+          )}
+        </View>
 
-      <Icon source="pencil" size={18} color={colors.gray400} />
-    </TouchableOpacity>
+        <Icon source="pencil" size={18} color={colors.textTertiary} />
+      </TouchableOpacity>
+    </View>
   );
 });
 
@@ -88,31 +92,35 @@ export const HomeClubSection = React.memo(function HomeClubSection({
 export const HomeVenueSection = HomeClubSection;
 
 const styles = StyleSheet.create({
+  section: {
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.xl,
+  },
+  sectionLabel: {
+    marginHorizontal: 4,
+  },
   container: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: spacing.lg,
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.md,
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.xl,
+    borderWidth: 1,
   },
   iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: borderRadius.md,
+    width: 44,
+    height: 44,
+    borderRadius: borderRadius.lg,
     justifyContent: 'center',
     alignItems: 'center',
   },
   clubInfo: {
     flex: 1,
-    marginLeft: spacing.md,
-  },
-  label: {
-    ...typography.caption,
+    marginLeft: spacing.md + 1,
   },
   clubName: {
     ...typography.bodyBold,
-    marginTop: 2,
+    fontSize: 15,
+    fontWeight: '700',
   },
   coursesCount: {
     ...typography.small,
