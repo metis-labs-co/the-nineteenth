@@ -155,7 +155,13 @@ export const RoundListCard = React.memo(function RoundListCard<
               {clubName}
             </Text>
           )}
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]} numberOfLines={1}>
+          <Text
+            style={[
+              styles.subtitle,
+              { color: notSubmitted ? colors.error : colors.textSecondary },
+            ]}
+            numberOfLines={1}
+          >
             {subtitle}
           </Text>
         </View>
@@ -283,13 +289,14 @@ const getPointsLabel = (gameType: string): string => {
 };
 
 const styles = StyleSheet.create({
-  // Radius, border, padding, and surface background come from CardContainer.
+  // Border, padding, and surface background come from CardContainer.
   card: {
     gap: spacing.md,
+    borderRadius: 18,
   },
   topRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: spacing.sm,
   },
   titleBlock: {
@@ -297,13 +304,16 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   title: {
-    ...typography.h4,
+    fontSize: 16,
+    fontWeight: '800',
+    lineHeight: 21,
   },
   clubName: {
-    ...typography.small,
+    ...typography.caption,
   },
   subtitle: {
-    ...typography.small,
+    ...typography.caption,
+    fontSize: 12.5,
     fontWeight: '600',
   },
   divider: {
@@ -319,16 +329,16 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   teeSwatch: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
+    width: 15,
+    height: 15,
+    borderRadius: borderRadius.full,
     borderWidth: 1,
   },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    height: 32,
+    height: 28,
     paddingHorizontal: spacing.md - 2,
     borderRadius: borderRadius.full,
     borderWidth: 1,
@@ -336,6 +346,7 @@ const styles = StyleSheet.create({
   },
   chipLabel: {
     ...typography.smallBold,
+    fontSize: 11.5,
     flexShrink: 1,
   },
   playersGroup: {

@@ -4,14 +4,16 @@
  */
 
 import React, { useMemo } from 'react';
-import { View, StyleSheet } from 'react-native';
-import { spacing } from '@/constants/theme';
-import { SectionHeader, FilterPill } from '@/components/common';
+import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { Text } from 'react-native-paper';
+import { useThemeColors } from '@/context/ThemeContext';
+import { spacing, borderRadius } from '@/constants/theme';
+import { SectionHeader } from '@/components/common';
 import { LimitIndicator } from '@/components/subscription';
 import { RoundListCard } from '@/components/rounds';
-import { InProgressRoundSection } from '@/components/competitions/detail/sections';
 import type { RoundWithCourse } from '@/components/competitions/detail/types';
 import type { GameType } from '@/types/database.types';
+import { InProgressRoundCard } from './InProgressRoundCard';
 import type { RoundTypeFilter, RoundItem } from '../types';
 
 const ROUND_TYPE_FILTERS: { key: RoundTypeFilter; label: string }[] = [
@@ -59,8 +61,10 @@ export function RoundListSections({
   maxRoundsPlayed,
   currentUserId,
 }: RoundListSectionsProps) {
-  // 1-based display number per round (the contract InProgressRoundSection
-  // expects from CompetitionDetail).
+  const colors = useThemeColors();
+
+  // 1-based display number per round (the contract InProgressRoundCard
+  // inherits from the shared in-progress carousel).
   const roundDisplayNumbers = useMemo(() => {
     const map: Record<string, number> = {};
     inProgressRounds.forEach((r, idx) => {
@@ -74,13 +78,17 @@ export function RoundListSections({
       {(inProgressRounds.length > 0 || upcomingRounds.length > 0) && (
         <View style={styles.inProgressSection}>
           <SectionHeader title="In Progress" />
-          <InProgressRoundSection
-            rounds={inProgressRounds}
-            onScoreRound={onResumeRound}
-            onViewRound={onViewRound}
-            onDeleteRound={onDeleteInProgressRound}
-            roundDisplayNumbers={roundDisplayNumbers}
-          />
+          {inProgressRounds.map((round) => (
+            <View key={round.id} style={styles.activeCard}>
+              <InProgressRoundCard
+                round={round}
+                number={roundDisplayNumbers[round.id] ?? round.round_number ?? 0}
+                onScoreRound={onResumeRound}
+                onViewRound={onViewRound}
+                onDeleteRound={onDeleteInProgressRound}
+              />
+            </View>
+          ))}
           {upcomingRounds.map((round) => (
             <View key={round.id} style={styles.activeCard}>
               <RoundListCard
@@ -112,17 +120,41 @@ export function RoundListSections({
       />
 
       {/* Round Type Filter Pills */}
-      <View style={styles.filterRow}>
-        {ROUND_TYPE_FILTERS.map(({ key, label }) => (
-          <FilterPill
-            key={key}
-            label={label}
-            selected={roundTypeFilter === key}
-            onPress={() => onRoundTypeFilterChange(key)}
-            accessibilityLabel={`Show ${label.toLowerCase()} rounds`}
-          />
-        ))}
-      </View>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.filterScroll}
+        contentContainerStyle={styles.filterRow}
+      >
+        {ROUND_TYPE_FILTERS.map(({ key, label }) => {
+          const selected = roundTypeFilter === key;
+          return (
+            <TouchableOpacity
+              key={key}
+              style={[
+                styles.filterPill,
+                selected
+                  ? { backgroundColor: colors.primary, borderColor: colors.primary }
+                  : { backgroundColor: colors.surface, borderColor: colors.border },
+              ]}
+              onPress={() => onRoundTypeFilterChange(key)}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityState={{ selected }}
+              accessibilityLabel={`Show ${label.toLowerCase()} rounds`}
+            >
+              <Text
+                style={[
+                  styles.filterPillLabel,
+                  { color: selected ? colors.textOnColored : colors.textSecondary },
+                ]}
+              >
+                {label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
     </>
   );
 }
@@ -134,10 +166,29 @@ const styles = StyleSheet.create({
   activeCard: {
     marginBottom: spacing.md,
   },
+  // Bleed the pill row to the screen edges so it scrolls edge-to-edge
+  // inside the list's padded content container.
+  filterScroll: {
+    marginHorizontal: -spacing.lg,
+    marginBottom: spacing.md,
+  },
   filterRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    alignItems: 'center',
     gap: spacing.sm,
-    marginBottom: spacing.md,
+    paddingHorizontal: spacing.lg,
+  },
+  filterPill: {
+    height: 34,
+    paddingHorizontal: 14,
+    borderRadius: borderRadius.full,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterPillLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 18,
   },
 });
