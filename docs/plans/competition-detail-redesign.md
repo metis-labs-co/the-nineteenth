@@ -146,8 +146,8 @@ every round's board below the overall table.
 
 ## Status
 
-- [ ] P1 shared primitives
-- [ ] P2 screen chrome
+- [x] P1 shared primitives
+- [x] P2 screen chrome
 - [ ] P3 details tab
 - [ ] P4 rounds tab
 - [ ] P5 standings tab

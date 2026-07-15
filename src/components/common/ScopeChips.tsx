@@ -1,7 +1,6 @@
 // src/components/common/ScopeChips.tsx
 import React from 'react';
 import {
-  View,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
