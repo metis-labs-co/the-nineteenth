@@ -1,8 +1,10 @@
 /**
  * CompetitionRoundCard - Individual round card for competition detail view
  *
- * Displays round information including course, date, status, and game type.
- * Includes action buttons for viewing and scoring rounds.
+ * Redesigned per the Competition Details redesign (design L171-188):
+ * status pill + points badge + "Round N" chip top row, format-label title,
+ * "course · date" meta line, restyled scoring-pairs row and action row.
+ * All behaviour (handlers, disabled gating, drag wiggle) is unchanged.
  */
 
 import React, { useEffect } from 'react';
@@ -16,17 +18,39 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
-import { IconMapPin, IconCheck, IconAlertTriangle, IconDice, IconBolt } from '@tabler/icons-react-native';
-import { spacing, typography, borderRadius, shadows, skinsColor } from '@/constants/theme';
-import { useIsDark, type ColorPalette } from '@/context/ThemeContext';
-import { StatusBadge, Pill, DateTimeDisplay } from '@/components/common';
-import type { StatusVariant } from '@/components/common';
+import { IconMapPin, IconBolt } from '@tabler/icons-react-native';
+import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import type { ColorPalette } from '@/context/ThemeContext';
 import { type RoundWithCourse, GAME_TYPE_LABELS } from './types';
 import type { SkinsConfig, GameType } from '@/types';
+import type { Round } from '@/types/database.types';
 import { inferPresetIdFromRound, ROUND_PRESETS } from '@/constants/roundPresets';
+import { formatDateDisplay, formatTime } from '@/utils/formatting';
+import {
+  RoundStatusPill,
+  RoundPointsBadge,
+  RoundNumberChip,
+  SkinsIndicatorBadge,
+  SkinsInfoRow,
+  ScoringPairsRow,
+} from './RoundCardBits';
 
-/** Amber/gold color for skins indicator */
-const SKINS_COLOR = skinsColor;
+/**
+ * Descriptive format label for a round: the matched preset's title (e.g.
+ * "1v1 Singles Match Play"), else the bare game-type label. Shared with
+ * RoundsTab's summary strip.
+ */
+export function getRoundFormatLabel(round: Round): string {
+  const presetId = inferPresetIdFromRound({
+    game_type: round.game_type,
+    is_team_round: round.is_team_round,
+    team_format: round.team_format,
+    round_format: round.round_format,
+    sub_match_size: round.sub_match_size,
+    rules_override: round.rules_override ?? null,
+  });
+  return (presetId && ROUND_PRESETS[presetId]?.title) || GAME_TYPE_LABELS[round.game_type];
+}
 
 export interface CompetitionRoundCardProps {
   round: RoundWithCourse;
@@ -47,6 +71,11 @@ export interface CompetitionRoundCardProps {
   /** Skins configuration (overrides round.skins_config) */
   skinsConfig?: SkinsConfig | null;
   /**
+   * Max competition points available in this round (from per-round rules).
+   * Shows the "N pts" badge when > 0; omit/0 hides the badge.
+   */
+  roundPoints?: number;
+  /**
    * True while this card is the actively-dragged item in the rounds list.
    * Triggers a wiggle animation, elevated shadow, and slight scale-up.
    * Drag activation itself lives on the parent row wrapper (RoundsTab's
@@ -59,31 +88,6 @@ export interface CompetitionRoundCardProps {
   /** Open the force-submit confirmation for this round. */
   onForceSubmit?: (roundId: string) => void;
 }
-
-/**
- * Maps round status to StatusBadge variant
- */
-const getStatusVariant = (status: string): StatusVariant => {
-  switch (status) {
-    case 'in-progress':
-      return 'in-progress';
-    case 'completed':
-      return 'completed';
-    case 'upcoming':
-    default:
-      return 'upcoming';
-  }
-};
-
-/**
- * Format skins pot value for display
- */
-const formatSkinsPot = (config: SkinsConfig): string => {
-  if (config.pot_type === 'per_hole') {
-    return `$${config.pot_value}/hole`;
-  }
-  return `$${config.pot_value} total`;
-};
 
 export const CompetitionRoundCard = React.memo(function CompetitionRoundCard({
   round,
@@ -98,13 +102,12 @@ export const CompetitionRoundCard = React.memo(function CompetitionRoundCard({
   allPlayersScored,
   hasSkins: hasSkinsOverride,
   skinsConfig: skinsConfigOverride,
+  roundPoints,
   isDragging = false,
   colors,
   canForceSubmit,
   onForceSubmit,
 }: CompetitionRoundCardProps) {
-  const isDark = useIsDark();
-
   // One-shot wiggle on drag start to acknowledge the long-press, then the
   // card settles into a stable elevated state (scale + drop shadow) for
   // the rest of the drag. Total wiggle duration ~420ms, ending back at 0
@@ -138,20 +141,17 @@ export const CompetitionRoundCard = React.memo(function CompetitionRoundCard({
   const hasSkins = hasSkinsOverride ?? round.has_skins ?? false;
   const skinsConfig = skinsConfigOverride ?? round.skins_config ?? null;
 
-  // Derive a descriptive format label from the round's full shape (e.g.
-  // "1v1 Singles Match Play", "2v2 Pairs Better Ball"). Falls back to the
-  // bare game-type label if the round doesn't match a canonical preset.
-  const presetId = inferPresetIdFromRound({
-    game_type: round.game_type,
-    is_team_round: round.is_team_round,
-    team_format: round.team_format,
-    round_format: round.round_format,
-    sub_match_size: round.sub_match_size,
-    rules_override: round.rules_override ?? null,
-  });
-  const formatLabel =
-    (presetId && ROUND_PRESETS[presetId]?.title) ??
-    GAME_TYPE_LABELS[round.game_type];
+  const formatLabel = getRoundFormatLabel(round);
+
+  // "course · date" meta line (design L178): e.g. "Kingston Heath · Sat 19 Jul · 9:00 AM"
+  const teeTime = formatTime(round.tee_time ?? null);
+  const metaLine = [
+    round.course?.name || 'Course TBD',
+    formatDateDisplay(round.date, { weekday: 'short', day: 'numeric', month: 'short' }),
+    teeTime,
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
   // Determine if scoring is disabled
   const hasCourse = !!round.course;
@@ -167,108 +167,46 @@ export const CompetitionRoundCard = React.memo(function CompetitionRoundCard({
     if (!hasEnoughPlayers) return 'Need at least 2 players';
     return undefined;
   };
+
   const cardContent = (
     <View style={styles.content}>
-        {/* Top Row: Status Badge + Game Type Badge + Skins Badge + Round Pill */}
-        <View style={styles.topRow}>
-          <View style={styles.badgeRow}>
-            <StatusBadge status={getStatusVariant(round.status)} />
-            <StatusBadge
-              status="custom"
-              label={formatLabel}
-              size="md"
-              backgroundColor={colors.gray100}
-            />
-            {hasSkins && (
-              <View
-                style={[styles.skinsBadge, { backgroundColor: `${SKINS_COLOR}20` }]}
-                accessibilityLabel={`Skins game enabled${skinsConfig ? `: ${formatSkinsPot(skinsConfig)}` : ''}`}
-              >
-                <IconDice size={14} color={SKINS_COLOR} />
-                <Text style={[styles.skinsBadgeText, { color: SKINS_COLOR }]}>
-                  Skins
-                </Text>
-              </View>
-            )}
-          </View>
-          <Pill label={`Round ${roundNumber}`} size="md" />
-        </View>
-
-        {/* Course Name + Club Name */}
-        <View style={styles.titleRow}>
-          <Text style={[styles.title, { color: colors.textPrimary }]} numberOfLines={1}>
-            {round.course?.name || 'Course TBD'}
-          </Text>
-          {round.course?.clubs?.name && (
-            <Text
-              style={[styles.clubName, { color: colors.textSecondary }]}
-              numberOfLines={1}
-            >
-              {` · ${round.course.clubs.name}`}
-            </Text>
+      {/* Top Row: Status Pill + Points Badge + Skins Badge … Round N chip */}
+      <View style={styles.topRow}>
+        <View style={styles.badgeRow}>
+          <RoundStatusPill status={round.status} colors={colors} />
+          {!!roundPoints && roundPoints > 0 && (
+            <RoundPointsBadge points={roundPoints} colors={colors} />
           )}
+          {hasSkins && <SkinsIndicatorBadge config={skinsConfig} />}
         </View>
+        <RoundNumberChip roundNumber={roundNumber} colors={colors} />
+      </View>
 
-        {/* Location */}
-        {(round.course?.clubs?.city || round.course?.clubs?.state) && (
-          <View style={styles.locationRow}>
-            <IconMapPin size={14} color={colors.textSecondary} />
-            <Text style={[styles.locationText, { color: colors.textSecondary }]}>
-              {[round.course?.clubs?.city, round.course?.clubs?.state].filter(Boolean).join(', ')}
-            </Text>
-          </View>
-        )}
+      {/* Title: derived format label */}
+      <Text style={[styles.title, { color: colors.textPrimary }]} numberOfLines={1}>
+        {formatLabel}
+      </Text>
 
-        {/* Date and Time */}
-        <View style={styles.detailsRow}>
-          <DateTimeDisplay date={round.date} time={round.tee_time} size="md" />
-        </View>
+      {/* Meta line: pin icon + "course · date" */}
+      <View style={styles.metaRow}>
+        <IconMapPin size={14} color={colors.textTertiary} />
+        <Text style={[styles.metaText, { color: colors.textSecondary }]} numberOfLines={1}>
+          {metaLine}
+        </Text>
+      </View>
 
-        {/* Skins Info */}
-        {hasSkins && skinsConfig && (
-          <View style={styles.skinsInfoRow}>
-            <IconDice size={14} color={SKINS_COLOR} />
-            <Text style={[styles.skinsInfoText, { color: SKINS_COLOR }]}>
-              Skins: {formatSkinsPot(skinsConfig)} • {skinsConfig.scoring_type === 'gross' ? 'Gross' : 'Net'}
-            </Text>
-          </View>
-        )}
+      {/* Skins Info */}
+      {hasSkins && skinsConfig && <SkinsInfoRow config={skinsConfig} />}
 
-        {/* Scoring Pairs Row - Organizer Only */}
-        {isOrganizer && round.scoring_pairs_required && onManageScoringPairs && (
-          <TouchableOpacity
-            style={[styles.scoringPairsRow, { borderTopColor: colors.borderLight }]}
-            onPress={() => onManageScoringPairs(round.id)}
-            accessibilityLabel={`Manage scoring pairs for round ${roundNumber}`}
-            accessibilityRole="button"
-            activeOpacity={0.7}
-          >
-            <View style={styles.scoringPairsLabelRow}>
-              <Icon source="account-switch" size={18} color={colors.textSecondary} />
-              <Text style={[styles.scoringPairsLabel, { color: colors.textPrimary }]}>
-                Scoring Pairs
-              </Text>
-            </View>
-            <View style={styles.scoringPairsStatusRow}>
-              {hasScoringPairs ? (
-                <>
-                  <IconCheck size={16} color={colors.success} />
-                  <Text style={[styles.scoringPairsStatusText, { color: colors.success }]}>
-                    Configured
-                  </Text>
-                </>
-              ) : (
-                <>
-                  <IconAlertTriangle size={16} color={colors.warning} />
-                  <Text style={[styles.scoringPairsStatusText, { color: colors.warning }]}>
-                    Not configured
-                  </Text>
-                </>
-              )}
-              <Icon source="chevron-right" size={18} color={colors.textTertiary} />
-            </View>
-          </TouchableOpacity>
-        )}
+      {/* Scoring Pairs Row - Organizer Only */}
+      {isOrganizer && round.scoring_pairs_required && onManageScoringPairs && (
+        <ScoringPairsRow
+          configured={!!hasScoringPairs}
+          roundNumber={roundNumber}
+          onPress={() => onManageScoringPairs(round.id)}
+          colors={colors}
+        />
+      )}
     </View>
   );
 
@@ -306,28 +244,23 @@ export const CompetitionRoundCard = React.memo(function CompetitionRoundCard({
         {cardContent}
 
         {/* Divider */}
-        <Divider style={[styles.divider, { backgroundColor: colors.gray200 }]} />
+        <Divider style={[styles.divider, { backgroundColor: colors.borderLight }]} />
 
-        {/* Action Buttons */}
+        {/* Action Buttons (design L182-186) */}
         <View style={styles.actions}>
           <TouchableOpacity
-            style={[
-              styles.actionButton,
-              isDark
-                ? [styles.viewButtonOutline, { borderColor: colors.primary }]
-                : { backgroundColor: colors.primaryLighter },
-            ]}
+            style={[styles.actionButton, { backgroundColor: colors.primaryBackground }]}
             onPress={() => onViewRound(round.id)}
             accessibilityLabel={`View round ${roundNumber}`}
             accessibilityRole="button"
             activeOpacity={0.7}
           >
-            <Text style={[styles.actionButtonLabel, { color: colors.primary }]}>View</Text>
+            <Text style={[styles.actionButtonLabel, { color: colors.primaryDark }]}>View</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[
               styles.actionButton,
-              { backgroundColor: isScoringDisabled ? colors.gray300 : colors.primary },
+              { backgroundColor: isScoringDisabled ? colors.surfaceVariant : colors.primary },
             ]}
             onPress={() => onScoreRound(round.id, round.game_type, round.is_team_round)}
             accessibilityLabel={`Score round ${roundNumber}${getDisabledReason() ? ` - ${getDisabledReason()}` : ''}`}
@@ -336,15 +269,20 @@ export const CompetitionRoundCard = React.memo(function CompetitionRoundCard({
             activeOpacity={0.7}
             disabled={isScoringDisabled}
           >
-            <Text style={[styles.actionButtonLabelPrimary, { color: colors.white }]}>Score</Text>
+            <Text
+              style={[
+                styles.actionButtonLabel,
+                { color: isScoringDisabled ? colors.textTertiary : colors.white },
+              ]}
+            >
+              Score
+            </Text>
           </TouchableOpacity>
           {onQuickScore && (
             <TouchableOpacity
               style={[
                 styles.quickScoreIconButton,
-                {
-                  borderColor: isScoringDisabled ? colors.gray300 : colors.primary,
-                },
+                { borderColor: isScoringDisabled ? colors.border : colors.primaryLighter },
               ]}
               onPress={() => onQuickScore(round.id)}
               accessibilityLabel={`Quick score round ${roundNumber}${getDisabledReason() ? ` - ${getDisabledReason()}` : ''}`}
@@ -353,7 +291,7 @@ export const CompetitionRoundCard = React.memo(function CompetitionRoundCard({
               activeOpacity={0.7}
               disabled={isScoringDisabled}
             >
-              <IconBolt size={18} color={isScoringDisabled ? colors.gray400 : colors.primary} />
+              <IconBolt size={18} color={isScoringDisabled ? colors.textTertiary : colors.primary} />
             </TouchableOpacity>
           )}
         </View>
@@ -379,7 +317,7 @@ export const CompetitionRoundCard = React.memo(function CompetitionRoundCard({
 const styles = StyleSheet.create({
   card: {
     flexDirection: 'column',
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.xl,
     borderWidth: 1,
     padding: spacing.lg,
     ...shadows.sm,
@@ -397,87 +335,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: spacing.sm,
+    gap: spacing.sm,
   },
   badgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
+    gap: spacing.xs + 3,
     flexWrap: 'wrap',
-  },
-  skinsBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: borderRadius.sm,
-  },
-  skinsBadgeText: {
-    ...typography.caption,
-    fontWeight: '600',
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    marginBottom: spacing.xs,
+    flexShrink: 1,
   },
   title: {
     ...typography.bodyBold,
+    fontWeight: '800',
+    marginTop: spacing.sm + 3,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs + 2,
+    marginTop: 3,
+  },
+  metaText: {
+    ...typography.caption,
+    fontSize: 12.5,
     flexShrink: 1,
-  },
-  clubName: {
-    ...typography.body,
-    flexShrink: 1,
-    minWidth: 0,
-  },
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    marginBottom: spacing.sm,
-  },
-  locationText: {
-    ...typography.small,
-  },
-  detailsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  skinsInfoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    marginTop: spacing.sm,
-  },
-  skinsInfoText: {
-    ...typography.small,
-    fontWeight: '500',
-  },
-  scoringPairsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: spacing.md,
-    paddingTop: spacing.md,
-    borderTopWidth: 1,
-  },
-  scoringPairsLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  scoringPairsLabel: {
-    ...typography.small,
-  },
-  scoringPairsStatusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  scoringPairsStatusText: {
-    ...typography.smallBold,
   },
   divider: {
     marginTop: spacing.md,
@@ -489,30 +370,24 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     flex: 1,
+    height: 44,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.lg,
     justifyContent: 'center',
     alignItems: 'center',
   },
   quickScoreIconButton: {
     width: 44,
     height: 44,
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.lg,
     borderWidth: 1,
     backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  viewButtonOutline: {
-    borderWidth: 1,
-    backgroundColor: 'transparent',
-  },
   actionButtonLabel: {
-    ...typography.smallBold,
-  },
-  actionButtonLabelPrimary: {
-    ...typography.smallBold,
+    fontSize: 13.5,
+    fontWeight: '700',
   },
   forceSubmitButton: {
     flexDirection: 'row',
@@ -522,11 +397,12 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     height: 44,
     borderWidth: 1,
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.lg,
     backgroundColor: 'transparent',
   },
   forceSubmitLabel: {
-    ...typography.smallBold,
+    fontSize: 13,
+    fontWeight: '700',
   },
 });
 

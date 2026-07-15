@@ -14,7 +14,7 @@
  * pan offset and persisted via `onReorder`.
  */
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -32,16 +32,17 @@ import Animated, {
   withTiming,
   type SharedValue,
 } from 'react-native-reanimated';
-import { spacing, typography, borderRadius } from '@/constants/theme';
+import { spacing, borderRadius, shadows } from '@/constants/theme';
 import type { ColorPalette } from '@/context/ThemeContext';
 import type { RoundWithCourse } from './types';
 import type { GameType } from '@/types';
-import { CompetitionRoundCard } from './CompetitionRoundCard';
+import { CompetitionRoundCard, getRoundFormatLabel } from './CompetitionRoundCard';
 import { getHoverIndex, computeReorderShift } from './reorderMath';
 import { EmptyState, SwipeableRow } from '@/components/common';
 import { useForceFinalizeRound } from '@/hooks/rounds';
 import ForceSubmitRoundDialog from '@/components/rounds/ForceSubmitRoundDialog';
 import { useToast } from '@/context/ToastContext';
+import { summarizeCompetition } from '@/utils/competitionPoints/roundPointsSummary';
 
 /** Long-press threshold before drag activates. Short enough to feel snappy,
  *  long enough that vertical scrolls pass through to the parent ScrollView. */
@@ -268,6 +269,27 @@ export const RoundsTab = React.memo(function RoundsTab({
     );
   }, [forceFinalize, forceSubmitRoundId, competitionId, showToast]);
 
+  // Per-round max points from the per-round rules (rules_override) already on
+  // each round. Sub-match counts for split (pair-points) rounds need members
+  // per team; competitions with pair-points rounds are two-team cups, so
+  // playerCount / 2 matches the config screen's team-size figure for balanced
+  // teams. Rounds without per-round points report 0 and show no badge.
+  const { pointsByRound, totalPoints } = useMemo(() => {
+    const membersPerTeam = Math.max(1, Math.floor(playerCount / 2));
+    const { perRound, total } = summarizeCompetition(rounds, { membersPerTeam });
+    return {
+      pointsByRound: new Map(perRound.map((r) => [r.roundId, r.maxPoints])),
+      totalPoints: total,
+    };
+  }, [rounds, playerCount]);
+
+  // "4 rounds · 12 points · mixed formats" summary strip (design L167-170).
+  // Falls back to the player count when no round carries per-round points.
+  const formatsSummary = useMemo(() => {
+    const labels = new Set(rounds.map((r) => getRoundFormatLabel(r)));
+    return labels.size === 1 ? [...labels][0] : 'mixed formats';
+  }, [rounds]);
+
   // Parent-owned drag state, shared with every DraggableRow so siblings can
   // compute where the dragged card is hovering and shift to open a gap.
   const activeIndex = useSharedValue(-1);
@@ -307,6 +329,31 @@ export const RoundsTab = React.memo(function RoundsTab({
         />
       ) : (
         <View>
+          {/* Summary strip: "N rounds · X points · formats" (design L167-170) */}
+          <View
+            style={[
+              styles.summaryStrip,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+            ]}
+            accessibilityRole="summary"
+          >
+            <Icon source="golf-tee" size={16} color={colors.textTertiary} />
+            <Text style={[styles.summaryText, { color: colors.textSecondary }]} numberOfLines={1}>
+              {rounds.length} {rounds.length === 1 ? 'round' : 'rounds'} ·{' '}
+              {totalPoints > 0 ? (
+                <>
+                  <Text style={[styles.summaryTextBold, { color: colors.textPrimary }]}>
+                    {totalPoints} points
+                  </Text>
+                  {' · '}
+                  {formatsSummary}
+                </>
+              ) : (
+                `${playerCount} ${playerCount === 1 ? 'player' : 'players'}`
+              )}
+            </Text>
+          </View>
+
           {rounds.map((round, index) => {
             // Display number is derived from position so gaps left by deleted
             // rounds don't surface to users. The stored `round.round_number`
@@ -326,6 +373,7 @@ export const RoundsTab = React.memo(function RoundsTab({
                   onManageScoringPairs={onManageScoringPairs}
                   hasScoringPairs={scoringPairsStatus?.[round.id]}
                   allPlayersScored={allScoredStatus?.[round.id]}
+                  roundPoints={pointsByRound.get(round.id)}
                   colors={colors}
                   isDragging={isDragging}
                   canForceSubmit={
@@ -369,17 +417,19 @@ export const RoundsTab = React.memo(function RoundsTab({
         </View>
       )}
 
-      {/* Add Round Button */}
+      {/* Add Round — dashed CTA (design L190) */}
       {isOrganizer && (
         <TouchableOpacity
-          style={[styles.addRoundButton, { borderColor: colors.primary }]}
+          style={[styles.addRoundButton, { borderColor: colors.primaryLighter }]}
           onPress={onAddRound}
           accessibilityLabel="Add another round"
           accessibilityRole="button"
           activeOpacity={0.7}
         >
-          <Icon source="plus" size={20} color={colors.primary} />
-          <Text style={[styles.addRoundButtonText, { color: colors.primary }]}>Add another round</Text>
+          <Icon source="plus" size={18} color={colors.primary} />
+          <Text style={[styles.addRoundButtonText, { color: colors.primary }]}>
+            Add round · pick format & points
+          </Text>
         </TouchableOpacity>
       )}
 
@@ -398,20 +448,41 @@ const styles = StyleSheet.create({
   row: {
     marginBottom: spacing.md,
   },
+  summaryStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderRadius: borderRadius.lg + 1,
+    paddingVertical: spacing.sm + 3,
+    paddingHorizontal: spacing.md + 2,
+    marginBottom: spacing.md,
+    ...shadows.sm,
+  },
+  summaryText: {
+    fontSize: 12.5,
+    flexShrink: 1,
+  },
+  summaryTextBold: {
+    fontSize: 12.5,
+    fontWeight: '700',
+  },
   addRoundButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
-    marginTop: spacing.lg,
+    marginTop: spacing.sm,
+    minHeight: 48,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
     borderWidth: 2,
     borderStyle: 'dashed',
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.xl,
   },
   addRoundButtonText: {
-    ...typography.bodyBold,
+    fontSize: 14,
+    fontWeight: '700',
   },
 });
 
