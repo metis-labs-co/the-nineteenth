@@ -250,10 +250,10 @@ podium = new presentational component over existing leaderboard entries.
 - [ ] T1 home
 - [ ] T2 rounds list
 - [ ] T3 compete hub
-- [ ] T4 activity feed
-- [ ] T5 courses
+- [x] T4 activity feed
+- [x] T5 courses
 - [ ] T6 profile + nav
-- [ ] T8 leaderboard podium
+- [x] T8 leaderboard podium
 - [ ] T9 round summary
 - [ ] T10 onboarding
 - [ ] full suite + verify:gate green

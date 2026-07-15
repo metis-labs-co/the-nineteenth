@@ -128,7 +128,7 @@ export const VenueCard = ClubCard;
 const styles = StyleSheet.create({
   cardContainer: {
     marginHorizontal: spacing.lg,
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.xl,
     borderWidth: 1,
     overflow: 'hidden',
     ...shadows.sm,

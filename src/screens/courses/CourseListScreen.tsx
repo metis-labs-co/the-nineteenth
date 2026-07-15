@@ -17,7 +17,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, typography } from '@/constants/theme';
+import { spacing, typography, shadows } from '@/constants/theme';
 import {
   LoadingSpinner,
   SearchBar,
@@ -350,6 +350,14 @@ export default function CourseListScreen() {
         onChangeText={setSearchQuery}
         placeholder="Search courses..."
         accessibilityLabel="Search courses by name"
+        hideBorder
+        containerStyle={styles.searchContainer}
+        inputBackgroundColor={colors.surface}
+        inputWrapperStyle={[
+          styles.searchInputWrapper,
+          { borderColor: colors.border },
+          shadows.sm,
+        ]}
       />
 
       {/* State Filters */}
@@ -420,5 +428,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
     paddingBottom: spacing.xs,
+  },
+  searchContainer: {
+    backgroundColor: 'transparent',
+    paddingTop: spacing.sm,
+    paddingBottom: 0,
+  },
+  searchInputWrapper: {
+    borderWidth: 1,
+    borderRadius: 14,
+    height: 44,
   },
 });
