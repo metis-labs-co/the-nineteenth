@@ -7,8 +7,8 @@
  *
  * Restyled per "The Nineteenth - Polished" (HOME): date label + greeting
  * header with the shared quick-actions cluster, gradient Score CTA
- * (ScoreRoundCta), and the shared in-progress carousel
- * (InProgressRoundSection — same card as CompetitionDetail/RoundList).
+ * (ScoreRoundCta), and the continue-scoring carousel (ContinueScoringCarousel,
+ * a home-local restyle of InProgressRoundSection's carousel).
  */
 
 import React, { useCallback, useState } from 'react';
@@ -49,8 +49,8 @@ import {
   MatesThisWeekSection,
   HandicapHomeCard,
   ScoreRoundCta,
+  ContinueScoringCarousel,
 } from './components';
-import { InProgressRoundSection } from '@/components/competitions/detail/sections';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -200,7 +200,7 @@ export default function HomeScreen() {
                     actionLabel="View all rounds"
                     onActionPress={handleViewAllRounds}
                   />
-                  <InProgressRoundSection
+                  <ContinueScoringCarousel
                     rounds={home.inProgressRounds}
                     onScoreRound={handleScoreRound}
                     onViewRound={handleViewRound}

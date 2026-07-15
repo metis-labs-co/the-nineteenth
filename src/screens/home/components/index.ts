@@ -25,3 +25,4 @@ export { HandicapHomeCard } from './HandicapHomeCard';
 export { SectionHeader } from './SectionHeader';
 export { WeatherStrip } from './WeatherStrip';
 export { ScoreRoundCta } from './ScoreRoundCta';
+export { ContinueScoringCarousel } from './ContinueScoringCarousel';
