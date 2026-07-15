@@ -50,7 +50,7 @@ export interface HandicapEditSheetProps {
 
 /**
  * Parse and validate a handicap string. Returns the rounded numeric value
- * when valid (0.0–54.0, one decimal place). Returns null when invalid.
+ * when valid (-5.0–54.0, one decimal place). Returns null when invalid.
  */
 function parseHandicap(raw: string): number | null {
   const trimmed = raw.trim();
@@ -160,7 +160,7 @@ export function HandicapEditSheet({
                     {`${playerName}'s Handicap`}
                   </Text>
                   <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                    WHS Handicap Index (0–54)
+                    WHS Handicap Index (-5–54)
                   </Text>
                 </View>
 
@@ -184,7 +184,7 @@ export function HandicapEditSheet({
                       },
                     ]}
                     accessibilityLabel="Handicap input"
-                    accessibilityHint="Enter a handicap between 0 and 54"
+                    accessibilityHint="Enter a handicap between -5 and 54"
                   />
                   {error && (
                     <Text

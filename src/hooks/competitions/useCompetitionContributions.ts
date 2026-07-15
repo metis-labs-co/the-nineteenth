@@ -2,8 +2,8 @@
 import { useMemo } from 'react';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { useCompetitionDetailsData } from './queries';
-import { supabase } from '@/services/supabase/client';
 import { getRoundHoles } from '@/services/courses/getRoundHoles';
+import { fetchFinishedScorecardsForRound } from '@/services/scorecards/fetchFinishedScorecardsForRound';
 import { getCompetitionTeams } from '@/services/teams/teamQueries';
 import { contributionKeys } from '@/hooks/queryKeys';
 import { computeContributions } from '@/utils/contributions';
@@ -44,25 +44,6 @@ function contributionFormat(round: {
   if (tf === 'shamble' || gt === 'shamble') return 'shamble';
   if (tf === 'aggregate') return 'aggregate';
   return null;
-}
-
-/**
- * Fetch only finished (completed/confirmed) scorecards for a round from Supabase.
- * In-progress scorecards are excluded because relevant contribution data is only
- * reliable once a scorecard is finished.
- */
-async function fetchScorecards(roundId: string): Promise<DBScorecard[]> {
-  const { data, error } = await supabase
-    .from('scorecards')
-    .select('*')
-    .eq('round_id', roundId)
-    .in('status', ['completed', 'confirmed']);
-
-  if (error) {
-    throw new Error(`Failed to fetch scorecards for round ${roundId}: ${error.message}`);
-  }
-
-  return (data ?? []) as DBScorecard[];
 }
 
 /** Build a team input from a competition team + this round's scorecards. */
@@ -177,7 +158,7 @@ export function useCompetitionContributions(
   const scorecardResults = useQueries({
     queries: teamRounds.map(({ round }) => ({
       queryKey: contributionKeys.scorecards(round.id),
-      queryFn: () => fetchScorecards(round.id),
+      queryFn: () => fetchFinishedScorecardsForRound(round.id),
       staleTime: 1000 * 60 * 5,
       gcTime: 1000 * 60 * 30,
     })),

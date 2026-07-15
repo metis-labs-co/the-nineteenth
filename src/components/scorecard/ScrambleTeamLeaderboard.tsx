@@ -26,6 +26,7 @@ import { useThemeColors } from '@/context/ThemeContext';
 import type { Player, Hole, HoleScore, MultiBallHoleScore } from '@/types';
 import { isSingleBallScore } from '@/types/database';
 import { calculateScrambleTeamHandicap } from '@/utils/teamScoring/scramble';
+import { formatRelativeToPar } from '@/utils/formatting';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -198,12 +199,6 @@ export function ScrambleTeamLeaderboard({
     });
   };
 
-  // Format to-par display
-  const formatToPar = (value: number): string => {
-    if (value === 0) return 'E';
-    return value > 0 ? `+${value}` : `${value}`;
-  };
-
   // Get color for to-par
   const getToParColor = (value: number): string => {
     if (value < 0) return colors.success;
@@ -366,7 +361,7 @@ export function ScrambleTeamLeaderboard({
                     { color: team.holesCompleted > 0 ? getToParColor(team.toPar) : colors.textTertiary },
                   ]}
                 >
-                  {team.holesCompleted > 0 ? formatToPar(team.toPar) : '-'}
+                  {team.holesCompleted > 0 ? formatRelativeToPar(team.toPar) : '-'}
                 </Text>
               </View>
 

@@ -2,7 +2,7 @@
  * HandicapCaptureStep - Final onboarding step for handicap capture
  *
  * Collects the user's golf handicap for accurate Stableford scoring.
- * Validates handicap is between 0-54 (WHS max).
+ * Validates handicap is between -5 and 54.
  * Defaults to 54 if skipped or left empty.
  */
 
@@ -113,10 +113,10 @@ export function HandicapCaptureStep({
               placeholder="e.g., 18.5"
               keyboardType="decimal"
               error={error || undefined}
-              hint={!error ? 'Enter a value between 0 and 54 (or skip to use 54)' : undefined}
+              hint={!error ? 'Enter a value between -5 and 54 (or skip to use 54)' : undefined}
               disabled={isSubmitting}
               leftAffix="HC:"
-              accessibilityHint="Enter your golf handicap between 0 and 54"
+              accessibilityHint="Enter your golf handicap between -5 and 54"
               returnKeyType="done"
               onSubmitEditing={handleContinue}
             />

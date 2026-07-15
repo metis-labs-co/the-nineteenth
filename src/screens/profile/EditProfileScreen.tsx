@@ -494,9 +494,9 @@ export default function EditProfileScreen() {
                 placeholder="e.g., 18.5"
                 keyboardType="decimal"
                 error={errors.handicap?.message}
-                hint={`Enter a value between 0 and 54${player?.handicap_updated_at ? ` • Last updated: ${formatHandicapDate(player.handicap_updated_at)}` : ''}`}
+                hint={`Enter a value between -5 and 54${player?.handicap_updated_at ? ` • Last updated: ${formatHandicapDate(player.handicap_updated_at)}` : ''}`}
                 leftAffix="HC:"
-                accessibilityHint="Enter your golf handicap between 0 and 54"
+                accessibilityHint="Enter your golf handicap between -5 and 54"
               />
             )}
           />

@@ -567,28 +567,7 @@ describe('Course Import Integration', () => {
   });
 
   describe('Loading State', () => {
-    it('should pass isImporting prop to ClubCard during import', async () => {
-      // The actual loading indicator UI is tested in ClubCard unit tests
-      // This test verifies the CourseListScreen correctly:
-      // 1. Sets importingClubId state when import starts
-      // 2. Passes isImporting prop to CourseListContent
-      //
-      // Since integration tests are complex with React Query mutations,
-      // and the loading state is already covered by the successful import tests,
-      // we just verify the basic flow here.
-
-      // The successful import tests already verify:
-      // - Import is called
-      // - Navigation happens after import
-      // - importingClubId state is reset after import
-
-      // For the loading indicator specifically, ClubCard unit tests should verify:
-      // - ActivityIndicator shown when isImporting=true
-      // - Card is disabled when isImporting=true
-
-      // This test is a placeholder that passes to document the test coverage plan
-      expect(true).toBe(true);
-    });
+    it.todo('should pass isImporting prop to ClubCard during import');
   });
 
   describe('Local vs API Results', () => {

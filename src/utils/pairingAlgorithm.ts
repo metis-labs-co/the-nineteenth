@@ -11,6 +11,7 @@ import type {
 } from '@/types';
 import type { TeamFormat } from '@/types/database.types';
 import { indexById } from '@/utils/collections';
+import { MAX_HANDICAP } from '@/constants/scoring';
 import { formatTime } from './formatting';
 
 /**
@@ -176,8 +177,8 @@ export function generateSnakeDraftPairings(
 
   // Sort players by handicap (low to high, nulls at end)
   const sortedPlayers = [...players].sort((a, b) => {
-    const handicapA = a.handicap ?? 54; // Max handicap for nulls
-    const handicapB = b.handicap ?? 54;
+    const handicapA = a.handicap ?? MAX_HANDICAP; // Max handicap for nulls
+    const handicapB = b.handicap ?? MAX_HANDICAP;
     return handicapA - handicapB;
   });
 
@@ -620,8 +621,8 @@ function snakeDraftSubTeams(
   if (players.length === 0) return [];
 
   const sorted = [...players].sort((a, b) => {
-    const ha = a.handicap ?? 54;
-    const hb = b.handicap ?? 54;
+    const ha = a.handicap ?? MAX_HANDICAP;
+    const hb = b.handicap ?? MAX_HANDICAP;
     return ha - hb;
   });
 
@@ -797,8 +798,8 @@ export function generateTeamBalancedGroups(
   // the per-group skill balance.
   const teamBuckets: PairingPlayer[][][] = nonEmptyTeams.map((players, teamIdx) => {
     const sorted = [...players].sort((a, b) => {
-      const ha = a.handicap ?? 54;
-      const hb = b.handicap ?? 54;
+      const ha = a.handicap ?? MAX_HANDICAP;
+      const hb = b.handicap ?? MAX_HANDICAP;
       return ha - hb;
     });
     const draftOrder = shuffleWithinTiers(sorted, numGroups);
