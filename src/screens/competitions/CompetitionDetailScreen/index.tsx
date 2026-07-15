@@ -23,7 +23,7 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { formatHandicapIndex } from '@/utils/displayHelpers';
 import { useTierLimits, useIsSuperAdmin } from '@/context/SubscriptionContext';
 import { UpgradePrompt } from '@/components/subscription';
-import { PageHeader, UnderlineTabs, ConfirmationDialog } from '@/components/common';
+import { PageHeader, Tabs, ConfirmationDialog } from '@/components/common';
 import { SelectionModal, SelectionItemRow } from '@/components/common/SelectionModal';
 import { useRoundScorecards } from '@/hooks/useRoundDetails';
 import { useReorderCompetitionRounds } from '@/hooks/rounds/mutations';
@@ -330,20 +330,6 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
 
   const { competition, rounds, players } = competitionData;
 
-  // Header subtitle — one compact context line under the competition name
-  // (redesign): "A vs B" for two-team cups, otherwise rounds + player count.
-  const twoTeams = (teams?.length ?? 0) === 2 ? teams : null;
-  const headerSubtitle =
-    competition.competition_type === 'knockout'
-      ? `Knockout · ${players.length} players`
-      : twoTeams
-        ? `${twoTeams[0].name} vs ${twoTeams[1].name}`
-        : `${rounds.length} ${rounds.length === 1 ? 'round' : 'rounds'} · ${players.length} players`;
-
-  // "Standings" while play is possible, "Results" once the competition is done.
-  const standingsLabel =
-    competition.status === 'completed' ? 'Results' : 'Standings';
-
   // Display number for the round being deleted — matches the pill shown on
   // the Rounds tab card (derived from list position, not the stored
   // round.round_number which can have gaps after earlier deletes).
@@ -367,7 +353,6 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
       {/* Header */}
       <PageHeader
         title={competition.name}
-        subtitle={headerSubtitle}
         showBack
         onBack={handleBack}
         rightActions={
@@ -383,50 +368,44 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
         }
       />
 
-      {/* Tab Bar — underline style on the header surface (redesign) */}
-      <View
-        style={[
-          styles.tabStrip,
-          { backgroundColor: colors.surface, borderBottomColor: colors.border },
+      {/* Tab Bar */}
+      <Tabs
+        tabs={[
+          { key: 'details', label: 'Details' },
+          { key: 'rounds', label: 'Rounds', count: rounds.length },
+          ...(promoteLeaderboard
+            ? [
+                competition.competition_type === 'knockout'
+                  ? ({ key: 'bracket', label: 'Bracket' } as const)
+                  : ({ key: 'leaderboard', label: 'Leaderboard' } as const),
+              ]
+            : []),
+          { key: 'players', label: 'Players', count: players.length },
+          ...(competition.team_mode !== 'none' ? [{ key: 'teams' as const, label: 'Teams' }] : []),
+          ...(showStatsTab ? [{ key: 'stats' as const, label: 'Stats' }] : []),
+          ...(showBreakdownTab ? [{ key: 'breakdown' as const, label: 'Breakdown' }] : []),
+          ...(!promoteLeaderboard
+            ? [
+                competition.competition_type === 'knockout'
+                  ? ({ key: 'bracket', label: 'Bracket' } as const)
+                  : ({ key: 'leaderboard', label: 'Leaderboard' } as const),
+              ]
+            : []),
+          ...(prizePool || teamPrizePool ? [{ key: 'payouts' as const, label: 'Payouts' }] : []),
+          ...(hasSkinsGames
+            ? [
+                {
+                  key: 'skins' as const,
+                  label: 'Skins',
+                  count: competitionSkinsGames?.length,
+                },
+              ]
+            : []),
         ]}
-      >
-        <UnderlineTabs
-          tabs={[
-            { key: 'details', label: 'Details' },
-            { key: 'rounds', label: 'Rounds', count: rounds.length },
-            ...(promoteLeaderboard
-              ? [
-                  competition.competition_type === 'knockout'
-                    ? ({ key: 'bracket', label: 'Bracket' } as const)
-                    : ({ key: 'leaderboard', label: standingsLabel } as const),
-                ]
-              : []),
-            { key: 'players', label: 'Players', count: players.length },
-            ...(competition.team_mode !== 'none' ? [{ key: 'teams' as const, label: 'Teams' }] : []),
-            ...(showStatsTab ? [{ key: 'stats' as const, label: 'Stats' }] : []),
-            ...(showBreakdownTab ? [{ key: 'breakdown' as const, label: 'Breakdown' }] : []),
-            ...(!promoteLeaderboard
-              ? [
-                  competition.competition_type === 'knockout'
-                    ? ({ key: 'bracket', label: 'Bracket' } as const)
-                    : ({ key: 'leaderboard', label: standingsLabel } as const),
-                ]
-              : []),
-            ...(prizePool || teamPrizePool ? [{ key: 'payouts' as const, label: 'Payouts' }] : []),
-            ...(hasSkinsGames
-              ? [
-                  {
-                    key: 'skins' as const,
-                    label: 'Skins',
-                    count: competitionSkinsGames?.length,
-                  },
-                ]
-              : []),
-          ]}
-          selectedTab={activeTab}
-          onTabChange={setActiveTab}
-        />
-      </View>
+        selectedTab={activeTab}
+        onTabChange={setActiveTab}
+        style={styles.tabContainer}
+      />
 
       {/* Pinned leaderboard sub-tabs: render outside the ScrollView so the
           Individual/Team toggle stays visible while scrolling the standings. */}
@@ -487,12 +466,6 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
             }
             onScoreRound={handleScoreRound}
             onViewRound={handleViewRound}
-            onAddRound={isOrganizer ? handleAddRound : undefined}
-            onOpenSettings={
-              isOrganizer
-                ? () => navigation.navigate('CompetitionSettings', { competitionId: id })
-                : undefined
-            }
           />
         )}
 
@@ -533,12 +506,6 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
             maxPlayers={competition.max_players ?? null}
             organizerIsPlayer={competition.organizer_is_player !== false}
             inviteCode={competition.invite_code}
-            teams={competition.team_mode !== 'none' ? teams || [] : undefined}
-            onViewStandings={
-              competition.competition_type !== 'knockout'
-                ? () => setActiveTab('leaderboard')
-                : undefined
-            }
           />
         )}
 
@@ -759,9 +726,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: spacing.lg,
   },
-  tabStrip: {
-    paddingHorizontal: spacing.lg,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+  tabContainer: {
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.xl,
+    marginBottom: spacing.sm,
   },
   pinnedLeaderboardToggle: {
     marginHorizontal: spacing.lg,

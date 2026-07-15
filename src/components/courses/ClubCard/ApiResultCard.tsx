@@ -52,7 +52,7 @@ export const ApiResultCard = React.memo(function ApiResultCard({
       >
         <View style={styles.courseRowContent}>
           {/* Icon - golf for single course, home-city for multi-course */}
-          <View style={[styles.iconContainer, { backgroundColor: colors.primaryBackground }]}>
+          <View style={[styles.iconContainer, { backgroundColor: colors.primaryLighter }]}>
             <Icon source={isSingleCourse ? 'golf' : 'home-city'} size={24} color={colors.primary} />
           </View>
 
@@ -99,7 +99,7 @@ export const ApiResultCard = React.memo(function ApiResultCard({
 const styles = StyleSheet.create({
   cardContainer: {
     marginHorizontal: spacing.lg,
-    borderRadius: borderRadius.xl,
+    borderRadius: borderRadius.lg,
     borderWidth: 1,
     overflow: 'hidden',
     ...shadows.sm,
@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
   iconContainer: {
     width: 48,
     height: 48,
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.md,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -128,27 +128,23 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   courseName: {
-    fontSize: 15,
-    fontWeight: '800',
-    lineHeight: 20,
+    ...typography.bodyBold,
     flex: 1,
   },
   clubSubtitle: {
-    ...typography.caption,
-    marginTop: 3,
+    ...typography.small,
+    marginTop: spacing.xs,
   },
   courseCountBadge: {
-    paddingHorizontal: 7,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
     borderRadius: borderRadius.full,
-    minWidth: 22,
-    height: 22,
+    minWidth: 24,
     alignItems: 'center',
-    justifyContent: 'center',
   },
   courseCountText: {
-    fontSize: 11,
-    fontWeight: '800',
-    lineHeight: 14,
+    ...typography.caption,
+    fontWeight: '600',
   },
   courseActions: {
     flexDirection: 'row',

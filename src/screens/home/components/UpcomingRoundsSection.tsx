@@ -58,7 +58,7 @@ export const UpcomingRoundsSection = React.memo(
         <View
           style={[
             styles.card,
-            { backgroundColor: colors.surface, borderColor: colors.border },
+            { backgroundColor: colors.surface, borderColor: colors.borderLight },
           ]}
         >
           {visible.map((round, idx) => {
@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   card: {
-    borderRadius: borderRadius.xl,
+    borderRadius: borderRadius.lg,
     borderWidth: 1,
     overflow: 'hidden',
   },

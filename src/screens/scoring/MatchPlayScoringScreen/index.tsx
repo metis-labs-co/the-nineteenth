@@ -20,7 +20,6 @@ import { Text, Icon } from 'react-native-paper';
 import { LoadingSpinner, ErrorState, Pill, ConfirmationDialog } from '@/components/common';
 import { useConfirmationDialog } from '@/hooks';
 import { HoleHeader, RoundHeader, SwipeableHoleNavigator, ChangeTeesSheet } from '@/components/scorecard';
-import { DistanceToPin } from '@/components/scorecard/HoleHeader/DistanceToPin';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -186,23 +185,6 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
     player2Handicap: player2Handicap,
     currentHole,
   });
-
-  // Status-bar tint from the existing standing data (player 1 perspective):
-  // leading = green tint, trailing = bogey tint, all square = neutral.
-  const statusBarTint = useMemo(() => {
-    switch (player1MatchStatus.type) {
-      case 'up':
-      case 'win':
-        return { background: colors.primaryBackground, text: colors.primaryDark };
-      case 'down':
-      case 'loss':
-        return { background: colors.bogeyBackground, text: colors.bogey };
-      case 'square':
-      case 'halved':
-      default:
-        return { background: colors.surfaceVariant, text: colors.textSecondary };
-    }
-  }, [player1MatchStatus.type, colors]);
 
   // Sync status (drives the offline indicator + animated sync line in RoundHeader).
   const { isSyncing, pendingSyncCount, failedSyncCount, syncError, submitScorecards } = useScorecardStore();
@@ -528,23 +510,12 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
             canGoNext={canGoNext}
           />
 
-          {/* GPS distance strip — replaces the compact header badge (same courseId gate) */}
-          {courseId && (
-            <DistanceToPin
-              variant="strip"
-              courseId={courseId}
-              holeNumber={holeNumber}
-              roundId={roundId}
-            />
-          )}
-
           {/* Content Area */}
           <ScrollView style={styles.scrollContent} contentContainerStyle={styles.contentContainer}>
             {/* Vertically Stacked Score Entry */}
             <View style={styles.scoringContainer}>
               <PlayerScoreCard
                 player={player1}
-                isCurrentUser={player1.id === user?.id}
                 currentScore={holeResult.player1Score}
                 isPickedUp={holeResult.player1PickedUp}
                 par={holeData.par}
@@ -573,7 +544,6 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
 
               <PlayerScoreCard
                 player={player2}
-                isCurrentUser={player2.id === user?.id}
                 currentScore={holeResult.player2Score}
                 isPickedUp={holeResult.player2PickedUp}
                 par={holeData.par}
@@ -652,9 +622,6 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
       lastHoleNumber,
       safeHoles,
       startHole,
-      courseId,
-      roundId,
-      user?.id,
     ]
   );
 
@@ -703,18 +670,16 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
         onChangeTeesBlockedOffline={() =>
           showErrorToast('Offline', 'Connect to the internet to change tees')
         }
-        showDistanceBadge={false}
       />
 
-      {/* Match Status Bar — tinted by the current standing (player 1 perspective) */}
-      <View
-        style={[
-          styles.matchStatusBar,
-          { backgroundColor: statusBarTint.background, borderBottomColor: colors.border },
-        ]}
-      >
-        <Icon source="flag-outline" size={18} color={statusBarTint.text} />
-        <Text style={[styles.matchStatusText, { color: statusBarTint.text }]}>
+      {/* Match Status Bar */}
+      <View style={[styles.matchStatusBar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+        <Text
+          style={[
+            styles.matchStatusText,
+            { color: isMatchComplete ? colors.success : colors.textPrimary },
+          ]}
+        >
           {matchStatusText}
         </Text>
         {isMatchComplete && (
@@ -788,14 +753,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 11,
+    paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
     borderBottomWidth: 1,
-    gap: 9,
+    gap: spacing.sm,
   },
   matchStatusText: {
-    fontSize: 15,
-    fontWeight: '800',
+    ...typography.bodyBold,
     textAlign: 'center',
   },
   contentArea: {

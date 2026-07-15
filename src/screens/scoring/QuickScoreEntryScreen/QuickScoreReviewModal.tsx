@@ -5,7 +5,6 @@
 import React from 'react';
 import { View, StyleSheet, Modal, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, borderRadius, typography, shadows } from '@/constants/theme';
 
@@ -50,7 +49,7 @@ export const QuickScoreReviewModal = React.memo(function QuickScoreReviewModal({
             {playerName} · {courseName}
           </Text>
 
-          <View style={[styles.statsGrid, { backgroundColor: colors.surfaceVariant }]}>
+          <View style={[styles.statsGrid, { borderColor: colors.border }]}>
             <View style={styles.statRow}>
               <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Gross Score</Text>
               <Text style={[styles.statValue, { color: colors.textPrimary }]}>{totalGross}</Text>
@@ -61,7 +60,7 @@ export const QuickScoreReviewModal = React.memo(function QuickScoreReviewModal({
             </View>
             <View style={styles.statRow}>
               <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Stableford Points</Text>
-              <Text style={[styles.statValue, { color: colors.primary }]}>{totalPoints}</Text>
+              <Text style={[styles.statValue, { color: colors.textPrimary }]}>{totalPoints}</Text>
             </View>
             <View style={styles.statRow}>
               <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Holes Entered</Text>
@@ -83,27 +82,20 @@ export const QuickScoreReviewModal = React.memo(function QuickScoreReviewModal({
 
           <View style={styles.buttons}>
             <TouchableOpacity
-              style={[styles.button, styles.cancelButton, { borderColor: colors.border, backgroundColor: colors.surface }]}
+              style={[styles.button, styles.cancelButton, { borderColor: colors.border }]}
               onPress={onCancel}
               disabled={isSaving}
             >
               <Text style={[styles.buttonText, { color: colors.textPrimary }]}>Go Back</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.button, { opacity: isSaving ? 0.6 : 1 }]}
+              style={[styles.button, styles.confirmButton, { backgroundColor: colors.primary, opacity: isSaving ? 0.6 : 1 }]}
               onPress={onConfirm}
               disabled={isSaving}
             >
-              <LinearGradient
-                colors={[colors.primaryLight, colors.primary]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.confirmGradient}
-              >
-                <Text style={[styles.buttonText, { color: colors.white }]}>
-                  {isSaving ? 'Saving...' : 'Confirm & Save'}
-                </Text>
-              </LinearGradient>
+              <Text style={[styles.buttonText, { color: colors.white }]}>
+                {isSaving ? 'Saving...' : 'Confirm & Save'}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -128,33 +120,27 @@ const styles = StyleSheet.create({
   },
   title: {
     ...typography.h3,
-    fontWeight: '800',
-    marginBottom: spacing.xxs,
+    marginBottom: spacing.xs,
   },
   subtitle: {
-    ...typography.small,
-    fontSize: 12.5,
-    marginBottom: spacing.md,
+    ...typography.body,
+    marginBottom: spacing.lg,
   },
   statsGrid: {
-    borderRadius: borderRadius.xl,
-    padding: spacing.md,
+    borderTopWidth: 1,
+    paddingTop: spacing.md,
     marginBottom: spacing.md,
     gap: spacing.sm,
   },
   statRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
   },
   statLabel: {
-    ...typography.small,
-    fontSize: 13,
+    ...typography.body,
   },
   statValue: {
     ...typography.bodyBold,
-    fontSize: 15,
-    fontWeight: '700',
   },
   warning: {
     ...typography.small,
@@ -163,28 +149,21 @@ const styles = StyleSheet.create({
   buttons: {
     flexDirection: 'row',
     gap: spacing.sm,
-    marginTop: spacing.xs,
+    marginTop: spacing.sm,
   },
   button: {
     flex: 1,
-    height: 50,
-    borderRadius: 14,
-    overflow: 'hidden',
+    height: 48,
+    borderRadius: borderRadius.lg,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   cancelButton: {
     borderWidth: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
-  confirmGradient: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 14,
-  },
+  confirmButton: {},
   buttonText: {
     ...typography.bodyBold,
-    fontSize: 15,
   },
 });
 

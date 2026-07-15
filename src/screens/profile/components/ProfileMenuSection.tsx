@@ -9,7 +9,6 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { MenuItemRow } from './MenuItemRow';
-import { SectionLabel } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useCheckFeature } from '@/context/SubscriptionContext';
 import { useSubscription } from '@/hooks/useSubscription';
@@ -104,25 +103,20 @@ export const ProfileMenuSection = React.memo(function ProfileMenuSection({
     <>
       {/* Account Section */}
       <View style={styles.menuSection}>
-        <SectionLabel style={styles.sectionTitle}>Account</SectionLabel>
-        <View
-          style={[
-            styles.menuGroup,
-            { backgroundColor: colors.surface, borderColor: colors.border },
-          ]}
-        >
+        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+          Account
+        </Text>
+        <View style={[styles.menuGroup, { backgroundColor: colors.surface }]}>
           <MenuItemRow
             icon="account-edit"
             title="Edit Profile"
             onPress={onEditProfile}
-            divider
             testID="menu-edit-profile"
           />
           <MenuItemRow
             icon="account-group-outline"
             title="Friends"
             onPress={onFriends}
-            divider
             testID="menu-friends"
           />
           <MenuItemRow
@@ -130,14 +124,12 @@ export const ProfileMenuSection = React.memo(function ProfileMenuSection({
             title="My Statistics"
             onPress={isDetailedStatsLocked ? onSubscription : onMyStatistics}
             rightContent={isDetailedStatsLocked ? renderLockBadge('detailed_stats') : undefined}
-            divider
             testID="menu-statistics"
           />
           <MenuItemRow
             icon="chart-timeline-variant"
             title="Handicap History"
             onPress={onHandicapHistory}
-            divider
             testID="menu-handicap-history"
           />
           <MenuItemRow
@@ -145,14 +137,12 @@ export const ProfileMenuSection = React.memo(function ProfileMenuSection({
             title="Game Results"
             onPress={isGameResultsLocked ? onSubscription : onGameResults}
             rightContent={isGameResultsLocked ? renderLockBadge('skins_game') : undefined}
-            divider
             testID="menu-game-results"
           />
           <MenuItemRow
             icon="trophy"
             title="Achievements"
             onPress={onAchievements}
-            divider
             rightContent={
               achievementPoints > 0 ? (
                 <View style={[styles.badge, { backgroundColor: colors.primary }]}>
@@ -168,21 +158,18 @@ export const ProfileMenuSection = React.memo(function ProfileMenuSection({
             icon="palette"
             title="Customize Profile"
             onPress={onCustomizeProfile}
-            divider
             testID="menu-customize"
           />
           <MenuItemRow
             icon="star-circle"
             title="My Subscription"
             onPress={onSubscription}
-            divider
             testID="menu-subscription"
           />
           <MenuItemRow
             icon="account-multiple-outline"
             title="Manage Guest Players"
             onPress={isManageGuestsLocked ? onSubscription : onGuestPlayers}
-            divider
             rightContent={
               isManageGuestsLocked
                 ? renderLockBadge('manage_guests')
@@ -207,32 +194,26 @@ export const ProfileMenuSection = React.memo(function ProfileMenuSection({
 
       {/* App Section */}
       <View style={styles.menuSection}>
-        <SectionLabel style={styles.sectionTitle}>App</SectionLabel>
-        <View
-          style={[
-            styles.menuGroup,
-            { backgroundColor: colors.surface, borderColor: colors.border },
-          ]}
-        >
+        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+          App
+        </Text>
+        <View style={[styles.menuGroup, { backgroundColor: colors.surface }]}>
           <MenuItemRow
             icon="palette-outline"
             title="Appearance"
             onPress={onAppearance}
-            divider
             testID="menu-appearance"
           />
           <MenuItemRow
             icon="cog-outline"
             title="Game Settings"
             onPress={onGameSettings}
-            divider
             testID="menu-game-settings"
           />
           <MenuItemRow
             icon="golf"
             title="What's in the Bag"
             onPress={onWhatsInTheBag}
-            divider
             testID="menu-whats-in-the-bag"
           />
           {biometricAvailable && (
@@ -240,7 +221,6 @@ export const ProfileMenuSection = React.memo(function ProfileMenuSection({
               icon="shield-lock-outline"
               title="Security"
               onPress={onSecurity}
-              divider
               testID="menu-security"
             />
           )}
@@ -253,21 +233,18 @@ export const ProfileMenuSection = React.memo(function ProfileMenuSection({
                 {currentCountryLabel}
               </Text>
             }
-            divider
             testID="menu-country-region"
           />
           <MenuItemRow
             icon="bell-outline"
             title="Push Notifications"
             onPress={onNotifications}
-            divider
             testID="menu-notifications"
           />
           <MenuItemRow
             icon="help-circle"
             title="Help & Support"
             onPress={onHelpAndSupport}
-            divider={isSuperAdmin}
             testID="menu-help"
           />
           {isSuperAdmin && (
@@ -283,12 +260,7 @@ export const ProfileMenuSection = React.memo(function ProfileMenuSection({
 
       {/* Sign Out Section */}
       <View style={styles.menuSection}>
-        <View
-          style={[
-            styles.menuGroup,
-            { backgroundColor: colors.surface, borderColor: colors.border },
-          ]}
-        >
+        <View style={[styles.menuGroup, { backgroundColor: colors.surface }]}>
           <MenuItemRow
             icon="logout"
             title="Sign Out"
@@ -308,12 +280,15 @@ const styles = StyleSheet.create({
     marginTop: spacing.xl,
   },
   sectionTitle: {
-    marginHorizontal: spacing.lg + 4,
+    ...typography.captionBold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
   },
   menuGroup: {
     marginHorizontal: spacing.lg,
-    borderRadius: borderRadius.xl,
-    borderWidth: 1,
+    borderRadius: borderRadius.lg,
     overflow: 'hidden',
   },
   badge: {

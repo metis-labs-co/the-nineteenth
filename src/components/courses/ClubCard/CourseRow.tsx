@@ -70,27 +70,27 @@ export const CourseRow = React.memo(function CourseRow({
 
   return (
     <TouchableOpacity
-      style={[styles.courseRow, { backgroundColor: colors.surface }, isNested && { backgroundColor: 'transparent', borderBottomWidth: 1, borderBottomColor: colors.borderLight }]}
+      style={[styles.courseRow, { backgroundColor: colors.surface }, isNested && { backgroundColor: colors.surfaceVariant, borderBottomWidth: 1, borderBottomColor: colors.border }]}
       onPress={handlePress}
       activeOpacity={0.7}
     >
       <View style={styles.courseRowContent}>
         {/* Golf Icon */}
-        <View style={[styles.iconContainer, { backgroundColor: colors.primaryBackground }, isNested && styles.iconContainerSmall]}>
-          <Icon source="golf" size={isNested ? 18 : 24} color={colors.primary} />
+        <View style={[styles.iconContainer, { backgroundColor: colors.primaryLighter }, isNested && styles.iconContainerSmall]}>
+          <Icon source="golf" size={isNested ? 20 : 24} color={colors.primary} />
         </View>
 
         {/* Course Info */}
         <View style={styles.courseInfo}>
           <View style={styles.courseNameRow}>
-            <Text style={[styles.courseName, isNested && styles.courseNameNested, { color: colors.textPrimary }]} numberOfLines={1}>
+            <Text style={[styles.courseName, { color: colors.textPrimary }]} numberOfLines={1}>
               {/* For single-course clubs, show "Club Name - Course Name" for full context */}
               {!isNested ? `${club.name} - ${course.name}` : course.name}
             </Text>
             {/* Home badge for single-course clubs */}
             {!isNested && isHomeClub && (
-              <View style={[styles.homeBadge, { backgroundColor: colors.primaryBackground }]}>
-                <Icon source="home" size={13} color={colors.primary} />
+              <View style={[styles.homeBadge, { backgroundColor: colors.primaryLighter }]}>
+                <Icon source="home" size={14} color={colors.primary} />
               </View>
             )}
             {/* Source badge for single-course clubs */}
@@ -183,14 +183,13 @@ const styles = StyleSheet.create({
   iconContainer: {
     width: 48,
     height: 48,
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.md,
     justifyContent: 'center',
     alignItems: 'center',
   },
   iconContainerSmall: {
-    width: 38,
-    height: 38,
-    borderRadius: borderRadius.lg - 1,
+    width: 40,
+    height: 40,
   },
   courseInfo: {
     flex: 1,
@@ -202,18 +201,12 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   courseName: {
-    fontSize: 15,
-    fontWeight: '800',
-    lineHeight: 20,
+    ...typography.bodyBold,
     flex: 1,
   },
-  courseNameNested: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
   homeBadge: {
-    width: 22,
-    height: 22,
+    width: 24,
+    height: 24,
     borderRadius: borderRadius.full,
     justifyContent: 'center',
     alignItems: 'center',
@@ -230,21 +223,20 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   clubSubtitle: {
-    ...typography.caption,
-    marginTop: 3,
+    ...typography.small,
+    marginTop: spacing.xs,
   },
   courseDescription: {
-    ...typography.caption,
-    marginTop: 2,
+    ...typography.small,
+    marginTop: spacing.xs,
   },
   courseMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 3,
+    marginTop: spacing.xs,
   },
   courseMeta: {
     ...typography.caption,
-    fontWeight: '700',
   },
   courseActions: {
     flexDirection: 'row',

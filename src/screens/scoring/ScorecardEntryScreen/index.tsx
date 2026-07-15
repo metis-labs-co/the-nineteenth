@@ -36,7 +36,6 @@ import {
   GroupFilterStrip,
 } from '@/components/scorecard';
 import { EditHoleBottomSheet, BuildCourseHoleModal } from '@/components/courses';
-import { DistanceToPin } from '@/components/scorecard/HoleHeader/DistanceToPin';
 import { InlineShotToast } from '@/components/scorecard/ShotLogging';
 import { DetailedStatsSheet } from '@/components/scorecard/DetailedStatsSheet';
 import { WolfDecisionModal } from '@/components/wolf';
@@ -528,18 +527,6 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
             }}
           />
 
-          {/* GPS distance-to-pin strip (replaces the header badge — see
-              showDistanceBadge={false} on RoundHeader). Same gating and props
-              the header badge used: only when the round has a course id. */}
-          {courseId && (
-            <DistanceToPin
-              variant="strip"
-              courseId={courseId}
-              holeNumber={holeNumber}
-              roundId={roundId}
-            />
-          )}
-
           {/* Phase C2 — Shot logging banner stuck to the bottom of the hole header. */}
           <InlineShotToast />
 
@@ -635,7 +622,6 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
       isMultiBall, storeBallCount, scoreHandlers.handleMultiBallScoreChange,
       scoreHandlers.handleMultiBallStatsChange, getMultiBallScores,
       showFairwayHit, showGreenInRegulation, anyStatsVisible, holes, playersToRender, isHoleComplete,
-      courseId, roundId,
       nav.handleHolePress, wolf.wolfGame, wolf.wolfDecision, wolf.isWolfProcessing,
       showTeeDots, playerTeeMap, selectedTeeData,
       groupFilter.canFilter, groupFilter.isFiltered, groupFilter.groupCount,
@@ -749,9 +735,6 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
         roundId={roundId}
         courseId={courseId ?? undefined}
         currentHole={currentHole}
-        totalHoles={holes[holes.length - 1]?.number ?? 18}
-        playedCount={getCompletedHolesCount()}
-        showDistanceBadge={false}
         isOnline={isOnline}
         isSyncing={isSyncing}
         pendingSyncCount={pendingSyncCount}

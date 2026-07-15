@@ -1,15 +1,12 @@
 /**
- * MatchProgress - "Match by hole" strip card for match play
- *
- * Hole-by-hole outcome strip (W / L / ½ from player 1's perspective) with a
- * won/lost summary in the card header and a colour legend underneath.
+ * MatchProgress - Visual progress indicator for match play
  */
 
 import React from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, shadows } from '@/constants/theme';
+import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { displayHoleNumber } from '@/utils/holeTransformers';
 import type { HoleResult, MatchPlayer } from '../types';
 
@@ -42,34 +39,14 @@ export function MatchProgress({
 }: MatchProgressProps) {
   const colors = useThemeColors();
 
-  // Won / lost / halved summary from the existing per-hole outcomes
-  // (player 1's perspective — matches the cell colours below).
-  let won = 0;
-  let lost = 0;
-  let halved = 0;
-  holeNumbers.forEach((hole) => {
-    const winner = holeResults[hole]?.winner;
-    if (winner === 'player1') won += 1;
-    else if (winner === 'player2') lost += 1;
-    else if (winner === 'halved') halved += 1;
-  });
-
   return (
     <View
-      style={[
-        styles.progressContainer,
-        { backgroundColor: colors.surface, borderColor: colors.border },
-      ]}
+      style={[styles.progressContainer, { backgroundColor: colors.surface }]}
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
       onTouchCancel={onTouchEnd}
     >
-      <View style={styles.headerRow}>
-        <Text style={[styles.progressTitle, { color: colors.textTertiary }]}>MATCH BY HOLE</Text>
-        <Text style={[styles.summaryText, { color: colors.textSecondary }]}>
-          {won}W · {lost}L · {halved}½
-        </Text>
-      </View>
+      <Text style={[styles.progressTitle, { color: colors.textPrimary }]}>Match Progress</Text>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -81,53 +58,33 @@ export function MatchProgress({
             const isCurrentHole = hole === currentHole;
             const hasResult = result?.winner !== null && result?.winner !== undefined;
 
-            // Cell state from the existing outcome data:
-            // win = primary tint, loss = bogey tint, halve = muted.
-            let cellBackground = 'transparent';
-            let cellRing = colors.border;
-            let cellText = colors.textTertiary;
-            let cellLabel = '';
+            let backgroundColor = colors.gray200;
             if (hasResult) {
-              if (result?.winner === 'player1') {
-                cellBackground = colors.primaryBackground;
-                cellRing = colors.primary;
-                cellText = colors.primaryDark;
-                cellLabel = 'W';
-              } else if (result?.winner === 'player2') {
-                cellBackground = colors.bogeyBackground;
-                cellRing = colors.bogey;
-                cellText = colors.bogey;
-                cellLabel = 'L';
-              } else if (result?.winner === 'halved') {
-                cellBackground = colors.surfaceVariant;
-                cellRing = colors.border;
-                cellText = colors.textSecondary;
-                cellLabel = '½';
-              }
-            }
-            if (isCurrentHole) {
-              cellRing = colors.primary;
+              if (result?.winner === 'player1') backgroundColor = colors.success;
+              else if (result?.winner === 'player2') backgroundColor = colors.error;
+              else if (result?.winner === 'halved') backgroundColor = colors.warning;
             }
 
             return (
               <TouchableOpacity
                 key={hole}
-                style={styles.holeColumn}
+                style={[
+                  styles.holeIndicator,
+                  { backgroundColor },
+                  isCurrentHole && { borderWidth: 2, borderColor: colors.primary },
+                ]}
                 onPress={() => onHolePress(hole)}
                 activeOpacity={0.7}
                 accessibilityLabel={`Hole ${displayHoleNumber(hole, startHole)}${hasResult ? `, ${result?.winner}` : ''}`}
               >
-                <Text style={[styles.holeNumber, { color: colors.textTertiary }]}>
-                  {displayHoleNumber(hole, startHole)}
-                </Text>
-                <View
+                <Text
                   style={[
-                    styles.holeCell,
-                    { backgroundColor: cellBackground, borderColor: cellRing },
+                    styles.holeIndicatorText,
+                    { color: hasResult ? colors.white : colors.textSecondary },
                   ]}
                 >
-                  <Text style={[styles.holeCellText, { color: cellText }]}>{cellLabel}</Text>
-                </View>
+                  {displayHoleNumber(hole, startHole)}
+                </Text>
               </TouchableOpacity>
             );
           })}
@@ -137,15 +94,15 @@ export function MatchProgress({
       {/* Legend */}
       <View style={styles.legendContainer}>
         <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: colors.primary }]} />
+          <View style={[styles.legendDot, { backgroundColor: colors.success }]} />
           <Text style={[styles.legendText, { color: colors.textSecondary }]}>{player1.name}</Text>
         </View>
         <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: colors.bogey }]} />
+          <View style={[styles.legendDot, { backgroundColor: colors.error }]} />
           <Text style={[styles.legendText, { color: colors.textSecondary }]}>{player2.name}</Text>
         </View>
         <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: colors.textTertiary }]} />
+          <View style={[styles.legendDot, { backgroundColor: colors.warning }]} />
           <Text style={[styles.legendText, { color: colors.textSecondary }]}>Halved</Text>
         </View>
       </View>
@@ -156,57 +113,31 @@ export function MatchProgress({
 const styles = StyleSheet.create({
   progressContainer: {
     marginTop: spacing.lg,
-    paddingVertical: 12,
-    paddingHorizontal: 10,
-    borderRadius: 16,
-    borderWidth: 1,
+    padding: spacing.lg,
+    borderRadius: borderRadius.lg,
     ...shadows.sm,
   },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 4,
-    paddingBottom: 10,
-  },
   progressTitle: {
-    fontSize: 10.5,
-    fontWeight: '800',
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-  },
-  summaryText: {
-    fontSize: 12,
-    fontWeight: '700',
+    ...typography.smallBold,
+    marginBottom: spacing.md,
   },
   holesScroll: {
     marginBottom: spacing.md,
   },
   holesRow: {
     flexDirection: 'row',
-    gap: 5,
-    paddingHorizontal: 4,
+    gap: spacing.xs,
   },
-  holeColumn: {
-    width: 33,
-    alignItems: 'stretch',
-  },
-  holeNumber: {
-    fontSize: 9,
-    fontWeight: '700',
-    textAlign: 'center',
-    marginBottom: 3,
-  },
-  holeCell: {
+  holeIndicator: {
+    width: 32,
     height: 32,
-    borderRadius: 9,
-    borderWidth: 2,
+    borderRadius: borderRadius.sm,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  holeCellText: {
-    fontSize: 12,
-    fontWeight: '800',
+  holeIndicatorText: {
+    ...typography.caption,
+    fontWeight: '600',
   },
   legendContainer: {
     flexDirection: 'row',
@@ -221,10 +152,10 @@ const styles = StyleSheet.create({
   legendDot: {
     width: 12,
     height: 12,
-    borderRadius: 6,
+    borderRadius: borderRadius.full,
   },
   legendText: {
-    fontSize: 12,
+    ...typography.caption,
   },
 });
 

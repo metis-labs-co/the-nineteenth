@@ -8,23 +8,18 @@
  *
  * Other per-field edits (dates, handicap system, team settings) still live
  * on the Details tab.
- *
- * Redesign (P9): grouped list sections — uppercase SectionLabel headings over
- * surface list-cards (radius 16, rows separated by surfaceVariant hairlines),
- * with a danger card at the bottom. Visibility/Notifications/Archive groups
- * from the design are intentionally omitted: no backing settings exist.
  */
 
 import React, { useCallback, useState } from 'react';
 import { ScrollView, Share, StyleSheet, TouchableOpacity, View } from 'react-native';
-import { Icon, Text } from 'react-native-paper';
+import { Divider, Icon, Text } from 'react-native-paper';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import {
   ConfirmationDialog,
   LoadingSpinner,
   PageHeader,
-  SectionLabel,
+  SectionHeader,
 } from '@/components/common';
 import {
   EditDescriptionSheet,
@@ -32,7 +27,6 @@ import {
   EditWhatsAppLinkSheet,
 } from '@/components/competitions/detail/sections/sheets';
 import { useThemeColors } from '@/context/ThemeContext';
-import type { ColorPalette } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { useConfirmationDialog } from '@/hooks';
 import { borderRadius, spacing, typography } from '@/constants/theme';
@@ -55,138 +49,6 @@ function formatMoney(amount: number, currency: string): string {
   } catch {
     return `${currency} ${amount.toFixed(2)}`;
   }
-}
-
-/** Surface list-card: radius 16, hairline border, children are rows. */
-function SettingsCard({
-  colors,
-  children,
-}: {
-  colors: ColorPalette;
-  children: React.ReactNode;
-}) {
-  return (
-    <View
-      style={[
-        styles.card,
-        { backgroundColor: colors.surface, borderColor: colors.border },
-      ]}
-    >
-      {children}
-    </View>
-  );
-}
-
-interface SettingsRowProps {
-  colors: ColorPalette;
-  /** Muted label (value rows) or bold title (when `sub` / `bold` is set). */
-  label: string;
-  /** Bold value shown on the right. */
-  value?: string;
-  /** Render value muted + italic (e.g. "Not set"). */
-  valueMuted?: boolean;
-  /** Muted 12px sub-line under a bold label. */
-  sub?: string;
-  /** Render the label bold even without a sub-line (action rows). */
-  bold?: boolean;
-  /** Leading icon name (Material Community). */
-  leadingIcon?: string;
-  leadingIconColor?: string;
-  /** Trailing icon; defaults to chevron-right. Pass null to hide. */
-  trailingIcon?: string | null;
-  trailingIconColor?: string;
-  /** Tint for bold label text (e.g. colors.error for danger rows). */
-  labelColor?: string;
-  isLast?: boolean;
-  onPress: () => void;
-  accessibilityLabel: string;
-}
-
-/**
- * List-card row: muted 14.5 label left + bold 14.5 value right + chevron,
- * or bold label + 12px muted sub-line for action rows.
- */
-function SettingsRow({
-  colors,
-  label,
-  value,
-  valueMuted,
-  sub,
-  bold,
-  leadingIcon,
-  leadingIconColor,
-  trailingIcon = 'chevron-right',
-  trailingIconColor,
-  labelColor,
-  isLast,
-  onPress,
-  accessibilityLabel,
-}: SettingsRowProps) {
-  const isTitleRow = bold || !!sub;
-
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      activeOpacity={0.7}
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel}
-      style={[
-        styles.row,
-        !isLast && [styles.rowBorder, { borderBottomColor: colors.surfaceVariant }],
-      ]}
-    >
-      {leadingIcon && (
-        <Icon
-          source={leadingIcon}
-          size={19}
-          color={leadingIconColor ?? colors.textSecondary}
-        />
-      )}
-
-      {isTitleRow ? (
-        <View style={styles.rowText}>
-          <Text
-            style={[styles.rowTitle, { color: labelColor ?? colors.textPrimary }]}
-            numberOfLines={1}
-          >
-            {label}
-          </Text>
-          {!!sub && (
-            <Text
-              style={[styles.rowSub, { color: colors.textSecondary }]}
-              numberOfLines={2}
-            >
-              {sub}
-            </Text>
-          )}
-        </View>
-      ) : (
-        <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>{label}</Text>
-      )}
-
-      {value !== undefined && (
-        <Text
-          style={[
-            styles.rowValue,
-            valueMuted
-              ? { color: colors.textSecondary, fontStyle: 'italic', fontWeight: '500' }
-              : { color: colors.textPrimary },
-          ]}
-          numberOfLines={1}
-        >
-          {value}
-        </Text>
-      )}
-
-      {trailingIcon !== null && (
-        <Icon
-          source={trailingIcon}
-          size={18}
-          color={trailingIconColor ?? colors.textTertiary}
-        />
-      )}
-    </TouchableOpacity>
-  );
 }
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CompetitionSettings'>;
@@ -286,20 +148,6 @@ export default function CompetitionSettingsScreen({ navigation, route }: Props) 
     );
   }
 
-  const individualPoolValue = pools?.individual
-    ? `${formatMoney(
-        pools.individual.total_pool_amount,
-        pools.individual.currency
-      )}${pools.individual.is_locked ? ' · Locked' : ''}`
-    : undefined;
-  const teamPoolValue = pools?.team
-    ? `${formatMoney(pools.team.total_pool_amount, pools.team.currency)}${
-        pools.team.is_locked ? ' · Locked' : ''
-      }`
-    : undefined;
-
-  const showWhatsAppSection = isOrganizer || !!whatsappUrl;
-
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <PageHeader
@@ -309,171 +157,305 @@ export default function CompetitionSettingsScreen({ navigation, route }: Props) 
       />
 
       <ScrollView style={styles.flex} contentContainerStyle={styles.scrollContent}>
-        {/* Competition — organizer only */}
+        {/* Details - organizer only */}
         {isOrganizer && (
-          <View style={styles.section}>
-            <SectionLabel>Competition</SectionLabel>
-            <SettingsCard colors={colors}>
-              <SettingsRow
-                colors={colors}
-                label="Name"
-                value={competition.name}
+          <>
+            <View style={styles.section}>
+              <SectionHeader title="Details" />
+              <TouchableOpacity
                 onPress={() => setIsEditNameOpen(true)}
+                style={[styles.editRow, { backgroundColor: colors.surface }]}
+                activeOpacity={0.7}
+                accessibilityRole="button"
                 accessibilityLabel="Edit competition name"
-              />
-              <SettingsRow
-                colors={colors}
-                label="Description"
-                value={competition.description || 'Add a description'}
-                valueMuted={!competition.description}
+              >
+                <View style={styles.editRowText}>
+                  <Text style={[styles.editLabel, { color: colors.textSecondary }]}>
+                    Name
+                  </Text>
+                  <Text
+                    style={[styles.editValue, { color: colors.textPrimary }]}
+                    numberOfLines={1}
+                  >
+                    {competition.name}
+                  </Text>
+                </View>
+                <Icon source="pencil-outline" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+
+              <TouchableOpacity
                 onPress={() => setIsEditDescriptionOpen(true)}
+                style={[styles.editRow, { backgroundColor: colors.surface, marginTop: spacing.sm }]}
+                activeOpacity={0.7}
+                accessibilityRole="button"
                 accessibilityLabel="Edit competition description"
-                isLast
-              />
-            </SettingsCard>
-          </View>
+              >
+                <View style={styles.editRowText}>
+                  <Text style={[styles.editLabel, { color: colors.textSecondary }]}>
+                    Description
+                  </Text>
+                  <Text
+                    style={[
+                      styles.editValue,
+                      {
+                        color: competition.description
+                          ? colors.textPrimary
+                          : colors.textSecondary,
+                        fontStyle: competition.description ? 'normal' : 'italic',
+                      },
+                    ]}
+                    numberOfLines={2}
+                  >
+                    {competition.description || 'Add a description'}
+                  </Text>
+                </View>
+                <Icon source="pencil-outline" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <Divider style={[styles.divider, { backgroundColor: colors.border }]} />
+          </>
+        )}
+
+        {/* Invite Code */}
+        <View style={styles.section}>
+          <SectionHeader title="Invite Code" />
+          <TouchableOpacity
+            onPress={handleShare}
+            style={[styles.inviteRow, { backgroundColor: colors.surface }]}
+            activeOpacity={0.7}
+            accessibilityLabel="Share invite code"
+          >
+            <Icon source="share-variant-outline" size={20} color={colors.primary} />
+            <Text style={[styles.inviteCode, { color: colors.primary }]}>
+              {competition.invite_code}
+            </Text>
+            <Text style={[styles.shareTap, { color: colors.textSecondary }]}>
+              Tap to share
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <Divider style={[styles.divider, { backgroundColor: colors.border }]} />
+
+        {/* WhatsApp Group */}
+        {(isOrganizer || !!whatsappUrl) && (
+          <>
+            <View style={styles.section}>
+              <SectionHeader title="WhatsApp Group" />
+
+              {isOrganizer && !whatsappUrl && (
+                <TouchableOpacity
+                  onPress={() => setIsEditWhatsAppOpen(true)}
+                  style={[styles.whatsappRow, { backgroundColor: colors.surface }]}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel="Add WhatsApp group invite link"
+                >
+                  <Icon source="whatsapp" size={22} color={colors.primary} />
+                  <View style={styles.whatsappRowText}>
+                    <Text style={[styles.whatsappLabel, { color: colors.textPrimary }]}>
+                      Add WhatsApp Group
+                    </Text>
+                    <Text
+                      style={[styles.whatsappSubtitle, { color: colors.textSecondary }]}
+                    >
+                      Let members join your group chat with one tap
+                    </Text>
+                  </View>
+                  <Icon source="chevron-right" size={20} color={colors.textSecondary} />
+                </TouchableOpacity>
+              )}
+
+              {isOrganizer && whatsappUrl && (
+                <>
+                  <TouchableOpacity
+                    onPress={() => setIsEditWhatsAppOpen(true)}
+                    style={[styles.whatsappRow, { backgroundColor: colors.surface }]}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel="Edit WhatsApp group invite link"
+                  >
+                    <Icon source="whatsapp" size={22} color={colors.primary} />
+                    <View style={styles.whatsappRowText}>
+                      <Text
+                        style={[styles.whatsappLabel, { color: colors.textPrimary }]}
+                      >
+                        Group invite link
+                      </Text>
+                      <Text
+                        style={[styles.whatsappSubtitle, { color: colors.textSecondary }]}
+                        numberOfLines={1}
+                      >
+                        {whatsappUrl}
+                      </Text>
+                    </View>
+                    <Icon source="pencil-outline" size={20} color={colors.textSecondary} />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={handleOpenWhatsApp}
+                    style={[
+                      styles.whatsappRow,
+                      { backgroundColor: colors.surface, marginTop: spacing.sm },
+                    ]}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel="Open WhatsApp group"
+                  >
+                    <Icon source="open-in-new" size={20} color={colors.primary} />
+                    <Text style={[styles.whatsappLabel, { color: colors.primary, flex: 1 }]}>
+                      Open in WhatsApp
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={handleShareWhatsApp}
+                    style={[
+                      styles.whatsappRow,
+                      { backgroundColor: colors.surface, marginTop: spacing.sm },
+                    ]}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel="Share WhatsApp group link with members"
+                  >
+                    <Icon source="share-variant-outline" size={20} color={colors.primary} />
+                    <Text style={[styles.whatsappLabel, { color: colors.primary, flex: 1 }]}>
+                      Share with members
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              )}
+
+              {!isOrganizer && !!whatsappUrl && (
+                <TouchableOpacity
+                  onPress={handleOpenWhatsApp}
+                  style={[styles.whatsappRow, { backgroundColor: colors.surface }]}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel="Join WhatsApp group"
+                >
+                  <Icon source="whatsapp" size={22} color={colors.primary} />
+                  <View style={styles.whatsappRowText}>
+                    <Text style={[styles.whatsappLabel, { color: colors.textPrimary }]}>
+                      Join WhatsApp Group
+                    </Text>
+                    <Text
+                      style={[styles.whatsappSubtitle, { color: colors.textSecondary }]}
+                    >
+                      Tap to open the group in WhatsApp
+                    </Text>
+                  </View>
+                  <Icon source="chevron-right" size={20} color={colors.textSecondary} />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <Divider style={[styles.divider, { backgroundColor: colors.border }]} />
+          </>
         )}
 
         {/* Prize Pools — organizer only */}
         {isOrganizer && (
-          <View style={styles.section}>
-            <SectionLabel>Prize pools</SectionLabel>
-            <SettingsCard colors={colors}>
+          <>
+            <View style={styles.section}>
+              <SectionHeader title="Prize Pools" />
+
               {!isPremium ? (
-                <SettingsRow
-                  colors={colors}
-                  label="Prize pools"
-                  sub="Upgrade to Premium to fund pools and reward top finishers"
-                  trailingIcon="lock-outline"
-                  trailingIconColor={colors.textSecondary}
+                <TouchableOpacity
                   onPress={() => navigation.navigate('Subscription' as never)}
+                  style={[styles.poolRow, { backgroundColor: colors.surface }]}
+                  activeOpacity={0.7}
                   accessibilityLabel="Upgrade to Premium for prize pools"
-                  isLast
-                />
+                >
+                  <View style={styles.poolRowText}>
+                    <Text style={[styles.poolLabel, { color: colors.textPrimary }]}>
+                      Prize Pools
+                    </Text>
+                    <Text style={[styles.poolSubtitle, { color: colors.textSecondary }]}>
+                      Upgrade to Premium to fund pools and reward top finishers
+                    </Text>
+                  </View>
+                  <Icon source="lock-outline" size={20} color={colors.textSecondary} />
+                </TouchableOpacity>
               ) : (
                 <>
-                  <SettingsRow
-                    colors={colors}
-                    label="Individual pool"
-                    value={individualPoolValue ?? 'Not configured'}
-                    valueMuted={!individualPoolValue}
+                  <TouchableOpacity
                     onPress={() => setPoolSheetTab('individual')}
+                    style={[styles.poolRow, { backgroundColor: colors.surface }]}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
                     accessibilityLabel="Edit individual prize pool"
-                    isLast={!teamModeAllowed}
-                  />
+                  >
+                    <View style={styles.poolRowText}>
+                      <Text style={[styles.poolLabel, { color: colors.textPrimary }]}>
+                        Individual Prize Pool
+                      </Text>
+                      <Text
+                        style={[styles.poolSubtitle, { color: colors.textSecondary }]}
+                      >
+                        {pools?.individual
+                          ? `${formatMoney(
+                              pools.individual.total_pool_amount,
+                              pools.individual.currency
+                            )}${pools.individual.is_locked ? ' · locked' : ''}`
+                          : 'Not configured'}
+                      </Text>
+                    </View>
+                    <Icon source="chevron-right" size={20} color={colors.textSecondary} />
+                  </TouchableOpacity>
+
                   {teamModeAllowed && (
-                    <SettingsRow
-                      colors={colors}
-                      label="Team pool"
-                      value={teamPoolValue ?? 'Not configured'}
-                      valueMuted={!teamPoolValue}
+                    <TouchableOpacity
                       onPress={() => setPoolSheetTab('team')}
+                      style={[
+                        styles.poolRow,
+                        { backgroundColor: colors.surface, marginTop: spacing.sm },
+                      ]}
+                      activeOpacity={0.7}
+                      accessibilityRole="button"
                       accessibilityLabel="Edit team prize pool"
-                      isLast
-                    />
+                    >
+                      <View style={styles.poolRowText}>
+                        <Text style={[styles.poolLabel, { color: colors.textPrimary }]}>
+                          Team Prize Pool
+                        </Text>
+                        <Text
+                          style={[styles.poolSubtitle, { color: colors.textSecondary }]}
+                        >
+                          {pools?.team
+                            ? `${formatMoney(
+                                pools.team.total_pool_amount,
+                                pools.team.currency
+                              )}${pools.team.is_locked ? ' · locked' : ''}`
+                            : 'Not configured'}
+                        </Text>
+                      </View>
+                      <Icon source="chevron-right" size={20} color={colors.textSecondary} />
+                    </TouchableOpacity>
                   )}
                 </>
               )}
-            </SettingsCard>
-          </View>
+            </View>
+
+            <Divider style={[styles.divider, { backgroundColor: colors.border }]} />
+          </>
         )}
 
-        {/* Sharing — invite code + WhatsApp group */}
+        {/* Danger Zone */}
         <View style={styles.section}>
-          <SectionLabel>Sharing</SectionLabel>
-          <SettingsCard colors={colors}>
-            <SettingsRow
-              colors={colors}
-              label="Invite code"
-              value={competition.invite_code}
-              trailingIcon="share-variant-outline"
-              trailingIconColor={colors.primary}
-              onPress={handleShare}
-              accessibilityLabel="Share invite code"
-              isLast={!showWhatsAppSection}
-            />
-
-            {isOrganizer && !whatsappUrl && (
-              <SettingsRow
-                colors={colors}
-                label="Add WhatsApp group"
-                sub="Let members join your group chat with one tap"
-                leadingIcon="whatsapp"
-                leadingIconColor={colors.primary}
-                onPress={() => setIsEditWhatsAppOpen(true)}
-                accessibilityLabel="Add WhatsApp group invite link"
-                isLast
-              />
-            )}
-
-            {isOrganizer && whatsappUrl && (
-              <>
-                <SettingsRow
-                  colors={colors}
-                  label="WhatsApp group link"
-                  sub={whatsappUrl}
-                  leadingIcon="whatsapp"
-                  leadingIconColor={colors.primary}
-                  trailingIcon="pencil-outline"
-                  trailingIconColor={colors.textSecondary}
-                  onPress={() => setIsEditWhatsAppOpen(true)}
-                  accessibilityLabel="Edit WhatsApp group invite link"
-                />
-                <SettingsRow
-                  colors={colors}
-                  label="Open in WhatsApp"
-                  bold
-                  labelColor={colors.primary}
-                  leadingIcon="open-in-new"
-                  leadingIconColor={colors.primary}
-                  onPress={handleOpenWhatsApp}
-                  accessibilityLabel="Open WhatsApp group"
-                />
-                <SettingsRow
-                  colors={colors}
-                  label="Share with members"
-                  bold
-                  labelColor={colors.primary}
-                  leadingIcon="share-variant-outline"
-                  leadingIconColor={colors.primary}
-                  onPress={handleShareWhatsApp}
-                  accessibilityLabel="Share WhatsApp group link with members"
-                  isLast
-                />
-              </>
-            )}
-
-            {!isOrganizer && !!whatsappUrl && (
-              <SettingsRow
-                colors={colors}
-                label="Join WhatsApp group"
-                sub="Tap to open the group in WhatsApp"
-                leadingIcon="whatsapp"
-                leadingIconColor={colors.primary}
-                onPress={handleOpenWhatsApp}
-                accessibilityLabel="Join WhatsApp group"
-                isLast
-              />
-            )}
-          </SettingsCard>
-        </View>
-
-        {/* Danger card — ungrouped, bottom of screen */}
-        <View style={styles.section}>
-          <SettingsCard colors={colors}>
-            <SettingsRow
-              colors={colors}
-              label="Delete competition"
-              bold
-              labelColor={colors.error}
-              leadingIcon="trash-can-outline"
-              leadingIconColor={colors.error}
-              trailingIcon={null}
-              onPress={() => setShowDeleteDialog(true)}
-              accessibilityLabel="Delete this competition"
-              isLast
-            />
-          </SettingsCard>
+          <SectionHeader title="Danger Zone" />
+          <TouchableOpacity
+            onPress={() => setShowDeleteDialog(true)}
+            style={[styles.deleteButton, { borderColor: colors.error }]}
+            activeOpacity={0.7}
+            accessibilityLabel="Delete this competition"
+          >
+            <Icon source="delete-outline" size={20} color={colors.error} />
+            <Text style={[styles.deleteButtonText, { color: colors.error }]}>
+              Delete Competition
+            </Text>
+          </TouchableOpacity>
           <Text style={[styles.deleteHint, { color: colors.textSecondary }]}>
             The competition is hidden immediately and permanently removed after 90 days. You can undo right after deleting.
           </Text>
@@ -547,54 +529,93 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   scrollContent: {
-    paddingTop: spacing.md,
     paddingBottom: spacing.xxxl,
   },
   section: {
     paddingHorizontal: spacing.lg,
-    marginBottom: spacing.xl,
+    paddingVertical: spacing.lg,
   },
-  card: {
-    borderRadius: borderRadius.xl,
-    borderWidth: 1,
-    overflow: 'hidden',
+  divider: {
+    marginHorizontal: spacing.lg,
   },
-  row: {
+  editRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
     gap: spacing.md,
-    paddingVertical: 14,
-    paddingHorizontal: 15,
-    minHeight: 44,
   },
-  rowBorder: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  rowText: {
+  editRowText: {
     flex: 1,
-    minWidth: 0,
+    gap: spacing.xs,
   },
-  rowLabel: {
+  editLabel: {
+    ...typography.caption,
+  },
+  editValue: {
+    ...typography.body,
+  },
+  inviteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    gap: spacing.sm,
+  },
+  poolRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    gap: spacing.md,
+  },
+  poolRowText: {
     flex: 1,
-    fontSize: 14.5,
-    lineHeight: 20,
+    gap: spacing.xs,
   },
-  rowValue: {
-    flexShrink: 1,
-    fontSize: 14.5,
-    lineHeight: 20,
-    fontWeight: '700',
-    textAlign: 'right',
+  poolLabel: {
+    ...typography.body,
+    fontWeight: '600',
   },
-  rowTitle: {
-    fontSize: 14.5,
-    lineHeight: 20,
-    fontWeight: '700',
+  poolSubtitle: {
+    ...typography.caption,
   },
-  rowSub: {
-    fontSize: 12,
-    lineHeight: 16,
-    marginTop: 2,
+  whatsappRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    gap: spacing.md,
+  },
+  whatsappRowText: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  whatsappLabel: {
+    ...typography.body,
+    fontWeight: '600',
+  },
+  whatsappSubtitle: {
+    ...typography.caption,
+  },
+  inviteCode: {
+    ...typography.bodyBold,
+    flex: 1,
+  },
+  shareTap: {
+    ...typography.caption,
+  },
+  deleteButton: {
+    flexDirection: 'row',
+    height: 48,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+  },
+  deleteButtonText: {
+    ...typography.bodyBold,
   },
   deleteHint: {
     ...typography.caption,

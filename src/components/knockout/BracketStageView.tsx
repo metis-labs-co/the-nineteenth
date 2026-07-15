@@ -6,8 +6,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing } from '@/constants/theme';
-import { SectionLabel } from '@/components/common';
+import { spacing, typography } from '@/constants/theme';
 import { KnockoutMatchCard } from './KnockoutMatchCard';
 import type { BracketStage, KnockoutMatchWithPlayers } from '@/types/database';
 
@@ -26,8 +25,10 @@ export const BracketStageView = React.memo(function BracketStageView({
 
   return (
     <View style={styles.container}>
-      <SectionLabel style={styles.stageTitle}>{stage.stageName}</SectionLabel>
-      <Text style={[styles.matchCount, { color: colors.textTertiary }]}>
+      <Text style={[styles.stageTitle, { color: colors.textPrimary }]}>
+        {stage.stageName}
+      </Text>
+      <Text style={[styles.matchCount, { color: colors.textSecondary }]}>
         {stage.matches.length} {stage.matches.length === 1 ? 'match' : 'matches'}
       </Text>
       <View style={styles.matchList}>
@@ -49,11 +50,11 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.lg,
   },
   stageTitle: {
+    ...typography.h4,
     marginBottom: spacing.xs,
   },
   matchCount: {
-    fontSize: 11.5,
-    marginHorizontal: 2,
+    ...typography.caption,
     marginBottom: spacing.md,
   },
   matchList: {

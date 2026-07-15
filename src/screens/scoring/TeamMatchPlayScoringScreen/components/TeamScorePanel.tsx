@@ -3,7 +3,7 @@
  *
  * Displays a team's score entry panel for team match play.
  * Shows:
- * - Team name (with team color dot) and combined handicap
+ * - Team name and combined handicap
  * - Team's best score for the hole
  * - Individual player scores within the team
  * - Match status badge
@@ -14,7 +14,7 @@ import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, typography, shadows } from '@/constants/theme';
+import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { PICKUP_SCORE } from '@/constants/scoring';
 import type { MatchTeam, TeamMatchStatusDisplay } from '../types';
 
@@ -77,26 +77,17 @@ function PlayerScoreRow({
     <View
       style={[
         styles.playerRow,
-        { backgroundColor: isBestScore ? colors.primaryBackground : colors.surfaceVariant },
+        { backgroundColor: isBestScore ? colors.surfaceVariant : colors.surface },
         isBestScore && { borderLeftWidth: 3, borderLeftColor: colors.success },
       ]}
     >
-      {/* Player info line */}
       <View style={styles.playerInfo}>
-        <View style={styles.playerNameRow}>
-          <Text
-            style={[styles.playerName, { color: colors.textPrimary }]}
-            numberOfLines={1}
-          >
-            {name}
-          </Text>
-          {/* Best Score Indicator */}
-          {isBestScore && score !== null && !isPickedUp && (
-            <View style={[styles.bestBadge, { backgroundColor: colors.success }]}>
-              <Icon source="star" size={12} color={colors.white} />
-            </View>
-          )}
-        </View>
+        <Text
+          style={[styles.playerName, { color: colors.textPrimary }]}
+          numberOfLines={1}
+        >
+          {name}
+        </Text>
         <View style={styles.handicapRow}>
           <Text style={[styles.handicapText, { color: colors.textSecondary }]}>
             {handicapLabel}: {handicap}
@@ -117,12 +108,11 @@ function PlayerScoreRow({
         </View>
       </View>
 
-      {/* Score action row */}
       <View style={styles.playerControls}>
         {/* Pick Up Button */}
         <TouchableOpacity
           style={[
-            styles.actionButton,
+            styles.smallButton,
             { borderColor: colors.border, backgroundColor: colors.surface },
             isPickedUp && { backgroundColor: colors.primary, borderColor: colors.primary },
             !canPickUp && styles.buttonDisabled,
@@ -141,62 +131,52 @@ function PlayerScoreRow({
           >
             P
           </Text>
-          <Text
-            style={[
-              styles.actionButtonCaption,
-              { color: isPickedUp ? colors.white : colors.textSecondary },
-            ]}
-          >
-            PICK UP
-          </Text>
         </TouchableOpacity>
 
-        <View style={styles.stepperGroup}>
-          {/* Minus Button */}
-          <TouchableOpacity
-            style={[
-              styles.stepperButton,
-              { borderColor: colors.border, backgroundColor: colors.surface },
-              !canDecrement && styles.buttonDisabled,
-            ]}
-            onPress={() => onScoreAdjust(-1)}
-            disabled={!canDecrement}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.buttonText, { color: colors.textPrimary }]}>−</Text>
-          </TouchableOpacity>
+        {/* Minus Button */}
+        <TouchableOpacity
+          style={[
+            styles.smallButton,
+            { borderColor: colors.border, backgroundColor: colors.surface },
+            !canDecrement && styles.buttonDisabled,
+          ]}
+          onPress={() => onScoreAdjust(-1)}
+          disabled={!canDecrement}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.buttonText, { color: colors.textPrimary }]}>−</Text>
+        </TouchableOpacity>
 
-          {/* Score Display */}
-          <View style={styles.scoreDisplay}>
-            <Text
-              style={[
-                styles.scoreText,
-                { color: isPickedUp ? colors.textSecondary : getScoreColor(score) },
-              ]}
-            >
-              {isPickedUp ? 'P' : (score ?? '-')}
-            </Text>
-          </View>
-
-          {/* Plus Button */}
-          <TouchableOpacity
+        {/* Score Display */}
+        <View style={styles.scoreDisplay}>
+          <Text
             style={[
-              styles.stepperButton,
-              { borderColor: colors.border, backgroundColor: colors.surface },
-              !canIncrement && styles.buttonDisabled,
+              styles.scoreText,
+              { color: isPickedUp ? colors.textSecondary : getScoreColor(score) },
             ]}
-            onPress={() => onScoreAdjust(1)}
-            disabled={!canIncrement}
-            activeOpacity={0.7}
           >
-            <Text style={[styles.buttonText, { color: colors.textPrimary }]}>+</Text>
-          </TouchableOpacity>
+            {isPickedUp ? 'P' : (score ?? '-')}
+          </Text>
         </View>
+
+        {/* Plus Button */}
+        <TouchableOpacity
+          style={[
+            styles.smallButton,
+            { borderColor: colors.border, backgroundColor: colors.surface },
+            !canIncrement && styles.buttonDisabled,
+          ]}
+          onPress={() => onScoreAdjust(1)}
+          disabled={!canIncrement}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.buttonText, { color: colors.textPrimary }]}>+</Text>
+        </TouchableOpacity>
 
         {/* Par Button */}
         <TouchableOpacity
           style={[
-            styles.actionButton,
+            styles.parButton,
             { borderColor: colors.border, backgroundColor: colors.surface },
             !isPickedUp && score === par && { backgroundColor: colors.primary, borderColor: colors.primary },
             disabled && styles.buttonDisabled,
@@ -214,16 +194,14 @@ function PlayerScoreRow({
           >
             {par}
           </Text>
-          <Text
-            style={[
-              styles.actionButtonCaption,
-              { color: colors.textSecondary },
-              !isPickedUp && score === par && { color: colors.white },
-            ]}
-          >
-            PAR
-          </Text>
         </TouchableOpacity>
+
+        {/* Best Score Indicator */}
+        {isBestScore && score !== null && !isPickedUp && (
+          <View style={[styles.bestBadge, { backgroundColor: colors.success }]}>
+            <Icon source="star" size={12} color={colors.white} />
+          </View>
+        )}
       </View>
     </View>
   );
@@ -245,8 +223,6 @@ export interface TeamScorePanelProps {
   onPlayerPickUp: (playerId: string) => void;
   /** Label for player handicap values: 'H' or 'DHC' */
   handicapLabel?: string;
-  /** Accent color for the team dot next to the name (defaults to primary). */
-  teamColor?: string;
 }
 
 export function TeamScorePanel({
@@ -264,7 +240,6 @@ export function TeamScorePanel({
   onPlayerParSelect,
   onPlayerPickUp,
   handicapLabel = 'HC',
-  teamColor,
 }: TeamScorePanelProps) {
   const colors = useThemeColors();
 
@@ -289,24 +264,19 @@ export function TeamScorePanel({
     <View
       style={[
         styles.panel,
-        { backgroundColor: colors.surface, borderColor: colors.border },
+        { backgroundColor: colors.surfaceVariant },
         isWinning && { borderColor: colors.success, borderWidth: 2 },
       ]}
     >
       {/* Team Header */}
       <View style={styles.teamHeader}>
         <View style={styles.teamInfo}>
-          <View style={styles.teamNameRow}>
-            <View
-              style={[styles.teamColorDot, { backgroundColor: teamColor ?? colors.primary }]}
-            />
-            <Text
-              style={[styles.teamName, { color: colors.textPrimary }]}
-              numberOfLines={1}
-            >
-              {team.name}
-            </Text>
-          </View>
+          <Text
+            style={[styles.teamName, { color: colors.textPrimary }]}
+            numberOfLines={1}
+          >
+            {team.name}
+          </Text>
           <Text style={[styles.teamHandicap, { color: colors.textSecondary }]}>
             Team {handicapLabel}: {team.handicap}
           </Text>
@@ -314,30 +284,25 @@ export function TeamScorePanel({
 
         <View style={styles.headerRight}>
           {/* Team Best Score */}
-          <View style={styles.teamScoreStat}>
-            <View style={[styles.teamScoreBox, { backgroundColor: colors.surfaceVariant }]}>
-              <Text
-                style={[
-                  styles.teamScoreText,
-                  {
-                    color:
-                      teamScore !== null
-                        ? teamScore < par
-                          ? colors.birdie
-                          : teamScore === par
-                            ? colors.par
-                            : teamScore === par + 1
-                              ? colors.bogey
-                              : colors.doubleBogey
-                        : colors.textSecondary,
-                  },
-                ]}
-              >
-                {teamScore ?? '-'}
-              </Text>
-            </View>
-            <Text style={[styles.teamScoreCaption, { color: colors.textSecondary }]}>
-              BEST
+          <View style={[styles.teamScoreBox, { backgroundColor: colors.surface }]}>
+            <Text
+              style={[
+                styles.teamScoreText,
+                {
+                  color:
+                    teamScore !== null
+                      ? teamScore < par
+                        ? colors.birdie
+                        : teamScore === par
+                          ? colors.par
+                          : teamScore === par + 1
+                            ? colors.bogey
+                            : colors.doubleBogey
+                      : colors.textSecondary,
+                },
+              ]}
+            >
+              {teamScore ?? '-'}
             </Text>
           </View>
 
@@ -393,8 +358,7 @@ export function TeamScorePanel({
 
 const styles = StyleSheet.create({
   panel: {
-    borderRadius: 18,
-    borderWidth: 1,
+    borderRadius: borderRadius.lg,
     overflow: 'hidden',
     ...shadows.sm,
   },
@@ -402,117 +366,87 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    paddingHorizontal: 15,
-    paddingTop: 13,
-    paddingBottom: spacing.md,
+    padding: spacing.lg,
   },
   teamInfo: {
     flex: 1,
     marginRight: spacing.md,
   },
-  teamNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: 2,
-  },
-  teamColorDot: {
-    width: 9,
-    height: 9,
-    borderRadius: 4.5,
-  },
   teamName: {
-    fontSize: 18,
-    fontWeight: '800',
-    flexShrink: 1,
+    ...typography.h3,
+    marginBottom: spacing.xs,
   },
   teamHandicap: {
     ...typography.caption,
   },
   headerRight: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: spacing.sm,
   },
-  teamScoreStat: {
-    alignItems: 'center',
-  },
   teamScoreBox: {
-    width: 46,
-    height: 46,
-    borderRadius: 13,
+    width: 48,
+    height: 48,
+    borderRadius: borderRadius.md,
     justifyContent: 'center',
     alignItems: 'center',
   },
   teamScoreText: {
-    fontSize: 24,
-    fontWeight: '800',
-  },
-  teamScoreCaption: {
-    fontSize: 8.5,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-    marginTop: 3,
+    fontSize: 28,
+    fontWeight: '700',
   },
   statusBadge: {
-    minWidth: 44,
-    height: 38,
-    paddingHorizontal: 10,
-    borderRadius: 12,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
+    minWidth: 48,
     alignItems: 'center',
-    justifyContent: 'center',
   },
   statusBadgeText: {
-    fontSize: 16,
-    fontWeight: '800',
+    ...typography.smallBold,
     letterSpacing: 0.5,
   },
   winningBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 5,
-    paddingVertical: 5,
-    marginHorizontal: 15,
-    borderRadius: 9,
+    gap: spacing.xs,
+    paddingVertical: spacing.xs,
+    marginHorizontal: spacing.lg,
+    borderRadius: borderRadius.sm,
     marginBottom: spacing.sm,
   },
   winningText: {
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.8,
+    ...typography.captionBold,
+    letterSpacing: 0.5,
   },
   divider: {
     height: 1,
-    marginHorizontal: 15,
+    marginHorizontal: spacing.lg,
   },
   playersContainer: {
-    paddingVertical: 11,
-    paddingHorizontal: spacing.sm,
+    padding: spacing.md,
     gap: spacing.sm,
   },
   playerRow: {
-    paddingVertical: 10,
-    paddingHorizontal: spacing.sm,
-    borderRadius: 12,
-  },
-  playerInfo: {
-    marginBottom: spacing.sm,
-  },
-  playerNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
+    justifyContent: 'space-between',
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+  },
+  playerInfo: {
+    flex: 1,
+    marginRight: spacing.sm,
   },
   playerName: {
     ...typography.bodyBold,
-    flexShrink: 1,
+    marginBottom: spacing.xs,
   },
   handicapRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    marginTop: 2,
   },
   handicapText: {
     ...typography.caption,
@@ -528,59 +462,48 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   pickupButtonText: {
-    fontSize: 19,
-    fontWeight: '800',
+    fontSize: 16,
+    fontWeight: '700',
   },
   playerControls: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     gap: spacing.xs,
   },
-  actionButton: {
-    width: 60,
-    height: 62,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 2,
-  },
-  actionButtonCaption: {
-    fontSize: 8,
-    fontWeight: '800',
-    letterSpacing: 0.4,
-  },
-  stepperGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  stepperButton: {
-    width: 58,
-    height: 62,
-    borderRadius: 14,
-    borderWidth: 1.5,
+  smallButton: {
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
   buttonText: {
-    fontSize: 29,
-    fontWeight: '500',
+    fontSize: 22,
+    fontWeight: '400',
   },
   scoreDisplay: {
-    width: 48,
+    width: 36,
+    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
   },
   scoreText: {
-    fontSize: 40,
-    fontWeight: '800',
-    lineHeight: 44,
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  parButton: {
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: spacing.xs,
   },
   parButtonText: {
-    fontSize: 19,
-    fontWeight: '800',
+    fontSize: 16,
+    fontWeight: '600',
   },
   bestBadge: {
     width: 20,
@@ -588,6 +511,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
+    marginLeft: spacing.xs,
   },
   buttonDisabled: {
     opacity: 0.4,

@@ -3,25 +3,20 @@
  *
  * Renders one settlement section per existing pool (individual and/or team).
  * Each section shows:
- *   - Dark pot hero card with total, state pill and funding meta line
- *   - Placements list card mapping the live leaderboard to payout slots
+ *   - Summary card with target label and total
+ *   - Per-placement cards mapping the live leaderboard to payout slots
  *   - Settle action when the competition is completed and the pool is unsettled
  *   - Transactions log after settlement
  */
 
 import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet, TouchableOpacity, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Icon, Text } from 'react-native-paper';
 
-import {
-  ConfirmationDialog,
-  HeroCard,
-  SectionLabel,
-  heroPalette,
-} from '@/components/common';
+import { ConfirmationDialog, SectionHeader, StatusBadge } from '@/components/common';
+import type { StatusVariant } from '@/components/common';
+import { PoolTransactionsList } from '@/components/prizePool/PoolTransactionsList';
 import { useThemeColors } from '@/context/ThemeContext';
-import type { ColorPalette } from '@/constants/theme';
 import { borderRadius, shadows, spacing, typography } from '@/constants/theme';
 import { useCompetitionLeaderboard } from '@/hooks/competitions/leaderboard';
 import type { CompetitionLeaderboardEntry } from '@/hooks/competitions/leaderboard';
@@ -33,7 +28,6 @@ import { formatDateAustralian } from '@/utils/formatting';
 import type { Competition } from '@/types/database.types';
 import type {
   CompetitionPrizePool,
-  PoolTransaction,
   PrizePoolPlacement,
 } from '@/types/database/prizePool.types';
 
@@ -81,58 +75,6 @@ interface PlacementView {
   placement: PrizePoolPlacement;
   previewWinner: CompetitionLeaderboardEntry | null;
   tiedAt: CompetitionLeaderboardEntry[];
-}
-
-interface PoolStatePill {
-  label: string;
-  color: string;
-  bg: string;
-}
-
-/**
- * Map the pool + competition state onto the design's four hero pill states:
- * Not set → Locked → Ready to settle → Settled.
- */
-function getPoolStatePill(
-  pool: CompetitionPrizePool,
-  isCompetitionComplete: boolean,
-  colors: ColorPalette
-): PoolStatePill {
-  if (pool.status === 'settled') {
-    return { label: 'Settled', color: colors.primaryDark, bg: colors.primaryBackground };
-  }
-  if (isCompetitionComplete) {
-    return {
-      label: 'Ready to settle',
-      color: colors.primaryDark,
-      bg: colors.primaryBackground,
-    };
-  }
-  if (pool.is_locked) {
-    return { label: 'Locked', color: colors.warningDark, bg: colors.warningBackground };
-  }
-  return { label: 'Not set', color: colors.warningDark, bg: colors.warningBackground };
-}
-
-/** Hero meta line: "Winner takes all · $30 a head · split within teams" */
-function buildPoolMetaLine(
-  pool: CompetitionPrizePool,
-  placementCount: number,
-  isTeamPool: boolean
-): string {
-  const structure =
-    placementCount === 1
-      ? 'Winner takes all'
-      : placementCount > 1
-        ? `Top ${placementCount} paid`
-        : 'No placements set';
-  const contribution =
-    pool.funding_type === 'per_player'
-      ? `${formatMoney(pool.funding_amount, pool.currency)} a head`
-      : `${formatMoney(pool.funding_amount, pool.currency)} fixed pot`;
-  const parts = [structure, contribution];
-  if (isTeamPool) parts.push('split within teams');
-  return parts.join(' · ');
 }
 
 // ============================================================================
@@ -239,9 +181,6 @@ function PoolSection({
   const isCompetitionComplete = competition.status === 'completed';
   const canSettle = isOrganizer && !isSettled && isCompetitionComplete;
 
-  const statePill = getPoolStatePill(pool, isCompetitionComplete, colors);
-  const metaLine = buildPoolMetaLine(pool, placements.length, isTeamPool);
-
   const handleSettleConfirm = () => {
     if (!leaderboard) return;
     setShowConfirm(false);
@@ -256,64 +195,73 @@ function PoolSection({
     });
   };
 
-  const settleDisabled = isSettling || !leaderboard || leaderboard.length === 0;
-
   return (
     <View style={styles.poolSection}>
-      {/* Pot hero */}
-      <HeroCard variant="green" testID={`payouts-hero-${pool.target_type}`}>
-        <View style={styles.heroTopRow}>
-          <View style={styles.heroLeft}>
-            <Text style={[styles.heroEyebrow, { color: heroPalette.eyebrowGreen }]}>
-              Winners&apos; pot · {isTeamPool ? 'team' : 'individual'}
-            </Text>
-            <Text style={[styles.heroAmount, { color: heroPalette.text }]}>
+      {/* Pool summary */}
+      <View
+        style={[
+          styles.summaryCard,
+          { backgroundColor: colors.surface, borderColor: colors.border },
+        ]}
+      >
+        <View style={styles.summaryHeader}>
+          <View style={[styles.trophyBadge, { backgroundColor: colors.primaryLighter }]}>
+            <Icon
+              source={isTeamPool ? 'account-group' : 'trophy-outline'}
+              size={24}
+              color={colors.primary}
+            />
+          </View>
+          <View style={styles.summaryText}>
+            <Text style={[styles.summaryAmount, { color: colors.textPrimary }]}>
               {formatMoney(pool.total_pool_amount, pool.currency)}
             </Text>
-          </View>
-          <View style={[styles.statePill, { backgroundColor: statePill.bg }]}>
-            <Text style={[styles.statePillText, { color: statePill.color }]}>
-              {statePill.label}
+            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
+              {isTeamPool ? 'Team prize pool' : 'Individual prize pool'}
             </Text>
           </View>
+          <StatusBadge status={pool.status as StatusVariant} />
         </View>
-        <Text style={[styles.heroMeta, { color: heroPalette.mutedGreen }]}>
-          {metaLine}
-        </Text>
-      </HeroCard>
+        {isTeamPool && (
+          <Text style={[styles.helperText, { color: colors.textSecondary }]}>
+            Each placement is split evenly among team members.
+          </Text>
+        )}
+      </View>
 
       {/* Placements */}
       <View style={styles.section}>
-        <SectionLabel>Placements</SectionLabel>
-        <View
-          style={[
-            styles.listCard,
-            { backgroundColor: colors.surface, borderColor: colors.border },
-          ]}
-        >
-          {isLoadingLeaderboard ? (
-            <View style={styles.listCardCenter}>
-              <ActivityIndicator color={colors.primary} />
-            </View>
-          ) : placementViews.length === 0 ? (
-            <View style={styles.listCardCenter}>
-              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                No placements configured for this pool.
-              </Text>
-            </View>
-          ) : (
-            placementViews.map((view, index) => (
-              <PlacementRow
-                key={view.placement.id}
-                view={view}
-                currency={pool.currency}
-                isSettled={isSettled}
-                isTeamPool={isTeamPool}
-                isLast={index === placementViews.length - 1}
-              />
-            ))
-          )}
-        </View>
+        <SectionHeader title="Placements" icon="medal-outline" primaryIcon={false} />
+        {isLoadingLeaderboard ? (
+          <View
+            style={[
+              styles.placementCard,
+              { backgroundColor: colors.surface, borderColor: colors.border, alignItems: 'center' },
+            ]}
+          >
+            <ActivityIndicator color={colors.primary} />
+          </View>
+        ) : placementViews.length === 0 ? (
+          <View
+            style={[
+              styles.placementCard,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+            ]}
+          >
+            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+              No placements configured for this pool.
+            </Text>
+          </View>
+        ) : (
+          placementViews.map((view) => (
+            <PlacementCard
+              key={view.placement.id}
+              view={view}
+              currency={pool.currency}
+              isSettled={isSettled}
+            />
+          ))
+        )}
       </View>
 
       {/* Settle action */}
@@ -323,24 +271,24 @@ function PoolSection({
             <>
               <TouchableOpacity
                 onPress={() => setShowConfirm(true)}
-                disabled={settleDisabled}
-                style={[styles.settleTouchable, settleDisabled && styles.settleDisabled]}
-                activeOpacity={0.85}
+                disabled={isSettling || !leaderboard || leaderboard.length === 0}
+                style={[
+                  styles.settleButton,
+                  {
+                    backgroundColor: colors.primary,
+                    opacity: isSettling || !leaderboard || leaderboard.length === 0 ? 0.5 : 1,
+                  },
+                ]}
+                activeOpacity={0.8}
                 accessibilityRole="button"
                 accessibilityLabel={`Settle ${isTeamPool ? 'team' : 'individual'} payouts`}
               >
-                <LinearGradient
-                  colors={[colors.primaryLight, colors.primary]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.settleGradient}
-                >
-                  <Text style={[styles.settleText, { color: colors.white }]}>
-                    {isSettling
-                      ? 'Settling…'
-                      : `Settle ${isTeamPool ? 'team' : 'individual'} payouts`}
-                  </Text>
-                </LinearGradient>
+                <Icon source="cash-multiple" size={20} color={colors.white} />
+                <Text style={[styles.settleButtonText, { color: colors.white }]}>
+                  {isSettling
+                    ? 'Settling…'
+                    : `Settle ${isTeamPool ? 'Team' : 'Individual'} Payouts`}
+                </Text>
               </TouchableOpacity>
               {hasTiesAtPaying && (
                 <Text style={[styles.warningText, { color: colors.warning }]}>
@@ -349,9 +297,17 @@ function PoolSection({
               )}
             </>
           ) : (
-            <Text style={[styles.lockedNote, { color: colors.textTertiary }]}>
-              Payouts unlock when the competition is completed.
-            </Text>
+            <View
+              style={[
+                styles.infoBox,
+                { backgroundColor: colors.primaryBackground, borderColor: colors.border },
+              ]}
+            >
+              <Icon source="information-outline" size={16} color={colors.primaryDark} />
+              <Text style={[styles.infoText, { color: colors.primaryDark }]}>
+                Finish the competition to settle payouts.
+              </Text>
+            </View>
           )}
         </View>
       )}
@@ -359,50 +315,14 @@ function PoolSection({
       {/* Transactions (settled only) */}
       {isSettled && (
         <View style={styles.section}>
-          <View style={styles.transactionsHeaderRow}>
-            <SectionLabel style={styles.transactionsLabel}>Transactions</SectionLabel>
-            <TouchableOpacity
-              onPress={() => refetchTransactions()}
-              disabled={isRefetchingTransactions}
-              style={styles.refreshButton}
-              accessibilityRole="button"
-              accessibilityLabel="Refresh transactions"
-            >
-              {isRefetchingTransactions ? (
-                <ActivityIndicator size="small" color={colors.primary} />
-              ) : (
-                <Icon source="refresh" size={18} color={colors.textSecondary} />
-              )}
-            </TouchableOpacity>
-          </View>
-          <View
-            style={[
-              styles.listCard,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
+          <SectionHeader title="Transactions" icon="receipt" primaryIcon={false} />
+          <PoolTransactionsList
+            transactions={transactions ?? []}
+            isLoading={isLoadingTransactions}
+            onRefresh={refetchTransactions}
+            isRefreshing={isRefetchingTransactions}
             testID={`payouts-transactions-${pool.target_type}`}
-          >
-            {isLoadingTransactions ? (
-              <View style={styles.listCardCenter}>
-                <ActivityIndicator color={colors.primary} />
-              </View>
-            ) : !transactions || transactions.length === 0 ? (
-              <View style={styles.listCardCenter}>
-                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                  No transactions yet.
-                </Text>
-              </View>
-            ) : (
-              transactions.map((transaction, index) => (
-                <TransactionRow
-                  key={transaction.id}
-                  transaction={transaction}
-                  currency={pool.currency}
-                  isLast={index === transactions.length - 1}
-                />
-              ))
-            )}
-          </View>
+          />
         </View>
       )}
 
@@ -442,151 +362,68 @@ function buildConfirmMessage(
 }
 
 // ============================================================================
-// Placement row
+// Placement card
 // ============================================================================
 
-interface PlacementRowProps {
+interface PlacementCardProps {
   view: PlacementView;
   currency: string;
   isSettled: boolean;
-  isTeamPool: boolean;
-  isLast: boolean;
 }
 
-function PlacementRow({ view, currency, isSettled, isTeamPool, isLast }: PlacementRowProps) {
+function PlacementCard({ view, currency, isSettled }: PlacementCardProps) {
   const colors = useThemeColors();
   const { placement, previewWinner, tiedAt } = view;
   const hasTie = tiedAt.length > 1;
   const isPaid = placement.paid_at !== null;
-  const hasWinner = previewWinner !== null;
-  const paysOut = placement.payout_amount > 0;
-
-  const subParts = [`${placement.percent}% of pool`];
-  if (isPaid) {
-    subParts.push(`Paid ${formatDateAustralian(placement.paid_at!)}`);
-  } else if (!hasWinner) {
-    subParts.push('To be decided');
-  }
 
   return (
     <View
       style={[
-        styles.placementRow,
-        !isLast && { borderBottomWidth: 1, borderBottomColor: colors.borderLight },
+        styles.placementCard,
+        { backgroundColor: colors.surface, borderColor: colors.border },
       ]}
     >
-      <Text
-        style={[
-          styles.placementPos,
-          { color: placement.position === 1 ? colors.warningDark : colors.textTertiary },
-        ]}
-      >
-        {placement.position}
-      </Text>
-      <View
-        style={[
-          styles.placementDot,
-          { backgroundColor: hasWinner ? colors.primary : colors.textTertiary },
-        ]}
-      />
-      <View style={styles.placementBody}>
-        <View style={styles.placementNameRow}>
-          <Text
-            style={[styles.placementName, { color: colors.textPrimary }]}
-            numberOfLines={1}
-          >
-            {previewWinner?.participantName ??
-              (isTeamPool ? 'Winning team' : 'Winner')}
+      <View style={styles.placementRow}>
+        <View style={[styles.positionBadge, { backgroundColor: colors.primaryBackground }]}>
+          <Text style={[styles.positionBadgeText, { color: colors.primaryDark }]}>
+            {positionBadge(placement.position)}
           </Text>
-          {hasTie && !isPaid && (
-            <View style={[styles.tiePill, { backgroundColor: colors.warningBackground }]}>
-              <Text style={[styles.tiePillText, { color: colors.warningDark }]}>Tied</Text>
-            </View>
-          )}
-          {isPaid && <Icon source="check-circle" size={14} color={colors.success} />}
         </View>
-        <Text style={[styles.placementSub, { color: colors.textTertiary }]}>
-          {subParts.join(' · ')}
-        </Text>
-        {hasTie && !isPaid && !isSettled && (
-          <Text
-            style={[styles.tieDetail, { color: colors.textSecondary }]}
-            numberOfLines={2}
-          >
-            Tied: {tiedAt.map((e) => e.participantName).join(', ')}
-          </Text>
-        )}
+        <View style={styles.placementBody}>
+          <View style={styles.placementTopRow}>
+            <Text style={[styles.placementName, { color: colors.textPrimary }]} numberOfLines={1}>
+              {previewWinner?.participantName ?? '—'}
+            </Text>
+            <Text style={[styles.placementAmount, { color: colors.primary }]}>
+              {formatMoney(placement.payout_amount, currency)}
+            </Text>
+          </View>
+          <View style={styles.placementMetaRow}>
+            <Text style={[styles.placementMeta, { color: colors.textSecondary }]}>
+              {placement.percent}% of pool
+            </Text>
+            {hasTie && !isPaid && (
+              <View style={[styles.tiePill, { backgroundColor: colors.warningLight }]}>
+                <Text style={[styles.tiePillText, { color: colors.warningDark }]}>Tied</Text>
+              </View>
+            )}
+            {isPaid && (
+              <View style={styles.paidBadge}>
+                <Icon source="check-circle" size={14} color={colors.success} />
+                <Text style={[styles.paidText, { color: colors.success }]}>
+                  Paid {formatDateAustralian(placement.paid_at!)}
+                </Text>
+              </View>
+            )}
+          </View>
+          {hasTie && !isPaid && !isSettled && (
+            <Text style={[styles.tieDetail, { color: colors.textSecondary }]} numberOfLines={2}>
+              Tied: {tiedAt.map((e) => e.participantName).join(', ')}
+            </Text>
+          )}
+        </View>
       </View>
-      <Text
-        style={[
-          styles.placementAmount,
-          { color: paysOut ? colors.primaryDark : colors.textTertiary },
-        ]}
-      >
-        {formatMoney(placement.payout_amount, currency)}
-      </Text>
-    </View>
-  );
-}
-
-// ============================================================================
-// Transaction row
-// ============================================================================
-
-interface TransactionRowProps {
-  transaction: PoolTransaction;
-  currency: string;
-  isLast: boolean;
-}
-
-function TransactionRow({ transaction, currency, isLast }: TransactionRowProps) {
-  const colors = useThemeColors();
-  const isPayout = transaction.transaction_type === 'prize_payout';
-
-  const iconBg = isPayout ? colors.primaryBackground : colors.warningBackground;
-  const iconColor = isPayout ? colors.primaryDark : colors.warningDark;
-  const iconSource = isPayout ? 'check' : 'tune-variant';
-
-  const title =
-    transaction.description ?? (isPayout ? 'Prize payout' : 'Adjustment');
-  const sub = `${formatDateAustralian(transaction.created_at)} · Balance ${formatMoney(
-    transaction.balance_after,
-    currency
-  )}`;
-
-  const amountText = isPayout
-    ? formatMoney(Math.abs(transaction.amount), currency)
-    : `${transaction.amount >= 0 ? '+' : '−'}${formatMoney(
-        Math.abs(transaction.amount),
-        currency
-      )}`;
-  const amountColor =
-    isPayout || transaction.amount >= 0 ? colors.primaryDark : colors.error;
-
-  return (
-    <View
-      style={[
-        styles.transactionRow,
-        !isLast && { borderBottomWidth: 1, borderBottomColor: colors.borderLight },
-      ]}
-    >
-      <View style={[styles.transactionIcon, { backgroundColor: iconBg }]}>
-        <Icon source={iconSource} size={17} color={iconColor} />
-      </View>
-      <View style={styles.transactionBody}>
-        <Text
-          style={[styles.transactionTitle, { color: colors.textPrimary }]}
-          numberOfLines={1}
-        >
-          {title}
-        </Text>
-        <Text style={[styles.transactionSub, { color: colors.textTertiary }]}>
-          {sub}
-        </Text>
-      </View>
-      <Text style={[styles.transactionAmount, { color: amountColor }]}>
-        {amountText}
-      </Text>
     </View>
   );
 }
@@ -602,96 +439,85 @@ const styles = StyleSheet.create({
   poolSection: {
     gap: spacing.lg,
   },
-
-  // Pot hero
-  heroTopRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-  },
-  heroLeft: {
-    flex: 1,
-  },
-  heroEyebrow: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
-  },
-  heroAmount: {
-    fontSize: 34,
-    fontWeight: '800',
-    letterSpacing: -0.5,
-    marginTop: 3,
-  },
-  statePill: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: borderRadius.full,
-  },
-  statePillText: {
-    fontSize: 11.5,
-    fontWeight: '700',
-  },
-  heroMeta: {
-    fontSize: 12,
-    marginTop: spacing.sm,
-  },
-
-  section: {
-    gap: 0,
-  },
-
-  // Shared list card (placements + transactions)
-  listCard: {
-    borderRadius: 18,
+  summaryCard: {
+    borderRadius: borderRadius.lg,
     borderWidth: 1,
-    overflow: 'hidden',
+    padding: spacing.lg,
+    gap: spacing.md,
     ...shadows.sm,
   },
-  listCardCenter: {
-    padding: spacing.lg,
+  summaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  trophyBadge: {
+    width: 48,
+    height: 48,
+    borderRadius: borderRadius.md,
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  emptyText: {
-    ...typography.body,
+  summaryText: {
+    flex: 1,
   },
-
-  // Placement rows
+  summaryAmount: {
+    ...typography.h3,
+  },
+  summaryLabel: {
+    ...typography.caption,
+  },
+  helperText: {
+    ...typography.caption,
+  },
+  section: {
+    gap: spacing.sm,
+  },
+  placementCard: {
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    padding: spacing.md,
+    ...shadows.sm,
+  },
   placementRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 14,
+    gap: spacing.md,
   },
-  placementPos: {
-    width: 30,
-    fontSize: 14,
-    fontWeight: '800',
+  positionBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  placementDot: {
-    width: 11,
-    height: 11,
-    borderRadius: 6,
-    marginRight: 11,
+  positionBadgeText: {
+    ...typography.h4,
   },
   placementBody: {
     flex: 1,
-    marginRight: spacing.sm,
-  },
-  placementNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: spacing.xs,
   },
-  placementName: {
-    fontSize: 15,
-    fontWeight: '800',
-    flexShrink: 1,
+  placementTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
   },
-  placementSub: {
-    fontSize: 11.5,
-    marginTop: 1,
+  placementName: {
+    ...typography.bodyBold,
+    flex: 1,
+  },
+  placementAmount: {
+    ...typography.bodyBold,
+  },
+  placementMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  placementMeta: {
+    ...typography.small,
   },
   tiePill: {
     paddingHorizontal: spacing.sm,
@@ -702,87 +528,48 @@ const styles = StyleSheet.create({
     ...typography.caption,
     fontWeight: '600',
   },
+  paidBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs / 2,
+  },
+  paidText: {
+    ...typography.caption,
+  },
   tieDetail: {
     ...typography.caption,
-    marginTop: 2,
   },
-  placementAmount: {
-    fontSize: 16,
-    fontWeight: '800',
+  emptyText: {
+    ...typography.body,
   },
-
-  // Settle CTA
-  settleTouchable: {
-    borderRadius: 14,
-    ...shadows.md,
-  },
-  settleDisabled: {
-    opacity: 0.5,
-  },
-  settleGradient: {
-    height: 50,
-    borderRadius: 14,
+  settleButton: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: spacing.sm,
+    height: 48,
+    borderRadius: borderRadius.lg,
+    ...shadows.sm,
   },
-  settleText: {
-    fontSize: 15,
-    fontWeight: '700',
+  settleButtonText: {
+    ...typography.bodyBold,
   },
   warningText: {
     ...typography.caption,
     textAlign: 'center',
     marginTop: spacing.sm,
   },
-  lockedNote: {
-    fontSize: 12.5,
-    textAlign: 'center',
-    marginTop: spacing.xs,
-  },
-
-  // Transactions
-  transactionsHeaderRow: {
+  infoBox: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    gap: spacing.sm,
   },
-  transactionsLabel: {
-    marginBottom: 0,
-  },
-  refreshButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  transactionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 11,
-    paddingVertical: 13,
-    paddingHorizontal: 14,
-  },
-  transactionIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 9,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  transactionBody: {
+  infoText: {
+    ...typography.small,
     flex: 1,
-  },
-  transactionTitle: {
-    fontSize: 13.5,
-    fontWeight: '700',
-  },
-  transactionSub: {
-    fontSize: 11.5,
-    marginTop: 1,
-  },
-  transactionAmount: {
-    fontSize: 14,
-    fontWeight: '800',
   },
 });
 

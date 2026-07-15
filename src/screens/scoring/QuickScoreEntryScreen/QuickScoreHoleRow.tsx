@@ -2,7 +2,6 @@
  * QuickScoreHoleRow - Single hole row for quick score entry
  *
  * Displays hole info (number, par, SI) with +/- stepper and score color coding.
- * Rounded row card per the Score & Round redesign; unscored rows are dashed/muted.
  */
 
 import React from 'react';
@@ -62,7 +61,7 @@ export const QuickScoreHoleRow = React.memo(function QuickScoreHoleRow({
       {/* Stepper */}
       <View style={styles.stepper}>
         <TouchableOpacity
-          style={[styles.stepperButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          style={[styles.stepperButton, { backgroundColor: colors.surface, borderColor: colors.gray300 }]}
           onPress={onDecrement}
           disabled={!canDecrement}
           activeOpacity={0.7}
@@ -77,7 +76,7 @@ export const QuickScoreHoleRow = React.memo(function QuickScoreHoleRow({
         </View>
 
         <TouchableOpacity
-          style={[styles.stepperButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          style={[styles.stepperButton, { backgroundColor: colors.surface, borderColor: colors.gray300 }]}
           onPress={onIncrement}
           disabled={!canIncrement}
           activeOpacity={0.7}
@@ -101,41 +100,40 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 1,
-    borderRadius: 14,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
     borderWidth: 1,
     gap: spacing.sm,
   },
   holeInfo: {
-    width: 64,
+    width: 70,
   },
   holeNumber: {
     ...typography.bodyBold,
     fontSize: 15,
-    fontWeight: '800',
   },
   holeMeta: {
     ...typography.small,
-    fontSize: 10.5,
+    fontSize: 11,
   },
   stepper: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.sm + 1,
+    gap: spacing.xs,
   },
   stepperButton: {
     width: 40,
     height: 40,
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.md,
     borderWidth: 1.5,
     justifyContent: 'center',
     alignItems: 'center',
   },
   stepperButtonText: {
-    fontSize: 22,
-    fontWeight: '500',
+    fontSize: 24,
+    fontWeight: '400',
   },
   scoreCircle: {
     width: 44,
@@ -145,17 +143,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   scoreText: {
-    fontSize: 19,
-    fontWeight: '800',
+    fontSize: 20,
+    fontWeight: '700',
   },
   pointsContainer: {
-    width: 46,
+    width: 45,
     alignItems: 'flex-end',
   },
   pointsText: {
     ...typography.small,
-    fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '600',
   },
 });
 

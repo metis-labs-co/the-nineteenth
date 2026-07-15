@@ -113,28 +113,16 @@ export const QuickScorecardView = React.memo(function QuickScorecardView({
     // Count completed scores
     const completedCount = playerScores.filter((ps) => ps.strokes).length;
 
-    // Cell ring/text color from the existing score→color mapping (unchanged);
-    // the cell background is a light tint of the same category color.
-    const scoreColor = isPickedUp
-      ? colors.textDisabled
-      : getScoreColor(displayScore, hole.par, colors);
-    const ringColor = allComplete
-      ? colors.success
-      : isCurrent
-        ? colors.primary
-        : displayScore
-          ? scoreColor
-          : colors.border;
-    const cellBackground = isCurrent
-      ? selectedHoleBackground
-      : displayScore
-        ? withOpacity(scoreColor, 0.14)
-        : 'transparent';
-
     return (
       <TouchableOpacity
         key={holeNumber}
-        style={styles.holeButton}
+        style={[
+          styles.holeButton,
+          {
+            backgroundColor: isCurrent ? selectedHoleBackground : colors.surface,
+            borderColor: allComplete ? colors.success : (isCurrent ? colors.primary : colors.border),
+          },
+        ]}
         activeOpacity={0.7}
         onPress={() => onHolePress(holeNumber)}
         accessibilityLabel={`Hole ${displayHoleNumber(holeNumber, startHole)}, ${completedCount} of ${players.length} players scored${allComplete ? ', all complete' : ''}`}
@@ -144,27 +132,25 @@ export const QuickScorecardView = React.memo(function QuickScorecardView({
         <Text
           style={[
             styles.holeNumber,
-            { color: isCurrent ? colors.primary : colors.textTertiary },
+            { color: isCurrent ? colors.primary : colors.textSecondary },
           ]}
         >
           {displayHoleNumber(holeNumber, startHole)}
         </Text>
-        <View
-          style={[
-            styles.holeCell,
-            { backgroundColor: cellBackground, borderColor: ringColor },
-          ]}
-        >
-          {displayScore ? (
-            <Text style={[styles.holeScore, { color: scoreColor }]}>
-              {isPickedUp ? 'P' : displayScore}
-            </Text>
-          ) : (
-            <Text style={[styles.holePar, { color: colors.textDisabled }]}>
-              P{hole.par}
-            </Text>
-          )}
-        </View>
+        {displayScore ? (
+          <Text
+            style={[
+              styles.holeScore,
+              { color: isPickedUp ? colors.textDisabled : getScoreColor(displayScore, hole.par, colors) },
+            ]}
+          >
+            {isPickedUp ? 'P' : displayScore}
+          </Text>
+        ) : (
+          <Text style={[styles.holePar, { color: colors.textDisabled }]}>
+            P{hole.par}
+          </Text>
+        )}
         {/* Player completion dots */}
         {players.length > 1 && (
           <View style={styles.playerDotsContainer}>
@@ -193,14 +179,14 @@ export const QuickScorecardView = React.memo(function QuickScorecardView({
 
   return (
     <View
-      style={[styles.container, { backgroundColor: colors.surface, borderColor: colors.border }]}
+      style={[styles.container, { backgroundColor: colors.surfaceVariant }]}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
       onTouchCancel={handleTouchEnd}
     >
       <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.textTertiary }]}>Quick View</Text>
-        <Text style={[styles.subtitle, { color: colors.primary }]}>Tap to jump to hole</Text>
+        <Text style={[styles.title, { color: colors.textPrimary }]}>Quick View</Text>
+        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Tap to jump to hole</Text>
       </View>
 
       <ScrollView
@@ -240,8 +226,7 @@ export const QuickScorecardView = React.memo(function QuickScorecardView({
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: borderRadius.xl,
-    borderWidth: 1,
+    borderRadius: borderRadius.lg,
     overflow: 'hidden',
   },
   header: {
@@ -253,15 +238,10 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
   },
   title: {
-    fontSize: 10.5,
-    fontWeight: '800',
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
+    ...typography.smallBold,
   },
   subtitle: {
     ...typography.caption,
-    fontSize: 12,
-    fontWeight: '700',
   },
   scrollContent: {
     paddingHorizontal: spacing.md,
@@ -287,48 +267,40 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     marginTop: spacing.lg,
   },
-  // NOTE: keep holeButton width (48) and holesRow gap (spacing.xs) in lockstep
-  // with the auto-scroll `buttonWidth` constant in the effect above.
   holeButton: {
     width: 48,
+    height: 64,
+    borderRadius: borderRadius.md,
+    justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 2,
     position: 'relative',
     paddingBottom: spacing.xs,
   },
   holeNumber: {
-    fontSize: 9,
-    fontWeight: '700',
-    marginBottom: 3,
-  },
-  holeCell: {
-    alignSelf: 'stretch',
-    height: 32,
-    borderRadius: 9,
-    borderWidth: 2,
-    justifyContent: 'center',
-    alignItems: 'center',
+    ...typography.caption,
+    fontWeight: '600',
   },
   holeScore: {
-    fontSize: 14,
-    fontWeight: '800',
+    fontSize: 16,
+    fontWeight: '700',
   },
   holePar: {
     ...typography.caption,
-    fontSize: 11,
   },
   completeIndicator: {
     position: 'absolute',
-    top: 0,
-    right: 2,
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    top: 4,
+    right: 4,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   playerDotsContainer: {
     flexDirection: 'row',
     gap: 3,
-    marginTop: 4,
-    height: 6,
+    position: 'absolute',
+    bottom: 4,
   },
   playerDot: {
     width: 6,

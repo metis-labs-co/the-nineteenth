@@ -9,9 +9,7 @@ import React, { useState } from 'react';
 import { StyleSheet, TouchableOpacity, View, Linking } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { OnboardingCard } from './OnboardingCard';
-import { OnboardingPrimaryButton } from './OnboardingPrimaryButton';
 import { spacing, typography, borderRadius } from '@/constants/theme';
-import { withOpacity } from '@/constants/colors';
 import { useThemeColors } from '@/context/ThemeContext';
 import { pushService } from '@/services/notifications';
 import { useAuth } from '@/hooks/useAuth';
@@ -113,10 +111,10 @@ export function NotificationsStep({ onNext }: StepProps) {
         <View
           style={[
             styles.iconContainer,
-            { backgroundColor: withOpacity(colors.primary, 0.16) },
+            { backgroundColor: colors.primaryLight },
           ]}
         >
-          <Icon source="bell-outline" size={38} color={colors.primary} />
+          <Icon source="bell-outline" size={80} color={colors.primary} />
         </View>
       }
       title="Stay in the Loop"
@@ -126,10 +124,16 @@ export function NotificationsStep({ onNext }: StepProps) {
           {renderContent()}
 
           {/* Main action button */}
-          <OnboardingPrimaryButton
+          <TouchableOpacity
+            style={[
+              styles.enableButton,
+              { backgroundColor: colors.primary },
+              isRequesting && styles.buttonDisabled,
+            ]}
             onPress={handleEnableNotifications}
-            disabled={isRequesting}
             accessibilityLabel="Enable push notifications"
+            accessibilityRole="button"
+            disabled={isRequesting}
           >
             {isRequesting ? (
               <Text style={[styles.enableButtonText, { color: colors.textInverse }]}>
@@ -143,7 +147,7 @@ export function NotificationsStep({ onNext }: StepProps) {
                 </Text>
               </>
             )}
-          </OnboardingPrimaryButton>
+          </TouchableOpacity>
 
           {/* Skip option */}
           <TouchableOpacity
@@ -170,10 +174,9 @@ export function NotificationsStep({ onNext }: StepProps) {
 
 const styles = StyleSheet.create({
   iconContainer: {
-    // Design: 74px icon chip, radius 22, primary tint
-    width: 74,
-    height: 74,
-    borderRadius: 22,
+    width: 140,
+    height: 140,
+    borderRadius: borderRadius.full,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -203,8 +206,21 @@ const styles = StyleSheet.create({
   settingsLinkText: {
     ...typography.small,
   },
+  enableButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 52,
+    borderRadius: borderRadius.lg,
+    gap: spacing.sm,
+    paddingHorizontal: spacing.xl,
+    width: '100%',
+  },
   enableButtonText: {
     ...typography.bodyBold,
+  },
+  buttonDisabled: {
+    opacity: 0.7,
   },
   skipButton: {
     paddingVertical: spacing.sm,

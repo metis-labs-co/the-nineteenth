@@ -32,7 +32,6 @@ import { biometricService } from '@/services/biometric';
 import { useProfileData } from './hooks';
 import {
   ProfileHeader,
-  ProfileQuickStats,
   HomeClubSection,
   ActivitySection,
   HomeClubModal,
@@ -55,7 +54,6 @@ export default function ProfileScreen() {
     clearHomeClub,
     placeholderPlayers,
     achievementPoints,
-    achievementSummary,
     equipped,
     unlockedCosmetics,
     cosmeticDefinitions,
@@ -161,13 +159,6 @@ export default function ProfileScreen() {
           onEditPress={() => navigation.navigate('EditProfile')}
         />
 
-        {/* Quick Stats */}
-        <ProfileQuickStats
-          handicap={profile.displayHandicap}
-          achievementPoints={achievementPoints}
-          badgesEarned={achievementSummary?.total_earned ?? 0}
-        />
-
         {/* Home Club Section */}
         <HomeClubSection
           homeClub={homeClub ?? null}
@@ -205,7 +196,7 @@ export default function ProfileScreen() {
         />
 
         {/* Version Info */}
-        <Text style={[styles.versionText, { color: colors.textTertiary }]}>
+        <Text style={[styles.versionText, { color: colors.textSecondary }]}>
           {APP_NAME} v{APP_VERSION}
         </Text>
       </ScrollView>
@@ -263,7 +254,6 @@ const styles = StyleSheet.create({
   },
   versionText: {
     ...typography.caption,
-    fontSize: 11,
     textAlign: 'center',
     marginTop: spacing.xxl,
   },

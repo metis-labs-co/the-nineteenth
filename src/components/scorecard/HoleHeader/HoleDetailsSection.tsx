@@ -37,8 +37,8 @@ const StrokeIndexDisplay = React.memo(function StrokeIndexDisplay({
 
   return (
     <View style={styles.siContainer}>
+      <Text style={[styles.siPrefix, { color: colors.textSecondary }]}>SI </Text>
       <Text style={[styles.siValue, { color: colors.textPrimary }]}>{strokeIndex}</Text>
-      <Text style={[styles.siPrefix, { color: colors.textTertiary }]}>SI </Text>
     </View>
   );
 });
@@ -139,6 +139,7 @@ export const HoleDetailsSection = React.memo(function HoleDetailsSection({
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
@@ -156,20 +157,20 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   siContainer: {
-    alignItems: 'center',
+    flexDirection: 'row',
+    alignItems: 'baseline',
   },
   siPrefix: {
-    fontSize: 9.5,
-    fontWeight: '700',
-    letterSpacing: 0.6,
+    fontSize: 14,
+    fontWeight: '500',
   },
   siValue: {
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   distanceValue: {
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   distanceWithEdit: {
     flexDirection: 'row',

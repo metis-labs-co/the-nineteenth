@@ -9,6 +9,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
+  TouchableOpacity,
   View,
   ScrollView,
   KeyboardAvoidingView,
@@ -18,10 +19,8 @@ import {
 import { Text, Icon } from 'react-native-paper';
 import { FormInput } from '@/components/common';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { spacing, typography } from '@/constants/theme';
-import { withOpacity } from '@/constants/colors';
+import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
-import { OnboardingPrimaryButton } from './OnboardingPrimaryButton';
 import type { StepProps } from '../OnboardingScreen';
 
 export function NameCaptureStep({
@@ -127,10 +126,10 @@ export function NameCaptureStep({
           <View
             style={[
               styles.iconContainer,
-              { backgroundColor: withOpacity(colors.primary, 0.16) },
+              { backgroundColor: colors.primaryLight },
             ]}
           >
-            <Icon source="account" size={38} color={colors.primary} />
+            <Icon source="account" size={80} color={colors.primary} />
           </View>
         </View>
 
@@ -179,16 +178,23 @@ export function NameCaptureStep({
 
         {/* Next Button */}
         <View style={styles.buttonContainer}>
-          <OnboardingPrimaryButton
+          <TouchableOpacity
+            style={[
+              styles.nextButton,
+              { backgroundColor: colors.primary },
+              isSubmitting && { opacity: 0.7 },
+            ]}
             onPress={handleContinue}
             disabled={isSubmitting}
             accessibilityLabel="Continue to next step"
+            accessibilityRole="button"
+            activeOpacity={0.8}
           >
             <Text style={[styles.buttonText, { color: colors.textInverse }]}>
               Next
             </Text>
             <Icon source="arrow-right" size={20} color={colors.textInverse} />
-          </OnboardingPrimaryButton>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -208,36 +214,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
   },
   illustrationContainer: {
-    alignItems: 'flex-start',
-    paddingHorizontal: spacing.lg,
-    marginBottom: spacing.xl,
+    alignItems: 'center',
+    marginBottom: spacing.xxl,
   },
   iconContainer: {
-    // Design: 74px icon chip, radius 22, primary tint
-    width: 74,
-    height: 74,
-    borderRadius: 22,
+    width: 140,
+    height: 140,
+    borderRadius: borderRadius.full,
     justifyContent: 'center',
     alignItems: 'center',
   },
   contentContainer: {
-    alignItems: 'flex-start',
+    alignItems: 'center',
     paddingHorizontal: spacing.lg,
   },
   title: {
-    // Design: big 800-weight step title, left-aligned
-    fontSize: 26,
-    fontWeight: '800',
-    lineHeight: 31,
-    letterSpacing: -0.5,
-    textAlign: 'left',
-    marginBottom: spacing.md,
+    ...typography.h1,
+    textAlign: 'center',
+    marginBottom: spacing.lg,
   },
   description: {
     ...typography.body,
-    fontSize: 15,
-    textAlign: 'left',
-    lineHeight: 23,
+    textAlign: 'center',
+    lineHeight: 24,
   },
   inputContainer: {
     width: '100%',
@@ -247,6 +246,14 @@ const styles = StyleSheet.create({
   buttonContainer: {
     marginTop: spacing.xxl,
     paddingHorizontal: spacing.lg,
+  },
+  nextButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 52,
+    borderRadius: borderRadius.lg,
+    gap: spacing.sm,
   },
   buttonText: {
     ...typography.bodyBold,

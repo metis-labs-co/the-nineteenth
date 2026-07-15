@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { ToggleSwitch } from '@/components/common';
-import { spacing, typography, borderRadius } from '@/constants/theme';
+import { spacing, typography } from '@/constants/theme';
 import type { ColorPalette } from '@/constants/theme';
 
 interface SettingRowProps {
@@ -23,15 +23,13 @@ export const SettingRow = React.memo(function SettingRow({
   colors,
 }: SettingRowProps) {
   return (
-    <View style={[styles.settingRow, { borderBottomColor: colors.borderLight }]}>
+    <View style={[styles.settingRow, { borderBottomColor: colors.gray100 }]}>
       <View style={styles.settingRowLeft}>
-        <View style={[styles.iconSquare, { backgroundColor: colors.primaryBackground }]}>
-          {typeof icon === 'string' ? (
-            <Icon source={icon} size={18} color={colors.primary} />
-          ) : (
-            icon
-          )}
-        </View>
+        {typeof icon === 'string' ? (
+          <Icon source={icon} size={20} color={colors.gray600} />
+        ) : (
+          icon
+        )}
         <View style={styles.settingTextContainer}>
           <Text style={[styles.settingLabel, { color: colors.textPrimary }]}>{label}</Text>
           {description && (
@@ -54,7 +52,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: 1,
     minHeight: 64,
   },
   settingRowLeft: {
@@ -64,20 +62,11 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: spacing.md,
   },
-  iconSquare: {
-    width: 34,
-    height: 34,
-    borderRadius: borderRadius.md + 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   settingTextContainer: {
     flex: 1,
   },
   settingLabel: {
     ...typography.body,
-    fontSize: 15,
-    fontWeight: '600',
   },
   settingDescription: {
     ...typography.caption,

@@ -7,19 +7,18 @@ import { IconPlus, IconSparkles, IconUsersPlus } from '@tabler/icons-react-nativ
 import {
   FeatureButton,
   ConfirmationDialog,
-  SectionLabel,
+  SectionHeader,
   EmptyState,
   Badge,
   LoadingSpinner,
 } from '@/components/common';
 import { LimitIndicator } from '@/components/subscription';
+import { CompetitionListCard } from '@/components/competitions';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useIsSuperAdmin } from '@/context/SubscriptionContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useCompetitionGroups } from '../hooks';
 import type { CompetitionItem } from '../hooks';
-import { CompeteCompetitionCard } from './CompeteCompetitionCard';
-import { GradientCreateCta } from './CompeteCardBits';
 
 function CompetitionSection({
   title,
@@ -32,21 +31,11 @@ function CompetitionSection({
   onPress: (competition: CompetitionItem) => void;
   onDelete: (competition: CompetitionItem) => void;
 }) {
-  const colors = useThemeColors();
-
   if (competitions.length === 0) return null;
 
   return (
     <View style={styles.section}>
-      {/* Uppercase section label + count pill (design L434-437) */}
-      <View style={styles.sectionHeaderRow}>
-        <SectionLabel style={styles.sectionLabel}>{title}</SectionLabel>
-        <View style={[styles.sectionCount, { backgroundColor: colors.surfaceVariant }]}>
-          <Text style={[styles.sectionCountText, { color: colors.textSecondary }]}>
-            {competitions.length}
-          </Text>
-        </View>
-      </View>
+      <SectionHeader title={title} />
       <View style={styles.sectionList}>
         {competitions.map((competition) => (
           <View key={competition.id} style={styles.cardWrapper}>
@@ -60,7 +49,7 @@ function CompetitionSection({
                 style={styles.legacyBadge}
               />
             )}
-            <CompeteCompetitionCard
+            <CompetitionListCard
               competition={competition}
               onPress={onPress}
               onDelete={onDelete}
@@ -124,12 +113,15 @@ export function CompsContent() {
       {/* Create buttons */}
       <View style={styles.createButtonsContainer}>
         <View style={styles.featureButtonWrapper}>
-          <GradientCreateCta
+          <FeatureButton
             title="Create"
             subtitle="Step-by-step wizard"
             icon={<IconPlus size={20} color={colors.white} strokeWidth={2.5} />}
             onPress={canCreateCompetition ? handleCreateCompetition : handleUpgrade}
+            backgroundColor={colors.primary}
             accessibilityLabel="Create new competition"
+            variant="compact"
+            showChevron={false}
           />
         </View>
         <View style={styles.featureButtonWrapper}>
@@ -284,28 +276,6 @@ const styles = StyleSheet.create({
   },
   section: {
     marginBottom: spacing.lg,
-  },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.sm + 2,
-  },
-  sectionLabel: {
-    marginBottom: 0,
-    marginTop: 0,
-  },
-  sectionCount: {
-    minWidth: 20,
-    height: 20,
-    paddingHorizontal: 6,
-    borderRadius: borderRadius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sectionCountText: {
-    fontSize: 11,
-    fontWeight: '800',
   },
   sectionList: {
     gap: spacing.md,

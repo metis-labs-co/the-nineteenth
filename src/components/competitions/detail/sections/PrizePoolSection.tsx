@@ -17,7 +17,6 @@ import { Text } from 'react-native-paper';
 import { IconTrophy, IconSettings } from '@tabler/icons-react-native';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows, featureColors } from '@/constants/theme';
-import { SectionLabel } from '@/components/common/SectionLabel';
 import { PrizePoolSummaryCard } from '@/components/prizePool';
 import type { PrizePoolSectionProps } from './types';
 
@@ -50,7 +49,12 @@ export function PrizePoolSection({
   return (
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
-        <SectionLabel style={styles.noMargin}>Prize Pools</SectionLabel>
+        <View style={styles.sectionHeaderLeft}>
+          <IconTrophy size={20} color={colors.textPrimary} />
+          <Text style={[styles.sectionTitle, styles.noMargin, { color: colors.textPrimary }]}>
+            Prize Pools
+          </Text>
+        </View>
         {hasAnyPool && isOrganizer && onManagePress && (
           <TouchableOpacity
             onPress={onManagePress}
@@ -68,12 +72,7 @@ export function PrizePoolSection({
       </View>
 
       {!hasAnyPool && isOrganizer && (
-        <View
-          style={[
-            styles.emptyCard,
-            { backgroundColor: colors.surface, borderColor: colors.border },
-          ]}
-        >
+        <View style={[styles.emptyCard, { backgroundColor: colors.surface }]}>
           <View style={[styles.emptyIconContainer, { backgroundColor: `${PRIZE_POOL_COLOR}15` }]}>
             <IconTrophy size={32} color={PRIZE_POOL_COLOR} />
           </View>
@@ -132,6 +131,10 @@ const styles = StyleSheet.create({
   section: {
     marginTop: spacing.md,
   },
+  sectionTitle: {
+    ...typography.h4,
+    marginBottom: spacing.md,
+  },
   noMargin: {
     marginBottom: 0,
   },
@@ -141,7 +144,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: spacing.sm + 1,
+    marginBottom: spacing.md,
+  },
+  sectionHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   manageButton: {
     flexDirection: 'row',
@@ -161,8 +169,7 @@ const styles = StyleSheet.create({
 
   // Empty State
   emptyCard: {
-    borderRadius: borderRadius.xl,
-    borderWidth: 1,
+    borderRadius: borderRadius.lg,
     padding: spacing.xl,
     alignItems: 'center',
     ...shadows.sm,

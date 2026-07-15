@@ -2,7 +2,7 @@ import React from 'react';
 import { TouchableOpacity, View, StyleSheet } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, borderRadius } from '@/constants/theme';
+import { spacing, typography, borderRadius } from '@/constants/theme';
 
 export interface HomeTileProps {
   testID?: string;
@@ -32,12 +32,12 @@ export const HomeTile = React.memo(function HomeTile({
       accessibilityLabel={`${title}, ${headlineLabel}, ${subtext}`}
       style={[
         styles.tile,
-        { backgroundColor: colors.surface, borderColor: colors.border },
+        { backgroundColor: colors.surface, borderColor: colors.borderLight },
       ]}
     >
       <View style={styles.titleRow}>
-        <Icon source={icon} size={16} color={colors.primary} />
-        <Text style={[styles.title, { color: colors.textTertiary }]} numberOfLines={1}>
+        <Icon source={icon} size={18} color={colors.primary} />
+        <Text style={[styles.title, { color: colors.textSecondary }]} numberOfLines={1}>
           {title}
         </Text>
       </View>
@@ -55,31 +55,27 @@ const styles = StyleSheet.create({
   tile: {
     flex: 1,
     minHeight: 96,
-    padding: spacing.md + 2,
-    borderRadius: borderRadius.xl + 2,
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
     borderWidth: 1,
+    gap: spacing.xs,
   },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs + 2,
-    marginBottom: spacing.md,
+    gap: spacing.xs,
   },
   title: {
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.8,
+    ...typography.caption,
+    fontWeight: '700',
+    letterSpacing: 0.5,
     textTransform: 'uppercase',
-    flexShrink: 1,
   },
   headline: {
-    fontSize: 24,
-    lineHeight: 28,
-    fontWeight: '800',
-    letterSpacing: -0.5,
+    ...typography.h3,
+    fontWeight: '700',
   },
   subtext: {
-    fontSize: 12,
-    marginTop: 2,
+    ...typography.caption,
   },
 });

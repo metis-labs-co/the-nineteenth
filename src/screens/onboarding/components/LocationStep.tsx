@@ -10,9 +10,7 @@ import { StyleSheet, TouchableOpacity, View, Linking, Platform } from 'react-nat
 import { Text, Icon } from 'react-native-paper';
 import * as Location from 'expo-location';
 import { OnboardingCard } from './OnboardingCard';
-import { OnboardingPrimaryButton } from './OnboardingPrimaryButton';
 import { spacing, typography, borderRadius } from '@/constants/theme';
-import { withOpacity } from '@/constants/colors';
 import { useThemeColors } from '@/context/ThemeContext';
 import type { StepProps } from '../OnboardingScreen';
 
@@ -110,10 +108,10 @@ export function LocationStep({ onNext }: StepProps) {
         <View
           style={[
             styles.iconContainer,
-            { backgroundColor: withOpacity(colors.primary, 0.16) },
+            { backgroundColor: colors.primaryLight },
           ]}
         >
-          <Icon source="crosshairs-gps" size={38} color={colors.primary} />
+          <Icon source="crosshairs-gps" size={80} color={colors.primary} />
         </View>
       }
       title="Distance to Pin"
@@ -123,10 +121,16 @@ export function LocationStep({ onNext }: StepProps) {
           {renderContent()}
 
           {/* Main action button */}
-          <OnboardingPrimaryButton
+          <TouchableOpacity
+            style={[
+              styles.enableButton,
+              { backgroundColor: colors.primary },
+              isRequesting && styles.buttonDisabled,
+            ]}
             onPress={handleEnableGPS}
-            disabled={isRequesting}
             accessibilityLabel="Enable GPS location"
+            accessibilityRole="button"
+            disabled={isRequesting}
           >
             {isRequesting ? (
               <Text style={[styles.enableButtonText, { color: colors.textInverse }]}>
@@ -140,7 +144,7 @@ export function LocationStep({ onNext }: StepProps) {
                 </Text>
               </>
             )}
-          </OnboardingPrimaryButton>
+          </TouchableOpacity>
 
           {/* Skip option */}
           <TouchableOpacity
@@ -167,10 +171,9 @@ export function LocationStep({ onNext }: StepProps) {
 
 const styles = StyleSheet.create({
   iconContainer: {
-    // Design: 74px icon chip, radius 22, primary tint
-    width: 74,
-    height: 74,
-    borderRadius: 22,
+    width: 140,
+    height: 140,
+    borderRadius: borderRadius.full,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -200,8 +203,21 @@ const styles = StyleSheet.create({
   settingsLinkText: {
     ...typography.small,
   },
+  enableButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 52,
+    borderRadius: borderRadius.lg,
+    gap: spacing.sm,
+    paddingHorizontal: spacing.xl,
+    width: '100%',
+  },
   enableButtonText: {
     ...typography.bodyBold,
+  },
+  buttonDisabled: {
+    opacity: 0.7,
   },
   skipButton: {
     paddingVertical: spacing.sm,

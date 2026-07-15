@@ -13,7 +13,7 @@ import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useThemeColors } from '@/context/ThemeContext';
+import { useThemeColors, useIsDark } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { PlayerAvatar } from '@/components/common';
 import { formatDateWithWeekday, formatTimeAgo } from '@/utils/formatting';
@@ -58,6 +58,9 @@ export const ActivityRoundCard = React.memo(function ActivityRoundCard({
   enablePlayerProfileLink = false,
 }: ActivityRoundCardProps) {
   const colors = useThemeColors();
+  const isDark = useIsDark();
+  // Darker, less glaring "Comp" pill background in dark mode.
+  const compPillBackground = isDark ? `${colors.primary}33` : colors.primaryLighter;
   const navigation = useNavigation<Nav>();
   const { user } = useAuth();
   const likeRound = useLikeRound();
@@ -156,7 +159,7 @@ export const ActivityRoundCard = React.memo(function ActivityRoundCard({
       style={[
         styles.card,
         shadows.sm,
-        { backgroundColor: colors.surface, borderColor: colors.border },
+        { backgroundColor: colors.surface, borderColor: colors.borderLight },
       ]}
     >
       <TouchableOpacity
@@ -205,7 +208,7 @@ export const ActivityRoundCard = React.memo(function ActivityRoundCard({
             accessibilityRole={courseId ? 'button' : undefined}
             accessibilityLabel={courseId ? `View ${courseTitle} details` : undefined}
           >
-            <View style={[styles.courseIcon, { backgroundColor: colors.primaryBackground }]}>
+            <View style={[styles.courseIcon, { backgroundColor: colors.surfaceVariant }]}>
               <Icon source="flag" size={18} color={colors.primary} />
             </View>
             <View style={styles.courseText}>
@@ -223,8 +226,8 @@ export const ActivityRoundCard = React.memo(function ActivityRoundCard({
             </View>
           </TouchableOpacity>
           {isCompetition ? (
-            <View style={[styles.tag, { backgroundColor: colors.primaryBackground }]}>
-              <Text style={[styles.tagText, { color: colors.primaryDark }]}>Comp</Text>
+            <View style={[styles.tag, { backgroundColor: compPillBackground }]}>
+              <Text style={[styles.tagText, { color: colors.primary }]}>Comp</Text>
             </View>
           ) : null}
         </View>
@@ -266,12 +269,7 @@ export const ActivityRoundCard = React.memo(function ActivityRoundCard({
             size={20}
             color={card.viewer_has_liked ? colors.error : colors.textSecondary}
           />
-          <Text
-            style={[
-              styles.footerLabel,
-              { color: card.viewer_has_liked ? colors.error : colors.textSecondary },
-            ]}
-          >
+          <Text style={[styles.footerLabel, { color: colors.textSecondary }]}>
             {card.like_count > 0 ? String(card.like_count) : 'Like'}
           </Text>
         </TouchableOpacity>
@@ -339,15 +337,14 @@ export const ActivityRoundCard = React.memo(function ActivityRoundCard({
 
 const styles = StyleSheet.create({
   card: {
-    // Design: feed cards radius 18.
-    borderRadius: borderRadius.xl + 2,
+    borderRadius: borderRadius.lg,
     borderWidth: 1,
-    marginBottom: spacing.md + 2,
+    marginBottom: spacing.md,
     overflow: 'hidden',
   },
   content: {
-    paddingHorizontal: spacing.md + 3,
-    paddingTop: spacing.md + 3,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
   },
   playerRow: {
     flexDirection: 'row',
@@ -370,8 +367,6 @@ const styles = StyleSheet.create({
   },
   playerName: {
     ...typography.bodyBold,
-    fontSize: 15,
-    fontWeight: '700',
     flexShrink: 1,
   },
   youPill: {
@@ -381,15 +376,12 @@ const styles = StyleSheet.create({
     paddingVertical: 1,
   },
   youPillText: {
-    fontSize: 9,
-    lineHeight: 13,
-    fontWeight: '800',
-    letterSpacing: 0.4,
+    ...typography.caption,
+    fontWeight: '700',
   },
   score: {
     ...typography.h4,
-    fontSize: 19,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   courseRow: {
     flexDirection: 'row',
@@ -406,8 +398,7 @@ const styles = StyleSheet.create({
   courseIcon: {
     width: 36,
     height: 36,
-    // Design: 11px tile radius.
-    borderRadius: borderRadius.lg - 1,
+    borderRadius: borderRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -416,22 +407,19 @@ const styles = StyleSheet.create({
   },
   courseTitle: {
     ...typography.bodyBold,
-    fontSize: 14.5,
-    fontWeight: '700',
   },
   subtitle: {
     ...typography.caption,
     marginTop: 2,
   },
   tag: {
-    paddingHorizontal: spacing.sm + 1,
-    paddingVertical: 3,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
     borderRadius: borderRadius.full,
   },
   tagText: {
-    fontSize: 10.5,
-    lineHeight: 14,
-    fontWeight: '700',
+    ...typography.caption,
+    fontWeight: '600',
   },
   photo: {
     marginTop: spacing.md,
@@ -445,8 +433,7 @@ const styles = StyleSheet.create({
   },
   compLinkText: {
     ...typography.small,
-    fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '600',
     flex: 1,
   },
   footer: {
@@ -468,7 +455,6 @@ const styles = StyleSheet.create({
   },
   footerLabel: {
     ...typography.small,
-    fontSize: 13,
     fontWeight: '600',
   },
   avatarStack: {

@@ -110,22 +110,6 @@ function hasUnevenTeamSizes(teams: TeamWithMembers[]): boolean {
   );
 }
 
-/**
- * Summary line for the header card: "2 teams · 6 players each" when team
- * sizes are uniform, otherwise "3 teams · 11 players".
- */
-function describeTeamsSummary(teams: TeamWithMembers[]): { bold: string; rest: string } {
-  const bold = `${teams.length} ${teams.length === 1 ? 'team' : 'teams'}`;
-  const sizes = teams.map((t) => t.members.length);
-  const total = sizes.reduce((sum, n) => sum + n, 0);
-  const uniform = sizes.length > 0 && sizes.every((n) => n === sizes[0]);
-  const rest =
-    uniform && sizes[0] > 0
-      ? ` · ${sizes[0]} ${sizes[0] === 1 ? 'player' : 'players'} each`
-      : ` · ${total} ${total === 1 ? 'player' : 'players'}`;
-  return { bold, rest };
-}
-
 export const TeamsTab = React.memo(function TeamsTab({
   competitionId,
   teams,
@@ -143,11 +127,6 @@ export const TeamsTab = React.memo(function TeamsTab({
   // Lock all team mutations for organisers once scoring has started — mirrors
   // the `structureLocked` pattern used by SettingsSection.
   const teamsLocked = isOrganizer && hasStartedRound;
-
-  // Redesign: the stepper/shuffle/clear controls live behind the "Edit teams"
-  // pill in the summary row. They stay visible while no teams exist yet so
-  // first-time generation is one tap away.
-  const [editMode, setEditMode] = useState(false);
 
   const { min: minTeams, max: maxTeams } = useMemo(
     () => teamCountRange(playerCount),
@@ -349,11 +328,6 @@ export const TeamsTab = React.memo(function TeamsTab({
   // Not enough players to form teams at all
   const cannotGenerate = minTeams === 0;
 
-  // Organiser controls show while editing or before any teams exist.
-  const showControls = isOrganizer && !teamsLocked && (editMode || teams.length === 0);
-
-  const summary = describeTeamsSummary(teams);
-
   // -------------------------------------------------------------------------
   // MAIN RENDER
   // -------------------------------------------------------------------------
@@ -376,46 +350,8 @@ export const TeamsTab = React.memo(function TeamsTab({
         </View>
       )}
 
-      {/* Summary row — "N teams · M players each" + Edit teams pill */}
-      {teams.length > 0 && (
-        <View
-          style={[
-            styles.summaryCard,
-            shadows.sm,
-            { backgroundColor: colors.surface, borderColor: colors.border },
-          ]}
-        >
-          <Text style={[styles.summaryText, { color: colors.textSecondary }]}>
-            <Text style={[styles.summaryTextBold, { color: colors.textPrimary }]}>
-              {summary.bold}
-            </Text>
-            {summary.rest}
-          </Text>
-          {isOrganizer && !teamsLocked && (
-            <TouchableOpacity
-              style={[
-                styles.editTeamsPill,
-                {
-                  backgroundColor: colors.primaryBackground,
-                  borderColor: colors.primaryLighter,
-                },
-              ]}
-              onPress={() => setEditMode((v) => !v)}
-              accessibilityRole="button"
-              accessibilityLabel={editMode ? 'Done editing teams' : 'Edit teams'}
-              accessibilityState={{ expanded: editMode }}
-              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-            >
-              <Text style={[styles.editTeamsPillText, { color: colors.primaryDark }]}>
-                {editMode ? 'Done' : 'Edit teams'}
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      )}
-
       {/* Organizer controls — compact: stepper + regenerate + clear inline */}
-      {showControls && (
+      {isOrganizer && !teamsLocked && (
         <View style={[styles.controlsCard, shadows.sm, { backgroundColor: colors.surface }]}>
           <View style={styles.controlsHeader}>
             <View style={styles.controlsLabelGroup}>
@@ -485,8 +421,8 @@ export const TeamsTab = React.memo(function TeamsTab({
         </View>
       )}
 
-      {/* Balance banner (organizer only, while editing teams) */}
-      {showControls && teams.length > 1 && (
+      {/* Balance banner (organizer only, when teams exist) */}
+      {isOrganizer && !teamsLocked && teams.length > 1 && (
         <TeamBalanceIndicator
           balanceQuality={balanceQuality}
           handicapSpread={handicapSpread}
@@ -524,11 +460,13 @@ export const TeamsTab = React.memo(function TeamsTab({
         />
       ) : (
         <View style={styles.teamsList}>
-          {teams.map((team, teamIndex) => (
+          <Text style={[styles.teamsSectionTitle, { color: colors.textSecondary }]}>
+            {teams.length} {teams.length === 1 ? 'Team' : 'Teams'}
+          </Text>
+          {teams.map((team) => (
             <TeamCard
               key={team.id}
               team={team}
-              teamIndex={teamIndex}
               isEditable={canEditTeamNames}
               onEdit={handleEditTeam}
               onPress={
@@ -805,38 +743,11 @@ const styles = StyleSheet.create({
   teamsList: {
     marginTop: spacing.sm,
   },
-
-  summaryCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-    borderWidth: 1,
-    borderRadius: borderRadius.lg + 2,
-    paddingVertical: spacing.sm + 1,
-    paddingHorizontal: spacing.md + 2,
-    marginBottom: spacing.md + 2,
-    minHeight: 58,
-  },
-  summaryText: {
-    fontSize: 13,
-    flexShrink: 1,
-  },
-  summaryTextBold: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  editTeamsPill: {
-    height: 34,
-    paddingHorizontal: spacing.md + 1,
-    borderRadius: borderRadius.md + 2,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  editTeamsPillText: {
-    fontSize: 12.5,
-    fontWeight: '700',
+  teamsSectionTitle: {
+    ...typography.captionBold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: spacing.sm,
   },
 });
 

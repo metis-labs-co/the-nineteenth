@@ -104,10 +104,6 @@ export default function PlayerScorecardScreen({ navigation, route }: Props) {
     setIsRefreshing(false);
   }, []);
 
-  // Hero totals / stat row only apply in single-ball mode — multi-ball totals
-  // are per-ball and live in the table.
-  const showHeroTotals = !(isMultiBall && ballCount > 1);
-
   // Calculate if all holes are complete (groupScorecards in deps ensures re-evaluation on score changes)
   const isAllComplete = useMemo(() => {
     if (holes.length === 0) return false;
@@ -246,15 +242,6 @@ export default function PlayerScorecardScreen({ navigation, route }: Props) {
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         showViewToggle={isMultiBall && ballCount > 1}
-        totals={
-          showHeroTotals
-            ? {
-                stableford: playerStats.totalStableford,
-                gross: playerStats.totalGross,
-                par: playerStats.totalPar,
-              }
-            : undefined
-        }
       />
 
       {/* Scorecard Content */}
@@ -274,53 +261,6 @@ export default function PlayerScorecardScreen({ navigation, route }: Props) {
         }
         showsVerticalScrollIndicator={true}
       >
-        {/* Stat row — values mirror the table's TOTAL row (single-ball only) */}
-        {showHeroTotals && (
-          <View style={styles.statRow}>
-            {showFairwayHit && (
-              <View
-                style={[
-                  styles.statTile,
-                  { backgroundColor: colors.surface, borderColor: colors.border },
-                ]}
-              >
-                <Text style={[styles.statValue, { color: colors.textPrimary }]}>
-                  {playerStats.totalFairwaysPossible > 0
-                    ? `${playerStats.totalFairwaysHit}/${playerStats.totalFairwaysPossible}`
-                    : '-'}
-                </Text>
-                <Text style={[styles.statLabel, { color: colors.textTertiary }]}>FAIRWAYS</Text>
-              </View>
-            )}
-            {showGreenInRegulation && (
-              <View
-                style={[
-                  styles.statTile,
-                  { backgroundColor: colors.surface, borderColor: colors.border },
-                ]}
-              >
-                <Text style={[styles.statValue, { color: colors.textPrimary }]}>
-                  {playerStats.totalGIRPossible > 0
-                    ? `${playerStats.totalGIR}/${playerStats.totalGIRPossible}`
-                    : '-'}
-                </Text>
-                <Text style={[styles.statLabel, { color: colors.textTertiary }]}>GREENS</Text>
-              </View>
-            )}
-            <View
-              style={[
-                styles.statTile,
-                { backgroundColor: colors.surface, borderColor: colors.border },
-              ]}
-            >
-              <Text style={[styles.statValue, { color: colors.textPrimary }]}>
-                {playerStats.totalPutts || '-'}
-              </Text>
-              <Text style={[styles.statLabel, { color: colors.textTertiary }]}>PUTTS</Text>
-            </View>
-          </View>
-        )}
-
         {/* Scorecard Table */}
         <ScorecardTable
           front9Holes={front9Holes}
@@ -440,30 +380,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: spacing.md,
     gap: spacing.md,
-  },
-  statRow: {
-    flexDirection: 'row',
-    gap: spacing.sm + spacing.xxs,
-  },
-  statTile: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: borderRadius.xl,
-    paddingVertical: spacing.md + spacing.xxs,
-    paddingHorizontal: spacing.sm,
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: 22,
-    lineHeight: 26,
-    fontWeight: '800',
-  },
-  statLabel: {
-    fontSize: 10,
-    lineHeight: 13,
-    fontWeight: '700',
-    letterSpacing: 0.4,
-    marginTop: spacing.xxs,
   },
   footerContainer: {
     position: 'absolute',

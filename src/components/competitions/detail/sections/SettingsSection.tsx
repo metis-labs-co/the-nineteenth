@@ -14,7 +14,7 @@ import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { Pill } from '@/components/common/Pill';
-import { SectionLabel } from '@/components/common';
+import { SectionHeader } from '@/components/common';
 import { formatDateAustralian } from '@/utils/formatting';
 import {
   competitionTypeLabels,
@@ -64,20 +64,20 @@ function SettingRow({ icon, label, onPress, locked = false, accessibilityLabel, 
 
   const content = (
     <>
-      <View style={[styles.iconContainer, { backgroundColor: colors.primaryBackground }]}>
-        <Icon source={icon} size={18} color={colors.primary} />
+      <View style={styles.iconContainer}>
+        <Icon source={icon} size={20} color={colors.primary} />
       </View>
       <View style={styles.rowContent}>
         <View style={styles.labelContainer}>
           <Text style={[styles.label, { color: colors.textSecondary }]}>{label}</Text>
           {locked && (
-            <Icon source="lock-outline" size={13} color={colors.textTertiary} />
+            <Icon source="lock-outline" size={14} color={colors.textSecondary} />
           )}
         </View>
         <View style={styles.valueContainer}>
           {children}
           {isInteractive && (
-            <Icon source="chevron-right" size={18} color={colors.gray400} />
+            <Icon source="chevron-right" size={20} color={colors.gray400} />
           )}
         </View>
       </View>
@@ -163,7 +163,7 @@ export function SettingsSection({
 
   return (
     <View style={styles.section}>
-      <SectionLabel>Scoring & Format</SectionLabel>
+      <SectionHeader title="Competition Details" icon="cog-outline" primaryIcon={false} />
 
       <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         {/* Type */}
@@ -181,7 +181,7 @@ export function SettingsSection({
         </SettingRow>
 
         {/* Handicap System */}
-        <View style={[styles.divider, { backgroundColor: colors.borderLight }]} />
+        <View style={[styles.divider, { backgroundColor: colors.border }]} />
         <SettingRow
           icon="golf"
           label="Handicap"
@@ -194,7 +194,7 @@ export function SettingsSection({
         </SettingRow>
 
         {/* Format (team mode) */}
-        <View style={[styles.divider, { backgroundColor: colors.borderLight }]} />
+        <View style={[styles.divider, { backgroundColor: colors.border }]} />
         <SettingRow
           icon="account-group-outline"
           label="Format"
@@ -210,7 +210,7 @@ export function SettingsSection({
             actual teams; tapping opens Teams tab. */}
         {hasTeams && teamSizeDisplay != null && (
           <>
-            <View style={[styles.divider, { backgroundColor: colors.borderLight }]} />
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
             <SettingRow
               icon="account-multiple-outline"
               label="Team Size"
@@ -225,7 +225,7 @@ export function SettingsSection({
         )}
 
         {/* Start Date */}
-        <View style={[styles.divider, { backgroundColor: colors.borderLight }]} />
+        <View style={[styles.divider, { backgroundColor: colors.border }]} />
         <SettingRow
           icon="calendar-start"
           label="Start Date"
@@ -240,7 +240,7 @@ export function SettingsSection({
         {/* End Date (shown for event type or when set) */}
         {showEndDate && (
           <>
-            <View style={[styles.divider, { backgroundColor: colors.borderLight }]} />
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
             <SettingRow
               icon="calendar-end"
               label="End Date"
@@ -259,7 +259,7 @@ export function SettingsSection({
         {/* Scoring Rules Mode (Phase 6). Always visible to organisers so
             the choice is explicit up-front. Per-round option is tier-gated
             inside the sheet itself. */}
-        <View style={[styles.divider, { backgroundColor: colors.borderLight }]} />
+        <View style={[styles.divider, { backgroundColor: colors.border }]} />
         <SettingRow
           icon="scale-balance"
           label="Rules Mode"
@@ -276,7 +276,7 @@ export function SettingsSection({
             supersedes this). */}
         {!perRoundEnabled && (
           <>
-            <View style={[styles.divider, { backgroundColor: colors.borderLight }]} />
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
             <SettingRow
               icon="medal-outline"
               label="General Rules"
@@ -295,7 +295,7 @@ export function SettingsSection({
             the sheet); NOT locked by structureLocked. */}
         {perRoundEnabled && (
           <>
-            <View style={[styles.divider, { backgroundColor: colors.borderLight }]} />
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
             <SettingRow
               icon="medal-outline"
               label="Points Config"
@@ -314,13 +314,6 @@ export function SettingsSection({
       {canEdit && structureLocked && (
         <Text style={[styles.lockedFootnote, { color: colors.textSecondary }]}>
           Competition settings are locked once scoring has started.
-        </Text>
-      )}
-
-      {perRoundEnabled && (
-        <Text style={[styles.perRoundFootnote, { color: colors.textTertiary }]}>
-          Each round carries its own format & points — set them per round in
-          the Rounds tab.
         </Text>
       )}
 
@@ -400,7 +393,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   card: {
-    borderRadius: borderRadius.xl,
+    borderRadius: borderRadius.lg,
     borderWidth: 1,
     overflow: 'hidden',
     ...shadows.sm,
@@ -408,13 +401,12 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: spacing.md + 1,
-    paddingHorizontal: spacing.md + 2,
+    padding: spacing.md,
   },
   iconContainer: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.md,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -451,11 +443,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: spacing.sm,
     paddingHorizontal: spacing.lg,
-  },
-  perRoundFootnote: {
-    ...typography.caption,
-    marginTop: spacing.sm,
-    paddingHorizontal: spacing.xs,
   },
 });
 

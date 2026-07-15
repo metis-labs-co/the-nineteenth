@@ -1,14 +1,15 @@
 /**
  * StatCategoryGroup - visually grouped set of StatCategoryCards.
  *
- * Design (competition-details redesign, Stats tab): an uppercase
- * SectionLabel heading followed by a column of individual stat cards.
+ * Renders a SectionHeader followed by a rounded card containing each
+ * category. Matches the visual pattern of LeagueRecordsSection.
  */
 
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { SectionLabel } from '@/components/common';
-import { spacing } from '@/constants/theme';
+import { SectionHeader } from '@/components/common/SectionHeader';
+import { borderRadius, shadows, spacing } from '@/constants/theme';
+import { useThemeColors } from '@/context/ThemeContext';
 import type { CategoryGroup } from '@/hooks/competitionStatistics';
 import { StatCategoryCard } from './StatCategoryCard';
 
@@ -19,12 +20,24 @@ export interface StatCategoryGroupProps {
 export const StatCategoryGroup = React.memo(function StatCategoryGroup({
   group,
 }: StatCategoryGroupProps) {
+  const colors = useThemeColors();
+
   return (
     <View style={styles.section}>
-      <SectionLabel>{group.title}</SectionLabel>
-      <View style={styles.cards}>
-        {group.categories.map((category) => (
-          <StatCategoryCard key={category.key} category={category} />
+      <SectionHeader title={group.title} icon={group.icon} />
+      <View
+        style={[
+          styles.card,
+          shadows.sm,
+          { backgroundColor: colors.surface },
+        ]}
+      >
+        {group.categories.map((category, index) => (
+          <StatCategoryCard
+            key={category.key}
+            category={category}
+            isLast={index === group.categories.length - 1}
+          />
         ))}
       </View>
     </View>
@@ -33,10 +46,12 @@ export const StatCategoryGroup = React.memo(function StatCategoryGroup({
 
 const styles = StyleSheet.create({
   section: {
-    marginBottom: spacing.lg + 2,
+    marginBottom: spacing.xl,
   },
-  cards: {
-    gap: 10,
+  card: {
+    borderRadius: borderRadius.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xs,
   },
 });
 

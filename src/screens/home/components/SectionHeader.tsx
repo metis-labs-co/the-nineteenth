@@ -25,7 +25,7 @@ export const SectionHeader = React.memo(function SectionHeader({
     <View style={styles.row}>
       <Text
         accessibilityRole="header"
-        style={[styles.title, { color: colors.textSecondary }]}
+        style={[styles.title, { color: colors.textPrimary }]}
       >
         {title}
       </Text>
@@ -49,17 +49,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: spacing.sm + 2,
-    marginHorizontal: 2,
+    marginBottom: spacing.sm,
   },
   title: {
-    ...typography.caption,
-    fontWeight: '700',
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
+    ...typography.h4,
   },
   action: {
     ...typography.small,
-    fontWeight: '700',
+    fontWeight: '600',
   },
 });

@@ -8,7 +8,6 @@
 import React from 'react';
 import { StyleSheet, View, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
-import { SectionLabel } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 
@@ -23,65 +22,56 @@ export const ActivitySection = React.memo(function ActivitySection({
   const colors = useThemeColors();
 
   return (
-    <View style={styles.section}>
-      <SectionLabel style={styles.sectionLabel}>Activity</SectionLabel>
-      <TouchableOpacity
-        style={[
-          styles.container,
-          { backgroundColor: colors.surface, borderColor: colors.border },
-        ]}
-        activeOpacity={0.7}
-        onPress={onPress}
-        accessibilityRole="button"
-        accessibilityLabel="Activity"
-        accessibilityHint="Tap to view your friends' activity feed"
-      >
-        <View style={[styles.iconContainer, { backgroundColor: colors.primaryBackground }]}>
-          <Icon source="newspaper-variant-outline" size={22} color={colors.primary} />
-        </View>
+    <TouchableOpacity
+      style={[styles.container, { backgroundColor: colors.surface }]}
+      activeOpacity={0.7}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel="Activity"
+      accessibilityHint="Tap to view your friends' activity feed"
+    >
+      <View style={[styles.iconContainer, { backgroundColor: colors.primaryLighter }]}>
+        <Icon source="newspaper-variant-outline" size={20} color={colors.primary} />
+      </View>
 
-        <View style={styles.info}>
-          <Text style={[styles.title, { color: colors.textPrimary }]}>
-            {"Friends' rounds, likes & comments"}
-          </Text>
-        </View>
+      <View style={styles.info}>
+        <Text style={[styles.label, { color: colors.textSecondary }]}>Activity</Text>
+        <Text style={[styles.title, { color: colors.textPrimary }]}>
+          {"Friends' rounds, likes & comments"}
+        </Text>
+      </View>
 
-        <Icon source="chevron-right" size={18} color={colors.textTertiary} />
-      </TouchableOpacity>
-    </View>
+      <Icon source="chevron-right" size={20} color={colors.gray400} />
+    </TouchableOpacity>
   );
 });
 
 const styles = StyleSheet.create({
-  section: {
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.xl,
-  },
-  sectionLabel: {
-    marginHorizontal: 4,
-  },
   container: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: spacing.lg,
-    borderRadius: borderRadius.xl,
-    borderWidth: 1,
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.md,
+    borderRadius: borderRadius.lg,
   },
   iconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: borderRadius.lg,
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.md,
     justifyContent: 'center',
     alignItems: 'center',
   },
   info: {
     flex: 1,
-    marginLeft: spacing.md + 1,
+    marginLeft: spacing.md,
+  },
+  label: {
+    ...typography.caption,
   },
   title: {
     ...typography.bodyBold,
-    fontSize: 15,
-    fontWeight: '700',
+    marginTop: 2,
   },
 });
 

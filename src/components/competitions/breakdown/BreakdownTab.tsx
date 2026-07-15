@@ -44,6 +44,6 @@ export function BreakdownTab({ competitionId, showRinger, showContributions }: B
 
 const styles = StyleSheet.create({
   toggle: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
 });

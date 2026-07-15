@@ -17,7 +17,6 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, Animated, Pressable } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Text, Icon } from 'react-native-paper';
 import {
   ConfirmationDialog,
@@ -29,7 +28,7 @@ import { WolfIndicator } from '@/components/wolf';
 import { DistanceToPin } from '@/components/scorecard/HoleHeader/DistanceToPin';
 import { getTeeColor } from '@/components/common/TeeSelector/hooks/useTeeSelector';
 import { useThemeColors } from '@/context/ThemeContext';
-import { borderRadius, spacing, typography } from '@/constants/theme';
+import { spacing, typography } from '@/constants/theme';
 import type { Player, TeeBox } from '@/types';
 
 export interface RoundHeaderProps {
@@ -66,21 +65,6 @@ export interface RoundHeaderProps {
   onChangeTeesPress?: () => void;
   /** Called when tapped while offline (e.g. to toast a hint). */
   onChangeTeesBlockedOffline?: () => void;
-
-  /**
-   * Total holes in the round. When BOTH totalHoles and playedCount are
-   * provided, a "HOLE N/18" progress row renders under the header.
-   * Purely display — no derivation beyond the fill width percentage.
-   */
-  totalHoles?: number;
-  /** Number of holes already played (drives the progress fill + "thru N"). */
-  playedCount?: number;
-  /**
-   * Show the compact GPS distance badge in the header right content.
-   * Screens that render the full-width DistanceToPin strip instead should
-   * pass false. @default true
-   */
-  showDistanceBadge?: boolean;
 }
 
 export function RoundHeader({
@@ -103,9 +87,6 @@ export function RoundHeader({
   canChangeTees = false,
   onChangeTeesPress,
   onChangeTeesBlockedOffline,
-  totalHoles,
-  playedCount,
-  showDistanceBadge = true,
 }: RoundHeaderProps) {
   const colors = useThemeColors();
 
@@ -204,50 +185,13 @@ export function RoundHeader({
 
   const renderRightContent = () => (
     <View style={styles.rightContent}>
-      {courseId && showDistanceBadge && (
+      {courseId && (
         <DistanceToPin courseId={courseId} holeNumber={currentHole} roundId={roundId} />
       )}
       <SkinsIndicator roundId={roundId} size="sm" variant="minimal" />
       <WolfIndicator roundId={roundId} currentHole={currentHole} size="sm" variant="minimal" />
-      {offlineStatus === 'online' && (
-        <View
-          style={[styles.syncedPill, { backgroundColor: colors.primaryBackground }]}
-          testID="round-header-synced-pill"
-        >
-          <View style={[styles.syncedDot, { backgroundColor: colors.primary }]} />
-          <Text style={[styles.syncedLabel, { color: colors.primaryDark }]}>Synced</Text>
-        </View>
-      )}
     </View>
   );
-
-  // Progress row (design: "HOLE N/18" label + gradient track + "thru N").
-  // Purely display — the only math is the fill width percentage.
-  let progressRow: React.ReactNode = null;
-  if (typeof totalHoles === 'number' && totalHoles > 0 && typeof playedCount === 'number') {
-    const progressPct = Math.min(100, Math.max(0, (playedCount / totalHoles) * 100));
-    progressRow = (
-      <View
-        style={[styles.progressRow, { backgroundColor: colors.surface }]}
-        testID="round-header-progress"
-      >
-        <Text style={[styles.progressLabel, { color: colors.textTertiary }]}>
-          HOLE {currentHole}/{totalHoles}
-        </Text>
-        <View style={[styles.progressTrack, { backgroundColor: colors.surfaceVariant }]}>
-          <LinearGradient
-            colors={[colors.primaryLight, colors.primary]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={[styles.progressFill, { width: `${progressPct}%` }]}
-          />
-        </View>
-        <Text style={[styles.progressThru, { color: colors.primary }]}>
-          thru {playedCount}
-        </Text>
-      </View>
-    );
-  }
 
   return (
     <>
@@ -258,8 +202,6 @@ export function RoundHeader({
         onBack={onBack}
         rightContent={renderRightContent()}
       />
-
-      {progressRow}
 
       <OfflineIndicator
         status={offlineStatus}
@@ -321,50 +263,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-  },
-  syncedPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    height: 26,
-    paddingHorizontal: 10,
-    borderRadius: borderRadius.full,
-  },
-  syncedDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  syncedLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  progressRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm + 2,
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.md,
-  },
-  progressLabel: {
-    fontSize: 10.5,
-    fontWeight: '800',
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
-  },
-  progressTrack: {
-    flex: 1,
-    height: 6,
-    borderRadius: borderRadius.full,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: borderRadius.full,
-  },
-  progressThru: {
-    fontSize: 11,
-    fontWeight: '700',
   },
   subtitleContainer: {
     flexDirection: 'row',

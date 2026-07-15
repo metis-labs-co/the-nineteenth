@@ -1,8 +1,8 @@
 /**
  * TeamMatchProgress Component
  *
- * "Match by hole" strip for team match play.
- * Shows hole-by-hole results as ringed cells with team color coding.
+ * Visual progress indicator for team match play.
+ * Shows hole-by-hole results with team color coding.
  */
 
 import React from 'react';
@@ -36,32 +36,11 @@ export function TeamMatchProgress({
 }: TeamMatchProgressProps) {
   const colors = useThemeColors();
 
-  // Presentational tally of the existing per-hole outcomes (no scoring math).
-  let team1Wins = 0;
-  let team2Wins = 0;
-  let halvedCount = 0;
-  for (const hole of holeNumbers) {
-    const winner = holeResults[hole]?.winner;
-    if (winner === 'team1') team1Wins += 1;
-    else if (winner === 'team2') team2Wins += 1;
-    else if (winner === 'halved') halvedCount += 1;
-  }
-
   return (
-    <View
-      style={[
-        styles.progressContainer,
-        { backgroundColor: colors.surface, borderColor: colors.border },
-      ]}
-    >
-      <View style={styles.headerRow}>
-        <Text style={[styles.progressTitle, { color: colors.textSecondary }]}>
-          Match Progress
-        </Text>
-        <Text style={[styles.summaryText, { color: colors.textPrimary }]}>
-          {team1Wins}A · {team2Wins}B · {halvedCount}=
-        </Text>
-      </View>
+    <View style={[styles.progressContainer, { backgroundColor: colors.surface }]}>
+      <Text style={[styles.progressTitle, { color: colors.textPrimary }]}>
+        Match Progress
+      </Text>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.holesScroll}>
         <View style={styles.holesRow}>
@@ -70,55 +49,46 @@ export function TeamMatchProgress({
             const isCurrentHole = hole === currentHole;
             const hasResult = result?.winner !== null && result?.winner !== undefined;
 
-            let cellBackground = 'transparent';
-            let ringColor = colors.border;
-            let labelColor = colors.textSecondary;
+            let backgroundColor = colors.gray200;
             let label = '';
             if (hasResult) {
               if (result?.winner === 'team1') {
-                cellBackground = colors.successBackground;
-                ringColor = colors.success;
-                labelColor = colors.success;
+                backgroundColor = colors.success;
                 label = 'A';
               } else if (result?.winner === 'team2') {
-                cellBackground = colors.errorBackground;
-                ringColor = colors.error;
-                labelColor = colors.error;
+                backgroundColor = colors.error;
                 label = 'B';
               } else if (result?.winner === 'halved') {
-                cellBackground = colors.warningBackground;
-                ringColor = colors.warning;
-                labelColor = colors.warning;
+                backgroundColor = colors.warning;
                 label = '=';
               }
-            }
-            if (isCurrentHole) {
-              ringColor = colors.primary;
             }
 
             return (
               <TouchableOpacity
                 key={hole}
-                style={styles.holeCell}
+                style={[
+                  styles.holeIndicator,
+                  { backgroundColor },
+                  isCurrentHole && { borderWidth: 2, borderColor: colors.primary },
+                ]}
                 onPress={() => onHolePress(hole)}
                 activeOpacity={0.7}
                 accessibilityLabel={`Hole ${displayHoleNumber(hole, startHole)}${hasResult ? `, ${result?.winner === 'team1' ? team1.name : result?.winner === 'team2' ? team2.name : 'halved'}` : ''}`}
               >
-                <Text style={[styles.holeNumber, { color: colors.textSecondary }]}>
-                  {displayHoleNumber(hole, startHole)}
-                </Text>
-                <View
+                <Text
                   style={[
-                    styles.holeIndicator,
-                    { backgroundColor: cellBackground, borderColor: ringColor },
+                    styles.holeNumber,
+                    { color: hasResult ? colors.white : colors.textSecondary },
                   ]}
                 >
-                  {hasResult && (
-                    <Text style={[styles.resultLabel, { color: labelColor }]}>
-                      {label}
-                    </Text>
-                  )}
-                </View>
+                  {displayHoleNumber(hole, startHole)}
+                </Text>
+                {hasResult && (
+                  <Text style={[styles.resultLabel, { color: colors.white }]}>
+                    {label}
+                  </Text>
+                )}
               </TouchableOpacity>
             );
           })}
@@ -157,57 +127,37 @@ export function TeamMatchProgress({
 const styles = StyleSheet.create({
   progressContainer: {
     marginTop: spacing.lg,
-    paddingVertical: spacing.md,
-    paddingHorizontal: 10,
-    borderRadius: 16,
-    borderWidth: 1,
+    padding: spacing.lg,
+    borderRadius: borderRadius.lg,
     ...shadows.sm,
   },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.xs,
-    paddingBottom: 10,
-  },
   progressTitle: {
-    fontSize: 10.5,
-    fontWeight: '800',
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-  },
-  summaryText: {
-    fontSize: 12,
-    fontWeight: '700',
+    ...typography.smallBold,
+    marginBottom: spacing.md,
   },
   holesScroll: {
     marginBottom: spacing.md,
   },
   holesRow: {
     flexDirection: 'row',
-    gap: 5,
-    paddingHorizontal: spacing.xs,
-  },
-  holeCell: {
-    width: 33,
-    alignItems: 'center',
-  },
-  holeNumber: {
-    fontSize: 9,
-    fontWeight: '700',
-    marginBottom: 3,
+    gap: spacing.xs,
   },
   holeIndicator: {
-    width: 33,
-    height: 32,
-    borderRadius: 9,
-    borderWidth: 2,
+    width: 36,
+    height: 44,
+    borderRadius: borderRadius.sm,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingVertical: spacing.xs,
+  },
+  holeNumber: {
+    ...typography.caption,
+    fontWeight: '600',
   },
   resultLabel: {
-    fontSize: 12,
-    fontWeight: '800',
+    fontSize: 10,
+    fontWeight: '700',
+    marginTop: 2,
   },
   legendContainer: {
     flexDirection: 'row',

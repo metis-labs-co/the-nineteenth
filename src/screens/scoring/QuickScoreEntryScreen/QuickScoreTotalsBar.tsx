@@ -1,8 +1,5 @@
 /**
  * QuickScoreTotalsBar - Running totals display for quick score entry
- *
- * Header totals tiles per the Score & Round redesign: neutral tiles on
- * surfaceVariant, Points highlighted on primaryBackground/primary.
  */
 
 import React from 'react';
@@ -29,22 +26,22 @@ export const QuickScoreTotalsBar = React.memo(function QuickScoreTotalsBar({
   const colors = useThemeColors();
 
   return (
-    <View style={styles.container}>
-      <View style={[styles.tile, { backgroundColor: colors.surfaceVariant }]}>
-        <Text style={[styles.value, { color: colors.textPrimary }]}>{totalGross || '–'}</Text>
+    <View style={[styles.container, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      <View style={styles.stat}>
         <Text style={[styles.label, { color: colors.textSecondary }]}>Gross</Text>
+        <Text style={[styles.value, { color: colors.textPrimary }]}>{totalGross || '–'}</Text>
       </View>
-      <View style={[styles.tile, { backgroundColor: colors.surfaceVariant }]}>
-        <Text style={[styles.value, { color: colors.textPrimary }]}>{totalNet || '–'}</Text>
+      <View style={styles.stat}>
         <Text style={[styles.label, { color: colors.textSecondary }]}>Net</Text>
+        <Text style={[styles.value, { color: colors.textPrimary }]}>{totalNet || '–'}</Text>
       </View>
-      <View style={[styles.tile, { backgroundColor: colors.primaryBackground }]}>
-        <Text style={[styles.value, { color: colors.primary }]}>{totalPoints || '–'}</Text>
-        <Text style={[styles.label, { color: colors.primary }]}>Points</Text>
+      <View style={styles.stat}>
+        <Text style={[styles.label, { color: colors.textSecondary }]}>Points</Text>
+        <Text style={[styles.value, { color: colors.textPrimary }]}>{totalPoints || '–'}</Text>
       </View>
-      <View style={[styles.tile, { backgroundColor: colors.surfaceVariant }]}>
-        <Text style={[styles.value, { color: colors.textPrimary }]}>{holesEntered}/{totalHoles}</Text>
+      <View style={styles.stat}>
         <Text style={[styles.label, { color: colors.textSecondary }]}>Holes</Text>
+        <Text style={[styles.value, { color: colors.textPrimary }]}>{holesEntered}/{totalHoles}</Text>
       </View>
     </View>
   );
@@ -53,30 +50,25 @@ export const QuickScoreTotalsBar = React.memo(function QuickScoreTotalsBar({
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
     marginTop: spacing.md,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
     marginHorizontal: spacing.lg,
     marginBottom: spacing.sm,
   },
-  tile: {
+  stat: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: spacing.sm + 1,
-    borderRadius: borderRadius.lg,
-  },
-  value: {
-    ...typography.bodyBold,
-    fontSize: 21,
-    fontWeight: '800',
-    lineHeight: 26,
   },
   label: {
     ...typography.small,
-    fontSize: 9.5,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-    marginTop: spacing.xxs,
+    fontSize: 11,
+  },
+  value: {
+    ...typography.bodyBold,
+    fontSize: 16,
   },
 });
 

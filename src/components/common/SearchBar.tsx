@@ -26,8 +26,6 @@ interface SearchBarProps {
   inputBackgroundColor?: string;
   /** Style overrides for the outer container */
   containerStyle?: object;
-  /** Style overrides for the inner input wrapper (border, radius, height) */
-  inputWrapperStyle?: object;
 }
 
 export function SearchBar({
@@ -38,7 +36,6 @@ export function SearchBar({
   hideBorder = false,
   inputBackgroundColor,
   containerStyle,
-  inputWrapperStyle,
 }: SearchBarProps) {
   const colors = useThemeColors();
 
@@ -58,7 +55,6 @@ export function SearchBar({
         style={[
           styles.searchInputWrapper,
           { backgroundColor: inputBackgroundColor ?? colors.surfaceVariant },
-          inputWrapperStyle,
         ]}
       >
         <Icon source="magnify" size={20} color={colors.textSecondary} />

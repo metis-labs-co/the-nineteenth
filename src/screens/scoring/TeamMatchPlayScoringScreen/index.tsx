@@ -19,7 +19,6 @@ import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { LoadingSpinner, ConfirmationDialog } from '@/components/common';
 import { HoleHeader, RoundHeader, SwipeableHoleNavigator, ChangeTeesSheet } from '@/components/scorecard';
-import { DistanceToPin } from '@/components/scorecard/HoleHeader/DistanceToPin';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -590,15 +589,6 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
             canGoNext={canGoNext}
           />
 
-          {courseId && (
-            <DistanceToPin
-              variant="strip"
-              courseId={courseId}
-              holeNumber={holeNumber}
-              roundId={roundId}
-            />
-          )}
-
           <ScrollView style={styles.scrollContent} contentContainerStyle={styles.contentContainer}>
             <View style={styles.teamsContainer}>
               <TeamScorePanel
@@ -616,7 +606,6 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
                 onPlayerParSelect={handlePlayerParSelect}
                 onPlayerPickUp={handlePlayerPickUp}
                 handicapLabel={handicapLabel}
-                teamColor={colors.success}
               />
 
               <View style={styles.vsDivider}>
@@ -647,7 +636,6 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
                 onPlayerParSelect={handlePlayerParSelect}
                 onPlayerPickUp={handlePlayerPickUp}
                 handicapLabel={handicapLabel}
-                teamColor={colors.error}
               />
             </View>
 
@@ -698,8 +686,6 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
       handleHolePress,
       holes,
       startHole,
-      courseId,
-      roundId,
     ]
   );
 
@@ -736,23 +722,6 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
   const showSubMatchPicker =
     isSplitRound && isOrganizer && !!subMatches && subMatches.length > 1;
 
-  // Presentational tint for the match status band, driven by the existing
-  // team-1 standing (no new scoring derivation — just maps status type to
-  // a colorway: leading = green, trailing = warm, all square = neutral).
-  const statusType = team1MatchStatus?.type;
-  const isLeading = statusType === 'up' || statusType === 'win';
-  const isTrailing = statusType === 'down' || statusType === 'loss';
-  const statusBarBg = isLeading
-    ? colors.primaryBackground
-    : isTrailing
-      ? colors.bogeyBackground
-      : colors.surfaceVariant;
-  const statusBarText = isLeading
-    ? colors.primaryDark
-    : isTrailing
-      ? colors.error
-      : colors.textSecondary;
-
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={[]}>
       <RoundHeader
@@ -764,7 +733,6 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
         roundId={roundId}
         courseId={courseId}
         currentHole={currentHole}
-        showDistanceBadge={false}
         isOnline={isOnline}
         isSyncing={isSyncing}
         pendingSyncCount={pendingSyncCount}
@@ -823,18 +791,13 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
       <View
         style={[
           styles.matchStatusBar,
-          { backgroundColor: statusBarBg, borderBottomColor: colors.border },
+          { backgroundColor: colors.surface, borderBottomColor: colors.border },
         ]}
       >
-        <Icon
-          source="flag"
-          size={18}
-          color={isMatchComplete ? colors.success : statusBarText}
-        />
         <Text
           style={[
             styles.matchStatusText,
-            { color: isMatchComplete ? colors.success : statusBarText },
+            { color: isMatchComplete ? colors.success : colors.textPrimary },
           ]}
         >
           {matchStatusText}
@@ -937,14 +900,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 11,
+    paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
     borderBottomWidth: 1,
     gap: spacing.sm,
   },
   matchStatusText: {
-    fontSize: 15,
-    fontWeight: '800',
+    ...typography.bodyBold,
     textAlign: 'center',
   },
   completeBadge: {

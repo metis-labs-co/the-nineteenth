@@ -13,27 +13,6 @@ import {
   CELL_HEIGHTS,
 } from '@/utils/scorecardLayout';
 
-/**
- * Fixed dark-green band colors for the header and Gross rows.
- *
- * Intentionally hardcoded (NOT theme tokens): the band is the same dark green
- * in BOTH light and dark themes, matching the HeroCard / heroPalette
- * convention (see src/components/common/HeroCard.tsx and the Score & Round
- * redesign spec).
- */
-export const scorecardBand = {
-  /** Dark band background (header row + Gross row) */
-  background: '#1f2a19',
-  /** Primary label text on the band (HOLE, GROSS) */
-  label: '#c8d6bd',
-  /** Muted label text on the band (PAR, SI, handicap line) */
-  muted: '#94a688',
-  /** Green accent on the band (Pts column header) */
-  accent: '#a9d38a',
-  /** Values on the band (player names, gross totals) */
-  text: '#ffffff',
-} as const;
-
 export const styles = StyleSheet.create({
   // =====================================================
   // CONTAINER
@@ -58,7 +37,7 @@ export const styles = StyleSheet.create({
   // =====================================================
   tableRow: {
     flexDirection: 'row',
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: 1,
   },
   subtotalRow: {},
   totalRow: {},
@@ -70,7 +49,7 @@ export const styles = StyleSheet.create({
   // CELLS - BASE
   // =====================================================
   tableCell: {
-    paddingVertical: 5,
+    paddingVertical: spacing.sm,
     paddingHorizontal: spacing.sm,
     justifyContent: 'center',
     alignItems: 'center',
@@ -109,15 +88,6 @@ export const styles = StyleSheet.create({
     ...typography.smallBold,
     textAlign: 'center',
   },
-  /** Uppercase fixed-column labels (Hole / SI / Par) on the dark header band */
-  headerLabelText: {
-    fontSize: 10,
-    lineHeight: 14,
-    fontWeight: '800',
-    letterSpacing: 0.4,
-    textTransform: 'uppercase',
-    textAlign: 'center',
-  },
   handicapText: {
     ...typography.caption,
     marginTop: 2,
@@ -136,37 +106,15 @@ export const styles = StyleSheet.create({
   },
   totalLabelText: {
     ...typography.smallBold,
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
   },
   totalText: {
     ...typography.bodyBold,
   },
-  /** Gross totals on the dark band */
-  grossValueText: {
-    fontSize: 16,
-    lineHeight: 20,
-    fontWeight: '800',
-  },
-  /** Net totals on the plain row */
-  netValueText: {
-    fontSize: 15,
-    lineHeight: 19,
-    fontWeight: '800',
-  },
   stablefordLabelText: {
     ...typography.smallBold,
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
   },
   stablefordText: {
     ...typography.bodyBold,
-  },
-  /** Points totals on the green Points band */
-  pointsValueText: {
-    fontSize: 19,
-    lineHeight: 23,
-    fontWeight: '800',
   },
   parScoreText: {
     ...typography.bodyBold,

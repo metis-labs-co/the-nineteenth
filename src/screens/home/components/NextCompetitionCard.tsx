@@ -71,34 +71,26 @@ export const NextCompetitionCard = React.memo(function NextCompetitionCard({
         accessibilityHint="Opens the competition"
         style={[
           styles.card,
-          {
-            backgroundColor: colors.surface,
-            // Gold-tinted border per the design's next-competition card.
-            borderColor: `${colors.warning}4D`,
-          },
+          { backgroundColor: colors.surface, borderColor: colors.borderLight },
         ]}
       >
         <View style={styles.row}>
-          <View
-            style={[styles.iconSquare, { backgroundColor: colors.warningBackground }]}
-          >
-            <Icon source="trophy-outline" size={24} color={colors.warning} />
-          </View>
+          <Icon source="trophy-outline" size={28} color={colors.primary} />
           <View style={styles.text}>
-            {!!subtitle && (
-              <Text
-                style={[styles.subtitle, { color: colors.warning }]}
-                numberOfLines={1}
-              >
-                {subtitle}
-              </Text>
-            )}
             <Text
               style={[styles.title, { color: colors.textPrimary }]}
               numberOfLines={1}
             >
               {name}
             </Text>
+            {!!subtitle && (
+              <Text
+                style={[styles.subtitle, { color: colors.textSecondary }]}
+                numberOfLines={1}
+              >
+                {subtitle}
+              </Text>
+            )}
             {!!description && (
               <Text
                 style={[styles.description, { color: colors.textSecondary }]}
@@ -108,7 +100,7 @@ export const NextCompetitionCard = React.memo(function NextCompetitionCard({
               </Text>
             )}
           </View>
-          <Icon source="chevron-right" size={20} color={colors.textTertiary} />
+          <Icon source="chevron-right" size={22} color={colors.textSecondary} />
         </View>
 
         {forecastDays.length > 0 && (
@@ -135,32 +127,20 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   card: {
-    borderRadius: borderRadius.xl + 2,
+    borderRadius: borderRadius.lg,
     borderWidth: 1,
     overflow: 'hidden',
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md + 1,
-    padding: spacing.lg,
-  },
-  iconSquare: {
-    width: 44,
-    height: 44,
-    borderRadius: borderRadius.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
+    gap: spacing.sm,
+    padding: spacing.md,
   },
   text: { flex: 1 },
-  title: { fontSize: 15, fontWeight: '700', marginTop: 2 },
-  subtitle: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-  },
-  description: { ...typography.caption, marginTop: 1 },
+  title: { ...typography.body, fontWeight: '700' },
+  subtitle: { ...typography.caption, marginTop: 2 },
+  description: { ...typography.caption, marginTop: 4 },
   weather: {
     borderTopWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: spacing.md,

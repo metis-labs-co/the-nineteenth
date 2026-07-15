@@ -11,9 +11,8 @@ import React from 'react';
 import { View } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
-import { withOpacity } from '@/constants/colors';
 import { getStrokesReceived, calculateStablefordPointsNet } from '@/utils/scoring';
-import { styles, scorecardBand } from '../styles';
+import { styles } from '../styles';
 import type { ScorecardTablePlayer } from '../types';
 import type { PlayerStats } from '@/utils/scorecardCalculations';
 import { isSingleBallScore, type Hole } from '@/types/database.types';
@@ -344,10 +343,11 @@ export const SoloStatsStablefordEmptyCells = React.memo(function SoloStatsStable
 // =====================================================
 
 export const SoloStablefordHeaderCell = React.memo(function SoloStablefordHeaderCell() {
-  // Dark band is fixed in both themes (see scorecardBand in ../styles).
+  const colors = useThemeColors();
+
   return (
-    <View style={[styles.tableCell, styles.statCell, styles.headerCell, { backgroundColor: scorecardBand.background }]}>
-      <Text style={[styles.headerLabelText, { color: scorecardBand.accent }]}>Pts</Text>
+    <View style={[styles.tableCell, styles.statCell, styles.headerCell, { backgroundColor: colors.primary }]}>
+      <Text style={[styles.headerText, { color: colors.textOnColored }]}>Pts</Text>
     </View>
   );
 });
@@ -372,7 +372,7 @@ export const SoloStablefordHoleCell = React.memo(function SoloStablefordHoleCell
   const points = strokes > 0 ? calculateStablefordPointsNet(strokes, hole.par, strokesReceived) : 0;
 
   return (
-    <View style={[styles.tableCell, styles.statCell, { backgroundColor: withOpacity(colors.primary, 0.1) }]}>
+    <View style={[styles.tableCell, styles.statCell, { backgroundColor: colors.primary + '1A' }]}>
       <Text style={[styles.indexCellText, { color: colors.primary, fontWeight: '600' }]}>
         {strokes > 0 ? points : '-'}
       </Text>
@@ -393,7 +393,7 @@ export const SoloStablefordSubtotalCell = React.memo(function SoloStablefordSubt
   const stableford = isBack9 ? playerStats.back9Stableford : playerStats.front9Stableford;
 
   return (
-    <View style={[styles.tableCell, styles.statCell, styles.subtotalCell, { backgroundColor: withOpacity(colors.primary, 0.2) }]}>
+    <View style={[styles.tableCell, styles.statCell, styles.subtotalCell, { backgroundColor: colors.primary + '33' }]}>
       <Text style={[styles.subtotalText, { color: colors.primary }]}>
         {stableford}
       </Text>
@@ -411,7 +411,7 @@ export const SoloStablefordTotalCell = React.memo(function SoloStablefordTotalCe
   const colors = useThemeColors();
 
   return (
-    <View style={[styles.tableCell, styles.statCell, styles.totalCell, { backgroundColor: withOpacity(colors.primary, 0.2) }]}>
+    <View style={[styles.tableCell, styles.statCell, styles.totalCell, { backgroundColor: colors.primary + '33' }]}>
       <Text style={[styles.totalText, { color: colors.primary }]}>
         {playerStats.totalStableford}
       </Text>
@@ -423,7 +423,7 @@ export const SoloStablefordEmptyCell = React.memo(function SoloStablefordEmptyCe
   const colors = useThemeColors();
 
   return (
-    <View style={[styles.tableCell, styles.statCell, styles.totalCell, { backgroundColor: withOpacity(colors.primary, 0.2) }]}>
+    <View style={[styles.tableCell, styles.statCell, styles.totalCell, { backgroundColor: colors.primary + '33' }]}>
       <Text style={[styles.totalText, { color: colors.primary }]}>-</Text>
     </View>
   );

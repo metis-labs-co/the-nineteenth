@@ -36,7 +36,7 @@ export const HoleNumberDisplay = React.memo(function HoleNumberDisplay({
       accessibilityRole="button"
       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
     >
-      <Text style={[styles.label, { color: colors.textTertiary }]}>HOLE</Text>
+      <Text style={[styles.label, { color: colors.textSecondary }]}>HOLE</Text>
       <Text style={[styles.number, { color: colors.textPrimary }]}>{displayed}</Text>
     </TouchableOpacity>
   );
@@ -44,20 +44,17 @@ export const HoleNumberDisplay = React.memo(function HoleNumberDisplay({
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
     alignItems: 'center',
     minWidth: 56,
   },
   label: {
-    fontSize: 10.5,
-    fontWeight: '800',
+    fontSize: 10,
+    fontWeight: '600',
     letterSpacing: 1,
-    textTransform: 'uppercase',
   },
   number: {
-    fontSize: 33,
-    fontWeight: '800',
-    letterSpacing: -0.5,
+    fontSize: 32,
+    fontWeight: '700',
     lineHeight: 36,
   },
 });

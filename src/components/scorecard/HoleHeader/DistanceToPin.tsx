@@ -15,7 +15,6 @@
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Platform, View, TouchableOpacity, StyleSheet, Animated, Easing } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Text, Icon } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import type { NavigationProp } from '@react-navigation/native';
@@ -39,16 +38,6 @@ const ACCURACY_THRESHOLD_M = 15;
 const REDUCED_ACCURACY_THRESHOLD_M = 100;
 const REDUCED_ACCURACY_TIMEOUT_MS = 15000;
 
-// Fixed-dark palette for the 'strip' variant. Like HeroCard, the GPS band is
-// deliberately the SAME deep-green surface in both light and dark themes, so
-// its contents use explicit light-on-dark colors instead of theme tokens.
-const STRIP_GRADIENT: [string, string] = ['#1f2a19', '#2b3a22'];
-const STRIP_ICON_BG = 'rgba(139,194,110,0.18)';
-const STRIP_ICON = '#a9d38a';
-const STRIP_MUTED = '#8ba079';
-const STRIP_CHEVRON = '#6f7f5e';
-const STRIP_WHITE = '#ffffff';
-
 // =====================================================
 // TYPES
 // =====================================================
@@ -61,27 +50,14 @@ export interface DistanceToPinProps {
    * distance badge becomes pressable and navigates to the HoleMap modal.
    */
   roundId?: string;
-  /**
-   * Presentation:
-   * - 'badge' (default): compact header badge (current rendering).
-   * - 'strip': full-width fixed-dark gradient band (Score & Round redesign).
-   * Both variants render the SAME display states in the same order.
-   */
-  variant?: 'badge' | 'strip';
 }
 
 // =====================================================
 // LOADING INDICATOR (PULSING GPS ICON)
 // =====================================================
 
-const PulsingGpsIcon = React.memo(function PulsingGpsIcon({
-  color,
-}: {
-  /** Icon color override (used on the fixed-dark strip). Defaults to theme textSecondary. */
-  color?: string;
-}) {
+const PulsingGpsIcon = React.memo(function PulsingGpsIcon() {
   const colors = useThemeColors();
-  const iconColor = color ?? colors.textSecondary;
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -108,65 +84,10 @@ const PulsingGpsIcon = React.memo(function PulsingGpsIcon({
 
   return (
     <Animated.View style={{ opacity: pulseAnim }}>
-      <Icon source="crosshairs-gps" size={18} color={iconColor} />
+      <Icon source="crosshairs-gps" size={18} color={colors.textSecondary} />
     </Animated.View>
   );
 });
-
-// =====================================================
-// STRIP VARIANT SHELLS
-// =====================================================
-
-/** Fixed-dark gradient band shared by every strip-variant state. */
-function StripGradient({ children }: { children: React.ReactNode }) {
-  return (
-    <LinearGradient
-      colors={STRIP_GRADIENT}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 0.4 }}
-      style={styles.stripBand}
-    >
-      {children}
-    </LinearGradient>
-  );
-}
-
-interface StripBandProps {
-  onPress?: () => void;
-  disabled?: boolean;
-  activeOpacity?: number;
-  accessibilityLabel: string;
-  accessibilityHint?: string;
-  children: React.ReactNode;
-}
-
-/** Pressable full-width strip (same a11y contract as the badge it mirrors). */
-function StripBand({
-  onPress,
-  disabled = false,
-  activeOpacity = 0.85,
-  accessibilityLabel,
-  accessibilityHint,
-  children,
-}: StripBandProps) {
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      disabled={disabled}
-      activeOpacity={activeOpacity}
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel}
-      accessibilityHint={accessibilityHint}
-    >
-      <StripGradient>{children}</StripGradient>
-    </TouchableOpacity>
-  );
-}
-
-/** 34px rounded icon square used at the left edge of the strip. */
-function StripIconSquare({ children }: { children: React.ReactNode }) {
-  return <View style={styles.stripIconSquare}>{children}</View>;
-}
 
 // =====================================================
 // MAIN COMPONENT
@@ -176,14 +97,12 @@ export const DistanceToPin = React.memo(function DistanceToPin({
   courseId,
   holeNumber,
   roundId,
-  variant = 'badge',
 }: DistanceToPinProps) {
   const colors = useThemeColors();
-  const isStrip = variant === 'strip';
   const showGpsDistance = useSettingsStore((state) => state.showGpsDistance);
   const enableHoleMap = useSettingsStore((state) => state.enableHoleMap);
   const distanceUnit = useSettingsStore((state) => state.distanceUnit);
-  const { formatDistance, unitLabel } = useFormattedDistance();
+  const { formatDistance } = useFormattedDistance();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
 
   const canOpenMap = enableHoleMap && !!roundId;
@@ -303,33 +222,6 @@ export const DistanceToPin = React.memo(function DistanceToPin({
 
   // State 1: No coordinates for course - show disabled GPS icon (tappable for info)
   if (!hasCoordinates) {
-    if (isStrip) {
-      return (
-        <>
-          <StripBand
-            onPress={handleNoGpsPress}
-            activeOpacity={0.7}
-            accessibilityLabel="GPS coordinates not available for this course"
-            accessibilityHint="Tap for more information"
-          >
-            <StripIconSquare>
-              <Icon source="crosshairs-off" size={18} color={STRIP_MUTED} />
-            </StripIconSquare>
-          </StripBand>
-
-          <ConfirmationDialog
-            visible={showNoGpsModal}
-            title="GPS Not Available"
-            message="GPS distance tracking is not available for this course. Course coordinates have not been added yet."
-            confirmLabel="OK"
-            cancelLabel=""
-            onConfirm={handleCloseNoGpsModal}
-            onCancel={handleCloseNoGpsModal}
-          />
-        </>
-      );
-    }
-
     return (
       <>
         <TouchableOpacity
@@ -368,21 +260,6 @@ export const DistanceToPin = React.memo(function DistanceToPin({
 
   // State 2: Permission undetermined + not asked - show enable prompt
   if (permissionStatus === 'undetermined' && !hasBeenAsked) {
-    if (isStrip) {
-      return (
-        <StripBand
-          onPress={handleEnablePress}
-          accessibilityLabel="Enable GPS for distance to pin"
-        >
-          <StripIconSquare>
-            <Icon source="crosshairs-gps" size={18} color={STRIP_ICON} />
-          </StripIconSquare>
-          <Text style={styles.stripEnableText}>Enable GPS</Text>
-          <Icon source="chevron-right" size={18} color={STRIP_CHEVRON} />
-        </StripBand>
-      );
-    }
-
     return (
       <TouchableOpacity
         style={styles.enableContainer}
@@ -405,33 +282,6 @@ export const DistanceToPin = React.memo(function DistanceToPin({
     const message = Platform.OS === 'ios'
       ? "GPS isn't precise enough to show distances. Enable Precise Location in Settings → Privacy & Security → Location Services → The Nineteenth."
       : "GPS isn't precise enough to show distances. Move to an area with a clearer view of the sky.";
-
-    if (isStrip) {
-      return (
-        <>
-          <StripBand
-            onPress={() => setShowPoorAccuracyModal(true)}
-            activeOpacity={0.7}
-            accessibilityLabel="GPS signal is weak"
-            accessibilityHint="Tap for help improving GPS accuracy"
-          >
-            <StripIconSquare>
-              <Icon source="crosshairs-question" size={18} color={colors.warning} />
-            </StripIconSquare>
-          </StripBand>
-
-          <ConfirmationDialog
-            visible={showPoorAccuracyModal}
-            title="GPS Signal Weak"
-            message={message}
-            confirmLabel="OK"
-            cancelLabel=""
-            onConfirm={() => setShowPoorAccuracyModal(false)}
-            onCancel={() => setShowPoorAccuracyModal(false)}
-          />
-        </>
-      );
-    }
 
     return (
       <>
@@ -464,16 +314,6 @@ export const DistanceToPin = React.memo(function DistanceToPin({
   // before the GNSS lock tightens) — better to look like we're still working
   // than to show a number that could be off by 50m+.
   if (!location || isLoadingDistance || !isAccuracyAcceptable) {
-    if (isStrip) {
-      return (
-        <StripGradient>
-          <StripIconSquare>
-            <PulsingGpsIcon color={STRIP_ICON} />
-          </StripIconSquare>
-        </StripGradient>
-      );
-    }
-
     return (
       <View style={styles.container}>
         <PulsingGpsIcon />
@@ -489,47 +329,6 @@ export const DistanceToPin = React.memo(function DistanceToPin({
       : distance.yards < 150;
 
     const formattedValue = formatDistance(distance.yards);
-
-    if (isStrip) {
-      // Big numeric value in the user's unit (same conversion formatDistance
-      // applies for on-course distances) + the derived unit label.
-      const stripValue = distanceUnit === 'metres'
-        ? Math.round(distance.yards * 0.9144)
-        : Math.round(distance.yards);
-      const stripUnitLabel = unitLabel === 'm' ? 'm to pin' : 'yds to pin';
-
-      return (
-        <StripBand
-          onPress={handleOpenMap}
-          disabled={!canOpenMap}
-          activeOpacity={canOpenMap ? 0.7 : 1}
-          accessibilityLabel={
-            canOpenMap
-              ? `Distance to pin ${formattedValue} — open map`
-              : `Distance to pin ${formattedValue}`
-          }
-          accessibilityHint={canOpenMap ? 'Opens a map view of the hole' : undefined}
-        >
-          <StripIconSquare>
-            <Icon source="map-marker" size={18} color={STRIP_ICON} />
-          </StripIconSquare>
-          <View style={styles.stripValueRow}>
-            <Text
-              style={[
-                styles.stripValue,
-                { color: isClose ? STRIP_ICON : STRIP_WHITE },
-              ]}
-            >
-              {stripValue}
-            </Text>
-            <Text style={styles.stripUnit}>{stripUnitLabel}</Text>
-          </View>
-          <View style={styles.stripRight}>
-            <Icon source="chevron-right" size={18} color={STRIP_CHEVRON} />
-          </View>
-        </StripBand>
-      );
-    }
 
     return (
       <TouchableOpacity
@@ -568,29 +367,6 @@ export const DistanceToPin = React.memo(function DistanceToPin({
   // course has partial coordinate coverage. If the hole map is enabled, the
   // crossed-out icon stays tappable to open the map view (which can show
   // tee/fairway markers even without a green pin).
-  if (isStrip) {
-    return (
-      <StripBand
-        onPress={canOpenMap ? handleOpenMap : handleNoGpsPress}
-        activeOpacity={0.7}
-        accessibilityLabel={
-          canOpenMap
-            ? 'Distance unavailable for this hole — open map'
-            : 'Distance unavailable for this hole'
-        }
-      >
-        <StripIconSquare>
-          <Icon source="crosshairs-off" size={18} color={STRIP_MUTED} />
-        </StripIconSquare>
-        {canOpenMap && (
-          <View style={styles.stripRight}>
-            <Icon source="chevron-right" size={18} color={STRIP_CHEVRON} />
-          </View>
-        )}
-      </StripBand>
-    );
-  }
-
   return (
     <TouchableOpacity
       style={styles.noGpsContainer}
@@ -640,49 +416,6 @@ const styles = StyleSheet.create({
     fontSize: 23,
     lineHeight: 28,
     fontWeight: '700',
-  },
-
-  // --- 'strip' variant (fixed-dark band; see STRIP_* constants) ---
-  stripBand: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingVertical: 10,
-    paddingHorizontal: spacing.lg,
-  },
-  stripIconSquare: {
-    width: 34,
-    height: 34,
-    borderRadius: 11,
-    backgroundColor: STRIP_ICON_BG,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  stripValueRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 5,
-  },
-  stripValue: {
-    fontSize: 26,
-    fontWeight: '800',
-    lineHeight: 30,
-  },
-  stripUnit: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-    color: STRIP_MUTED,
-  },
-  stripEnableText: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '700',
-    color: STRIP_WHITE,
-  },
-  stripRight: {
-    marginLeft: 'auto',
   },
 });
 

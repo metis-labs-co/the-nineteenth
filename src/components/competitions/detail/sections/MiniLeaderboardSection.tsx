@@ -3,7 +3,6 @@ import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useThemeColors, useIsDark } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
-import { SectionLabel } from '@/components/common/SectionLabel';
 import { formatPosition } from '@/utils/formatting';
 import type { MiniLeaderboardEntry } from '@/utils/miniLeaderboard';
 import type { MiniLeaderboardSectionProps } from './types';
@@ -97,48 +96,48 @@ export function MiniLeaderboardSection({
   if (!individual) return null;
 
   return (
-    <View style={styles.section}>
-      <SectionLabel>Your Standing</SectionLabel>
-      <View
-        style={[
-          styles.card,
-          { backgroundColor: colors.surface, borderColor: colors.border },
-          shadows.sm,
-        ]}
-        testID="mini-leaderboard-card"
-      >
-        <SubSection
-          testID="mini-leaderboard-individual"
-          label="Individual"
-          rows={individual}
-          onPress={() => onOpenLeaderboard('individual')}
-        />
+    <View
+      style={[styles.card, { backgroundColor: colors.surface }, shadows.sm]}
+      testID="mini-leaderboard-card"
+    >
+      <Text style={[styles.title, { color: colors.textPrimary }]}>
+        Your Standing
+      </Text>
 
-        {team && (
-          <>
-            <View style={[styles.divider, { backgroundColor: colors.borderLight }]} />
-            <SubSection
-              testID="mini-leaderboard-team"
-              label={teamName ? `Team — ${teamName}` : 'Team'}
-              rows={team}
-              onPress={() => onOpenLeaderboard('team')}
-            />
-          </>
-        )}
-      </View>
+      <SubSection
+        testID="mini-leaderboard-individual"
+        label="Individual"
+        rows={individual}
+        onPress={() => onOpenLeaderboard('individual')}
+      />
+
+      {team && (
+        <>
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          <SubSection
+            testID="mini-leaderboard-team"
+            label={teamName ? `Team — ${teamName}` : 'Team'}
+            rows={team}
+            onPress={() => onOpenLeaderboard('team')}
+          />
+        </>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  section: {
+  card: {
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
     marginTop: spacing.lg,
     marginBottom: spacing.lg,
   },
-  card: {
-    borderRadius: borderRadius.xl,
-    borderWidth: 1,
-    padding: spacing.md,
+  title: {
+    ...typography.smallBold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: spacing.sm,
   },
   headerRow: {
     flexDirection: 'row',

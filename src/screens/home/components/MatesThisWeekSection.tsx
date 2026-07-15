@@ -95,13 +95,7 @@ export const MatesThisWeekSection = React.memo(function MatesThisWeekSection() {
       <Text style={[styles.caption, { color: colors.textSecondary }]}>
         Stableford points · tap to view
       </Text>
-      <View
-        style={[
-          styles.card,
-          shadows.sm,
-          { backgroundColor: colors.surface, borderColor: colors.border },
-        ]}
-      >
+      <View style={[styles.card, shadows.sm, { backgroundColor: colors.surface }]}>
         {entries.map((entry, idx) => (
           <MateRow
             key={entry.playerId}
@@ -125,8 +119,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   card: {
-    borderRadius: borderRadius.xl,
-    borderWidth: 1,
+    borderRadius: borderRadius.lg,
     padding: spacing.sm,
   },
   row: {
@@ -158,8 +151,7 @@ const styles = StyleSheet.create({
     ...typography.caption,
   },
   points: {
-    fontSize: 17,
-    fontWeight: '800',
+    ...typography.h4,
     fontVariant: ['tabular-nums'],
     minWidth: 40,
     textAlign: 'right',

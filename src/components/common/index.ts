@@ -15,14 +15,6 @@ export type {
 } from './BottomSheet';
 export { Tabs } from './Tabs';
 export type { TabsProps, TabItem } from './Tabs';
-export { UnderlineTabs } from './UnderlineTabs';
-export type { UnderlineTabsProps } from './UnderlineTabs';
-export { HeroCard, heroPalette } from './HeroCard';
-export type { HeroCardProps, HeroCardVariant } from './HeroCard';
-export { ScopeChips } from './ScopeChips';
-export type { ScopeChipsProps, ScopeChipItem } from './ScopeChips';
-export { SectionLabel } from './SectionLabel';
-export type { SectionLabelProps } from './SectionLabel';
 export { SectionHeader } from './SectionHeader';
 export type { SectionHeaderProps } from './SectionHeader';
 export { FormSection } from './FormSection';

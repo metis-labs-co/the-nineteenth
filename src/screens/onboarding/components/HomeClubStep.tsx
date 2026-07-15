@@ -15,12 +15,10 @@ import {
 } from 'react-native';
 import { Text, Icon, IconButton } from 'react-native-paper';
 import { OnboardingCard } from './OnboardingCard';
-import { OnboardingPrimaryButton } from './OnboardingPrimaryButton';
 import { GolfBallLoader, SearchBar, SystemModalTheme } from '@/components/common';
 import { ClubCard } from '@/components/courses/ClubCard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { spacing, typography, shadows } from '@/constants/theme';
-import { withOpacity } from '@/constants/colors';
+import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import {
   useClubsWithCourses,
@@ -121,10 +119,10 @@ export function HomeClubStep({
           <View
             style={[
               styles.iconContainer,
-              { backgroundColor: withOpacity(colors.primary, 0.16) },
+              { backgroundColor: colors.successLight },
             ]}
           >
-            <Icon source="home" size={38} color={colors.primary} />
+            <Icon source="home" size={80} color={colors.success} />
           </View>
         }
         title="Set Your Home Club"
@@ -187,10 +185,16 @@ export function HomeClubStep({
             )}
 
             {/* Get Started Button */}
-            <OnboardingPrimaryButton
+            <TouchableOpacity
+              style={[
+                styles.getStartedButton,
+                { backgroundColor: colors.primary },
+                isSubmitting && styles.buttonDisabled,
+              ]}
               onPress={handleContinue}
-              disabled={isSubmitting}
               accessibilityLabel={selectedClub ? 'Set home club and continue' : 'Continue'}
+              accessibilityRole="button"
+              disabled={isSubmitting}
             >
               {isSubmitting ? (
                 <GolfBallLoader size="sm" />
@@ -202,7 +206,7 @@ export function HomeClubStep({
                   <Icon source="arrow-right" size={20} color={colors.textInverse} />
                 </>
               )}
-            </OnboardingPrimaryButton>
+            </TouchableOpacity>
 
             {/* Skip option */}
             <TouchableOpacity
@@ -308,10 +312,9 @@ export const HomeVenueStep = HomeClubStep;
 
 const styles = StyleSheet.create({
   iconContainer: {
-    // Design: 74px icon chip, radius 22, primary tint
-    width: 74,
-    height: 74,
-    borderRadius: 22,
+    width: 140,
+    height: 140,
+    borderRadius: borderRadius.full,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -326,8 +329,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     width: '100%',
     padding: spacing.md,
-    // Design: softer 14 radius to match the gradient CTA
-    borderRadius: 14,
+    borderRadius: borderRadius.lg,
     borderWidth: 2,
     ...shadows.sm,
   },
@@ -351,18 +353,29 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     width: '100%',
-    height: 50,
+    height: 52,
     paddingHorizontal: spacing.lg,
-    // Design: softer 14 radius to match the gradient CTA
-    borderRadius: 14,
+    borderRadius: borderRadius.lg,
     borderWidth: 1,
     gap: spacing.sm,
   },
   selectButtonText: {
     ...typography.body,
   },
+  getStartedButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 52,
+    borderRadius: borderRadius.lg,
+    gap: spacing.sm,
+    width: '100%',
+  },
   buttonText: {
     ...typography.bodyBold,
+  },
+  buttonDisabled: {
+    opacity: 0.7,
   },
   skipButton: {
     paddingVertical: spacing.sm,

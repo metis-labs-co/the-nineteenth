@@ -16,7 +16,6 @@
 import React from 'react';
 import { StyleSheet, ScrollView, RefreshControl, View, TouchableOpacity } from 'react-native';
 import { Icon, Text } from 'react-native-paper';
-import { LinearGradient } from 'expo-linear-gradient';
 import { IconDog } from '@tabler/icons-react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
@@ -25,6 +24,7 @@ import { useIsDark, useThemeColors } from '@/context/ThemeContext';
 import { PageHeader } from '@/components/common/PageHeader';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { ErrorState } from '@/components/common/ErrorState';
+import { Tabs } from '@/components/common/Tabs';
 import {
   RoundDetailsTab,
   RoundScorecardTab,
@@ -57,7 +57,7 @@ import { RoundSubMatchLeaderboard } from '@/components/leaderboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ShotLogList } from '@/components/features/shots/ShotLogList';
 import { BagClubPickerSheet } from '@/components/features/bag/BagClubPickerSheet';
-import { ConfirmationDialog, UnderlineTabs } from '@/components/common';
+import { ConfirmationDialog } from '@/components/common';
 import { useConfirmationDialog } from '@/hooks';
 import { useDeleteShot, useSetShotClub } from '@/hooks/shots';
 import { useBag } from '@/hooks/queries/useBag';
@@ -268,22 +268,16 @@ export default function ViewRoundScreen(props: Props) {
       {vm.isUserPlaying && vm.roundReadyToScore && !vm.userScorecardSubmitted && round.status !== 'completed' && (
         <View style={[styles.scoreButtonContainer, { backgroundColor: colors.surface }]}>
           <TouchableOpacity
+            style={[styles.scoreButton, { backgroundColor: colors.primary }]}
             onPress={vm.handleScoreRound}
             activeOpacity={0.8}
             accessibilityLabel="Score this round"
             accessibilityRole="button"
           >
-            <LinearGradient
-              colors={[colors.primaryLight, colors.primary]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.scoreButton}
-            >
-              <Icon source="flag" size={20} color={colors.textInverse} />
-              <Text style={[styles.scoreButtonText, { color: colors.textInverse }]}>
-                {round.status === 'in-progress' ? 'Continue Scoring' : 'Score Round'}
-              </Text>
-            </LinearGradient>
+            <Icon source="golf" size={20} color={colors.textInverse} />
+            <Text style={[styles.scoreButtonText, { color: colors.textInverse }]}>
+              {round.status === 'in-progress' ? 'Continue Scoring' : 'Score Round'}
+            </Text>
           </TouchableOpacity>
         </View>
       )}
@@ -341,7 +335,7 @@ export default function ViewRoundScreen(props: Props) {
       )}
 
       {/* Tab Bar */}
-      <UnderlineTabs<TabKey>
+      <Tabs<TabKey>
         tabs={vm.tabs}
         selectedTab={vm.activeTab}
         onTabChange={vm.setActiveTab}
@@ -660,9 +654,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    // Design: 50px gradient CTA, radius 14 (between lg 12 / xl 16 tokens)
-    borderRadius: 14,
-    height: 50,
+    borderRadius: borderRadius.lg,
+    height: 48,
     gap: spacing.sm,
     ...shadows.sm,
   },

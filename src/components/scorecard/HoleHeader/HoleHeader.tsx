@@ -102,14 +102,14 @@ export const HoleHeader = React.memo(function HoleHeader({
 const styles = StyleSheet.create({
   container: {
     paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
     borderBottomWidth: 1,
   },
   divider: {
     width: 1,
-    height: 38,
-    marginHorizontal: spacing.md + 2,
+    height: 40,
+    marginHorizontal: spacing.md,
   },
 });

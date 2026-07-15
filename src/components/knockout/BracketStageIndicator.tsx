@@ -1,15 +1,14 @@
 /**
- * BracketStageIndicator - Stage pager buttons
+ * BracketStageIndicator - Dot indicators showing current stage
  *
- * Equal-width bordered buttons per the Competition Details redesign:
- * active = primary fill with white text, inactive = surface with border.
+ * Shows stage name labels with active dot indicator for current stage.
  */
 
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing } from '@/constants/theme';
+import { spacing, typography, borderRadius } from '@/constants/theme';
 
 export interface BracketStageIndicatorProps {
   stages: { stage: number; stageName: string }[];
@@ -25,7 +24,11 @@ export const BracketStageIndicator = React.memo(function BracketStageIndicator({
   const colors = useThemeColors();
 
   return (
-    <View style={styles.container}>
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.container}
+    >
       {stages.map((s) => {
         const isActive = s.stage === activeStage;
 
@@ -34,11 +37,10 @@ export const BracketStageIndicator = React.memo(function BracketStageIndicator({
             key={s.stage}
             onPress={() => onStagePress(s.stage)}
             activeOpacity={0.7}
-            hitSlop={{ top: 4, bottom: 4 }}
             style={[
-              styles.stageButton,
+              styles.indicator,
               {
-                backgroundColor: isActive ? colors.primary : colors.surface,
+                backgroundColor: isActive ? colors.primary : colors.surfaceVariant,
                 borderColor: isActive ? colors.primary : colors.border,
               },
             ]}
@@ -58,7 +60,7 @@ export const BracketStageIndicator = React.memo(function BracketStageIndicator({
           </TouchableOpacity>
         );
       })}
-    </View>
+    </ScrollView>
   );
 });
 
@@ -67,19 +69,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.sm,
     paddingVertical: spacing.sm,
-    marginBottom: spacing.xs + 2,
   },
-  stageButton: {
-    flex: 1,
+  indicator: {
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.full,
     borderWidth: 1,
-    borderRadius: 11,
-    paddingVertical: 9,
-    paddingHorizontal: spacing.xs + 2,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   label: {
-    fontSize: 12.5,
-    fontWeight: '800',
+    ...typography.small,
   },
 });

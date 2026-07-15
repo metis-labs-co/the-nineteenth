@@ -79,7 +79,7 @@ export function StatsTab({ competitionId }: StatsTabProps) {
       ))}
 
       {data.excludedScrambleRoundCount > 0 && (
-        <Text style={[styles.footnote, { color: colors.textTertiary }]}>
+        <Text style={[styles.footnote, { color: colors.textSecondary }]}>
           Scramble rounds are excluded from individual stats.
         </Text>
       )}
@@ -105,10 +105,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   footnote: {
-    fontSize: 11.5,
+    ...typography.small,
     textAlign: 'center',
     fontStyle: 'italic',
-    marginTop: spacing.xs,
+    marginTop: spacing.md,
     marginBottom: spacing.lg,
   },
 });

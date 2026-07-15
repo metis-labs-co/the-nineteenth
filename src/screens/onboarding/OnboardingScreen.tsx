@@ -28,7 +28,6 @@ import {
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import { StatusBar } from 'expo-status-bar';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/hooks/useAuth';
 import { useScreenInfoStore } from '@/store/screenInfoStore';
@@ -44,14 +43,6 @@ import HomeClubStep from './components/HomeClubStep';
 import OnboardingDots from './components/OnboardingDots';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-
-/**
- * Fixed deep-green backdrop from the onboarding design — the screen is
- * pinned to dark mode (ThemeProvider forceMode="dark" below), so like
- * HeroCard this gradient is deliberately the same in both app themes.
- */
-const ONBOARDING_GRADIENT: [string, string] = ['#16210f', '#0e1409'];
-const ONBOARDING_GLOW = 'rgba(139,194,110,0.14)';
 
 interface StepItem {
   key: string;
@@ -213,15 +204,7 @@ function OnboardingContent() {
   );
 
   return (
-    <LinearGradient
-      colors={ONBOARDING_GRADIENT}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 0.35, y: 1 }}
-      style={styles.container}
-    >
-      {/* Soft green glow accent (top-left, per design) */}
-      <View pointerEvents="none" style={styles.glow} />
-
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Skip Button (top-right) */}
       <TouchableOpacity
         style={[styles.skipButton, { top: insets.top + spacing.md }]}
@@ -270,7 +253,7 @@ function OnboardingContent() {
           onDotPress={handleDotPress}
         />
       </View>
-    </LinearGradient>
+    </View>
   );
 }
 
@@ -286,15 +269,6 @@ export default function OnboardingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  glow: {
-    position: 'absolute',
-    top: -60,
-    left: -40,
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    backgroundColor: ONBOARDING_GLOW,
   },
   skipButton: {
     position: 'absolute',

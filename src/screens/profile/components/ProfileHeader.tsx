@@ -50,10 +50,7 @@ export const ProfileHeader = React.memo(function ProfileHeader({
   return (
     <>
     <TouchableOpacity
-      style={[
-        styles.container,
-        { backgroundColor: colors.surface, borderColor: colors.border },
-      ]}
+      style={[styles.container, { backgroundColor: colors.surface }]}
       activeOpacity={0.7}
       onPress={onEditPress}
       accessibilityRole="button"
@@ -81,11 +78,9 @@ export const ProfileHeader = React.memo(function ProfileHeader({
         </Text>
         {displayHandicap !== null && (
           <View style={styles.handicapRow}>
-            <View style={[styles.handicapPill, { backgroundColor: colors.primaryBackground }]}>
-              <Text style={[styles.userHandicap, { color: colors.primaryDark }]}>
-                Handicap: {formatHandicapIndex(displayHandicap)}
-              </Text>
-            </View>
+            <Text style={[styles.userHandicap, { color: colors.primary }]}>
+              Handicap: {formatHandicapIndex(displayHandicap)}
+            </Text>
             <TouchableOpacity
               onPress={() => setShowHandicapInfo(true)}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -99,7 +94,7 @@ export const ProfileHeader = React.memo(function ProfileHeader({
         )}
       </View>
 
-      <Icon source="chevron-right" size={20} color={colors.textTertiary} />
+      <Icon source="chevron-right" size={20} color={colors.gray400} />
     </TouchableOpacity>
     <Portal>
       <InputtedHandicapInfoSheet
@@ -115,11 +110,10 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: spacing.lg + 2,
+    padding: spacing.lg,
     marginHorizontal: spacing.lg,
     marginTop: spacing.lg,
-    borderRadius: borderRadius.xxl,
-    borderWidth: 1,
+    borderRadius: borderRadius.lg,
   },
   userInfo: {
     marginLeft: spacing.lg,
@@ -132,28 +126,19 @@ const styles = StyleSheet.create({
   },
   userName: {
     ...typography.h4,
-    fontSize: 20,
-    fontWeight: '800',
   },
   userEmail: {
     ...typography.small,
-    marginTop: 2,
+    marginTop: spacing.xs,
   },
   handicapRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    marginTop: spacing.sm - 1,
-  },
-  handicapPill: {
-    borderRadius: borderRadius.full,
-    paddingHorizontal: spacing.sm + 1,
-    paddingVertical: 3,
+    marginTop: spacing.xs,
   },
   userHandicap: {
     ...typography.small,
-    fontSize: 12,
-    fontWeight: '700',
   },
   infoButton: {
     padding: 2,

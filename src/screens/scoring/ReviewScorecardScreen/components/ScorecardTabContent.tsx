@@ -238,39 +238,17 @@ export function ScorecardTabContent({
             playerHandicap={multiBall.dailyHandicap}
           />
         ) : (
-          <>
-            <ScorecardTable
-              players={tablePlayerData}
-              holes={holes}
-              screenWidth={screenWidth}
-              onHolePress={onHolePress}
-              gameType={effectiveGameType}
-              scoreDisplayMode={scoreDisplayMode}
-              selectedTeeData={selectedTeeData}
-              handicapSource={handicapSource}
-              startHole={startHole}
-            />
-            {/* Ring legend — only meaningful when the table shows stroke rings
-                (hidden in the Stableford points display mode). */}
-            {scoreDisplayMode !== 'points' && (
-              <View style={styles.legendRow}>
-                <View style={styles.legendItem}>
-                  <View style={[styles.legendCircle, { borderColor: colors.birdie }]} />
-                  <Text style={[styles.legendText, { color: colors.textSecondary }]}>Birdie</Text>
-                </View>
-                <View style={styles.legendItem}>
-                  <View style={[styles.legendSquare, { borderColor: colors.bogey }]} />
-                  <Text style={[styles.legendText, { color: colors.textSecondary }]}>Bogey+</Text>
-                </View>
-                <View style={styles.legendItem}>
-                  <View style={[styles.legendEagleOuter, { borderColor: colors.eagle }]}>
-                    <View style={[styles.legendEagleInner, { borderColor: colors.eagle }]} />
-                  </View>
-                  <Text style={[styles.legendText, { color: colors.textSecondary }]}>Eagle</Text>
-                </View>
-              </View>
-            )}
-          </>
+          <ScorecardTable
+            players={tablePlayerData}
+            holes={holes}
+            screenWidth={screenWidth}
+            onHolePress={onHolePress}
+            gameType={effectiveGameType}
+            scoreDisplayMode={scoreDisplayMode}
+            selectedTeeData={selectedTeeData}
+            handicapSource={handicapSource}
+            startHole={startHole}
+          />
         )}
       </ScrollView>
     </>
@@ -312,45 +290,5 @@ const styles = StyleSheet.create({
   },
   segmentTextActive: {
     fontWeight: '600',
-  },
-  legendRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: spacing.md + 2,
-    marginTop: spacing.md + 2,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  legendText: {
-    fontSize: 11,
-  },
-  legendCircle: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    borderWidth: 1.6,
-  },
-  legendSquare: {
-    width: 13,
-    height: 13,
-    borderRadius: 4,
-    borderWidth: 1.6,
-  },
-  legendEagleOuter: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    borderWidth: 1.6,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  legendEagleInner: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    borderWidth: 1.6,
   },
 });

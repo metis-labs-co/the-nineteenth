@@ -88,28 +88,23 @@ const styles = StyleSheet.create({
   centerGroup: {
     flex: 1,
     justifyContent: 'center',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     paddingHorizontal: spacing.lg,
   },
   illustrationContainer: {
     justifyContent: 'center',
-    alignItems: 'flex-start',
-    marginBottom: spacing.xl,
+    alignItems: 'center',
+    marginBottom: spacing.xxl,
   },
   title: {
-    // Design: big 800-weight step title, left-aligned
-    fontSize: 26,
-    fontWeight: '800',
-    lineHeight: 31,
-    letterSpacing: -0.5,
-    textAlign: 'left',
+    ...typography.h1,
+    textAlign: 'center',
     marginBottom: spacing.md,
   },
   description: {
     ...typography.body,
-    fontSize: 15,
-    textAlign: 'left',
-    lineHeight: 23,
+    textAlign: 'center',
+    lineHeight: 24,
   },
   actionsContainer: {
     alignSelf: 'stretch',

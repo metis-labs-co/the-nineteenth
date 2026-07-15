@@ -48,7 +48,7 @@ export const PendingActionsSection = React.memo(
         <View
           style={[
             styles.card,
-            { backgroundColor: colors.surface, borderColor: colors.border },
+            { backgroundColor: colors.surface, borderColor: colors.borderLight },
           ]}
         >
           {actions.map((action, idx) => (
@@ -102,7 +102,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   card: {
-    borderRadius: borderRadius.xl,
+    borderRadius: borderRadius.lg,
     borderWidth: 1,
     overflow: 'hidden',
   },

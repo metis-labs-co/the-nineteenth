@@ -1,11 +1,11 @@
 // src/components/teams/TeamCard.tsx
 import React, { useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Card, Text, Icon } from 'react-native-paper';
+import { Card, Text, Divider } from 'react-native-paper';
+import { PlayerAvatar } from '@/components/common';
 import { spacing, typography, borderRadius, shadows, type ColorPalette } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { getTeamColorHex } from '@/utils/teamColor';
-import { getInitials, formatHandicapIndex } from '@/utils/displayHelpers';
 import type { TeamWithMembers, Player } from '@/types/database.types';
 
 /**
@@ -31,41 +31,11 @@ const calculateTeamStats = (
   };
 };
 
-/**
- * Derive a 2-3 letter abbreviation for the team colour chip.
- * "Team Wales" → "WA", "The Fairway Bandits" → "FB", "Eagles" → "EAG".
- */
-export function getTeamAbbreviation(name: string): string {
-  const words = name
-    .trim()
-    .split(/\s+/)
-    .filter((w) => w.length > 0 && !/^(team|the)$/i.test(w));
-
-  if (words.length === 0) {
-    // Name was only filler words ("Team", "The") — fall back to raw name
-    const raw = name.trim();
-    return raw.slice(0, 3).toUpperCase() || '?';
-  }
-  if (words.length === 1) {
-    return words[0].slice(0, 3).toUpperCase();
-  }
-  return words
-    .slice(0, 3)
-    .map((w) => w.charAt(0).toUpperCase())
-    .join('');
-}
-
 export interface TeamCardProps {
   /**
    * Team data with members populated
    */
   team: TeamWithMembers;
-
-  /**
-   * Fallback index used for legacy team colours (teams without a stored
-   * colour cycle through the theme palette by position in the list).
-   */
-  teamIndex?: number;
 
   /**
    * Whether the team name and actions are editable
@@ -100,7 +70,7 @@ export interface TeamCardProps {
 
   /**
    * The currently logged-in user's player ID. When provided:
-   *   - The member chip for this player is marked "· You".
+   *   - Member rows for this player display a "You" pill next to the name.
    *   - The card itself gets a primary-coloured border to visually
    *     identify the user's own team at a glance.
    */
@@ -113,13 +83,12 @@ export interface TeamCardProps {
 }
 
 /**
- * TeamCard - Display team with members (Competition Details redesign)
+ * TeamCard - Display team with members and statistics
  *
  * @description
- * Header: rounded-square team-colour chip with a 2-3 letter abbreviation,
- * team name, "{n} players · Avg HC x" subtitle and a pencil edit button
- * (when editable). Below: a two-column grid of member chips (initials
- * circle on the team colour, name, handicap).
+ * Shows team name (tappable to edit when isEditable), the average/total team
+ * handicap in the header's top-right, and the full member list (always
+ * visible) with avatars and per-player handicaps.
  *
  * @example
  * ```tsx
@@ -132,7 +101,6 @@ export interface TeamCardProps {
  */
 export const TeamCard = React.memo(function TeamCard({
   team,
-  teamIndex = 0,
   isEditable = false,
   onEdit,
   onDelete,
@@ -144,10 +112,9 @@ export const TeamCard = React.memo(function TeamCard({
 }: TeamCardProps) {
   const colors = useThemeColors();
 
-  const { averageHandicap } = calculateTeamStats(team.members);
+  const { averageHandicap, totalHandicap } = calculateTeamStats(team.members);
   const members = team.members ?? [];
   const memberCount = members.length;
-  const teamColor = getTeamColorHex(team.color, teamIndex, colors);
 
   // Highlight the user's own team with a primary-colour border so it
   // stands out at a glance among many teams.
@@ -167,6 +134,20 @@ export const TeamCard = React.memo(function TeamCard({
 
   const styles = createStyles(colors);
 
+  const nameRow = (
+    <>
+      <View
+        style={[
+          styles.colorDot,
+          { backgroundColor: getTeamColorHex(team.color, 0, colors) },
+        ]}
+      />
+      <Text style={styles.teamName} numberOfLines={1} ellipsizeMode="tail">
+        {team.name}
+      </Text>
+    </>
+  );
+
   return (
     <Card
       style={[
@@ -184,105 +165,123 @@ export const TeamCard = React.memo(function TeamCard({
       accessibilityHint={onPress ? 'Double tap to view team details' : undefined}
     >
       <Card.Content style={styles.content}>
-        {/* Header: colour chip + name/subtitle (left), pencil edit (right) */}
+        {/* Header: tappable team name (left) + handicap stats (top-right) */}
         <View style={styles.header}>
-          <View style={[styles.abbrChip, { backgroundColor: teamColor }]}>
-            <Text style={[styles.abbrText, { color: colors.white }]}>
-              {getTeamAbbreviation(team.name)}
-            </Text>
-          </View>
-
           <View style={styles.nameContainer}>
-            <Text style={styles.teamName} numberOfLines={1} ellipsizeMode="tail">
-              {team.name}
-            </Text>
-            <Text style={styles.subtitle}>
-              {`${memberCount} ${memberCount === 1 ? 'player' : 'players'} · Avg HC ${formatHandicapIndex(averageHandicap)}`}
+            {isEditable ? (
+              <TouchableOpacity
+                style={styles.nameButton}
+                onPress={handleEditPress}
+                activeOpacity={0.6}
+                accessibilityRole="button"
+                accessibilityLabel="Edit team name"
+                accessibilityHint="Opens dialog to edit team name"
+              >
+                {nameRow}
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.nameButton}>{nameRow}</View>
+            )}
+            <Text style={styles.memberCountText}>
+              {memberCount} {memberCount === 1 ? 'member' : 'members'}
             </Text>
           </View>
 
-          {isEditable && (
-            <TouchableOpacity
-              style={[styles.editButton, { backgroundColor: colors.surfaceVariant }]}
-              onPress={handleEditPress}
-              activeOpacity={0.6}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              accessibilityRole="button"
-              accessibilityLabel="Edit team name"
-              accessibilityHint="Opens dialog to edit team name"
-            >
-              <Icon source="pencil-outline" size={16} color={colors.textSecondary} />
-            </TouchableOpacity>
-          )}
+          <View style={styles.statsColumn}>
+            <View style={styles.statItem}>
+              <Text style={styles.statLabel}>Avg HC</Text>
+              <Text style={[styles.statValue, { color: colors.primaryDark }]}>
+                {averageHandicap.toFixed(1)}
+              </Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={styles.statLabel}>Total HC</Text>
+              <Text style={[styles.statValue, { color: colors.textSecondary }]}>
+                {totalHandicap.toFixed(1)}
+              </Text>
+            </View>
+          </View>
         </View>
 
-        {/* Member grid — two-column chips, always visible */}
-        {memberCount > 0 ? (
-          <View style={styles.memberGrid}>
-            {members.map((member) => (
-              <MemberChip
+        <Divider style={[styles.divider, { backgroundColor: colors.border }]} />
+
+        {/* Member list — always visible */}
+        <View style={styles.memberList}>
+          {memberCount > 0 ? (
+            members.map((member, index) => (
+              <MemberRow
                 key={member.player_id}
                 player={member.player}
-                teamColor={teamColor}
+                isLast={index === memberCount - 1}
                 colors={colors}
                 onPress={onMemberPress}
                 isCurrentUser={!!currentUserId && member.player_id === currentUserId}
               />
-            ))}
-          </View>
-        ) : (
-          <Text
-            style={[
-              styles.emptyText,
-              { color: onPress ? colors.primary : colors.textTertiary },
-            ]}
-          >
-            {onPress ? 'Tap to add players' : 'No members in this team'}
-          </Text>
-        )}
+            ))
+          ) : (
+            <Text style={[styles.emptyText, { color: onPress ? colors.primary : colors.textTertiary }]}>
+              {onPress ? 'Tap to add players' : 'No members in this team'}
+            </Text>
+          )}
+        </View>
       </Card.Content>
     </Card>
   );
 });
 
 /**
- * Individual member chip within the team card grid
+ * Individual member row within the team card
  */
-interface MemberChipProps {
+interface MemberRowProps {
   player?: Player;
-  teamColor: string;
+  isLast: boolean;
   colors: ColorPalette;
   onPress?: (player: Player) => void;
   isCurrentUser?: boolean;
 }
 
-const MemberChip = React.memo(function MemberChip({
+const MemberRow = React.memo(function MemberRow({
   player,
-  teamColor,
+  isLast,
   colors,
   onPress,
   isCurrentUser = false,
-}: MemberChipProps) {
+}: MemberRowProps) {
   if (!player) {
     return null;
   }
 
   const styles = createMemberStyles(colors);
-  const hcLabel = `HC ${formatHandicapIndex(player.handicap)}${isCurrentUser ? ' · You' : ''}`;
 
-  const chipContent = (
+  const rowContent = (
     <>
-      <View style={[styles.initialsAvatar, { backgroundColor: teamColor }]}>
-        <Text style={[styles.initialsText, { color: colors.white }]}>
-          {getInitials(player.name)}
-        </Text>
+      <PlayerAvatar
+        photoUrl={player.photo_url}
+        name={player.name}
+        size={36}
+        style={styles.avatar}
+      />
+
+      <View style={styles.memberInfo}>
+        <View style={styles.memberNameRow}>
+          <Text style={styles.memberName} numberOfLines={1} ellipsizeMode="tail">
+            {player.name}
+          </Text>
+          {isCurrentUser && (
+            <View
+              style={[styles.youPill, { backgroundColor: colors.primaryLighter }]}
+              accessibilityLabel="You"
+            >
+              <Text style={[styles.youPillText, { color: colors.primaryDark }]}>You</Text>
+            </View>
+          )}
+        </View>
       </View>
-      <View style={styles.chipInfo}>
-        <Text style={styles.memberName} numberOfLines={1} ellipsizeMode="tail">
-          {player.name}
-        </Text>
-        <Text style={styles.handicapText} numberOfLines={1}>
-          {hcLabel}
+
+      <View style={styles.handicapBadge}>
+        <Text style={[styles.handicapLabel, { color: colors.textTertiary }]}>HC:</Text>
+        <Text style={[styles.handicapValue, { color: colors.textPrimary }]}>
+          {player.handicap ?? 'N/A'}
         </Text>
       </View>
     </>
@@ -291,25 +290,25 @@ const MemberChip = React.memo(function MemberChip({
   if (onPress) {
     return (
       <TouchableOpacity
-        style={styles.chip}
+        style={[styles.memberRow, !isLast && styles.memberRowBorder]}
         onPress={() => onPress(player)}
         activeOpacity={0.7}
         accessibilityRole="button"
         accessibilityLabel={`Move ${player.name}. Handicap ${player.handicap ?? 'N/A'}.`}
         accessibilityHint="Opens a menu to move this player to a different team"
       >
-        {chipContent}
+        {rowContent}
       </TouchableOpacity>
     );
   }
 
   return (
     <View
-      style={styles.chip}
+      style={[styles.memberRow, !isLast && styles.memberRowBorder]}
       accessibilityRole="text"
       accessibilityLabel={`${player.name}, Handicap: ${player.handicap ?? 'N/A'}`}
     >
-      {chipContent}
+      {rowContent}
     </View>
   );
 });
@@ -321,104 +320,126 @@ const createStyles = (colors: ColorPalette) =>
   StyleSheet.create({
     card: {
       backgroundColor: colors.surface,
-      borderRadius: borderRadius.xl,
-      marginBottom: spacing.sm + 2,
+      borderRadius: borderRadius.lg,
+      marginBottom: spacing.md,
       ...shadows.sm,
     },
     content: {
-      padding: spacing.md + 2,
+      padding: spacing.md,
     },
     header: {
       flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.sm + 2,
-    },
-    abbrChip: {
-      width: 32,
-      height: 32,
-      borderRadius: borderRadius.md + 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    abbrText: {
-      fontSize: 12,
-      fontWeight: '800',
+      alignItems: 'flex-start',
+      justifyContent: 'space-between',
+      gap: spacing.md,
     },
     nameContainer: {
       flex: 1,
     },
-    teamName: {
-      fontSize: 16,
-      fontWeight: '800',
-      color: colors.textPrimary,
+    nameButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      alignSelf: 'flex-start',
+      maxWidth: '100%',
     },
-    subtitle: {
+    colorDot: {
+      width: 12,
+      height: 12,
+      borderRadius: borderRadius.full,
+    },
+    teamName: {
+      ...typography.h4,
+      color: colors.textPrimary,
+      flexShrink: 1,
+    },
+    memberCountText: {
       ...typography.caption,
       color: colors.textSecondary,
-      marginTop: 1,
+      marginTop: spacing.xxs,
     },
-    editButton: {
-      width: 32,
-      height: 32,
-      borderRadius: borderRadius.md + 1,
-      alignItems: 'center',
-      justifyContent: 'center',
+    statsColumn: {
+      alignItems: 'flex-end',
+      gap: spacing.xxs,
     },
-    memberGrid: {
+    statItem: {
       flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: spacing.xs + 3,
-      marginTop: spacing.md,
+      alignItems: 'baseline',
+      gap: spacing.xs,
     },
+    statLabel: {
+      ...typography.caption,
+      color: colors.textTertiary,
+    },
+    statValue: {
+      ...typography.smallBold,
+    },
+    divider: {
+      marginVertical: spacing.sm,
+    },
+    memberList: {},
     emptyText: {
       ...typography.small,
       textAlign: 'center',
       paddingVertical: spacing.md,
-      marginTop: spacing.sm,
     },
   });
 
 /**
- * Create member chip styles with theme colors
+ * Create member row styles with theme colors
  */
 const createMemberStyles = (colors: ColorPalette) =>
   StyleSheet.create({
-    chip: {
+    memberRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: spacing.sm,
+      minHeight: 48, // Minimum touch target
+    },
+    memberRowBorder: {
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border,
+    },
+    avatar: {
+      marginRight: spacing.md,
+    },
+    avatarLabel: {
+      ...typography.captionBold,
+      color: colors.textInverse,
+    },
+    memberInfo: {
+      flex: 1,
+      justifyContent: 'center',
+    },
+    memberNameRow: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: spacing.sm,
-      backgroundColor: colors.surfaceVariant,
-      borderRadius: borderRadius.lg - 1,
-      paddingVertical: spacing.xs + 3,
-      paddingHorizontal: spacing.sm + 1,
-      flexGrow: 1,
-      flexBasis: '46%',
-      minHeight: 44, // Minimum touch target
-    },
-    initialsAvatar: {
-      width: 24,
-      height: 24,
-      borderRadius: borderRadius.full,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    initialsText: {
-      fontSize: 9,
-      fontWeight: '800',
-    },
-    chipInfo: {
-      flex: 1,
-      minWidth: 0,
     },
     memberName: {
-      fontSize: 11.5,
-      fontWeight: '700',
+      ...typography.body,
       color: colors.textPrimary,
+      flexShrink: 1,
     },
-    handicapText: {
-      fontSize: 9.5,
-      color: colors.textTertiary,
-      marginTop: 1,
+    youPill: {
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 2,
+      borderRadius: borderRadius.full,
+    },
+    youPillText: {
+      ...typography.caption,
+      fontWeight: '600',
+    },
+    handicapBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+    },
+    handicapLabel: {
+      ...typography.caption,
+    },
+    handicapValue: {
+      ...typography.smallBold,
     },
   });
 

@@ -232,6 +232,7 @@ function createTestTeam(id: string, memberCount: number): TeamWithMembers {
 // =====================================================
 
 describe('DetailsTab', () => {
+  const mockOnEdit = jest.fn();
   const mockOnUpdateCompetition = jest.fn();
 
   const defaultCompetition = createTestCompetition();
@@ -284,9 +285,8 @@ describe('DetailsTab', () => {
 
     it('renders date range for events with end date', () => {
       render(<DetailsTab {...defaultProps} />);
-      // Dates formatted as DD/M/YYYY (15/1/2025 - 16/1/2025). The start date
-      // also appears on the status banner sub-line, so match one-or-more.
-      expect(screen.getAllByText(/15\/1\/2025/).length).toBeGreaterThanOrEqual(1);
+      // Dates formatted as DD/M/YYYY (15/1/2025 - 16/1/2025)
+      expect(screen.getByText(/15\/1\/2025/)).toBeTruthy();
       expect(screen.getByText(/16\/1\/2025/)).toBeTruthy();
     });
 

@@ -2,16 +2,15 @@
  * MatchPlayFooter Component
  *
  * Renders the footer navigation section for match play:
- * - Previous chevron / View Full Scorecard / gradient CTA
- * - CTA is Next Hole while holes remain, Submit Match on the last hole
+ * - Previous / View Full Scorecard / Next hole controls
+ * - Submit Match button when complete
  */
 
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, shadows, typography } from '@/constants/theme';
+import { spacing, shadows, borderRadius, typography } from '@/constants/theme';
 
 export interface MatchPlayFooterProps {
   currentHole: number;
@@ -56,22 +55,23 @@ export function MatchPlayFooter({
           onPress={onPreviousHole}
           disabled={!canGoPrevious}
           style={[
-            styles.iconNavButton,
-            { borderColor: colors.border, backgroundColor: colors.surfaceVariant },
+            styles.navButton,
+            styles.navButtonContent,
+            { borderWidth: 1, borderColor: colors.border },
             !canGoPrevious && { opacity: 0.5 },
           ]}
           activeOpacity={0.7}
           accessibilityRole="button"
-          accessibilityLabel="Previous hole"
         >
-          <Icon source="chevron-left" size={24} color={colors.textPrimary} />
+          <Text style={[styles.navButtonLabel, { color: colors.textPrimary }]}>Previous</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           onPress={onViewScorecard}
           style={[
             styles.iconNavButton,
-            { borderColor: colors.border, backgroundColor: colors.surfaceVariant },
+            styles.navButtonContent,
+            { borderWidth: 1, borderColor: colors.border },
           ]}
           activeOpacity={0.7}
           accessibilityRole="button"
@@ -80,44 +80,36 @@ export function MatchPlayFooter({
           <Icon source="clipboard-list-outline" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
 
-        {/* Show Next Hole when not on last hole, Submit Match on the last hole */}
+        {/* Show Next Hole when not on last hole, Submit Match on hole 18 */}
         {/* Allow navigation even after match complete so user can review/edit */}
         {canGoNext ? (
           <TouchableOpacity
             onPress={onNextHole}
-            style={styles.ctaButton}
+            style={[
+              styles.navButton,
+              styles.navButtonContent,
+              { backgroundColor: colors.primary },
+            ]}
             activeOpacity={0.8}
             accessibilityRole="button"
           >
-            <LinearGradient
-              colors={[colors.primaryLight, colors.primary]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.ctaGradient}
-            >
-              <Text style={[styles.navButtonLabelPrimary, { color: colors.textOnColored }]}>Next Hole</Text>
-            </LinearGradient>
+            <Text style={[styles.navButtonLabelPrimary, { color: colors.white }]}>Next Hole</Text>
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
             onPress={onSubmitMatch}
             disabled={isSubmitting || !isMatchComplete}
             style={[
-              styles.ctaButton,
+              styles.navButton,
+              styles.navButtonContent,
+              { backgroundColor: colors.success, flexDirection: 'row' },
               (isSubmitting || !isMatchComplete) && { opacity: 0.5 },
             ]}
             activeOpacity={0.8}
             accessibilityRole="button"
           >
-            <LinearGradient
-              colors={[colors.primaryLight, colors.primary]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.ctaGradient}
-            >
-              {isSubmitting && <ActivityIndicator size="small" color={colors.textOnColored} style={{ marginRight: spacing.sm }} />}
-              <Text style={[styles.navButtonLabelPrimary, { color: colors.textOnColored }]}>Submit Match</Text>
-            </LinearGradient>
+            {isSubmitting && <ActivityIndicator size="small" color={colors.white} style={{ marginRight: spacing.sm }} />}
+            <Text style={[styles.navButtonLabelPrimary, { color: colors.white }]}>Submit Match</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -135,27 +127,24 @@ const styles = StyleSheet.create({
   },
   navButtonsRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     gap: spacing.md,
   },
-  iconNavButton: {
-    width: 52,
-    height: 50,
-    borderRadius: 14,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  ctaButton: {
+  navButton: {
     flex: 1,
-    borderRadius: 14,
-    overflow: 'hidden',
+    borderRadius: borderRadius.lg,
   },
-  ctaGradient: {
-    flexDirection: 'row',
-    height: 50,
+  iconNavButton: {
+    width: 56,
+    borderRadius: borderRadius.lg,
+  },
+  navButtonContent: {
+    paddingVertical: spacing.sm,
+    minHeight: 48,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  navButtonLabel: {
+    ...typography.bodyBold,
   },
   navButtonLabelPrimary: {
     ...typography.bodyBold,

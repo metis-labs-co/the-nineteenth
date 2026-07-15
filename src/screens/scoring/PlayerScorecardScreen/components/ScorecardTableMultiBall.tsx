@@ -16,11 +16,8 @@ import React from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { spacing, typography, borderRadius } from '@/constants/theme';
 import { ScoreIndicator } from '@/components/scorecard';
-// Fixed dark header-band colors shared with the scorecard redesign (same dark
-// green in both themes). Read-only constant import — no scorecard code touched.
-import { scorecardBand } from '@/components/scorecard/ScorecardTable/styles';
 import { getBallLabel } from '@/types/multiball.types';
 import type { MultiBallHoleRowData, MultiBallStats } from '../hooks';
 import type { BallCount } from '@/types/multiball.types';
@@ -53,56 +50,56 @@ export function ScorecardTableMultiBall({
   // Check if any stats columns are visible
   const _hasStats = showFIR || showGIR;
 
-  // Render header row (fixed dark band in both themes)
+  // Render header row
   const renderHeaderRow = () => (
-    <View style={[styles.tableRow, { borderBottomColor: scorecardBand.background }]}>
+    <View style={[styles.tableRow, { borderBottomColor: colors.border }]}>
       {/* Fixed columns */}
-      <View style={[styles.tableCell, styles.holeCell, styles.headerCell, { backgroundColor: scorecardBand.background }]}>
-        <Text style={[styles.headerText, { color: scorecardBand.label }]}>Hole</Text>
+      <View style={[styles.tableCell, styles.holeCell, styles.headerCell, { backgroundColor: colors.surfaceVariant }]}>
+        <Text style={[styles.headerText, { color: colors.textPrimary }]}>Hole</Text>
       </View>
-      <View style={[styles.tableCell, styles.narrowCell, styles.headerCell, { backgroundColor: scorecardBand.background }]}>
-        <Text style={[styles.headerText, { color: scorecardBand.label }]}>SI</Text>
+      <View style={[styles.tableCell, styles.narrowCell, styles.headerCell, { backgroundColor: colors.surfaceVariant }]}>
+        <Text style={[styles.headerText, { color: colors.textPrimary }]}>SI</Text>
       </View>
-      <View style={[styles.tableCell, styles.narrowCell, styles.headerCell, { backgroundColor: scorecardBand.background }]}>
-        <Text style={[styles.headerText, { color: scorecardBand.label }]}>Par</Text>
+      <View style={[styles.tableCell, styles.narrowCell, styles.headerCell, { backgroundColor: colors.surfaceVariant }]}>
+        <Text style={[styles.headerText, { color: colors.textPrimary }]}>Par</Text>
       </View>
 
       {/* Ball columns */}
       {ballHeaders.map((label, index) => (
         <View key={index} style={[styles.ballColumnGroup]}>
-          <View style={[styles.tableCell, styles.ballHeaderCell, { backgroundColor: scorecardBand.background }]}>
-            <Text style={[styles.headerText, { color: scorecardBand.label }]}>{label}</Text>
+          <View style={[styles.tableCell, styles.ballHeaderCell, { backgroundColor: colors.surfaceVariant }]}>
+            <Text style={[styles.headerText, { color: colors.textPrimary }]}>{label}</Text>
           </View>
         </View>
       ))}
     </View>
   );
 
-  // Render sub-header row (Score/Pts/FIR/GIR labels) on the dark band
+  // Render sub-header row (Score/Pts/FIR/GIR labels)
   const renderSubHeaderRow = () => (
-    <View style={[styles.tableRow, { borderBottomColor: scorecardBand.background }]}>
+    <View style={[styles.tableRow, { borderBottomColor: colors.border }]}>
       {/* Fixed columns - empty */}
-      <View style={[styles.tableCell, styles.holeCell, { backgroundColor: scorecardBand.background }]} />
-      <View style={[styles.tableCell, styles.narrowCell, { backgroundColor: scorecardBand.background }]} />
-      <View style={[styles.tableCell, styles.narrowCell, { backgroundColor: scorecardBand.background }]} />
+      <View style={[styles.tableCell, styles.holeCell, { backgroundColor: colors.surfaceVariant }]} />
+      <View style={[styles.tableCell, styles.narrowCell, { backgroundColor: colors.surfaceVariant }]} />
+      <View style={[styles.tableCell, styles.narrowCell, { backgroundColor: colors.surfaceVariant }]} />
 
       {/* Ball columns - Score/Pts/FIR/GIR labels */}
       {ballHeaders.map((_, index) => (
         <View key={index} style={[styles.ballColumnGroup]}>
-          <View style={[styles.tableCell, styles.ballScoreCell, { backgroundColor: scorecardBand.background }]}>
-            <Text style={[styles.smallText, { color: scorecardBand.muted }]}>Score</Text>
+          <View style={[styles.tableCell, styles.ballScoreCell, { backgroundColor: colors.surfaceVariant }]}>
+            <Text style={[styles.smallText, { color: colors.textSecondary }]}>Score</Text>
           </View>
-          <View style={[styles.tableCell, styles.ballPtsCell, { backgroundColor: scorecardBand.background }]}>
-            <Text style={[styles.smallText, { color: scorecardBand.muted }]}>Pts</Text>
+          <View style={[styles.tableCell, styles.ballPtsCell, { backgroundColor: colors.surfaceVariant }]}>
+            <Text style={[styles.smallText, { color: colors.textSecondary }]}>Pts</Text>
           </View>
           {showFIR && (
-            <View style={[styles.tableCell, styles.ballStatCell, { backgroundColor: scorecardBand.background }]}>
-              <Text style={[styles.tinyText, { color: scorecardBand.muted }]}>FIR</Text>
+            <View style={[styles.tableCell, styles.ballStatCell, { backgroundColor: colors.surfaceVariant }]}>
+              <Text style={[styles.tinyText, { color: colors.textSecondary }]}>FIR</Text>
             </View>
           )}
           {showGIR && (
-            <View style={[styles.tableCell, styles.ballStatCell, { backgroundColor: scorecardBand.background }]}>
-              <Text style={[styles.tinyText, { color: scorecardBand.muted }]}>GIR</Text>
+            <View style={[styles.tableCell, styles.ballStatCell, { backgroundColor: colors.surfaceVariant }]}>
+              <Text style={[styles.tinyText, { color: colors.textSecondary }]}>GIR</Text>
             </View>
           )}
         </View>
@@ -117,7 +114,7 @@ export function ScorecardTableMultiBall({
     const isFIRApplicable = hole.par >= 4;
 
     return (
-      <View key={hole.number} style={[styles.tableRow, { borderBottomColor: colors.borderLight }]}>
+      <View key={hole.number} style={[styles.tableRow, { borderBottomColor: colors.border }]}>
         {/* Fixed columns */}
         <View style={[styles.tableCell, styles.holeCell, { backgroundColor: colors.surface }]}>
           <Text style={[styles.holeCellText, { color: colors.textPrimary }]}>{hole.number}</Text>
@@ -195,7 +192,7 @@ export function ScorecardTableMultiBall({
     return (
       <View
         key={label}
-        style={[styles.tableRow, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.borderLight }]}
+        style={[styles.tableRow, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.border }]}
       >
         {/* Fixed columns */}
         <View style={[styles.tableCell, styles.holeCell, { backgroundColor: colors.surfaceVariant }]}>
@@ -346,15 +343,14 @@ export function ScorecardTableMultiBall({
 const styles = StyleSheet.create({
   tableContainer: {
     borderRadius: borderRadius.lg,
-    ...shadows.sm,
     overflow: 'hidden',
   },
   tableRow: {
     flexDirection: 'row',
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: 1,
   },
   tableCell: {
-    paddingVertical: spacing.xs,
+    paddingVertical: spacing.sm,
     paddingHorizontal: spacing.xs,
     justifyContent: 'center',
     alignItems: 'center',
@@ -364,11 +360,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
   },
   headerText: {
-    fontSize: 10,
-    lineHeight: 14,
-    fontWeight: '800',
-    letterSpacing: 0.4,
-    textTransform: 'uppercase',
+    ...typography.smallBold,
     textAlign: 'center',
   },
   holeCell: {
@@ -409,9 +401,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0,
   },
   totalLabelText: {
-    ...typography.smallBold,
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
+    ...typography.bodyBold,
   },
   totalText: {
     ...typography.bodyBold,

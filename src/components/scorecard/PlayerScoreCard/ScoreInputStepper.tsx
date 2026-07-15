@@ -7,6 +7,10 @@
 
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import {
+  spacing,
+  borderRadius,
+} from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { ScaledText } from '@/components/common/ScaledText';
 
@@ -40,7 +44,7 @@ export const ScoreInputStepper = React.memo(function ScoreInputStepper({
       <TouchableOpacity
         style={[
           styles.stepperButton,
-          { borderColor: colors.border, backgroundColor: colors.surface },
+          { borderColor: colors.gray300, backgroundColor: colors.surface },
           !canDecrement && styles.buttonDisabled,
         ]}
         onPress={onDecrement}
@@ -63,7 +67,7 @@ export const ScoreInputStepper = React.memo(function ScoreInputStepper({
       <TouchableOpacity
         style={[
           styles.stepperButton,
-          { borderColor: colors.border, backgroundColor: colors.surface },
+          { borderColor: colors.gray300, backgroundColor: colors.surface },
           !canIncrement && styles.buttonDisabled,
         ]}
         onPress={onIncrement}
@@ -91,29 +95,29 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 9,
+    gap: spacing.xs,
   },
   stepperButton: {
-    width: 58,
-    height: 62,
-    borderRadius: 14,
+    width: 64,
+    height: 64,
+    borderRadius: borderRadius.md,
     borderWidth: 1.5,
     justifyContent: 'center',
     alignItems: 'center',
   },
   stepperButtonText: {
-    fontSize: 29,
-    fontWeight: '500',
+    fontSize: 32,
+    fontWeight: '400',
   },
   scoreDisplay: {
-    width: 52,
-    height: 62,
+    width: 56,
+    height: 64,
     justifyContent: 'center',
     alignItems: 'center',
   },
   scoreDisplayText: {
     fontSize: 40,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   buttonDisabled: {
     opacity: 0.4,

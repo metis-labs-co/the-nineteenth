@@ -2,26 +2,32 @@
  * Competition Detail — Skins tab.
  *
  * Lists every skins game (round-level + per sub-match) attached to a
- * competition's rounds. Each card shows the leading payout headline and the
- * scope (round vs sub-match #N), plus a tap-through:
+ * competition's rounds. Each card shows the leading payout headline ("X
+ * wins $Y") and the scope (round vs sub-match #N), plus a tap-through:
  *
  *   • round-level scope → ViewRound with `initialTab='skins'`
  *   • sub-match scope   → SubMatchDetail
  *
- * Above the cards a dark gold hero summarises: total games, total awarded
- * across games, and the standout overall winner so far.
+ * Above the cards we surface a small summary: total games, total pot
+ * across active games, and the standout overall winner so far.
  */
 
 import React, { useMemo } from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
-import { Text } from 'react-native-paper';
+import { Text, Icon } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { IconDice } from '@tabler/icons-react-native';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, borderRadius, shadows, skinsColor } from '@/constants/theme';
+import {
+  spacing,
+  typography,
+  borderRadius,
+  shadows,
+  skinsColor,
+} from '@/constants/theme';
 import { formatCurrency } from '@/utils/currency';
-import { HeroCard, LoadingSpinner, SectionLabel, heroPalette } from '@/components/common';
+import { LoadingSpinner } from '@/components/common';
 import {
   useCompetitionSkinsGames,
   type CompetitionSkinsCard,
@@ -51,19 +57,19 @@ export function SkinsTab({ competitionId }: SkinsTabProps) {
 
   if (!cards || cards.length === 0) {
     return (
-      <View style={[styles.emptyWrap, { borderColor: colors.border }]}>
+      <View style={styles.emptyWrap}>
         <View
           style={[
             styles.emptyIcon,
-            { backgroundColor: `${skinsColor}24` },
+            { backgroundColor: `${skinsColor}15` },
           ]}
         >
-          <IconDice size={22} color={skinsColor} />
+          <IconDice size={32} color={skinsColor} />
         </View>
-        <Text style={[styles.emptyTitle, { color: colors.textSecondary }]}>
+        <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
           No skins games yet
         </Text>
-        <Text style={[styles.emptyBody, { color: colors.textTertiary }]}>
+        <Text style={[styles.emptyBody, { color: colors.textSecondary }]}>
           Skins games configured at the round or sub-match level will show up
           here with their payouts as they finalise.
         </Text>
@@ -73,8 +79,10 @@ export function SkinsTab({ competitionId }: SkinsTabProps) {
 
   return (
     <View style={styles.container}>
-      <SummaryHero
+      <SummaryCard
         gamesCount={summary.gamesCount}
+        activeCount={summary.activeCount}
+        completedCount={summary.completedCount}
         totalAwarded={summary.totalAwarded}
         topName={summary.topName}
         topAmount={summary.topAmount}
@@ -82,7 +90,9 @@ export function SkinsTab({ competitionId }: SkinsTabProps) {
 
       {grouped.map((group) => (
         <View key={group.roundId} style={styles.roundGroup}>
-          <SectionLabel>{formatRoundHeading(group)}</SectionLabel>
+          <Text style={[styles.roundHeading, { color: colors.textSecondary }]}>
+            {formatRoundHeading(group)}
+          </Text>
           {group.cards.map((card) => (
             <GameCard
               key={card.gameId}
@@ -110,80 +120,74 @@ export function SkinsTab({ competitionId }: SkinsTabProps) {
   );
 }
 
-// ============================================================================
-// Summary hero (dark gold)
-// ============================================================================
-
-interface SummaryHeroProps {
+interface SummaryCardProps {
   gamesCount: number;
+  activeCount: number;
+  completedCount: number;
   totalAwarded: number;
   topName: string | null;
   topAmount: number | null;
 }
 
-function SummaryHero({
+function SummaryCard({
   gamesCount,
+  activeCount,
+  completedCount,
   totalAwarded,
   topName,
   topAmount,
-}: SummaryHeroProps) {
+}: SummaryCardProps) {
+  const colors = useThemeColors();
   return (
-    <HeroCard variant="gold" padding={spacing.lg} testID="skins-summary-hero">
-      <View style={styles.heroHeader}>
-        <IconDice size={18} color={heroPalette.gold} />
-        <Text style={[styles.heroEyebrow, { color: heroPalette.eyebrowGold }]}>
-          Skins side-games
-        </Text>
-      </View>
-      <View style={styles.heroStatsRow}>
-        <View>
-          <Text style={[styles.heroStatValue, { color: heroPalette.text }]}>
-            {gamesCount}
+    <View
+      style={[
+        styles.summaryCard,
+        shadows.sm,
+        { backgroundColor: colors.surface, borderColor: colors.border },
+      ]}
+    >
+      <View style={styles.summaryHeader}>
+        <View style={[styles.summaryIcon, { backgroundColor: `${skinsColor}20` }]}>
+          <IconDice size={20} color={skinsColor} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.summaryTitle, { color: colors.textPrimary }]}>
+            Skins overview
           </Text>
-          <Text style={[styles.heroStatLabel, { color: heroPalette.mutedGold }]}>
-            GAMES
+          <Text style={[styles.summaryMeta, { color: colors.textSecondary }]}>
+            {gamesCount} {gamesCount === 1 ? 'game' : 'games'} · {activeCount} active ·{' '}
+            {completedCount} completed
           </Text>
         </View>
-        <View>
-          <Text style={[styles.heroStatValue, { color: heroPalette.text }]}>
+      </View>
+
+      <View style={styles.summaryRow}>
+        <View style={styles.summaryStat}>
+          <Text style={[styles.summaryStatLabel, { color: colors.textSecondary }]}>
+            Total awarded
+          </Text>
+          <Text style={[styles.summaryStatValue, { color: colors.textPrimary }]}>
             {formatCurrency(totalAwarded)}
           </Text>
-          <Text style={[styles.heroStatLabel, { color: heroPalette.mutedGold }]}>
-            AWARDED
-          </Text>
         </View>
-        <View style={styles.heroTopWinner}>
+        <View style={styles.summaryStat}>
+          <Text style={[styles.summaryStatLabel, { color: colors.textSecondary }]}>
+            Standout winner
+          </Text>
           {topName && topAmount !== null ? (
-            <>
-              <Text
-                style={[styles.heroWinnerName, { color: heroPalette.gold }]}
-                numberOfLines={1}
-              >
-                {topName}
-              </Text>
-              <Text style={[styles.heroWinnerSub, { color: heroPalette.mutedGold }]}>
-                top winner · {formatCurrency(topAmount)}
-              </Text>
-            </>
+            <Text style={[styles.summaryStatValue, { color: skinsColor }]} numberOfLines={1}>
+              {topName} {formatNet(topAmount)}
+            </Text>
           ) : (
-            <>
-              <Text style={[styles.heroWinnerName, { color: heroPalette.gold }]}>
-                —
-              </Text>
-              <Text style={[styles.heroWinnerSub, { color: heroPalette.mutedGold }]}>
-                no payouts yet
-              </Text>
-            </>
+            <Text style={[styles.summaryStatValue, { color: colors.textSecondary }]}>
+              —
+            </Text>
           )}
         </View>
       </View>
-    </HeroCard>
+    </View>
   );
 }
-
-// ============================================================================
-// Game card
-// ============================================================================
 
 interface GameCardProps {
   card: CompetitionSkinsCard;
@@ -197,111 +201,96 @@ function GameCard({ card, onPress }: GameCardProps) {
 
   const scopeLabel =
     card.subMatchOrder !== null
-      ? `Match ${card.subMatchOrder} skins`
-      : 'Round skins';
-  const chipText = `${scopeLabel} · ${card.isTeamSkins ? 'team' : 'individual'}`;
+      ? `Sub-match ${card.subMatchOrder}`
+      : 'Round-wide';
 
-  const statusText = isActive ? 'Live' : isCompleted ? 'Final' : 'Cancelled';
-  const statusColor = isActive
-    ? colors.warningDark
-    : isCompleted
-      ? colors.textSecondary
-      : colors.textTertiary;
-  const statusBg = isActive ? colors.warningBackground : colors.surfaceVariant;
+  const headlineText =
+    card.topName && card.topNetResult !== null
+      ? `${card.topName} ${formatNet(card.topNetResult)}`
+      : isActive
+        ? 'In progress — no payouts yet'
+        : 'No payouts recorded';
 
-  const title = `${formatCurrency(card.potValue)}${
-    card.potType === 'per_hole' ? ' a hole' : ' total pot'
+  const otherText =
+    card.otherParticipantCount > 0 && card.topName
+      ? ` · +${card.otherParticipantCount} other ${card.otherParticipantCount === 1 ? 'player' : 'players'}`
+      : '';
+
+  const potText = `${formatCurrency(card.potValue)}${
+    card.potType === 'per_hole' ? '/hole' : ' total'
   }`;
 
-  const hasWinner = card.topName !== null && card.topNetResult !== null;
-  const winnerName =
-    card.topName ??
-    (isActive ? 'No payouts yet' : 'No payouts recorded');
-  const winnerSub = hasWinner
-    ? card.otherParticipantCount > 0
-      ? `leads · +${card.otherParticipantCount} other ${
-          card.otherParticipantCount === 1 ? 'player' : 'players'
-        }`
-      : 'leading payout'
-    : isActive
-      ? 'in progress'
-      : '';
-  const amountText =
-    card.topNetResult !== null ? formatSignedCurrency(card.topNetResult) : '—';
+  const statusColor = isActive
+    ? colors.primary
+    : isCompleted
+      ? colors.success
+      : colors.textSecondary;
+  const statusText = isActive ? 'Active' : isCompleted ? 'Completed' : 'Cancelled';
 
   return (
     <TouchableOpacity
       onPress={onPress}
       activeOpacity={0.7}
       accessibilityRole="button"
-      accessibilityLabel={`Open ${scopeLabel} details`}
+      accessibilityLabel={`Open ${scopeLabel} skins details`}
       style={[
         styles.card,
         shadows.sm,
-        { backgroundColor: colors.surface, borderColor: `${skinsColor}33` },
+        { backgroundColor: colors.surface, borderColor: colors.border },
       ]}
     >
-      <View style={styles.cardTopRow}>
-        <View style={[styles.scopeChip, { backgroundColor: colors.warningBackground }]}>
-          <Text style={[styles.scopeChipText, { color: colors.warningDark }]}>
-            {chipText}
-          </Text>
+      <View style={styles.cardHeader}>
+        <View style={styles.cardHeaderLeft}>
+          <View
+            style={[
+              styles.cardIcon,
+              { backgroundColor: `${skinsColor}15` },
+            ]}
+          >
+            <IconDice size={18} color={skinsColor} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.scopeLabel, { color: colors.textPrimary }]}>
+              {scopeLabel}
+            </Text>
+            <Text
+              style={[styles.scopeMeta, { color: colors.textSecondary }]}
+              numberOfLines={1}
+            >
+              {potText} · {card.isTeamSkins ? 'Team' : 'Individual'}
+            </Text>
+          </View>
         </View>
-        <View style={[styles.statusPill, { backgroundColor: statusBg }]}>
+        <View
+          style={[
+            styles.statusPill,
+            { backgroundColor: `${statusColor}1A`, borderColor: statusColor },
+          ]}
+        >
           <Text style={[styles.statusText, { color: statusColor }]}>
             {statusText}
           </Text>
         </View>
       </View>
 
-      <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>{title}</Text>
-
-      <View style={styles.winnerRow}>
-        <View
-          style={[
-            styles.winnerAvatar,
-            { backgroundColor: hasWinner ? skinsColor : colors.surfaceVariant },
-          ]}
-        >
-          <Text
-            style={[
-              styles.winnerInitials,
-              { color: hasWinner ? colors.white : colors.textSecondary },
-            ]}
-          >
-            {hasWinner ? initialsOf(winnerName) : '–'}
-          </Text>
-        </View>
-        <View style={styles.winnerBody}>
-          <Text
-            style={[
-              styles.winnerName,
-              { color: hasWinner ? colors.textPrimary : colors.textSecondary },
-            ]}
-            numberOfLines={1}
-          >
-            {winnerName}
-          </Text>
-          {winnerSub ? (
-            <Text
-              style={[styles.winnerSub, { color: colors.textTertiary }]}
-              numberOfLines={1}
-            >
-              {winnerSub}
+      <View style={styles.cardBody}>
+        <Text style={[styles.headlineText, { color: colors.textPrimary }]}>
+          {headlineText}
+          {otherText ? (
+            <Text style={[styles.otherText, { color: colors.textSecondary }]}>
+              {otherText}
             </Text>
           ) : null}
-        </View>
-        <Text style={[styles.winnerAmount, { color: colors.warningDark }]}>
-          {amountText}
         </Text>
+      </View>
+
+      <View style={styles.cardFooter}>
+        <Text style={[styles.viewLink, { color: skinsColor }]}>View skins details</Text>
+        <Icon source="chevron-right" size={18} color={skinsColor} />
       </View>
     </TouchableOpacity>
   );
 }
-
-// ============================================================================
-// Data shaping (display-only grouping/counting)
-// ============================================================================
 
 interface RoundGroup {
   roundId: string;
@@ -343,9 +332,9 @@ function groupByRound(cards: CompetitionSkinsCard[]): RoundGroup[] {
 function formatRoundHeading(group: RoundGroup): string {
   const numberPart = group.roundNumber ? `Round ${group.roundNumber}` : 'Round';
   if (group.roundName) {
-    return `${numberPart} · ${group.roundName}`;
+    return `${numberPart.toUpperCase()} · ${group.roundName.toUpperCase()}`;
   }
-  return numberPart;
+  return numberPart.toUpperCase();
 }
 
 function buildSummary(cards: CompetitionSkinsCard[]) {
@@ -378,24 +367,11 @@ function buildSummary(cards: CompetitionSkinsCard[]) {
   };
 }
 
-function formatSignedCurrency(net: number): string {
-  if (net > 0) return `+${formatCurrency(net)}`;
+function formatNet(net: number): string {
+  if (net > 0) return `wins +${formatCurrency(net)}`;
   if (net < 0) return `−${formatCurrency(Math.abs(net))}`;
-  return formatCurrency(0);
+  return 'breaks even';
 }
-
-function initialsOf(name: string): string {
-  return name
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? '')
-    .join('');
-}
-
-// ============================================================================
-// Styles
-// ============================================================================
 
 const styles = StyleSheet.create({
   container: {
@@ -405,148 +381,129 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xl,
     alignItems: 'center',
   },
-
-  // Empty state (dashed card)
   emptyWrap: {
     alignItems: 'center',
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderRadius: borderRadius.xl,
     paddingHorizontal: spacing.lg,
-    paddingVertical: 28,
-    gap: spacing.xs,
+    paddingVertical: spacing.xl * 1.25,
+    gap: spacing.md,
   },
   emptyIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 13,
+    width: 64,
+    height: 64,
+    borderRadius: borderRadius.full,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.sm,
   },
   emptyTitle: {
-    fontSize: 14,
-    fontWeight: '700',
+    ...typography.h4,
   },
   emptyBody: {
-    fontSize: 12.5,
+    ...typography.small,
     textAlign: 'center',
   },
-
-  // Summary hero
-  heroHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  heroEyebrow: {
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1.1,
-    textTransform: 'uppercase',
-  },
-  heroStatsRow: {
-    flexDirection: 'row',
-    gap: 20,
-    marginTop: 14,
-  },
-  heroStatValue: {
-    fontSize: 24,
-    fontWeight: '800',
-  },
-  heroStatLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-    marginTop: 2,
-  },
-  heroTopWinner: {
-    flex: 1,
-    alignItems: 'flex-end',
-  },
-  heroWinnerName: {
-    fontSize: 15,
-    fontWeight: '800',
-    maxWidth: '100%',
-  },
-  heroWinnerSub: {
-    fontSize: 11,
-    marginTop: 3,
-  },
-
-  roundGroup: {
-    gap: spacing.sm + 2,
-  },
-
-  // Game card
-  card: {
-    padding: 14,
+  summaryCard: {
+    padding: spacing.lg,
     borderRadius: borderRadius.xl,
     borderWidth: 1,
+    gap: spacing.md,
   },
-  cardTopRow: {
+  summaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  summaryIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  summaryTitle: {
+    ...typography.h4,
+  },
+  summaryMeta: {
+    ...typography.caption,
+    marginTop: spacing.xs / 2,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    gap: spacing.lg,
+  },
+  summaryStat: {
+    flex: 1,
+  },
+  summaryStatLabel: {
+    ...typography.caption,
+    marginBottom: spacing.xs / 2,
+  },
+  summaryStatValue: {
+    ...typography.bodyBold,
+  },
+  roundGroup: {
+    gap: spacing.sm,
+  },
+  roundHeading: {
+    ...typography.captionBold,
+    letterSpacing: 0.5,
+  },
+  card: {
+    padding: spacing.lg,
+    borderRadius: borderRadius.xl,
+    borderWidth: 1,
+    gap: spacing.md,
+  },
+  cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: spacing.sm,
+    gap: spacing.md,
   },
-  scopeChip: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  scopeChipText: {
-    fontSize: 10.5,
-    fontWeight: '800',
-    letterSpacing: 0.4,
-  },
-  statusPill: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 3,
-    borderRadius: borderRadius.full,
-  },
-  statusText: {
-    fontSize: 10.5,
-    fontWeight: '800',
-  },
-  cardTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    marginTop: 10,
-  },
-  winnerRow: {
+  cardHeaderLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginTop: 11,
+    flex: 1,
+    gap: spacing.sm,
   },
-  winnerAvatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+  cardIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: borderRadius.lg,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  winnerInitials: {
-    fontSize: 10,
-    fontWeight: '800',
+  scopeLabel: {
+    ...typography.bodyBold,
   },
-  winnerBody: {
-    flex: 1,
-    minWidth: 0,
+  scopeMeta: {
+    ...typography.caption,
+    marginTop: spacing.xs / 2,
   },
-  winnerName: {
-    fontSize: 13.5,
-    fontWeight: '700',
+  statusPill: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
   },
-  winnerSub: {
-    fontSize: 11,
-    marginTop: 1,
+  statusText: {
+    ...typography.captionBold,
   },
-  winnerAmount: {
-    fontSize: 20,
-    fontWeight: '800',
+  cardBody: {
+    paddingVertical: spacing.xs,
+  },
+  headlineText: {
+    ...typography.body,
+  },
+  otherText: {
+    ...typography.caption,
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: spacing.xs,
+  },
+  viewLink: {
+    ...typography.captionBold,
   },
 });
-
-export default SkinsTab;

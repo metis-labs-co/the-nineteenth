@@ -1,33 +1,37 @@
 /**
  * RoundScorecardTab - Read-only scorecard grid for ViewRoundScreen
  *
- * Displays a comprehensive scorecard view with a 3-way view toggle:
- * - Strip view: per-player horizontal strip of tinted hole cells
- * - Split view: per-player FRONT NINE / BACK NINE cards
- * - Table view: full multi-player table (ScorecardTable)
- * - Score indicators: tinted cell + ring per score category
+ * Displays a comprehensive scorecard view showing:
+ * - Table view: Columns for Hole | SI | Par | Player columns...
+ * - Individual view: Compact cards for each player
+ * - Toggle between views
+ * - Score indicators: circle for birdie, square for bogey, etc.
  */
 
 import React, { useMemo, useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useWindowDimensions } from 'react-native';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { EmptyState } from '@/components/common/EmptyState';
-import { getScoreColor, getScoreCategory } from '@/utils/scoring';
-import { PICKUP_SCORE } from '@/constants/scoring';
+import { getScoreColor, getStrokesReceived, calculateStablefordPointsNet } from '@/utils/scoring';
 import {
   ScorecardTable,
+  ScoreIndicator,
   type ScorecardTablePlayer,
 } from '@/components/scorecard';
 import {
   calculatePlayerStats,
+  calculateParTotals,
   splitHolesByNine,
   generateDefaultHoles,
-  type PlayerStats,
 } from '@/utils/scorecardCalculations';
 import { filterHolesByNineType } from '@/utils/holeTransformers';
+import {
+  INDIVIDUAL_LABEL_WIDTH,
+  INDIVIDUAL_TOTAL_WIDTH,
+} from '@/utils/scorecardLayout';
 import type { ScorecardWithPlayer, CourseWithClub, RoundPlayer } from '@/hooks/useRoundDetails';
 import { isSingleBallScore, type Hole, type Player, type TeeBox } from '@/types/database.types';
 import type { GameType, HandicapSource } from '@/types/database';
@@ -37,7 +41,7 @@ import type { NineType } from '@/types/database/enums';
 // TYPES
 // =====================================================
 
-type ViewMode = 'strip' | 'split' | 'table';
+type ViewMode = 'table' | 'individual';
 
 interface RoundScorecardTabProps {
   scorecards: ScorecardWithPlayer[];
@@ -59,283 +63,210 @@ interface RoundScorecardTabProps {
 }
 
 // =====================================================
-// SCORE CELL PRESENTATION
+// INDIVIDUAL SCORECARD VIEW
 // =====================================================
 
-type ThemePalette = ReturnType<typeof useThemeColors>;
-
-interface StripCellStyle {
-  text: string;
-  backgroundColor: string;
-  borderColor: string;
-  textColor: string;
-}
-
-/**
- * Presentational mapping from a gross hole score to the tinted cell + ring
- * treatment from the redesign. Category and color come from the EXISTING
- * scoring helpers (getScoreCategory / getScoreColor) — no scoring math here.
- */
-function getStripCellStyle(
-  strokes: number | undefined,
-  par: number,
-  colors: ThemePalette
-): StripCellStyle {
-  if (!strokes || strokes <= 0) {
-    return {
-      text: '',
-      backgroundColor: 'transparent',
-      borderColor: colors.border,
-      textColor: colors.textTertiary,
-    };
-  }
-  // Pickup: red "P" (matches ScoreIndicator's pickup treatment)
-  if (strokes >= PICKUP_SCORE) {
-    return {
-      text: 'P',
-      backgroundColor: colors.doubleBogeyBackground,
-      borderColor: colors.error,
-      textColor: colors.error,
-    };
-  }
-
-  const category = getScoreCategory(strokes, par);
-  const scoreColor = getScoreColor(strokes, par, colors);
-  const backgrounds: Record<string, string> = {
-    albatross: colors.eagleBackground,
-    eagle: colors.eagleBackground,
-    birdie: colors.birdieBackground,
-    par: colors.parBackground,
-    bogey: colors.bogeyBackground,
-    'double-bogey': colors.doubleBogeyBackground,
-    'triple-plus': colors.doubleBogeyBackground,
-  };
-
-  return {
-    text: String(strokes),
-    backgroundColor: (category && backgrounds[category]) || colors.parBackground,
-    // Par cells get a subtle ring; every other category rings in its score color
-    borderColor: category === 'par' ? colors.border : scoreColor,
-    textColor: scoreColor,
-  };
-}
-
-/** Single hole cell: hole number above, tinted score cell, par below. */
-function HoleCell({
-  hole,
-  strokes,
-  fill,
-}: {
-  hole: Hole;
-  strokes: number | undefined;
-  fill?: boolean;
-}) {
-  const colors = useThemeColors();
-  const cell = getStripCellStyle(strokes, hole.par, colors);
-
-  return (
-    <View style={fill ? cellStyles.cellColumnFill : cellStyles.cellColumn}>
-      <Text style={[cellStyles.holeNumber, { color: colors.textTertiary }]}>{hole.number}</Text>
-      <View
-        style={[
-          cellStyles.scoreCell,
-          { backgroundColor: cell.backgroundColor, borderColor: cell.borderColor },
-        ]}
-      >
-        <Text style={[cellStyles.scoreText, { color: cell.textColor }]}>{cell.text}</Text>
-      </View>
-      <Text style={[cellStyles.parText, { color: colors.textTertiary }]}>{hole.par}</Text>
-    </View>
-  );
-}
-
-const cellStyles = StyleSheet.create({
-  cellColumn: {
-    width: 33,
-  },
-  cellColumnFill: {
-    flex: 1,
-    minWidth: 0,
-  },
-  holeNumber: {
-    fontSize: 9,
-    fontWeight: '700',
-    textAlign: 'center',
-    marginBottom: 3,
-  },
-  scoreCell: {
-    height: 33,
-    borderRadius: 9,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  scoreText: {
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  parText: {
-    fontSize: 8.5,
-    textAlign: 'center',
-    marginTop: 3,
-  },
-});
-
-// =====================================================
-// PER-PLAYER HEADER (strip + split views)
-// =====================================================
-
-function PlayerSummaryHeader({
-  player,
-  stats,
-  showStableford,
-}: {
-  player: Player | null;
-  stats: PlayerStats;
-  showStableford: boolean;
-}) {
-  const colors = useThemeColors();
-
-  return (
-    <View style={styles.playerSummaryRow}>
-      <Text style={[styles.playerSummaryName, { color: colors.textPrimary }]} numberOfLines={1}>
-        {player?.name || 'Unknown'}
-      </Text>
-      <Text style={[styles.playerSummaryMeta, { color: colors.textSecondary }]}>
-        {stats.totalGross || '–'} gross
-        {showStableford && (
-          <Text style={[styles.playerSummaryMeta, { color: colors.primary }]}>
-            {' '}· {stats.totalStableford} pts
-          </Text>
-        )}
-      </Text>
-    </View>
-  );
-}
-
-// =====================================================
-// STRIP VIEW — single horizontal strip per player
-// =====================================================
-
-function StripScorecardView({
-  displayPlayers,
-  holes,
-  playerStats,
-  showStableford,
-}: {
+interface IndividualScorecardViewProps {
   displayPlayers: ScorecardTablePlayer[];
   holes: Hole[];
-  playerStats: PlayerStats[];
-  showStableford: boolean;
-}) {
-  const colors = useThemeColors();
-
-  return (
-    <View style={styles.viewStack}>
-      {displayPlayers.map((displayPlayer, index) => (
-        <View
-          key={displayPlayer.id}
-          style={[
-            styles.stripCard,
-            { backgroundColor: colors.surface, borderColor: colors.border },
-          ]}
-        >
-          <PlayerSummaryHeader
-            player={displayPlayer.player as Player | null}
-            stats={playerStats[index]}
-            showStableford={showStableford}
-          />
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={styles.stripRow}>
-              {holes.map((hole) => {
-                const score = displayPlayer.scores?.[String(hole.number)];
-                const strokes =
-                  score && isSingleBallScore(score) ? score.strokes : undefined;
-                return <HoleCell key={hole.number} hole={hole} strokes={strokes} />;
-              })}
-            </View>
-          </ScrollView>
-        </View>
-      ))}
-    </View>
-  );
+  /** Selected tee data for daily handicap calculation */
+  selectedTeeData?: TeeBox | null;
+  /** Game type — used to hide the Stableford Pts row for stroke play */
+  gameType?: string;
 }
 
-// =====================================================
-// SPLIT VIEW — FRONT NINE / BACK NINE cards per player
-// =====================================================
-
-function SplitScorecardView({
+const IndividualScorecardView = React.memo(function IndividualScorecardView({
   displayPlayers,
   holes,
-  playerStats,
-  showStableford,
-}: {
-  displayPlayers: ScorecardTablePlayer[];
-  holes: Hole[];
-  playerStats: PlayerStats[];
-  showStableford: boolean;
-}) {
+  selectedTeeData,
+  gameType,
+}: IndividualScorecardViewProps) {
+  const showStableford = gameType !== 'stroke';
   const colors = useThemeColors();
+
   const { front9, back9 } = useMemo(() => splitHolesByNine(holes), [holes]);
-
-  const renderNineCard = (
-    displayPlayer: ScorecardTablePlayer,
-    nineHoles: Hole[],
-    label: string,
-    total: string
-  ) => (
-    <View
-      style={[
-        styles.nineCard,
-        { backgroundColor: colors.surface, borderColor: colors.border },
-      ]}
-    >
-      <View style={styles.nineCardHeader}>
-        <Text style={[styles.nineCardLabel, { color: colors.textTertiary }]}>{label}</Text>
-        <Text style={[styles.nineCardTotal, { color: colors.textSecondary }]}>{total}</Text>
-      </View>
-      <View style={styles.nineCellsRow}>
-        {nineHoles.map((hole) => {
-          const score = displayPlayer.scores?.[String(hole.number)];
-          const strokes = score && isSingleBallScore(score) ? score.strokes : undefined;
-          return <HoleCell key={hole.number} hole={hole} strokes={strokes} fill />;
-        })}
-      </View>
-    </View>
+  const parTotals = useMemo(() => calculateParTotals(holes), [holes]);
+  const playerStats = useMemo(
+    () => calculatePlayerStats(displayPlayers, holes, selectedTeeData),
+    [displayPlayers, holes, selectedTeeData]
   );
+
+  const renderPlayerScorecard = (displayPlayer: ScorecardTablePlayer, index: number) => {
+    const player = displayPlayer.player;
+    const scores = displayPlayer.scores;
+    const stats = playerStats[index];
+    // Use the daily handicap from stats (which prefers the stored snapshot)
+    // so per-hole strokes received match the total and the round list card.
+    const dailyHandicap = stats.dailyHandicap;
+
+    const front9Par = front9.reduce((sum, h) => sum + h.par, 0);
+    const back9Par = back9.reduce((sum, h) => sum + h.par, 0);
+
+    const renderHoleRow = (holeList: Hole[], isBack9Section: boolean) => {
+      const ninePar = isBack9Section ? back9Par : front9Par;
+      const nineGross = isBack9Section ? stats.back9Gross : stats.front9Gross;
+      const nineStableford = isBack9Section ? stats.back9Stableford : stats.front9Stableford;
+
+      return (
+        <View style={individualStyles.nineSection}>
+          {/* Header Row: Hole numbers */}
+          <View style={[individualStyles.row, { backgroundColor: colors.surfaceVariant }]}>
+            <View style={[individualStyles.labelCell, { backgroundColor: colors.surfaceVariant }]}>
+              <Text style={[individualStyles.labelText, { color: colors.textPrimary }]}>Hole</Text>
+            </View>
+            {holeList.map((hole) => (
+              <View key={hole.number} style={individualStyles.cell}>
+                <Text style={[individualStyles.headerText, { color: colors.textPrimary }]}>
+                  {hole.number}
+                </Text>
+              </View>
+            ))}
+            <View style={[individualStyles.totalCell, { backgroundColor: colors.surfaceVariant }]}>
+              <Text style={[individualStyles.headerText, { color: colors.textPrimary }]}>
+                {isBack9Section ? 'IN' : 'OUT'}
+              </Text>
+            </View>
+          </View>
+
+          {/* SI Row */}
+          <View style={[individualStyles.row, { backgroundColor: colors.surface }]}>
+            <View style={[individualStyles.labelCell, { backgroundColor: colors.surfaceVariant }]}>
+              <Text style={[individualStyles.labelText, { color: colors.textSecondary }]}>SI</Text>
+            </View>
+            {holeList.map((hole) => (
+              <View key={hole.number} style={individualStyles.cell}>
+                <Text style={[individualStyles.cellText, { color: colors.textSecondary }]}>
+                  {hole.strokeIndex}
+                </Text>
+              </View>
+            ))}
+            <View style={[individualStyles.totalCell, { backgroundColor: colors.surfaceVariant }]}>
+              <Text style={[individualStyles.cellText, { color: colors.textSecondary }]}>-</Text>
+            </View>
+          </View>
+
+          {/* Par Row */}
+          <View style={[individualStyles.row, { backgroundColor: colors.surface }]}>
+            <View style={[individualStyles.labelCell, { backgroundColor: colors.surfaceVariant }]}>
+              <Text style={[individualStyles.labelText, { color: colors.textSecondary }]}>Par</Text>
+            </View>
+            {holeList.map((hole) => (
+              <View key={hole.number} style={individualStyles.cell}>
+                <Text style={[individualStyles.cellText, { color: colors.textPrimary }]}>
+                  {hole.par}
+                </Text>
+              </View>
+            ))}
+            <View style={[individualStyles.totalCell, { backgroundColor: colors.surfaceVariant }]}>
+              <Text style={[individualStyles.totalText, { color: colors.textPrimary }]}>
+                {ninePar}
+              </Text>
+            </View>
+          </View>
+
+          {/* Score Row */}
+          <View style={[individualStyles.row, { backgroundColor: colors.surface }]}>
+            <View style={[individualStyles.labelCell, { backgroundColor: colors.surfaceVariant }]}>
+              <Text style={[individualStyles.labelText, { color: colors.textPrimary }]}>Score</Text>
+            </View>
+            {holeList.map((hole) => {
+              const score = scores?.[String(hole.number)];
+              const strokes = score && isSingleBallScore(score) ? score.strokes : undefined;
+              return (
+                <View key={hole.number} style={individualStyles.cell}>
+                  <ScoreIndicator strokes={strokes} par={hole.par} display="compact" />
+                </View>
+              );
+            })}
+            <View style={[individualStyles.totalCell, { backgroundColor: colors.surfaceVariant }]}>
+              <Text style={[individualStyles.totalText, { color: colors.textPrimary }]}>
+                {nineGross || '-'}
+              </Text>
+            </View>
+          </View>
+
+          {/* Stableford Row — hidden for stroke play (points aren't meaningful) */}
+          {showStableford && (
+            <View style={[individualStyles.row, { backgroundColor: colors.primary }]}>
+              <View style={[individualStyles.labelCell, { backgroundColor: colors.primaryDark || colors.primary }]}>
+                <Text style={[individualStyles.labelText, { color: colors.textOnColored }]}>Pts</Text>
+              </View>
+              {holeList.map((hole) => {
+                const score = scores?.[String(hole.number)];
+                const strokes = score && isSingleBallScore(score) ? score.strokes : 0;
+                const strokesReceived = getStrokesReceived(dailyHandicap, hole.strokeIndex);
+                const points = strokes > 0 ? calculateStablefordPointsNet(strokes, hole.par, strokesReceived) : 0;
+                return (
+                  <View key={hole.number} style={individualStyles.cell}>
+                    <Text style={[individualStyles.cellText, { color: colors.textOnColored }]}>
+                      {strokes > 0 ? points : '-'}
+                    </Text>
+                  </View>
+                );
+              })}
+              <View style={[individualStyles.totalCell, { backgroundColor: colors.primaryDark || colors.primary }]}>
+                <Text style={[individualStyles.totalText, { color: colors.textOnColored }]}>
+                  {nineStableford}
+                </Text>
+              </View>
+            </View>
+          )}
+
+        </View>
+      );
+    };
+
+    return (
+      <View key={displayPlayer.id} style={[individualStyles.playerCard, { backgroundColor: colors.surface }]}>
+        {/* Player Header */}
+        <View style={[individualStyles.playerHeader, { backgroundColor: colors.surfaceVariant }]}>
+          <View style={individualStyles.playerInfo}>
+            <Text style={[individualStyles.playerName, { color: colors.textPrimary }]}>
+              {player?.name || 'Unknown'}
+            </Text>
+            <Text style={[individualStyles.playerHandicap, { color: colors.textSecondary }]}>
+              DHC: {dailyHandicap}
+            </Text>
+          </View>
+          <View style={individualStyles.playerTotals}>
+            <View style={individualStyles.totalItem}>
+              <Text style={[individualStyles.totalLabel, { color: colors.textSecondary }]}>Gross</Text>
+              <Text style={[individualStyles.totalValue, { color: getScoreColor(stats.totalGross, parTotals.total, colors) }]}>
+                {stats.totalGross || '-'}
+              </Text>
+            </View>
+            <View style={individualStyles.totalItem}>
+              <Text style={[individualStyles.totalLabel, { color: colors.textSecondary }]}>Net</Text>
+              <Text style={[individualStyles.totalValue, { color: getScoreColor(stats.totalNet, parTotals.total, colors) }]}>
+                {stats.totalNet ? Math.ceil(stats.totalNet) : '-'}
+              </Text>
+            </View>
+            {showStableford && (
+              <View style={[individualStyles.totalItem, individualStyles.stablefordTotal, { backgroundColor: colors.primary }]}>
+                <Text style={[individualStyles.totalLabel, { color: colors.textOnColored }]}>Pts</Text>
+                <Text style={[individualStyles.stablefordValue, { color: colors.textOnColored }]}>
+                  {stats.totalStableford}
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* Front 9 — hidden when filtered out (e.g. Back 9 only round) */}
+        {front9.length > 0 && renderHoleRow(front9, false)}
+
+        {/* Back 9 — hidden when filtered out (e.g. Front 9 only round) */}
+        {back9.length > 0 && renderHoleRow(back9, true)}
+      </View>
+    );
+  };
 
   return (
-    <View style={styles.viewStack}>
-      {displayPlayers.map((displayPlayer, index) => {
-        const stats = playerStats[index];
-        return (
-          <View key={displayPlayer.id} style={styles.splitPlayerSection}>
-            <PlayerSummaryHeader
-              player={displayPlayer.player as Player | null}
-              stats={stats}
-              showStableford={showStableford}
-            />
-            {front9.length > 0 &&
-              renderNineCard(
-                displayPlayer,
-                front9,
-                'FRONT NINE',
-                `Out ${stats.front9Gross || '–'}`
-              )}
-            {back9.length > 0 &&
-              renderNineCard(
-                displayPlayer,
-                back9,
-                'BACK NINE',
-                `In ${stats.back9Gross || '–'}`
-              )}
-          </View>
-        );
-      })}
+    <View style={individualStyles.container}>
+      {displayPlayers.map((player, index) => renderPlayerScorecard(player, index))}
     </View>
   );
-}
+});
 
 // =====================================================
 // MAIN COMPONENT
@@ -355,7 +286,6 @@ export const RoundScorecardTab = React.memo(function RoundScorecardTab({
   const colors = useThemeColors();
   const { width: screenWidth } = useWindowDimensions();
   const [viewMode, setViewMode] = useState<ViewMode>('table');
-  const showStableford = gameType !== 'stroke';
 
   // Default to standard 18 holes if no course data, then narrow to the
   // round's `nine_type` so 9-hole rounds don't render empty back/front
@@ -403,32 +333,6 @@ export const RoundScorecardTab = React.memo(function RoundScorecardTab({
     }));
   }, [scorecards, roundPlayers]);
 
-  // Shared totals for the strip/split player headers and the totals trio.
-  const playerStats = useMemo(
-    () => calculatePlayerStats(displayPlayers, courseHoles, selectedTeeData),
-    [displayPlayers, courseHoles, selectedTeeData]
-  );
-
-  // Totals trio (single-player rounds only — multi-player rounds carry
-  // per-player totals in each card header instead). TO PAR compares the
-  // existing gross total against par over the holes actually scored.
-  const singleStats = displayPlayers.length === 1 ? playerStats[0] : null;
-  const singleToPar = useMemo(() => {
-    if (displayPlayers.length !== 1) return null;
-    const scores = displayPlayers[0].scores;
-    let playedPar = 0;
-    courseHoles.forEach((hole) => {
-      const score = scores?.[String(hole.number)];
-      if (score && isSingleBallScore(score) && score.strokes > 0) {
-        playedPar += hole.par;
-      }
-    });
-    if (playedPar === 0) return null;
-    const diff = playerStats[0].totalGross - playedPar;
-    if (diff === 0) return 'E';
-    return diff > 0 ? `+${diff}` : `${diff}`;
-  }, [displayPlayers, courseHoles, playerStats]);
-
   if (displayPlayers.length === 0) {
     return (
       <EmptyState
@@ -440,48 +344,42 @@ export const RoundScorecardTab = React.memo(function RoundScorecardTab({
     );
   }
 
-  const renderToggleButton = (
-    mode: ViewMode,
-    icon: string,
-    accessibilityLabel: string
-  ) => {
-    const isActive = viewMode === mode;
-    return (
-      <TouchableOpacity
-        style={[
-          styles.toggleButton,
-          isActive && { backgroundColor: colors.surface },
-          isActive && shadows.sm,
-        ]}
-        onPress={() => setViewMode(mode)}
-        activeOpacity={0.7}
-        accessibilityRole="button"
-        accessibilityLabel={accessibilityLabel}
-        accessibilityState={{ selected: isActive }}
-      >
-        <Icon
-          source={icon}
-          size={18}
-          color={isActive ? colors.primary : colors.textSecondary}
-        />
-      </TouchableOpacity>
-    );
-  };
-
   return (
     <View style={styles.container}>
-      {/* Header with title and 3-way view toggle (strip / split / list) */}
+      {/* Header with title and view toggle */}
       <View style={styles.headerRow}>
         <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Scorecard</Text>
-        <View
-          style={[
-            styles.toggleContainer,
-            { backgroundColor: colors.surfaceVariant, borderColor: colors.border },
-          ]}
-        >
-          {renderToggleButton('strip', 'view-column-outline', 'Strip view')}
-          {renderToggleButton('split', 'view-agenda-outline', 'Front and back nine view')}
-          {renderToggleButton('table', 'table', 'Full scorecard view')}
+        <View style={[styles.toggleContainer, { backgroundColor: colors.surfaceVariant }]}>
+          <TouchableOpacity
+            style={[
+              styles.toggleButton,
+              viewMode === 'table' && { backgroundColor: colors.surface },
+              viewMode === 'table' && shadows.sm,
+            ]}
+            onPress={() => setViewMode('table')}
+            activeOpacity={0.7}
+          >
+            <Icon
+              source="table"
+              size={18}
+              color={viewMode === 'table' ? colors.primary : colors.textSecondary}
+            />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.toggleButton,
+              viewMode === 'individual' && { backgroundColor: colors.surface },
+              viewMode === 'individual' && shadows.sm,
+            ]}
+            onPress={() => setViewMode('individual')}
+            activeOpacity={0.7}
+          >
+            <Icon
+              source="card-account-details-outline"
+              size={18}
+              color={viewMode === 'individual' ? colors.primary : colors.textSecondary}
+            />
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -497,124 +395,48 @@ export const RoundScorecardTab = React.memo(function RoundScorecardTab({
           handicapSource={handicapSource}
           startHole={startHole}
         />
-      ) : viewMode === 'strip' ? (
-        <StripScorecardView
-          displayPlayers={displayPlayers}
-          holes={courseHoles}
-          playerStats={playerStats}
-          showStableford={showStableford}
-        />
       ) : (
-        <SplitScorecardView
+        <IndividualScorecardView
           displayPlayers={displayPlayers}
           holes={courseHoles}
-          playerStats={playerStats}
-          showStableford={showStableford}
+          selectedTeeData={selectedTeeData}
+          gameType={gameType}
         />
       )}
 
       {/* Legend - unified compact style for all views */}
       <View style={styles.legend}>
         <View style={styles.legendItem}>
-          <View
-            style={[
-              styles.legendColorBox,
-              { backgroundColor: colors.eagleBackground, borderColor: colors.eagle },
-            ]}
-          >
+          <View style={[styles.legendColorBox, { backgroundColor: colors.eagleBackground }]}>
             <Text style={[styles.legendColorText, { color: colors.eagle }]}>2</Text>
           </View>
           <Text style={[styles.legendText, { color: colors.textSecondary }]}>Eagle</Text>
         </View>
         <View style={styles.legendItem}>
-          <View
-            style={[
-              styles.legendColorBox,
-              { backgroundColor: colors.birdieBackground, borderColor: colors.birdie },
-            ]}
-          >
+          <View style={[styles.legendColorBox, { backgroundColor: colors.birdieBackground }]}>
             <Text style={[styles.legendColorText, { color: colors.birdie }]}>3</Text>
           </View>
           <Text style={[styles.legendText, { color: colors.textSecondary }]}>Birdie</Text>
         </View>
         <View style={styles.legendItem}>
-          <View
-            style={[
-              styles.legendColorBox,
-              { backgroundColor: colors.parBackground, borderColor: colors.border },
-            ]}
-          >
+          <View style={[styles.legendColorBox, { backgroundColor: colors.parBackground }]}>
             <Text style={[styles.legendColorText, { color: colors.par }]}>4</Text>
           </View>
           <Text style={[styles.legendText, { color: colors.textSecondary }]}>Par</Text>
         </View>
         <View style={styles.legendItem}>
-          <View
-            style={[
-              styles.legendColorBox,
-              { backgroundColor: colors.bogeyBackground, borderColor: colors.bogey },
-            ]}
-          >
+          <View style={[styles.legendColorBox, { backgroundColor: colors.bogeyBackground }]}>
             <Text style={[styles.legendColorText, { color: colors.bogey }]}>5</Text>
           </View>
           <Text style={[styles.legendText, { color: colors.textSecondary }]}>Bogey</Text>
         </View>
         <View style={styles.legendItem}>
-          <View
-            style={[
-              styles.legendColorBox,
-              {
-                backgroundColor: colors.doubleBogeyBackground,
-                borderColor: colors.doubleBogey,
-              },
-            ]}
-          >
+          <View style={[styles.legendColorBox, { backgroundColor: colors.doubleBogeyBackground }]}>
             <Text style={[styles.legendColorText, { color: colors.doubleBogey }]}>6+</Text>
           </View>
           <Text style={[styles.legendText, { color: colors.textSecondary }]}>2+</Text>
         </View>
       </View>
-
-      {/* GROSS / TO PAR / POINTS totals trio (single-player rounds) */}
-      {singleStats && singleStats.hasScores && (
-        <View style={styles.totalsRow}>
-          <View
-            style={[
-              styles.totalsTile,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
-          >
-            <Text style={[styles.totalsValue, { color: colors.textPrimary }]}>
-              {singleStats.totalGross || '–'}
-            </Text>
-            <Text style={[styles.totalsLabel, { color: colors.textTertiary }]}>GROSS</Text>
-          </View>
-          <View
-            style={[
-              styles.totalsTile,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
-          >
-            <Text style={[styles.totalsValue, { color: colors.textPrimary }]}>
-              {singleToPar ?? '–'}
-            </Text>
-            <Text style={[styles.totalsLabel, { color: colors.textTertiary }]}>TO PAR</Text>
-          </View>
-          {showStableford && (
-            <View
-              style={[
-                styles.totalsTile,
-                { backgroundColor: colors.surface, borderColor: colors.border },
-              ]}
-            >
-              <Text style={[styles.totalsValue, { color: colors.primary }]}>
-                {singleStats.totalStableford}
-              </Text>
-              <Text style={[styles.totalsLabel, { color: colors.textTertiary }]}>POINTS</Text>
-            </View>
-          )}
-        </View>
-      )}
     </View>
   );
 });
@@ -637,85 +459,16 @@ const styles = StyleSheet.create({
   },
   toggleContainer: {
     flexDirection: 'row',
-    // Design: 38x30 segmented icons on a bordered surfaceVariant track
-    borderRadius: 11,
-    borderWidth: 1,
-    padding: 3,
-    gap: 3,
+    borderRadius: borderRadius.md,
+    padding: 4,
+    gap: 4,
   },
   toggleButton: {
-    width: 38,
-    height: 30,
-    borderRadius: borderRadius.md,
+    width: 36,
+    height: 32,
+    borderRadius: borderRadius.sm,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-
-  // Strip / split shared
-  viewStack: {
-    gap: spacing.md,
-  },
-  playerSummaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.sm + 2,
-  },
-  playerSummaryName: {
-    fontSize: 13,
-    fontWeight: '800',
-    flexShrink: 1,
-  },
-  playerSummaryMeta: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-
-  // Strip view
-  stripCard: {
-    // Design: rounded card housing the horizontal strip
-    borderRadius: borderRadius.xl,
-    borderWidth: 1,
-    paddingVertical: spacing.md + 2,
-    paddingHorizontal: spacing.md,
-    ...shadows.sm,
-  },
-  stripRow: {
-    flexDirection: 'row',
-    gap: 5,
-  },
-
-  // Split view
-  splitPlayerSection: {
-    gap: spacing.sm + 3,
-  },
-  nineCard: {
-    borderRadius: borderRadius.xl,
-    borderWidth: 1,
-    paddingVertical: spacing.md + 1,
-    paddingHorizontal: spacing.md,
-    ...shadows.sm,
-  },
-  nineCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.sm + 1,
-    paddingHorizontal: 2,
-  },
-  nineCardLabel: {
-    fontSize: 10.5,
-    fontWeight: '800',
-    letterSpacing: 0.8,
-  },
-  nineCardTotal: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  nineCellsRow: {
-    flexDirection: 'row',
-    gap: 4,
   },
 
   // Legend
@@ -737,7 +490,6 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: borderRadius.sm,
-    borderWidth: 1.5,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -745,28 +497,95 @@ const styles = StyleSheet.create({
     ...typography.caption,
     fontWeight: '600',
   },
+});
 
-  // Totals trio
-  totalsRow: {
-    flexDirection: 'row',
-    gap: spacing.sm + 2,
+// =====================================================
+// INDIVIDUAL VIEW STYLES
+// =====================================================
+
+const individualStyles = StyleSheet.create({
+  container: {
+    gap: spacing.lg,
   },
-  totalsTile: {
+  playerCard: {
+    borderRadius: borderRadius.lg,
+    ...shadows.sm,
+    overflow: 'hidden',
+  },
+  playerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: spacing.md,
+  },
+  playerInfo: {
     flex: 1,
-    borderRadius: borderRadius.xl,
-    borderWidth: 1,
-    paddingVertical: spacing.md + 1,
+  },
+  playerName: {
+    ...typography.bodyBold,
+  },
+  playerHandicap: {
+    ...typography.small,
+    marginTop: 2,
+  },
+  playerTotals: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  totalItem: {
+    alignItems: 'center',
+    minWidth: 44,
+  },
+  totalLabel: {
+    ...typography.caption,
+  },
+  totalValue: {
+    ...typography.bodyBold,
+  },
+  stablefordTotal: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.md,
+  },
+  stablefordValue: {
+    ...typography.bodyBold,
+  },
+  nineSection: {},
+  row: {
+    flexDirection: 'row',
+  },
+  labelCell: {
+    width: INDIVIDUAL_LABEL_WIDTH,
+    height: 32,
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  totalsValue: {
-    fontSize: 20,
-    fontWeight: '800',
+  labelText: {
+    ...typography.caption,
+    fontWeight: '600',
   },
-  totalsLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.4,
-    marginTop: 3,
+  cell: {
+    flex: 1,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  totalCell: {
+    width: INDIVIDUAL_TOTAL_WIDTH,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerText: {
+    ...typography.caption,
+    fontWeight: '600',
+  },
+  cellText: {
+    ...typography.small,
+  },
+  totalText: {
+    ...typography.smallBold,
   },
 });
 

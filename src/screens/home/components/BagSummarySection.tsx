@@ -135,15 +135,11 @@ export const BagSummarySection = React.memo(function BagSummarySection() {
         accessibilityLabel="Open What's in the Bag"
         style={[
           styles.card,
-          { backgroundColor: colors.surface, borderColor: colors.border },
+          { backgroundColor: colors.surface, borderColor: colors.borderLight },
         ]}
       >
         <View style={styles.row}>
-          <View
-            style={[styles.iconSquare, { backgroundColor: colors.primaryBackground }]}
-          >
-            <Icon source="golf" size={22} color={colors.primary} />
-          </View>
+          <Icon source="golf" size={24} color={colors.primary} />
           <View style={styles.text}>
             <Text style={[styles.title, { color: colors.textPrimary }]} numberOfLines={1}>
               {isEmpty ? 'Pick your clubs' : 'Your bag'}
@@ -176,21 +172,14 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   card: {
-    padding: spacing.lg,
-    borderRadius: borderRadius.xl,
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
     borderWidth: 1,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
-  },
-  iconSquare: {
-    width: 42,
-    height: 42,
-    borderRadius: borderRadius.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
+    gap: spacing.sm,
   },
   text: {
     flex: 1,

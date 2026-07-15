@@ -12,22 +12,13 @@ import React, { useState, useMemo, useCallback } from 'react';
 import { indexById } from '@/utils/collections';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import {
-  ErrorState,
-  LoadingSpinner,
-  SectionHeader,
-  ScopeChips,
-  type ScopeChipItem,
-} from '@/components/common';
+import { ErrorState, LoadingSpinner, SectionHeader } from '@/components/common';
 import { SegmentedButton } from '@/components/common/SegmentedButton';
 import { IconUsers, IconUser, IconCalendar } from '@tabler/icons-react-native';
 import { LeaderboardTable } from './LeaderboardTable';
 import { TeamLeaderboardTable, type TeamLeaderboardEntry } from './TeamLeaderboardTable';
-import { CupBoard } from './CupBoard';
-import { RoundByRoundList, type RoundByRoundRow } from './RoundByRoundList';
-import { mergeHeadToHeadRounds } from './teamHeadToHead';
+import { TeamHeadToHeadCard } from './TeamHeadToHeadCard';
 import { TeamPointsToWinBanner } from './TeamPointsToWinBanner';
-import { ROUND_PRESETS, inferPresetIdFromRound } from '@/constants/roundPresets';
 import { getTeamColorHex } from '@/utils/teamColor';
 import { summarizeCompetition, summarizeRoundPoints } from '@/utils/competitionPoints/roundPointsSummary';
 import { RoundLeaderboard } from './RoundLeaderboard';
@@ -173,29 +164,6 @@ const EmptyLeaderboardState = React.memo(function EmptyLeaderboardState({
 // HELPER FUNCTIONS
 // =====================================================
 
-/** Short format label for a round — used by scope chips + round-by-round badges. */
-function roundShortFormatLabel(round: RoundWithCourse): string {
-  const presetId = inferPresetIdFromRound(round);
-  if (presetId) return ROUND_PRESETS[presetId].shortTitle;
-  const gt = (round.game_type ?? '').replace(/-/g, ' ');
-  return gt ? gt.charAt(0).toUpperCase() + gt.slice(1) : 'Round';
-}
-
-/** Full format title for a round. */
-function roundFormatTitle(round: RoundWithCourse): string {
-  const presetId = inferPresetIdFromRound(round);
-  if (presetId) return ROUND_PRESETS[presetId].title;
-  return roundShortFormatLabel(round);
-}
-
-/** Points formatted with ½ for halves (cup scores). */
-function formatHalfPoints(points: number): string {
-  const whole = Math.floor(points);
-  const hasHalf = points - whole >= 0.5;
-  if (hasHalf) return whole > 0 ? `${whole}½` : '½';
-  return `${points}`;
-}
-
 /**
  * Build a player_id -> { teamName, teamColor } lookup from competition teams.
  * Used to display each player's team membership on the individual leaderboard.
@@ -311,6 +279,36 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
   const _colors = useThemeColors();
   const hasTeams = teamMode !== 'none';
 
+  // Get completed rounds for round-specific leaderboards, ordered by round number
+  const completedRounds = useMemo(
+    () =>
+      rounds
+        .filter((round) => round.status === 'completed')
+        .sort((a, b) => a.display_order - b.display_order),
+    [rounds]
+  );
+
+  // Get in-progress rounds, ordered by round number
+  const inProgressRounds = useMemo(
+    () =>
+      rounds
+        .filter((round) => round.status === 'in-progress')
+        .sort((a, b) => a.display_order - b.display_order),
+    [rounds]
+  );
+
+  // Single round-number-ordered list across statuses, so rounds render in
+  // numeric order regardless of in-progress/completed (the per-round component
+  // is still chosen by `inProgress`). Keeps `inProgressRounds`/`completedRounds`
+  // (used by the section empty-state guards).
+  const orderedRounds = useMemo(
+    () => [
+      ...inProgressRounds.map((round) => ({ round, inProgress: true })),
+      ...completedRounds.map((round) => ({ round, inProgress: false })),
+    ].sort((a, b) => a.round.display_order - b.round.display_order),
+    [inProgressRounds, completedRounds]
+  );
+
   // User-facing round numbers: 1-based position within the display_order-sorted
   // list, so gaps left by deleted/reordered rounds don't surface (matches the
   // Rounds tab). `round.round_number` is a stable id with gaps — display only.
@@ -322,25 +320,6 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
   // Check if ALL rounds are single-ball team format (scramble/alt-shot — individual standings become irrelevant)
   const isAllScrambleFormat = useMemo(
     () => rounds.length > 0 && rounds.every((round) => round.team_format === 'scramble' || round.team_format === 'alt-shot'),
-    [rounds]
-  );
-
-  // Standings scope: 'overall' or a round id. Driven by the ScopeChips row —
-  // 'overall' shows the competition board + round-by-round list; a round id
-  // shows just that round's board (redesign).
-  const [scope, setScope] = useState<string>('overall');
-
-  // If the selected round disappears (deleted/reordered away), fall back.
-  React.useEffect(() => {
-    if (scope !== 'overall' && !rounds.some((r) => r.id === scope)) {
-      setScope('overall');
-    }
-  }, [scope, rounds]);
-
-  // All rounds in display order, regardless of status (scope chips include
-  // upcoming rounds, which render a "not played yet" board).
-  const allRoundsOrdered = useMemo(
-    () => [...rounds].sort((a, b) => a.display_order - b.display_order),
     [rounds]
   );
 
@@ -465,93 +444,6 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
     [hasTeams, perRoundRulesEnabled, membersPerTeam]
   );
 
-  // Scope chips: Overall + one per round (short format label).
-  const scopeChips: ScopeChipItem[] = useMemo(
-    () => [
-      {
-        key: 'overall',
-        eyebrow: 'Overall',
-        label: hasTeams && (teams?.length ?? 0) === 2 ? 'The cup' : 'Standings',
-      },
-      ...allRoundsOrdered.map((round) => ({
-        key: round.id,
-        eyebrow: `Round ${positionalRoundNumbers.get(round.id) ?? round.round_number}`,
-        label: roundShortFormatLabel(round),
-      })),
-    ],
-    [allRoundsOrdered, hasTeams, teams, positionalRoundNumbers]
-  );
-
-  // Two-team head-to-head per-round scores (team view only) — feeds the
-  // round-by-round rows' "2 – 0" scores and winner dots.
-  const headToHeadRoundRows = useMemo(() => {
-    if (effectiveView !== 'team' || teamEntries.length !== 2) return null;
-    return mergeHeadToHeadRounds(
-      teamEntries[0].roundBreakdown,
-      teamEntries[1].roundBreakdown,
-      positionalRoundNumbers
-    );
-  }, [effectiveView, teamEntries, positionalRoundNumbers]);
-
-  const allRoundsCompleted =
-    rounds.length > 0 && rounds.every((round) => round.status === 'completed');
-
-  // Rows for the "Round by round" list under the overall board.
-  const roundByRoundRows: RoundByRoundRow[] = useMemo(() => {
-    const h2hByRoundId = new Map(
-      (headToHeadRoundRows ?? []).map((row) => [row.roundId, row])
-    );
-    return allRoundsOrdered.map((round) => {
-      const n = positionalRoundNumbers.get(round.id) ?? round.round_number;
-      const badge = roundShortFormatLabel(round);
-      const statusSub =
-        round.status === 'completed'
-          ? undefined
-          : round.status === 'in-progress'
-            ? 'In progress'
-            : 'Not played yet';
-      const sub =
-        [round.course?.name, statusSub].filter(Boolean).join(' · ') || undefined;
-
-      let score: string | undefined;
-      let scoreColor: string | undefined;
-      let dotColor: string | undefined;
-      const h2h = h2hByRoundId.get(round.id);
-      if (h2h && round.status !== 'upcoming') {
-        score = `${formatHalfPoints(h2h.pointsLeft)} – ${formatHalfPoints(h2h.pointsRight)}`;
-        if (h2h.pointsLeft > h2h.pointsRight) {
-          const c = teamColorById.get(teamEntries[0]?.teamId ?? '');
-          scoreColor = c;
-          dotColor = c;
-        } else if (h2h.pointsRight > h2h.pointsLeft) {
-          const c = teamColorById.get(teamEntries[1]?.teamId ?? '');
-          scoreColor = c;
-          dotColor = c;
-        } else {
-          dotColor = _colors.borderStrong;
-        }
-      }
-
-      return {
-        key: round.id,
-        badge,
-        name: `Round ${n} · ${roundFormatTitle(round)}`,
-        sub,
-        score,
-        scoreColor,
-        dotColor,
-        onPress: () => setScope(round.id),
-      };
-    });
-  }, [
-    allRoundsOrdered,
-    headToHeadRoundRows,
-    positionalRoundNumbers,
-    teamColorById,
-    teamEntries,
-    _colors,
-  ]);
-
   // Render loading state
   if (isLoading) {
     return (
@@ -574,143 +466,6 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
 
   const isEmpty = !leaderboard || leaderboard.length === 0;
 
-  // Renders one round's board — shared by the per-round scope. JSX preserved
-  // from the pre-redesign stacked list; only the surrounding structure changed.
-  const renderRoundBoard = (round: RoundWithCourse, inProgress: boolean) => {
-    const gameType = round.game_type as GameType;
-
-    if (
-      isSplitAltShotRound(round) ||
-      isSplitMatchPlayRound(round) ||
-      isTeamMatchPlayRound(round)
-    ) {
-      // Split alt-shot, split (1v1 singles) match-play, and team match-play
-      // are all team formats — the sub-match board only makes sense in the
-      // Team view. Team match-play with no sub-matches renders as a single
-      // team-vs-team row (handled inside SubMatchLeaderboardTab).
-      if (effectiveView !== 'team') {
-        return (
-          <EmptyLeaderboardState
-            type="team"
-            message="Switch to the Team view to see this round's matches."
-          />
-        );
-      }
-      return (
-        <View style={styles.roundLeaderboardContainer}>
-          <LeaderboardHeader
-            roundNumber={positionalRoundNumbers.get(round.id) ?? round.round_number}
-            gameType={gameType}
-            isTeamRound={round.is_team_round}
-            roundFormat={round.round_format}
-            teamFormat={round.team_format}
-            subMatchSize={round.sub_match_size}
-            rulesOverride={round.rules_override}
-            date={round.date ?? undefined}
-            courseName={round.course?.name ?? undefined}
-            roundName={round.name}
-            pointsBadge={roundPointsBadge(round)}
-          />
-          <RoundSubMatchLeaderboard
-            roundId={round.id}
-            competitionId={competitionId}
-            currentUserId={currentUserId}
-          />
-        </View>
-      );
-    }
-
-    if (inProgress) {
-      const canRenderLive =
-        !round.is_team_round && IN_PROGRESS_SUPPORTED_GAME_TYPES.has(gameType);
-      return (
-        <View style={styles.roundLeaderboardContainer}>
-          {canRenderLive ? (
-            <InProgressRoundLeaderboard
-              roundId={round.id}
-              gameType={gameType}
-              roundNumber={positionalRoundNumbers.get(round.id) ?? round.round_number}
-              roundName={round.name}
-              courseName={round.course?.name ?? undefined}
-              currentUserId={currentUserId}
-              testID={`round-leaderboard-${round.round_number}-live`}
-            />
-          ) : (
-            <RoundLeaderboard
-              roundId={round.id}
-              gameType={gameType}
-              isTeamRound={round.is_team_round || false}
-              currentUserId={currentUserId}
-              autoRefresh={autoRefresh}
-              filterView={effectiveView}
-              playerTeamLookup={
-                effectiveView === 'individual' && hasTeams ? playerTeamLookup : undefined
-              }
-              roundName={round.name}
-              roundNumber={positionalRoundNumbers.get(round.id) ?? round.round_number}
-              pointsBadge={roundPointsBadge(round)}
-              testID={`round-leaderboard-${round.round_number}`}
-            />
-          )}
-        </View>
-      );
-    }
-
-    return (
-      <View style={styles.roundLeaderboardContainer}>
-        <RoundLeaderboard
-          roundId={round.id}
-          gameType={gameType}
-          isTeamRound={round.is_team_round || false}
-          currentUserId={currentUserId}
-          autoRefresh={false}
-          filterView={effectiveView}
-          playerTeamLookup={
-            effectiveView === 'individual' && hasTeams ? playerTeamLookup : undefined
-          }
-          roundName={round.name}
-          roundNumber={positionalRoundNumbers.get(round.id) ?? round.round_number}
-          pointsBadge={roundPointsBadge(round)}
-          testID={`round-leaderboard-${round.round_number}`}
-        />
-      </View>
-    );
-  };
-
-  // "Not played yet" board for upcoming rounds selected via the scope chips.
-  const renderNotPlayedBoard = (round: RoundWithCourse) => {
-    const presetId = inferPresetIdFromRound(round);
-    const summary = presetId ? ROUND_PRESETS[presetId].summary : undefined;
-    return (
-      <View
-        style={[
-          styles.notPlayedCard,
-          { backgroundColor: _colors.surface, borderColor: _colors.border },
-        ]}
-        testID={`round-not-played-${round.id}`}
-      >
-        <Text style={[styles.notPlayedTitle, { color: _colors.textPrimary }]}>
-          {roundFormatTitle(round)}
-        </Text>
-        {summary ? (
-          <Text style={[styles.notPlayedSummary, { color: _colors.textSecondary }]}>
-            {summary}
-          </Text>
-        ) : null}
-        <View
-          style={[styles.notPlayedPill, { backgroundColor: _colors.surfaceVariant }]}
-        >
-          <Text style={[styles.notPlayedPillText, { color: _colors.textSecondary }]}>
-            Not played yet
-          </Text>
-        </View>
-      </View>
-    );
-  };
-
-  const scopedRound =
-    scope === 'overall' ? null : allRoundsOrdered.find((r) => r.id === scope) ?? null;
-
   return (
     <View style={styles.container} testID="leaderboard-tab">
       {/* View Toggle (Individual / Team) - hidden for scramble-only competitions.
@@ -724,88 +479,188 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
         />
       )}
 
-      {/* Scope switcher: Overall vs a specific round */}
-      {rounds.length > 0 && (
-        <ScopeChips
-          chips={scopeChips}
-          selected={scope}
-          onChange={setScope}
-          style={styles.scopeChips}
-          testID="standings-scope-chips"
-        />
-      )}
+      {/* Overall Standings Section */}
+      <SectionHeader
+        title={effectiveView === 'team' ? 'Team Standings' : 'Individual Standings'}
+        icon={effectiveView === 'team' ? 'account-group-outline' : 'account-outline'}
+      />
 
-      {scope === 'overall' || !scopedRound ? (
+      {/* Standings Content */}
+      {isEmpty ? (
+        <EmptyLeaderboardState type={effectiveView} />
+      ) : effectiveView === 'team' ? (
         <>
-          {/* Overall Standings Section */}
-          <SectionHeader
-            title={effectiveView === 'team' ? 'Team Standings' : 'Individual Standings'}
-            icon={effectiveView === 'team' ? 'account-group-outline' : 'account-outline'}
-          />
-
-          {/* Standings Content */}
-          {isEmpty ? (
-            <EmptyLeaderboardState type={effectiveView} />
-          ) : effectiveView === 'team' ? (
-            <>
-              {teamPointsToWin && (
-                <TeamPointsToWinBanner
-                  total={teamPointsToWin.total}
-                  toWin={teamPointsToWin.toWin}
-                />
-              )}
-              {teams?.length === 2 && teamEntries.length === 2 ? (
-                <CupBoard
-                  entries={[teamEntries[0], teamEntries[1]]}
-                  teamColors={teamColorById}
-                  pointsToWin={teamPointsToWin}
-                  allRoundsCompleted={allRoundsCompleted}
-                  testID="competition-team-headtohead"
-                />
-              ) : (
-                <TeamLeaderboardTable
-                  leaderboard={teamEntries}
-                  currentUserId={currentUserId}
-                  isLoading={false}
-                  showTiedIndicator
-                  testID="competition-team-leaderboard"
-                />
-              )}
-            </>
-          ) : (
-            <LeaderboardTable
-              leaderboard={individualEntries}
-              currentUserId={currentUserId}
-              isLoading={false}
-              showRoundsPlayed
-              showTiedIndicator={false}
-              onEntryPress={onEntryPress ? handleEntryPress : undefined}
-              testID="competition-individual-leaderboard"
+          {teamPointsToWin && (
+            <TeamPointsToWinBanner
+              total={teamPointsToWin.total}
+              toWin={teamPointsToWin.toWin}
             />
           )}
-
-          {/* Round by round: tappable rows that jump to a round's board */}
-          {rounds.length > 0 ? (
-            <View style={styles.roundsSection}>
-              <SectionHeader title="Round by round" icon="calendar-outline" />
-              <RoundByRoundList rows={roundByRoundRows} testID="round-by-round" />
-            </View>
+          {teams?.length === 2 && teamEntries.length === 2 ? (
+            <TeamHeadToHeadCard
+              entries={[teamEntries[0], teamEntries[1]]}
+              teamColors={teamColorById}
+              currentUserId={currentUserId}
+              rounds={rounds}
+              testID="competition-team-headtohead"
+            />
           ) : (
-            <View style={styles.roundsSection}>
-              <SectionHeader title="Round Results" icon="calendar-outline" />
-              <EmptyLeaderboardState
-                type="rounds"
-                message="No rounds have been created yet. Add rounds to see per-round results."
-              />
-            </View>
+            <TeamLeaderboardTable
+              leaderboard={teamEntries}
+              currentUserId={currentUserId}
+              isLoading={false}
+              showTiedIndicator
+              testID="competition-team-leaderboard"
+            />
           )}
         </>
       ) : (
-        /* Single-round scope */
-        <View testID={`standings-scope-${scopedRound.id}`}>
-          {scopedRound.status === 'upcoming'
-            ? renderNotPlayedBoard(scopedRound)
-            : renderRoundBoard(scopedRound, scopedRound.status === 'in-progress')}
+        <LeaderboardTable
+          leaderboard={individualEntries}
+          currentUserId={currentUserId}
+          isLoading={false}
+          showRoundsPlayed
+          showTiedIndicator={false}
+          onEntryPress={onEntryPress ? handleEntryPress : undefined}
+          testID="competition-individual-leaderboard"
+        />
+      )}
+
+      {/* Round-Specific Leaderboards Section */}
+      {(completedRounds.length > 0 || inProgressRounds.length > 0) && (
+        <View style={styles.roundsSection}>
+          <SectionHeader
+            title="Round Results"
+            icon="calendar-outline"
+          />
+
+          {/* All rounds in round-number order. In-progress individual formats
+              render a live leaderboard derived from scorecards (round_results
+              is only populated on submission); split alt-shot renders the live
+              sub-match leaderboard with its own header; everything else reads
+              round_results via RoundLeaderboard. */}
+          {orderedRounds.map(({ round, inProgress }) => {
+            const gameType = round.game_type as GameType;
+
+            if (
+              isSplitAltShotRound(round) ||
+              isSplitMatchPlayRound(round) ||
+              isTeamMatchPlayRound(round)
+            ) {
+              // Split alt-shot, split (1v1 singles) match-play, and team
+              // match-play are all team formats — only show the sub-match
+              // leaderboard in the Team view; skip it in the Individual view.
+              // Team match-play with no sub-matches renders as a single
+              // team-vs-team row (handled inside SubMatchLeaderboardTab).
+              if (effectiveView !== 'team') return null;
+              return (
+                <View key={round.id} style={styles.roundLeaderboardContainer}>
+                  <LeaderboardHeader
+                    roundNumber={positionalRoundNumbers.get(round.id) ?? round.round_number}
+                    gameType={gameType}
+                    isTeamRound={round.is_team_round}
+                    roundFormat={round.round_format}
+                    teamFormat={round.team_format}
+                    subMatchSize={round.sub_match_size}
+                    rulesOverride={round.rules_override}
+                    date={round.date ?? undefined}
+                    courseName={round.course?.name ?? undefined}
+                    roundName={round.name}
+                    pointsBadge={roundPointsBadge(round)}
+                  />
+                  <RoundSubMatchLeaderboard
+                    roundId={round.id}
+                    competitionId={competitionId}
+                    currentUserId={currentUserId}
+                  />
+                </View>
+              );
+            }
+
+            if (inProgress) {
+              const canRenderLive =
+                !round.is_team_round && IN_PROGRESS_SUPPORTED_GAME_TYPES.has(gameType);
+              return (
+                <View key={round.id} style={styles.roundLeaderboardContainer}>
+                  {canRenderLive ? (
+                    <InProgressRoundLeaderboard
+                      roundId={round.id}
+                      gameType={gameType}
+                      roundNumber={positionalRoundNumbers.get(round.id) ?? round.round_number}
+                      roundName={round.name}
+                      courseName={round.course?.name ?? undefined}
+                      currentUserId={currentUserId}
+                      testID={`round-leaderboard-${round.round_number}-live`}
+                    />
+                  ) : (
+                    <RoundLeaderboard
+                      roundId={round.id}
+                      gameType={gameType}
+                      isTeamRound={round.is_team_round || false}
+                      currentUserId={currentUserId}
+                      autoRefresh={autoRefresh}
+                      filterView={effectiveView}
+                      playerTeamLookup={
+                        effectiveView === 'individual' && hasTeams ? playerTeamLookup : undefined
+                      }
+                      roundName={round.name}
+                      roundNumber={positionalRoundNumbers.get(round.id) ?? round.round_number}
+                      pointsBadge={roundPointsBadge(round)}
+                      testID={`round-leaderboard-${round.round_number}`}
+                    />
+                  )}
+                </View>
+              );
+            }
+
+            return (
+              <View key={round.id} style={styles.roundLeaderboardContainer}>
+                <RoundLeaderboard
+                  roundId={round.id}
+                  gameType={gameType}
+                  isTeamRound={round.is_team_round || false}
+                  currentUserId={currentUserId}
+                  autoRefresh={false}
+                  filterView={effectiveView}
+                  playerTeamLookup={
+                    effectiveView === 'individual' && hasTeams ? playerTeamLookup : undefined
+                  }
+                  roundName={round.name}
+                  roundNumber={positionalRoundNumbers.get(round.id) ?? round.round_number}
+                  pointsBadge={roundPointsBadge(round)}
+                  testID={`round-leaderboard-${round.round_number}`}
+                />
+              </View>
+            );
+          })}
+        </View>
+      )}
+
+      {/* Empty state for rounds section when no rounds */}
+      {rounds.length === 0 && (
+        <View style={styles.roundsSection}>
+          <SectionHeader
+            title="Round Results"
+            icon="calendar-outline"
+          />
+          <EmptyLeaderboardState
+            type="rounds"
+            message="No rounds have been created yet. Add rounds to see per-round results."
+          />
+        </View>
+      )}
+
+      {/* Empty state for rounds section when rounds exist but none completed */}
+      {rounds.length > 0 && completedRounds.length === 0 && inProgressRounds.length === 0 && (
+        <View style={styles.roundsSection}>
+          <SectionHeader
+            title="Round Results"
+            icon="calendar-outline"
+          />
+          <EmptyLeaderboardState
+            type="rounds"
+            message="Round results will appear once scoring begins."
+          />
         </View>
       )}
     </View>
@@ -863,36 +718,6 @@ const styles = StyleSheet.create({
   },
   roundLeaderboardContainer: {
     marginBottom: spacing.lg,
-  },
-
-  // Scope switcher (redesign)
-  scopeChips: {
-    marginBottom: spacing.lg,
-  },
-
-  // Upcoming-round board
-  notPlayedCard: {
-    borderRadius: borderRadius.xl,
-    borderWidth: 1,
-    padding: spacing.xl,
-    alignItems: 'center',
-  },
-  notPlayedTitle: {
-    ...typography.bodyBold,
-  },
-  notPlayedSummary: {
-    ...typography.small,
-    textAlign: 'center',
-    marginTop: spacing.xs,
-  },
-  notPlayedPill: {
-    marginTop: spacing.md,
-    paddingVertical: 5,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.full,
-  },
-  notPlayedPillText: {
-    ...typography.captionBold,
   },
 });
 

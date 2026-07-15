@@ -1,18 +1,16 @@
 /**
  * ScorecardFooter Component
  *
- * Renders the footer navigation section (Score & Round redesign):
- * - 52x50 bordered previous / next chevron buttons
- * - Flexible gradient-green "Review" CTA (opens the full scorecard)
- * - Optional camera button that opens the round's photos
+ * Renders the footer navigation section:
+ * - Previous / View Full Scorecard / Next hole controls
+ * - Review & Submit button on hole 18 OR when all holes are complete
  */
 
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, typography, shadows } from '@/constants/theme';
+import { spacing, typography, shadows, borderRadius } from '@/constants/theme';
 
 export interface ScorecardFooterProps {
   currentHole: number;
@@ -34,12 +32,13 @@ export function ScorecardFooter({
   onViewScorecard,
   canGoPrevious,
   canGoNext,
-  // The Review CTA is now always visible in the centre of the footer, so the
-  // conditional full-width "Review Scores" row this flag used to gate is gone.
-  isAllComplete: _isAllComplete = false,
+  isAllComplete = false,
   onAddPhotos,
 }: ScorecardFooterProps) {
   const colors = useThemeColors();
+
+  // Show review button when on last hole OR when all holes are complete
+  const showReviewButton = !canGoNext || isAllComplete;
 
   return (
     <View
@@ -53,40 +52,38 @@ export function ScorecardFooter({
           onPress={onPreviousHole}
           disabled={!canGoPrevious}
           style={[
-            styles.chevronButton,
-            { borderColor: colors.border, backgroundColor: colors.surfaceVariant },
+            styles.navButton,
+            styles.navButtonContent,
+            { borderWidth: 1, borderColor: colors.border },
             !canGoPrevious && { opacity: 0.5 },
           ]}
           activeOpacity={0.7}
           accessibilityRole="button"
-          accessibilityLabel="Previous"
         >
-          <Icon source="chevron-left" size={24} color={colors.textPrimary} />
+          <Text style={[styles.navButtonLabel, { color: colors.textPrimary }]}>Previous</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           onPress={onViewScorecard}
-          style={styles.reviewButton}
-          activeOpacity={0.8}
+          style={[
+            styles.iconNavButton,
+            styles.navButtonContent,
+            { borderWidth: 1, borderColor: colors.border },
+          ]}
+          activeOpacity={0.7}
           accessibilityRole="button"
           accessibilityLabel="View full scorecard"
         >
-          <LinearGradient
-            colors={[colors.primaryLight, colors.primary]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.reviewGradient}
-          >
-            <Text style={[styles.reviewLabel, { color: colors.white }]}>Review</Text>
-          </LinearGradient>
+          <Icon source="clipboard-list-outline" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
 
         {onAddPhotos ? (
           <TouchableOpacity
             onPress={onAddPhotos}
             style={[
-              styles.chevronButton,
-              { borderColor: colors.border, backgroundColor: colors.surfaceVariant },
+              styles.iconNavButton,
+              styles.navButtonContent,
+              { borderWidth: 1, borderColor: colors.border },
             ]}
             activeOpacity={0.7}
             accessibilityRole="button"
@@ -100,17 +97,35 @@ export function ScorecardFooter({
           onPress={onNextHole}
           disabled={!canGoNext}
           style={[
-            styles.chevronButton,
-            { borderColor: colors.border, backgroundColor: colors.surfaceVariant },
+            styles.navButton,
+            styles.navButtonContent,
+            { backgroundColor: colors.primary },
             !canGoNext && { opacity: 0.5 },
           ]}
-          activeOpacity={0.7}
+          activeOpacity={0.8}
           accessibilityRole="button"
-          accessibilityLabel="Next Hole"
         >
-          <Icon source="chevron-right" size={24} color={colors.textPrimary} />
+          <Text style={[styles.navButtonLabelPrimary, { color: colors.white }]}>Next Hole</Text>
         </TouchableOpacity>
       </View>
+
+      {showReviewButton && (
+        // Full-width Review Scores button on its own row beneath the
+        // three navigation buttons. Avoids cramming a 4th button into
+        // the top row when both Next Hole and Review Scores are valid.
+        <TouchableOpacity
+          onPress={onViewScorecard}
+          style={[
+            styles.reviewButton,
+            styles.navButtonContent,
+            { backgroundColor: colors.success },
+          ]}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+        >
+          <Text style={[styles.navButtonLabelPrimary, { color: colors.white }]}>Review Scores</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -118,37 +133,37 @@ export function ScorecardFooter({
 const styles = StyleSheet.create({
   navigationContainer: {
     padding: spacing.lg,
-    paddingTop: spacing.md,
+    paddingTop: spacing.sm,
     paddingBottom: spacing.xxxl,
     borderTopWidth: 1,
     ...shadows.sm,
   },
   navButtonsRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+    gap: spacing.md,
   },
-  chevronButton: {
-    width: 52,
-    height: 50,
-    borderRadius: 14,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+  navButton: {
+    flex: 1,
+    borderRadius: borderRadius.lg,
+  },
+  iconNavButton: {
+    width: 56,
+    borderRadius: borderRadius.lg,
   },
   reviewButton: {
-    flex: 1,
-    borderRadius: 14,
-    overflow: 'hidden',
+    marginTop: spacing.md,
+    borderRadius: borderRadius.lg,
   },
-  reviewGradient: {
-    height: 50,
-    borderRadius: 14,
+  navButtonContent: {
+    paddingVertical: spacing.sm,
+    minHeight: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  reviewLabel: {
+  navButtonLabel: {
     ...typography.bodyBold,
-    fontSize: 15,
+  },
+  navButtonLabelPrimary: {
+    ...typography.bodyBold,
   },
 });

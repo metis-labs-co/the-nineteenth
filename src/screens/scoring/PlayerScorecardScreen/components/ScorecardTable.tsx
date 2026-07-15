@@ -13,11 +13,8 @@ import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { spacing, typography, borderRadius } from '@/constants/theme';
 import { ScoreIndicator } from '@/components/scorecard';
-// Fixed dark header-band colors shared with the scorecard redesign (same dark
-// green in both themes). Read-only constant import — no scorecard code touched.
-import { scorecardBand } from '@/components/scorecard/ScorecardTable/styles';
 import { displayHoleNumber } from '@/utils/holeTransformers';
 import { formatHandicapIndex } from '@/utils/displayHelpers';
 import { ScorecardTableMultiBall } from './ScorecardTableMultiBall';
@@ -107,9 +104,9 @@ export function ScorecardTable({
     return labels;
   };
 
-  // Render header row (fixed dark band in both themes)
+  // Render header row
   const renderHeaderRow = () => (
-    <View style={[styles.tableRow, { borderBottomColor: scorecardBand.background }]}>
+    <View style={[styles.tableRow, { borderBottomColor: colors.border }]}>
       {getHeaderLabels().map((label) => (
         <View
           key={label}
@@ -121,10 +118,10 @@ export function ScorecardTable({
             label === 'Score' && styles.scoreCell,
             (label === 'Pts' || label === 'Putts') && styles.wideCell,
             (label === 'FIR' || label === 'GIR') && styles.statCell,
-            { backgroundColor: scorecardBand.background },
+            { backgroundColor: colors.surfaceVariant },
           ]}
         >
-          <Text style={[styles.headerText, { color: scorecardBand.label }]}>
+          <Text style={[styles.headerText, { color: colors.textPrimary }]}>
             {label}
           </Text>
         </View>
@@ -141,7 +138,7 @@ export function ScorecardTable({
     return (
       <View
         key={hole.number}
-        style={[styles.tableRow, { borderBottomColor: colors.borderLight }]}
+        style={[styles.tableRow, { borderBottomColor: colors.border }]}
       >
         <TouchableOpacity
           style={[styles.tableCell, styles.holeCell, { backgroundColor: colors.surface }]}
@@ -242,7 +239,7 @@ export function ScorecardTable({
     return (
       <View
         key={label}
-        style={[styles.tableRow, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.borderLight }]}
+        style={[styles.tableRow, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.border }]}
       >
         <View style={[styles.tableCell, styles.holeCell, { backgroundColor: colors.surfaceVariant }]}>
           <Text style={[styles.subtotalText, { color: colors.textPrimary }]}>{label}</Text>
@@ -374,15 +371,14 @@ export function ScorecardTable({
 const styles = StyleSheet.create({
   tableContainer: {
     borderRadius: borderRadius.lg,
-    ...shadows.sm,
     overflow: 'hidden',
   },
   tableRow: {
     flexDirection: 'row',
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: 1,
   },
   tableCell: {
-    paddingVertical: spacing.xs,
+    paddingVertical: spacing.sm,
     paddingHorizontal: spacing.xs,
     justifyContent: 'center',
     alignItems: 'center',
@@ -392,11 +388,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
   },
   headerText: {
-    fontSize: 10,
-    lineHeight: 14,
-    fontWeight: '800',
-    letterSpacing: 0.4,
-    textTransform: 'uppercase',
+    ...typography.smallBold,
     textAlign: 'center',
   },
   holeCell: {
@@ -427,9 +419,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0,
   },
   totalLabelText: {
-    ...typography.smallBold,
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
+    ...typography.bodyBold,
   },
   totalText: {
     ...typography.bodyBold,
