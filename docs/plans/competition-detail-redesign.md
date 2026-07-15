@@ -157,3 +157,57 @@ every round's board below the overall table.
 - [x] P9 settings screen
 - [x] P10 knockout
 - [x] verify:gate green (type-check ✓, full jest 379 suites/9090 pass ✓, verify:gate PASSED)
+
+---
+
+# Part 2 — Score & Round redesign
+
+Source: same design project, file `Score & Round - Redesign.dc.html` (local copy:
+`/private/tmp/claude-501/-Users-samkay-Documents-MetisCo-Dev-the-nineteenth/4f771114-ca13-48a7-9902-4b537a14c677/scratchpad/score-round-redesign.html`).
+Six screens: Score entry (L39-156), Review scorecard (L158-298), View round
+(L300-488), Match play (L490-595), Quick entry (L597-658), Team match play
+(L660-770). Same token mapping as Part 1. Purely visual restyle — scoring
+guardrails apply (scoring-impact-analyst report obtained 2026-07-15; key
+constraints: keep strings/testIDs/a11y labels, keep DistanceToPin branch order,
+QuickScorecardView width constant ↔ holeButton dims lockstep, ScorecardTable
+widths ↔ utils/scorecardLayout coupling, never touch computed expressions or
+score→color token mappings).
+
+## Phases
+
+- S0: baseline scoring subset green + NEW RoundHeader characterization test
+  (title fallback, change-tees online gating, offline-status derivation).
+- S1 (guardrail chrome, 3-screen blast radius): RoundHeader (centered
+  title/subtitle + Synced pill + Hole N/18 progress bar), HoleHeader family
+  (bordered nav buttons, big hole number, PAR/SI/YDS trio), DistanceToPin
+  (dark green gradient full-width strip presentation; keep state machine; no
+  front/back split — no backing data).
+- S2 (guardrail): PlayerScoreCard family (card: YOUR SCORE eyebrow, name+HC,
+  SHOTS/PTS header, divider, PICK UP / stepper / PAR row 62px, score label
+  pop) + QuickScorecardView ("Your card" strip w/ tinted ring cells).
+- S3: MatchPlayScoringScreen locals — match status bar (tint by standing),
+  local PlayerScoreCard (UP/DN badge), "Match by hole" strip, footer.
+- S4: TeamMatchPlayScoringScreen locals — TeamScorePanel, status bar, strip,
+  footer (inline color logic stays inline; restyle only).
+- S5: QuickScoreEntryScreen — GROSS/TO PAR/POINTS header trio, hole rows
+  (score circle + steppers + pts), "Holes complete N/18 + Save card" footer.
+  GPS strip omitted (organizer backfill screen, no GPS wiring by design).
+- S6: ReviewScorecardScreen — saved banner, underline tabs, ReviewActions
+  footer (Edit scores outline + gradient Submit); ScorecardTable restyle
+  (dark header band w/ initials+YOU, OUT/IN subtotal bands, GROSS dark band
+  w/ to-par, NET row, POINTS green band, cell rings via existing colors).
+- S7: ViewRoundScreen — Details tab (Continue scoring CTA, course card, info
+  list card, dark progress hero), RoundScorecardTab (strip / front-back /
+  full-list 3-view toggle + totals trio + legend), stats grid restyle.
+
+## Status (Part 2)
+
+- [ ] S0 baseline + RoundHeader char test
+- [ ] S1 shared chrome
+- [ ] S2 player score card + quick strip
+- [ ] S3 match play screen
+- [ ] S4 team match play screen
+- [ ] S5 quick entry screen
+- [ ] S6 review scorecard
+- [ ] S7 view round
+- [ ] scoring subset + verify:gate green
