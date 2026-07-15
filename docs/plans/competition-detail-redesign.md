@@ -211,3 +211,49 @@ score→color token mappings).
 - [x] S6 review scorecard
 - [x] S7 view round
 - [x] scoring subset + verify:gate green (full jest 9104 pass, scoring subset 1348, gate PASSED)
+
+---
+
+# Part 3 — App-wide polish ("The Nineteenth - Polished")
+
+Source: same design project, file `The Nineteenth - Polished.dc.html` (local:
+`/private/tmp/claude-501/-Users-samkay-Documents-MetisCo-Dev-the-nineteenth/4f771114-ca13-48a7-9902-4b537a14c677/scratchpad/polished.html`).
+Sections: HOME L66-186, SCORECARD L187-304 (already done — Part 2 S2, skip),
+ROUNDS L305-406, COMPETE L407-523, ACTIVITY L524-602, COURSES L603-720,
+LEADERBOARD L721-785, ROUND SUMMARY L786-849, PROFILE L850-951, ONBOARDING
+L952-984, bottom nav L985-999. Same token mapping + ground rules as Parts 1-2.
+
+Product-shape decisions: keep the app's current 5 nav tabs
+(home/compete/activity/courses/profile — design's "rounds" tab was already
+replaced by Home upstream); Round summary maps to PlayerScorecardScreen;
+podium = new presentational component over existing leaderboard entries.
+
+## Phases
+
+- T1 Home (HomeScreen + components; handicap hero w/ existing trend data,
+  gradient Score CTA, continue-scoring card w/ progress, 2x2 tiles, gold
+  next-comp card, find-a-course, mates rows)
+- T2 Rounds list (RoundListScreen: score CTA, in-progress card, filter
+  pills, round history cards)
+- T3 Compete hub (CompeteScreen: segmented Comps/Leagues, cards)
+- T4 Activity feed (ActivityScreen + ActivityRoundCard)
+- T5 Courses (CourseListScreen: search, filter pills, club rows)
+- T6 Profile + bottom nav restyle (ProfileScreen family; BottomNavigation
+  visual only, current 5 tabs kept)
+- T8 Leaderboard screen (podium top-3 + restyled table)
+- T9 Round summary (PlayerScorecardScreen: hero result, stat row, grid
+  chrome — guardrail-adjacent, presentational only)
+- T10 Onboarding (steps + dots + cards)
+
+## Status (Part 3)
+
+- [ ] T1 home
+- [ ] T2 rounds list
+- [ ] T3 compete hub
+- [ ] T4 activity feed
+- [ ] T5 courses
+- [ ] T6 profile + nav
+- [ ] T8 leaderboard podium
+- [ ] T9 round summary
+- [ ] T10 onboarding
+- [ ] full suite + verify:gate green
