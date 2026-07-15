@@ -256,4 +256,4 @@ podium = new presentational component over existing leaderboard entries.
 - [x] T8 leaderboard podium
 - [x] T9 round summary
 - [x] T10 onboarding
-- [ ] full suite + verify:gate green
+- [x] full suite + verify:gate green (381 suites/9119 pass, gate PASSED)
