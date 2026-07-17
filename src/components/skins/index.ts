@@ -34,6 +34,10 @@ export type { SkinsResultsCardProps } from './SkinsResultsCard';
 export { SkinsSettlementCard } from './SkinsSettlementCard';
 export type { SkinsSettlementCardProps } from './SkinsSettlementCard';
 
+// Current standings (in-progress games)
+export { SkinsCurrentStandingsCard } from './SkinsCurrentStandingsCard';
+export type { SkinsCurrentStandingsCardProps } from './SkinsCurrentStandingsCard';
+
 // Section (for Add/Edit Round screens)
 export { SkinsSection } from './SkinsSection';
 export type { SkinsSectionProps, SkinsEditState } from './SkinsSection';

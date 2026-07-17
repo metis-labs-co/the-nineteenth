@@ -23,6 +23,7 @@ import {
   calculateHole18Split,
   calculateFinalPayouts,
   calculateFinalPayoutsWithCarryover,
+  calculateInProgressPayouts,
   validateSkinsGame,
   validateHoleScores,
   calculateNetPositions,
@@ -717,6 +718,127 @@ describe('Final Payout Calculations', () => {
       expect(p1Payout.total_winnings).toBe(10);
       expect(p1Payout.holes_won).toBe(1);
       expect(p1Payout.holes_tied).toBe(1);
+    });
+  });
+
+  describe('calculateInProgressPayouts', () => {
+    const game = createMockGame({ participant_ids: ['p1', 'p2'] });
+    const participants = [{ id: 'p1' }, { id: 'p2' }];
+
+    const p1WinsScores = createMockHoleScores([
+      { playerId: 'p1', gross: 3, net: 3, strokes_received: 0 },
+      { playerId: 'p2', gross: 4, net: 4, strokes_received: 0 },
+    ]);
+    const tiedScores = createMockHoleScores([
+      { playerId: 'p1', gross: 4, net: 4, strokes_received: 0 },
+      { playerId: 'p2', gross: 4, net: 4, strokes_received: 0 },
+    ]);
+
+    it('accumulates winnings and hole counts like the final settlement', () => {
+      const results = createMockResults([
+        {
+          hole_number: 1,
+          winner_id: 'p1',
+          is_carryover: false,
+          payout_amount: 5,
+          carryover_to_next: 0,
+          hole_scores: p1WinsScores,
+        },
+        {
+          hole_number: 2,
+          winner_id: null,
+          is_carryover: true,
+          payout_amount: 0,
+          carryover_to_next: 5,
+          hole_scores: tiedScores,
+        },
+      ]);
+
+      const { payouts } = calculateInProgressPayouts(game, results, participants);
+
+      const p1 = payouts.find((p) => p.player_id === 'p1')!;
+      expect(p1.holes_won).toBe(1);
+      expect(p1.holes_tied).toBe(1);
+      expect(p1.total_winnings).toBe(5);
+      expect(p1.buy_in).toBe(45); // $5 × 18 holes / 2 players
+
+      const p2 = payouts.find((p) => p.player_id === 'p2')!;
+      expect(p2.holes_lost).toBe(1);
+      expect(p2.holes_tied).toBe(1);
+      expect(p2.total_winnings).toBe(0);
+    });
+
+    it('does NOT split the pending carryover — it is reported separately', () => {
+      const results = createMockResults([
+        {
+          hole_number: 1,
+          winner_id: null,
+          is_carryover: true,
+          payout_amount: 0,
+          carryover_to_next: 5,
+          hole_scores: tiedScores,
+        },
+        {
+          hole_number: 2,
+          winner_id: null,
+          is_carryover: true,
+          payout_amount: 0,
+          carryover_to_next: 10,
+          hole_scores: tiedScores,
+        },
+      ]);
+
+      const { payouts, unsettledCarryover } = calculateInProgressPayouts(
+        game,
+        results,
+        participants
+      );
+
+      expect(unsettledCarryover).toBe(10);
+      for (const payout of payouts) {
+        // Mid-game the carryover is still up for grabs — nobody banks it
+        expect(payout.total_winnings).toBe(0);
+        expect(payout.net_result).toBe(-45);
+      }
+    });
+
+    it('computes net_result as winnings minus buy-in', () => {
+      const results = createMockResults([
+        {
+          hole_number: 1,
+          winner_id: 'p1',
+          is_carryover: false,
+          payout_amount: 5,
+          carryover_to_next: 0,
+          hole_scores: p1WinsScores,
+        },
+      ]);
+
+      const { payouts } = calculateInProgressPayouts(game, results, participants);
+
+      expect(payouts.find((p) => p.player_id === 'p1')!.net_result).toBe(-40); // 5 - 45
+      expect(payouts.find((p) => p.player_id === 'p2')!.net_result).toBe(-45); // 0 - 45
+    });
+
+    it('prices the buy-in off the actual round length for 9-hole rounds', () => {
+      const { payouts } = calculateInProgressPayouts(game, [], participants, 9);
+
+      for (const payout of payouts) {
+        expect(payout.buy_in).toBe(22.5); // $5 × 9 holes / 2 players
+        expect(payout.net_result).toBe(-22.5);
+      }
+    });
+
+    it('returns zeroed standings with no results', () => {
+      const { payouts, unsettledCarryover } = calculateInProgressPayouts(game, [], participants);
+
+      expect(unsettledCarryover).toBe(0);
+      expect(payouts).toHaveLength(2);
+      for (const payout of payouts) {
+        expect(payout.holes_won).toBe(0);
+        expect(payout.total_winnings).toBe(0);
+        expect(payout.net_result).toBe(-45);
+      }
     });
   });
 });
