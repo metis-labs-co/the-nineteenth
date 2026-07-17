@@ -29,9 +29,12 @@ export {
   isValidUUID,
   syncScorecard,
   processScorecardSync,
+  ScorecardConflictError,
   // Orchestrator (main API)
   initSyncService,
   subscribeSyncState,
+  subscribeScorecardSynced,
+  type ScorecardSyncedEvent,
   getSyncState,
   syncAll,
   queueScorecardSync,

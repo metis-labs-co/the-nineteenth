@@ -27,12 +27,13 @@ export { MAX_RETRY_COUNT, INITIAL_SYNC_STATE } from './types';
 export { getIsOnline, getIsSyncing } from './networkState';
 
 // Re-export scorecard sync functions
-export { isValidUUID, syncScorecard, processScorecardSync } from './scorecardSync';
+export { isValidUUID, syncScorecard, processScorecardSync, ScorecardConflictError } from './scorecardSync';
 
 // Re-export orchestrator functions (main API)
 export {
   initSyncService,
   subscribeSyncState,
+  subscribeScorecardSynced,
   getSyncState,
   syncAll,
   queueScorecardSync,
@@ -40,3 +41,4 @@ export {
   retryFailedSyncs,
   clearSyncQueue,
 } from './syncOrchestrator';
+export type { ScorecardSyncedEvent } from './syncOrchestrator';
