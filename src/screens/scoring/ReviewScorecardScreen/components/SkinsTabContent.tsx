@@ -2,7 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { Alert, View, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { LoadingSpinner } from '@/components/common';
-import { SkinsResultsCard, SkinsSettlementCard } from '@/components/skins';
+import { SkinsResultsCard, SkinsSettlementCard, SkinsCurrentStandingsCard } from '@/components/skins';
 import { spacing, borderRadius, typography, skinsColor } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useSkinsSummary } from '@/hooks/useSkins';
@@ -197,20 +197,33 @@ export function SkinsTabContent({ skinsGameId, totalHoles, isRefreshing, onRefre
         </View>
       )}
 
-      {/* In-Progress Info */}
+      {/* In-Progress Info: live standings for individual games, plain copy for team games
+          (the summary doesn't carry team member data, so no team standings yet) */}
       {game.status === 'active' && holes_completed < totalHoles && (
-        <View style={[styles.inProgressCard, { backgroundColor: colors.surface }]}>
-          <View style={styles.inProgressHeader}>
-            <Icon source="golf" size={20} color={SKINS_COLOR} />
-            <Text style={[typography.bodyBold, { color: colors.textPrimary, marginLeft: spacing.sm }]}>
-              Game In Progress
+        game.is_team_skins ? (
+          <View style={[styles.inProgressCard, { backgroundColor: colors.surface }]}>
+            <View style={styles.inProgressHeader}>
+              <Icon source="golf" size={20} color={SKINS_COLOR} />
+              <Text style={[typography.bodyBold, { color: colors.textPrimary, marginLeft: spacing.sm }]}>
+                Game In Progress
+              </Text>
+            </View>
+            <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.sm }]}>
+              {holes_completed} of {totalHoles} holes completed
+              {current_carryover > 0 && ` • $${current_carryover.toFixed(2)} carryover`}
             </Text>
           </View>
-          <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.sm }]}>
-            {holes_completed} of {totalHoles} holes completed
-            {current_carryover > 0 && ` • $${current_carryover.toFixed(2)} carryover`}
-          </Text>
-        </View>
+        ) : (
+          <View style={styles.settlementContainer}>
+            <SkinsCurrentStandingsCard
+              game={game}
+              results={results}
+              totalHoles={totalHoles}
+              holesCompleted={holes_completed}
+              testID="skins-current-standings-card"
+            />
+          </View>
+        )
       )}
     </ScrollView>
   );
