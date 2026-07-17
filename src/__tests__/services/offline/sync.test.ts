@@ -19,6 +19,7 @@ import {
   retryFailedSyncs,
   clearSyncQueue,
   subscribeSyncState,
+  subscribeScorecardSynced,
 } from '@/services/offline/sync';
 import * as database from '@/services/offline/database';
 import { supabase } from '@/services/supabase/client';
@@ -387,6 +388,119 @@ describe('Sync Operations', () => {
       const result = await syncAll();
 
       expect(result).toBe(true);
+    });
+  });
+
+  describe('scorecard synced notifications', () => {
+    afterEach(() => {
+      // Restore the factory default so later suites see the stock response
+      (supabase.rpc as jest.Mock).mockImplementation(() =>
+        Promise.resolve({
+          data: [
+            {
+              applied: true,
+              conflict: false,
+              server_revision: 1,
+              server_status: 'completed',
+              server_scores: {},
+            },
+          ],
+          error: null,
+        })
+      );
+    });
+
+    const successRpc = (serverRevision: number) => ({
+      data: [
+        {
+          applied: true,
+          conflict: false,
+          server_revision: serverRevision,
+          server_status: 'in-progress',
+          server_scores: {},
+        },
+      ],
+      error: null,
+    });
+
+    it('notifies subscribers after a queued scorecard sync succeeds', async () => {
+      const listener = jest.fn();
+      const unsubscribe = subscribeScorecardSynced(listener);
+      const scorecard = createTestScorecard();
+      (database.getPendingSyncs as jest.Mock).mockResolvedValue([
+        createPendingSync({ data: scorecard }),
+      ]);
+      (supabase.rpc as jest.Mock).mockResolvedValue(successRpc(3));
+
+      await syncAll();
+
+      expect(listener).toHaveBeenCalledWith({
+        scorecardId: scorecard.id,
+        serverRevision: 3,
+      });
+      unsubscribe();
+    });
+
+    it('notifies subscribers after an unsynced-scorecard fallback sync succeeds', async () => {
+      const listener = jest.fn();
+      const unsubscribe = subscribeScorecardSynced(listener);
+      const scorecard = createTestScorecard();
+      (database.getUnsyncedScorecards as jest.Mock).mockResolvedValue([scorecard]);
+      (supabase.rpc as jest.Mock).mockResolvedValue(successRpc(4));
+
+      await syncAll();
+
+      expect(listener).toHaveBeenCalledWith({
+        scorecardId: scorecard.id,
+        serverRevision: 4,
+      });
+      unsubscribe();
+    });
+
+    it('does not notify when the write is rejected as a conflict', async () => {
+      const listener = jest.fn();
+      const unsubscribe = subscribeScorecardSynced(listener);
+      (database.getPendingSyncs as jest.Mock).mockResolvedValue([createPendingSync()]);
+      (supabase.rpc as jest.Mock).mockResolvedValue({
+        data: [
+          {
+            applied: false,
+            conflict: true,
+            server_revision: 9,
+            server_status: 'in-progress',
+            server_scores: {},
+          },
+        ],
+        error: null,
+      });
+
+      await syncAll();
+
+      expect(listener).not.toHaveBeenCalled();
+      unsubscribe();
+    });
+
+    it('uses the freshest revision for later queued syncs of the same scorecard in one drain', async () => {
+      // Two queued edits of the same scorecard, both captured while the
+      // client still believed the server was at revision 1. The first write
+      // bumps the server to 2; the second must send 2, not the stale 1.
+      const scorecard = createTestScorecard({ serverRevision: 1 });
+      (database.getPendingSyncs as jest.Mock).mockResolvedValue([
+        createPendingSync({ id: 1, data: scorecard, revision: 1 }),
+        createPendingSync({ id: 2, data: { ...scorecard }, revision: 2 }),
+      ]);
+      (supabase.rpc as jest.Mock)
+        .mockResolvedValueOnce(successRpc(2))
+        .mockResolvedValueOnce(successRpc(3));
+
+      await syncAll();
+
+      const writeCalls = (supabase.rpc as jest.Mock).mock.calls.filter(
+        ([fn]) => fn === 'write_scorecard_snapshot'
+      );
+      expect(writeCalls).toHaveLength(2);
+      expect(writeCalls[0][1].p_expected_revision).toBe(1);
+      expect(writeCalls[1][1].p_expected_revision).toBe(2);
     });
   });
 

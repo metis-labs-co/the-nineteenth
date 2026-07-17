@@ -24,7 +24,7 @@ import { refinalizeRoundResults } from '@/services/rounds/refinalizeRoundResults
 import { forceFinalizeRound } from '@/services/rounds/forceFinalizeRound';
 import { reopenRound } from '@/services/rounds/reopenRound';
 import { getScorecardsByRound, markScorecardAsSynced, deleteScorecardsByRound } from '@/services/offline/database';
-import { syncScorecard } from '@/services/offline/sync';
+import { syncScorecard, ScorecardConflictError } from '@/services/offline/sync';
 import { useToast } from '@/context/ToastContext';
 import type { TeeBox } from '@/types';
 import type { CompetitionData, RoundWithCourse } from '@/components/competitions/detail';
@@ -611,7 +611,15 @@ export function useForceSyncRoundScorecards() {
 
       for (const sc of eligible) {
         try {
-          const result = await syncScorecard(sc);
+          let result;
+          try {
+            result = await syncScorecard(sc);
+          } catch (error) {
+            if (!(error instanceof ScorecardConflictError)) throw error;
+            // Force-push means local wins: adopt the server's revision and
+            // retry once so a stale tracked revision can't block recovery.
+            result = await syncScorecard({ ...sc, serverRevision: error.serverRevision });
+          }
           await markScorecardAsSynced(sc.id, result.serverRevision);
           pushed++;
         } catch (error) {

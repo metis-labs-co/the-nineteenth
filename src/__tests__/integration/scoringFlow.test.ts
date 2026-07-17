@@ -83,7 +83,16 @@ jest.mock('@/services/offline/sync', () => ({
       if (index > -1) mockSyncSubscribers.splice(index, 1);
     };
   }),
+  subscribeScorecardSynced: jest.fn(() => jest.fn()),
   getIsOnline: jest.fn(() => mockIsOnline),
+  ScorecardConflictError: class ScorecardConflictError extends Error {
+    readonly serverRevision: number;
+    constructor(serverRevision: number) {
+      super('conflict');
+      this.name = 'ScorecardConflictError';
+      this.serverRevision = serverRevision;
+    }
+  },
 }));
 
 // Mock the debug logger

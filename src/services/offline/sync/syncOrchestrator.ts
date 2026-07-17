@@ -48,6 +48,32 @@ const listeners: Set<SyncListener> = new Set();
 let currentState: SyncState = { ...INITIAL_SYNC_STATE };
 
 /**
+ * Notification fired after a scorecard write is accepted by the server.
+ * The live scorecard store subscribes so its in-memory `serverRevision`
+ * tracks the server; without this, the next write_scorecard_snapshot call
+ * sends a stale expected revision and is falsely rejected as a conflict.
+ */
+export interface ScorecardSyncedEvent {
+  scorecardId: string;
+  serverRevision: number;
+}
+
+type ScorecardSyncedListener = (event: ScorecardSyncedEvent) => void;
+
+const scorecardSyncedListeners: Set<ScorecardSyncedListener> = new Set();
+
+export function subscribeScorecardSynced(listener: ScorecardSyncedListener): () => void {
+  scorecardSyncedListeners.add(listener);
+  return () => {
+    scorecardSyncedListeners.delete(listener);
+  };
+}
+
+function notifyScorecardSynced(scorecardId: string, serverRevision: number): void {
+  scorecardSyncedListeners.forEach((listener) => listener({ scorecardId, serverRevision }));
+}
+
+/**
  * Update and notify listeners of state changes
  */
 function updateState(partial: Partial<SyncState>): void {
@@ -137,6 +163,11 @@ export async function syncAll(): Promise<boolean> {
     let failCount = 0;
     let conflictCount = 0;
     let scorecardsWereSynced = false;
+    // Server revisions confirmed during THIS drain, keyed by scorecard id.
+    // Later queued edits of the same scorecard were snapshotted before the
+    // earlier write bumped the server revision; without this they would be
+    // falsely rejected as conflicts.
+    const freshestRevisions = new Map<string, number>();
 
     for (const sync of pendingSyncs) {
       try {
@@ -146,6 +177,12 @@ export async function syncAll(): Promise<boolean> {
           action: sync.action,
           retryCount: sync.retryCount,
         });
+        if (sync.type === 'scorecard' && sync.data?.id) {
+          const freshest = freshestRevisions.get(sync.data.id);
+          if (freshest !== undefined && freshest > (sync.data.serverRevision ?? 0)) {
+            sync.data.serverRevision = freshest;
+          }
+        }
         const result = await processPendingSync(sync);
         const acknowledged = await removePendingSync(sync.id!, sync.revision ?? 1);
         if (!acknowledged) {
@@ -164,7 +201,11 @@ export async function syncAll(): Promise<boolean> {
           // path (below) from re-syncing potentially incomplete SQLite data and
           // overwriting the complete data we just synced from the queue.
           if (sync.data?.id) {
-            await markScorecardAsSynced(sync.data.id, result?.serverRevision ?? sync.data.serverRevision ?? 0);
+            const confirmedRevision =
+              result?.serverRevision ?? sync.data.serverRevision ?? 0;
+            await markScorecardAsSynced(sync.data.id, confirmedRevision);
+            freshestRevisions.set(sync.data.id, confirmedRevision);
+            notifyScorecardSynced(sync.data.id, confirmedRevision);
           }
         }
       } catch (error) {
@@ -247,6 +288,7 @@ export async function syncAll(): Promise<boolean> {
           syncLogger.debug('Syncing unsynced scorecard', logScorecardSummary(scorecard));
           const result = await syncScorecard(scorecard);
           await markScorecardAsSynced(scorecard.id, result.serverRevision);
+          notifyScorecardSynced(scorecard.id, result.serverRevision);
           successCount++;
           scorecardsWereSynced = true;
           syncLogger.debug('Unsynced scorecard synced successfully', {
