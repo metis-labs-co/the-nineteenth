@@ -691,7 +691,8 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
       {/* Allow swipe navigation even after match is complete so user can review/edit scores */}
       <SwipeableHoleNavigator
         currentHole={currentHole}
-        totalHoles={18}
+        totalHoles={lastHoleNumber}
+        firstHole={firstHoleNumber}
         onHoleChange={setCurrentHole}
         enabled={!isSubmitting && !isScrollingProgress}
         renderHole={renderHoleContent}
