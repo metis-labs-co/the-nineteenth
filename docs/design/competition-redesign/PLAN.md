@@ -209,6 +209,22 @@ A review found seven issues in this plan + `SPEC.md`, all verified against the c
     changes; small presentational extraction allowed; tab labels/role sets are deliberate redesign
     changes." → `PHASE-1A-PLAN.md` architecture + constraints.
 
+### Round 5 (2026-07-24) — tab-model detail, verified against the mock's own logic
+
+22. **`activeTab` must reconcile with the gated set.** Init is `initialTab ?? 'details'` (`index.tsx:74`).
+    After role-gating removes Details for competitors, a stale `activeTab='details'` renders hidden
+    content with no selected pill. Clamp `activeTab`/`initialTab` to the available set; default
+    organiser→`details`, competitor→`leaderboard`; reject inaccessible `initialTab`. Tested. →
+    `PHASE-1A-PLAN.md` Task 1B.
+23. **Organiser set LOCKED (mock `orgTabs`):** Details · Rounds · Standings/Results · Stats · Breakdown ·
+    **Players · Teams** · Payouts · Skins (subject to availability flags). SPEC had omitted Players/Teams;
+    the mock includes both. No more "confirm". → Task 1B.
+24. **Competitor Payouts is completed-only, and no Teams tab (mock `pTabs`):** Standings/Results · Rounds
+    · Players, `+ payouts` pushed only when `isCompleted`. My matrix had listed Payouts unconditionally
+    and implied Teams. → Task 1B + `PHASE-1-PLAN.md`.
+25. **1B.1 self-review checklist wording fixed:** dropped "SHARED query key"; Settings consumes the
+    existing details query for rounds while keeping its separate counts query. → `PHASE-1B1-PLAN.md`.
+
 ---
 
 ## 0. Blockers — do not start until these are true

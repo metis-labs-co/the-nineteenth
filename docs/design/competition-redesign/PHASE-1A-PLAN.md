@@ -93,25 +93,40 @@ Results label. This is new information architecture, not a re-skin.
 - Test: `src/screens/competitions/CompetitionDetailScreen/__tests__/tabModel.test.ts` (create) — or a
   pure `buildTabs(role, type, status, flags)` helper extracted for testability.
 
-**Target matrix (reconcile the existing conditionals with `SPEC.md` §Screens — do not invent):**
-- **Label:** the leaderboard tab renders label **`Standings`**, flipping to **`Results`** when
-  `status === 'completed'`. (Component stays `LeaderboardTab`; key can stay `leaderboard`.)
-- **Organiser · team cup:** Details · Rounds · Standings · Stats · Breakdown · Payouts · Skins (per
-  SPEC). Reconcile the current Players/Teams tabs against the mock — confirm with the mock which the
-  organiser set shows; do not silently drop tabs.
-- **Competitor · team cup:** reduced set **Standings · Rounds · Players · Payouts** — **role-gate this
-  (new)**; competitors must not see organiser-only tabs/actions.
-- **Knockout:** `Bracket` replaces Standings (they are mutually exclusive — knockout has no Standings
-  tab); keep Players as the mock shows.
-- **Preserve:** `promoteLeaderboard` reorder, prize/skins/stats/breakdown conditional availability, and
-  realtime subs.
+**Target matrix — LOCKED from the mock's own `orgTabs`/`pTabs` logic (not "confirm"; this is source of
+truth over SPEC's stated sets):**
+- **Label:** the leaderboard tab renders **`Standings`**, flipping to **`Results`** when
+  `status === 'completed'` (`isCompleted ? 'Results' : 'Standings'`). Component stays `LeaderboardTab`;
+  app key stays `leaderboard`.
+- **Organiser · team cup (LOCKED):** Details · Rounds · Standings/Results · Stats · Breakdown ·
+  **Players · Teams** · Payouts · Skins — each still subject to its existing availability flag
+  (Teams only if `team_mode !== 'none'`; Stats/Breakdown/Payouts/Skins per their current flags). SPEC
+  had omitted Players/Teams; the mock includes both.
+- **Competitor · team cup (LOCKED):** Standings/Results · Rounds · Players — **plus Payouts ONLY when
+  `status === 'completed'`** (the mock pushes `payouts` only in the completed state). **No Teams tab**
+  for competitors. Role-gate this reduced set (new); competitors must not see organiser-only tabs/actions.
+- **Knockout:** `Bracket` replaces Standings (mutually exclusive); keep Players (per SPEC).
+- **Preserve:** `promoteLeaderboard` reorder, the availability flags above, and realtime subs.
+
+**activeTab reconciliation (correctness — has tests):** `activeTab` initialises to `initialTab ?? 'details'`
+(`index.tsx:74`), and an effect sets it from `initialTab`. Once the set is role/status-gated, a stale
+`activeTab` would render a **hidden** tab's content with no selected pill. Required:
+- If the current `activeTab` **or** an incoming `initialTab` is **not in the available set**, clamp to the
+  role default: **organiser → `details`**, **competitor → `leaderboard`** (competitors have no Details;
+  Payouts is absent until completed).
+- Recompute whenever role / status / availability flags change the set.
 
 **Steps:**
 - [ ] Extract a pure `buildTabs({ role, competitionType, status, flags })` helper from the inline array.
 - [ ] Write tests asserting the tab list (keys + labels) for each cell: organiser/competitor ×
-  event/knockout × upcoming/in-progress/completed. Include the Standings→Results label flip and the
-  competitor reduction.
-- [ ] Run (fail) → implement `buildTabs` + role gating → run (pass).
+  event/knockout × upcoming/in-progress/completed. Include: the Standings→Results label flip; the
+  organiser set includes Players + Teams (Teams gated on `team_mode`); the competitor set is
+  Standings/Rounds/Players with **Payouts only when completed**.
+- [ ] Add `activeTab` reconciliation (clamp `activeTab`/`initialTab` to the available set; default
+  organiser→`details`, competitor→`leaderboard`). Tests: (a) competitor + `initialTab='details'` →
+  `leaderboard`; (b) competitor pre-completion + `initialTab='payouts'` → `leaderboard` (Payouts absent);
+  (c) status flips to completed → Payouts appears and a competitor already on a valid tab is preserved.
+- [ ] Run (fail) → implement `buildTabs` + role gating + reconciliation → run (pass).
 - [ ] Verify realtime subs and reorder still work manually; `pnpm type-check` + `pnpm lint`.
 - [ ] Commit: `feat(competition): role/status-aware tab model (1A.1B)`
 

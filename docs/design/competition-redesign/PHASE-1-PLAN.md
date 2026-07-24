@@ -63,8 +63,9 @@ except two deliberate IA changes below.
 **Readiness:** ✅ **ready once Phase 0 tokens land.** No product decisions outstanding.
 **Two NEW IA changes (not a pure re-skin — verified the tab array is not role-gated today):** (a) the
 `'Leaderboard'` tab becomes status-driven **Standings/Results**; (b) competitors get a **reduced,
-role-gated** tab set (Standings·Rounds·Players·Payouts) that does not exist today. Both are an explicit
-tested task (`PHASE-1A-PLAN.md` Task 1B), plus the status-driven hero/CTA.
+role-gated** tab set (Standings·Rounds·Players, +Payouts only when completed) that does not exist today.
+Both are an explicit tested task (`PHASE-1A-PLAN.md` Task 1B — with the organiser/competitor sets locked
+from the mock's own tab logic and `activeTab` reconciliation), plus the status-driven hero/CTA.
 **Nature:** presentational — numbers come from existing utils/hooks (follow the `SettingsSection` →
 `summarizeCompetition` precedent). Acceptance is the **side-by-side-vs-mock screenshot sign-off**
 loop (per `PLAN.md` §Acceptance), not unit tests — so this track is an ordered per-tab checklist,

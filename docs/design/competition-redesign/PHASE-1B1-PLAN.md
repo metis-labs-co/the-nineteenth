@@ -151,7 +151,9 @@ render) and check `DetailsTab.test.tsx` / `DetailsTab.stories.tsx` for reference
 
 ## Self-review checklist
 
-- [ ] `rounds` is available in Settings from a SHARED query key (no duplicate fetch/key).
+- [ ] `rounds` is available in Settings by consuming the existing **details** query
+      (`useCompetitionDetailsData` → `['competition', id, 'details']`), while `useCompetitionData`
+      keeps providing its separate counts query. No new key, no forced key-sharing.
 - [ ] Every relocated field edits AND refreshes from the Settings screen (no stale rows).
 - [ ] Details tab no longer renders the config rows (or shows the agreed read-only summary).
 - [ ] Locked state, organiser gating, and the Points-Config-viewable-by-all rule are all preserved.
