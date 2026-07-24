@@ -1,0 +1,1109 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+  body { margin: 0; background: radial-gradient(120% 120% at 50% 0%, #eef1ec 0%, #e2e5df 60%, #d8dcd4 100%); font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+  a { color: var(--c-primary,#6eac4d); } a:hover { color: var(--c-on-green,#4e7d34); }
+  @keyframes scr-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes pop-in { 0% { opacity: 0; transform: scale(.7); } 60% { transform: scale(1.08); } 100% { opacity: 1; transform: scale(1); } }
+  .n19-scroll::-webkit-scrollbar { display: none; }
+  .n19-scroll { scrollbar-width: none; -ms-overflow-style: none; }
+</style>
+</helmet>
+
+<div style="min-height:100vh;padding:44px 46px 90px;background:var(--c-canvas,transparent);">
+
+  <div style="max-width:1180px;margin:0 auto 34px;">
+    <div style="display:inline-flex;align-items:center;gap:8px;padding:5px 11px;border-radius:999px;background:var(--c-primary,#6eac4d);box-shadow:0 4px 14px rgba(110,172,77,.4);">
+      <div style="width:7px;height:7px;border-radius:50%;background:#fff;"></div>
+      <span style="font-size:11px;font-weight:700;letter-spacing:.14em;color:#fff;">THE NINETEENTH</span>
+    </div>
+    <h1 style="font-size:30px;line-height:1.12;font-weight:800;letter-spacing:-0.02em;color:var(--c-text-hd,#1a2417);margin:20px 0 10px;">Scoring &amp; scorecard — polished</h1>
+    <p style="font-size:14.5px;line-height:1.6;color:var(--c-text2,#5c6657);margin:0;max-width:820px;">Six round-scoring screens, refined to match the rest of the app — same lime brand, calmer density, clearer score hierarchy. The four score-entry screens — <b style="color:var(--c-text-med,#3a4433);">Score entry</b>, <b style="color:var(--c-text-med,#3a4433);">Match play</b>, <b style="color:var(--c-text-med,#3a4433);">Quick entry</b> and <b style="color:var(--c-text-med,#3a4433);">Team match play</b> — are fully live (tap +/−, Pick&nbsp;up, Par, hole arrows) and each carries the GPS distance-to-pin strip. <b style="color:var(--c-text-med,#3a4433);">Review scorecard</b> and <b style="color:var(--c-text-med,#3a4433);">View round</b> switch tabs, and View round's scorecard offers strip / front-back / full-list views. Flip the Dark tweak to check both themes.</p>
+  </div>
+
+  <div style="display:flex;gap:56px;justify-content:center;flex-wrap:wrap;align-items:flex-start;">
+
+    <!-- ================= SCREEN 1 · SCORE ENTRY ================= -->
+    <div style="flex:none;">
+      <div style="display:flex;align-items:center;gap:9px;margin:0 auto 15px;width:fit-content;">
+        <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;background:var(--c-primary,#6eac4d);">
+          <span style="font-size:11px;font-weight:800;letter-spacing:.09em;color:#fff;text-transform:uppercase;">Score entry</span>
+        </span>
+        <span style="font-size:12.5px;color:var(--c-muted,#7a8472);">live · hole by hole</span>
+      </div>
+
+      <div style="position:relative;width:392px;height:812px;border-radius:60px;padding:13px;background:linear-gradient(150deg,#2a2f27,#0e120c);box-shadow:0 2px 3px rgba(255,255,255,.25) inset, 0 40px 90px -20px rgba(20,30,15,.5), 0 12px 30px rgba(0,0,0,.26);">
+        <div style="position:relative;width:100%;height:100%;border-radius:48px;overflow:hidden;background:var(--c-screen,#f3f4f6);display:flex;flex-direction:column;">
+          <div style="position:absolute;top:0;left:0;right:0;height:54px;z-index:40;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 8px;pointer-events:none;">
+            <span style="font-size:14px;font-weight:700;color:var(--c-text,#141b10);font-variant-numeric:tabular-nums;">9:41</span>
+            <div style="display:flex;align-items:center;gap:7px;"><div style="display:flex;align-items:flex-end;gap:2px;height:11px;"><div style="width:3px;height:5px;border-radius:1px;background:var(--c-text,#141b10);"></div><div style="width:3px;height:7px;border-radius:1px;background:var(--c-text,#141b10);"></div><div style="width:3px;height:9px;border-radius:1px;background:var(--c-text,#141b10);"></div><div style="width:3px;height:11px;border-radius:1px;background:var(--c-text,#141b10);"></div></div><div style="width:23px;height:12px;border-radius:3px;border:1.5px solid var(--c-text,#141b10);opacity:.9;padding:1.5px;"><div style="width:70%;height:100%;border-radius:1px;background:var(--c-text,#141b10);"></div></div></div>
+          </div>
+          <div style="position:absolute;top:11px;left:50%;transform:translateX(-50%);width:116px;height:33px;background:#05070a;border-radius:20px;z-index:45;"></div>
+
+          <!-- header -->
+          <div style="flex:none;padding:55px 14px 0;background:var(--c-surface,#fff);border-bottom:1px solid var(--c-border-h,#ecefe8);">
+            <div style="display:flex;align-items:center;gap:9px;">
+              <button onClick="{{ noop }}" style="width:36px;height:36px;border:none;background:var(--c-tint,#f2f4ef);border-radius:11px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;" style-active="transform:scale(.92)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="var(--c-text-med,#3a4433)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+              <div style="flex:1;min-width:0;text-align:center;">
+                <div style="font-size:15.5px;font-weight:800;color:var(--c-text,#141b10);">Score entry</div>
+                <div style="font-size:11.5px;color:var(--c-muted,#7a8472);margin-top:1px;display:flex;align-items:center;justify-content:center;gap:6px;"><span style="width:9px;height:9px;border-radius:3px;background:#f4f6f7;border:1.5px solid #cfd6c8;"></span>Pennard GC · White tees</div>
+              </div>
+              <div style="display:inline-flex;align-items:center;gap:5px;padding:0 10px;height:26px;border-radius:999px;background:var(--c-green-tint,#eef5e8);flex:none;">
+                <span style="width:6px;height:6px;border-radius:50%;background:var(--c-primary,#6eac4d);"></span>
+                <span style="font-size:11px;font-weight:700;color:var(--c-on-green,#4e7d34);">Synced</span>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;margin:12px 2px 12px;">
+              <span style="font-size:10.5px;font-weight:800;letter-spacing:.06em;color:var(--c-label,#9aa392);text-transform:uppercase;white-space:nowrap;">Hole {{ hole.n }}/18</span>
+              <div style="flex:1;height:6px;border-radius:999px;background:var(--c-track3,#e6eadf);overflow:hidden;"><div style="width:{{ progressPct }};height:100%;border-radius:999px;background:linear-gradient(90deg,#7cbd57,#5f9a3f);"></div></div>
+              <span style="font-size:11px;font-weight:700;color:var(--c-primary,#6eac4d);white-space:nowrap;">thru {{ playedCount }}</span>
+            </div>
+          </div>
+
+          <!-- hole bar -->
+          <div style="flex:none;display:flex;align-items:center;padding:12px 16px;background:var(--c-tint2,#fbfcfa);border-bottom:1px solid var(--c-border-h,#ecefe8);">
+            <button onClick="{{ prevHole }}" style="width:40px;height:40px;border:1px solid var(--c-border2,#e4e8de);background:var(--c-surface,#fff);border-radius:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;" style-active="transform:scale(.9)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="var(--c-text-med,#3a4433)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            <div style="flex:1;text-align:center;">
+              <div style="font-size:10.5px;font-weight:800;letter-spacing:.1em;color:var(--c-label,#9aa392);text-transform:uppercase;">Hole</div>
+              <div style="font-size:33px;font-weight:800;letter-spacing:-0.02em;color:var(--c-text,#141b10);line-height:1;">{{ hole.n }}</div>
+            </div>
+            <button onClick="{{ nextHole }}" style="width:40px;height:40px;border:1px solid var(--c-border2,#e4e8de);background:var(--c-surface,#fff);border-radius:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;" style-active="transform:scale(.9)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="var(--c-text-med,#3a4433)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            <div style="width:1px;height:38px;background:var(--c-border2,#e4e8de);margin:0 15px;"></div>
+            <div style="display:flex;gap:19px;">
+              <div style="text-align:center;"><div style="font-size:18px;font-weight:800;color:var(--c-text,#141b10);">{{ hole.par }}</div><div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:var(--c-label,#9aa392);">PAR</div></div>
+              <div style="text-align:center;"><div style="font-size:18px;font-weight:800;color:var(--c-text,#141b10);">{{ hole.si }}</div><div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:var(--c-label,#9aa392);">S.I.</div></div>
+              <div style="text-align:center;"><div style="font-size:18px;font-weight:800;color:var(--c-text,#141b10);">{{ hole.yds }}</div><div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:var(--c-label,#9aa392);">YDS</div></div>
+            </div>
+          </div>
+
+          <!-- GPS distance to pin -->
+          <button onClick="{{ noop }}" style="flex:none;display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:10px 16px;background:linear-gradient(100deg,#1f2a19,#2b3a22);border:none;border-bottom:1px solid var(--c-border-h,#ecefe8);cursor:pointer;" style-active="filter:brightness(1.08)">
+            <div style="width:34px;height:34px;border-radius:11px;background:rgba(139,194,110,.18);display:flex;align-items:center;justify-content:center;flex:none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11Z" stroke="#a9d38a" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="10" r="2.4" fill="#a9d38a"/></svg></div>
+            <div style="display:flex;align-items:baseline;gap:5px;"><span style="font-size:26px;font-weight:800;color:#fff;line-height:1;">{{ pin.mid }}</span><span style="font-size:11px;font-weight:700;letter-spacing:.05em;color:#8ba079;">yds to pin</span></div>
+            <div style="display:flex;gap:14px;margin-left:auto;">
+              <div style="text-align:center;"><div style="font-size:14px;font-weight:800;color:#dfe9d5;">{{ pin.front }}</div><div style="font-size:8.5px;font-weight:800;letter-spacing:.06em;color:#7d9069;">FRONT</div></div>
+              <div style="text-align:center;"><div style="font-size:14px;font-weight:800;color:#dfe9d5;">{{ pin.back }}</div><div style="font-size:8.5px;font-weight:800;letter-spacing:.06em;color:#7d9069;">BACK</div></div>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style="align-self:center;"><path d="M9 6l6 6-6 6" stroke="#6f7f5e" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+          </button>
+
+          <!-- players -->
+          <div class="n19-scroll" style="flex:1;min-height:0;overflow-y:auto;padding:14px 16px 16px;">
+            <sc-for list="{{ entryPlayers }}" as="p" hint-placeholder-count="2">
+              <div style="border-radius:18px;padding:15px;margin-bottom:13px;background:{{ p.cardBg }};border:1px solid {{ p.cardBorder }};box-shadow:0 1px 2px rgba(20,30,15,.04);">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                  <div>
+                    <sc-if value="{{ p.you }}" hint-placeholder-val="{{ true }}"><span style="display:inline-block;font-size:9.5px;font-weight:800;letter-spacing:.08em;color:var(--c-primary,#6eac4d);text-transform:uppercase;margin-bottom:3px;">Your score</span></sc-if>
+                    <div style="font-size:18px;font-weight:800;color:var(--c-text,#141b10);">{{ p.name }}</div>
+                    <div style="font-size:12px;color:var(--c-muted,#7a8472);margin-top:2px;">HC {{ p.hc }} · {{ p.shotsLabel }}</div>
+                  </div>
+                  <div style="display:flex;gap:16px;">
+                    <div style="text-align:center;"><div style="font-size:26px;font-weight:800;color:var(--c-text,#141b10);line-height:1;">{{ p.shots }}</div><div style="font-size:9.5px;font-weight:700;letter-spacing:.05em;color:var(--c-label,#9aa392);margin-top:3px;">SHOTS</div></div>
+                    <div style="text-align:center;"><div style="font-size:26px;font-weight:800;color:var(--c-primary,#6eac4d);line-height:1;">{{ p.pts }}</div><div style="font-size:9.5px;font-weight:700;letter-spacing:.05em;color:var(--c-label,#9aa392);margin-top:3px;">PTS</div></div>
+                  </div>
+                </div>
+                <div style="height:1px;background:var(--c-divider,#e9ece4);margin:14px 0;"></div>
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                  <button onClick="{{ p.pickUp }}" style="width:60px;height:62px;border-radius:14px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:1.5px solid {{ p.pickBorder }};background:{{ p.pickBg }};" style-active="transform:scale(.94)"><span style="font-size:19px;font-weight:800;color:{{ p.pickText }};">P</span><span style="font-size:8px;font-weight:800;letter-spacing:.04em;color:{{ p.pickText }};">PICK UP</span></button>
+                  <div style="display:flex;align-items:center;gap:9px;">
+                    <button onClick="{{ p.dec }}" style="width:58px;height:62px;border-radius:14px;border:1.5px solid var(--c-border-green,#dfe4d8);background:var(--c-surface,#fff);cursor:pointer;display:flex;align-items:center;justify-content:center;" style-active="transform:scale(.9)"><span style="font-size:29px;font-weight:500;color:var(--c-text-med,#3a4433);line-height:0;">−</span></button>
+                    <div style="width:52px;text-align:center;"><span style="font-size:40px;font-weight:800;color:var(--c-text,#141b10);line-height:1;">{{ p.scoreDisplay }}</span></div>
+                    <button onClick="{{ p.inc }}" style="width:58px;height:62px;border-radius:14px;border:1.5px solid var(--c-border-green,#dfe4d8);background:var(--c-surface,#fff);cursor:pointer;display:flex;align-items:center;justify-content:center;" style-active="transform:scale(.9)"><span style="font-size:29px;font-weight:500;color:var(--c-text-med,#3a4433);line-height:0;">+</span></button>
+                  </div>
+                  <button onClick="{{ p.setPar }}" style="width:60px;height:62px;border-radius:14px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:1.5px solid {{ p.parBorder }};background:{{ p.parBg }};" style-active="transform:scale(.94)"><span style="font-size:19px;font-weight:800;color:{{ p.parText }};">{{ hole.par }}</span><span style="font-size:8px;font-weight:800;letter-spacing:.04em;color:{{ p.parText }};">PAR</span></button>
+                </div>
+                <sc-if value="{{ p.showLabel }}" hint-placeholder-val="{{ false }}"><div style="text-align:center;margin-top:11px;"><span style="font-size:11.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:{{ p.labelColor }};animation:pop-in .3s ease both;">{{ p.label }}</span></div></sc-if>
+              </div>
+            </sc-for>
+
+            <div style="border-radius:16px;background:var(--c-surface,#fff);border:1px solid var(--c-border,#e7ebe2);padding:12px 10px;box-shadow:0 1px 2px rgba(20,30,15,.04);">
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:0 4px 10px;">
+                <span style="font-size:10.5px;font-weight:800;letter-spacing:.08em;color:var(--c-label,#9aa392);text-transform:uppercase;">Your card</span>
+                <span style="font-size:12px;font-weight:700;color:var(--c-primary,#6eac4d);">{{ entryRunningPts }} pts · thru {{ playedCount }}</span>
+              </div>
+              <div class="n19-scroll" style="display:flex;gap:5px;overflow-x:auto;padding:0 4px 2px;">
+                <sc-for list="{{ entryQuick }}" as="c" hint-placeholder-count="18">
+                  <button onClick="{{ c.jump }}" style="flex:none;width:33px;cursor:pointer;background:transparent;border:none;padding:0;">
+                    <div style="font-size:9px;font-weight:700;color:var(--c-faint,#b3bba9);text-align:center;margin-bottom:3px;">{{ c.n }}</div>
+                    <div style="height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:{{ c.bg }};border:2px solid {{ c.ring }};"><span style="font-size:14px;font-weight:800;color:{{ c.color }};">{{ c.txt }}</span></div>
+                  </button>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+
+          <!-- footer -->
+          <div style="flex:none;display:flex;align-items:center;gap:10px;padding:12px 16px 28px;background:var(--c-surface,#fff);border-top:1px solid var(--c-border-h,#ecefe8);box-shadow:0 -4px 16px rgba(20,30,15,.05);">
+            <button onClick="{{ prevHole }}" style="flex:none;width:52px;height:50px;border-radius:14px;border:1px solid var(--c-border2,#e4e8de);background:var(--c-tint,#f7f9f4);cursor:pointer;display:flex;align-items:center;justify-content:center;" style-active="transform:scale(.94)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="var(--c-text-med,#3a4433)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            <button onClick="{{ noop }}" style="flex:1;height:50px;border-radius:14px;border:none;background:linear-gradient(135deg,#7cbd57,#5f9a3f);color:#fff;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 10px 22px -10px rgba(95,154,63,.7);" style-active="transform:scale(.98)">Review</button>
+            <button onClick="{{ nextHole }}" style="flex:none;width:52px;height:50px;border-radius:14px;border:1px solid var(--c-border2,#e4e8de);background:var(--c-tint,#f7f9f4);cursor:pointer;display:flex;align-items:center;justify-content:center;" style-active="transform:scale(.94)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="var(--c-text-med,#3a4433)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= SCREEN 2 · REVIEW SCORECARD ================= -->
+    <div style="flex:none;">
+      <div style="display:flex;align-items:center;gap:9px;margin:0 auto 15px;width:fit-content;">
+        <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;background:#1f2a19;">
+          <span style="font-size:11px;font-weight:800;letter-spacing:.09em;color:#a9d38a;text-transform:uppercase;">Review scorecard</span>
+        </span>
+        <span style="font-size:12.5px;color:var(--c-muted,#7a8472);">before submit</span>
+      </div>
+
+      <div style="position:relative;width:392px;height:812px;border-radius:60px;padding:13px;background:linear-gradient(150deg,#2a2f27,#0e120c);box-shadow:0 2px 3px rgba(255,255,255,.25) inset, 0 40px 90px -20px rgba(20,30,15,.5), 0 12px 30px rgba(0,0,0,.26);">
+        <div style="position:relative;width:100%;height:100%;border-radius:48px;overflow:hidden;background:var(--c-screen,#f3f4f6);display:flex;flex-direction:column;">
+          <div style="position:absolute;top:0;left:0;right:0;height:54px;z-index:40;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 8px;pointer-events:none;">
+            <span style="font-size:14px;font-weight:700;color:var(--c-text,#141b10);font-variant-numeric:tabular-nums;">9:41</span>
+            <div style="display:flex;align-items:center;gap:7px;"><div style="display:flex;align-items:flex-end;gap:2px;height:11px;"><div style="width:3px;height:5px;border-radius:1px;background:var(--c-text,#141b10);"></div><div style="width:3px;height:7px;border-radius:1px;background:var(--c-text,#141b10);"></div><div style="width:3px;height:9px;border-radius:1px;background:var(--c-text,#141b10);"></div><div style="width:3px;height:11px;border-radius:1px;background:var(--c-text,#141b10);"></div></div><div style="width:23px;height:12px;border-radius:3px;border:1.5px solid var(--c-text,#141b10);opacity:.9;padding:1.5px;"><div style="width:70%;height:100%;border-radius:1px;background:var(--c-text,#141b10);"></div></div></div>
+          </div>
+          <div style="position:absolute;top:11px;left:50%;transform:translateX(-50%);width:116px;height:33px;background:#05070a;border-radius:20px;z-index:45;"></div>
+
+          <div style="flex:none;padding:55px 12px 0;background:var(--c-surface,#fff);">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <button onClick="{{ noop }}" style="width:36px;height:36px;border:none;background:var(--c-tint,#f2f4ef);border-radius:11px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;" style-active="transform:scale(.92)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="var(--c-text-med,#3a4433)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+              <div style="flex:1;text-align:center;"><div style="font-size:15.5px;font-weight:800;color:var(--c-text,#141b10);">Scorecard</div><div style="font-size:11.5px;color:var(--c-muted,#7a8472);margin-top:1px;">Pennard GC · Stableford</div></div>
+              <button onClick="{{ noop }}" style="width:36px;height:36px;border:none;background:var(--c-tint,#f2f4ef);border-radius:11px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;" style-active="transform:scale(.92)"><svg width="19" height="19" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="3" stroke="var(--c-text-med,#3a4433)" stroke-width="2"/><circle cx="8.5" cy="9" r="1.6" fill="var(--c-text-med,#3a4433)"/><path d="M21 15l-5-4-8 7" stroke="var(--c-text-med,#3a4433)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            </div>
+            <div style="display:flex;align-items:center;gap:7px;margin:12px 4px 0;padding:9px 12px;border-radius:12px;background:var(--c-green-tint,#eef5e8);">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="m5 12 5 5 9-11" stroke="var(--c-on-green,#4e7d34)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span style="font-size:12px;font-weight:700;color:var(--c-on-green,#4e7d34);">All changes saved · ready to submit</span>
+            </div>
+            <div style="display:flex;gap:20px;margin:14px 6px 0;">
+              <sc-for list="{{ reviewTabs }}" as="t" hint-placeholder-count="3">
+                <button onClick="{{ t.tap }}" style="border:none;background:transparent;cursor:pointer;padding:4px 1px 10px;position:relative;"><span style="font-size:13.5px;font-weight:{{ t.weight }};color:{{ t.color }};">{{ t.label }}</span><div style="position:absolute;left:1px;right:1px;bottom:0;height:2.5px;border-radius:2px;background:{{ t.underline }};"></div></button>
+              </sc-for>
+            </div>
+          </div>
+
+          <div class="n19-scroll" style="flex:1;min-height:0;overflow-y:auto;background:var(--c-screen,#f3f4f6);">
+
+            <!-- SCORECARD TAB -->
+            <sc-if value="{{ rvScorecard }}" hint-placeholder-val="{{ true }}">
+            <div style="padding:14px 12px;animation:scr-in .26s ease both;">
+              <div style="border-radius:16px;overflow:hidden;background:var(--c-surface,#fff);border:1px solid var(--c-border,#e7ebe2);box-shadow:0 1px 2px rgba(20,30,15,.04);">
+                <div style="display:flex;align-items:center;padding:10px 12px;background:var(--c-headrow,#1f2a19);">
+                  <span style="width:34px;font-size:10px;font-weight:800;letter-spacing:.04em;color:#c8d6bd;">HOLE</span>
+                  <span style="width:30px;text-align:center;font-size:10px;font-weight:800;color:#94a688;">PAR</span>
+                  <span style="width:28px;text-align:center;font-size:10px;font-weight:800;color:#94a688;">SI</span>
+                  <sc-for list="{{ reviewHeadPlayers }}" as="hp" hint-placeholder-count="2">
+                    <span style="flex:1;display:flex;flex-direction:column;align-items:center;"><span style="font-size:12.5px;font-weight:800;color:#fff;">{{ hp.init }}</span><sc-if value="{{ hp.you }}" hint-placeholder-val="{{ true }}"><span style="font-size:8px;font-weight:800;letter-spacing:.06em;color:#a9d38a;">YOU</span></sc-if></span>
+                  </sc-for>
+                </div>
+                <sc-for list="{{ reviewFront }}" as="r" hint-placeholder-count="9">
+                  <div style="display:flex;align-items:center;padding:5px 12px;border-bottom:1px solid var(--c-tint,#f2f4ef);">
+                    <span style="width:34px;font-size:13px;font-weight:700;color:var(--c-text,#141b10);">{{ r.n }}</span>
+                    <span style="width:30px;text-align:center;font-size:12.5px;color:var(--c-muted,#7a8472);">{{ r.par }}</span>
+                    <span style="width:28px;text-align:center;font-size:11px;color:var(--c-faint,#a7afa0);">{{ r.si }}</span>
+                    <sc-for list="{{ r.cells }}" as="c" hint-placeholder-count="2">
+                      <span style="flex:1;display:flex;align-items:center;justify-content:center;"><span style="width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:{{ c.color }};{{ c.wrap }}">{{ c.txt }}</span></span>
+                    </sc-for>
+                  </div>
+                </sc-for>
+                <div style="display:flex;align-items:center;padding:7px 12px;background:var(--c-subtotal,#eef1ec);">
+                  <span style="width:92px;font-size:11px;font-weight:800;letter-spacing:.05em;color:var(--c-text-med,#3a4433);">OUT · {{ outPar }}</span>
+                  <sc-for list="{{ outCells }}" as="o" hint-placeholder-count="2"><span style="flex:1;text-align:center;font-size:14px;font-weight:800;color:var(--c-text,#141b10);">{{ o }}</span></sc-for>
+                </div>
+                <sc-for list="{{ reviewBack }}" as="r" hint-placeholder-count="9">
+                  <div style="display:flex;align-items:center;padding:5px 12px;border-bottom:1px solid var(--c-tint,#f2f4ef);">
+                    <span style="width:34px;font-size:13px;font-weight:700;color:var(--c-text,#141b10);">{{ r.n }}</span>
+                    <span style="width:30px;text-align:center;font-size:12.5px;color:var(--c-muted,#7a8472);">{{ r.par }}</span>
+                    <span style="width:28px;text-align:center;font-size:11px;color:var(--c-faint,#a7afa0);">{{ r.si }}</span>
+                    <sc-for list="{{ r.cells }}" as="c" hint-placeholder-count="2">
+                      <span style="flex:1;display:flex;align-items:center;justify-content:center;"><span style="width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:{{ c.color }};{{ c.wrap }}">{{ c.txt }}</span></span>
+                    </sc-for>
+                  </div>
+                </sc-for>
+                <div style="display:flex;align-items:center;padding:7px 12px;background:var(--c-subtotal,#eef1ec);">
+                  <span style="width:92px;font-size:11px;font-weight:800;letter-spacing:.05em;color:var(--c-text-med,#3a4433);">IN · {{ inPar }}</span>
+                  <sc-for list="{{ inCells }}" as="o" hint-placeholder-count="2"><span style="flex:1;text-align:center;font-size:14px;font-weight:800;color:var(--c-text,#141b10);">{{ o }}</span></sc-for>
+                </div>
+                <div style="display:flex;align-items:center;padding:9px 12px;background:var(--c-headrow,#1f2a19);">
+                  <span style="width:92px;font-size:11px;font-weight:800;letter-spacing:.05em;color:#c8d6bd;">GROSS · {{ totalPar }}</span>
+                  <sc-for list="{{ grossCells }}" as="o" hint-placeholder-count="2"><span style="flex:1;text-align:center;"><span style="font-size:16px;font-weight:800;color:#fff;">{{ o.g }}</span><span style="display:block;font-size:9.5px;font-weight:700;color:{{ o.tpColor }};">{{ o.tp }}</span></span></sc-for>
+                </div>
+                <div style="display:flex;align-items:center;padding:8px 12px;border-top:1px solid var(--c-tint,#f2f4ef);background:var(--c-surface,#fff);">
+                  <span style="width:92px;font-size:11px;font-weight:800;letter-spacing:.05em;color:var(--c-muted,#7a8472);">NET</span>
+                  <sc-for list="{{ netCells }}" as="o" hint-placeholder-count="2"><span style="flex:1;text-align:center;font-size:15px;font-weight:800;color:var(--c-text,#141b10);">{{ o }}</span></sc-for>
+                </div>
+                <div style="display:flex;align-items:center;padding:10px 12px;background:var(--c-green-tint,#eef5e8);">
+                  <span style="width:92px;font-size:11px;font-weight:800;letter-spacing:.05em;color:var(--c-on-green,#4e7d34);">POINTS</span>
+                  <sc-for list="{{ ptsCells }}" as="o" hint-placeholder-count="2"><span style="flex:1;text-align:center;font-size:19px;font-weight:800;color:var(--c-primary,#6eac4d);">{{ o }}</span></sc-for>
+                </div>
+              </div>
+              <div style="display:flex;gap:14px;justify-content:center;margin-top:14px;">
+                <span style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--c-muted,#7a8472);"><span style="width:14px;height:14px;border-radius:50%;border:1.6px solid var(--c-birdie,#2563eb);"></span>Birdie</span>
+                <span style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--c-muted,#7a8472);"><span style="width:13px;height:13px;border-radius:4px;border:1.6px solid var(--c-bogey,#d24a1e);"></span>Bogey+</span>
+                <span style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--c-muted,#7a8472);"><span style="width:14px;height:14px;border-radius:50%;border:1.6px solid var(--c-eagle,#d08700);box-shadow:0 0 0 1.6px var(--c-surface,#fff),0 0 0 3px var(--c-eagle,#d08700);"></span>Eagle</span>
+              </div>
+            </div>
+            </sc-if>
+
+            <!-- STATS TAB -->
+            <sc-if value="{{ rvStats }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:14px 12px;animation:scr-in .26s ease both;">
+              <sc-for list="{{ reviewStats }}" as="s" hint-placeholder-count="2">
+                <div style="border-radius:16px;background:var(--c-surface,#fff);border:1px solid var(--c-border,#e7ebe2);padding:15px;margin-bottom:12px;box-shadow:0 1px 2px rgba(20,30,15,.04);">
+                  <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+                    <div style="width:38px;height:38px;border-radius:50%;background:{{ s.avBg }};display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:13px;">{{ s.init }}</div>
+                    <div style="flex:1;"><div style="font-size:15px;font-weight:800;color:var(--c-text,#141b10);">{{ s.name }}</div><div style="font-size:11.5px;color:var(--c-muted,#7a8472);">{{ s.line }}</div></div>
+                  </div>
+                  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px;">
+                    <div style="background:var(--c-tint,#f7f9f4);border-radius:12px;padding:11px 6px;text-align:center;"><div style="font-size:19px;font-weight:800;color:var(--c-text,#141b10);">{{ s.fir }}</div><div style="font-size:9.5px;font-weight:700;letter-spacing:.04em;color:var(--c-label,#9aa392);margin-top:2px;">FAIRWAYS</div></div>
+                    <div style="background:var(--c-tint,#f7f9f4);border-radius:12px;padding:11px 6px;text-align:center;"><div style="font-size:19px;font-weight:800;color:var(--c-text,#141b10);">{{ s.gir }}</div><div style="font-size:9.5px;font-weight:700;letter-spacing:.04em;color:var(--c-label,#9aa392);margin-top:2px;">GREENS</div></div>
+                    <div style="background:var(--c-tint,#f7f9f4);border-radius:12px;padding:11px 6px;text-align:center;"><div style="font-size:19px;font-weight:800;color:var(--c-text,#141b10);">{{ s.putts }}</div><div style="font-size:9.5px;font-weight:700;letter-spacing:.04em;color:var(--c-label,#9aa392);margin-top:2px;">PUTTS</div></div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+            </sc-if>
+
+            <!-- LEADERBOARD TAB -->
+            <sc-if value="{{ rvLeaderboard }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:14px 12px;animation:scr-in .26s ease both;">
+              <div style="border-radius:16px;background:var(--c-surface,#fff);border:1px solid var(--c-border,#e7ebe2);overflow:hidden;box-shadow:0 1px 2px rgba(20,30,15,.04);">
+                <div style="display:flex;padding:11px 16px;border-bottom:1px solid var(--c-border-h,#eceff0);background:var(--c-tint2,#fafbf8);"><span style="width:30px;font-size:10.5px;font-weight:800;color:var(--c-label,#9aa392);">#</span><span style="flex:1;font-size:10.5px;font-weight:800;color:var(--c-label,#9aa392);">PLAYER</span><span style="width:44px;text-align:right;font-size:10.5px;font-weight:800;color:var(--c-label,#9aa392);">PTS</span></div>
+                <sc-for list="{{ reviewLB }}" as="e" hint-placeholder-count="4">
+                  <div style="display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid var(--c-tint,#f1f3ee);background:{{ e.rowBg }};">
+                    <span style="width:30px;font-size:14px;font-weight:800;color:{{ e.posColor }};">{{ e.pos }}</span>
+                    <span style="flex:1;display:flex;align-items:center;gap:7px;min-width:0;"><span style="font-size:15px;font-weight:{{ e.weight }};color:var(--c-text,#141b10);">{{ e.name }}</span><sc-if value="{{ e.you }}" hint-placeholder-val="{{ false }}"><span style="font-size:9px;font-weight:800;color:#fff;background:var(--c-primary,#6eac4d);padding:2px 6px;border-radius:999px;">YOU</span></sc-if></span>
+                    <span style="width:44px;text-align:right;font-size:18px;font-weight:800;color:{{ e.ptsColor }};">{{ e.pts }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+            </sc-if>
+
+          </div>
+
+          <div style="flex:none;display:flex;align-items:center;gap:10px;padding:12px 16px 28px;background:var(--c-surface,#fff);border-top:1px solid var(--c-border-h,#ecefe8);box-shadow:0 -4px 16px rgba(20,30,15,.05);">
+            <button onClick="{{ noop }}" style="flex:none;padding:0 18px;height:50px;border-radius:14px;border:1.5px solid var(--c-border-green,#cfe0be);background:var(--c-surface,#fff);color:var(--c-on-green,#4e7d34);font-size:14px;font-weight:700;cursor:pointer;" style-active="transform:scale(.97)">Edit scores</button>
+            <button onClick="{{ noop }}" style="flex:1;height:50px;border-radius:14px;border:none;background:linear-gradient(135deg,#7cbd57,#5f9a3f);color:#fff;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 10px 22px -10px rgba(95,154,63,.7);" style-active="transform:scale(.98)">Submit all scores</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= SCREEN 3 · VIEW ROUND ================= -->
+    <div style="flex:none;">
+      <div style="display:flex;align-items:center;gap:9px;margin:0 auto 15px;width:fit-content;">
+        <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;background:#3a6ea5;">
+          <span style="font-size:11px;font-weight:800;letter-spacing:.09em;color:#fff;text-transform:uppercase;">View round</span>
+        </span>
+        <span style="font-size:12.5px;color:var(--c-muted,#7a8472);">details · scorecard · stats</span>
+      </div>
+
+      <div style="position:relative;width:392px;height:812px;border-radius:60px;padding:13px;background:linear-gradient(150deg,#2a2f27,#0e120c);box-shadow:0 2px 3px rgba(255,255,255,.25) inset, 0 40px 90px -20px rgba(20,30,15,.5), 0 12px 30px rgba(0,0,0,.26);">
+        <div style="position:relative;width:100%;height:100%;border-radius:48px;overflow:hidden;background:var(--c-screen,#f3f4f6);display:flex;flex-direction:column;">
+          <div style="position:absolute;top:0;left:0;right:0;height:54px;z-index:40;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 8px;pointer-events:none;">
+            <span style="font-size:14px;font-weight:700;color:var(--c-text,#141b10);font-variant-numeric:tabular-nums;">9:41</span>
+            <div style="display:flex;align-items:center;gap:7px;"><div style="display:flex;align-items:flex-end;gap:2px;height:11px;"><div style="width:3px;height:5px;border-radius:1px;background:var(--c-text,#141b10);"></div><div style="width:3px;height:7px;border-radius:1px;background:var(--c-text,#141b10);"></div><div style="width:3px;height:9px;border-radius:1px;background:var(--c-text,#141b10);"></div><div style="width:3px;height:11px;border-radius:1px;background:var(--c-text,#141b10);"></div></div><div style="width:23px;height:12px;border-radius:3px;border:1.5px solid var(--c-text,#141b10);opacity:.9;padding:1.5px;"><div style="width:70%;height:100%;border-radius:1px;background:var(--c-text,#141b10);"></div></div></div>
+          </div>
+          <div style="position:absolute;top:11px;left:50%;transform:translateX(-50%);width:116px;height:33px;background:#05070a;border-radius:20px;z-index:45;"></div>
+
+          <div style="flex:none;padding:55px 12px 0;background:var(--c-surface,#fff);border-bottom:1px solid var(--c-border-h,#ecefe8);">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <button onClick="{{ noop }}" style="width:36px;height:36px;border:none;background:var(--c-tint,#f2f4ef);border-radius:11px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;" style-active="transform:scale(.92)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="var(--c-text-med,#3a4433)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+              <div style="flex:1;text-align:center;"><div style="font-size:15.5px;font-weight:800;color:var(--c-text,#141b10);">Saturday Medal · R2</div><div style="font-size:11.5px;color:var(--c-muted,#7a8472);margin-top:1px;">Saturday Medal series</div></div>
+              <button onClick="{{ noop }}" style="width:36px;height:36px;border:none;background:var(--c-tint,#f2f4ef);border-radius:11px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;" style-active="transform:scale(.92)"><svg width="19" height="19" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="var(--c-text-med,#3a4433)" stroke-width="2"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-2.82 1.17V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15H4.5a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 11 4.6h.09A1.65 1.65 0 0 0 12 3.09V3a2 2 0 1 1 4 0v.09A1.65 1.65 0 0 0 18 4.6a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 21.4 9v.09" stroke="var(--c-text-med,#3a4433)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            </div>
+            <div style="display:flex;gap:24px;margin:14px 8px 0;">
+              <sc-for list="{{ roundTabs }}" as="t" hint-placeholder-count="3">
+                <button onClick="{{ t.tap }}" style="border:none;background:transparent;cursor:pointer;padding:4px 1px 10px;position:relative;"><span style="font-size:13.5px;font-weight:{{ t.weight }};color:{{ t.color }};">{{ t.label }}</span><div style="position:absolute;left:1px;right:1px;bottom:0;height:2.5px;border-radius:2px;background:{{ t.underline }};"></div></button>
+              </sc-for>
+            </div>
+          </div>
+
+          <div class="n19-scroll" style="flex:1;min-height:0;overflow-y:auto;padding:16px 14px 26px;">
+
+            <!-- DETAILS TAB -->
+            <sc-if value="{{ rndDetails }}" hint-placeholder-val="{{ true }}">
+            <div style="animation:scr-in .26s ease both;">
+              <button onClick="{{ noop }}" style="width:100%;height:50px;border-radius:14px;border:none;background:linear-gradient(135deg,#7cbd57,#5f9a3f);color:#fff;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 10px 22px -10px rgba(95,154,63,.7);margin-bottom:14px;display:flex;align-items:center;justify-content:center;gap:8px;" style-active="transform:scale(.98)"><svg width="19" height="19" viewBox="0 0 24 24" fill="none"><path d="M5 3v18M5 4h11l-2 4 2 4H5" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Continue scoring</button>
+
+              <div style="display:flex;align-items:center;gap:12px;background:var(--c-surface,#fff);border:1px solid var(--c-border,#e7ebe2);border-radius:16px;padding:13px;margin-bottom:12px;box-shadow:0 1px 2px rgba(20,30,15,.04);">
+                <div style="width:44px;height:44px;border-radius:13px;background:var(--c-green-tint,#eef5e8);display:flex;align-items:center;justify-content:center;flex:none;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M6 3v18M6 4h11l-2 4 2 4H6" stroke="var(--c-primary,#6eac4d)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                <div style="flex:1;min-width:0;"><div style="font-size:15.5px;font-weight:800;color:var(--c-text,#141b10);">Pennard Golf Club</div><div style="font-size:12px;color:var(--c-muted,#7a8472);margin-top:1px;">Southgate, Wales · 18 holes · Par 72</div></div>
+              </div>
+
+              <div style="background:var(--c-surface,#fff);border:1px solid var(--c-border,#e7ebe2);border-radius:16px;overflow:hidden;box-shadow:0 1px 2px rgba(20,30,15,.04);margin-bottom:12px;">
+                <sc-for list="{{ roundInfo }}" as="r" hint-placeholder-count="4">
+                  <div style="display:flex;align-items:center;gap:12px;padding:13px 14px;border-bottom:1px solid {{ r.border }};">
+                    <div style="width:32px;height:32px;border-radius:9px;background:var(--c-green-tint,#eef5e8);display:flex;align-items:center;justify-content:center;flex:none;" innerHTML="{{ r.icon }}"></div>
+                    <span style="flex:1;font-size:13.5px;color:var(--c-muted,#7a8472);">{{ r.label }}</span>
+                    <span style="font-size:13.5px;font-weight:700;color:{{ r.valColor }};">{{ r.value }}</span>
+                  </div>
+                </sc-for>
+              </div>
+
+              <div style="background:linear-gradient(160deg,#1f2a19,#131a0f);border-radius:18px;padding:17px;position:relative;overflow:hidden;box-shadow:0 14px 34px -14px rgba(20,30,15,.5);">
+                <div style="position:absolute;top:-30px;right:-20px;width:130px;height:130px;border-radius:50%;background:radial-gradient(circle,rgba(139,194,110,.28),transparent 70%);"></div>
+                <div style="position:relative;">
+                  <div style="display:flex;align-items:center;justify-content:space-between;">
+                    <span style="font-size:11px;font-weight:800;letter-spacing:.08em;color:#a7c98d;text-transform:uppercase;">In progress · thru 7</span>
+                    <span style="font-size:12px;font-weight:700;color:#b6d99a;">2nd of 14</span>
+                  </div>
+                  <div style="display:flex;align-items:flex-end;gap:14px;margin-top:12px;">
+                    <div><div style="font-size:40px;line-height:.85;font-weight:800;color:#fff;letter-spacing:-0.02em;">15</div><div style="font-size:10px;font-weight:700;letter-spacing:.07em;color:#8ba079;margin-top:5px;">STABLEFORD PTS</div></div>
+                    <div style="padding-bottom:3px;"><div style="font-size:22px;font-weight:800;color:#e7efdf;">+6</div><div style="font-size:10px;font-weight:700;letter-spacing:.05em;color:#8ba079;margin-top:2px;">TO PAR</div></div>
+                  </div>
+                  <div style="height:6px;border-radius:999px;background:rgba(255,255,255,.14);overflow:hidden;margin-top:14px;"><div style="width:38.9%;height:100%;border-radius:999px;background:linear-gradient(90deg,#8bc26e,#6eac4d);"></div></div>
+                </div>
+              </div>
+            </div>
+            </sc-if>
+
+            <!-- SCORECARD TAB -->
+            <sc-if value="{{ rndScorecard }}" hint-placeholder-val="{{ false }}">
+            <div style="animation:scr-in .26s ease both;">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:8px;">
+                <div>
+                  <div style="font-size:13px;font-weight:800;color:var(--c-text,#141b10);">Alex Fenwick</div>
+                  <div style="font-size:11px;font-weight:700;color:var(--c-muted,#7a8472);">thru 7 · <span style="color:var(--c-primary,#6eac4d);">15 pts</span></div>
+                </div>
+                <div style="display:flex;gap:3px;padding:3px;border-radius:11px;background:var(--c-tint,#f2f4ef);border:1px solid var(--c-border,#e7ebe2);">
+                  <sc-for list="{{ scViewTabs }}" as="v" hint-placeholder-count="3">
+                    <button onClick="{{ v.tap }}" title="{{ v.title }}" style="width:38px;height:30px;border:none;border-radius:8px;background:{{ v.bg }};cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:{{ v.shadow }};" style-active="transform:scale(.92)" innerHTML="{{ v.icon }}"></button>
+                  </sc-for>
+                </div>
+              </div>
+
+              <!-- STRIP -->
+              <sc-if value="{{ scStrip }}" hint-placeholder-val="{{ true }}">
+              <div style="border-radius:18px;background:var(--c-surface,#fff);border:1px solid var(--c-border,#e7ebe2);padding:14px 12px;box-shadow:0 1px 2px rgba(20,30,15,.04);animation:scr-in .2s ease both;">
+                <div class="n19-scroll" style="display:flex;gap:5px;overflow-x:auto;">
+                  <sc-for list="{{ roundCells }}" as="c" hint-placeholder-count="18">
+                    <div style="flex:none;width:33px;">
+                      <div style="font-size:9px;font-weight:700;color:var(--c-faint,#b3bba9);text-align:center;margin-bottom:3px;">{{ c.n }}</div>
+                      <div style="height:33px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:{{ c.bg }};border:1.5px solid {{ c.ring }};"><span style="font-size:14px;font-weight:800;color:{{ c.color }};">{{ c.txt }}</span></div>
+                      <div style="font-size:8.5px;color:var(--c-faint,#c3cbba);text-align:center;margin-top:3px;">{{ c.par }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+              </sc-if>
+
+              <!-- SPLIT (double horizontal, front + back) -->
+              <sc-if value="{{ scSplit }}" hint-placeholder-val="{{ false }}">
+              <div style="animation:scr-in .2s ease both;">
+                <sc-for list="{{ scNines }}" as="nine" hint-placeholder-count="2">
+                  <div style="border-radius:18px;background:var(--c-surface,#fff);border:1px solid var(--c-border,#e7ebe2);padding:13px 12px;box-shadow:0 1px 2px rgba(20,30,15,.04);margin-bottom:11px;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;padding:0 2px;">
+                      <span style="font-size:10.5px;font-weight:800;letter-spacing:.08em;color:var(--c-label,#9aa392);text-transform:uppercase;">{{ nine.label }}</span>
+                      <span style="font-size:11px;font-weight:700;color:var(--c-text-med,#3a4433);">{{ nine.total }}</span>
+                    </div>
+                    <div style="display:flex;gap:4px;">
+                      <sc-for list="{{ nine.cells }}" as="c" hint-placeholder-count="9">
+                        <div style="flex:1;min-width:0;">
+                          <div style="font-size:9px;font-weight:700;color:var(--c-faint,#b3bba9);text-align:center;margin-bottom:3px;">{{ c.n }}</div>
+                          <div style="height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:{{ c.bg }};border:1.5px solid {{ c.ring }};"><span style="font-size:14px;font-weight:800;color:{{ c.color }};">{{ c.txt }}</span></div>
+                          <div style="font-size:8.5px;color:var(--c-faint,#c3cbba);text-align:center;margin-top:3px;">{{ c.par }}</div>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+              </sc-if>
+
+              <!-- LIST (full vertical) -->
+              <sc-if value="{{ scList }}" hint-placeholder-val="{{ false }}">
+              <div style="border-radius:18px;background:var(--c-surface,#fff);border:1px solid var(--c-border,#e7ebe2);overflow:hidden;box-shadow:0 1px 2px rgba(20,30,15,.04);animation:scr-in .2s ease both;">
+                <div style="display:flex;align-items:center;padding:9px 16px;background:var(--c-headrow,#1f2a19);">
+                  <span style="width:44px;font-size:10px;font-weight:800;letter-spacing:.05em;color:#c8d6bd;">HOLE</span>
+                  <span style="flex:1;text-align:center;font-size:10px;font-weight:800;color:#94a688;">PAR</span>
+                  <span style="flex:1;text-align:center;font-size:10px;font-weight:800;color:#94a688;">SI</span>
+                  <span style="flex:1;text-align:center;font-size:10px;font-weight:800;color:#94a688;">YDS</span>
+                  <span style="width:56px;text-align:center;font-size:10px;font-weight:800;color:#fff;">SCORE</span>
+                </div>
+                <sc-for list="{{ scListRows }}" as="r" hint-placeholder-count="9">
+                  <sc-if value="{{ r.isTotal }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:flex;align-items:center;padding:9px 16px;background:{{ r.bg }};border-top:1px solid var(--c-border,#e7ebe2);">
+                      <span style="flex:1;font-size:11px;font-weight:800;letter-spacing:.05em;color:{{ r.labelColor }};">{{ r.label }}</span>
+                      <span style="width:56px;text-align:center;font-size:15px;font-weight:800;color:{{ r.scoreColor }};">{{ r.score }}</span>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ r.isHole }}" hint-placeholder-val="{{ true }}">
+                    <div style="display:flex;align-items:center;padding:7px 16px;border-bottom:1px solid var(--c-tint,#f2f4ef);">
+                      <span style="width:44px;font-size:13.5px;font-weight:700;color:var(--c-text,#141b10);">{{ r.n }}</span>
+                      <span style="flex:1;text-align:center;font-size:13px;color:var(--c-muted,#7a8472);">{{ r.par }}</span>
+                      <span style="flex:1;text-align:center;font-size:12.5px;color:var(--c-faint,#a7afa0);">{{ r.si }}</span>
+                      <span style="flex:1;text-align:center;font-size:12.5px;color:var(--c-faint,#a7afa0);">{{ r.yds }}</span>
+                      <span style="width:56px;display:flex;align-items:center;justify-content:center;"><span style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:{{ r.color }};{{ r.wrap }}">{{ r.txt }}</span></span>
+                    </div>
+                  </sc-if>
+                </sc-for>
+              </div>
+              </sc-if>
+
+              <div style="display:flex;gap:14px;justify-content:center;margin-top:14px;padding-top:2px;">
+                <span style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--c-muted,#7a8472);"><span style="width:11px;height:11px;border-radius:3px;background:var(--c-birdie-bg,#eaf1ff);border:1.5px solid var(--c-birdie,#2563eb);"></span>Birdie</span>
+                <span style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--c-muted,#7a8472);"><span style="width:11px;height:11px;border-radius:3px;background:var(--c-par-bg,#f2f5ee);border:1.5px solid var(--c-par-line,#cfd6c8);"></span>Par</span>
+                <span style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--c-muted,#7a8472);"><span style="width:11px;height:11px;border-radius:3px;background:var(--c-bogey-bg,#fde4d8);border:1.5px solid var(--c-bogey,#d24a1e);"></span>Bogey+</span>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:14px;">
+                <div style="background:var(--c-surface,#fff);border:1px solid var(--c-border,#e7ebe2);border-radius:16px;padding:13px;text-align:center;"><div style="font-size:20px;font-weight:800;color:var(--c-text,#141b10);">34</div><div style="font-size:10px;font-weight:700;letter-spacing:.04em;color:var(--c-label,#9aa392);margin-top:3px;">GROSS</div></div>
+                <div style="background:var(--c-surface,#fff);border:1px solid var(--c-border,#e7ebe2);border-radius:16px;padding:13px;text-align:center;"><div style="font-size:20px;font-weight:800;color:var(--c-text,#141b10);">+6</div><div style="font-size:10px;font-weight:700;letter-spacing:.04em;color:var(--c-label,#9aa392);margin-top:3px;">TO PAR</div></div>
+                <div style="background:var(--c-surface,#fff);border:1px solid var(--c-border,#e7ebe2);border-radius:16px;padding:13px;text-align:center;"><div style="font-size:20px;font-weight:800;color:var(--c-primary,#6eac4d);">15</div><div style="font-size:10px;font-weight:700;letter-spacing:.04em;color:var(--c-label,#9aa392);margin-top:3px;">POINTS</div></div>
+              </div>
+            </div>
+            </sc-if>
+
+            <!-- STATS TAB -->
+            <sc-if value="{{ rndStats }}" hint-placeholder-val="{{ false }}">
+            <div style="animation:scr-in .26s ease both;">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+                <div style="background:var(--c-surface,#fff);border:1px solid var(--c-border,#e7ebe2);border-radius:16px;padding:15px;"><div style="font-size:26px;font-weight:800;color:var(--c-text,#141b10);">4/7</div><div style="font-size:10.5px;font-weight:700;letter-spacing:.04em;color:var(--c-label,#9aa392);margin-top:4px;">FAIRWAYS HIT</div></div>
+                <div style="background:var(--c-surface,#fff);border:1px solid var(--c-border,#e7ebe2);border-radius:16px;padding:15px;"><div style="font-size:26px;font-weight:800;color:var(--c-text,#141b10);">3/7</div><div style="font-size:10.5px;font-weight:700;letter-spacing:.04em;color:var(--c-label,#9aa392);margin-top:4px;">GREENS IN REG</div></div>
+                <div style="background:var(--c-surface,#fff);border:1px solid var(--c-border,#e7ebe2);border-radius:16px;padding:15px;"><div style="font-size:26px;font-weight:800;color:var(--c-text,#141b10);">12</div><div style="font-size:10.5px;font-weight:700;letter-spacing:.04em;color:var(--c-label,#9aa392);margin-top:4px;">PUTTS</div></div>
+                <div style="background:var(--c-surface,#fff);border:1px solid var(--c-border,#e7ebe2);border-radius:16px;padding:15px;"><div style="font-size:26px;font-weight:800;color:var(--c-text,#141b10);">1.71</div><div style="font-size:10.5px;font-weight:700;letter-spacing:.04em;color:var(--c-label,#9aa392);margin-top:4px;">PUTTS / HOLE</div></div>
+              </div>
+              <div style="background:var(--c-surface,#fff);border:1px solid var(--c-border,#e7ebe2);border-radius:16px;overflow:hidden;box-shadow:0 1px 2px rgba(20,30,15,.04);">
+                <sc-for list="{{ rndStatRows }}" as="r" hint-placeholder-count="3">
+                  <div style="display:flex;align-items:center;padding:13px 14px;border-bottom:1px solid {{ r.border }};">
+                    <span style="flex:1;font-size:13.5px;color:var(--c-muted,#7a8472);">{{ r.label }}</span>
+                    <span style="font-size:13.5px;font-weight:700;color:var(--c-text,#141b10);">{{ r.value }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+            </sc-if>
+
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= SCREEN 4 · MATCH PLAY SCORING ================= -->
+    <div style="flex:none;">
+      <div style="display:flex;align-items:center;gap:9px;margin:0 auto 15px;width:fit-content;">
+        <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;background:#8a4d2b;">
+          <span style="font-size:11px;font-weight:800;letter-spacing:.09em;color:#fff;text-transform:uppercase;">Match play</span>
+        </span>
+        <span style="font-size:12.5px;color:var(--c-muted,#7a8472);">live · head to head</span>
+      </div>
+
+      <div style="position:relative;width:392px;height:812px;border-radius:60px;padding:13px;background:linear-gradient(150deg,#2a2f27,#0e120c);box-shadow:0 2px 3px rgba(255,255,255,.25) inset, 0 40px 90px -20px rgba(20,30,15,.5), 0 12px 30px rgba(0,0,0,.26);">
+        <div style="position:relative;width:100%;height:100%;border-radius:48px;overflow:hidden;background:var(--c-screen,#f3f4f6);display:flex;flex-direction:column;">
+          <div style="position:absolute;top:0;left:0;right:0;height:54px;z-index:40;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 8px;pointer-events:none;">
+            <span style="font-size:14px;font-weight:700;color:var(--c-text,#141b10);font-variant-numeric:tabular-nums;">9:41</span>
+            <div style="display:flex;align-items:center;gap:7px;"><div style="display:flex;align-items:flex-end;gap:2px;height:11px;"><div style="width:3px;height:5px;border-radius:1px;background:var(--c-text,#141b10);"></div><div style="width:3px;height:7px;border-radius:1px;background:var(--c-text,#141b10);"></div><div style="width:3px;height:9px;border-radius:1px;background:var(--c-text,#141b10);"></div><div style="width:3px;height:11px;border-radius:1px;background:var(--c-text,#141b10);"></div></div><div style="width:23px;height:12px;border-radius:3px;border:1.5px solid var(--c-text,#141b10);opacity:.9;padding:1.5px;"><div style="width:70%;height:100%;border-radius:1px;background:var(--c-text,#141b10);"></div></div></div>
+          </div>
+          <div style="position:absolute;top:11px;left:50%;transform:translateX(-50%);width:116px;height:33px;background:#05070a;border-radius:20px;z-index:45;"></div>
+
+          <!-- header -->
+          <div style="flex:none;padding:55px 14px 0;background:var(--c-surface,#fff);">
+            <div style="display:flex;align-items:center;gap:9px;">
+              <button onClick="{{ noop }}" style="width:36px;height:36px;border:none;background:var(--c-tint,#f2f4ef);border-radius:11px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;" style-active="transform:scale(.92)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="var(--c-text-med,#3a4433)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+              <div style="flex:1;min-width:0;text-align:center;"><div style="font-size:15.5px;font-weight:800;color:var(--c-text,#141b10);">Match play</div><div style="font-size:11.5px;color:var(--c-muted,#7a8472);margin-top:1px;">Pennard GC · Singles</div></div>
+              <div style="display:inline-flex;align-items:center;gap:5px;padding:0 10px;height:26px;border-radius:999px;background:var(--c-green-tint,#eef5e8);flex:none;"><span style="width:6px;height:6px;border-radius:50%;background:var(--c-primary,#6eac4d);"></span><span style="font-size:11px;font-weight:700;color:var(--c-on-green,#4e7d34);">Synced</span></div>
+            </div>
+          </div>
+
+          <!-- match status bar -->
+          <div style="flex:none;display:flex;align-items:center;justify-content:center;gap:9px;padding:11px 16px;background:{{ mpBarBg }};border-bottom:1px solid var(--c-border-h,#ecefe8);">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 3v18M5 4h11l-2 4 2 4H5" stroke="{{ mpBarText }}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span style="font-size:15px;font-weight:800;color:{{ mpBarText }};">{{ mpStatusText }}</span>
+          </div>
+
+          <!-- hole bar -->
+          <div style="flex:none;display:flex;align-items:center;padding:11px 16px;background:var(--c-tint2,#fbfcfa);border-bottom:1px solid var(--c-border-h,#ecefe8);">
+            <button onClick="{{ mpPrev }}" style="width:38px;height:38px;border:1px solid var(--c-border2,#e4e8de);background:var(--c-surface,#fff);border-radius:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;" style-active="transform:scale(.9)"><svg width="19" height="19" viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="var(--c-text-med,#3a4433)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            <div style="flex:1;text-align:center;"><div style="font-size:10.5px;font-weight:800;letter-spacing:.1em;color:var(--c-label,#9aa392);text-transform:uppercase;">Hole</div><div style="font-size:30px;font-weight:800;letter-spacing:-0.02em;color:var(--c-text,#141b10);line-height:1;">{{ mpHole.n }}</div></div>
+            <button onClick="{{ mpNext }}" style="width:38px;height:38px;border:1px solid var(--c-border2,#e4e8de);background:var(--c-surface,#fff);border-radius:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;" style-active="transform:scale(.9)"><svg width="19" height="19" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="var(--c-text-med,#3a4433)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            <div style="width:1px;height:36px;background:var(--c-border2,#e4e8de);margin:0 14px;"></div>
+            <div style="display:flex;gap:17px;">
+              <div style="text-align:center;"><div style="font-size:17px;font-weight:800;color:var(--c-text,#141b10);">{{ mpHole.par }}</div><div style="font-size:9.5px;font-weight:700;color:var(--c-label,#9aa392);">PAR</div></div>
+              <div style="text-align:center;"><div style="font-size:17px;font-weight:800;color:var(--c-text,#141b10);">{{ mpHole.si }}</div><div style="font-size:9.5px;font-weight:700;color:var(--c-label,#9aa392);">S.I.</div></div>
+              <div style="text-align:center;"><div style="font-size:17px;font-weight:800;color:var(--c-text,#141b10);">{{ mpHole.yds }}</div><div style="font-size:9.5px;font-weight:700;color:var(--c-label,#9aa392);">YDS</div></div>
+            </div>
+          </div>
+
+          <!-- GPS distance to pin -->
+          <button onClick="{{ noop }}" style="flex:none;display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:10px 16px;background:linear-gradient(100deg,#1f2a19,#2b3a22);border:none;border-bottom:1px solid var(--c-border-h,#ecefe8);cursor:pointer;" style-active="filter:brightness(1.08)">
+            <div style="width:34px;height:34px;border-radius:11px;background:rgba(139,194,110,.18);display:flex;align-items:center;justify-content:center;flex:none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11Z" stroke="#a9d38a" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="10" r="2.4" fill="#a9d38a"/></svg></div>
+            <div style="display:flex;align-items:baseline;gap:5px;"><span style="font-size:26px;font-weight:800;color:#fff;line-height:1;">{{ pinMp.mid }}</span><span style="font-size:11px;font-weight:700;letter-spacing:.05em;color:#8ba079;">yds to pin</span></div>
+            <div style="display:flex;gap:14px;margin-left:auto;">
+              <div style="text-align:center;"><div style="font-size:14px;font-weight:800;color:#dfe9d5;">{{ pinMp.front }}</div><div style="font-size:8.5px;font-weight:800;letter-spacing:.06em;color:#7d9069;">FRONT</div></div>
+              <div style="text-align:center;"><div style="font-size:14px;font-weight:800;color:#dfe9d5;">{{ pinMp.back }}</div><div style="font-size:8.5px;font-weight:800;letter-spacing:.06em;color:#7d9069;">BACK</div></div>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style="align-self:center;"><path d="M9 6l6 6-6 6" stroke="#6f7f5e" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+          </button>
+
+          <!-- players -->
+          <div class="n19-scroll" style="flex:1;min-height:0;overflow-y:auto;padding:14px 16px 16px;">
+            <sc-for list="{{ mpPlayers }}" as="p" hint-placeholder-count="2">
+              <div style="border-radius:18px;padding:15px;margin-bottom:13px;background:{{ p.cardBg }};border:1px solid {{ p.cardBorder }};box-shadow:0 1px 2px rgba(20,30,15,.04);">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                  <div style="min-width:0;">
+                    <sc-if value="{{ p.you }}" hint-placeholder-val="{{ true }}"><span style="display:inline-block;font-size:9.5px;font-weight:800;letter-spacing:.08em;color:var(--c-primary,#6eac4d);text-transform:uppercase;margin-bottom:3px;">You</span></sc-if>
+                    <div style="font-size:18px;font-weight:800;color:var(--c-text,#141b10);">{{ p.name }}</div>
+                    <div style="font-size:12px;color:var(--c-muted,#7a8472);margin-top:2px;">HC {{ p.hc }} · {{ p.shotsLabel }}</div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:14px;">
+                    <div style="text-align:center;"><div style="font-size:24px;font-weight:800;color:var(--c-text,#141b10);line-height:1;">{{ p.shots }}</div><div style="font-size:9.5px;font-weight:700;color:var(--c-label,#9aa392);margin-top:3px;">SHOTS</div></div>
+                    <div style="display:inline-flex;align-items:center;gap:3px;padding:0 11px;height:38px;border-radius:12px;background:{{ p.badgeBg }};"><span style="font-size:16px;font-weight:800;color:#fff;">{{ p.badgeText }}</span></div>
+                  </div>
+                </div>
+                <div style="height:1px;background:var(--c-divider,#e9ece4);margin:14px 0;"></div>
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                  <button onClick="{{ p.pickUp }}" style="width:60px;height:62px;border-radius:14px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:1.5px solid {{ p.pickBorder }};background:{{ p.pickBg }};" style-active="transform:scale(.94)"><span style="font-size:19px;font-weight:800;color:{{ p.pickText }};">P</span><span style="font-size:8px;font-weight:800;letter-spacing:.04em;color:{{ p.pickText }};">PICK UP</span></button>
+                  <div style="display:flex;align-items:center;gap:9px;">
+                    <button onClick="{{ p.dec }}" style="width:58px;height:62px;border-radius:14px;border:1.5px solid var(--c-border-green,#dfe4d8);background:var(--c-surface,#fff);cursor:pointer;display:flex;align-items:center;justify-content:center;" style-active="transform:scale(.9)"><span style="font-size:29px;font-weight:500;color:var(--c-text-med,#3a4433);line-height:0;">−</span></button>
+                    <div style="width:52px;text-align:center;"><span style="font-size:40px;font-weight:800;color:{{ p.scoreColor }};line-height:1;">{{ p.scoreDisplay }}</span></div>
+                    <button onClick="{{ p.inc }}" style="width:58px;height:62px;border-radius:14px;border:1.5px solid var(--c-border-green,#dfe4d8);background:var(--c-surface,#fff);cursor:pointer;display:flex;align-items:center;justify-content:center;" style-active="transform:scale(.9)"><span style="font-size:29px;font-weight:500;color:var(--c-text-med,#3a4433);line-height:0;">+</span></button>
+                  </div>
+                  <button onClick="{{ p.setPar }}" style="width:60px;height:62px;border-radius:14px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:1.5px solid {{ p.parBorder }};background:{{ p.parBg }};" style-active="transform:scale(.94)"><span style="font-size:19px;font-weight:800;color:{{ p.parText }};">{{ mpHole.par }}</span><span style="font-size:8px;font-weight:800;letter-spacing:.04em;color:{{ p.parText }};">PAR</span></button>
+                </div>
+              </div>
+            </sc-for>
+
+            <div style="border-radius:16px;background:var(--c-surface,#fff);border:1px solid var(--c-border,#e7ebe2);padding:12px 10px;box-shadow:0 1px 2px rgba(20,30,15,.04);">
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:0 4px 10px;"><span style="font-size:10.5px;font-weight:800;letter-spacing:.08em;color:var(--c-label,#9aa392);text-transform:uppercase;">Match by hole</span><span style="font-size:12px;font-weight:700;color:var(--c-text-med,#3a4433);">{{ mpWonLost }}</span></div>
+              <div class="n19-scroll" style="display:flex;gap:5px;overflow-x:auto;padding:0 4px 2px;">
+                <sc-for list="{{ mpStrip }}" as="c" hint-placeholder-count="18">
+                  <button onClick="{{ c.jump }}" style="flex:none;width:33px;cursor:pointer;background:transparent;border:none;padding:0;">
+                    <div style="font-size:9px;font-weight:700;color:var(--c-faint,#b3bba9);text-align:center;margin-bottom:3px;">{{ c.n }}</div>
+                    <div style="height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:{{ c.bg }};border:2px solid {{ c.ring }};"><span style="font-size:12px;font-weight:800;color:{{ c.color }};">{{ c.txt }}</span></div>
+                  </button>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+
+          <!-- footer -->
+          <div style="flex:none;display:flex;align-items:center;gap:10px;padding:12px 16px 28px;background:var(--c-surface,#fff);border-top:1px solid var(--c-border-h,#ecefe8);box-shadow:0 -4px 16px rgba(20,30,15,.05);">
+            <button onClick="{{ mpPrev }}" style="flex:none;width:52px;height:50px;border-radius:14px;border:1px solid var(--c-border2,#e4e8de);background:var(--c-tint,#f7f9f4);cursor:pointer;display:flex;align-items:center;justify-content:center;" style-active="transform:scale(.94)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="var(--c-text-med,#3a4433)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            <button onClick="{{ noop }}" style="flex:1;height:50px;border-radius:14px;border:none;background:linear-gradient(135deg,#7cbd57,#5f9a3f);color:#fff;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 10px 22px -10px rgba(95,154,63,.7);" style-active="transform:scale(.98)">Submit match</button>
+            <button onClick="{{ mpNext }}" style="flex:none;width:52px;height:50px;border-radius:14px;border:1px solid var(--c-border2,#e4e8de);background:var(--c-tint,#f7f9f4);cursor:pointer;display:flex;align-items:center;justify-content:center;" style-active="transform:scale(.94)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="var(--c-text-med,#3a4433)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= SCREEN 5 · QUICK SCORE ENTRY ================= -->
+    <div style="flex:none;">
+      <div style="display:flex;align-items:center;gap:9px;margin:0 auto 15px;width:fit-content;">
+        <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;background:#4a5a8a;">
+          <span style="font-size:11px;font-weight:800;letter-spacing:.09em;color:#fff;text-transform:uppercase;">Quick entry</span>
+        </span>
+        <span style="font-size:12.5px;color:var(--c-muted,#7a8472);">live · fast solo card</span>
+      </div>
+
+      <div style="position:relative;width:392px;height:812px;border-radius:60px;padding:13px;background:linear-gradient(150deg,#2a2f27,#0e120c);box-shadow:0 2px 3px rgba(255,255,255,.25) inset, 0 40px 90px -20px rgba(20,30,15,.5), 0 12px 30px rgba(0,0,0,.26);">
+        <div style="position:relative;width:100%;height:100%;border-radius:48px;overflow:hidden;background:var(--c-screen,#f3f4f6);display:flex;flex-direction:column;">
+          <div style="position:absolute;top:0;left:0;right:0;height:54px;z-index:40;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 8px;pointer-events:none;">
+            <span style="font-size:14px;font-weight:700;color:var(--c-text,#141b10);font-variant-numeric:tabular-nums;">9:41</span>
+            <div style="display:flex;align-items:center;gap:7px;"><div style="display:flex;align-items:flex-end;gap:2px;height:11px;"><div style="width:3px;height:5px;border-radius:1px;background:var(--c-text,#141b10);"></div><div style="width:3px;height:7px;border-radius:1px;background:var(--c-text,#141b10);"></div><div style="width:3px;height:9px;border-radius:1px;background:var(--c-text,#141b10);"></div><div style="width:3px;height:11px;border-radius:1px;background:var(--c-text,#141b10);"></div></div><div style="width:23px;height:12px;border-radius:3px;border:1.5px solid var(--c-text,#141b10);opacity:.9;padding:1.5px;"><div style="width:70%;height:100%;border-radius:1px;background:var(--c-text,#141b10);"></div></div></div>
+          </div>
+          <div style="position:absolute;top:11px;left:50%;transform:translateX(-50%);width:116px;height:33px;background:#05070a;border-radius:20px;z-index:45;"></div>
+
+          <div style="flex:none;padding:55px 14px 0;background:var(--c-surface,#fff);border-bottom:1px solid var(--c-border-h,#ecefe8);">
+            <div style="display:flex;align-items:center;gap:9px;">
+              <button onClick="{{ noop }}" style="width:36px;height:36px;border:none;background:var(--c-tint,#f2f4ef);border-radius:11px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;" style-active="transform:scale(.92)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="var(--c-text-med,#3a4433)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+              <div style="flex:1;text-align:center;"><div style="font-size:15.5px;font-weight:800;color:var(--c-text,#141b10);">Quick score</div><div style="font-size:11.5px;color:var(--c-muted,#7a8472);margin-top:1px;">Pennard GC · Stableford</div></div>
+              <div style="width:36px;"></div>
+            </div>
+            <div style="display:flex;gap:10px;margin:12px 2px 12px;">
+              <div style="flex:1;text-align:center;padding:9px 0;border-radius:12px;background:var(--c-tint,#f7f9f4);"><div style="font-size:21px;font-weight:800;color:var(--c-text,#141b10);">{{ qsGross }}</div><div style="font-size:9.5px;font-weight:700;letter-spacing:.05em;color:var(--c-label,#9aa392);margin-top:2px;">GROSS</div></div>
+              <div style="flex:1;text-align:center;padding:9px 0;border-radius:12px;background:var(--c-tint,#f7f9f4);"><div style="font-size:21px;font-weight:800;color:var(--c-text,#141b10);">{{ qsToPar }}</div><div style="font-size:9.5px;font-weight:700;letter-spacing:.05em;color:var(--c-label,#9aa392);margin-top:2px;">TO PAR</div></div>
+              <div style="flex:1;text-align:center;padding:9px 0;border-radius:12px;background:var(--c-green-tint,#eef5e8);"><div style="font-size:21px;font-weight:800;color:var(--c-primary,#6eac4d);">{{ qsPts }}</div><div style="font-size:9.5px;font-weight:700;letter-spacing:.05em;color:var(--c-on-green,#4e7d34);margin-top:2px;">POINTS</div></div>
+            </div>
+          </div>
+
+          <!-- GPS distance to pin (next hole) -->
+          <button onClick="{{ noop }}" style="flex:none;display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:10px 16px;background:linear-gradient(100deg,#1f2a19,#2b3a22);border:none;border-bottom:1px solid var(--c-border-h,#ecefe8);cursor:pointer;" style-active="filter:brightness(1.08)">
+            <div style="width:34px;height:34px;border-radius:11px;background:rgba(139,194,110,.18);display:flex;align-items:center;justify-content:center;flex:none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11Z" stroke="#a9d38a" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="10" r="2.4" fill="#a9d38a"/></svg></div>
+            <div><div style="font-size:8.5px;font-weight:800;letter-spacing:.08em;color:#7d9069;">HOLE {{ pinQs.hole }} · TO PIN</div><div style="display:flex;align-items:baseline;gap:5px;"><span style="font-size:22px;font-weight:800;color:#fff;line-height:1;">{{ pinQs.mid }}</span><span style="font-size:10.5px;font-weight:700;color:#8ba079;">yds</span></div></div>
+            <div style="display:flex;gap:14px;margin-left:auto;">
+              <div style="text-align:center;"><div style="font-size:14px;font-weight:800;color:#dfe9d5;">{{ pinQs.front }}</div><div style="font-size:8.5px;font-weight:800;letter-spacing:.06em;color:#7d9069;">FRONT</div></div>
+              <div style="text-align:center;"><div style="font-size:14px;font-weight:800;color:#dfe9d5;">{{ pinQs.back }}</div><div style="font-size:8.5px;font-weight:800;letter-spacing:.06em;color:#7d9069;">BACK</div></div>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style="align-self:center;"><path d="M9 6l6 6-6 6" stroke="#6f7f5e" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+          </button>
+
+          <div class="n19-scroll" style="flex:1;min-height:0;overflow-y:auto;padding:12px 14px 16px;">
+            <sc-for list="{{ qsRows }}" as="r" hint-placeholder-count="9">
+              <div style="display:flex;align-items:center;gap:10px;padding:9px 12px;margin-bottom:8px;border-radius:14px;background:{{ r.rowBg }};border:1px solid {{ r.rowBorder }};border-style:{{ r.rowStyle }};">
+                <div style="width:64px;flex:none;"><div style="font-size:15px;font-weight:800;color:{{ r.numColor }};">{{ r.n }}</div><div style="font-size:10.5px;color:var(--c-muted,#7a8472);">Par {{ r.par }} · SI {{ r.si }}</div></div>
+                <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:9px;">
+                  <button onClick="{{ r.dec }}" style="width:40px;height:40px;border-radius:11px;border:1.5px solid var(--c-border2,#e4e8de);background:var(--c-surface,#fff);cursor:pointer;display:flex;align-items:center;justify-content:center;" style-active="transform:scale(.9)"><span style="font-size:22px;font-weight:500;color:var(--c-text-med,#3a4433);line-height:0;">−</span></button>
+                  <div style="width:44px;height:44px;border-radius:50%;background:{{ r.circleBg }};display:flex;align-items:center;justify-content:center;"><span style="font-size:19px;font-weight:800;color:{{ r.circleText }};">{{ r.scoreDisplay }}</span></div>
+                  <button onClick="{{ r.inc }}" style="width:40px;height:40px;border-radius:11px;border:1.5px solid var(--c-border2,#e4e8de);background:var(--c-surface,#fff);cursor:pointer;display:flex;align-items:center;justify-content:center;" style-active="transform:scale(.9)"><span style="font-size:22px;font-weight:500;color:var(--c-text-med,#3a4433);line-height:0;">+</span></button>
+                </div>
+                <div style="width:46px;flex:none;text-align:right;"><span style="font-size:13px;font-weight:700;color:{{ r.ptsColor }};">{{ r.ptsLabel }}</span></div>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="flex:none;display:flex;align-items:center;gap:10px;padding:12px 16px 28px;background:var(--c-surface,#fff);border-top:1px solid var(--c-border-h,#ecefe8);box-shadow:0 -4px 16px rgba(20,30,15,.05);">
+            <div style="flex:1;"><div style="font-size:11px;font-weight:700;color:var(--c-muted,#7a8472);">Holes complete</div><div style="font-size:15px;font-weight:800;color:var(--c-text,#141b10);">{{ qsPlayed }} / 18</div></div>
+            <button onClick="{{ noop }}" style="flex:none;padding:0 22px;height:50px;border-radius:14px;border:none;background:linear-gradient(135deg,#7cbd57,#5f9a3f);color:#fff;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 10px 22px -10px rgba(95,154,63,.7);" style-active="transform:scale(.98)">Save card</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= SCREEN 6 · TEAM MATCH PLAY ================= -->
+    <div style="flex:none;">
+      <div style="display:flex;align-items:center;gap:9px;margin:0 auto 15px;width:fit-content;">
+        <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;background:#6b3f8a;">
+          <span style="font-size:11px;font-weight:800;letter-spacing:.09em;color:#fff;text-transform:uppercase;">Team match play</span>
+        </span>
+        <span style="font-size:12.5px;color:var(--c-muted,#7a8472);">live · fourball best ball</span>
+      </div>
+
+      <div style="position:relative;width:392px;height:812px;border-radius:60px;padding:13px;background:linear-gradient(150deg,#2a2f27,#0e120c);box-shadow:0 2px 3px rgba(255,255,255,.25) inset, 0 40px 90px -20px rgba(20,30,15,.5), 0 12px 30px rgba(0,0,0,.26);">
+        <div style="position:relative;width:100%;height:100%;border-radius:48px;overflow:hidden;background:var(--c-screen,#f3f4f6);display:flex;flex-direction:column;">
+          <div style="position:absolute;top:0;left:0;right:0;height:54px;z-index:40;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 8px;pointer-events:none;">
+            <span style="font-size:14px;font-weight:700;color:var(--c-text,#141b10);font-variant-numeric:tabular-nums;">9:41</span>
+            <div style="display:flex;align-items:center;gap:7px;"><div style="display:flex;align-items:flex-end;gap:2px;height:11px;"><div style="width:3px;height:5px;border-radius:1px;background:var(--c-text,#141b10);"></div><div style="width:3px;height:7px;border-radius:1px;background:var(--c-text,#141b10);"></div><div style="width:3px;height:9px;border-radius:1px;background:var(--c-text,#141b10);"></div><div style="width:3px;height:11px;border-radius:1px;background:var(--c-text,#141b10);"></div></div><div style="width:23px;height:12px;border-radius:3px;border:1.5px solid var(--c-text,#141b10);opacity:.9;padding:1.5px;"><div style="width:70%;height:100%;border-radius:1px;background:var(--c-text,#141b10);"></div></div></div>
+          </div>
+          <div style="position:absolute;top:11px;left:50%;transform:translateX(-50%);width:116px;height:33px;background:#05070a;border-radius:20px;z-index:45;"></div>
+
+          <!-- header -->
+          <div style="flex:none;padding:55px 14px 0;background:var(--c-surface,#fff);">
+            <div style="display:flex;align-items:center;gap:9px;">
+              <button onClick="{{ noop }}" style="width:36px;height:36px;border:none;background:var(--c-tint,#f2f4ef);border-radius:11px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;" style-active="transform:scale(.92)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="var(--c-text-med,#3a4433)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+              <div style="flex:1;min-width:0;text-align:center;"><div style="font-size:15.5px;font-weight:800;color:var(--c-text,#141b10);">Team match play</div><div style="font-size:11.5px;color:var(--c-muted,#7a8472);margin-top:1px;">Pennard GC · Fourball</div></div>
+              <div style="display:inline-flex;align-items:center;gap:5px;padding:0 10px;height:26px;border-radius:999px;background:var(--c-green-tint,#eef5e8);flex:none;"><span style="width:6px;height:6px;border-radius:50%;background:var(--c-primary,#6eac4d);"></span><span style="font-size:11px;font-weight:700;color:var(--c-on-green,#4e7d34);">Synced</span></div>
+            </div>
+          </div>
+
+          <!-- match status bar -->
+          <div style="flex:none;display:flex;align-items:center;justify-content:center;gap:9px;padding:11px 16px;background:{{ tmBarBg }};border-bottom:1px solid var(--c-border-h,#ecefe8);">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 3v18M5 4h11l-2 4 2 4H5" stroke="{{ tmBarText }}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span style="font-size:15px;font-weight:800;color:{{ tmBarText }};">{{ tmStatusText }}</span>
+          </div>
+
+          <!-- hole bar -->
+          <div style="flex:none;display:flex;align-items:center;padding:11px 16px;background:var(--c-tint2,#fbfcfa);border-bottom:1px solid var(--c-border-h,#ecefe8);">
+            <button onClick="{{ tmPrev }}" style="width:38px;height:38px;border:1px solid var(--c-border2,#e4e8de);background:var(--c-surface,#fff);border-radius:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;" style-active="transform:scale(.9)"><svg width="19" height="19" viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="var(--c-text-med,#3a4433)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            <div style="flex:1;text-align:center;"><div style="font-size:10.5px;font-weight:800;letter-spacing:.1em;color:var(--c-label,#9aa392);text-transform:uppercase;">Hole</div><div style="font-size:30px;font-weight:800;letter-spacing:-0.02em;color:var(--c-text,#141b10);line-height:1;">{{ tmHole.n }}</div></div>
+            <button onClick="{{ tmNext }}" style="width:38px;height:38px;border:1px solid var(--c-border2,#e4e8de);background:var(--c-surface,#fff);border-radius:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;" style-active="transform:scale(.9)"><svg width="19" height="19" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="var(--c-text-med,#3a4433)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            <div style="width:1px;height:36px;background:var(--c-border2,#e4e8de);margin:0 14px;"></div>
+            <div style="display:flex;gap:17px;">
+              <div style="text-align:center;"><div style="font-size:17px;font-weight:800;color:var(--c-text,#141b10);">{{ tmHole.par }}</div><div style="font-size:9.5px;font-weight:700;color:var(--c-label,#9aa392);">PAR</div></div>
+              <div style="text-align:center;"><div style="font-size:17px;font-weight:800;color:var(--c-text,#141b10);">{{ tmHole.si }}</div><div style="font-size:9.5px;font-weight:700;color:var(--c-label,#9aa392);">S.I.</div></div>
+              <div style="text-align:center;"><div style="font-size:17px;font-weight:800;color:var(--c-text,#141b10);">{{ tmHole.yds }}</div><div style="font-size:9.5px;font-weight:700;color:var(--c-label,#9aa392);">YDS</div></div>
+            </div>
+          </div>
+
+          <!-- GPS distance to pin -->
+          <button onClick="{{ noop }}" style="flex:none;display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:10px 16px;background:linear-gradient(100deg,#1f2a19,#2b3a22);border:none;border-bottom:1px solid var(--c-border-h,#ecefe8);cursor:pointer;" style-active="filter:brightness(1.08)">
+            <div style="width:34px;height:34px;border-radius:11px;background:rgba(139,194,110,.18);display:flex;align-items:center;justify-content:center;flex:none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11Z" stroke="#a9d38a" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="10" r="2.4" fill="#a9d38a"/></svg></div>
+            <div style="display:flex;align-items:baseline;gap:5px;"><span style="font-size:26px;font-weight:800;color:#fff;line-height:1;">{{ pinTm.mid }}</span><span style="font-size:11px;font-weight:700;letter-spacing:.05em;color:#8ba079;">yds to pin</span></div>
+            <div style="display:flex;gap:14px;margin-left:auto;">
+              <div style="text-align:center;"><div style="font-size:14px;font-weight:800;color:#dfe9d5;">{{ pinTm.front }}</div><div style="font-size:8.5px;font-weight:800;letter-spacing:.06em;color:#7d9069;">FRONT</div></div>
+              <div style="text-align:center;"><div style="font-size:14px;font-weight:800;color:#dfe9d5;">{{ pinTm.back }}</div><div style="font-size:8.5px;font-weight:800;letter-spacing:.06em;color:#7d9069;">BACK</div></div>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style="align-self:center;"><path d="M9 6l6 6-6 6" stroke="#6f7f5e" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+          </button>
+
+          <!-- teams -->
+          <div class="n19-scroll" style="flex:1;min-height:0;overflow-y:auto;padding:14px 16px 16px;">
+            <sc-for list="{{ tmTeams }}" as="t" hint-placeholder-count="2">
+              <div style="border-radius:18px;overflow:hidden;margin-bottom:13px;background:{{ t.cardBg }};border:{{ t.cardBorder }};box-shadow:0 1px 2px rgba(20,30,15,.04);">
+                <div style="display:flex;align-items:center;gap:10px;padding:13px 15px 12px;">
+                  <div style="flex:1;min-width:0;">
+                    <sc-if value="{{ t.you }}" hint-placeholder-val="{{ true }}"><span style="display:inline-block;font-size:9.5px;font-weight:800;letter-spacing:.08em;color:var(--c-primary,#6eac4d);text-transform:uppercase;margin-bottom:2px;">Your team</span></sc-if>
+                    <div style="font-size:16.5px;font-weight:800;color:var(--c-text,#141b10);">{{ t.name }}</div>
+                    <div style="font-size:11.5px;color:var(--c-muted,#7a8472);margin-top:1px;">Team HC {{ t.hc }} · best ball</div>
+                  </div>
+                  <div style="text-align:center;"><div style="width:46px;height:46px;border-radius:13px;background:{{ t.bestBg }};display:flex;align-items:center;justify-content:center;"><span style="font-size:24px;font-weight:800;color:{{ t.bestColor }};">{{ t.bestScore }}</span></div><div style="font-size:8.5px;font-weight:800;letter-spacing:.05em;color:var(--c-label,#9aa392);margin-top:3px;">BEST</div></div>
+                  <div style="display:inline-flex;align-items:center;justify-content:center;min-width:44px;height:38px;padding:0 10px;border-radius:12px;background:{{ t.badgeBg }};"><span style="font-size:15px;font-weight:800;color:#fff;">{{ t.badgeText }}</span></div>
+                </div>
+                <sc-if value="{{ t.winning }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;justify-content:center;gap:5px;margin:0 15px 10px;padding:5px 0;border-radius:9px;background:var(--c-primary,#6eac4d);"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M8 21h8M12 17v4M6 4h12v3a6 6 0 0 1-12 0V4Z" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span style="font-size:10px;font-weight:800;letter-spacing:.08em;color:#fff;">WINNING HOLE</span></div></sc-if>
+                <div style="height:1px;background:var(--c-divider,#e9ece4);margin:0 15px;"></div>
+                <div style="padding:11px 12px;display:flex;flex-direction:column;gap:8px;">
+                  <sc-for list="{{ t.members }}" as="m" hint-placeholder-count="2">
+                    <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:12px;background:{{ m.rowBg }};{{ m.bestEdge }}">
+                      <div style="flex:1;min-width:0;">
+                        <div style="display:flex;align-items:center;gap:6px;"><span style="font-size:14px;font-weight:700;color:var(--c-text,#141b10);">{{ m.name }}</span><sc-if value="{{ m.isBest }}" hint-placeholder-val="{{ false }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="#5f9a3f"><path d="M12 2l2.9 6.2 6.8.8-5 4.6 1.3 6.7L12 17.8 5.9 20.9 7.2 14.2l-5-4.6 6.8-.8L12 2z"/></svg></sc-if></div>
+                        <div style="display:flex;align-items:center;gap:5px;margin-top:2px;"><span style="font-size:10.5px;color:var(--c-muted,#7a8472);">HC {{ m.hc }}</span><sc-if value="{{ m.shot }}" hint-placeholder-val="{{ false }}"><span style="width:6px;height:6px;border-radius:50%;background:#c99a1e;"></span></sc-if></div>
+                      </div>
+                      <button onClick="{{ m.pickUp }}" style="width:36px;height:36px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;border:1.5px solid {{ m.pickBorder }};background:{{ m.pickBg }};" style-active="transform:scale(.9)"><span style="font-size:15px;font-weight:800;color:{{ m.pickText }};">P</span></button>
+                      <button onClick="{{ m.dec }}" style="width:36px;height:36px;border-radius:10px;border:1.5px solid var(--c-border2,#e4e8de);background:var(--c-surface,#fff);cursor:pointer;display:flex;align-items:center;justify-content:center;" style-active="transform:scale(.9)"><span style="font-size:22px;font-weight:500;color:var(--c-text-med,#3a4433);line-height:0;">−</span></button>
+                      <div style="width:30px;text-align:center;"><span style="font-size:22px;font-weight:800;color:{{ m.scoreColor }};">{{ m.scoreDisplay }}</span></div>
+                      <button onClick="{{ m.inc }}" style="width:36px;height:36px;border-radius:10px;border:1.5px solid var(--c-border2,#e4e8de);background:var(--c-surface,#fff);cursor:pointer;display:flex;align-items:center;justify-content:center;" style-active="transform:scale(.9)"><span style="font-size:22px;font-weight:500;color:var(--c-text-med,#3a4433);line-height:0;">+</span></button>
+                      <button onClick="{{ m.setPar }}" style="width:36px;height:36px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;border:1.5px solid {{ m.parBorder }};background:{{ m.parBg }};" style-active="transform:scale(.9)"><span style="font-size:13px;font-weight:800;color:{{ m.parText }};">{{ tmHole.par }}</span></button>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-for>
+
+            <div style="border-radius:16px;background:var(--c-surface,#fff);border:1px solid var(--c-border,#e7ebe2);padding:12px 10px;box-shadow:0 1px 2px rgba(20,30,15,.04);">
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:0 4px 10px;"><span style="font-size:10.5px;font-weight:800;letter-spacing:.08em;color:var(--c-label,#9aa392);text-transform:uppercase;">Match by hole</span><span style="font-size:12px;font-weight:700;color:var(--c-text-med,#3a4433);">{{ tmWonLost }}</span></div>
+              <div class="n19-scroll" style="display:flex;gap:5px;overflow-x:auto;padding:0 4px 2px;">
+                <sc-for list="{{ tmStrip }}" as="c" hint-placeholder-count="18">
+                  <button onClick="{{ c.jump }}" style="flex:none;width:33px;cursor:pointer;background:transparent;border:none;padding:0;">
+                    <div style="font-size:9px;font-weight:700;color:var(--c-faint,#b3bba9);text-align:center;margin-bottom:3px;">{{ c.n }}</div>
+                    <div style="height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:{{ c.bg }};border:2px solid {{ c.ring }};"><span style="font-size:12px;font-weight:800;color:{{ c.color }};">{{ c.txt }}</span></div>
+                  </button>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+
+          <!-- footer -->
+          <div style="flex:none;display:flex;align-items:center;gap:10px;padding:12px 16px 28px;background:var(--c-surface,#fff);border-top:1px solid var(--c-border-h,#ecefe8);box-shadow:0 -4px 16px rgba(20,30,15,.05);">
+            <button onClick="{{ tmPrev }}" style="flex:none;width:52px;height:50px;border-radius:14px;border:1px solid var(--c-border2,#e4e8de);background:var(--c-tint,#f7f9f4);cursor:pointer;display:flex;align-items:center;justify-content:center;" style-active="transform:scale(.94)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="var(--c-text-med,#3a4433)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            <button onClick="{{ noop }}" style="flex:1;height:50px;border-radius:14px;border:none;background:linear-gradient(135deg,#7cbd57,#5f9a3f);color:#fff;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 10px 22px -10px rgba(95,154,63,.7);" style-active="transform:scale(.98)">Submit match</button>
+            <button onClick="{{ tmNext }}" style="flex:none;width:52px;height:50px;border-radius:14px;border:1px solid var(--c-border2,#e4e8de);background:var(--c-tint,#f7f9f4);cursor:pointer;display:flex;align-items:center;justify-content:center;" style-active="transform:scale(.94)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="var(--c-text-med,#3a4433)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1300,&quot;height&quot;:980},&quot;dark&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  state = { hole: 8, reviewTab: 'scorecard', roundTab: 'details', scView: 'strip', a: [null,5,5,4,6,4,5,3,null,null,null,null,null,null,null,null,null,null,null], b: [null,4,5,3,5,4,4,4,null,null,null,null,null,null,null,null,null,null,null],
+    mpHole: 8, mpA: [null,4,5,3,5,4,5,3,null,null,null,null,null,null,null,null,null,null,null], mpB: [null,5,5,4,5,4,4,4,null,null,null,null,null,null,null,null,null,null,null],
+    qs: [null,5,4,3,6,4,5,2,null,null,null,null,null,null,null,null,null,null,null],
+    tmHole: 8,
+    t1a: [null,4,5,3,5,4,5,3,null,null,null,null,null,null,null,null,null,null,null], t1b: [null,5,4,4,6,5,4,4,null,null,null,null,null,null,null,null,null,null,null],
+    t2a: [null,5,5,4,5,4,4,4,null,null,null,null,null,null,null,null,null,null,null], t2b: [null,4,6,3,6,4,5,3,null,null,null,null,null,null,null,null,null,null,null] };
+
+  HOLES = [
+    {n:1,par:4,si:7,yds:372},{n:2,par:4,si:15,yds:341},{n:3,par:3,si:11,yds:168},{n:4,par:5,si:1,yds:498},
+    {n:5,par:4,si:5,yds:405},{n:6,par:4,si:9,yds:388},{n:7,par:3,si:17,yds:146},{n:8,par:4,si:13,yds:355},{n:9,par:5,si:3,yds:512},
+    {n:10,par:4,si:8,yds:398},{n:11,par:4,si:16,yds:333},{n:12,par:3,si:12,yds:174},{n:13,par:5,si:2,yds:524},
+    {n:14,par:4,si:6,yds:412},{n:15,par:4,si:10,yds:379},{n:16,par:3,si:18,yds:139},{n:17,par:4,si:14,yds:349},{n:18,par:5,si:4,yds:505}
+  ];
+  A_FINAL = [0,5,5,4,6,4,5,3,5,5,5,4,3,6,4,5,3,5,6];
+  B_FINAL = [0,4,5,3,5,4,4,4,4,5,4,5,3,5,4,4,3,4,5];
+  HC_A = 12; HC_B = 8;
+  PICKUP = 99;
+
+  themeDark = {
+    '--c-screen':'#0e140d','--c-surface':'#1c281a','--c-tint':'#232f20','--c-tint2':'#1f2b1c','--c-green-tint':'#21301a',
+    '--c-active':'#232f20','--c-track3':'#151d13','--c-divider':'#26331f','--c-sel':'#24331b','--c-disabled-bg':'#232f1e',
+    '--c-border':'#2d3b27','--c-border2':'#2d3b27','--c-border-h':'#26331f','--c-border-green':'#3a5230',
+    '--c-text':'#eef3ea','--c-text-hd':'#e8efe0','--c-text-med':'#ccd7c1','--c-text2':'#a6b29b','--c-label':'#8b9980',
+    '--c-muted':'#909e7c','--c-muted2':'#7e8c6e','--c-faint':'#6e7c64','--c-chevron':'#46553d',
+    '--c-primary':'#8bc26e','--c-on-green':'#a9d38a',
+    '--c-headrow':'#0c1409','--c-subtotal':'#182312',
+    '--c-birdie':'#6f9dee','--c-birdie-bg':'#16223d','--c-eagle':'#e6b35a','--c-eagle-bg':'#33280b','--c-bogey':'#e0794f','--c-bogey-bg':'#33210f','--c-par-line':'#38472f','--c-par-bg':'#1f2b1c',
+    '--c-canvas':'radial-gradient(130% 120% at 50% 0%, #101a0f 0%, #0a0f09 55%, #06090600 100%), #070a06'
+  };
+  applyTheme(){
+    if (typeof document === 'undefined') return;
+    const dark = !!(this.props && this.props.dark);
+    const de = document.documentElement;
+    for (const k in this.themeDark){ if (dark) de.style.setProperty(k, this.themeDark[k]); else de.style.removeProperty(k); }
+    if (document.body) document.body.style.background = dark
+      ? 'radial-gradient(120% 120% at 50% 0%, #10160f 0%, #0a0f09 55%, #060906 100%)'
+      : '';
+  }
+  componentDidMount(){ this.applyTheme(); }
+  componentDidUpdate(){ this.applyTheme(); }
+
+  recv(hc, si){ return si <= hc ? 1 : 0; }
+  stbl(strokes, par, r){ if (strokes==null || strokes===this.PICKUP) return 0; const rel=(strokes-r)-par; return rel<=-3?5:rel===-2?4:rel===-1?3:rel===0?2:rel===1?1:0; }
+
+  // colored strip cell (rounded) for entry quick strip + round scorecard
+  stripCell(strokes, par){
+    if (strokes==null) return { txt:'', bg:'transparent', ring:'var(--c-border2,#e4e8de)', color:'var(--c-faint,#a7afa0)' };
+    if (strokes===this.PICKUP) return { txt:'P', bg:'var(--c-bogey-bg,#fde4d8)', ring:'var(--c-bogey,#d24a1e)', color:'var(--c-bogey,#d24a1e)' };
+    const d = strokes-par;
+    if (d<=-1) return { txt:''+strokes, bg:'var(--c-birdie-bg,#eaf1ff)', ring:'var(--c-birdie,#2563eb)', color:'var(--c-birdie,#2563eb)' };
+    if (d===0) return { txt:''+strokes, bg:'var(--c-par-bg,#f2f5ee)', ring:'var(--c-par-line,#cfd6c8)', color:'var(--c-text-med,#3a4433)' };
+    return { txt:''+strokes, bg:'var(--c-bogey-bg,#fde4d8)', ring:'var(--c-bogey,#d24a1e)', color:'var(--c-bogey,#d24a1e)' };
+  }
+  // shape cell (circle/square) for review table
+  tableCell(strokes, par){
+    if (strokes==null) return { txt:'–', wrap:'', color:'var(--c-faint,#a7afa0)' };
+    if (strokes===this.PICKUP) return { txt:'P', wrap:'border-radius:7px;border:1.6px solid var(--c-bogey,#d24a1e);', color:'var(--c-bogey,#d24a1e)' };
+    const d = strokes-par;
+    if (d<=-2) return { txt:''+strokes, wrap:'border-radius:50%;border:1.6px solid var(--c-eagle,#d08700);box-shadow:0 0 0 1.6px var(--c-surface,#fff),0 0 0 3px var(--c-eagle,#d08700);', color:'var(--c-eagle,#d08700)' };
+    if (d===-1) return { txt:''+strokes, wrap:'border-radius:50%;border:1.6px solid var(--c-birdie,#2563eb);', color:'var(--c-birdie,#2563eb)' };
+    if (d===0) return { txt:''+strokes, wrap:'', color:'var(--c-text,#141b10)' };
+    if (d===1) return { txt:''+strokes, wrap:'border-radius:7px;border:1.6px solid var(--c-bogey,#d24a1e);', color:'var(--c-bogey,#d24a1e)' };
+    return { txt:''+strokes, wrap:'border-radius:7px;border:1.6px solid var(--c-bogey,#d24a1e);box-shadow:0 0 0 1.6px var(--c-surface,#fff),0 0 0 3px var(--c-bogey,#d24a1e);', color:'var(--c-bogey,#d24a1e)' };
+  }
+
+  noop(){}
+  greenFor(n){ const GRN=[0,152,138,168,215,161,149,146,132,187,158,141,174,203,166,158,139,151,196]; const m=GRN[n]||150; return { mid:m, front:Math.max(0,m-7), back:m+8 }; }
+  setHole(n){ this.setState({ hole: n }); }
+  prevHole(){ this.setState({ hole: Math.max(1, this.state.hole-1) }); }
+  nextHole(){ this.setState({ hole: Math.min(18, this.state.hole+1) }); }
+  _set(id, v){ const arr = [...this.state[id]]; arr[this.state.hole] = v; this.setState({ [id]: arr }); }
+  incP(id){ const par=this.HOLES[this.state.hole-1].par; const cur=this.state[id][this.state.hole]; if (cur==null||cur===this.PICKUP) this._set(id, par); else this._set(id, Math.min(15, cur+1)); }
+  decP(id){ const par=this.HOLES[this.state.hole-1].par; const cur=this.state[id][this.state.hole]; if (cur==null||cur===this.PICKUP) this._set(id, par); else this._set(id, Math.max(1, cur-1)); }
+  setParP(id){ this._set(id, this.HOLES[this.state.hole-1].par); }
+  pickUpP(id){ this._set(id, this.PICKUP); }
+  setReviewTab(t){ this.setState({ reviewTab: t }); }
+  setRoundTab(t){ this.setState({ roundTab: t }); }
+  setScView(v){ this.setState({ scView: v }); }
+
+  // match play handlers
+  mpPrev(){ this.setState({ mpHole: Math.max(1, this.state.mpHole-1) }); }
+  mpNext(){ this.setState({ mpHole: Math.min(18, this.state.mpHole+1) }); }
+  mpSet(id, v){ const arr=[...this.state[id]]; arr[this.state.mpHole]=v; this.setState({ [id]: arr }); }
+  mpInc(id){ const par=this.HOLES[this.state.mpHole-1].par; const cur=this.state[id][this.state.mpHole]; if (cur==null||cur===this.PICKUP) this.mpSet(id,par); else this.mpSet(id, Math.min(15, cur+1)); }
+  mpDec(id){ const par=this.HOLES[this.state.mpHole-1].par; const cur=this.state[id][this.state.mpHole]; if (cur==null||cur===this.PICKUP) this.mpSet(id,par); else this.mpSet(id, Math.max(1, cur-1)); }
+  mpPar(id){ this.mpSet(id, this.HOLES[this.state.mpHole-1].par); }
+  mpPick(id){ this.mpSet(id, this.PICKUP); }
+  mpJump(n){ this.setState({ mpHole: n }); }
+
+  // quick entry handlers
+  qsInc(n){ const par=this.HOLES[n-1].par; const cur=this.state.qs[n]; const arr=[...this.state.qs]; arr[n] = (cur==null? par : Math.min(12, cur+1)); this.setState({ qs: arr }); }
+  qsDec(n){ const cur=this.state.qs[n]; if (cur==null) return; const arr=[...this.state.qs]; arr[n] = cur<=1 ? null : cur-1; this.setState({ qs: arr }); }
+
+  // team match play handlers
+  tmPrev(){ this.setState({ tmHole: Math.max(1, this.state.tmHole-1) }); }
+  tmNext(){ this.setState({ tmHole: Math.min(18, this.state.tmHole+1) }); }
+  tmSet(id, v){ const arr=[...this.state[id]]; arr[this.state.tmHole]=v; this.setState({ [id]: arr }); }
+  tmInc(id){ const par=this.HOLES[this.state.tmHole-1].par; const cur=this.state[id][this.state.tmHole]; if (cur==null||cur===this.PICKUP) this.tmSet(id,par); else this.tmSet(id, Math.min(15, cur+1)); }
+  tmDec(id){ const par=this.HOLES[this.state.tmHole-1].par; const cur=this.state[id][this.state.tmHole]; if (cur==null||cur===this.PICKUP) this.tmSet(id,par); else this.tmSet(id, Math.max(1, cur-1)); }
+  tmPar(id){ this.tmSet(id, this.HOLES[this.state.tmHole-1].par); }
+  tmPick(id){ this.tmSet(id, this.PICKUP); }
+  tmJump(n){ this.setState({ tmHole: n }); }
+  tmShotFor(hc, si){ return si <= Math.round(hc/2) ? 1 : 0; }
+
+  scoreLabel(strokes, par){ if (strokes==null) return ''; if (strokes===this.PICKUP) return 'Picked up'; const d=strokes-par; return d<=-2?'Eagle':d===-1?'Birdie':d===0?'Par':d===1?'Bogey':'Double +'; }
+  labelColor(strokes, par){ if (strokes==null||strokes===this.PICKUP) return 'var(--c-bogey,#d24a1e)'; const d=strokes-par; return d<=-1?'var(--c-birdie,#2563eb)':d===0?'var(--c-primary,#6eac4d)':'var(--c-bogey,#d24a1e)'; }
+
+  renderVals(){
+    const S = this.state;
+    const hole = this.HOLES[S.hole-1];
+    // GPS distance to green (front/middle/back), varies by hole
+    const pin = this.greenFor(S.hole);
+
+    // ---------- SCORE ENTRY ----------
+    const meta = [ {id:'a',name:'Alex Fenwick',hc:this.HC_A,you:true,avBg:'#5f9a3f'}, {id:'b',name:'Tom Beckett',hc:this.HC_B,you:false,avBg:'#3a6ea5'} ];
+    let playedCount = 0;
+    for (let h=1; h<=18; h++){ if (S.a[h]!=null) playedCount++; }
+    let entryRunningPts = 0;
+    for (let h=1; h<=18; h++){ if (S.a[h]!=null){ const hh=this.HOLES[h-1]; entryRunningPts += this.stbl(S.a[h], hh.par, this.recv(this.HC_A, hh.si)); } }
+
+    const entryPlayers = meta.map(m=>{
+      const val = S[m.id][S.hole];
+      const r = this.recv(m.hc, hole.si);
+      let running = 0; for (let h=1; h<=18; h++){ if (S[m.id][h]!=null){ const hh=this.HOLES[h-1]; running += this.stbl(S[m.id][h], hh.par, this.recv(m.hc, hh.si)); } }
+      const parSel = val===hole.par;
+      const pick = val===this.PICKUP;
+      return {
+        name:m.name, hc:m.hc, you:m.you,
+        cardBg: m.you ? 'var(--c-green-tint,#eef5e8)' : 'var(--c-surface,#fff)',
+        cardBorder: m.you ? 'var(--c-border-green,#cfe0be)' : 'var(--c-border,#e7ebe2)',
+        shotsLabel: r>0 ? ('+'+r+' shot'+(r>1?'s':'')+' here') : 'No shot here',
+        shots: r>0 ? ('+'+r) : '–',
+        pts: running,
+        scoreDisplay: val==null ? '–' : (pick ? 'P' : ''+val),
+        pickBg: pick ? 'var(--c-bogey-bg,#fde4d8)' : 'var(--c-tint,#fafbf8)', pickBorder: pick ? 'var(--c-bogey,#d24a1e)' : 'var(--c-border2,#e4e8de)', pickText: pick ? 'var(--c-bogey,#d24a1e)' : 'var(--c-muted2,#9aa392)',
+        parBg: parSel ? 'var(--c-green-tint,#eef5e8)' : 'var(--c-tint,#fafbf8)', parBorder: parSel ? 'var(--c-primary,#6eac4d)' : 'var(--c-border2,#e4e8de)', parText: parSel ? 'var(--c-on-green,#4e7d34)' : 'var(--c-text-med,#3a4433)',
+        showLabel: val!=null,
+        label: this.scoreLabel(val, hole.par), labelColor: this.labelColor(val, hole.par),
+        inc:()=>this.incP(m.id), dec:()=>this.decP(m.id), setPar:()=>this.setParP(m.id), pickUp:()=>this.pickUpP(m.id),
+      };
+    });
+    const entryQuick = this.HOLES.map(h=>{ const c=this.stripCell(S.a[h.n], h.par); return { n:h.n, txt:c.txt, bg:c.bg, ring: h.n===S.hole ? 'var(--c-primary,#6eac4d)' : c.ring, color:c.color, jump:()=>this.setHole(h.n) }; });
+
+    // ---------- REVIEW SCORECARD ----------
+    const rtab = (k,label)=>{ const on=S.reviewTab===k; return { label, tap:()=>this.setReviewTab(k), weight:on?800:600, color:on?'var(--c-text,#141b10)':'var(--c-muted,#7a8472)', underline:on?'var(--c-primary,#6eac4d)':'transparent' }; };
+    const reviewTabs = [ rtab('scorecard','Scorecard'), rtab('stats','Stats'), rtab('leaderboard','Leaderboard') ];
+    const rowFor = (h)=>{ const hh=this.HOLES[h-1]; return { n:h, par:hh.par, si:hh.si, cells:[ this.tableCell(this.A_FINAL[h], hh.par), this.tableCell(this.B_FINAL[h], hh.par) ] }; };
+    const reviewFront = [1,2,3,4,5,6,7,8,9].map(rowFor);
+    const reviewBack = [10,11,12,13,14,15,16,17,18].map(rowFor);
+    const sum = (arr,a,b)=>{ let s=0; for(let h=a;h<=b;h++) s+=arr[h]; return s; };
+    const outA=sum(this.A_FINAL,1,9), outB=sum(this.B_FINAL,1,9), inA=sum(this.A_FINAL,10,18), inB=sum(this.B_FINAL,10,18);
+    const grossA=outA+inA, grossB=outB+inB;
+    const outPar=36, inPar=36, totalPar=72;
+    const tp=(g)=>{ const d=g-72; return { g, tp: d===0?'E':(d>0?'+'+d:''+d), tpColor: d>0?'#e08a5a':(d<0?'#8bc26e':'#c8d6bd') }; };
+    let ptsA=0, ptsB=0; for(let h=1;h<=18;h++){ const hh=this.HOLES[h-1]; ptsA+=this.stbl(this.A_FINAL[h],hh.par,this.recv(this.HC_A,hh.si)); ptsB+=this.stbl(this.B_FINAL[h],hh.par,this.recv(this.HC_B,hh.si)); }
+    const reviewHeadPlayers = [ {init:'AF',you:true}, {init:'TB',you:false} ];
+    const reviewStats = [
+      { init:'AF', name:'Alex Fenwick', line:'HC 12 · '+grossA+' gross · '+ptsA+' pts', avBg:'#5f9a3f', fir:'7/14', gir:'9/18', putts:'31' },
+      { init:'TB', name:'Tom Beckett', line:'HC 8 · '+grossB+' gross · '+ptsB+' pts', avBg:'#3a6ea5', fir:'9/14', gir:'12/18', putts:'29' },
+    ];
+    const lbRaw = [ ['Tom Beckett','TB',ptsB,false], ['Alex Fenwick','AF',ptsA,true], ['Maya Okafor','MO',34,false], ['Ravi Anand','RA',30,false] ];
+    lbRaw.sort((x,y)=>y[2]-x[2]);
+    const reviewLB = lbRaw.map((r,i)=>({ pos:i+1, name:r[0], pts:r[2], you:r[3], weight:r[3]?800:600,
+      posColor: i===0?'var(--c-primary,#6eac4d)':'var(--c-muted,#7a8472)', rowBg: r[3]?'var(--c-sel,#f4f9ef)':'var(--c-surface,#fff)', ptsColor: r[3]?'var(--c-primary,#6eac4d)':'var(--c-text,#141b10)' }));
+
+    // ---------- VIEW ROUND ----------
+    const rndtab = (k,label)=>{ const on=S.roundTab===k; return { label, tap:()=>this.setRoundTab(k), weight:on?800:600, color:on?'var(--c-text,#141b10)':'var(--c-muted,#7a8472)', underline:on?'var(--c-primary,#6eac4d)':'transparent' }; };
+    const roundTabs = [ rndtab('details','Details'), rndtab('scorecard','Scorecard'), rndtab('stats','Stats') ];
+    const ic = (p)=>'<svg width="17" height="17" viewBox="0 0 24 24" fill="none">'+p+'</svg>';
+    const roundInfo = [
+      { icon: ic('<rect x="3" y="5" width="18" height="16" rx="2" stroke="var(--c-primary,#6eac4d)" stroke-width="2"/><path d="M3 9h18M8 3v4M16 3v4" stroke="var(--c-primary,#6eac4d)" stroke-width="2" stroke-linecap="round"/>'), label:'Tee time', value:'Sat 12 Jul · 9:14', valColor:'var(--c-text,#141b10)', border:'var(--c-tint,#f2f4ef)' },
+      { icon: ic('<path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4Z" stroke="var(--c-primary,#6eac4d)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'), label:'Format', value:'Stableford', valColor:'var(--c-text,#141b10)', border:'var(--c-tint,#f2f4ef)' },
+      { icon: ic('<path d="M17 20a5 5 0 0 0-10 0M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" stroke="var(--c-primary,#6eac4d)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'), label:'Playing group', value:'You + 3', valColor:'var(--c-text,#141b10)', border:'var(--c-tint,#f2f4ef)' },
+      { icon: ic('<circle cx="12" cy="12" r="9" stroke="var(--c-live-text,#c07a1a)" stroke-width="2"/><path d="M12 7v5l3 2" stroke="var(--c-live-text,#c07a1a)" stroke-width="2" stroke-linecap="round"/>'), label:'Status', value:'In progress', valColor:'var(--c-live-text,#c07a1a)', border:'transparent' },
+    ];
+    const roundCells = this.HOLES.map(h=>{ const c=this.stripCell(this.A_FINAL[h.n]!=null && h.n<=7 ? this.A_FINAL[h.n] : null, h.par); return { n:h.n, txt:c.txt, bg:c.bg, ring:c.ring, color:c.color, par:h.par }; });
+    // scorecard view switcher (strip / split / list)
+    const pv = (n)=> n<=7 ? this.A_FINAL[n] : null;
+    const svgWrap = (p)=>'<svg width="18" height="18" viewBox="0 0 24 24" fill="none">'+p+'</svg>';
+    const scIcons = {
+      strip: svgWrap('<rect x="2" y="9" width="20" height="6" rx="1.6" stroke="currentColor" stroke-width="2"/><path d="M8 9v6M14 9v6" stroke="currentColor" stroke-width="1.6"/>'),
+      split: svgWrap('<rect x="2" y="4" width="20" height="6" rx="1.6" stroke="currentColor" stroke-width="2"/><rect x="2" y="14" width="20" height="6" rx="1.6" stroke="currentColor" stroke-width="2"/>'),
+      list: svgWrap('<path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'),
+    };
+    const svtab = (k,title)=>{ const on=S.scView===k; return { tap:()=>this.setScView(k), title, bg: on?'var(--c-surface,#fff)':'transparent', shadow: on?'0 1px 3px rgba(20,30,15,.14)':'none', icon: '<span style="color:'+(on?'var(--c-primary,#6eac4d)':'var(--c-muted2,#9aa392)')+';display:flex;">'+scIcons[k]+'</span>' }; };
+    const scViewTabs = [ svtab('strip','Single strip'), svtab('split','Front / back'), svtab('list','Full list') ];
+    const nineCells = (a,b)=> { const arr=[]; for(let n=a;n<=b;n++){ const hh=this.HOLES[n-1]; const c=this.stripCell(pv(n), hh.par); arr.push({ n, txt:c.txt, bg:c.bg, ring:c.ring, color:c.color, par:hh.par }); } return arr; };
+    const nineSum = (a,b)=>{ let s=0,any=false; for(let n=a;n<=b;n++){ if(pv(n)!=null){ s+=pv(n); any=true; } } return { s, any }; };
+    const outN = nineSum(1,9), inN = nineSum(10,18);
+    const scNines = [
+      { label:'Front nine · out', total: outN.any? ('Out '+outN.s) : 'Out –', cells: nineCells(1,9) },
+      { label:'Back nine · in', total: inN.any? ('In '+inN.s) : 'In –', cells: nineCells(10,18) },
+    ];
+    const scListRows = [];
+    for (let n=1;n<=18;n++){ const hh=this.HOLES[n-1]; const c=this.tableCell(pv(n), hh.par); scListRows.push({ isHole:true, isTotal:false, n, par:hh.par, si:hh.si, yds:hh.yds, txt:c.txt, wrap:c.wrap, color:c.color }); if (n===9) scListRows.push({ isTotal:true, isHole:false, label:'OUT · par 36', score: outN.any? outN.s : '–', bg:'var(--c-subtotal,#eef1ec)', labelColor:'var(--c-text-med,#3a4433)', scoreColor:'var(--c-text,#141b10)' }); if (n===18) scListRows.push({ isTotal:true, isHole:false, label:'IN · par 36', score: inN.any? inN.s : '–', bg:'var(--c-subtotal,#eef1ec)', labelColor:'var(--c-text-med,#3a4433)', scoreColor:'var(--c-text,#141b10)' }); }
+    const grossTot = (outN.any||inN.any)? ((outN.any?outN.s:0)+(inN.any?inN.s:0)) : '–';
+    scListRows.push({ isTotal:true, isHole:false, label:'TOTAL · thru 7', score: grossTot, bg:'var(--c-green-tint,#eef5e8)', labelColor:'var(--c-on-green,#4e7d34)', scoreColor:'var(--c-primary,#6eac4d)' });
+    const rndStatRows = [
+      { label:'Scoring average', value:'4.9 / hole', border:'var(--c-tint,#f2f4ef)' },
+      { label:'Up & downs', value:'2 / 3', border:'var(--c-tint,#f2f4ef)' },
+      { label:'Longest drive', value:'268 yds · H4', border:'var(--c-tint,#f2f4ef)' },
+      { label:'Sand saves', value:'1 / 2', border:'transparent' },
+    ];
+
+    // ---------- MATCH PLAY ----------
+    const mpHole = this.HOLES[S.mpHole-1];
+    const pinMp = this.greenFor(S.mpHole);
+    // hole winner from your perspective: net strokes (you get shots where SI<=diff of hc). HC A 12, B 8 -> you get 1 shot on SI<=4.
+    const mpHcA = 12, mpHcB = 8; const mpDiff = mpHcA - mpHcB; // 4 -> you receive on SI 1-4
+    const mpNet = (id, n)=>{ const v=S[id][n]; if (v==null) return null; if (v===this.PICKUP) return 99; const hh=this.HOLES[n-1]; const shot = (id==='mpA' && hh.si<=mpDiff)?1:0; return v - shot; };
+    const mpResult = (n)=>{ const na=mpNet('mpA',n), nb=mpNet('mpB',n); if (na==null||nb==null) return 0; if (na<nb) return 1; if (na>nb) return -1; return 0; };
+    let mpStanding=0, mpWon=0, mpLost=0, mpPlayed=0;
+    for (let n=1;n<=18;n++){ const r=mpResult(n); if (S.mpA[n]!=null && S.mpB[n]!=null){ mpPlayed++; mpStanding+=r; if(r>0)mpWon++; else if(r<0)mpLost++; } }
+    const mpStatusText = mpStanding===0 ? 'All square · thru '+mpPlayed : (mpStanding>0 ? (mpStanding+' UP · thru '+mpPlayed) : (Math.abs(mpStanding)+' DOWN · thru '+mpPlayed));
+    const mpBarBg = mpStanding>0 ? 'var(--c-green-tint,#eef5e8)' : (mpStanding<0 ? 'var(--c-bogey-bg,#fde4d8)' : 'var(--c-tint,#f2f4ef)');
+    const mpBarText = mpStanding>0 ? 'var(--c-on-green,#4e7d34)' : (mpStanding<0 ? 'var(--c-bogey,#d24a1e)' : 'var(--c-text-med,#3a4433)');
+    const mpMeta = [ {id:'mpA',name:'Alex Fenwick',hc:mpHcA,you:true}, {id:'mpB',name:'Tom Beckett',hc:mpHcB,you:false} ];
+    const mpPlayers = mpMeta.map(m=>{
+      const v=S[m.id][S.mpHole]; const pick=v===this.PICKUP; const parSel=v===mpHole.par;
+      const shot = (m.id==='mpA' && mpHole.si<=mpDiff)?1:0;
+      // per-player standing from their perspective
+      const persp = m.you ? mpStanding : -mpStanding;
+      const badgeBg = persp>0 ? 'var(--c-primary,#6eac4d)' : (persp<0 ? 'var(--c-bogey,#d24a1e)' : '#c99a1e');
+      const badgeText = persp===0 ? 'AS' : (persp>0 ? (persp+'↑') : (Math.abs(persp)+'↓'));
+      return { name:m.name, hc:m.hc, you:m.you,
+        cardBg: m.you?'var(--c-green-tint,#eef5e8)':'var(--c-surface,#fff)', cardBorder: m.you?'var(--c-border-green,#cfe0be)':'var(--c-border,#e7ebe2)',
+        shotsLabel: shot>0?'+1 shot here':'No shot here', shots: shot>0?'+1':'–',
+        badgeBg, badgeText,
+        scoreDisplay: v==null?'–':(pick?'P':''+v), scoreColor: pick?'var(--c-bogey,#d24a1e)':'var(--c-text,#141b10)',
+        pickBg: pick?'var(--c-bogey-bg,#fde4d8)':'var(--c-tint,#fafbf8)', pickBorder: pick?'var(--c-bogey,#d24a1e)':'var(--c-border2,#e4e8de)', pickText: pick?'var(--c-bogey,#d24a1e)':'var(--c-muted2,#9aa392)',
+        parBg: parSel?'var(--c-green-tint,#eef5e8)':'var(--c-tint,#fafbf8)', parBorder: parSel?'var(--c-primary,#6eac4d)':'var(--c-border2,#e4e8de)', parText: parSel?'var(--c-on-green,#4e7d34)':'var(--c-text-med,#3a4433)',
+        inc:()=>this.mpInc(m.id), dec:()=>this.mpDec(m.id), setPar:()=>this.mpPar(m.id), pickUp:()=>this.mpPick(m.id) };
+    });
+    const mpStrip = this.HOLES.map(h=>{ const r=mpResult(h.n); const played=S.mpA[h.n]!=null&&S.mpB[h.n]!=null;
+      let bg='transparent', ring='var(--c-border2,#e4e8de)', color='var(--c-faint,#a7afa0)', txt='';
+      if (played){ if(r>0){bg='var(--c-green-tint,#eef5e8)';ring='var(--c-primary,#6eac4d)';color='var(--c-on-green,#4e7d34)';txt='W';} else if(r<0){bg='var(--c-bogey-bg,#fde4d8)';ring='var(--c-bogey,#d24a1e)';color='var(--c-bogey,#d24a1e)';txt='L';} else {bg='var(--c-tint,#f2f4ef)';ring='var(--c-par-line,#cfd6c8)';color='var(--c-text-med,#3a4433)';txt='½';} }
+      if (h.n===S.mpHole) ring='var(--c-primary,#6eac4d)';
+      return { n:h.n, bg, ring, color, txt, jump:()=>this.mpJump(h.n) }; });
+    const mpWonLost = mpWon+'W · '+mpLost+'L · '+(mpPlayed-mpWon-mpLost)+'½';
+
+    // ---------- QUICK ENTRY ----------
+    let qsGrossN=0, qsParN=0, qsPtsN=0, qsPlayed=0;
+    const qsRows = this.HOLES.map(hh=>{
+      const v=S.qs[hh.n]; const has=v!=null;
+      const c=this.stripCell(has?v:null, hh.par);
+      const r=this.recv(12, hh.si);
+      const pts=has?this.stbl(v,hh.par,r):0;
+      if (has){ qsGrossN+=v; qsParN+=(v-hh.par); qsPtsN+=pts; qsPlayed++; }
+      const sc = has? this.tableCell(v,hh.par):null;
+      return { n:hh.n, par:hh.par, si:hh.si,
+        rowBg: has?'var(--c-surface,#fff)':'transparent', rowBorder: has?'var(--c-border,#e7ebe2)':'var(--c-border2,#dfe4d8)', rowStyle: has?'solid':'dashed',
+        numColor: has?'var(--c-text,#141b10)':'var(--c-muted,#7a8472)',
+        scoreDisplay: has?''+v:'–',
+        circleBg: has?c.bg:'var(--c-tint,#eef1ec)', circleText: has?c.color:'var(--c-faint,#a7afa0)',
+        ptsLabel: has?(pts+' pts'):'–', ptsColor: has?'var(--c-text-med,#3a4433)':'var(--c-faint,#a7afa0)',
+        inc:()=>this.qsInc(hh.n), dec:()=>this.qsDec(hh.n) };
+    });
+    const qsToPar = qsPlayed===0?'E':(qsParN===0?'E':(qsParN>0?'+'+qsParN:''+qsParN));
+    let qsNext=0; for(let n=1;n<=18;n++){ if(S.qs[n]==null){ qsNext=n; break; } } if(qsNext===0) qsNext=18;
+    const pinQs = this.greenFor(qsNext); pinQs.hole = qsNext;
+
+    // ---------- TEAM MATCH PLAY ----------
+    const tmHole = this.HOLES[S.tmHole-1];
+    const pinTm = this.greenFor(S.tmHole);
+    const TM = [
+      { id:'t1', name:'The Eagles', you:true, hc:15, members:[ {id:'t1a',name:'Alex Fenwick',hc:12}, {id:'t1b',name:'Sam Doyle',hc:18} ] },
+      { id:'t2', name:'The Albatrosses', you:false, hc:11, members:[ {id:'t2a',name:'Tom Beckett',hc:8}, {id:'t2b',name:'Ravi Anand',hc:14} ] },
+    ];
+    const tmNet = (mid, n)=>{ const v=S[mid][n]; if (v==null||v===this.PICKUP) return null; const hh=this.HOLES[n-1]; const m = mid==='t1a'?12:mid==='t1b'?18:mid==='t2a'?8:14; return v - this.tmShotFor(m, hh.si); };
+    const teamBestNet = (team, n)=>{ let best=null; for (const m of team.members){ const nn=tmNet(m.id, n); if (nn!=null && (best==null||nn<best)) best=nn; } return best; };
+    const tmResult = (n)=>{ const a=teamBestNet(TM[0],n), b=teamBestNet(TM[1],n); if(a==null||b==null) return 0; if(a<b) return 1; if(a>b) return -1; return 0; };
+    let tmStand=0, tmWon=0, tmLost=0, tmPlayed=0;
+    for (let n=1;n<=18;n++){ const a=teamBestNet(TM[0],n), b=teamBestNet(TM[1],n); if(a!=null&&b!=null){ tmPlayed++; const r=tmResult(n); tmStand+=r; if(r>0)tmWon++; else if(r<0)tmLost++; } }
+    const tmStatusText = tmStand===0 ? 'All square · thru '+tmPlayed : (tmStand>0 ? ('Eagles '+tmStand+' UP · thru '+tmPlayed) : ('Albatrosses '+Math.abs(tmStand)+' UP · thru '+tmPlayed));
+    const tmBarBg = tmStand>0?'var(--c-green-tint,#eef5e8)':(tmStand<0?'var(--c-bogey-bg,#fde4d8)':'var(--c-tint,#f2f4ef)');
+    const tmBarText = tmStand>0?'var(--c-on-green,#4e7d34)':(tmStand<0?'var(--c-bogey,#d24a1e)':'var(--c-text-med,#3a4433)');
+    const tmResultHole = tmResult(S.tmHole);
+    const tmTeams = TM.map((team,ti)=>{
+      const bestNet = teamBestNet(team, S.tmHole);
+      // best contributing player id (lowest net)
+      let bestId=null, bestVal=null; for (const m of team.members){ const nn=tmNet(m.id,S.tmHole); if(nn!=null && (bestVal==null||nn<bestVal)){ bestVal=nn; bestId=m.id; } }
+      const teamRes = ti===0 ? tmResultHole : -tmResultHole;
+      const winning = teamRes>0 && bestNet!=null;
+      const persp = team.you ? tmStand : -tmStand;
+      const badgeBg = persp>0?'var(--c-primary,#6eac4d)':(persp<0?'var(--c-bogey,#d24a1e)':'#c99a1e');
+      const badgeText = persp===0?'AS':(persp>0?(persp+'↑'):(Math.abs(persp)+'↓'));
+      const bestScoreRaw = (()=>{ let bg=null; for(const m of team.members){ const v=S[m.id][S.tmHole]; if(v!=null&&v!==this.PICKUP&&(bg==null||v<bg)) bg=v; } return bg; })();
+      const bc = bestScoreRaw==null ? {color:'var(--c-faint,#a7afa0)',bg:'var(--c-tint,#eef1ec)'} : (()=>{ const d=bestScoreRaw-tmHole.par; if(d<0) return {color:'var(--c-birdie,#2563eb)',bg:'var(--c-birdie-bg,#eaf1ff)'}; if(d===0) return {color:'var(--c-text-med,#3a4433)',bg:'var(--c-par-bg,#f2f5ee)'}; return {color:'var(--c-bogey,#d24a1e)',bg:'var(--c-bogey-bg,#fde4d8)'}; })();
+      const members = team.members.map(m=>{
+        const v=S[m.id][S.tmHole]; const pick=v===this.PICKUP; const parSel=v===tmHole.par;
+        const shot=this.tmShotFor(m.hc, tmHole.si)>0;
+        const isBest=m.id===bestId && v!=null && !pick;
+        const sc = (v==null||pick) ? 'var(--c-text,#141b10)' : (()=>{ const d=v-tmHole.par; return d<0?'var(--c-birdie,#2563eb)':d===0?'var(--c-text,#141b10)':'var(--c-bogey,#d24a1e)'; })();
+        return { name:m.name, hc:m.hc, shot, isBest,
+          rowBg: isBest?'var(--c-green-tint,#eef5e8)':'var(--c-tint,#fafbf8)', bestEdge: isBest?'border-left:3px solid var(--c-primary,#6eac4d);':'',
+          scoreDisplay: v==null?'–':(pick?'P':''+v), scoreColor: pick?'var(--c-bogey,#d24a1e)':sc,
+          pickBg: pick?'var(--c-primary,#6eac4d)':'var(--c-surface,#fff)', pickBorder: pick?'var(--c-primary,#6eac4d)':'var(--c-border2,#e4e8de)', pickText: pick?'#fff':'var(--c-muted2,#9aa392)',
+          parBg: parSel?'var(--c-primary,#6eac4d)':'var(--c-surface,#fff)', parBorder: parSel?'var(--c-primary,#6eac4d)':'var(--c-border2,#e4e8de)', parText: parSel?'#fff':'var(--c-text-med,#3a4433)',
+          inc:()=>this.tmInc(m.id), dec:()=>this.tmDec(m.id), setPar:()=>this.tmPar(m.id), pickUp:()=>this.tmPick(m.id) };
+      });
+      return { name:team.name, you:team.you, hc:team.hc, winning,
+        cardBg: team.you?'var(--c-green-tint,#eef5e8)':'var(--c-surface,#fff)', cardBorder: winning?'2px solid var(--c-primary,#6eac4d)':'1px solid '+(team.you?'var(--c-border-green,#cfe0be)':'var(--c-border,#e7ebe2)'),
+        bestScore: bestScoreRaw==null?'–':''+bestScoreRaw, bestColor:bc.color, bestBg:bc.bg,
+        badgeBg, badgeText, members };
+    });
+    const tmStrip = this.HOLES.map(h=>{ const a=teamBestNet(TM[0],h.n), b=teamBestNet(TM[1],h.n); const played=a!=null&&b!=null; const r=tmResult(h.n);
+      let bg='transparent', ring='var(--c-border2,#e4e8de)', color='var(--c-faint,#a7afa0)', txt='';
+      if(played){ if(r>0){bg='var(--c-green-tint,#eef5e8)';ring='var(--c-primary,#6eac4d)';color='var(--c-on-green,#4e7d34)';txt='E';} else if(r<0){bg='var(--c-bogey-bg,#fde4d8)';ring='var(--c-bogey,#d24a1e)';color='var(--c-bogey,#d24a1e)';txt='A';} else {bg='var(--c-tint,#f2f4ef)';ring='var(--c-par-line,#cfd6c8)';color='var(--c-text-med,#3a4433)';txt='½';} }
+      if(h.n===S.tmHole) ring='var(--c-primary,#6eac4d)';
+      return { n:h.n, bg, ring, color, txt, jump:()=>this.tmJump(h.n) }; });
+    const tmWonLost = tmWon+'E · '+tmLost+'A · '+(tmPlayed-tmWon-tmLost)+'½';
+
+    return {
+      noop:()=>{}, prevHole:()=>this.prevHole(), nextHole:()=>this.nextHole(),
+      hole, playedCount, progressPct:(playedCount/18*100)+'%', entryRunningPts, pin,
+      entryPlayers, entryQuick,
+      reviewTabs, rvScorecard:S.reviewTab==='scorecard', rvStats:S.reviewTab==='stats', rvLeaderboard:S.reviewTab==='leaderboard',
+      reviewHeadPlayers, reviewFront, reviewBack,
+      outPar, inPar, totalPar,
+      outCells:[outA,outB], inCells:[inA,inB], grossCells:[tp(grossA),tp(grossB)], netCells:[grossA-this.HC_A, grossB-this.HC_B], ptsCells:[ptsA,ptsB],
+      reviewStats, reviewLB,
+      roundTabs, rndDetails:S.roundTab==='details', rndScorecard:S.roundTab==='scorecard', rndStats:S.roundTab==='stats',
+      roundInfo, roundCells, rndStatRows,
+      scViewTabs, scStrip:S.scView==='strip', scSplit:S.scView==='split', scList:S.scView==='list', scNines, scListRows,
+      mpPrev:()=>this.mpPrev(), mpNext:()=>this.mpNext(), mpHole, pinMp, mpStatusText, mpBarBg, mpBarText, mpPlayers, mpStrip, mpWonLost,
+      qsRows, qsGross:qsGrossN, qsToPar, qsPts:qsPtsN, qsPlayed, pinQs,
+      tmPrev:()=>this.tmPrev(), tmNext:()=>this.tmNext(), tmHole, pinTm, tmStatusText, tmBarBg, tmBarText, tmTeams, tmStrip, tmWonLost,
+    };
+  }
+}
+</script>
+</body>
+</html>

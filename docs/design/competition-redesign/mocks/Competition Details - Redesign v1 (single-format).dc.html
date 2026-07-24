@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+  body { margin: 0; background: radial-gradient(120% 120% at 50% 0%, #eef1ec 0%, #e2e5df 60%, #d8dcd4 100%); font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+  a { color: #6eac4d; } a:hover { color: #4e7d34; }
+  @keyframes scr-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  .n19-scroll::-webkit-scrollbar { display: none; }
+  .n19-scroll { scrollbar-width: none; -ms-overflow-style: none; }
+</style>
+</helmet>
+
+<div style="min-height:100vh;padding:44px 48px 80px;">
+
+  <!-- Header -->
+  <div style="max-width:900px;margin:0 auto 30px;">
+    <div style="display:inline-flex;align-items:center;gap:8px;padding:5px 11px;border-radius:999px;background:#6eac4d;box-shadow:0 4px 14px rgba(110,172,77,.4);">
+      <div style="width:7px;height:7px;border-radius:50%;background:#fff;"></div>
+      <span style="font-size:11px;font-weight:700;letter-spacing:.14em;color:#fff;">THE NINETEENTH</span>
+    </div>
+    <h1 style="font-size:30px;line-height:1.12;font-weight:800;letter-spacing:-0.02em;color:#1a2417;margin:20px 0 10px;">Competition details — role-aware redesign</h1>
+    <p style="font-size:14.5px;line-height:1.6;color:#5c6657;margin:0 0 22px;max-width:680px;">The same competition, two experiences. <b style="color:#3a4433;">Organisers</b> get the full management surface — settings, rounds, players, teams, prize pool. <b style="color:#3a4433;">Competitors</b> get a lean three-tab view led by where they stand, with config folded into a read-only "About" summary. Switch the state below; both phones update.</p>
+    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+      <span style="font-size:11px;font-weight:700;letter-spacing:.1em;color:#8a9382;text-transform:uppercase;">Competition state</span>
+      <div style="display:inline-flex;background:#e6eadf;border-radius:12px;padding:4px;gap:2px;">
+        <sc-for list="{{ stateTabs }}" as="st" hint-placeholder-count="3">
+          <button onClick="{{ st.tap }}" style="border:none;cursor:pointer;height:34px;padding:0 16px;border-radius:9px;font-size:13px;font-weight:700;background:{{ st.bg }};color:{{ st.color }};box-shadow:{{ st.shadow }};">{{ st.label }}</button>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:64px;justify-content:center;flex-wrap:wrap;align-items:flex-start;">
+
+    <!-- ============ ORGANISER ============ -->
+    <div style="flex:none;">
+      <div style="display:flex;align-items:center;gap:9px;margin:0 auto 16px;width:fit-content;">
+        <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;background:#1f2a19;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="#a9d38a" stroke-width="2"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6 7.7 7.7M16.3 16.3l2.1 2.1M18.4 5.6 16.3 7.7M7.7 16.3 5.6 18.4" stroke="#a9d38a" stroke-width="2" stroke-linecap="round"/></svg>
+          <span style="font-size:11px;font-weight:800;letter-spacing:.1em;color:#a9d38a;text-transform:uppercase;">Organiser</span>
+        </span>
+        <span style="font-size:12.5px;color:#7a8472;">full management</span>
+      </div>
+
+      <div style="position:relative;width:398px;height:812px;border-radius:60px;padding:13px;background:linear-gradient(150deg,#2a2f27,#0e120c);box-shadow:0 2px 3px rgba(255,255,255,.25) inset, 0 40px 90px -20px rgba(20,30,15,.5), 0 12px 30px rgba(0,0,0,.26);">
+        <div style="position:relative;width:100%;height:100%;border-radius:48px;overflow:hidden;background:#f3f4f6;">
+          <div style="position:absolute;top:0;left:0;right:0;height:54px;z-index:40;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 8px;pointer-events:none;">
+            <span style="font-size:14px;font-weight:700;color:#141b10;font-variant-numeric:tabular-nums;">9:41</span>
+            <div style="display:flex;align-items:center;gap:7px;">
+              <div style="display:flex;align-items:flex-end;gap:2px;height:11px;"><div style="width:3px;height:5px;border-radius:1px;background:#141b10;"></div><div style="width:3px;height:7px;border-radius:1px;background:#141b10;"></div><div style="width:3px;height:9px;border-radius:1px;background:#141b10;"></div><div style="width:3px;height:11px;border-radius:1px;background:#141b10;"></div></div>
+              <div style="width:23px;height:12px;border-radius:3px;border:1.5px solid #141b10;opacity:.9;padding:1.5px;"><div style="width:70%;height:100%;border-radius:1px;background:#141b10;"></div></div>
+            </div>
+          </div>
+          <div style="position:absolute;top:11px;left:50%;transform:translateX(-50%);width:118px;height:33px;background:#05070a;border-radius:20px;z-index:45;"></div>
+
+          <div style="position:absolute;top:0;left:0;right:0;z-index:30;padding:56px 14px 10px;background:#fff;border-bottom:1px solid #ecefe8;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <button onClick="{{ noop }}" style="width:36px;height:36px;border:none;background:#f2f4ef;border-radius:11px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="#3a4433" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:15.5px;font-weight:800;color:#141b10;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ comp.name }}</div>
+                <div style="font-size:11.5px;color:#7a8472;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ comp.subtitle }}</div>
+              </div>
+              <button onClick="{{ noop }}" style="width:36px;height:36px;border:none;background:#f2f4ef;border-radius:11px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;">
+                <svg width="19" height="19" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="#3a4433" stroke-width="2"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-2.82 1.17V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15H4.5a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 11 4.6h.09A1.65 1.65 0 0 0 12 3.09V3a2 2 0 1 1 4 0v.09A1.65 1.65 0 0 0 18 4.6a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 21.4 9v.09" stroke="#3a4433" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+            </div>
+            <div class="n19-scroll" style="display:flex;gap:14px;margin-top:12px;overflow-x:auto;">
+              <sc-for list="{{ orgTabs }}" as="t" hint-placeholder-count="5">
+                <button onClick="{{ t.tap }}" style="flex:none;border:none;background:transparent;cursor:pointer;padding:6px 1px 8px;position:relative;">
+                  <span style="display:inline-flex;align-items:center;gap:5px;font-size:13.5px;font-weight:{{ t.weight }};color:{{ t.color }};white-space:nowrap;">{{ t.label }}<sc-if value="{{ t.showCount }}" hint-placeholder-val="{{ false }}"><span style="font-size:10.5px;font-weight:700;color:{{ t.countColor }};background:{{ t.countBg }};min-width:18px;height:18px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;padding:0 5px;">{{ t.count }}</span></sc-if></span>
+                  <div style="position:absolute;left:1px;right:1px;bottom:0;height:2.5px;border-radius:2px;background:{{ t.underline }};"></div>
+                </button>
+              </sc-for>
+            </div>
+          </div>
+
+          <div class="n19-scroll" style="position:absolute;top:0;left:0;right:0;bottom:0;overflow-y:auto;padding:150px 16px 30px;">
+
+            <!-- DETAILS -->
+            <sc-if value="{{ orgDetails }}" hint-placeholder-val="{{ true }}">
+            <div style="animation:scr-in .28s ease both;">
+              <!-- status banner -->
+              <sc-if value="{{ isUpcoming }}" hint-placeholder-val="{{ false }}">
+              <div style="border-radius:18px;padding:16px;background:#eef2ff;display:flex;align-items:center;gap:13px;margin-bottom:16px;">
+                <div style="width:44px;height:44px;border-radius:13px;background:#dbe6ff;display:flex;align-items:center;justify-content:center;flex:none;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="16" rx="2" stroke="#2563eb" stroke-width="2"/><path d="M3 9h18M8 3v4M16 3v4" stroke="#2563eb" stroke-width="2" stroke-linecap="round"/></svg></div>
+                <div style="flex:1;"><div style="font-size:15px;font-weight:800;color:#1f3a8a;">Starts in 6 days</div><div style="font-size:12.5px;color:#4a6bb5;margin-top:2px;">Sat 19 Jul · setup in progress</div></div>
+              </div>
+              </sc-if>
+              <sc-if value="{{ isLive }}" hint-placeholder-val="{{ true }}">
+              <div style="border-radius:18px;padding:16px;background:#eef5e8;display:flex;align-items:center;gap:13px;margin-bottom:16px;">
+                <div style="width:44px;height:44px;border-radius:13px;background:#dcebcf;display:flex;align-items:center;justify-content:center;flex:none;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M5 3v18M5 4h11l-2 4 2 4H5" stroke="#4e7d34" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                <div style="flex:1;"><div style="font-size:15px;font-weight:800;color:#1f3312;">Round 2 of 4 in progress</div><div style="font-size:12.5px;color:#4e7d34;margin-top:2px;">6 of 16 scorecards in</div></div>
+              </div>
+              </sc-if>
+              <sc-if value="{{ isCompleted }}" hint-placeholder-val="{{ false }}">
+              <div style="border-radius:18px;padding:16px;background:#fdf4dd;display:flex;align-items:center;gap:13px;margin-bottom:16px;">
+                <div style="width:44px;height:44px;border-radius:13px;background:#f7e6b8;display:flex;align-items:center;justify-content:center;flex:none;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4Z" stroke="#c99a2c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                <div style="flex:1;"><div style="font-size:15px;font-weight:800;color:#5c4413;">Competition complete</div><div style="font-size:12.5px;color:#a5822c;margin-top:2px;">Finished 26 Jul · The Eagles won</div></div>
+              </div>
+              </sc-if>
+
+              <!-- setup checklist (upcoming) -->
+              <sc-if value="{{ isUpcoming }}" hint-placeholder-val="{{ false }}">
+              <div style="font-size:12px;font-weight:800;letter-spacing:.06em;color:#8a9382;text-transform:uppercase;margin:2px 2px 9px;">Setup</div>
+              <div style="background:#fff;border:1px solid #e7ebe2;border-radius:16px;overflow:hidden;margin-bottom:18px;box-shadow:0 1px 2px rgba(20,30,15,.04);">
+                <div style="display:flex;align-items:center;gap:12px;padding:13px 15px;border-bottom:1px solid #f2f4ef;"><div style="width:24px;height:24px;border-radius:50%;background:#eef5e8;display:flex;align-items:center;justify-content:center;flex:none;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M20 6 9 17l-5-5" stroke="#4e7d34" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div><span style="flex:1;font-size:14px;font-weight:600;color:#141b10;">4 rounds added</span><span style="font-size:12.5px;font-weight:700;color:#4e7d34;">Done</span></div>
+                <div style="display:flex;align-items:center;gap:12px;padding:13px 15px;border-bottom:1px solid #f2f4ef;"><div style="width:24px;height:24px;border-radius:50%;background:#eef5e8;display:flex;align-items:center;justify-content:center;flex:none;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M20 6 9 17l-5-5" stroke="#4e7d34" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div><span style="flex:1;font-size:14px;font-weight:600;color:#141b10;">16 players joined</span><span style="font-size:12.5px;font-weight:700;color:#4e7d34;">Done</span></div>
+                <div style="display:flex;align-items:center;gap:12px;padding:13px 15px;border-bottom:1px solid #f2f4ef;"><div style="width:24px;height:24px;border-radius:50%;background:#eef5e8;display:flex;align-items:center;justify-content:center;flex:none;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M20 6 9 17l-5-5" stroke="#4e7d34" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div><span style="flex:1;font-size:14px;font-weight:600;color:#141b10;">8 teams generated</span><span style="font-size:12.5px;font-weight:700;color:#4e7d34;">Done</span></div>
+                <div style="display:flex;align-items:center;gap:12px;padding:13px 15px;"><div style="width:24px;height:24px;border-radius:50%;background:#fdf4dd;display:flex;align-items:center;justify-content:center;flex:none;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="7" stroke="#d0a53a" stroke-width="2.4"/></svg></div><span style="flex:1;font-size:14px;font-weight:600;color:#5c6657;">Assign tee times</span><span style="font-size:12.5px;font-weight:700;color:#c99a2c;">To do</span></div>
+              </div>
+              </sc-if>
+
+              <!-- manage quick actions -->
+              <div style="font-size:12px;font-weight:800;letter-spacing:.06em;color:#8a9382;text-transform:uppercase;margin:2px 2px 9px;">Manage</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:18px;">
+                <button onClick="{{ noop }}" style="border:1px solid #e7ebe2;background:#fff;border-radius:15px;padding:13px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:7px;box-shadow:0 1px 2px rgba(20,30,15,.04);" style-active="transform:scale(.96)"><div style="width:38px;height:38px;border-radius:11px;background:#eef5e8;display:flex;align-items:center;justify-content:center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#4e7d34" stroke-width="2.2" stroke-linecap="round"/></svg></div><span style="font-size:11.5px;font-weight:700;color:#3a4433;text-align:center;">Add round</span></button>
+                <button onClick="{{ noop }}" style="border:1px solid #e7ebe2;background:#fff;border-radius:15px;padding:13px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:7px;box-shadow:0 1px 2px rgba(20,30,15,.04);" style-active="transform:scale(.96)"><div style="width:38px;height:38px;border-radius:11px;background:#eef5e8;display:flex;align-items:center;justify-content:center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M16 21a5 5 0 0 0-10 0M11 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM18 8v6M21 11h-6" stroke="#4e7d34" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><span style="font-size:11.5px;font-weight:700;color:#3a4433;text-align:center;">Add players</span></button>
+                <button onClick="{{ noop }}" style="border:1px solid #e7ebe2;background:#fff;border-radius:15px;padding:13px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:7px;box-shadow:0 1px 2px rgba(20,30,15,.04);" style-active="transform:scale(.96)"><div style="width:38px;height:38px;border-radius:11px;background:#eef5e8;display:flex;align-items:center;justify-content:center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M17 20a5 5 0 0 0-10 0M7 20a4 4 0 0 0-4-4M17 20a4 4 0 0 1 4-4M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" stroke="#4e7d34" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><span style="font-size:11.5px;font-weight:700;color:#3a4433;text-align:center;">Manage teams</span></button>
+                <button onClick="{{ noop }}" style="border:1px solid #e7ebe2;background:#fff;border-radius:15px;padding:13px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:7px;box-shadow:0 1px 2px rgba(20,30,15,.04);" style-active="transform:scale(.96)"><div style="width:38px;height:38px;border-radius:11px;background:#eef5e8;display:flex;align-items:center;justify-content:center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" stroke="#4e7d34" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><span style="font-size:11.5px;font-weight:700;color:#3a4433;text-align:center;">Prize pool</span></button>
+                <button onClick="{{ noop }}" style="border:1px solid #e7ebe2;background:#fff;border-radius:15px;padding:13px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:7px;box-shadow:0 1px 2px rgba(20,30,15,.04);" style-active="transform:scale(.96)"><div style="width:38px;height:38px;border-radius:11px;background:#eef5e8;display:flex;align-items:center;justify-content:center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="#4e7d34" stroke-width="2"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6 7.7 7.7M16.3 16.3l2.1 2.1M18.4 5.6 16.3 7.7M7.7 16.3 5.6 18.4" stroke="#4e7d34" stroke-width="2" stroke-linecap="round"/></svg></div><span style="font-size:11.5px;font-weight:700;color:#3a4433;text-align:center;">Settings</span></button>
+                <button onClick="{{ noop }}" style="border:1px solid #e7ebe2;background:#fff;border-radius:15px;padding:13px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:7px;box-shadow:0 1px 2px rgba(20,30,15,.04);" style-active="transform:scale(.96)"><div style="width:38px;height:38px;border-radius:11px;background:#eef5e8;display:flex;align-items:center;justify-content:center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M4 12v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8M16 6l-4-4-4 4M12 2v14" stroke="#4e7d34" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><span style="font-size:11.5px;font-weight:700;color:#3a4433;text-align:center;">Share invite</span></button>
+              </div>
+
+              <!-- in-progress round (live) -->
+              <sc-if value="{{ isLive }}" hint-placeholder-val="{{ true }}">
+              <div style="font-size:12px;font-weight:800;letter-spacing:.06em;color:#8a9382;text-transform:uppercase;margin:2px 2px 9px;">In progress</div>
+              <div style="border-radius:18px;background:#fff;border:1px solid #dcebcf;padding:16px;margin-bottom:18px;box-shadow:0 1px 2px rgba(20,30,15,.04);">
+                <div style="display:flex;align-items:center;justify-content:space-between;">
+                  <div><div style="font-size:15px;font-weight:800;color:#141b10;">Round 2 · Ashburn Links</div><div style="font-size:12.5px;color:#7a8472;margin-top:2px;">Fourball Betterball · Today 8:40</div></div>
+                  <span style="display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:999px;background:#eef5e8;"><span style="width:6px;height:6px;border-radius:50%;background:#6eac4d;"></span><span style="font-size:11px;font-weight:700;color:#4e7d34;">Live</span></span>
+                </div>
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-top:13px;margin-bottom:7px;"><span style="font-size:12px;font-weight:700;color:#5c6657;">Scorecards in</span><span style="font-size:12px;font-weight:800;color:#4e7d34;">6 / 16</span></div>
+                <div style="height:7px;border-radius:4px;background:#eef1ea;overflow:hidden;"><div style="width:38%;height:100%;border-radius:4px;background:linear-gradient(90deg,#8bc26e,#5f9a3f);"></div></div>
+                <div style="display:flex;gap:9px;margin-top:14px;">
+                  <button onClick="{{ noop }}" style="flex:1;height:44px;border-radius:12px;border:1px solid #cfe0be;background:#eef5e8;color:#4e7d34;font-size:14px;font-weight:700;cursor:pointer;">Manage scoring</button>
+                  <button onClick="{{ noop }}" style="flex:1;height:44px;border-radius:12px;border:none;background:linear-gradient(135deg,#7cbd57,#5f9a3f);color:#fff;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 8px 18px -8px rgba(95,154,63,.6);">Submit round</button>
+                </div>
+              </div>
+              </sc-if>
+
+              <!-- editable settings -->
+              <div style="display:flex;align-items:center;gap:7px;margin:2px 2px 9px;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="#6eac4d" stroke-width="2"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4" stroke="#6eac4d" stroke-width="2" stroke-linecap="round"/></svg>
+                <span style="font-size:12px;font-weight:800;letter-spacing:.06em;color:#8a9382;text-transform:uppercase;">Competition settings</span>
+              </div>
+              <div style="background:#fff;border:1px solid #e7ebe2;border-radius:16px;overflow:hidden;box-shadow:0 1px 2px rgba(20,30,15,.04);">
+                <button onClick="{{ noop }}" style="width:100%;text-align:left;border:none;background:#fff;cursor:pointer;display:flex;align-items:center;gap:12px;padding:13px 14px;border-bottom:1px solid #f2f4ef;" style-active="background:#f7f9f4"><div style="width:34px;height:34px;border-radius:10px;background:#eef5e8;display:flex;align-items:center;justify-content:center;flex:none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M20 12 12 4H4v8l8 8 8-8Z" stroke="#6eac4d" stroke-width="2" stroke-linejoin="round"/><circle cx="8" cy="8" r="1.3" fill="#6eac4d"/></svg></div><div style="flex:1;display:flex;align-items:center;gap:6px;"><span style="font-size:14px;color:#7a8472;">Type</span><sc-if value="{{ settingsLocked }}" hint-placeholder-val="{{ true }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><rect x="5" y="11" width="14" height="9" rx="2" stroke="#b3bba9" stroke-width="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3" stroke="#b3bba9" stroke-width="2"/></svg></sc-if></div><span style="font-size:14px;font-weight:700;color:#141b10;">League</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="#cfd6c8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                <button onClick="{{ noop }}" style="width:100%;text-align:left;border:none;background:#fff;cursor:pointer;display:flex;align-items:center;gap:12px;padding:13px 14px;border-bottom:1px solid #f2f4ef;" style-active="background:#f7f9f4"><div style="width:34px;height:34px;border-radius:10px;background:#eef5e8;display:flex;align-items:center;justify-content:center;flex:none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M17 20a5 5 0 0 0-10 0M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" stroke="#6eac4d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div style="flex:1;display:flex;align-items:center;gap:6px;"><span style="font-size:14px;color:#7a8472;">Format</span><sc-if value="{{ settingsLocked }}" hint-placeholder-val="{{ true }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><rect x="5" y="11" width="14" height="9" rx="2" stroke="#b3bba9" stroke-width="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3" stroke="#b3bba9" stroke-width="2"/></svg></sc-if></div><span style="font-size:14px;font-weight:700;color:#141b10;">Fourball BB</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="#cfd6c8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                <button onClick="{{ noop }}" style="width:100%;text-align:left;border:none;background:#fff;cursor:pointer;display:flex;align-items:center;gap:12px;padding:13px 14px;border-bottom:1px solid #f2f4ef;" style-active="background:#f7f9f4"><div style="width:34px;height:34px;border-radius:10px;background:#eef5e8;display:flex;align-items:center;justify-content:center;flex:none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 3v9l6 3" stroke="#6eac4d" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="12" r="9" stroke="#6eac4d" stroke-width="2"/></svg></div><div style="flex:1;display:flex;align-items:center;gap:6px;"><span style="font-size:14px;color:#7a8472;">Handicap</span><sc-if value="{{ settingsLocked }}" hint-placeholder-val="{{ true }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><rect x="5" y="11" width="14" height="9" rx="2" stroke="#b3bba9" stroke-width="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3" stroke="#b3bba9" stroke-width="2"/></svg></sc-if></div><span style="font-size:14px;font-weight:700;color:#141b10;">Full (WHS)</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="#cfd6c8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                <button onClick="{{ noop }}" style="width:100%;text-align:left;border:none;background:#fff;cursor:pointer;display:flex;align-items:center;gap:12px;padding:13px 14px;border-bottom:1px solid #f2f4ef;" style-active="background:#f7f9f4"><div style="width:34px;height:34px;border-radius:10px;background:#eef5e8;display:flex;align-items:center;justify-content:center;flex:none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M17 20a5 5 0 0 0-10 0M7 20a4 4 0 0 0-4-4M17 20a4 4 0 0 1 4-4M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" stroke="#6eac4d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div style="flex:1;"><span style="font-size:14px;color:#7a8472;">Team size</span></div><span style="font-size:14px;font-weight:700;color:#141b10;">2 players</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="#cfd6c8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                <button onClick="{{ noop }}" style="width:100%;text-align:left;border:none;background:#fff;cursor:pointer;display:flex;align-items:center;gap:12px;padding:13px 14px;border-bottom:1px solid #f2f4ef;" style-active="background:#f7f9f4"><div style="width:34px;height:34px;border-radius:10px;background:#eef5e8;display:flex;align-items:center;justify-content:center;flex:none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="16" rx="2" stroke="#6eac4d" stroke-width="2"/><path d="M3 9h18M8 3v4M16 3v4" stroke="#6eac4d" stroke-width="2" stroke-linecap="round"/></svg></div><div style="flex:1;display:flex;align-items:center;gap:6px;"><span style="font-size:14px;color:#7a8472;">Dates</span><sc-if value="{{ settingsLocked }}" hint-placeholder-val="{{ true }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><rect x="5" y="11" width="14" height="9" rx="2" stroke="#b3bba9" stroke-width="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3" stroke="#b3bba9" stroke-width="2"/></svg></sc-if></div><span style="font-size:14px;font-weight:700;color:#141b10;">5–26 Jul</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="#cfd6c8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                <button onClick="{{ noop }}" style="width:100%;text-align:left;border:none;background:#fff;cursor:pointer;display:flex;align-items:center;gap:12px;padding:13px 14px;" style-active="background:#f7f9f4"><div style="width:34px;height:34px;border-radius:10px;background:#eef5e8;display:flex;align-items:center;justify-content:center;flex:none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4Z" stroke="#6eac4d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div style="flex:1;"><span style="font-size:14px;color:#7a8472;">Points rules</span></div><span style="font-size:14px;font-weight:700;color:#141b10;">240 pts</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="#cfd6c8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+              </div>
+              <sc-if value="{{ settingsLocked }}" hint-placeholder-val="{{ true }}"><div style="font-size:11.5px;color:#9aa392;text-align:center;margin-top:9px;padding:0 14px;">Structural settings lock once scoring starts.</div></sc-if>
+
+              <!-- prize pool -->
+              <div style="font-size:12px;font-weight:800;letter-spacing:.06em;color:#8a9382;text-transform:uppercase;margin:20px 2px 9px;">Prize pool</div>
+              <div style="border-radius:18px;overflow:hidden;background:linear-gradient(160deg,#1f2a19,#131a0f);padding:18px;box-shadow:0 12px 30px -14px rgba(20,30,15,.5);">
+                <div style="display:flex;align-items:flex-end;justify-content:space-between;">
+                  <div><div style="font-size:11px;font-weight:700;letter-spacing:.12em;color:#a7c98d;text-transform:uppercase;">Total pot</div><div style="font-size:34px;font-weight:800;color:#fff;letter-spacing:-0.02em;margin-top:3px;">£160</div></div>
+                  <span style="font-size:11.5px;font-weight:700;color:{{ prize.lockColor }};background:{{ prize.lockBg }};padding:4px 10px;border-radius:999px;">{{ prize.lockLabel }}</span>
+                </div>
+                <div style="display:flex;gap:8px;margin-top:16px;">
+                  <div style="flex:1;background:rgba(255,255,255,.06);border-radius:12px;padding:11px 8px;text-align:center;"><div style="font-size:11px;font-weight:700;color:#8ba079;">1st</div><div style="font-size:17px;font-weight:800;color:#e7efdf;margin-top:3px;">£80</div></div>
+                  <div style="flex:1;background:rgba(255,255,255,.06);border-radius:12px;padding:11px 8px;text-align:center;"><div style="font-size:11px;font-weight:700;color:#8ba079;">2nd</div><div style="font-size:17px;font-weight:800;color:#e7efdf;margin-top:3px;">£48</div></div>
+                  <div style="flex:1;background:rgba(255,255,255,.06);border-radius:12px;padding:11px 8px;text-align:center;"><div style="font-size:11px;font-weight:700;color:#8ba079;">3rd</div><div style="font-size:17px;font-weight:800;color:#e7efdf;margin-top:3px;">£32</div></div>
+                </div>
+                <button onClick="{{ noop }}" style="width:100%;margin-top:14px;height:44px;border-radius:12px;border:1px solid rgba(139,194,110,.3);background:rgba(139,194,110,.12);color:#cfe0be;font-size:13.5px;font-weight:700;cursor:pointer;">{{ prize.orgAction }}</button>
+              </div>
+            </div>
+            </sc-if>
+
+            <!-- ROUNDS (organiser) -->
+            <sc-if value="{{ orgRounds }}" hint-placeholder-val="{{ false }}">
+            <div style="animation:scr-in .28s ease both;">
+              <sc-for list="{{ rounds }}" as="r" hint-placeholder-count="4">
+                <div style="background:#fff;border:1px solid #e7ebe2;border-radius:18px;padding:16px;margin-bottom:12px;box-shadow:0 1px 2px rgba(20,30,15,.04);animation:rise .3s ease both;animation-delay:{{ r.delay }};">
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                    <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;"><span style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;background:{{ r.statusBg }};"><span style="width:6px;height:6px;border-radius:50%;background:{{ r.statusDot }};"></span><span style="font-size:10.5px;font-weight:800;letter-spacing:.04em;color:{{ r.statusColor }};text-transform:uppercase;">{{ r.status }}</span></span><span style="font-size:10.5px;font-weight:700;letter-spacing:.03em;color:#a7afa0;text-transform:uppercase;">{{ comp.format }}</span></div>
+                    <span style="font-size:11px;font-weight:800;color:#7a8472;background:#f2f4ef;padding:3px 9px;border-radius:8px;">Round {{ r.n }}</span>
+                  </div>
+                  <div style="font-size:16px;font-weight:800;color:#141b10;margin-top:11px;">{{ r.course }}</div>
+                  <div style="display:flex;align-items:center;gap:6px;margin-top:4px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 21s-7-5.2-7-11a7 7 0 1 1 14 0c0 5.8-7 11-7 11Z" stroke="#9aa392" stroke-width="2"/><circle cx="12" cy="10" r="2.5" stroke="#9aa392" stroke-width="2"/></svg><span style="font-size:12.5px;color:#7a8472;">{{ r.loc }} · {{ r.date }}</span></div>
+                  <div style="height:1px;background:#f1f3ee;margin:14px 0;"></div>
+                  <div style="display:flex;gap:8px;">
+                    <button onClick="{{ noop }}" style="flex:1;height:40px;border-radius:11px;border:none;background:#eef5e8;color:#4e7d34;font-size:13.5px;font-weight:700;cursor:pointer;">View</button>
+                    <button onClick="{{ noop }}" style="flex:1;height:40px;border-radius:11px;border:none;background:{{ r.scoreBg }};color:{{ r.scoreColor }};font-size:13.5px;font-weight:700;cursor:pointer;">Score</button>
+                    <button onClick="{{ noop }}" style="width:44px;height:40px;border-radius:11px;border:1px solid #cfe0be;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z" stroke="#6eac4d" stroke-width="2" stroke-linejoin="round"/></svg></button>
+                  </div>
+                  <sc-if value="{{ r.canForce }}" hint-placeholder-val="{{ false }}">
+                    <button onClick="{{ noop }}" style="width:100%;margin-top:8px;height:42px;border-radius:11px;border:1px solid #e4e8de;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M5 3v18M5 4h11l-2 4 2 4H5" stroke="#6eac4d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span style="font-size:13px;font-weight:700;color:#6eac4d;">Submit round now</span></button>
+                  </sc-if>
+                </div>
+              </sc-for>
+              <button onClick="{{ noop }}" style="width:100%;margin-top:8px;padding:14px;border:2px dashed #b7d29f;border-radius:16px;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#6eac4d" stroke-width="2.4" stroke-linecap="round"/></svg><span style="font-size:14px;font-weight:700;color:#6eac4d;">Add another round</span></button>
+            </div>
+            </sc-if>
+
+            <!-- STANDINGS (organiser) -->
+            <sc-if value="{{ orgStandings }}" hint-placeholder-val="{{ false }}">
+            <div style="animation:scr-in .28s ease both;">
+              <div style="font-size:12px;font-weight:800;letter-spacing:.06em;color:#8a9382;text-transform:uppercase;margin:2px 2px 10px;">{{ boardHeading }}</div>
+              <div style="display:flex;background:#eaeee4;border-radius:12px;padding:4px;margin-bottom:12px;">
+                <button onClick="{{ setBoardTeam }}" style="flex:1;height:34px;border:none;border-radius:9px;cursor:pointer;font-size:12.5px;font-weight:700;background:{{ segTeamBg }};color:{{ segTeamColor }};box-shadow:{{ segTeamShadow }};">Teams</button>
+                <button onClick="{{ setBoardInd }}" style="flex:1;height:34px;border:none;border-radius:9px;cursor:pointer;font-size:12.5px;font-weight:700;background:{{ segIndBg }};color:{{ segIndColor }};box-shadow:{{ segIndShadow }};">Individual</button>
+              </div>
+              <div style="border-radius:18px;background:#fff;border:1px solid #e7ebe2;overflow:hidden;box-shadow:0 1px 2px rgba(20,30,15,.04);">
+                <div style="display:flex;padding:11px 14px;border-bottom:1px solid #eceff0;background:#fafbf8;">
+                  <span style="width:30px;font-size:10px;font-weight:800;letter-spacing:.05em;color:#9aa392;">#</span>
+                  <span style="flex:1;font-size:10px;font-weight:800;letter-spacing:.05em;color:#9aa392;">{{ boardNameCol }}</span>
+                  <sc-if value="{{ boardIsInd }}" hint-placeholder-val="{{ false }}"><span style="width:40px;text-align:center;font-size:10px;font-weight:800;letter-spacing:.05em;color:#9aa392;">HC</span></sc-if>
+                  <span style="width:40px;text-align:right;font-size:10px;font-weight:800;letter-spacing:.05em;color:#9aa392;">PTS</span>
+                </div>
+                <sc-for list="{{ boardRows }}" as="e" hint-placeholder-count="8">
+                  <div style="display:flex;align-items:center;padding:13px 14px;border-bottom:1px solid #f1f3ee;background:{{ e.rowBg }};">
+                    <span style="width:30px;display:flex;align-items:center;">
+                      <sc-if value="{{ e.isFirst }}" hint-placeholder-val="{{ false }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4Z" stroke="#e0a92a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></sc-if>
+                      <sc-if value="{{ e.notFirst }}" hint-placeholder-val="{{ true }}"><span style="font-size:14px;font-weight:800;color:{{ e.posColor }};">{{ e.pos }}</span></sc-if>
+                    </span>
+                    <sc-if value="{{ boardIsTeam }}" hint-placeholder-val="{{ true }}"><span style="width:28px;height:28px;border-radius:8px;background:{{ e.badge }};display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:800;margin-right:10px;flex:none;">{{ e.initials }}</span></sc-if>
+                    <span style="flex:1;display:flex;align-items:center;gap:7px;min-width:0;"><span style="font-size:14.5px;font-weight:{{ e.nameWeight }};color:{{ e.nameColor }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ e.name }}</span><sc-if value="{{ e.you }}" hint-placeholder-val="{{ false }}"><span style="font-size:9px;font-weight:800;letter-spacing:.04em;color:#fff;background:#6eac4d;padding:2px 6px;border-radius:999px;flex:none;">{{ e.youText }}</span></sc-if></span>
+                    <sc-if value="{{ boardIsInd }}" hint-placeholder-val="{{ false }}"><span style="width:40px;text-align:center;font-size:13px;color:#9aa392;">{{ e.hc }}</span></sc-if>
+                    <span style="width:40px;text-align:right;font-size:18px;font-weight:800;color:{{ e.ptsColor }};">{{ e.pts }}</span>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="text-align:center;font-size:11px;color:#a7afa0;margin:14px 0 4px;">{{ boardUpdated }}</div>
+            </div>
+            </sc-if>
+
+            <!-- PLAYERS (organiser) -->
+            <sc-if value="{{ orgPlayers }}" hint-placeholder-val="{{ false }}">
+            <div style="animation:scr-in .28s ease both;">
+              <div style="display:flex;gap:9px;margin-bottom:14px;">
+                <button onClick="{{ noop }}" style="flex:1;height:46px;border-radius:13px;border:none;background:linear-gradient(135deg,#7cbd57,#5f9a3f);color:#fff;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;box-shadow:0 8px 18px -8px rgba(95,154,63,.6);"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg>Add players</button>
+                <button onClick="{{ noop }}" style="width:46px;height:46px;border-radius:13px;border:1px solid #e4e8de;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M15 3h6v6M21 3l-9 9M10 3H3v18h18v-7" stroke="#4e7d34" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+              </div>
+              <div style="display:flex;align-items:center;justify-content:space-between;background:#eef5e8;border:1px dashed #b7d29f;border-radius:13px;padding:12px 14px;margin-bottom:16px;">
+                <div><div style="font-size:11px;font-weight:700;letter-spacing:.06em;color:#4e7d34;text-transform:uppercase;">Invite code</div><div style="font-size:19px;font-weight:800;color:#141b10;letter-spacing:.08em;margin-top:2px;">GWR-482</div></div>
+                <button onClick="{{ noop }}" style="height:36px;padding:0 14px;border-radius:10px;border:none;background:#6eac4d;color:#fff;font-size:12.5px;font-weight:700;cursor:pointer;">Share</button>
+              </div>
+              <div style="font-size:12px;font-weight:800;letter-spacing:.06em;color:#8a9382;text-transform:uppercase;margin:2px 2px 12px;">16 players · 8 teams</div>
+              <sc-for list="{{ teams }}" as="t" hint-placeholder-count="8">
+                <div style="background:{{ t.bg }};border:1px solid {{ t.border }};border-radius:16px;padding:12px 14px;margin-bottom:10px;box-shadow:0 1px 2px rgba(20,30,15,.04);">
+                  <div style="display:flex;align-items:center;gap:9px;"><div style="width:28px;height:28px;border-radius:8px;background:{{ t.badgeBg }};display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:800;">{{ t.initials }}</div><span style="font-size:14.5px;font-weight:800;color:#141b10;">{{ t.name }}</span></div>
+                  <sc-for list="{{ t.members }}" as="m" hint-placeholder-count="2">
+                    <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid {{ t.rowBorder }};"><div style="width:30px;height:30px;border-radius:50%;background:{{ m.avBg }};display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:800;flex:none;">{{ m.initials }}</div><span style="flex:1;font-size:14px;font-weight:{{ m.weight }};color:#141b10;">{{ m.name }}</span><sc-if value="{{ m.you }}" hint-placeholder-val="{{ false }}"><span style="font-size:9px;font-weight:800;color:#fff;background:#6eac4d;padding:2px 6px;border-radius:999px;">YOU</span></sc-if><span style="font-size:12.5px;color:#9aa392;">HC {{ m.hc }}</span></div>
+                  </sc-for>
+                </div>
+              </sc-for>
+            </div>
+            </sc-if>
+
+            <!-- TEAMS (organiser) -->
+            <sc-if value="{{ orgTeams }}" hint-placeholder-val="{{ false }}">
+            <div style="animation:scr-in .28s ease both;">
+              <div style="display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px solid #e7ebe2;border-radius:14px;padding:12px 14px;margin-bottom:14px;box-shadow:0 1px 2px rgba(20,30,15,.04);">
+                <div style="font-size:13px;color:#5c6657;"><b style="color:#141b10;">8 teams</b> · 2 players each</div>
+                <button onClick="{{ noop }}" style="height:34px;padding:0 13px;border-radius:10px;border:1px solid #cfe0be;background:#eef5e8;color:#4e7d34;font-size:12.5px;font-weight:700;cursor:pointer;">Regenerate</button>
+              </div>
+              <sc-for list="{{ teams }}" as="tm" hint-placeholder-count="8">
+                <div style="background:#fff;border:1px solid {{ tm.border }};border-radius:16px;padding:14px;margin-bottom:10px;box-shadow:0 1px 2px rgba(20,30,15,.04);">
+                  <div style="display:flex;align-items:center;justify-content:space-between;">
+                    <div style="display:flex;align-items:center;gap:9px;"><div style="width:32px;height:32px;border-radius:9px;background:{{ tm.badgeBg }};display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:800;">{{ tm.initials }}</div><div style="font-size:15px;font-weight:800;color:#141b10;">{{ tm.name }}</div></div>
+                    <button onClick="{{ noop }}" style="width:32px;height:32px;border-radius:9px;border:none;background:#f2f4ef;cursor:pointer;display:flex;align-items:center;justify-content:center;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" stroke="#7a8472" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                  </div>
+                  <div style="display:flex;gap:7px;margin-top:12px;">
+                    <sc-for list="{{ tm.members }}" as="m" hint-placeholder-count="2">
+                      <div style="flex:1;display:flex;align-items:center;gap:8px;background:#fafbf8;border-radius:11px;padding:8px 10px;"><div style="width:26px;height:26px;border-radius:50%;background:{{ m.avBg }};display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:800;">{{ m.initials }}</div><div style="min-width:0;"><div style="font-size:12.5px;font-weight:700;color:#141b10;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ m.name }}</div><div style="font-size:10.5px;color:#9aa392;">HC {{ m.hc }}</div></div></div>
+                    </sc-for>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+            </sc-if>
+
+          </div>
+          <div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:#c3cbba;z-index:50;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ COMPETITOR ============ -->
+    <div style="flex:none;">
+      <div style="display:flex;align-items:center;gap:9px;margin:0 auto 16px;width:fit-content;">
+        <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;background:#6eac4d;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M20 21a8 8 0 0 0-16 0" stroke="#fff" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="8" r="4" stroke="#fff" stroke-width="2"/></svg>
+          <span style="font-size:11px;font-weight:800;letter-spacing:.1em;color:#fff;text-transform:uppercase;">Competitor</span>
+        </span>
+        <span style="font-size:12.5px;color:#7a8472;">where I stand</span>
+      </div>
+
+      <div style="position:relative;width:398px;height:812px;border-radius:60px;padding:13px;background:linear-gradient(150deg,#2a2f27,#0e120c);box-shadow:0 2px 3px rgba(255,255,255,.25) inset, 0 40px 90px -20px rgba(20,30,15,.5), 0 12px 30px rgba(0,0,0,.26);">
+        <div style="position:relative;width:100%;height:100%;border-radius:48px;overflow:hidden;background:#f3f4f6;">
+          <div style="position:absolute;top:0;left:0;right:0;height:54px;z-index:40;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 8px;pointer-events:none;">
+            <span style="font-size:14px;font-weight:700;color:#141b10;font-variant-numeric:tabular-nums;">9:41</span>
+            <div style="display:flex;align-items:center;gap:7px;">
+              <div style="display:flex;align-items:flex-end;gap:2px;height:11px;"><div style="width:3px;height:5px;border-radius:1px;background:#141b10;"></div><div style="width:3px;height:7px;border-radius:1px;background:#141b10;"></div><div style="width:3px;height:9px;border-radius:1px;background:#141b10;"></div><div style="width:3px;height:11px;border-radius:1px;background:#141b10;"></div></div>
+              <div style="width:23px;height:12px;border-radius:3px;border:1.5px solid #141b10;opacity:.9;padding:1.5px;"><div style="width:70%;height:100%;border-radius:1px;background:#141b10;"></div></div>
+            </div>
+          </div>
+          <div style="position:absolute;top:11px;left:50%;transform:translateX(-50%);width:118px;height:33px;background:#05070a;border-radius:20px;z-index:45;"></div>
+
+          <div style="position:absolute;top:0;left:0;right:0;z-index:30;padding:56px 14px 10px;background:#fff;border-bottom:1px solid #ecefe8;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <button onClick="{{ noop }}" style="width:36px;height:36px;border:none;background:#f2f4ef;border-radius:11px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="#3a4433" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+              <div style="flex:1;min-width:0;"><div style="font-size:15.5px;font-weight:800;color:#141b10;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ comp.name }}</div><div style="font-size:11.5px;color:#7a8472;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ comp.subtitle }}</div></div>
+              <button onClick="{{ noop }}" style="width:36px;height:36px;border:none;background:#f2f4ef;border-radius:11px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none"><path d="M4 12v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8M16 6l-4-4-4 4M12 2v14" stroke="#3a4433" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            </div>
+            <div style="display:flex;gap:22px;margin-top:12px;">
+              <sc-for list="{{ pTabs }}" as="t" hint-placeholder-count="3">
+                <button onClick="{{ t.tap }}" style="flex:none;border:none;background:transparent;cursor:pointer;padding:6px 1px 8px;position:relative;">
+                  <span style="display:inline-flex;align-items:center;gap:5px;font-size:13.5px;font-weight:{{ t.weight }};color:{{ t.color }};white-space:nowrap;">{{ t.label }}<sc-if value="{{ t.showCount }}" hint-placeholder-val="{{ false }}"><span style="font-size:10.5px;font-weight:700;color:{{ t.countColor }};background:{{ t.countBg }};min-width:18px;height:18px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;padding:0 5px;">{{ t.count }}</span></sc-if></span>
+                  <div style="position:absolute;left:1px;right:1px;bottom:0;height:2.5px;border-radius:2px;background:{{ t.underline }};"></div>
+                </button>
+              </sc-for>
+            </div>
+          </div>
+
+          <div class="n19-scroll" style="position:absolute;top:0;left:0;right:0;bottom:0;overflow-y:auto;padding:150px 16px 30px;">
+
+            <!-- STANDINGS (competitor) -->
+            <sc-if value="{{ pStandings }}" hint-placeholder-val="{{ true }}">
+            <div style="animation:scr-in .28s ease both;">
+              <div style="border-radius:22px;overflow:hidden;background:linear-gradient(160deg,#1f2a19,#131a0f);padding:20px;position:relative;box-shadow:0 16px 38px -14px rgba(20,30,15,.55);margin-bottom:14px;">
+                <div style="position:absolute;top:-34px;right:-24px;width:150px;height:150px;border-radius:50%;background:radial-gradient(circle,rgba(139,194,110,.3),transparent 70%);"></div>
+                <div style="position:relative;">
+                  <div style="font-size:11px;font-weight:700;letter-spacing:.12em;color:#a7c98d;text-transform:uppercase;">{{ hero.eyebrow }}</div>
+                  <sc-if value="{{ hero.showRank }}" hint-placeholder-val="{{ true }}">
+                    <div style="display:flex;align-items:flex-end;gap:14px;margin-top:10px;">
+                      <div style="display:flex;align-items:baseline;"><span style="font-size:52px;line-height:.85;font-weight:800;color:#fff;letter-spacing:-0.03em;">{{ hero.rank }}</span><span style="font-size:22px;font-weight:700;color:#8ba079;">&nbsp;/ {{ hero.of }}</span></div>
+                      <div style="padding-bottom:5px;"><div style="font-size:26px;font-weight:800;color:#e7efdf;line-height:1;">{{ hero.pts }}</div><div style="font-size:10.5px;font-weight:700;letter-spacing:.06em;color:#8ba079;margin-top:3px;">TEAM PTS</div></div>
+                      <sc-if value="{{ hero.showDelta }}" hint-placeholder-val="{{ false }}"><div style="padding-bottom:7px;"><span style="display:inline-flex;align-items:center;gap:3px;padding:4px 8px;border-radius:999px;background:rgba(139,194,110,.18);font-size:12px;font-weight:800;color:#8bc26e;">{{ hero.delta }}</span></div></sc-if>
+                    </div>
+                    <div style="font-size:13px;color:#93a385;margin-top:10px;">{{ hero.teamLine }}</div>
+                  </sc-if>
+                  <sc-if value="{{ hero.showCountdown }}" hint-placeholder-val="{{ false }}">
+                    <div style="font-size:44px;font-weight:800;color:#fff;letter-spacing:-0.02em;margin-top:8px;">{{ hero.countdown }}</div>
+                    <div style="font-size:13.5px;color:#a7b79a;margin-top:6px;">{{ hero.teamLine }}</div>
+                  </sc-if>
+                  <sc-if value="{{ hero.showPrizeWon }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:999px;background:rgba(240,193,75,.16);margin-top:14px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4Z" stroke="#f2c94c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span style="font-size:13px;font-weight:800;color:#f6d55c;">You won £32</span></div>
+                  </sc-if>
+                </div>
+              </div>
+
+              <sc-if value="{{ showScoreCta }}" hint-placeholder-val="{{ false }}">
+              <button onClick="{{ noop }}" style="width:100%;border:none;cursor:pointer;text-align:left;display:flex;align-items:center;gap:13px;padding:15px;border-radius:18px;background:linear-gradient(135deg,#7cbd57,#5f9a3f);box-shadow:0 12px 26px -8px rgba(95,154,63,.55);margin-bottom:14px;" style-active="transform:scale(.99)">
+                <div style="width:44px;height:44px;border-radius:13px;background:rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;flex:none;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 3v12M5 12h14" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><circle cx="12" cy="19" r="2" fill="#fff"/></svg></div>
+                <div style="flex:1;"><div style="font-size:15px;font-weight:800;color:#fff;">Round 2 is live — score now</div><div style="font-size:12.5px;color:rgba(255,255,255,.85);margin-top:1px;">Ashburn Links · you're on the tee</div></div>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+              </sc-if>
+
+              <div style="display:flex;align-items:center;gap:12px;background:#fff;border:1px solid #f0e6cc;border-radius:16px;padding:14px;margin-bottom:16px;box-shadow:0 1px 2px rgba(20,30,15,.04);">
+                <div style="width:42px;height:42px;border-radius:12px;background:#fdf4dd;display:flex;align-items:center;justify-content:center;flex:none;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4Z" stroke="#e0a92a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                <div style="flex:1;"><div style="font-size:11px;font-weight:700;letter-spacing:.06em;color:#c99a2c;text-transform:uppercase;">Prize pool · £160</div><div style="font-size:13.5px;font-weight:700;color:#141b10;margin-top:2px;">{{ prize.teaser }}</div></div>
+              </div>
+
+              <sc-if value="{{ showBoard }}" hint-placeholder-val="{{ true }}">
+                <div style="font-size:12px;font-weight:800;letter-spacing:.06em;color:#8a9382;text-transform:uppercase;margin:2px 2px 10px;">{{ boardHeading }}</div>
+                <div style="display:flex;background:#eaeee4;border-radius:12px;padding:4px;margin-bottom:12px;">
+                  <button onClick="{{ setBoardTeam }}" style="flex:1;height:34px;border:none;border-radius:9px;cursor:pointer;font-size:12.5px;font-weight:700;background:{{ segTeamBg }};color:{{ segTeamColor }};box-shadow:{{ segTeamShadow }};">Teams</button>
+                  <button onClick="{{ setBoardInd }}" style="flex:1;height:34px;border:none;border-radius:9px;cursor:pointer;font-size:12.5px;font-weight:700;background:{{ segIndBg }};color:{{ segIndColor }};box-shadow:{{ segIndShadow }};">Individual</button>
+                </div>
+                <div style="border-radius:18px;background:#fff;border:1px solid #e7ebe2;overflow:hidden;box-shadow:0 1px 2px rgba(20,30,15,.04);">
+                  <div style="display:flex;padding:11px 14px;border-bottom:1px solid #eceff0;background:#fafbf8;">
+                    <span style="width:30px;font-size:10px;font-weight:800;letter-spacing:.05em;color:#9aa392;">#</span>
+                    <span style="flex:1;font-size:10px;font-weight:800;letter-spacing:.05em;color:#9aa392;">{{ boardNameCol }}</span>
+                    <sc-if value="{{ boardIsInd }}" hint-placeholder-val="{{ false }}"><span style="width:40px;text-align:center;font-size:10px;font-weight:800;letter-spacing:.05em;color:#9aa392;">HC</span></sc-if>
+                    <span style="width:40px;text-align:right;font-size:10px;font-weight:800;letter-spacing:.05em;color:#9aa392;">PTS</span>
+                  </div>
+                  <sc-for list="{{ boardRows }}" as="e" hint-placeholder-count="8">
+                    <div style="display:flex;align-items:center;padding:13px 14px;border-bottom:1px solid #f1f3ee;background:{{ e.rowBg }};">
+                      <span style="width:30px;display:flex;align-items:center;">
+                        <sc-if value="{{ e.isFirst }}" hint-placeholder-val="{{ false }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4Z" stroke="#e0a92a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></sc-if>
+                        <sc-if value="{{ e.notFirst }}" hint-placeholder-val="{{ true }}"><span style="font-size:14px;font-weight:800;color:{{ e.posColor }};">{{ e.pos }}</span></sc-if>
+                      </span>
+                      <sc-if value="{{ boardIsTeam }}" hint-placeholder-val="{{ true }}"><span style="width:28px;height:28px;border-radius:8px;background:{{ e.badge }};display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:800;margin-right:10px;flex:none;">{{ e.initials }}</span></sc-if>
+                      <span style="flex:1;display:flex;align-items:center;gap:7px;min-width:0;"><span style="font-size:14.5px;font-weight:{{ e.nameWeight }};color:{{ e.nameColor }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ e.name }}</span><sc-if value="{{ e.you }}" hint-placeholder-val="{{ false }}"><span style="font-size:9px;font-weight:800;letter-spacing:.04em;color:#fff;background:#6eac4d;padding:2px 6px;border-radius:999px;flex:none;">{{ e.youText }}</span></sc-if></span>
+                      <sc-if value="{{ boardIsInd }}" hint-placeholder-val="{{ false }}"><span style="width:40px;text-align:center;font-size:13px;color:#9aa392;">{{ e.hc }}</span></sc-if>
+                      <span style="width:40px;text-align:right;font-size:18px;font-weight:800;color:{{ e.ptsColor }};">{{ e.pts }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+                <div style="text-align:center;font-size:11px;color:#a7afa0;margin:14px 0 4px;">{{ boardUpdated }}</div>
+              </sc-if>
+              <sc-if value="{{ isUpcoming }}" hint-placeholder-val="{{ false }}">
+                <div style="border:1px dashed #d3d9cc;border-radius:16px;padding:26px 18px;text-align:center;margin-bottom:16px;"><div style="font-size:14px;font-weight:700;color:#5c6657;">Standings appear once play begins</div><div style="font-size:12.5px;color:#9aa392;margin-top:4px;">Round 1 tees off Sat 19 Jul</div></div>
+              </sc-if>
+
+              <div style="font-size:12px;font-weight:800;letter-spacing:.06em;color:#8a9382;text-transform:uppercase;margin:16px 2px 9px;">About</div>
+              <div style="background:#fff;border:1px solid #e7ebe2;border-radius:16px;padding:6px 16px;box-shadow:0 1px 2px rgba(20,30,15,.04);">
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid #f2f4ef;"><span style="font-size:13.5px;color:#7a8472;">Format</span><span style="font-size:13.5px;font-weight:700;color:#141b10;">Fourball Betterball</span></div>
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid #f2f4ef;"><span style="font-size:13.5px;color:#7a8472;">Handicap</span><span style="font-size:13.5px;font-weight:700;color:#141b10;">Full (WHS)</span></div>
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid #f2f4ef;"><span style="font-size:13.5px;color:#7a8472;">Rounds</span><span style="font-size:13.5px;font-weight:700;color:#141b10;">4</span></div>
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid #f2f4ef;"><span style="font-size:13.5px;color:#7a8472;">Teams</span><span style="font-size:13.5px;font-weight:700;color:#141b10;">8 · pairs</span></div>
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 0;"><span style="font-size:13.5px;color:#7a8472;">Dates</span><span style="font-size:13.5px;font-weight:700;color:#141b10;">5–26 Jul 2025</span></div>
+              </div>
+            </div>
+            </sc-if>
+
+            <!-- ROUNDS (competitor) -->
+            <sc-if value="{{ pRounds }}" hint-placeholder-val="{{ false }}">
+            <div style="animation:scr-in .28s ease both;">
+              <sc-for list="{{ rounds }}" as="r" hint-placeholder-count="4">
+                <div style="background:#fff;border:1px solid {{ r.pBorder }};border-radius:18px;padding:16px;margin-bottom:12px;box-shadow:0 1px 2px rgba(20,30,15,.04);animation:rise .3s ease both;animation-delay:{{ r.delay }};">
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                    <span style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;background:{{ r.statusBg }};"><span style="width:6px;height:6px;border-radius:50%;background:{{ r.statusDot }};"></span><span style="font-size:10.5px;font-weight:800;letter-spacing:.04em;color:{{ r.statusColor }};text-transform:uppercase;">{{ r.status }}</span></span>
+                    <span style="font-size:11px;font-weight:800;color:#7a8472;background:#f2f4ef;padding:3px 9px;border-radius:8px;">Round {{ r.n }}</span>
+                  </div>
+                  <div style="font-size:16px;font-weight:800;color:#141b10;margin-top:11px;">{{ r.course }}</div>
+                  <div style="display:flex;align-items:center;gap:6px;margin-top:4px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 21s-7-5.2-7-11a7 7 0 1 1 14 0c0 5.8-7 11-7 11Z" stroke="#9aa392" stroke-width="2"/><circle cx="12" cy="10" r="2.5" stroke="#9aa392" stroke-width="2"/></svg><span style="font-size:12.5px;color:#7a8472;">{{ r.loc }} · {{ r.date }}</span></div>
+                  <sc-if value="{{ r.showMine }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:13px;padding-top:12px;border-top:1px solid #f1f3ee;"><span style="font-size:12.5px;color:#7a8472;">{{ r.mineLabel }}</span><span style="font-size:15px;font-weight:800;color:{{ r.mineColor }};">{{ r.mineValue }}</span></div>
+                  </sc-if>
+                  <sc-if value="{{ r.showAction }}" hint-placeholder-val="{{ false }}">
+                    <button onClick="{{ noop }}" style="width:100%;margin-top:13px;height:44px;border-radius:12px;border:none;background:{{ r.actionBg }};color:{{ r.actionColor }};font-size:14px;font-weight:700;cursor:pointer;">{{ r.actionLabel }}</button>
+                  </sc-if>
+                </div>
+              </sc-for>
+            </div>
+            </sc-if>
+
+            <!-- PLAYERS (competitor) -->
+            <sc-if value="{{ pPlayers }}" hint-placeholder-val="{{ false }}">
+            <div style="animation:scr-in .28s ease both;">
+              <div style="font-size:12px;font-weight:800;letter-spacing:.06em;color:#8a9382;text-transform:uppercase;margin:2px 2px 12px;">16 players · 8 teams</div>
+              <sc-for list="{{ teams }}" as="t" hint-placeholder-count="8">
+                <div style="background:{{ t.bg }};border:1px solid {{ t.border }};border-radius:16px;padding:12px 14px;margin-bottom:10px;box-shadow:0 1px 2px rgba(20,30,15,.04);">
+                  <div style="display:flex;align-items:center;gap:9px;"><div style="width:28px;height:28px;border-radius:8px;background:{{ t.badgeBg }};display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:800;">{{ t.initials }}</div><span style="font-size:14.5px;font-weight:800;color:#141b10;">{{ t.name }}</span></div>
+                  <sc-for list="{{ t.members }}" as="m" hint-placeholder-count="2">
+                    <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid {{ t.rowBorder }};"><div style="width:30px;height:30px;border-radius:50%;background:{{ m.avBg }};display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:800;flex:none;">{{ m.initials }}</div><span style="flex:1;font-size:14px;font-weight:{{ m.weight }};color:#141b10;">{{ m.name }}</span><sc-if value="{{ m.you }}" hint-placeholder-val="{{ false }}"><span style="font-size:9px;font-weight:800;color:#fff;background:#6eac4d;padding:2px 6px;border-radius:999px;">YOU</span></sc-if><span style="font-size:12.5px;color:#9aa392;">HC {{ m.hc }}</span></div>
+                  </sc-for>
+                </div>
+              </sc-for>
+            </div>
+            </sc-if>
+
+          </div>
+          <div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:#c3cbba;z-index:50;"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { comp: 'live', orgTab: 'details', pTab: 'standings', board: 'team' };
+
+  C = { green:'#6eac4d', greenD:'#4e7d34', ink:'#141b10', sub:'#7a8472', mut:'#9aa392', goldD:'#c99a2c' };
+
+  setComp(c){ this.setState({ comp:c }); }
+  setOrgTab(t){ this.setState({ orgTab:t }); }
+  setPTab(t){ this.setState({ pTab:t }); }
+  setBoard(b){ this.setState({ board:b }); }
+
+  TEAMS = [
+    {name:'The Eagles', initials:'TE', pts:71, badge:'linear-gradient(135deg,#f2c94c,#e0a92a)', members:[['Maya Okafor','MO',6,'linear-gradient(135deg,#f2c94c,#e0a92a)'],['Priya Nair','PN',12,'linear-gradient(135deg,#c98cc0,#9a4f8f)']]},
+    {name:'Fairway Friends', initials:'FF', pts:68, badge:'linear-gradient(135deg,#7aa5d2,#4a72a5)', members:[['Tom Beckett','TB',14,'linear-gradient(135deg,#c9a27e,#a5754e)'],['Dan Whitlock','DW',16,'linear-gradient(135deg,#8a94a3,#5b6472)']]},
+    {name:'Gower Gophers', initials:'GG', pts:65, you:true, badge:'linear-gradient(135deg,#8bc26e,#558a3b)', members:[['Alex Fenwick','AF',12,'linear-gradient(135deg,#8bc26e,#558a3b)',true],['Ravi Anand','RA',8,'linear-gradient(135deg,#e0916b,#b5623c)']]},
+    {name:'Sand Traps', initials:'ST', pts:61, badge:'linear-gradient(135deg,#d2b06a,#a5824a)', members:[['Sofia Reyes','SR',18,'linear-gradient(135deg,#7aa5d2,#4a72a5)'],['James Hurst','JH',11,'linear-gradient(135deg,#6fae8f,#3f7d5f)']]},
+    {name:'Pin Seekers', initials:'PS', pts:58, badge:'linear-gradient(135deg,#9d8cd2,#5f4aa5)', members:[['Nora Patel','NP',9,'linear-gradient(135deg,#c98cc0,#9a4f8f)'],['Owen Clark','OC',15,'linear-gradient(135deg,#c9a27e,#a5754e)']]},
+    {name:'Bogey Bandits', initials:'BB', pts:54, badge:'linear-gradient(135deg,#d27a7a,#a54a4a)', members:[['Grace Lin','GL',20,'linear-gradient(135deg,#6fae8f,#3f7d5f)'],['Ben Foyle','BF',13,'linear-gradient(135deg,#8a94a3,#5b6472)']]},
+    {name:'Slice Society', initials:'SS', pts:49, badge:'linear-gradient(135deg,#6fae8f,#3f7d5f)', members:[['Amara Bell','AB',22,'linear-gradient(135deg,#f2c94c,#e0a92a)'],['Kit Marsh','KM',17,'linear-gradient(135deg,#7aa5d2,#4a72a5)']]},
+    {name:'Mulligan Crew', initials:'MC', pts:44, badge:'linear-gradient(135deg,#8a94a3,#5b6472)', members:[['Ivy Dawson','ID',24,'linear-gradient(135deg,#c98cc0,#9a4f8f)'],['Leo Park','LP',19,'linear-gradient(135deg,#e0916b,#b5623c)']]},
+  ];
+  IND = [
+    {name:'Maya Okafor', hc:6, pts:38, initials:'MO'},
+    {name:'Ravi Anand', hc:8, pts:36, initials:'RA'},
+    {name:'Tom Beckett', hc:14, pts:35, initials:'TB'},
+    {name:'Nora Patel', hc:9, pts:35, initials:'NP'},
+    {name:'Alex Fenwick', hc:12, pts:34, you:true, initials:'AF'},
+    {name:'James Hurst', hc:11, pts:32, initials:'JH'},
+    {name:'Priya Nair', hc:12, pts:31, initials:'PN'},
+    {name:'Sofia Reyes', hc:18, pts:29, initials:'SR'},
+  ];
+
+  renderVals() {
+    const S = this.state; const C = this.C;
+    const isUpcoming = S.comp === 'upcoming';
+    const isLive = S.comp === 'live';
+    const isCompleted = S.comp === 'completed';
+    const comp = { name:'Autumn Team Trophy', subtitle:'Fourball Betterball · Pennard GC', format:'Fourball Betterball' };
+
+    const stateTabs = [ {k:'upcoming',l:'Upcoming'},{k:'live',l:'Live'},{k:'completed',l:'Completed'} ].map(s=>{
+      const a = S.comp===s.k;
+      return { label:s.l, tap:()=>this.setComp(s.k), bg:a?'#fff':'transparent', color:a?C.ink:C.sub, shadow:a?'0 1px 3px rgba(20,30,15,.16)':'none' };
+    });
+
+    const mkTab = (key,label,current,setter,count)=>{
+      const a = current===key;
+      return { label, tap:()=>setter(key), weight:a?800:600, color:a?C.ink:C.mut, underline:a?C.green:'transparent',
+        showCount:count!=null, count, countColor:a?'#fff':C.mut, countBg:a?C.green:'#eef1ea' };
+    };
+    const stLabel = isCompleted?'Results':'Standings';
+    const orgTabs = [
+      mkTab('details','Details',S.orgTab,t=>this.setOrgTab(t)),
+      mkTab('rounds','Rounds',S.orgTab,t=>this.setOrgTab(t),4),
+      mkTab('standings',stLabel,S.orgTab,t=>this.setOrgTab(t)),
+      mkTab('players','Players',S.orgTab,t=>this.setOrgTab(t),16),
+      mkTab('teams','Teams',S.orgTab,t=>this.setOrgTab(t),8),
+    ];
+    const pTabs = [
+      mkTab('standings',stLabel,S.pTab,t=>this.setPTab(t)),
+      mkTab('rounds','Rounds',S.pTab,t=>this.setPTab(t),4),
+      mkTab('players','Players',S.pTab,t=>this.setPTab(t),16),
+    ];
+
+    // rounds
+    const RD = [ {n:1,course:'Pennard Golf Club',loc:'Gower'},{n:2,course:'Ashburn Links',loc:'Swansea'},{n:3,course:'Royal Porthcawl',loc:'Bridgend'},{n:4,course:'Southerndown',loc:'Vale of Glam.'} ];
+    const upDates=['Sat 19 Jul · 9:00','Sat 26 Jul · 9:00','Sat 2 Aug · 9:00','Sat 9 Aug · 9:00'];
+    const liveDates=['Sat 5 Jul','Today · 8:40','Sat 19 Jul · 9:00','Sat 26 Jul · 9:00'];
+    const doneDates=['Sat 5 Jul','Sat 12 Jul','Sat 19 Jul','Sat 26 Jul'];
+    const doneScores=['18 pts','20 pts','15 pts','12 pts'];
+    const statusOf=(i)=>{ if(isUpcoming) return 'upcoming'; if(isCompleted) return 'completed'; if(i===0) return 'completed'; if(i===1) return 'in-progress'; return 'upcoming'; };
+    const SS={ 'completed':{label:'Completed',bg:'#f2f4ef',dot:'#9aa392',color:'#7a8472'},'in-progress':{label:'Live',bg:'#eef5e8',dot:'#6eac4d',color:'#4e7d34'},'upcoming':{label:'Upcoming',bg:'#eef2ff',dot:'#3b82f6',color:'#2563eb'} };
+    const rounds = RD.map((r,i)=>{
+      const st=statusOf(i); const ss=SS[st];
+      const date = isUpcoming?upDates[i]:(isCompleted?doneDates[i]:liveDates[i]);
+      const scoreDisabled = st==='completed'||st==='upcoming';
+      let showMine=false,mineLabel='',mineValue='',mineColor=C.ink,showAction=false,actionLabel='',actionBg='',actionColor='';
+      if (isCompleted) { showMine=true;mineLabel='Your points';mineValue=doneScores[i];mineColor=C.green;showAction=true;actionLabel='View scorecard';actionBg='#eef5e8';actionColor=C.greenD; }
+      else if (isLive) {
+        if (st==='completed'){ showMine=true;mineLabel='Your points';mineValue='18 pts';mineColor=C.green;showAction=true;actionLabel='View scorecard';actionBg='#eef5e8';actionColor=C.greenD; }
+        else if (st==='in-progress'){ showAction=true;actionLabel='Score your round';actionBg='linear-gradient(135deg,#7cbd57,#5f9a3f)';actionColor='#fff'; }
+        else { showMine=true;mineLabel='Tee time';mineValue=(date.split('· ')[1]||date);mineColor=C.sub; }
+      } else { showMine=true;mineLabel='Tee time';mineValue=(date.split('· ')[1]||'TBC');mineColor=C.sub; }
+      return { n:r.n,course:r.course,loc:r.loc,date,status:ss.label,statusBg:ss.bg,statusDot:ss.dot,statusColor:ss.color,delay:(i*0.05)+'s',
+        scoreBg:scoreDisabled?'#e9ece4':C.green, scoreColor:scoreDisabled?'#a7afa0':'#fff', canForce:isLive&&st==='in-progress',
+        pBorder:st==='in-progress'?'#dcebcf':'#e7ebe2', showMine,mineLabel,mineValue,mineColor, showAction,actionLabel,actionBg,actionColor };
+    });
+
+    // leaderboard rows
+    const boardIsTeam = S.board==='team';
+    let boardRows;
+    if (boardIsTeam) {
+      boardRows = this.TEAMS.map((t,i)=>{ const pos=i+1; const first=pos===1;
+        return { pos,isFirst:first,notFirst:!first, posColor:t.you?C.green:C.mut, rowBg:t.you?'#f4f9ef':(first?'#fffdf5':'#fff'),
+          badge:t.badge, initials:t.initials, name:t.name, nameColor:t.you?C.greenD:C.ink, nameWeight:t.you?700:600,
+          you:!!t.you, youText:'MY TEAM', hc:'', ptsColor:first?C.goldD:(t.you?C.green:C.ink), pts:t.pts }; });
+    } else {
+      boardRows = this.IND.map((e,i)=>{ const pos=i+1; const first=pos===1;
+        return { pos,isFirst:first,notFirst:!first, posColor:e.you?C.green:C.mut, rowBg:e.you?'#f4f9ef':(first?'#fffdf5':'#fff'),
+          badge:'', initials:'', name:e.name, nameColor:e.you?C.greenD:C.ink, nameWeight:e.you?700:600,
+          you:!!e.you, youText:'YOU', hc:e.hc, ptsColor:first?C.goldD:(e.you?C.green:C.ink), pts:e.pts }; });
+    }
+    const seg = (on)=>({ bg:on?'#fff':'transparent', color:on?C.ink:C.sub, shadow:on?'0 1px 3px rgba(20,30,15,.14)':'none' });
+    const segT = seg(boardIsTeam); const segI = seg(!boardIsTeam);
+
+    // hero
+    let hero;
+    if (isUpcoming) hero = { eyebrow:'Your team · Gower Gophers', showRank:false, showCountdown:true, showPrizeWon:false, countdown:'6 days', teamLine:'You + Ravi Anand · tees off Sat 19 Jul' };
+    else if (isLive) hero = { eyebrow:'Your team · Gower Gophers', showRank:true, showCountdown:false, showPrizeWon:false, rank:'3', of:'8', pts:'65', showDelta:true, delta:'▲ 1', teamLine:'You: 34 pts · 5th individual' };
+    else hero = { eyebrow:'Your team · Gower Gophers · Final', showRank:true, showCountdown:false, showPrizeWon:true, rank:'3', of:'8', pts:'65', showDelta:false, teamLine:'You: 34 pts · 5th individual' };
+
+    // teams (players + teams tabs)
+    const teams = this.TEAMS.map(t=>({
+      name:t.name, initials:t.initials, badgeBg:t.badge, border:t.you?'#dcebcf':'#e7ebe2', bg:t.you?'#f4f9ef':'#fff', rowBorder:t.you?'#e4efd8':'#f2f4ef',
+      members:t.members.map(m=>({ name:m[0], initials:m[1], hc:m[2], avBg:m[3], you:!!m[4], weight:m[4]?700:600 })),
+    }));
+
+    const settingsLocked = isLive || isCompleted;
+    const prize = { lockLabel:settingsLocked?'Locked':'Editable', lockColor:settingsLocked?'#e6b98a':'#cfe0be',
+      lockBg:settingsLocked?'rgba(224,169,42,.16)':'rgba(139,194,110,.14)',
+      orgAction:isCompleted?'Mark payouts complete':'Manage prize pool',
+      teaser:isCompleted?'Your team placed 3rd — £32':'Top 3 teams share the pot' };
+
+    return {
+      noop:()=>{}, comp, stateTabs, orgTabs, pTabs, isUpcoming, isLive, isCompleted,
+      orgDetails:S.orgTab==='details', orgRounds:S.orgTab==='rounds', orgStandings:S.orgTab==='standings', orgPlayers:S.orgTab==='players', orgTeams:S.orgTab==='teams',
+      pStandings:S.pTab==='standings', pRounds:S.pTab==='rounds', pPlayers:S.pTab==='players',
+      rounds, teams, settingsLocked, prize, hero,
+      showBoard:!isUpcoming, showScoreCta:isLive,
+      boardIsTeam, boardIsInd:!boardIsTeam, boardRows,
+      boardHeading:isCompleted?'Final standings':'Live standings',
+      boardNameCol:boardIsTeam?'TEAM':'PLAYER',
+      boardUpdated:isCompleted?'Final result · The Eagles win':'Updated just now · pull to refresh',
+      setBoardTeam:()=>this.setBoard('team'), setBoardInd:()=>this.setBoard('individual'),
+      segTeamBg:segT.bg, segTeamColor:segT.color, segTeamShadow:segT.shadow,
+      segIndBg:segI.bg, segIndColor:segI.color, segIndShadow:segI.shadow,
+    };
+  }
+}
+</script>
+</body>
+</html>
