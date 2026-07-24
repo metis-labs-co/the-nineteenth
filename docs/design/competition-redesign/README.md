@@ -10,6 +10,9 @@ just "hardcoded colours").
 | File | What it is |
 |---|---|
 | **[`PLAN.md`](./PLAN.md)** | **The plan — read first.** Corrected strategy, the palette decision, Phase 0/1/2, acceptance loop, definition of done. |
+| [`PHASE-1-PLAN.md`](./PHASE-1-PLAN.md) | Phase 1 decomposition & roadmap — grounded in the real code: the 1A (visual) / 1B (settings+data) split, per-subsystem file structure + readiness, open product sub-specs, and sequencing. |
+| [`PHASE-1A-PLAN.md`](./PHASE-1A-PLAN.md) | Ready-to-execute plan for the **visual** redesign (screen chrome + hero + per-tab passes). Depends on Phase 0. |
+| [`PHASE-1B1-PLAN.md`](./PHASE-1B1-PLAN.md) | Ready-to-execute plan for **relocating** structural config into Settings (move + rewire; no new schema). |
 | [`SPEC.md`](./SPEC.md) | The design handoff — per-tab detail, token map, component map, tab-label→component map, settings §4. Accurate reference; `PLAN.md` states the one correction (the neutral palette must be retuned). |
 | [`mocks/`](./mocks/) | The hi-fi HTML prototypes. Open a `.dc.html` in a browser; toggle its `dark` prop for the dark variant. |
 | [`ORIGINAL_PROMPT.superseded.md`](./ORIGINAL_PROMPT.superseded.md) | The original strategy brief. **Superseded by `PLAN.md`** — kept for provenance. |
