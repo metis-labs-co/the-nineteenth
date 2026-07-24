@@ -33,13 +33,16 @@ just "hardcoded colours").
 
 ## Review corrections
 
-Three rounds of review found fifteen issues so far (tab style, settings-not-a-modal-route, new
-settings needing a data model, a non-existent tab fade, palette over-collapse, under-specified dark
-mode, currency, sub-AA text contrast, `primaryLight` role conflict, translucent spillover, stale SPEC
-directives, `primaryBackground` formula drift, secondary AA on the page background, the tertiary
-exception not being usage-limited, and Visibility being a 3-state enum). All are resolved or flagged
-in **`PLAN.md` §"Review corrections"** — read that section; it **supersedes `SPEC.md`** wherever they
-conflict, and `SPEC.md` is annotated inline (⚠️ CORRECTED).
+Four rounds of review found twenty-one issues so far — the first three on the strategy/spec (tab
+style, settings-not-a-modal-route, new settings needing a data model, a non-existent tab fade, palette
+over-collapse, dark mode, currency, sub-AA contrast, `primaryLight` role conflict, translucent
+spillover, stale SPEC directives, `primaryBackground` formula drift, secondary AA on the page
+background, the tertiary exception, Visibility being a 3-state enum), and round 4 on the **Phase 1
+plans** (competitor tabs not role-gated today, tab labels/topology being part of the redesign,
+Tie-break not being relocatable, the 1B.1 query-key strategy, `SettingsSection` needing a refactor for
+the mock's groups, and a wording contradiction). All are resolved or flagged in **`PLAN.md` §"Review
+corrections"** (rounds 1–4) — it **supersedes `SPEC.md`** wherever they conflict, and `SPEC.md` is
+annotated inline (⚠️ CORRECTED).
 
 ## Open items still needing a decision/spec
 

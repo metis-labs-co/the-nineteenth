@@ -10,6 +10,12 @@
 Points Config from the **Details tab** into the **Competition Settings** screen (match mock), with edits
 still persisting and refreshing correctly.
 
+> **Tie-break is explicitly EXCLUDED from this plan.** `PLAN.md` / `PHASE-1-PLAN.md` list
+> "Dates/Scoring/Handicap/**Tie-break**" as relocating, but there is **no editable Tie-break field**
+> anywhere in the schema/UI (verified — `grep` for tie-break in types/schemas is empty). You cannot
+> relocate UI that doesn't exist. Tie-break becomes a **net-new spec item** (field + allowed values +
+> editor + scoring-engine integration) tracked alongside the other backend features — not part of 1B.1.
+
 **Architecture:** Relocate the existing `SettingsSection` component (and its edit sheets) from
 `DetailsTab` into `CompetitionSettingsScreen`. Supply the data `SettingsSection` needs there, and make
 the shared edit sheets invalidate the Settings screen's competition query so relocated rows refresh.
@@ -50,54 +56,71 @@ total need the full `rounds` array.
 - Test: `src/screens/competitions/CompetitionSettingsScreen/__tests__/useCompetitionData.test.ts` (create
   if absent).
 
+**Correct approach (the two queries have DIFFERENT shapes — do not try to "share one key"):**
+- Settings today: `useCompetitionData` → key `['competition', id]` → competition + counts (no rounds).
+- Detail: `useCompetitionDetailsData` → key `['competition', id, 'details']` → competition + full
+  `rounds` + `players`.
+These return different shapes, so they **cannot** share a key. Pick one:
+- **Recommended:** call the existing **`useCompetitionDetailsData(competitionId)`** in the Settings
+  screen to obtain `rounds` (reuses its `['competition', id, 'details']` cache — no new key, no new
+  fetch shape). Keep `useCompetitionData` for the counts it already provides.
+
 **Steps:**
-- [ ] Find the existing rounds hook used by the detail screen (the detail screen loads rounds via
-  `useCompetitionDetailsData`/`useCompetitionDetailData`). Reuse the same query hook + key in the Settings
-  screen so both share cache — do **not** invent a new key.
-- [ ] Add `rounds` to what the Settings screen has available (extend `useCompetitionData`'s return, or call
-  the rounds hook directly in the screen).
-- [ ] Write a test asserting the Settings data path returns a `rounds` array for a competition with rounds.
+- [ ] Add `useCompetitionDetailsData(competitionId)` to the Settings screen; destructure `rounds`.
+- [ ] Write a test asserting the Settings screen has a `rounds` array available for a competition with
+  rounds (or that `SettingsSection` receives a non-empty `rounds` prop).
 - [ ] Run it (fail → implement → pass). `pnpm type-check`.
-- [ ] Commit: `feat(settings): load rounds in competition settings (1B.1.1)`
+- [ ] Commit: `feat(settings): provide rounds to competition settings (1B.1.1)`
 
-### Task 2: Render `SettingsSection` in the Settings screen
+### Task 2: Refactor `SettingsSection` into grouped rows, then render in Settings
 
-**Files:** Modify `src/screens/competitions/CompetitionSettingsScreen/index.tsx`.
-
-**Steps:**
-- [ ] Import `SettingsSection` from `@/components/competitions/detail/sections/SettingsSection` (or its
-  barrel). Import `onViewTeams` behaviour: from Settings, "View teams" should navigate to the detail
-  screen's Teams tab — reuse the existing nav param the detail screen uses (check
-  `CompetitionDetailScreen` route params for a `initialTab`/equivalent; if none exists, navigate to
-  `CompetitionDetail` and leave team viewing as-is — do NOT add new nav params in this task, flag if
-  needed).
-- [ ] Render `<SettingsSection competition={competition} isOrganizer={isOrganizer}
-  hasStartedRound={hasStartedRound} teams={teams ?? []} rounds={rounds} onViewTeams={...} />` in the
-  screen, placed per the mock's grouping (a "Competition" / "Scoring & handicaps" group above Prize Pools).
-- [ ] `pnpm type-check`; grep diff for colour literals.
-- [ ] Screenshot the Settings screen light+dark; confirm the relocated rows render and locked state shows.
-- [ ] Commit: `feat(settings): render structural config in settings (1B.1.2)`
-
-### Task 3: Make the edit sheets refresh the Settings screen's data
-
-**Risk:** the sheets were written for the Details tab. The Settings screen reads `useCompetitionData`
-(key `['competition', competitionId]`). If a sheet only invalidates the detail-screen's query keys, the
-relocated Settings row will show a **stale value** after an edit.
+**Why a refactor, not verbatim reuse:** `SettingsSection` currently renders **one** "Competition Details"
+`SectionHeader` + **one** card containing every row (`SettingsSection.tsx:164–166`). The mock groups
+these into **two** cards — "Competition" (Type, Format, Dates, …) and "Scoring & handicaps" (Handicap,
+Rules Mode, General Rules, Points Config). You cannot get two groups by dropping the component in
+whole. This is an **in-place refactor** (extract reusable row + group-card primitives, or add a
+grouping variant/prop) — **not a fork**, and it's shared with the 1A visual restyle of these rows.
 
 **Files:**
-- Inspect each sheet's `onSuccess`/invalidation in `components/competitions/detail/sections/sheets/*`.
-- Modify whichever query-invalidation is missing the Settings key (prefer making both screens share ONE
-  query key from Task 1 so this is automatic).
-- Test: a query-invalidation test per edited field, or a manual matrix if these aren't unit-tested.
+- Modify: `src/components/competitions/detail/sections/SettingsSection.tsx` — extract the `SettingRow`
+  (already an internal component) + a group-card wrapper so callers can compose named groups; keep the
+  existing single-group render working (or replace its callers).
+- Modify: `src/screens/competitions/CompetitionSettingsScreen/index.tsx` — render the two groups.
 
 **Steps:**
-- [ ] For each sheet, confirm its mutation invalidates the query the Settings screen now reads. If Task 1
-  unified the key, verify; otherwise add the Settings key to each sheet's invalidation set.
-- [ ] Test: edit each field from Settings → assert the row's displayed value updates without a manual
-  refresh (unit where possible; otherwise document the manual matrix: Type, Handicap, Format, Dates,
-  Rules Mode, General Rules, Points Config).
+- [ ] Extract `SettingRow` and a `SettingsGroupCard` (title + card of rows) as exported presentational
+  primitives from `SettingsSection` (in place). Keep the edit-sheet state/handlers co-located.
+- [ ] In the Settings screen, compose the two mock groups from those primitives, passing the same
+  `competition/isOrganizer/hasStartedRound/teams/rounds` data. **`onViewTeams`:** from Settings, navigate
+  to the detail Teams tab — check `CompetitionDetail` route params for an `initialTab`/equivalent; if none
+  exists, do NOT invent a nav param in this task — flag it and fall back to navigating to `CompetitionDetail`.
+- [ ] Update/point `DetailsTab` at the refactored primitives if it still renders these rows (until Task 4
+  removes them) so nothing breaks mid-refactor.
+- [ ] `pnpm type-check` + `pnpm lint`; grep diff for colour literals.
+- [ ] Screenshot the Settings screen light+dark; confirm both groups render, in mock order, with locked
+  state shown.
+- [ ] Commit: `refactor(settings): grouped structural config in settings (1B.1.2)`
+
+### Task 3: Verify edits refresh the relocated rows (mostly already handled)
+
+**Good news (verified):** the shared `useUpdateCompetitionField` mutation already invalidates **both**
+`['competition', id]` **and** `['competition', id, 'details']` (and `['competitions']`) — and all the
+structural sheets except Points Config use it (`EditCompetitionType/Handicap/TeamMode/TeamSize/Dates/
+ScoringRulesMode/CompetitionRules`). So those relocated rows refresh in Settings **for free**; no
+invalidation changes needed for them.
+
+**The one to check:** `PointsConfigSheet` edits **per-round points config** via a different mutation
+path (not `useUpdateCompetitionField`). Its result feeds the "Points Config → N pts" row via
+`summarizeCompetition(rounds)`, which reads the `['competition', id, 'details']` rounds.
+
+**Steps:**
+- [ ] Inspect `PointsConfigSheet`'s mutation `onSuccess`; confirm it invalidates the rounds query
+  (`['competition', id, 'details']`) that the relocated points total reads. If not, add it.
+- [ ] Test/manual matrix: edit each relocated field from Settings → the row's value updates without a
+  manual refresh. Fields via `useUpdateCompetitionField` are covered by its existing invalidation; assert
+  Points Config specifically.
 - [ ] `pnpm type-check` + `pnpm lint`.
-- [ ] Commit: `fix(settings): edit sheets invalidate settings query (1B.1.3)`
+- [ ] Commit: `fix(settings): points-config invalidates rounds for settings (1B.1.3)`
 
 ### Task 4: Remove the section from the Details tab
 

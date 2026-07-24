@@ -184,6 +184,31 @@ A review found seven issues in this plan + `SPEC.md`, all verified against the c
     the settings items pending spec (#3). This is the only settings control that reuses an existing
     field, so resolving (a)–(c) unblocks it independently of the guests/notifications/organisers work.
 
+### Round 4 (2026-07-24) — corrections to the Phase 1 plans
+
+16. **Competitor tab reduction is NEW IA (tabs aren't role-gated today).** The tab array in
+    `CompetitionDetailScreen` has no `isOrganizer`/`isPlayer` condition — competitors see the full set.
+    The reduced competitor set (Standings·Rounds·Players·Payouts) must be built + tested, not "verified".
+    → `PHASE-1A-PLAN.md` Task 1B.
+17. **Tab labels/topology ARE part of the redesign — don't "preserve exactly".** Today's label is
+    `Leaderboard`; the mock needs status-driven **Standings/Results**. Knockout's `Bracket` replaces
+    Standings (mutually exclusive). Preserve the availability MECHANISM (reorder, realtime, conditional
+    tabs), not the labels/sets. → `PHASE-1A-PLAN.md` Task 1B + reworded constraints.
+18. **Tie-break can't be relocated — no such field exists.** Removed from 1B.1; reclassified as a
+    net-new spec item (field + values + editor + scoring integration). → `PHASE-1-PLAN.md` decision #2 +
+    open sub-specs; `PHASE-1B1-PLAN.md` exclusion note.
+19. **1B.1 query-key strategy was wrong.** Settings (`['competition', id]`, counts) and Detail
+    (`['competition', id, 'details']`, full rounds) have different shapes — they can't share a key. Use
+    `useCompetitionDetailsData` in Settings for rounds. Also: `useUpdateCompetitionField` **already**
+    invalidates both keys, so only `PointsConfigSheet` needs an invalidation check — the broad
+    "stale rows" risk was unfounded. → `PHASE-1B1-PLAN.md` Tasks 1 & 3.
+20. **`SettingsSection` can't be reused verbatim for the mock's two groups.** It's one header + one card.
+    In-place refactor into row/group primitives (or a grouping variant) — not a fork. →
+    `PHASE-1B1-PLAN.md` Task 2.
+21. **1A wording fixed:** "no component creation / no behaviour change" → "no business-logic/data-model
+    changes; small presentational extraction allowed; tab labels/role sets are deliberate redesign
+    changes." → `PHASE-1A-PLAN.md` architecture + constraints.
+
 ---
 
 ## 0. Blockers — do not start until these are true

@@ -38,7 +38,10 @@
 ## Decisions locked (owner)
 
 1. **Settings data-model features INCLUDED in Phase 1** (guests, notification prefs, multi-organiser).
-2. **Relocation: MOVE** Dates/Scoring/Handicap/Tie-break into Settings (match mock).
+2. **Relocation: MOVE** Dates/Scoring/Handicap (and the other existing structural rows) into Settings
+   (match mock). ⚠️ **Tie-break is NOT relocatable** — no editable Tie-break field exists in the
+   schema/UI (verified). It's reclassified as a **net-new spec item** (field + values + editor +
+   scoring integration), not part of 1B.1. See open sub-specs.
 3. **Visibility: 3-option** (Private / Unlisted / Public), governing discoverability **and** public
    leaderboard access.
 
@@ -55,8 +58,13 @@ land each 1B feature when its backend is ready.**
 ## Subsystem breakdown
 
 ### 1A — Visual/structural redesign of the detail screen + tabs
-**Goal:** every surface × state × tab matches the mock on the retuned palette; behaviour unchanged.
+**Goal:** every surface × state × tab matches the mock on the retuned palette; behaviour preserved
+except two deliberate IA changes below.
 **Readiness:** ✅ **ready once Phase 0 tokens land.** No product decisions outstanding.
+**Two NEW IA changes (not a pure re-skin — verified the tab array is not role-gated today):** (a) the
+`'Leaderboard'` tab becomes status-driven **Standings/Results**; (b) competitors get a **reduced,
+role-gated** tab set (Standings·Rounds·Players·Payouts) that does not exist today. Both are an explicit
+tested task (`PHASE-1A-PLAN.md` Task 1B), plus the status-driven hero/CTA.
 **Nature:** presentational — numbers come from existing utils/hooks (follow the `SettingsSection` →
 `summarizeCompetition` precedent). Acceptance is the **side-by-side-vs-mock screenshot sign-off**
 loop (per `PLAN.md` §Acceptance), not unit tests — so this track is an ordered per-tab checklist,
@@ -140,6 +148,10 @@ reconciliation stays deferred.
   storage shape? per-trigger behaviour vs the existing push categories? tier rule?
 - **1B.5 Organisers:** co-organiser permission scope (full vs limited)? add/remove/invite flow? the
   RLS blast radius (enumerate every policy/query touching `organizer_id`).
+- **Tie-break (net-new, was mis-scoped as relocation):** there is no tie-break field today. Define the
+  persisted column + allowed values, the editor UI, and how the **scoring engine** consumes it
+  (tie-break logic currently lives only in scoring utils). Sequence with the other backend features;
+  touches the scoring guardrail zone (`CLAUDE.md`).
 
 ## Sequencing & dependencies
 

@@ -11,10 +11,14 @@
 **Goal:** Every competition-detail surface (organiser team cup, competitor team cup, knockout) × state
 (upcoming/live/completed) × tab matches the mock on the Phase 0 palette, with **no behaviour change**.
 
-**Architecture:** Presentational-only. All 10 tab components already exist and are wired; we restyle
-the screen chrome, the hero/CTA, and each tab's layout in place. Numbers keep coming from existing
-utils/hooks (follow the `SettingsSection` → `summarizeCompetition` precedent). No component creation,
-no data-hook changes, no navigation changes.
+**Architecture:** Presentational + light IA. All 10 tab *content* components already exist and are
+wired; we restyle the screen chrome, the hero/CTA, and each tab's layout in place. **Two things ARE
+part of the redesign and change behaviour deliberately** (see Task 1B): (a) the tab **labels/sets** —
+the `'Leaderboard'` tab becomes status-driven **Standings/Results**, and competitors get a **reduced,
+role-gated** set that does not exist today; (b) the status-driven **hero/CTA**. Everything else is
+presentational — numbers keep coming from existing utils/hooks (follow the `SettingsSection` →
+`summarizeCompetition` precedent). **No business-logic or data-model changes; small presentational
+extraction (e.g. a hero component) is allowed;** no new data hooks, no navigation-structure changes.
 
 **Tech stack:** React Native + Expo, `useThemeColors()`, static tokens from `@/constants/theme`,
 `@/components/common` (`PageHeader`, `Tabs`, `CardContainer`, `StatusBadge`, `EmptyState`, …).
@@ -26,9 +30,10 @@ no data-hook changes, no navigation changes.
 - **Tabs stay PILLS** (the existing `Tabs`); the mock's underline is a rejected artifact (`PLAN.md` #1).
 - **Zero colour literals** in screens/components — `useThemeColors()` only; static tokens imported.
   Grep the diff for `#`, `rgb(`, `rgba(`, `var(--`.
-- **Preserve behaviour exactly:** the dynamic tab array, the status-driven reorder (`promoteLeaderboard`
-  moves Leaderboard to 3rd), the knockout Leaderboard→Bracket swap, and the screen-level
-  `ScorecardsRealtimeSubscription` mounts must all keep working.
+- **Preserve the tab MECHANISM, not today's labels/sets.** Keep working: the conditional-availability
+  logic, the status-driven reorder (`promoteLeaderboard`), the knockout Bracket branch, and the
+  screen-level `ScorecardsRealtimeSubscription` mounts. **But** the tab labels and role-specific sets
+  are redesign changes — do them deliberately in **Task 1B**, not "unchanged".
 - **No scoring/standings math** in components (`CLAUDE.md` guardrails; scoring screens are out of scope).
 - Required component pattern (`CLAUDE.md`): functional, `const colors = useThemeColors()`, inline colour
   props, static tokens in `StyleSheet.create`, Paper `Text`/`Icon`, `TouchableOpacity` not Paper `Button`.
@@ -75,6 +80,41 @@ and a status-driven hero: **upcoming** = surface card with green calendar icon +
   get sign-off.
 - [ ] Commit: `feat(design): competition detail chrome + status hero (1A.1)`
 
+### Task 1B: Tab model — role × competition_type × status matrix (NEW IA — has tests)
+
+**Why this is its own task:** the current tab array (`CompetitionDetailScreen/index.tsx:373–404`) is
+**not role-gated** — competitors see the same tabs as organisers — and the leaderboard tab is
+hard-labelled `'Leaderboard'`. The mock requires role-specific sets and a status-driven Standings/
+Results label. This is new information architecture, not a re-skin.
+
+**Files:**
+- Modify: `src/screens/competitions/CompetitionDetailScreen/index.tsx` (the tab array + `TabValue`
+  union ~54–64) and its `hooks/` where `isOrganizer`/`isPlayer` are derived.
+- Test: `src/screens/competitions/CompetitionDetailScreen/__tests__/tabModel.test.ts` (create) — or a
+  pure `buildTabs(role, type, status, flags)` helper extracted for testability.
+
+**Target matrix (reconcile the existing conditionals with `SPEC.md` §Screens — do not invent):**
+- **Label:** the leaderboard tab renders label **`Standings`**, flipping to **`Results`** when
+  `status === 'completed'`. (Component stays `LeaderboardTab`; key can stay `leaderboard`.)
+- **Organiser · team cup:** Details · Rounds · Standings · Stats · Breakdown · Payouts · Skins (per
+  SPEC). Reconcile the current Players/Teams tabs against the mock — confirm with the mock which the
+  organiser set shows; do not silently drop tabs.
+- **Competitor · team cup:** reduced set **Standings · Rounds · Players · Payouts** — **role-gate this
+  (new)**; competitors must not see organiser-only tabs/actions.
+- **Knockout:** `Bracket` replaces Standings (they are mutually exclusive — knockout has no Standings
+  tab); keep Players as the mock shows.
+- **Preserve:** `promoteLeaderboard` reorder, prize/skins/stats/breakdown conditional availability, and
+  realtime subs.
+
+**Steps:**
+- [ ] Extract a pure `buildTabs({ role, competitionType, status, flags })` helper from the inline array.
+- [ ] Write tests asserting the tab list (keys + labels) for each cell: organiser/competitor ×
+  event/knockout × upcoming/in-progress/completed. Include the Standings→Results label flip and the
+  competitor reduction.
+- [ ] Run (fail) → implement `buildTabs` + role gating → run (pass).
+- [ ] Verify realtime subs and reorder still work manually; `pnpm type-check` + `pnpm lint`.
+- [ ] Commit: `feat(competition): role/status-aware tab model (1A.1B)`
+
 ### Task 2: Tab bar overflow check
 
 **Files:** Modify `src/components/common/Tabs.tsx` only if needed.
@@ -114,8 +154,9 @@ light+dark vs the mock and get sign-off. Commit `feat(design): <tab> tab (1A.N)`
 
 **Files:** `CompetitionDetailScreen/index.tsx` (role branch), hero component from Task 1.
 - [ ] Build the competitor "your team" hero (data already in `useCompetitionDetailData`:
-  `userTeamId`/`userTeamName`). Confirm the reduced competitor tab set (Standings/Rounds/Players/Payouts)
-  renders — it's produced by the existing conditionals; verify no organiser-only actions leak.
+  `userTeamId`/`userTeamName`). The reduced competitor tab set (Standings/Rounds/Players/Payouts) is
+  produced by **Task 1B's role gating** (it does NOT exist today) — this task just adds the hero and
+  verifies no organiser-only actions leak within those tabs.
 - [ ] Screenshot competitor surface across states light+dark; sign-off; commit `feat(design): competitor your-team hero (1A.13)`.
 
 ---
@@ -123,7 +164,8 @@ light+dark vs the mock and get sign-off. Commit `feat(design): <tab> tab (1A.N)`
 ## Self-review checklist (run before calling 1A done)
 
 - [ ] Every mock tab across all three surfaces/states renders and matches (screenshots signed off).
-- [ ] Dynamic tab array, status reorder, knockout swap, realtime subs all still work (behaviour unchanged).
+- [ ] Tab MECHANISM intact (conditional availability, status reorder, knockout branch, realtime subs);
+      tab labels + role-specific sets match Task 1B's matrix (Standings/Results flip; competitor reduction).
 - [ ] Grep-clean for colour literals outside `colors.ts`/`theme.ts`. `pnpm lint` + `pnpm verify:gate` pass.
 - [ ] Tabs are pills everywhere (no underline crept in). No scoring math added to any component.
 - [ ] Solid light + solid dark verified per tab.
