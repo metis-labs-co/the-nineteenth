@@ -6,6 +6,24 @@
 > what's decided, the subsystem breakdown with file structure + readiness, the open product sub-specs,
 > and the sequencing. Reference: `PLAN.md` (strategy + Review corrections), `SPEC.md` (per-tab detail).
 
+## Status (as of 2026-07-25)
+
+| Piece | Status |
+|---|---|
+| **Phase 0** — palette retune (`colors.ts`) | ⏳ **Outstanding.** Not in `8de23a78` (that commit touched no `colors.ts`). Gates all visual fidelity. |
+| **1A** — tab model (`tabModel.ts`) + hero (`CompetitionHero.tsx`) | ✅ Done in `8de23a78`; 3 review findings to fix (player-access decision, sequencing, first-frame flash). |
+| **1A** — per-tab visual passes + tab-overflow check | ❌ Not started — gated on Phase 0. |
+| **1B.1** — settings relocation + two-group refactor + DetailsTab cleanup | ✅ Done in `8de23a78`; verify PointsConfig invalidation + regression sweep. |
+| **1B.2–1B.5** + Tie-break | ❌ Not specced. Visibility spec in progress. |
+| **Phase 2** — app-wide sweep | 📄 Outlined only. |
+
+**Open decision from the `8de23a78` review (finding #1) — resolve before more 1A tabs:** relocating config
+into the organiser-only Settings screen + the locked competitor tab set means **non-organiser players lose
+access to Points Config, competition config, and the Stats/Breakdown/Teams/Skins tabs** (a player in a
+Skins side-game can no longer see Skins). This is faithful to the mock's competitor IA but drops real
+features. **Decide:** accept (note it), or give players a path (keep Skins in the competitor set / a
+read-only config route). Was flagged as a preserve-invariant in `PHASE-1B1-PLAN.md`.
+
 ## Grounding — verified against current code (2026-07-24)
 
 - **All 10 tab components already exist and are wired.** Detail-screen work is **visual/structural
@@ -60,7 +78,7 @@ land each 1B feature when its backend is ready.**
 ### 1A — Visual/structural redesign of the detail screen + tabs
 **Goal:** every surface × state × tab matches the mock on the retuned palette; behaviour preserved
 except two deliberate IA changes below.
-**Readiness:** ✅ **ready once Phase 0 tokens land.** No product decisions outstanding.
+**Readiness:** tab model + hero ✅ **DONE (`8de23a78`)**; per-tab visual passes ❌ remain, gated on Phase 0.
 **Two NEW IA changes (not a pure re-skin — verified the tab array is not role-gated today):** (a) the
 `'Leaderboard'` tab becomes status-driven **Standings/Results**; (b) competitors get a **reduced,
 role-gated** tab set (Standings·Rounds·Players, +Payouts only when completed) that does not exist today.
@@ -91,7 +109,9 @@ showLeaderboardToggle`) stay as-is (consolidation is out of scope for a visual p
 ### 1B.1 — Relocate structural config into Settings
 **Goal:** Dates/Scoring/Handicap/Type/Format/Points editing moves from the Details tab to the
 Settings screen (match mock).
-**Readiness:** ✅ **ready (no new schema)** — one micro-decision below.
+**Readiness:** ✅ **DONE (`8de23a78`)** — relocated into two `SettingsGroupCard` groups, `rounds` via
+`useCompetitionDetailsData`, DetailsTab cleaned up. Remaining: verify `PointsConfigSheet` invalidation +
+regression sweep; and finding #1 (player access) above.
 **Files (modify):**
 - Move `detail/sections/SettingsSection.tsx`'s rows into `screens/competitions/CompetitionSettingsScreen/index.tsx`.
 - Re-home/keep-shared the sheets: `EditCompetitionTypeSheet`, `EditHandicapSystemSheet`,
