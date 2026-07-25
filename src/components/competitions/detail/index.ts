@@ -23,6 +23,7 @@ export { PayoutsTab } from './PayoutsTab';
 export type { PayoutsTabProps } from './PayoutsTab';
 
 export { SkinsTab } from './SkinsTab';
+export { CompetitionHero } from './CompetitionHero';
 
 // Note: LeaderboardTab has been moved to @/components/leaderboard
 export { LeaderboardTab } from '@/components/leaderboard';

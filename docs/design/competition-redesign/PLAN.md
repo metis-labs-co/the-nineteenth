@@ -192,7 +192,7 @@ A review found seven issues in this plan + `SPEC.md`, all verified against the c
     → `PHASE-1A-PLAN.md` Task 1B.
 17. **Tab labels/topology ARE part of the redesign — don't "preserve exactly".** Today's label is
     `Leaderboard`; the mock needs status-driven **Standings/Results**. Knockout's `Bracket` replaces
-    Standings (mutually exclusive). Preserve the availability MECHANISM (reorder, realtime, conditional
+    Standings (mutually exclusive). Preserve the availability MECHANISM (realtime, conditional
     tabs), not the labels/sets. → `PHASE-1A-PLAN.md` Task 1B + reworded constraints.
 18. **Tie-break can't be relocated — no such field exists.** Removed from 1B.1; reclassified as a
     net-new spec item (field + values + editor + scoring integration). → `PHASE-1-PLAN.md` decision #2 +
