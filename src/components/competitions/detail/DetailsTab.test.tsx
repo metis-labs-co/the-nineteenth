@@ -218,8 +218,6 @@ function createTestRound(roundNumber: number, course: Course | null = null): Rou
 // =====================================================
 
 describe('DetailsTab', () => {
-  const mockOnUpdateCompetition = jest.fn();
-
   const defaultCompetition = createTestCompetition();
   const defaultCourse = createTestCourse();
   const defaultRounds: RoundWithCourse[] = [
@@ -235,7 +233,6 @@ describe('DetailsTab', () => {
     miniIndividual: null,
     miniTeam: null,
     isOrganizer: true,
-    onUpdateCompetition: mockOnUpdateCompetition,
   };
 
   beforeEach(() => {
@@ -494,10 +491,6 @@ describe('DetailsTab', () => {
       expect(screen.getByText('TEST-2025!')).toBeTruthy();
     });
 
-    it('works without onUpdateCompetition callback', () => {
-      render(<DetailsTab {...defaultProps} onUpdateCompetition={undefined} />);
-      expect(screen.getByText('Summer Championship')).toBeTruthy();
-    });
   });
 
   // ===========================================================================

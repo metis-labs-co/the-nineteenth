@@ -188,8 +188,6 @@ export const OrganizerView: Story = {
     miniIndividual: null,
     miniTeam: null,
     isOrganizer: true,
-
-    onUpdateCompetition: async (updates) => console.log('Update:', updates),
   },
 };
 

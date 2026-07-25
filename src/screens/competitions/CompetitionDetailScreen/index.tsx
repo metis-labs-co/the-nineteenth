@@ -312,6 +312,14 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
       teamPrizePool,
     ]
   );
+  // Effects run after paint. Resolve the render key synchronously as well so
+  // competitors never paint organizer-only Details content for one frame.
+  const visibleActiveTab = reconcileCompetitionDetailTab(
+    activeTab,
+    tabs,
+    tabRole,
+    competitionType
+  );
 
   // Navigation can request a tab that the resolved role/status cannot access.
   // Clamp both incoming params and stale local state to a visible tab.
@@ -431,14 +439,14 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
       {/* Tab Bar */}
       <Tabs
         tabs={tabs}
-        selectedTab={activeTab}
+        selectedTab={visibleActiveTab}
         onTabChange={setActiveTab}
         style={styles.tabContainer}
       />
 
       {/* Pinned leaderboard sub-tabs: render outside the ScrollView so the
           Individual/Team toggle stays visible while scrolling the standings. */}
-      {activeTab === 'leaderboard' &&
+      {visibleActiveTab === 'leaderboard' &&
         competition.competition_type !== 'knockout' &&
         showLeaderboardToggle && (
           <LeaderboardViewToggle
@@ -466,7 +474,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
         }
         showsVerticalScrollIndicator={false}
       >
-        {activeTab === 'details' && (
+        {visibleActiveTab === 'details' && (
           <DetailsTab
             competition={competition}
             rounds={rounds}
@@ -493,7 +501,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
           />
         )}
 
-        {activeTab === 'rounds' && (
+        {visibleActiveTab === 'rounds' && (
           <RoundsTab
             rounds={rounds}
             isOrganizer={isOrganizer}
@@ -512,7 +520,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
           />
         )}
 
-        {activeTab === 'players' && (
+        {visibleActiveTab === 'players' && (
           <PlayersTab
             players={players}
             currentUserId={user?.id}
@@ -533,7 +541,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
           />
         )}
 
-        {activeTab === 'teams' && competition.team_mode !== 'none' && (
+        {visibleActiveTab === 'teams' && competition.team_mode !== 'none' && (
           <TeamsTab
             competitionId={id}
             teams={teams || []}
@@ -550,11 +558,11 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
           />
         )}
 
-        {activeTab === 'stats' && showStatsTab && (
+        {visibleActiveTab === 'stats' && showStatsTab && (
           <StatsTab competitionId={id} />
         )}
 
-        {activeTab === 'leaderboard' && competition.competition_type !== 'knockout' && (
+        {visibleActiveTab === 'leaderboard' && competition.competition_type !== 'knockout' && (
           <LeaderboardTab
             competitionId={id}
             teamMode={competition.team_mode}
@@ -570,7 +578,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
           />
         )}
 
-        {activeTab === 'bracket' && competition.competition_type === 'knockout' && (
+        {visibleActiveTab === 'bracket' && competition.competition_type === 'knockout' && (
           <BracketTab
             competitionId={id}
             knockoutConfig={competition.knockout_config}
@@ -581,7 +589,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
           />
         )}
 
-        {activeTab === 'payouts' && (prizePool || teamPrizePool) && (
+        {visibleActiveTab === 'payouts' && (prizePool || teamPrizePool) && (
           <PayoutsTab
             competition={competition}
             prizePool={prizePool}
@@ -592,11 +600,11 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
           />
         )}
 
-        {activeTab === 'skins' && hasSkinsGames && (
+        {visibleActiveTab === 'skins' && hasSkinsGames && (
           <SkinsTab competitionId={id} />
         )}
 
-        {activeTab === 'breakdown' && showBreakdownTab && (
+        {visibleActiveTab === 'breakdown' && showBreakdownTab && (
           <BreakdownTab
             competitionId={id}
             showRinger={showRingerTab}
