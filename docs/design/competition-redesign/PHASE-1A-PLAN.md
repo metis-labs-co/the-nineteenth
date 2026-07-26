@@ -102,9 +102,13 @@ truth over SPEC's stated sets):**
   **Players · Teams** · Payouts · Skins — each still subject to its existing availability flag
   (Teams only if `team_mode !== 'none'`; Stats/Breakdown/Payouts/Skins per their current flags). SPEC
   had omitted Players/Teams; the mock includes both.
-- **Competitor · team cup (LOCKED):** Standings/Results · Rounds · Players — **plus Payouts ONLY when
-  `status === 'completed'`** (the mock pushes `payouts` only in the completed state). **No Teams tab**
-  for competitors. Role-gate this reduced set (new); competitors must not see organiser-only tabs/actions.
+- **Competitor · team cup (LOCKED + finding #1):** Standings/Results · Rounds · Players — **plus Payouts
+  ONLY when `status === 'completed'`** (the mock pushes `payouts` only in the completed state), **plus
+  Skins when the player is a participant in the competition's skins game** (owner decision, review
+  finding #1 — a real-money side-game must stay visible to its players; ideally gate on skins-participant,
+  fall back to `availability.skins` if the participant list isn't readily available). Still **no
+  Teams/Stats/Breakdown/config** for competitors. Role-gate this reduced set (new); competitors must not
+  see organiser-only tabs/actions.
 - **Knockout:** `Bracket` replaces Standings (mutually exclusive); keep Players (per SPEC).
 - **Preserve:** `promoteLeaderboard` reorder, the availability flags above, and realtime subs.
 
@@ -121,7 +125,8 @@ truth over SPEC's stated sets):**
 - [ ] Write tests asserting the tab list (keys + labels) for each cell: organiser/competitor ×
   event/knockout × upcoming/in-progress/completed. Include: the Standings→Results label flip; the
   organiser set includes Players + Teams (Teams gated on `team_mode`); the competitor set is
-  Standings/Rounds/Players with **Payouts only when completed**.
+  Standings/Rounds/Players with **Payouts only when completed** and **Skins only when the player is a
+  skins participant** (finding #1).
 - [ ] Add `activeTab` reconciliation (clamp `activeTab`/`initialTab` to the available set; default
   organiser→`details`, competitor→`leaderboard`). Tests: (a) competitor + `initialTab='details'` →
   `leaderboard`; (b) competitor pre-completion + `initialTab='payouts'` → `leaderboard` (Payouts absent);

@@ -17,12 +17,10 @@
 | **1B.2–1B.5** + Tie-break | ❌ Not specced. Visibility spec in progress. |
 | **Phase 2** — app-wide sweep | 📄 Outlined only. |
 
-**Open decision from the `8de23a78` review (finding #1) — resolve before more 1A tabs:** relocating config
-into the organiser-only Settings screen + the locked competitor tab set means **non-organiser players lose
-access to Points Config, competition config, and the Stats/Breakdown/Teams/Skins tabs** (a player in a
-Skins side-game can no longer see Skins). This is faithful to the mock's competitor IA but drops real
-features. **Decide:** accept (note it), or give players a path (keep Skins in the competitor set / a
-read-only config route). Was flagged as a preserve-invariant in `PHASE-1B1-PLAN.md`.
+**Finding #1 (`8de23a78` review) — RESOLVED (owner):** the reduced competitor set is accepted **except
+Skins** — the Skins tab is restored to the competitor set when the player is a participant in the
+competition's skins game (a real-money side-game must stay visible). Stats/Breakdown/Teams/config remain
+organiser-only per the mock. Captured in `PHASE-1A-PLAN.md` Task 1B (competitor matrix + test).
 
 ## Grounding — verified against current code (2026-07-24)
 
