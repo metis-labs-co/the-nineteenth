@@ -310,9 +310,13 @@ export async function syncScorecard(scorecard: Scorecard): Promise<ScorecardSync
 }
 
 /**
- * Calculate handicap data for a scorecard
+ * Calculate handicap data for a scorecard.
+ *
+ * Exported for characterization tests: the WHS differential branch is
+ * high-blast-radius (it feeds `players.handicap_index` and handicap history)
+ * and must never emit a differential for a scoreless / zero-gross card.
  */
-function calculateHandicapData(scorecard: Scorecard): {
+export function calculateHandicapData(scorecard: Scorecard): {
   gaHandicapUsed: number | null;
   dailyHandicapUsed: number | null;
   handicapDifferential: number | null;
@@ -391,11 +395,18 @@ function calculateHandicapData(scorecard: Scorecard): {
       // Skip for shared-ball team formats (scramble, alt-shot): the stored
       // total_gross is the TEAM's single-ball score, not the player's own
       // play, so it must never become a handicap-eligible differential.
+      // Also skip when the gross is not a positive number: an empty / abandoned
+      // scorecard (total_gross = 0) would otherwise produce a huge negative
+      // differential of (113 / slope) × (0 − courseRating) and poison the WHS
+      // index. This mirrors the guard in recalculateScorecardDifferential.ts
+      // and the other differential call sites.
       // Leaving handicapDifferential null excludes the round from both the
       // handicap history and the WHS index (both filter on a non-null value).
-      if (!isSharedBallRound({ game_type: scorecard.syncGameType })) {
+      const grossIsPositive =
+        typeof scorecard.totalGross === 'number' && scorecard.totalGross > 0;
+      if (!isSharedBallRound({ game_type: scorecard.syncGameType }) && grossIsPositive) {
         const differential = calculateScoreDifferential({
-          adjustedGrossScore: scorecard.totalGross || 0,
+          adjustedGrossScore: scorecard.totalGross,
           courseRating: finalCourseRating,
           slopeRating: finalSlopeRating,
         });
