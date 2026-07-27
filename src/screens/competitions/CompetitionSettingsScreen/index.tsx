@@ -38,6 +38,9 @@ import { useCompetitionPrizePools } from '@/hooks/prizePool';
 import { useCheckFeature } from '@/context/SubscriptionContext';
 import { EditPrizePoolBottomSheet, type PoolTabKey } from '@/components/prizePool';
 import { useTeams } from '@/hooks/rounds/teams';
+import { useToast } from '@/context/ToastContext';
+import { useUpdateCompetitionField } from '@/components/competitions/detail/sections/sheets/useUpdateCompetitionField';
+import { CompetitionNotificationSettings } from './CompetitionNotificationSettings';
 
 function formatMoney(amount: number, currency: string): string {
   try {
@@ -57,6 +60,7 @@ export default function CompetitionSettingsScreen({ navigation, route }: Props) 
   const colors = useThemeColors();
   const { competitionId } = route.params;
   const { user } = useAuth();
+  const { showErrorToast } = useToast();
   const {
     dialogConfig: alertDialogConfig,
     showAlert,
@@ -86,6 +90,7 @@ export default function CompetitionSettingsScreen({ navigation, route }: Props) 
   const [poolSheetTab, setPoolSheetTab] = useState<PoolTabKey | null>(null);
 
   const isOrganizer = !!user && !!competition && competition.organizer_id === user.id;
+  const updateCompetitionField = useUpdateCompetitionField({ competitionId });
 
   const {
     showDeleteDialog,
@@ -213,6 +218,24 @@ export default function CompetitionSettingsScreen({ navigation, route }: Props) 
               </TouchableOpacity>
             </View>
 
+            <Divider style={[styles.divider, { backgroundColor: colors.border }]} />
+          </>
+        )}
+
+        {isOrganizer && (
+          <>
+            <View style={styles.section}>
+              <CompetitionNotificationSettings
+                round_reminders_enabled={competition.round_reminders_enabled}
+                results_summary_enabled={competition.results_summary_enabled}
+                onUpdate={(field, value) =>
+                  updateCompetitionField.mutateAsync({ [field]: value })
+                }
+                onError={(message) =>
+                  showErrorToast('Notification settings not saved', message)
+                }
+              />
+            </View>
             <Divider style={[styles.divider, { backgroundColor: colors.border }]} />
           </>
         )}

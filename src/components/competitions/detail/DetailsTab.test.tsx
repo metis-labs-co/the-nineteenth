@@ -143,6 +143,8 @@ function createTestCompetition(overrides: Partial<Competition> = {}): Competitio
     updated_at: new Date().toISOString(),
     deleted_at: null,
     ...overrides,
+    round_reminders_enabled: overrides.round_reminders_enabled ?? true,
+    results_summary_enabled: overrides.results_summary_enabled ?? true,
   };
 }
 

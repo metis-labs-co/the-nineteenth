@@ -17,12 +17,14 @@ type CompetitionUpdate = Partial<
     | 'point_system'
     | 'per_round_rules_enabled'
     | 'whatsapp_group_invite_url'
+    | 'round_reminders_enabled'
+    | 'results_summary_enabled'
   >
 >;
 
 interface Options {
   competitionId: string;
-  onSuccess: () => void;
+  onSuccess?: () => void;
 }
 
 /**
@@ -47,7 +49,7 @@ export function useUpdateCompetitionField({ competitionId, onSuccess }: Options)
       queryClient.invalidateQueries({ queryKey: ['competition', competitionId] });
       queryClient.invalidateQueries({ queryKey: ['competition', competitionId, 'details'] });
       queryClient.invalidateQueries({ queryKey: ['competitions'] });
-      onSuccess();
+      onSuccess?.();
     },
   });
 }
