@@ -55,6 +55,8 @@ export function useAuth(): UseAuthReturn {
     session: sessionHook.session,
     player: userHook.player,
     isLoading,
+    /** Player-profile fetch failed (transient/RLS) — distinct from a missing row. */
+    isPlayerError: userHook.isPlayerError,
     isInitializing,
     isAuthenticating: authMutations.isAuthenticating || socialAuth.isSocialLoggingIn,
     error: (sessionHook.error || authMutations.loginError || authMutations.signupError || null) as import('@supabase/supabase-js').AuthError | null,

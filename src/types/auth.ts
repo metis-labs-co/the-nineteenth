@@ -26,6 +26,11 @@ export interface AuthState {
   isInitializing: boolean; // True during app startup while checking session
   isAuthenticating: boolean; // True during login/signup
 
+  // True when the player-profile fetch failed (transient/RLS error) — distinct
+  // from a genuinely absent row. Used to avoid routing a real user into
+  // onboarding just because their profile fetch blipped.
+  isPlayerError: boolean;
+
   // Error State
   error: AuthError | null;
 
