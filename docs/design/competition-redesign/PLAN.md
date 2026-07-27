@@ -225,6 +225,28 @@ A review found seven issues in this plan + `SPEC.md`, all verified against the c
 25. **1B.1 self-review checklist wording fixed:** dropped "SHARED query key"; Settings consumes the
     existing details query for rounds while keeping its separate counts query. → `PHASE-1B1-PLAN.md`.
 
+### Round 6 (2026-07-27) — corrections to the Notifications plan (some apply plan-wide)
+
+26. **Stale SQL sources.** Cite the **latest** function bodies: reminders =
+    `20260615000000_tee_time_reminders_skip_deleted.sql` (has the `deleted_at IS NULL` guard — the older
+    `20260422000000` would re-notify deleted rounds); round-complete =
+    `20260327000000_fix_standalone_round_visibility_and_notifications.sql` (standalone-aware, supersedes
+    `20260301000000`). Added a standing rule: `grep -rl "FUNCTION <name>" … | sort | tail -1` before
+    copying any function body. → `PHASE-1B4-NOTIFICATIONS-PLAN.md`.
+27. **Competition flags gate BOTH channels, not push-only.** Skipping the emit loop bypasses
+    `create_notification` (in-app) too — so the model is two axes: the **competition flag gates emission**
+    (in-app + push); the **per-user push pref gates push delivery only** of emitted notifications. Reframed
+    goal/decisions/tests. → `PHASE-1B4`.
+28. **`useUpdateCompetitionField` has no optimistic update/rollback** — it only mutates + invalidates.
+    Settings toggles/pickers must use **local optimistic state with rollback + rapid-toggle/failure
+    handling**. **Applies plan-wide** to every settings toggle/picker: `PHASE-1B2` (Visibility picker),
+    `PHASE-1B3` (Allow-guests toggle), `PHASE-1B4` (notification toggles).
+29. **Type surface.** The **DB-domain** `Competition` (`competition.types.ts` via `@/types/database.types`)
+    is authoritative for new settings fields — the legacy camelCase `src/types/index.ts` model is separate,
+    touch it only if a confirmed consumer needs it. Adding **non-optional** booleans requires updating
+    Competition **fixtures/factories** or the suite breaks. **Applies plan-wide** to the field additions in
+    `PHASE-1B2` / `PHASE-1B3` / `PHASE-1B4`.
+
 ---
 
 ## 0. Blockers — do not start until these are true
