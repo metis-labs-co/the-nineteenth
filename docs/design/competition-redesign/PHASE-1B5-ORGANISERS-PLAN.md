@@ -13,8 +13,10 @@ parity but owner-only destructive/financial actions.
 - **Scope:** co-organisers have **operational parity** (rounds, players, settings, teams, scoring,
   skins/wolf). **Owner-only:** delete competition, transfer ownership, settle prize-pool payouts.
 - **Add/remove:** **primary owner only, instant** (no accept flow) — pick an existing friend/player.
-- **Notifications:** co-organisers **receive** the organiser notifications (5 triggers loop over all
-  organisers).
+- **Notifications:** co-organisers **receive** organiser alerts; participant broadcasts retain their
+  existing audiences. For organiser-initiated actions, attribute the actor from `auth.uid()` only when
+  that user is an operational organiser. Automated/service-driven actions use a `NULL` actor and neutral
+  copy — never fall back to `organizer_id`, which would falsely attribute the action to the owner.
 - **Tier billing:** pinned to the **primary owner** for v1 (co-organised competitions do NOT count
   against a co-organiser's own tier limits; tier functions stay keyed on `organizer_id`).
 
@@ -153,21 +155,22 @@ Classify and change per-trigger (grep the latest `CREATE OR REPLACE` for each bo
 
 | Trigger | Type | Recipient change | Actor change |
 |---|---|---|---|
-| `notify_competition_player_joined` | **organiser alert** | recipients → **owner ∪ co-organisers** (de-dup) | exclude the actor if a co-org is the one who joined |
-| `notify_competition_player_added` | **added-player alert** | **unchanged** (notifies the added player) | if a co-org adds, attribution only |
-| `notify_new_round_created` | **participant broadcast** | **unchanged** (accepted players) — do NOT add non-playing co-orgs | **exclude the ACTING organiser (owner or co-org)**, not just `organizer_id` |
-| `notify_competition_status_changed` | **participant broadcast** | unchanged | exclude the acting organiser (owner or co-org) |
+| `notify_competition_player_joined` | **organiser alert** | recipients → **owner ∪ co-organisers** (de-dup) | the joining player is the actor; exclude them if they are already a co-org |
+| `notify_competition_player_added` | **added-player alert** | **unchanged** (notifies the added player) | use the validated acting organiser from `auth.uid()` |
+| `notify_new_round_created` | **participant broadcast** | **unchanged** (accepted players) — do NOT add non-playing co-orgs | use and exclude the validated acting organiser from `auth.uid()`, not `organizer_id` |
+| `notify_competition_status_changed` | **participant broadcast** | unchanged | use and exclude the validated acting organiser from `auth.uid()` |
 | round-complete (`notify_round_completed`) | **participant broadcast** | unchanged | fired by scoring completion, not an organiser action — leave actor logic as-is |
 | `notify_scorecard_submitted` | — | **trigger was DROPPED** (`20260629010000`) — verify; no change |
 
-- [ ] **Actor-attribution caveat:** the broadcast triggers currently hardcode the actor as `v_organizer_id`
-  (they assume the owner created the round / changed status). With co-organisers, the real actor may be a
-  co-org, but the schema may not capture who created a round / changed status. Decide: (a) add a
-  `created_by`/actor capture so exclusion+attribution are correct, or (b) accept v1 attributing to the
-  primary owner (a co-org creator would still receive their own broadcast if they're a player). Flag the
-  choice; don't silently ship (b).
+- [ ] **Actor-attribution decision:** capture `auth.uid()` inside the trigger transaction and retain it
+  only when `is_competition_organizer(competition_id, auth.uid())` is true. Use that player as the actor
+  and exclude them from the broadcast audience. If the action is automated/service-driven, or the caller
+  is not an operational organiser, store `NULL` and render neutral notification copy. **Never** fall back
+  to `organizer_id`. No new schema column is required for v1; add explicit `created_by`/audit columns later
+  only if actor history must survive independently of notification creation.
 - [ ] Tests per row: co-org receives player-joined; participant broadcasts keep their audience; the
-  acting co-org is excluded from broadcasts where feasible; no duplicate to the owner.
+  acting owner/co-org is correctly attributed and excluded; player-initiated joins use the player actor;
+  automated/service calls use `NULL` and neutral copy; no duplicate to the owner.
 - [ ] Commit: `feat(notifications): co-organiser recipient/actor matrix (1B.5.B4)`
 
 ### Task B5: Add/remove RPCs (owner-only) + Manage-organisers UI
