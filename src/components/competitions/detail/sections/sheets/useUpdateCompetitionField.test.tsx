@@ -13,6 +13,8 @@ describe('useUpdateCompetitionField', () => {
   it.each([
     ['round_reminders_enabled', false],
     ['results_summary_enabled', false],
+    ['visibility', 'unlisted'],
+    ['allow_guests', false],
   ] as const)('updates %s and invalidates competition queries', async (field, value) => {
     const eq = jest.fn().mockResolvedValue({ error: null });
     const update = jest.fn().mockReturnValue({ eq });

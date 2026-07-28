@@ -29,6 +29,7 @@ import {
   EditDatesSheet,
   EditCompetitionRulesSheet,
   EditScoringRulesModeSheet,
+  EditVisibilitySheet,
   PointsConfigSheet,
   detectActivePreset,
 } from './sheets';
@@ -42,6 +43,7 @@ type OpenSheet =
   | 'rules-mode'
   | 'general-rules'
   | 'points-config'
+  | 'visibility'
   | null;
 
 // =====================================================
@@ -258,6 +260,18 @@ export function SettingsSection({
         )}
       </SettingsGroupCard>
 
+      <SettingsGroupCard title="Visibility">
+        <SettingRow
+          icon="eye-outline"
+          label="Visibility"
+          onPress={canEdit ? () => setOpenSheet('visibility') : undefined}
+        >
+          <Text style={[styles.value, { color: colors.textPrimary }]}>
+            {competition.visibility.charAt(0).toUpperCase() + competition.visibility.slice(1)}
+          </Text>
+        </SettingRow>
+      </SettingsGroupCard>
+
       <SettingsGroupCard title="Scoring & handicaps">
         <SettingRow
           icon="golf"
@@ -388,6 +402,14 @@ export function SettingsSection({
           rounds={rounds}
           teams={teams}
           isOrganizer={isOrganizer}
+        />
+      )}
+      {openSheet === 'visibility' && (
+        <EditVisibilitySheet
+          visible
+          onDismiss={handleClose}
+          competitionId={competition.id}
+          currentVisibility={competition.visibility}
         />
       )}
     </View>

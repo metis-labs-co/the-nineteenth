@@ -94,6 +94,9 @@ export interface Competition {
   // When false, neither an in-app notification nor a push is emitted.
   round_reminders_enabled: boolean;
   results_summary_enabled: boolean;
+  // Controls creation/addition of placeholder guest players. Existing guests
+  // remain attached when this is disabled.
+  allow_guests: boolean;
 
   // Optional player slot capacity. NULL = unlimited.
   max_players?: number | null;

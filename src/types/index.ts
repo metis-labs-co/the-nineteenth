@@ -234,6 +234,7 @@ export interface Competition {
   maxPlayers?: number | null;
   lockAtCapacity?: boolean;
   organizerIsPlayer?: boolean;
+  allowGuests?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -258,6 +259,8 @@ export interface CompetitionCreateInput {
   lockAtCapacity?: boolean;
   // When false, the organizer is not auto-added as a player
   organizerIsPlayer?: boolean;
+  /** Defaults true; controls placeholder guest creation for this competition. */
+  allowGuests?: boolean;
 }
 
 // Round

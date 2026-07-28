@@ -42,6 +42,7 @@ import { useTeams } from '@/hooks/rounds/teams';
 import { useToast } from '@/context/ToastContext';
 import { useUpdateCompetitionField } from '@/components/competitions/detail/sections/sheets/useUpdateCompetitionField';
 import { CompetitionNotificationSettings } from './CompetitionNotificationSettings';
+import { CompetitionGuestSettings } from './CompetitionGuestSettings';
 import { SettingsSection } from '@/components/competitions/detail/sections/SettingsSection';
 
 function formatMoney(amount: number, currency: string): string {
@@ -172,6 +173,19 @@ export default function CompetitionSettingsScreen({ navigation, route }: Props) 
         {/* Details - organizer only */}
         {isOrganizer && (
           <>
+            <View style={styles.section}>
+              <CompetitionGuestSettings
+                allowGuests={competition.allow_guests}
+                onUpdate={(value) =>
+                  updateCompetitionField.mutateAsync({ allow_guests: value })
+                }
+                onError={(message) =>
+                  showErrorToast('Guest setting not saved', message)
+                }
+              />
+            </View>
+            <Divider style={[styles.divider, { backgroundColor: colors.border }]} />
+
             <View style={styles.section}>
               <SectionHeader title="Details" />
               <TouchableOpacity
