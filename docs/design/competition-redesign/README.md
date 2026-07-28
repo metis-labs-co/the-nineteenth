@@ -36,26 +36,52 @@ just "hardcoded colours").
 - **Tabs:** keep the app's existing **filled-pill** `Tabs` app-wide; the mock's underline tabs are a
   prototype artifact (accepted divergence). See `PLAN.md` §Review corrections #1.
 
+## Execution order & gates (read before starting a plan)
+
+**Sequence:**
+1. **Phase 0 — palette retune** (`colors.ts`, per `PLAN.md` Phase 0). ⛔ **Gates ALL visual work** — 1A
+   and the settings-screen visuals render wrong until this lands. Solid light + solid dark; leave the
+   translucent branches. *(Still outstanding — the `8de23a78` commit did NOT include it.)*
+2. **1A visual** (per-tab, after Phase 0) **+ 1B.1 relocation** — parallelizable; each a PR behind
+   screenshot sign-off. (1A tab-model/hero + 1B.1 already done in `8de23a78`; remaining = per-tab passes,
+   the 1A review fixes, and 1B.1 PointsConfig-invalidation + regression.)
+3. **Backend features — independent of 1A, each gated on its own migration deploy:** 1B.2 Visibility →
+   1B.3 Guests → 1B.4 Notifications → 1B.5 Organisers → 1B.6 Tie-break. **1B.5 and 1B.6 are the big/risky
+   ones — sequence them last.**
+4. **Phase 2** — app-wide sweep, after 1A lands (includes the `textTertiary` essential-text audit).
+
+**Hard stop-points — surface to the owner, don't push through:**
+- **Visibility Task 1** (enforcement audit): if tightening the `competitions` SELECT RLS would break
+  friend-activity/feed, STOP.
+- **Organisers Phase A** must be proven **behaviour-identical** (characterization RLS suite) BEFORE Phase B
+  — never hand-edit 21 policies' logic.
+- **Tie-break Phase 0**: `scoring-impact-analyst` pass + characterization tests locking current
+  tie/position behaviour BEFORE any change (money-critical, unprotected scoring domain).
+
+**Plan-wide caveats (every settings feature — `PLAN.md` Rounds 6–7):**
+- Settings toggles/pickers need **local optimistic state + rollback** — `useUpdateCompetitionField` has
+  none (1B.2/1B.3/1B.4/1B.6).
+- New competition fields go on the **DB-domain `Competition`** (`competition.types.ts` via
+  `@/types/database.types`), and you must update **fixtures/factories** (non-optional fields break the suite).
+- **Migrations:** copy the **latest** function body — `grep -rl "FUNCTION <name>" supabase/migrations | sort | tail -1`; deploy each feature's migration to staging.
+- **Scoring guardrails:** anything touching the scoring files needs the analyst pass + characterization-first.
+
 ## Review corrections
 
-Four rounds of review found twenty-one issues so far — the first three on the strategy/spec (tab
-style, settings-not-a-modal-route, new settings needing a data model, a non-existent tab fade, palette
-over-collapse, dark mode, currency, sub-AA contrast, `primaryLight` role conflict, translucent
-spillover, stale SPEC directives, `primaryBackground` formula drift, secondary AA on the page
-background, the tertiary exception, Visibility being a 3-state enum), and round 4 on the **Phase 1
-plans** (competitor tabs not role-gated today, tab labels/topology being part of the redesign,
-Tie-break not being relocatable, the 1B.1 query-key strategy, `SettingsSection` needing a refactor for
-the mock's groups, and a wording contradiction). All are resolved or flagged in **`PLAN.md` §"Review
-corrections"** (rounds 1–4) — it **supersedes `SPEC.md`** wherever they conflict, and `SPEC.md` is
-annotated inline (⚠️ CORRECTED).
+**Seven rounds** of review found **33 issues** so far — rounds 1–3 on strategy/spec (tab style,
+modal-route, data-model, tab fade, the palette maths: over-collapse, dark targets, contrast/AA,
+`primaryLight` role, `primaryBackground` drift, currency, Visibility 3-state, translucent spillover, …),
+rounds 4–5 on the Phase-1 plans (competitor tabs not role-gated, tab labels/topology, Tie-break not
+relocatable, 1B.1 query-key + `SettingsSection` refactor, `activeTab` reconciliation, organiser/competitor
+sets locked from the mock, Payouts completed-only), round 6 on Notifications (stale SQL sources, both-channel
+gating, optimistic toggles, type surface), round 7 on Multiple organisers (split `competitions` policy,
+round-delete operational, per-trigger notification matrix, `added_by` cascade). All are in **`PLAN.md`
+§"Review corrections" (rounds 1–7, #1–#33)** — it **supersedes `SPEC.md`** where they conflict; `SPEC.md`
+is annotated inline (⚠️ CORRECTED).
 
-## Open items still needing a decision/spec
+## Open items (per-plan)
 
-- **Settings data model (blocker for part of Phase 1):** allow-guests, competition notification
-  settings, and multiple organisers don't exist in the schema — need product + migration spec before
-  building. See `PLAN.md` §Review corrections #3.
-- **Visibility control (small spec decision):** `visibility` is a 3-state enum
-  (private/unlisted/public), not a boolean — pick the control shape + semantics before building.
-  Unblocks independently of the data-model work. See `PLAN.md` §Review corrections #15.
-- **Dates/Scoring/Handicap relocation:** the mock moves these from the Details tab into settings —
-  confirm before moving; do not duplicate. See `PLAN.md` Phase 1.
+Global product decisions are all made; remaining open sub-decisions live in each plan's "Open items"
+section — notably: **Phase 0 palette not yet implemented** (the immediate blocker); Visibility default +
+tier-gating; Guests default value; Tie-break cross-round countback basis + tier-gating; Organisers
+feature tier-gating + transfer-ownership (out of v1). Each is flagged in its own `PHASE-1B*` file.
