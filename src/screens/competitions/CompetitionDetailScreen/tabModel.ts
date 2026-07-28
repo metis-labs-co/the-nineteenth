@@ -69,6 +69,15 @@ export function buildCompetitionDetailTabs({
       primaryTab,
       { key: 'rounds', label: 'Rounds', count: availability.roundsCount },
       { key: 'players', label: 'Players', count: availability.playersCount },
+      ...(availability.skins
+        ? [
+            {
+              key: 'skins' as const,
+              label: 'Skins',
+              count: availability.skinsCount,
+            },
+          ]
+        : []),
       ...(isCompleted && availability.payouts
         ? [{ key: 'payouts' as const, label: 'Payouts' }]
         : []),

@@ -64,8 +64,16 @@ export function CompetitionNotificationSettings({
   const colors = useThemeColors();
   const [roundReminders, setRoundReminders] = useState(round_reminders_enabled);
   const [resultsSummary, setResultsSummary] = useState(results_summary_enabled);
-  const [pendingField, setPendingField] = useState<keyof NotificationField | null>(null);
-  const pendingFieldRef = useRef<keyof NotificationField | null>(null);
+  const [pendingFields, setPendingFields] = useState<
+    Record<keyof NotificationField, boolean>
+  >({
+    round_reminders_enabled: false,
+    results_summary_enabled: false,
+  });
+  const pendingFieldsRef = useRef<Record<keyof NotificationField, boolean>>({
+    round_reminders_enabled: false,
+    results_summary_enabled: false,
+  });
 
   useEffect(() => {
     setRoundReminders(round_reminders_enabled);
@@ -76,36 +84,36 @@ export function CompetitionNotificationSettings({
   }, [results_summary_enabled]);
 
   const updateRoundReminders = async (value: boolean) => {
-    if (pendingFieldRef.current) return;
+    if (pendingFieldsRef.current.round_reminders_enabled) return;
     const previous = roundReminders;
-    pendingFieldRef.current = 'round_reminders_enabled';
+    pendingFieldsRef.current.round_reminders_enabled = true;
     setRoundReminders(value);
-    setPendingField('round_reminders_enabled');
+    setPendingFields((current) => ({ ...current, round_reminders_enabled: true }));
     try {
       await onUpdate('round_reminders_enabled', value);
     } catch {
       setRoundReminders(previous);
       onError('Could not update round reminders. Please try again.');
     } finally {
-      pendingFieldRef.current = null;
-      setPendingField(null);
+      pendingFieldsRef.current.round_reminders_enabled = false;
+      setPendingFields((current) => ({ ...current, round_reminders_enabled: false }));
     }
   };
 
   const updateResultsSummary = async (value: boolean) => {
-    if (pendingFieldRef.current) return;
+    if (pendingFieldsRef.current.results_summary_enabled) return;
     const previous = resultsSummary;
-    pendingFieldRef.current = 'results_summary_enabled';
+    pendingFieldsRef.current.results_summary_enabled = true;
     setResultsSummary(value);
-    setPendingField('results_summary_enabled');
+    setPendingFields((current) => ({ ...current, results_summary_enabled: true }));
     try {
       await onUpdate('results_summary_enabled', value);
     } catch {
       setResultsSummary(previous);
       onError('Could not update results summary. Please try again.');
     } finally {
-      pendingFieldRef.current = null;
-      setPendingField(null);
+      pendingFieldsRef.current.results_summary_enabled = false;
+      setPendingFields((current) => ({ ...current, results_summary_enabled: false }));
     }
   };
 
@@ -122,7 +130,7 @@ export function CompetitionNotificationSettings({
           label="Round reminders"
           description="Notify players shortly before their tee time."
           value={roundReminders}
-          pending={pendingField !== null}
+          pending={pendingFields.round_reminders_enabled}
           onChange={(value) => void updateRoundReminders(value)}
         />
         <View style={[styles.divider, { backgroundColor: colors.border }]} />
@@ -130,7 +138,7 @@ export function CompetitionNotificationSettings({
           label="Results summary"
           description="Notify players when every scorecard for a round is complete."
           value={resultsSummary}
-          pending={pendingField !== null}
+          pending={pendingFields.results_summary_enabled}
           onChange={(value) => void updateResultsSummary(value)}
         />
       </View>

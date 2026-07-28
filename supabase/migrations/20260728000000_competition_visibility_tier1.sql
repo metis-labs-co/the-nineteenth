@@ -36,7 +36,7 @@ AS $$
   FROM competitions c
   LEFT JOIN competition_players cp ON cp.competition_id = c.id
   WHERE auth.uid() IS NOT NULL
-    AND c.invite_code = UPPER(TRIM(p_code))
+    AND UPPER(c.invite_code) = UPPER(TRIM(p_code))
     AND c.deleted_at IS NULL
   GROUP BY c.id
   LIMIT 1;

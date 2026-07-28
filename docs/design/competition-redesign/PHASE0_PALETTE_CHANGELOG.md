@@ -54,5 +54,6 @@ text to `textSecondary`.
 
 Translucent tint generation (`tinted.*`) is unchanged and is covered by a
 regression test. Shared `background` (except image backdrop, which stays
-transparent), `surfaceElevated`, text tokens, and dark `primaryBackground`
-inherit the retune in translucent mode as accepted in `PLAN.md` correction #10.
+transparent), `surfaceElevated`, and text tokens inherit the retune in
+translucent mode as accepted in `PLAN.md` correction #10. The dark
+`primaryBackground` correction is documented separately in corrections #9/#12.

@@ -57,6 +57,7 @@ describe('competition detail tab model', () => {
         ['leaderboard', 'Standings'],
         ['rounds', 'Rounds'],
         ['players', 'Players'],
+        ['skins', 'Skins'],
       ]);
     }
   );
@@ -66,6 +67,7 @@ describe('competition detail tab model', () => {
       ['leaderboard', 'Results'],
       ['rounds', 'Rounds'],
       ['players', 'Players'],
+      ['skins', 'Skins'],
       ['payouts', 'Payouts'],
     ]);
   });
@@ -75,7 +77,19 @@ describe('competition detail tab model', () => {
       ['bracket', 'Bracket'],
       ['rounds', 'Rounds'],
       ['players', 'Players'],
+      ['skins', 'Skins'],
     ]);
+  });
+
+  it('omits Skins for competitors who are not participants', () => {
+    const tabs = buildCompetitionDetailTabs({
+      role: 'competitor',
+      competitionType: 'event',
+      status: 'upcoming',
+      availability: { ...availability, skins: false },
+    });
+
+    expect(tabs.map(({ key }) => key)).not.toContain('skins');
   });
 
   it('clamps inaccessible initial tabs to the role default', () => {

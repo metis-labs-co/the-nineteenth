@@ -1,10 +1,11 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 
 import { BottomSheet, SegmentedButton } from '@/components/common';
 import { spacing, typography } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
+import { useToast } from '@/context/ToastContext';
 import type { CompetitionVisibility } from '@/types/database.types';
 
 import { useUpdateCompetitionField } from './useUpdateCompetitionField';
@@ -27,24 +28,43 @@ export function EditVisibilitySheet({
   currentVisibility: CompetitionVisibility;
 }) {
   const colors = useThemeColors();
+  const { showErrorToast } = useToast();
+  const [selectedVisibility, setSelectedVisibility] = useState(currentVisibility);
   const { mutate, isPending } = useUpdateCompetitionField({
     competitionId,
     onSuccess: onDismiss,
   });
 
+  useEffect(() => {
+    setSelectedVisibility(currentVisibility);
+  }, [currentVisibility]);
+
   const handleChange = useCallback(
     (visibility: CompetitionVisibility) => {
-      if (visibility === currentVisibility) return;
-      mutate({ visibility });
+      if (visibility === selectedVisibility) return;
+      const previous = selectedVisibility;
+      setSelectedVisibility(visibility);
+      mutate(
+        { visibility },
+        {
+          onError: () => {
+            setSelectedVisibility(previous);
+            showErrorToast(
+              'Visibility not saved',
+              'Could not update competition visibility. Please try again.'
+            );
+          },
+        }
+      );
     },
-    [currentVisibility, mutate]
+    [mutate, selectedVisibility, showErrorToast]
   );
 
   return (
     <BottomSheet visible={visible} onClose={onDismiss} title="Visibility" height={0.42} useModal>
       <View style={styles.body}>
         <SegmentedButton
-          value={currentVisibility}
+          value={selectedVisibility}
           onValueChange={handleChange}
           buttons={OPTIONS}
           disabled={isPending}

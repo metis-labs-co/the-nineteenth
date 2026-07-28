@@ -128,6 +128,13 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
   // by query key).
   const { data: competitionSkinsGames } = useCompetitionSkinsGames(id);
   const hasSkinsGames = (competitionSkinsGames?.length ?? 0) > 0;
+  const canViewSkinsTab =
+    isOrganizer ||
+    (competitionSkinsGames ?? []).some(
+      (game) =>
+        (!!user?.id && game.participantPlayerIds.includes(user.id)) ||
+        (!!userTeamId && game.participantTeamIds.includes(userTeamId))
+    );
 
   const handleOpenLeaderboardFromMini = useCallback(
     (view: 'individual' | 'team') => {
@@ -295,7 +302,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
           stats: showStatsTab,
           breakdown: showBreakdownTab,
           payouts: !!(prizePool || teamPrizePool),
-          skins: hasSkinsGames,
+          skins: hasSkinsGames && canViewSkinsTab,
           skinsCount: competitionSkinsGames?.length,
         },
       }),
@@ -304,6 +311,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
       competitionSkinsGames?.length,
       competitionStatus,
       competitionType,
+      canViewSkinsTab,
       hasSkinsGames,
       prizePool,
       showBreakdownTab,

@@ -55,7 +55,7 @@ export async function createCompetition(
   }
 
   // Use custom invite code or generate one
-  const inviteCode = input.inviteCode || generateInviteCode();
+  const inviteCode = (input.inviteCode || generateInviteCode()).trim().toUpperCase();
 
   // Convert app TeamMode to DB TeamMode
   const dbTeamMode = mapTeamModeToDb(input.teamMode);
