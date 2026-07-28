@@ -17,6 +17,7 @@ just "hardcoded colours").
 | [`PHASE-1B3-GUESTS-PLAN.md`](./PHASE-1B3-GUESTS-PLAN.md) | Spec + plan for **Allow Guests** — a per-competition toggle on the **existing** placeholder-player system; no tier tightening. |
 | [`PHASE-1B4-NOTIFICATIONS-PLAN.md`](./PHASE-1B4-NOTIFICATIONS-PLAN.md) | Spec + plan for **Notification settings** — organiser toggles for round reminders + results summary (gate existing notifications); live score alerts deferred. |
 | [`PHASE-1B5-ORGANISERS-PLAN.md`](./PHASE-1B5-ORGANISERS-PLAN.md) | Spec + plan for **Multiple organisers** — a `competition_organizers` join table via a **consolidate-then-extend** RLS refactor (operational parity; owner-only delete/transfer/payouts). The largest backend item. |
+| [`PHASE-1B6-TIEBREAK-PLAN.md`](./PHASE-1B6-TIEBREAK-PLAN.md) | Spec + plan for **Configurable Tie-break** — payout-affecting (Split/Countback/Handicap). Scoring-guardrail + money-critical: characterization-first, `scoring-impact-analyst` gate. |
 | [`SPEC.md`](./SPEC.md) | The design handoff — per-tab detail, token map, component map, tab-label→component map, settings §4. Accurate reference; `PLAN.md` states the one correction (the neutral palette must be retuned). |
 | [`mocks/`](./mocks/) | The hi-fi HTML prototypes. Open a `.dc.html` in a browser; toggle its `dark` prop for the dark variant. |
 | [`ORIGINAL_PROMPT.superseded.md`](./ORIGINAL_PROMPT.superseded.md) | The original strategy brief. **Superseded by `PLAN.md`** — kept for provenance. |
