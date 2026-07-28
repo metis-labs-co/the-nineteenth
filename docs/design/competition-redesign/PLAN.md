@@ -247,6 +247,23 @@ A review found seven issues in this plan + `SPEC.md`, all verified against the c
     Competition **fixtures/factories** or the suite breaks. **Applies plan-wide** to the field additions in
     `PHASE-1B2` / `PHASE-1B3` / `PHASE-1B4`.
 
+### Round 7 (2026-07-28) — corrections to the Multiple-organisers plan
+
+30. **`competitions` RLS must split by operation** — settings edits UPDATE `competitions`
+    (`useUpdateCompetitionField`), so owner-only `FOR ALL` blocks co-organiser parity. Split: SELECT+UPDATE
+    operational, DELETE owner-only, + a `BEFORE UPDATE` guard trigger so only the owner can change
+    `organizer_id`/`deleted_at` (RLS can't restrict columns). → `PHASE-1B5` A2.
+31. **Round delete/reorder are operational, not owner-only** — `soft_delete_round`/`reorder` are ordinary
+    round management (competition rounds authorise on `organizer_id` today); route through the operational
+    helper, keep the standalone `user_id` path. Only whole-**competition** delete stays owner-only. → A3.
+32. **Notification triggers need a per-trigger recipient/actor matrix, not a blanket owner∪co-org.**
+    Organiser-alerts (player_joined) add co-orgs as recipients; participant broadcasts (new_round,
+    status_change, round_complete) keep their audience but must exclude the *acting* organiser (owner or
+    co-org); player_added is unchanged; scorecard_submitted trigger is dropped. Flag the actor-attribution
+    limitation (triggers assume the owner is the actor). → B4.
+33. **`competition_organizers.added_by` must be `ON DELETE SET NULL`** (nullable), not cascade — else
+    deleting the adder wipes their assignments. Only `competition_id`/`player_id` cascade. → representation + B1.
+
 ---
 
 ## 0. Blockers — do not start until these are true
