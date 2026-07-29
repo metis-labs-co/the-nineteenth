@@ -16,6 +16,8 @@ import { type RoundWithCourse } from './types';
 import {
   CompetitionInfoSection,
   InProgressRoundSection,
+  ManageActionsSection,
+  type ManageAction,
   MiniLeaderboardSection,
   PrizePoolSection,
   WhatsAppGroupSection,
@@ -48,6 +50,15 @@ export interface DetailsTabProps {
   onScoreRound?: (roundId: string, gameType: GameType, isTeamRound: boolean) => void;
   /** Open the round detail screen (used by the In Progress quick link). */
   onViewRound?: (roundId: string) => void;
+  // Organiser "Manage" quick-action grid. Each handler is optional; a tile
+  // renders only when its handler is provided (so capability gating — e.g.
+  // teams — is expressed by omitting the callback). The grid is organiser-only.
+  onAddRound?: () => void;
+  onFormatsPoints?: () => void;
+  onManageTeams?: () => void;
+  onPairings?: () => void;
+  onOpenSettings?: () => void;
+  onShareInvite?: () => void;
 }
 
 export const DetailsTab = React.memo(function DetailsTab({
@@ -69,7 +80,35 @@ export const DetailsTab = React.memo(function DetailsTab({
   onViewPrizePoolTransactions,
   onScoreRound,
   onViewRound,
+  onAddRound,
+  onFormatsPoints,
+  onManageTeams,
+  onPairings,
+  onOpenSettings,
+  onShareInvite,
 }: DetailsTabProps) {
+  // Organiser quick-action grid (mock's "Manage" section). Built from the
+  // handlers the screen supplies; a tile appears only when its handler exists,
+  // so gating (e.g. teams only for team competitions) is done by the screen.
+  const manageActions = useMemo<ManageAction[]>(() => {
+    if (!isOrganizer) return [];
+    const candidates: (ManageAction | null)[] = [
+      onAddRound ? { key: 'add-round', label: 'Add round', icon: 'plus', onPress: onAddRound } : null,
+      onFormatsPoints
+        ? { key: 'formats', label: 'Formats & points', icon: 'trophy-outline', onPress: onFormatsPoints }
+        : null,
+      onManageTeams
+        ? { key: 'teams', label: 'Manage teams', icon: 'account-group-outline', onPress: onManageTeams }
+        : null,
+      onPairings ? { key: 'pairings', label: 'Pairings', icon: 'tournament', onPress: onPairings } : null,
+      onOpenSettings ? { key: 'settings', label: 'Settings', icon: 'cog-outline', onPress: onOpenSettings } : null,
+      onShareInvite
+        ? { key: 'share', label: 'Share invite', icon: 'share-variant', onPress: onShareInvite }
+        : null,
+    ];
+    return candidates.filter((a): a is ManageAction => a !== null);
+  }, [isOrganizer, onAddRound, onFormatsPoints, onManageTeams, onPairings, onOpenSettings, onShareInvite]);
+
   const showMiniLeaderboard =
     isPlayer &&
     competition.competition_type !== 'knockout' &&
@@ -94,6 +133,8 @@ export const DetailsTab = React.memo(function DetailsTab({
 
   return (
     <View>
+      <ManageActionsSection actions={manageActions} />
+
       {showCompetitionInfo && <CompetitionInfoSection competition={competition} />}
 
       {inProgressRounds.length > 0 && onScoreRound && onViewRound && (

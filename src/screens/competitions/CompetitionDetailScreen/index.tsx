@@ -10,7 +10,7 @@
  */
 
 import React, { useState, useMemo, useCallback } from 'react';
-import { View, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Share } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text, Icon } from 'react-native-paper';
 import { LoadingSpinner } from '@/components/common';
@@ -232,6 +232,17 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
     },
     [reorderRounds, id]
   );
+
+  // Share invite — opens the OS share sheet with the competition's invite code.
+  // Declared before the loading/error early returns (rules of hooks); reads the
+  // nullable competitionData and no-ops until it has loaded.
+  const handleShareInvite = useCallback(() => {
+    const comp = competitionData?.competition;
+    if (!comp) return;
+    void Share.share({
+      message: `Join "${comp.name}" on The Nineteenth — use invite code ${comp.invite_code} to join.`,
+    });
+  }, [competitionData]);
 
   // Refetch on focus so returning from a round detail/settings screen shows
   // updated round data (name, course, date, status) without a manual pull-to-refresh.
@@ -506,6 +517,16 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
             }
             onScoreRound={handleScoreRound}
             onViewRound={handleViewRound}
+            onAddRound={handleAddRound}
+            onFormatsPoints={() => setActiveTab('rounds')}
+            onManageTeams={
+              competition.team_mode !== 'none' ? () => setActiveTab('teams') : undefined
+            }
+            onPairings={() => setActiveTab('rounds')}
+            onOpenSettings={() =>
+              navigation.navigate('CompetitionSettings', { competitionId: id })
+            }
+            onShareInvite={handleShareInvite}
           />
         )}
 
