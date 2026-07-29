@@ -490,28 +490,34 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
         <EmptyLeaderboardState type={effectiveView} />
       ) : effectiveView === 'team' ? (
         <>
-          {teamPointsToWin && (
-            <TeamPointsToWinBanner
-              total={teamPointsToWin.total}
-              toWin={teamPointsToWin.toWin}
-            />
-          )}
           {teams?.length === 2 && teamEntries.length === 2 ? (
+            // The head-to-head board hosts its own cup progress bar + marker,
+            // so the standalone points-to-win banner is redundant here.
             <TeamHeadToHeadCard
               entries={[teamEntries[0], teamEntries[1]]}
               teamColors={teamColorById}
               currentUserId={currentUserId}
               rounds={rounds}
+              pointsAvailable={teamPointsToWin?.total}
+              pointsToWin={teamPointsToWin?.toWin}
               testID="competition-team-headtohead"
             />
           ) : (
-            <TeamLeaderboardTable
-              leaderboard={teamEntries}
-              currentUserId={currentUserId}
-              isLoading={false}
-              showTiedIndicator
-              testID="competition-team-leaderboard"
-            />
+            <>
+              {teamPointsToWin && (
+                <TeamPointsToWinBanner
+                  total={teamPointsToWin.total}
+                  toWin={teamPointsToWin.toWin}
+                />
+              )}
+              <TeamLeaderboardTable
+                leaderboard={teamEntries}
+                currentUserId={currentUserId}
+                isLoading={false}
+                showTiedIndicator
+                testID="competition-team-leaderboard"
+              />
+            </>
           )}
         </>
       ) : (

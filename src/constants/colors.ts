@@ -380,6 +380,15 @@ export function generateLightColors(
     accent: accentColors.accent,
     accentDark: accentColors.accentDark,
     accentLight: accentColors.accentLight,
+
+    // Leaderboard "cup" scoreboard — an always-dark feature surface (the
+    // head-to-head board reads as a dark scoreboard in both themes, matching
+    // the redesign mock). Deliberately theme-independent.
+    scoreboardGradientStart: '#1f2a19',
+    scoreboardGradientEnd: '#131a0f',
+    scoreboardLabel: '#8ba079',
+    scoreboardTrack: 'rgba(255,255,255,0.09)',
+    scoreboardMarker: 'rgba(255,255,255,0.4)',
   };
 }
 
@@ -522,5 +531,13 @@ export function generateDarkColors(
     accent: accentColors.accentLight, // Lighter for dark mode visibility
     accentDark: accentColors.accent,
     accentLight: brightenColor(accentColors.accentLight, 0.15),
+
+    // Leaderboard "cup" scoreboard — always-dark feature surface (identical to
+    // light so the head-to-head board reads the same in both themes).
+    scoreboardGradientStart: '#1f2a19',
+    scoreboardGradientEnd: '#131a0f',
+    scoreboardLabel: '#8ba079',
+    scoreboardTrack: 'rgba(255,255,255,0.09)',
+    scoreboardMarker: 'rgba(255,255,255,0.4)',
   };
 }
