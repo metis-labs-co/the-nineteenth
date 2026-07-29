@@ -20,6 +20,7 @@ import {
   type ManageAction,
   MiniLeaderboardSection,
   PrizePoolSection,
+  ScoringFormatSummarySection,
   WhatsAppGroupSection,
 } from './sections';
 
@@ -134,6 +135,12 @@ export const DetailsTab = React.memo(function DetailsTab({
   return (
     <View>
       <ManageActionsSection actions={manageActions} />
+
+      <ScoringFormatSummarySection
+        competition={competition}
+        rounds={rounds}
+        onPress={isOrganizer ? onOpenSettings : undefined}
+      />
 
       {showCompetitionInfo && <CompetitionInfoSection competition={competition} />}
 

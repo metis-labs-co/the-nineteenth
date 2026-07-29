@@ -400,10 +400,15 @@ describe('DetailsTab', () => {
   // ===========================================================================
 
   describe('Relocated settings', () => {
-    it('keeps status context but no longer renders editable settings', () => {
+    it('keeps status context and a read-only scoring glance, not editable settings', () => {
       render(<DetailsTab {...defaultProps} />);
-      expect(screen.queryByText('Handicap')).toBeNull();
+      // Editable SettingsSection rows remain relocated to the Settings screen.
       expect(screen.queryByText('Team Size')).toBeNull();
+      expect(screen.queryByText('Rules Mode')).toBeNull();
+      // The redesign's read-only "Scoring & format" glance surfaces Handicap on
+      // Details (mirrors the mock); it taps through to Settings to edit.
+      expect(screen.getByText('Scoring & format')).toBeTruthy();
+      expect(screen.getByText('Handicap')).toBeTruthy();
       expect(screen.getByTestId('status-badge')).toBeTruthy();
     });
 
