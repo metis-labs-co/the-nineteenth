@@ -12,7 +12,7 @@ import { Text, Icon } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
-import { spacing, typography, borderRadius } from '@/constants/theme';
+import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { PlayerCard } from '@/components/social/PlayerCard';
 import { ExpandablePlayerCard } from '@/components/social/ExpandablePlayerCard';
 import type { ColorPalette } from '@/context/ThemeContext';
@@ -89,15 +89,16 @@ export const PlayersTab = React.memo(function PlayersTab({
         <TouchableOpacity
           style={[
             styles.addPlayersButton,
-            { borderColor: colors.primary },
+            shadows.sm,
+            { backgroundColor: colors.primary },
           ]}
           onPress={onAddPlayers}
           accessibilityLabel="Add players"
           accessibilityRole="button"
-          activeOpacity={0.7}
+          activeOpacity={0.85}
         >
-          <Icon source="account-plus" size={20} color={colors.primary} />
-          <Text style={[styles.addPlayersButtonText, { color: colors.primary }]}>Add players</Text>
+          <Icon source="account-plus" size={20} color={colors.white} />
+          <Text style={[styles.addPlayersButtonText, { color: colors.white }]}>Add players</Text>
         </TouchableOpacity>
       )}
       {players.length === 0 ? (
@@ -231,10 +232,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: spacing.sm,
     marginBottom: spacing.lg,
-    paddingVertical: spacing.md,
+    height: 48,
     paddingHorizontal: spacing.lg,
-    borderWidth: 2,
-    borderStyle: 'dashed',
     borderRadius: borderRadius.lg,
   },
   addPlayersButtonText: {
