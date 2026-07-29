@@ -10,7 +10,7 @@
 
 import React, { useState, useMemo, useCallback } from 'react';
 import { indexById } from '@/utils/collections';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { ErrorState, LoadingSpinner, SectionHeader } from '@/components/common';
 import { SegmentedButton } from '@/components/common/SegmentedButton';
@@ -276,7 +276,7 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
   onScrollHandled,
   renderInlineToggle = true,
 }: LeaderboardTabProps) {
-  const _colors = useThemeColors();
+  const colors = useThemeColors();
   const hasTeams = teamMode !== 'none';
 
   // Get completed rounds for round-specific leaderboards, ordered by round number
@@ -315,6 +315,23 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
   const positionalRoundNumbers = useMemo(
     () => buildPositionalRoundNumbers(rounds),
     [rounds]
+  );
+
+  // Standings scope switcher (mock's Overall / R1 / R2 … strip): 'overall'
+  // shows the cup board + overall list; a round id shows just that round's
+  // board. Falls back to 'overall' if the selected round is deleted/reordered.
+  const [scope, setScope] = useState<string>('overall');
+  const effectiveScope =
+    scope === 'overall' || orderedRounds.some((r) => r.round.id === scope) ? scope : 'overall';
+  const scopeChips = useMemo(
+    () => [
+      { key: 'overall', label: 'Overall' },
+      ...orderedRounds.map(({ round }) => ({
+        key: round.id,
+        label: `R${positionalRoundNumbers.get(round.id) ?? round.round_number}`,
+      })),
+    ],
+    [orderedRounds, positionalRoundNumbers]
   );
 
   // Check if ALL rounds are single-ball team format (scramble/alt-shot — individual standings become irrelevant)
@@ -366,10 +383,10 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
   const teamColorById = useMemo(() => {
     const map = new Map<string, string>();
     (teams ?? []).forEach((team, index) => {
-      map.set(team.id, getTeamColorHex(team.color, index, _colors));
+      map.set(team.id, getTeamColorHex(team.color, index, colors));
     });
     return map;
-  }, [teams, _colors]);
+  }, [teams, colors]);
 
   // Handle view change (forwards to parent when controlled, else updates local state)
   const handleViewChange = useCallback(
@@ -479,7 +496,48 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
         />
       )}
 
-      {/* Overall Standings Section */}
+      {/* Standings scope switcher (Overall / per-round), mock's chip strip */}
+      {scopeChips.length > 1 && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.scopeStrip}
+        >
+          {scopeChips.map((chip) => {
+            const active = chip.key === effectiveScope;
+            return (
+              <TouchableOpacity
+                key={chip.key}
+                onPress={() => setScope(chip.key)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                accessibilityLabel={`Show ${chip.label} standings`}
+                style={[
+                  styles.scopeChip,
+                  {
+                    borderColor: active ? colors.primary : colors.border,
+                    backgroundColor: active ? colors.primaryBackground : colors.surface,
+                  },
+                ]}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[
+                    styles.scopeChipText,
+                    { color: active ? colors.primary : colors.textSecondary },
+                  ]}
+                >
+                  {chip.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      )}
+
+      {/* Overall Standings Section — shown when scope is 'overall' */}
+      {effectiveScope === 'overall' && (
+        <>
       <SectionHeader
         title={effectiveView === 'team' ? 'Team Standings' : 'Individual Standings'}
         icon={effectiveView === 'team' ? 'account-group-outline' : 'account-outline'}
@@ -531,9 +589,13 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
           testID="competition-individual-leaderboard"
         />
       )}
+        </>
+      )}
 
-      {/* Round-Specific Leaderboards Section */}
-      {(completedRounds.length > 0 || inProgressRounds.length > 0) && (
+      {/* Selected-round leaderboard — shown when a round scope is active. Only
+          the chosen round renders (the scope switcher replaces the old
+          all-rounds-stacked layout). */}
+      {effectiveScope !== 'overall' && (
         <View style={styles.roundsSection}>
           <SectionHeader
             title="Round Results"
@@ -545,7 +607,9 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
               is only populated on submission); split alt-shot renders the live
               sub-match leaderboard with its own header; everything else reads
               round_results via RoundLeaderboard. */}
-          {orderedRounds.map(({ round, inProgress }) => {
+          {orderedRounds
+            .filter((r) => r.round.id === effectiveScope)
+            .map(({ round, inProgress }) => {
             const gameType = round.game_type as GameType;
 
             if (
@@ -680,6 +744,25 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+
+  // Standings scope switcher (Overall / per-round chips)
+  scopeStrip: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    paddingBottom: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  scopeChip: {
+    borderWidth: 1,
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    minHeight: 36,
+    justifyContent: 'center',
+  },
+  scopeChipText: {
+    ...typography.smallBold,
   },
 
   // Loading
