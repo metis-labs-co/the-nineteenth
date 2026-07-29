@@ -417,16 +417,23 @@ the canonical components. Method:
 
 ## Definition of done
 
-- [ ] **Phase 0:** solid-light neutral palette retuned to the mock's green-tinted values; solid dark
+> **Status (2026-07-29):** Phase 0 + 1A core + Visibility/Guests/Notifications are done and committed to
+> local `main` (see `README.md` → "Current status" for the commit map). Outstanding: 1A per-tab passes,
+> **1B.5 Organisers** and **1B.6 Tie-break** (plan/docs only), Phase 2 sweep. Not pushed; migrations
+> unapplied to prod (`20260728000000` needs client coordination).
+
+- [x] **Phase 0:** solid-light neutral palette retuned to the mock's green-tinted values; solid dark
       adapted; translucent branches untouched; text-token spillover flagged; palette changelog signed
-      off in solid light + dark.
-- [ ] **Phase 1:** all three surfaces × three states × full tab sets built via existing components on
+      off in solid light + dark. *(`e613a5e4`)*
+- [~] **Phase 1:** all three surfaces × three states × full tab sets built via existing components on
       the retuned palette; every tab label resolves to a rendered component (Standings/Results →
-      `LeaderboardTab` confirmed); fidelity signed off vs mock.
-- [ ] Settings screen **extended** (not recreated), existing edit/delete flows reused; Visibility
-      control built per the #15 decision (3-state, not a lossy boolean); spec-blocked sections
-      (guests/notifications/organisers) stubbed or omitted per #3; Dates/Scoring/Handicap relocation
-      flagged, not duplicated. (Screen is pushed — `SystemModalTheme` only on any bottom sheets.)
+      `LeaderboardTab` confirmed); fidelity signed off vs mock. *(tab model + hero done — `cac407ee`,
+      `aeb65ae8`; per-tab visual passes + 1A review fixes outstanding.)*
+- [~] Settings screen **extended** (not recreated), existing edit/delete flows reused; Visibility
+      control built per the #15 decision (3-state, not a lossy boolean). *(Visibility ✅ `e897428b`;
+      Guests ✅ `4e7ad007`; Notifications ✅ `647ea61f`; **Organisers ⛔** and **Tie-break ⛔** still
+      plan/docs only.)* Dates/Scoring/Handicap relocation flagged, not duplicated. (Screen is pushed —
+      `SystemModalTheme` only on any bottom sheets.)
 - [ ] **Phase 2:** inventory checklist produced; each area swept, fidelity-reviewed, merged as its own
       PR; bespoke tab bars / legacy accent cards / hardcoded colours migrated.
 - [ ] No forked components; no scoring math moved; scoring screens untouched.

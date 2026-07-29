@@ -5,6 +5,31 @@ The first implementation was merged (`f16e59a6`) then **reverted** (`55bafc4e`) 
 match the mocks — see `PLAN.md` for the verified root cause (a palette + surface-model mismatch, not
 just "hardcoded colours").
 
+## Current status (2026-07-29)
+
+The visual core plus **3 of the 5 backend features are implemented and committed to local `main`**.
+The work is **not pushed** (local `main` is ahead of `origin/main`) and **no migrations are deployed**.
+
+| Item | State | Where |
+|---|---|---|
+| **Phase 0** — solid palette retune | ✅ done | `e613a5e4` |
+| **1A core** — tab model + hero (+ inaccessible-tab flash fix) | ✅ done | `cac407ee`, `aeb65ae8` |
+| **1B.2 Visibility** — 3-state picker + RLS tighten + lookup RPC | ✅ done | `e897428b`, `358d5e36` |
+| **1B.3 Guests** — `allow_guests` toggle + trigger | ✅ done | `e897428b`, `4e7ad007` |
+| **1B.4 Notifications** — reminder + results-summary toggles + gates | ✅ done | `647ea61f` |
+| Code-review fixes (competitor Skins, visibility rollback, pending-lock, RPC casing) | ✅ done | `358d5e36` |
+| **1A per-tab visual passes** + 1A review fixes | ⛔ outstanding | — |
+| **1B.5 Multiple Organisers** | ⛔ plan/docs only | `6c5e73c4`, `79db4d39` |
+| **1B.6 Configurable Tie-break** | ⛔ plan/docs only | `5e7671dd` |
+| **Phase 2** — app-wide sweep | ⛔ not started | — |
+
+**Cross-cutting outstanding:** not pushed to `origin/main`; the 7 migrations
+(`20260706…` → `20260728000100`) are **written but unapplied to prod** — and
+`20260728000000_competition_visibility_tier1` carries a **client-coordination requirement** (it drops
+the `USING(true)` competitions SELECT policy the old client's join-by-code relies on; only apply once
+the build with the `lookup_competition_by_invite_code` RPC is live); on-device QA pending across the
+implemented features.
+
 ## Start here
 
 | File | What it is |
@@ -41,13 +66,13 @@ just "hardcoded colours").
 **Sequence:**
 1. **Phase 0 — palette retune** (`colors.ts`, per `PLAN.md` Phase 0). ⛔ **Gates ALL visual work** — 1A
    and the settings-screen visuals render wrong until this lands. Solid light + solid dark; leave the
-   translucent branches. *(Still outstanding — the `8de23a78` commit did NOT include it.)*
+   translucent branches. *(✅ done — `e613a5e4`.)*
 2. **1A visual** (per-tab, after Phase 0) **+ 1B.1 relocation** — parallelizable; each a PR behind
-   screenshot sign-off. (1A tab-model/hero + 1B.1 already done in `8de23a78`; remaining = per-tab passes,
+   screenshot sign-off. (1A tab-model/hero done — `cac407ee`/`aeb65ae8`; **remaining** = per-tab passes,
    the 1A review fixes, and 1B.1 PointsConfig-invalidation + regression.)
-3. **Backend features — independent of 1A, each gated on its own migration deploy:** 1B.2 Visibility →
-   1B.3 Guests → 1B.4 Notifications → 1B.5 Organisers → 1B.6 Tie-break. **1B.5 and 1B.6 are the big/risky
-   ones — sequence them last.**
+3. **Backend features — independent of 1A, each gated on its own migration deploy:** 1B.2 Visibility ✅ →
+   1B.3 Guests ✅ → 1B.4 Notifications ✅ → **1B.5 Organisers ⛔ → 1B.6 Tie-break ⛔**. **1B.5 and 1B.6 are
+   the big/risky ones — plan/docs only so far, sequence them last.**
 4. **Phase 2** — app-wide sweep, after 1A lands (includes the `textTertiary` essential-text audit).
 
 **Hard stop-points — surface to the owner, don't push through:**
@@ -82,6 +107,6 @@ is annotated inline (⚠️ CORRECTED).
 ## Open items (per-plan)
 
 Global product decisions are all made; remaining open sub-decisions live in each plan's "Open items"
-section — notably: **Phase 0 palette not yet implemented** (the immediate blocker); Visibility default +
-tier-gating; Guests default value; Tie-break cross-round countback basis + tier-gating; Organisers
-feature tier-gating + transfer-ownership (out of v1). Each is flagged in its own `PHASE-1B*` file.
+section — notably: Tie-break cross-round countback basis + tier-gating; Organisers feature tier-gating +
+transfer-ownership (out of v1). Each is flagged in its own `PHASE-1B*` file. *(Phase 0 palette, Visibility
+default/tier-gating, and Guests default are now resolved and shipped — see Current status above.)*
