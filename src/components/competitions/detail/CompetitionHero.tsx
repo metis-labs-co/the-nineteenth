@@ -1,10 +1,11 @@
 import React, { useMemo } from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Icon, Text } from 'react-native-paper';
 import { differenceInCalendarDays, parseISO, startOfDay } from 'date-fns';
 
 import { CardContainer, Pill, StatusBadge } from '@/components/common';
-import { borderRadius, spacing, typography } from '@/constants/theme';
+import { borderRadius, shadows, spacing, typography } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import type { CompetitionStatus } from '@/types/database/enums';
 
@@ -68,35 +69,28 @@ export const CompetitionHero = React.memo(function CompetitionHero({
             action: undefined,
           };
 
-  return (
-    <CardContainer
-      padding="lg"
-      style={styles.card}
-      elevated
-      accessibilityLabel={`${content.eyebrow}. ${content.title}`}
-    >
+  // Competitors get the mock's dark "your team" board; organisers keep the
+  // light status card. Text/accents flip to read on the dark surface.
+  const isDark = !isOrganizer;
+  const titleColor = isDark ? colors.white : colors.textPrimary;
+  const subColor = isDark ? colors.scoreboardLabel : colors.textSecondary;
+  const iconBg = isDark ? colors.scoreboardTrack : colors.primaryBackground;
+
+  const inner = (
+    <>
       <View style={styles.topRow}>
-        <View
-          style={[
-            styles.iconContainer,
-            { backgroundColor: colors.primaryBackground },
-          ]}
-        >
+        <View style={[styles.iconContainer, { backgroundColor: iconBg }]}>
           <Icon source={content.icon} size={24} color={colors.primary} />
         </View>
-        <StatusBadge status={status} size="sm" />
+        {!isDark && <StatusBadge status={status} size="sm" />}
         {status === 'upcoming' && (
           <Pill label={countdown} variant="primary" size="sm" filled />
         )}
       </View>
 
-      <Text style={[styles.eyebrow, { color: colors.textSecondary }]}>
-        {content.eyebrow}
-      </Text>
-      <Text style={[styles.title, { color: colors.textPrimary }]}>{content.title}</Text>
-      <Text style={[styles.message, { color: colors.textSecondary }]}>
-        {content.message}
-      </Text>
+      <Text style={[styles.eyebrow, { color: subColor }]}>{content.eyebrow}</Text>
+      <Text style={[styles.title, { color: titleColor }]}>{content.title}</Text>
+      <Text style={[styles.message, { color: subColor }]}>{content.message}</Text>
 
       {content.action && onPrimaryAction && (
         <TouchableOpacity
@@ -112,6 +106,32 @@ export const CompetitionHero = React.memo(function CompetitionHero({
           <Icon source="arrow-right" size={18} color={colors.textOnColored} />
         </TouchableOpacity>
       )}
+    </>
+  );
+
+  if (isDark) {
+    return (
+      <LinearGradient
+        colors={[colors.scoreboardGradientStart, colors.scoreboardGradientEnd]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.card, styles.darkCard]}
+        accessible
+        accessibilityLabel={`${content.eyebrow}. ${content.title}`}
+      >
+        {inner}
+      </LinearGradient>
+    );
+  }
+
+  return (
+    <CardContainer
+      padding="lg"
+      style={styles.card}
+      elevated
+      accessibilityLabel={`${content.eyebrow}. ${content.title}`}
+    >
+      {inner}
     </CardContainer>
   );
 });
@@ -121,6 +141,11 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.lg,
     marginTop: spacing.md,
     borderRadius: borderRadius.xl,
+  },
+  darkCard: {
+    padding: spacing.lg,
+    overflow: 'hidden',
+    ...shadows.md,
   },
   topRow: {
     flexDirection: 'row',
