@@ -40,5 +40,7 @@ export {
   queueScorecardSync,
   manualSync,
   retryFailedSyncs,
+  listFailedSyncs,
+  discardFailedSync,
   clearSyncQueue,
 } from './sync/index';
