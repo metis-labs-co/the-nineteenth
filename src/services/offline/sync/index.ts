@@ -39,6 +39,8 @@ export {
   queueScorecardSync,
   manualSync,
   retryFailedSyncs,
+  listFailedSyncs,
+  discardFailedSync,
   clearSyncQueue,
 } from './syncOrchestrator';
 export type { ScorecardSyncedEvent } from './syncOrchestrator';

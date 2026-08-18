@@ -182,6 +182,92 @@ export async function getFailedSyncCount(): Promise<number> {
   return result?.count ?? 0;
 }
 
+/**
+ * Count retained failures belonging to a single round.
+ *
+ * The device-wide `getFailedSyncCount` is the right number for a global
+ * troubleshooting surface, but it is the wrong number for an on-course banner:
+ * a failure retained from a round played weeks ago would otherwise raise an
+ * alarm on every subsequent scorecard. Scorecard rows are keyed
+ * `scorecard:<roundId>:<playerId>`, so a prefix match scopes the count.
+ */
+export async function getFailedSyncCountForRound(roundId: string): Promise<number> {
+  if (!roundId) return 0;
+
+  const database = await getDb();
+  const result = await database.getFirstAsync<{ count: number }>(
+    `SELECT COUNT(*) as count FROM ${TABLE_NAMES.PENDING_SYNCS}
+     WHERE status = 'failed' AND entity_key LIKE ?`,
+    [`scorecard:${roundId}:%`]
+  );
+  return result?.count ?? 0;
+}
+
+/**
+ * List retained failures for troubleshooting.
+ *
+ * Failed rows are invisible to `getPendingSyncs` (which only drains
+ * `status = 'pending'`), so without this there is no way to see what is stuck
+ * or why — only an opaque count.
+ */
+export async function getFailedSyncs(): Promise<PendingSync[]> {
+  const database = await getDb();
+
+  const rows = await database.getAllAsync<PendingSyncRow>(
+    `SELECT * FROM ${TABLE_NAMES.PENDING_SYNCS}
+     WHERE status = 'failed'
+     ORDER BY last_attempt_at DESC, timestamp DESC`
+  );
+
+  return rows.map((row) => ({
+    id: row.id,
+    type: row.type as PendingSync['type'],
+    action: row.action as PendingSync['action'],
+    data: JSON.parse(row.data),
+    timestamp: new Date(row.timestamp),
+    retryCount: row.retry_count,
+    entityKey: row.entity_key,
+    revision: row.revision,
+    status: row.status,
+    lastError: row.last_error,
+    lastAttemptAt: row.last_attempt_at ? new Date(row.last_attempt_at) : null,
+  }));
+}
+
+/**
+ * Delete a single queued operation outright.
+ *
+ * Unlike `removePendingSync` this does not guard on revision: it exists for
+ * failures that can never succeed (the round was deleted, access was revoked)
+ * and which the user has explicitly chosen to abandon.
+ */
+export async function discardPendingSync(id: number): Promise<boolean> {
+  const database = await getDb();
+  const result = await database.runAsync(
+    `DELETE FROM ${TABLE_NAMES.PENDING_SYNCS} WHERE id = ?`,
+    [id]
+  );
+  const removed = result.changes > 0;
+  dbLogger.info('Discarded pending sync', { id, removed });
+  return removed;
+}
+
+/**
+ * Replace the stored payload of a queued operation.
+ *
+ * Used to write back a refreshed `serverRevision` after an optimistic-concurrency
+ * rejection. Without it the row keeps the stale revision that caused the
+ * conflict and every later retry is rejected for the same reason, forever.
+ */
+export async function updatePendingSyncData(id: number, data: unknown): Promise<boolean> {
+  const database = await getDb();
+  const result = await database.runAsync(
+    `UPDATE ${TABLE_NAMES.PENDING_SYNCS} SET data = ? WHERE id = ?`,
+    [JSON.stringify(data), id]
+  );
+  return result.changes > 0;
+}
+
 export async function getQueuedEntityKeys(): Promise<Set<string>> {
   const database = await getDb();
   const rows = await database.getAllAsync<{ entity_key: string }>(

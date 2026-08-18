@@ -19,7 +19,12 @@ import type { NineType } from '@/types/database/enums';
 import type { BallCount } from '@/types/multiball.types';
 import type { MultiBallHoleScore, BallTotals } from '@/types/database/base';
 import { isSingleBallScore } from '@/types/database/base';
-import { saveScorecard, saveHoles, markScorecardAsSynced } from '@/services/offline/database';
+import {
+  saveScorecard,
+  saveHoles,
+  markScorecardAsSynced,
+  getFailedSyncCountForRound,
+} from '@/services/offline/database';
 import {
   queueScorecardSync,
   syncScorecard,
@@ -119,6 +124,34 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
   // Subscribe to sync state changes
   let unsubscribe: (() => void) | null = null;
 
+  /**
+   * Recount retained sync failures for the round being scored.
+   *
+   * The sync service's `failedCount` is device-wide, which is the wrong number
+   * for an on-course banner: one unrecoverable row left over from an earlier
+   * round would raise a red "score changes not uploaded" strip on every
+   * subsequent scorecard, including solo and local-only rounds. Device-wide
+   * failures remain visible in Settings → Developer.
+   */
+  const refreshRoundFailedSyncCount = async () => {
+    const roundId = get().currentRoundId;
+    if (!roundId) {
+      set({ failedSyncCount: 0 });
+      return;
+    }
+
+    try {
+      const count = await getFailedSyncCountForRound(roundId);
+      // The round can change while the query is in flight.
+      if (get().currentRoundId !== roundId) return;
+      set({ failedSyncCount: count });
+    } catch (error) {
+      storeLogger.warn('Failed to read retained sync failures for round', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  };
+
   const initSyncListener = () => {
     if (unsubscribe) return;
     unsubscribe = subscribeSyncState((syncState) => {
@@ -126,9 +159,9 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
         isOnline: getIsOnline(),
         isSyncing: syncState.status === 'syncing',
         pendingSyncCount: syncState.pendingCount,
-        failedSyncCount: syncState.failedCount,
         syncError: syncState.error,
       });
+      void refreshRoundFailedSyncCount();
     });
 
     // Keep the in-memory serverRevision in step with the server after every
@@ -173,11 +206,18 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
     isInitialized: false,
 
     // Initialization (delegated to initializeRoundSlice)
-    initializeRound: (roundId, players, holes, gameType, isStandalone, allowedPlayerIds, selectedTeeData, handicapSource, playerTeeMap, nineType, startHole) =>
-      initSlice.initializeRound(set, initSyncListener, roundId, players, holes, gameType, isStandalone, allowedPlayerIds, selectedTeeData, handicapSource, playerTeeMap, nineType, startHole),
+    // The failure recount runs after the slice resolves: it is scoped to
+    // `currentRoundId`, which the slice only sets once the round has loaded.
+    initializeRound: async (roundId, players, holes, gameType, isStandalone, allowedPlayerIds, selectedTeeData, handicapSource, playerTeeMap, nineType, startHole) => {
+      await initSlice.initializeRound(set, initSyncListener, roundId, players, holes, gameType, isStandalone, allowedPlayerIds, selectedTeeData, handicapSource, playerTeeMap, nineType, startHole);
+      await refreshRoundFailedSyncCount();
+    },
 
-    loadFromOffline: (roundId) =>
-      initSlice.loadFromOffline(set, initSyncListener, roundId),
+    loadFromOffline: async (roundId) => {
+      const loaded = await initSlice.loadFromOffline(set, initSyncListener, roundId);
+      await refreshRoundFailedSyncCount();
+      return loaded;
+    },
 
     ensureTeamMemberScorecards: (teamMemberPlayers) =>
       initSlice.ensureTeamMemberScorecards(
@@ -476,6 +516,8 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
         isLoading: false,
         isInitialized: false,
         syncError: null,
+        // Round-scoped, so it cannot outlive the round it belongs to.
+        failedSyncCount: 0,
       });
     },
 
