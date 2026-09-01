@@ -12,6 +12,10 @@ import type { Scorecard, PendingSync, HoleScore } from '@/types';
 import { isSingleBallScore } from '@/types/database/base';
 import { syncLogger, logScorecardSummary } from '@/utils/debugLogger';
 import { calculateScoreDifferential, getRatingsForGender } from '@/utils/handicapDifferential';
+import {
+  calculateAdjustedGrossScore,
+  type AdjustedGrossParams,
+} from '@/utils/adjustedGross';
 import { calculateNineAwareDailyHandicap } from '@/utils/dailyHandicap';
 import {
   getStrokesReceived,
@@ -391,7 +395,11 @@ export function calculateHandicapData(scorecard: Scorecard): {
         dailyHandicapUsed = dailyResult.dailyHandicap;
       }
 
-      // Calculate score differential (uses raw gross score - no Net Double Bogey adjustment).
+      // Calculate score differential from the WHS ADJUSTED gross score — every
+      // hole capped at net double bogey (par + 2 + strokes received) via
+      // calculateAdjustedGrossScore. Cards synced without hole data fall back
+      // to the raw total_gross, which is what this call site used throughout.
+      //
       // Skip for shared-ball team formats (scramble, alt-shot): the stored
       // total_gross is the TEAM's single-ball score, not the player's own
       // play, so it must never become a handicap-eligible differential.
@@ -405,8 +413,18 @@ export function calculateHandicapData(scorecard: Scorecard): {
       const grossIsPositive =
         typeof scorecard.totalGross === 'number' && scorecard.totalGross > 0;
       if (!isSharedBallRound({ game_type: scorecard.syncGameType }) && grossIsPositive) {
+        const holes = scorecard.syncHoles;
+        const adjustedGross =
+          holes && holes.length > 0
+            ? calculateAdjustedGrossScore({
+                holes,
+                scores: scorecard.scores as AdjustedGrossParams['scores'],
+                dailyHandicap: dailyHandicapUsed ?? 0,
+              }).adjustedGross
+            : scorecard.totalGross;
+
         const differential = calculateScoreDifferential({
-          adjustedGrossScore: scorecard.totalGross,
+          adjustedGrossScore: adjustedGross > 0 ? adjustedGross : scorecard.totalGross,
           courseRating: finalCourseRating,
           slopeRating: finalSlopeRating,
         });
