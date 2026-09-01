@@ -38,36 +38,30 @@ export const CompetitionHero = React.memo(function CompetitionHero({
   const colors = useThemeColors();
   const countdown = useMemo(() => getCountdownLabel(startDate), [startDate]);
 
+  // Completed competitions get no hero: its only action switched to the
+  // leaderboard/bracket tab that already sits directly beneath it.
+  if (status === 'completed') return null;
+
   const content =
-    status === 'completed'
+    status === 'in-progress'
       ? {
-          icon: 'trophy-outline',
-          eyebrow: 'Competition complete',
-          title: 'Final results are ready',
+          icon: 'progress-clock',
+          eyebrow: 'Live now',
+          title: liveRoundName ?? 'Scoring is in progress',
           message: isOrganizer
-            ? 'Review the final standings and payouts.'
-            : 'See where you and your team finished.',
-          action: 'View results',
+            ? 'Follow live scoring or jump back into the active round.'
+            : 'Follow the standings as scores come in.',
+          action: isOrganizer ? 'Open active round' : 'View standings',
         }
-      : status === 'in-progress'
-        ? {
-            icon: 'progress-clock',
-            eyebrow: 'Live now',
-            title: liveRoundName ?? 'Scoring is in progress',
-            message: isOrganizer
-              ? 'Follow live scoring or jump back into the active round.'
-              : 'Follow the standings as scores come in.',
-            action: isOrganizer ? 'Open active round' : 'View standings',
-          }
-        : {
-            icon: 'calendar-outline',
-            eyebrow: 'Coming up',
-            title: teamName ? `You’re playing for ${teamName}` : 'Competition starts soon',
-            message: isOrganizer
-              ? 'Everything is ready for the first tee.'
-              : 'Check your rounds and playing group before the day.',
-            action: undefined,
-          };
+      : {
+          icon: 'calendar-outline',
+          eyebrow: 'Coming up',
+          title: teamName ? `You’re playing for ${teamName}` : 'Competition starts soon',
+          message: isOrganizer
+            ? 'Everything is ready for the first tee.'
+            : 'Check your rounds and playing group before the day.',
+          action: undefined,
+        };
 
   // Competitors get the mock's dark "your team" board; organisers keep the
   // light status card. Text/accents flip to read on the dark surface.
