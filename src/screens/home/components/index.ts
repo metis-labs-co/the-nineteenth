@@ -22,5 +22,7 @@ export { HomeTileGrid } from './HomeTileGrid';
 export { RoundTodayCard } from './RoundTodayCard';
 export { NextCompetitionCard } from './NextCompetitionCard';
 export { HandicapHomeCard } from './HandicapHomeCard';
+export { HandicapUpsellRow } from './HandicapUpsellRow';
+export { HandicapHomeSection } from './HandicapHomeSection';
 export { SectionHeader } from './SectionHeader';
 export { WeatherStrip } from './WeatherStrip';
