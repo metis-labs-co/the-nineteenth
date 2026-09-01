@@ -43,19 +43,24 @@ describe('CompetitionHero', () => {
     expect(onPrimaryAction).toHaveBeenCalledTimes(1);
   });
 
-  it('links completed competitions to final results', () => {
-    const onPrimaryAction = jest.fn();
-    render(
+  it('renders nothing once the competition is completed', () => {
+    const { toJSON } = render(
       <CompetitionHero
         status="completed"
         startDate="2025-01-01"
         isOrganizer={false}
-        onPrimaryAction={onPrimaryAction}
+        onPrimaryAction={jest.fn()}
       />
     );
 
-    expect(screen.getByText('Final results are ready')).toBeTruthy();
-    fireEvent.press(screen.getByLabelText('View results'));
-    expect(onPrimaryAction).toHaveBeenCalledTimes(1);
+    expect(toJSON()).toBeNull();
+  });
+
+  it('renders nothing for a completed competition viewed by its organizer', () => {
+    const { toJSON } = render(
+      <CompetitionHero status="completed" startDate="2025-01-01" isOrganizer />
+    );
+
+    expect(toJSON()).toBeNull();
   });
 });

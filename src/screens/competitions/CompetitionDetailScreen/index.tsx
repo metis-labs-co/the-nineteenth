@@ -395,15 +395,9 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
     ? rounds.findIndex((r) => r.id === roundToDelete.id) + 1
     : 0;
   const liveRound = rounds.find((round) => round.status === 'in-progress');
-  const handleHeroAction =
-    competition.status === 'completed'
-      ? () =>
-          setActiveTab(
-            competition.competition_type === 'knockout' ? 'bracket' : 'leaderboard'
-          )
-      : liveRound
-        ? () => handleViewRound(liveRound.id)
-        : undefined;
+  const handleHeroAction = liveRound
+    ? () => handleViewRound(liveRound.id)
+    : undefined;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
