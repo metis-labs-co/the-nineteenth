@@ -87,7 +87,7 @@ jest.mock('@tabler/icons-react-native', () => {
     IconHome: (props: any) => <View testID="icon-home" {...props} />,
     IconTrophy: (props: any) => <View testID="icon-trophy" {...props} />,
     IconUser: (props: any) => <View testID="icon-user" {...props} />,
-    IconActivity: (props: any) => <View testID="icon-activity" {...props} />,
+    IconGolf: (props: any) => <View testID="icon-golf" {...props} />,
     IconMap: (props: any) => <View testID="icon-map" {...props} />,
   };
 });
@@ -156,23 +156,23 @@ jest.mock('@/screens/compete', () => ({
   },
 }));
 
-jest.mock('@/screens/activity', () => ({
-  ActivityScreen: function MockActivityScreen() {
+jest.mock('@/screens/rounds', () => ({
+  RoundListScreen: function MockRoundListScreen() {
     const React = require('react');
     const { View, Text, ScrollView } = require('react-native');
 
     React.useEffect(() => {
-      screenRenderHistory.push('ActivityTab');
+      screenRenderHistory.push('RoundsTab');
     }, []);
 
     const handleScroll = (event: any) => {
-      scrollPositions['ActivityTab'] = event.nativeEvent.contentOffset.y;
+      scrollPositions['RoundsTab'] = event.nativeEvent.contentOffset.y;
     };
 
     return (
-      <View testID="activity-screen">
-        <Text>Activity Screen</Text>
-        <ScrollView testID="activity-scroll" onScroll={handleScroll}>
+      <View testID="rounds-screen">
+        <Text>Rounds Screen</Text>
+        <ScrollView testID="rounds-scroll" onScroll={handleScroll}>
           <Text>Scrollable content</Text>
         </ScrollView>
       </View>
@@ -319,12 +319,12 @@ describe('Tab Navigation', () => {
       });
 
       // Press Friends tab
-      const leaguesTab = screen.getByLabelText('Navigate to activity feed');
+      const leaguesTab = screen.getByLabelText('Navigate to your rounds');
       fireEvent.press(leaguesTab);
 
       // Should now show Friends screen
       await waitFor(() => {
-        expect(screen.getByTestId('activity-screen')).toBeTruthy();
+        expect(screen.getByTestId('rounds-screen')).toBeTruthy();
       });
 
       // Press Profile tab
@@ -475,7 +475,7 @@ describe('Tab Navigation', () => {
       // Other tabs should not be selected
       const compsTab = screen.getByLabelText('Navigate to competitions and leagues');
       const coursesTab = screen.getByLabelText('Navigate to courses list');
-      const leaguesTab = screen.getByLabelText('Navigate to activity feed');
+      const leaguesTab = screen.getByLabelText('Navigate to your rounds');
       const profileTab = screen.getByLabelText('Navigate to your profile');
 
       expect(compsTab.props.accessibilityState.selected).toBe(false);
@@ -518,7 +518,7 @@ describe('Tab Navigation', () => {
       const tabs = [
         screen.getByLabelText('Navigate to competitions and leagues'),
         screen.getByLabelText('Navigate to courses list'),
-        screen.getByLabelText('Navigate to activity feed'),
+        screen.getByLabelText('Navigate to your rounds'),
         screen.getByLabelText('Navigate to your profile'),
       ];
 
@@ -552,7 +552,7 @@ describe('Tab Navigation', () => {
       const roundsTab = screen.getByLabelText('Navigate to home screen');
       const compsTab = screen.getByLabelText('Navigate to competitions and leagues');
       const coursesTab = screen.getByLabelText('Navigate to courses list');
-      const leaguesTab = screen.getByLabelText('Navigate to activity feed');
+      const leaguesTab = screen.getByLabelText('Navigate to your rounds');
       const profileTab = screen.getByLabelText('Navigate to your profile');
 
       // Rapidly press all tabs
@@ -614,7 +614,7 @@ describe('Tab Navigation', () => {
       const tabs = [
         { tab: screen.getByLabelText('Navigate to competitions and leagues'), testId: 'compete-screen' },
         { tab: screen.getByLabelText('Navigate to courses list'), testId: 'courses-screen' },
-        { tab: screen.getByLabelText('Navigate to activity feed'), testId: 'activity-screen' },
+        { tab: screen.getByLabelText('Navigate to your rounds'), testId: 'rounds-screen' },
         { tab: screen.getByLabelText('Navigate to your profile'), testId: 'profile-screen' },
         { tab: screen.getByLabelText('Navigate to home screen'), testId: 'home-screen' },
       ];
@@ -626,12 +626,12 @@ describe('Tab Navigation', () => {
       }
 
       // Press a known tab at the end
-      const leaguesTab = screen.getByLabelText('Navigate to activity feed');
+      const leaguesTab = screen.getByLabelText('Navigate to your rounds');
       fireEvent.press(leaguesTab);
 
       // Wait for navigation to settle
       await waitFor(() => {
-        expect(screen.getByTestId('activity-screen')).toBeTruthy();
+        expect(screen.getByTestId('rounds-screen')).toBeTruthy();
       });
 
       // Verify only friends tab is selected
@@ -653,7 +653,7 @@ describe('Tab Navigation', () => {
         { label: 'Navigate to home screen', testId: 'home-screen' },
         { label: 'Navigate to competitions and leagues', testId: 'compete-screen' },
         { label: 'Navigate to courses list', testId: 'courses-screen' },
-        { label: 'Navigate to activity feed', testId: 'activity-screen' },
+        { label: 'Navigate to your rounds', testId: 'rounds-screen' },
         { label: 'Navigate to your profile', testId: 'profile-screen' },
       ];
 

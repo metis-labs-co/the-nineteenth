@@ -91,7 +91,7 @@ import PlayerDetailScreen from '@/screens/social/PlayerDetailScreen';
 import CompareStatsScreen from '@/screens/social/CompareStatsScreen';
 
 // Activity Feed Screens
-import { RoundActivityScreen, RoundPhotosScreen } from '@/screens/activity';
+import { ActivityScreen, RoundActivityScreen, RoundPhotosScreen } from '@/screens/activity';
 
 // Course & Club Screens
 import ClubScreen from '@/screens/courses/ClubScreen';
@@ -764,6 +764,14 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
             />
 
             {/* Activity Feed Screens */}
+            <Stack.Screen
+              name="Activity"
+              component={ActivityScreen}
+              options={{
+                title: 'Activity',
+                headerShown: false,
+              }}
+            />
             <Stack.Screen
               name="RoundActivity"
               component={RoundActivityScreen}

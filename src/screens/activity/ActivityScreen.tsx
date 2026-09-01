@@ -3,6 +3,9 @@
  *
  * Infinite, keyset-paginated list of completed rounds where the viewer or a
  * friend submitted a scorecard. Pull-to-refresh + infinite scroll.
+ *
+ * Pushed on the root stack (reached from Profile and Home) rather than being a
+ * bottom tab, so it renders its own back button.
  */
 
 import React, { useCallback, useMemo } from 'react';
@@ -64,7 +67,12 @@ export default function ActivityScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Default (left-aligned) variant — the centered variant's fixed-width
           right section can't fit the quick-actions cluster. */}
-      <PageHeader title="Activity" rightContent={<HeaderQuickActions />} />
+      <PageHeader
+        title="Activity"
+        showBack
+        onBack={navigation.goBack}
+        rightContent={<HeaderQuickActions />}
+      />
 
       {isLoading ? (
         <View style={styles.centered}>

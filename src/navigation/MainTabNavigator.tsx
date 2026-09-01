@@ -2,7 +2,7 @@
  * MainTabNavigator - Bottom tab navigation for main app screens
  *
  * Uses React Navigation's bottom tabs with a custom tab bar component
- * for Home, Compete, Activity, Courses, and Profile screens.
+ * for Home, Comps, Rounds, Courses, and Profile screens.
  */
 
 import React, { useCallback, useMemo } from 'react';
@@ -11,7 +11,7 @@ import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 
 import HomeScreen from '@/screens/home/HomeScreen';
 import { CompeteScreen } from '@/screens/compete';
-import { ActivityScreen } from '@/screens/activity';
+import { RoundListScreen } from '@/screens/rounds';
 import CourseListScreen from '@/screens/courses/CourseListScreen';
 import ProfileScreen from '@/screens/profile/ProfileScreen';
 
@@ -28,7 +28,7 @@ const Tab = createBottomTabNavigator<TabParamList>();
 const routeToTabKey: Record<string, NavigationTab['key']> = {
   HomeTab: 'home',
   CompeteTab: 'compete',
-  ActivityTab: 'activity',
+  RoundsTab: 'rounds',
   CoursesTab: 'courses',
   ProfileTab: 'profile',
 };
@@ -74,7 +74,7 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
 /**
  * MainTabNavigator component
  *
- * Provides bottom tab navigation between Home, Compete, Activity, Courses, and Profile.
+ * Provides bottom tab navigation between Home, Comps, Rounds, Courses, and Profile.
  */
 export default function MainTabNavigator() {
   return (
@@ -98,14 +98,14 @@ export default function MainTabNavigator() {
         name="CompeteTab"
         component={CompeteScreen}
         options={{
-          title: 'Compete',
+          title: 'Comps',
         }}
       />
       <Tab.Screen
-        name="ActivityTab"
-        component={ActivityScreen}
+        name="RoundsTab"
+        component={RoundListScreen}
         options={{
-          title: 'Activity',
+          title: 'Rounds',
         }}
       />
       <Tab.Screen

@@ -80,7 +80,7 @@ export const MatesThisWeekSection = React.memo(function MatesThisWeekSection() {
     [navigation]
   );
   const openActivity = useCallback(
-    () => navigation.navigate('MainTabs', { screen: 'ActivityTab' }),
+    () => navigation.navigate('Activity'),
     [navigation]
   );
 
