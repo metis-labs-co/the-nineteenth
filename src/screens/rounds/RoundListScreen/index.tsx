@@ -46,7 +46,17 @@ import CreateRoundBottomSheet from '../CreateRoundBottomSheet';
 import { useLeagues } from '@/hooks/useLeagues';
 import { TagToLeagueBottomSheet } from '@/components/leagues/TagToLeagueBottomSheet';
 
-import { useRoundList, useRoundFilters, useRoundActions, useStartNewRound, useScheduleRound, useQuickScoreFlow } from './hooks';
+import {
+  useRoundList,
+  useRoundFilters,
+  useRoundActions,
+  useStartNewRound,
+  useScheduleRound,
+  useQuickScoreFlow,
+  matchesRoundScope,
+  isCompetitionRoundItem,
+  selectUpcomingRounds,
+} from './hooks';
 import { RoundListEmpty, RoundListHeader, RoundListSections } from './components';
 import type { RoundItem, RoundPlayerInfo } from './types';
 
@@ -90,22 +100,31 @@ export default function RoundsScreen() {
 
   // Hooks for data and state management
   const { rounds, isLoading, isRefetching, refetch, roundsPlayedCount } = useRoundList();
-  const { roundTypeFilter, setRoundTypeFilter, filteredHistoryRounds, activeRounds } = useRoundFilters(rounds, initialFilter);
+  const {
+    roundTypeFilter,
+    setRoundTypeFilter,
+    roundScope,
+    setRoundScope,
+    filteredHistoryRounds,
+    activeRounds,
+  } = useRoundFilters(rounds, initialFilter);
 
   // In-progress rounds in the RoundWithCourse shape the shared
-  // InProgressRoundSection carousel expects. This screen only lists
-  // standalone rounds, so competition rounds are filtered out.
+  // InProgressRoundSection carousel expects. Competition rounds are included
+  // (a player invited to a competition finds the round to score here) and are
+  // hidden only by the screen's scope filter.
   const { data: inProgressData, refetch: refetchInProgress } = useInProgressRounds();
   const inProgressRounds = useMemo(
-    () => (inProgressData ?? []).filter((r) => !r.competition_id),
-    [inProgressData]
+    () =>
+      (inProgressData ?? []).filter((r) =>
+        matchesRoundScope(!!r.competition_id, roundScope)
+      ),
+    [inProgressData, roundScope]
   );
 
-  // Active rounds not yet started keep the standard list card
-  const upcomingRounds = useMemo(
-    () => activeRounds.filter((r) => r.status !== 'in-progress'),
-    [activeRounds]
-  );
+  // Active rounds not yet started keep the standard list card. Competition
+  // rounds are capped to the next one per competition — see selectUpcomingRounds.
+  const upcomingRounds = useMemo(() => selectUpcomingRounds(activeRounds), [activeRounds]);
 
   const handleRefresh = useCallback(() => {
     refetch();
@@ -144,7 +163,7 @@ export default function RoundsScreen() {
         competition: round.competition ?? undefined,
         status: round.status,
         gameType: round.game_type,
-        isStandalone: true,
+        isStandalone: !round.competition_id,
         roundNumber: round.round_number ?? 1,
         totalRounds: 1,
         holesCompleted: 0,
@@ -200,25 +219,38 @@ export default function RoundsScreen() {
         }
         return;
       }
-      navigation.navigate('Scorecard', { roundId, competitionId: 'standalone' });
+      // The carousel only hands back the round id, so the competition is looked
+      // up here — Scorecard needs the real id to load competition context.
+      const competitionId =
+        inProgressRounds.find((r) => r.id === roundId)?.competition_id ?? 'standalone';
+      navigation.navigate('Scorecard', { roundId, competitionId });
     },
-    [navigation]
+    [navigation, inProgressRounds]
   );
 
   const handleViewRound = useCallback(
     (roundId: string) => {
-      navigation.navigate('ViewRound', { roundId, competitionId: undefined });
+      const competitionId =
+        inProgressRounds.find((r) => r.id === roundId)?.competition_id ?? undefined;
+      navigation.navigate('ViewRound', { roundId, competitionId });
     },
-    [navigation]
+    [navigation, inProgressRounds]
   );
 
-  // Upcoming scheduled rounds navigate to the detail/start-day screen.
-  // Only standalone rounds (competition_id IS NULL) appear in this list.
+  // Upcoming rounds navigate to the detail/start-day screen (standalone) or
+  // straight to scoring (competition).
   const handleUpcomingRoundPress = useCallback(
-    (round: { id: string }) => {
+    (round: RoundItem) => {
+      // ScheduledRound is the standalone start-day screen (invites, tee time,
+      // start round) and doesn't understand competition rounds — those open
+      // the same way they do from the competition screen.
+      if (isCompetitionRoundItem(round)) {
+        handleScoreRound(round);
+        return;
+      }
       navigation.navigate('ScheduledRound', { roundId: round.id });
     },
-    [navigation]
+    [navigation, handleScoreRound]
   );
 
   const handleOpenNewRound = useCallback(() => {
@@ -263,13 +295,16 @@ export default function RoundsScreen() {
       canTagToLeague &&
       !!item.userScore?.scorecardId &&
       item.userScore?.differential != null;
+    // Competition rounds belong to the organiser — they're deleted from the
+    // competition screen, never swiped away from this list.
+    const isCompetitionRound = isCompetitionRoundItem(item);
     return (
       <RoundListCard
         round={item}
         onPress={() => handleScoreRound(item)}
-        onDelete={handleDeleteRound}
+        onDelete={isCompetitionRound ? undefined : handleDeleteRound}
         onTagToLeague={isTaggable ? handleTagToLeague : undefined}
-        swipeEnabled={true}
+        swipeEnabled={!isCompetitionRound || isTaggable}
         actionLabel="View"
         currentUserId={user?.id}
       />
@@ -301,6 +336,8 @@ export default function RoundsScreen() {
             <RoundListSections
               inProgressRounds={inProgressRounds}
               upcomingRounds={upcomingRounds}
+              roundScope={roundScope}
+              onRoundScopeChange={setRoundScope}
               roundTypeFilter={roundTypeFilter}
               onRoundTypeFilterChange={setRoundTypeFilter}
               onResumeRound={handleResumeRound}
@@ -315,7 +352,7 @@ export default function RoundsScreen() {
               currentUserId={user?.id}
             />
           }
-          ListEmptyComponent={<RoundListEmpty />}
+          ListEmptyComponent={<RoundListEmpty scope={roundScope} />}
           refreshControl={
             <RefreshControl refreshing={isRefetching} onRefresh={handleRefresh} tintColor={colors.textPrimary} colors={[colors.textPrimary]} />
           }

@@ -1,10 +1,19 @@
 /**
- * useRoundList - Fetches and manages standalone rounds data
+ * useRoundList - Fetches the rounds shown on the Rounds tab.
+ *
+ * Scope: standalone rounds the user owns or was invited to, PLUS rounds in
+ * competitions the user has accepted. Competition rounds are included so a
+ * player added to a competition by a friend can find and score the round from
+ * the Rounds tab; the screen's scope filter can narrow back to social rounds.
+ *
+ * Note the social-round tier limit (`roundsPlayedCount`) still counts only
+ * standalone rounds — competition rounds do not consume that allowance.
  */
 
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import { fetchRoundIdsWithSideGame } from '@/services/api/rounds';
+import { fetchAcceptedCompetitionIds } from '@/hooks/home/roundScope';
 import { parseClubLocation } from '@/utils/gpsCalculations';
 import { useAuth } from '@/hooks/useAuth';
 import { useSubscriptionContext } from '@/context/SubscriptionContext';
@@ -81,8 +90,8 @@ export function useRoundList(): UseRoundListReturn {
     enabled: !!user?.id && !hasUnlimitedRounds,
   });
 
-  // Fetch standalone/practice rounds for the user (both active and historical)
-  // Competition rounds are accessed via the Competitions screen
+  // Fetch the user's rounds — standalone plus accepted-competition rounds —
+  // in both active and historical states.
   const {
     data: rounds,
     isLoading,
@@ -319,6 +328,122 @@ export function useRoundList(): UseRoundListReturn {
         // Silently ignore if round_players table doesn't exist yet
       }
 
+      // 2b. Fetch rounds from competitions the user has accepted. These use the
+      // same card shape as standalone rounds — `isStandalone: false` plus a
+      // `competition` label is what the card and the scope filter key off.
+      const competitionIds = await fetchAcceptedCompetitionIds(user.id, 'useRoundList');
+
+      if (competitionIds.length > 0) {
+        try {
+          interface CompetitionRoundRow extends StandaloneRoundRow {
+            competition_id: string;
+            competition: { id: string; name: string } | null;
+          }
+
+          const { data: competitionRounds, error: competitionError } = await (supabase
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
+            .from('rounds') as any)
+            .select(`
+              id,
+              round_number,
+              game_type,
+              is_team_round,
+              status,
+              date,
+              tee_time,
+              nine_type,
+              handicap_source,
+              selected_tee,
+              competition_id,
+              competition:competitions(id, name),
+              courses!course_id(
+                id,
+                name,
+                holes,
+                club:clubs(
+                  name,
+                  city,
+                  state,
+                  location
+                )
+              )
+            `)
+            .in('competition_id', competitionIds)
+            .is('deleted_at', null)
+            .order('date', { ascending: false });
+
+          if (competitionError) {
+            roundListLogger.error('Error fetching competition rounds', competitionError, {
+              userId: user.id.substring(0, 8) + '...',
+            });
+          } else {
+            const competitionRows = (competitionRounds || []) as CompetitionRoundRow[];
+            roundListLogger.info('Competition rounds fetched', {
+              count: competitionRows.length,
+              competitions: competitionIds.length,
+            });
+
+            // "Round 2 of 5" needs the competition's total round count, which
+            // this query already holds in full for every accepted competition.
+            const roundsPerCompetition = new Map<string, number>();
+            for (const round of competitionRows) {
+              roundsPerCompetition.set(
+                round.competition_id,
+                (roundsPerCompetition.get(round.competition_id) ?? 0) + 1
+              );
+            }
+
+            for (const round of competitionRows) {
+              if (allRounds.some((r) => r.id === round.id)) continue;
+
+              const holes = Array.isArray(round.courses?.holes)
+                ? (round.courses!.holes as Hole[])
+                : [];
+              roundMetaByRound.set(round.id, {
+                holes,
+                selectedTee: round.selected_tee,
+                handicapSource: round.handicap_source ?? 'profile',
+              });
+              allRounds.push({
+                id: round.id,
+                roundNumber: round.round_number,
+                totalRounds: roundsPerCompetition.get(round.competition_id) ?? 1,
+                gameType: round.game_type,
+                isTeamRound: round.is_team_round ?? false,
+                status: round.status,
+                date: round.date,
+                teeTime: round.tee_time,
+                isStandalone: false,
+                competition: round.competition
+                  ? { id: round.competition.id, name: round.competition.name }
+                  : undefined,
+                course: {
+                  id: round.courses?.id || '',
+                  name: round.courses?.name || 'Unknown Course',
+                  venueName: round.courses?.club?.name,
+                  city: round.courses?.club?.city ?? undefined,
+                  state: round.courses?.club?.state ?? undefined,
+                  clubs: round.courses?.club
+                    ? {
+                        ...parseClubLocation(round.courses.club.location),
+                        name: round.courses.club.name,
+                      }
+                    : null,
+                },
+                holesCompleted: 0,
+                totalHoles: holes.length || 18,
+                players: [], // Populated from scorecards in step 8
+                handicapSource: round.handicap_source,
+                selectedTeeName: round.selected_tee?.name ?? null,
+                nineType: round.nine_type ?? null,
+              });
+            }
+          }
+        } catch (err) {
+          roundListLogger.debug('Competition rounds fetch skipped', { error: err });
+        }
+      }
+
       // 3. Fetch players for all standalone rounds
       // Collect all standalone round IDs
       const allStandaloneRoundIds = allRounds
@@ -473,6 +598,7 @@ export function useRoundList(): UseRoundListReturn {
             player: {
               id: string;
               name: string;
+              photo_url: string | null;
               handicap: number | null;
               handicap_index: number | null;
               gender: 'male' | 'female' | null;
@@ -497,6 +623,7 @@ export function useRoundList(): UseRoundListReturn {
               player:players!player_id(
                 id,
                 name,
+                photo_url,
                 handicap,
                 handicap_index,
                 gender
@@ -524,6 +651,22 @@ export function useRoundList(): UseRoundListReturn {
               if (!scorecards || scorecards.length === 0) {
                 round.userScore = { hasScorecard: false };
                 continue;
+              }
+
+              // Competition rounds have no `round_players` rows (step 3 only
+              // covers standalone rounds), so the card's avatar stack and
+              // winner row come from whoever actually submitted a scorecard.
+              if (!round.isStandalone && (round.players?.length ?? 0) === 0) {
+                round.players = scorecards.reduce<RoundPlayerInfo[]>((acc, sc) => {
+                  if (sc.player) {
+                    acc.push({
+                      id: sc.player.id,
+                      name: sc.player.name,
+                      photo_url: sc.player.photo_url,
+                    });
+                  }
+                  return acc;
+                }, []);
               }
 
               const meta = roundMetaByRound.get(round.id);
