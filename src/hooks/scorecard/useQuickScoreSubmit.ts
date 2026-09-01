@@ -8,6 +8,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase, getCurrentUser } from '@/services/supabase/client';
 import { calculateScoreDifferential } from '@/utils/handicapDifferential';
+import { calculateAdjustedGrossScore } from '@/utils/adjustedGross';
 import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
 import { refinalizeRoundResults } from '@/services/rounds/refinalizeRoundResults';
 import { scorecardKeys } from '@/hooks/queryKeys';
@@ -73,11 +74,18 @@ export function useQuickScoreSubmit() {
         slopeRatingUsed = selectedTee.slopeRating;
       }
 
-      // Calculate handicap differential
+      // Calculate handicap differential from the WHS ADJUSTED gross score —
+      // every hole capped at net double bogey (par + 2 + strokes received).
+      // Falls back to the raw gross if the card carries no hole data.
       let handicapDifferential: number | null = null;
       if (courseRatingUsed && slopeRatingUsed && totalGross > 0) {
+        const { adjustedGross } = calculateAdjustedGrossScore({
+          holes,
+          scores,
+          dailyHandicap,
+        });
         handicapDifferential = calculateScoreDifferential({
-          adjustedGrossScore: totalGross,
+          adjustedGrossScore: adjustedGross > 0 ? adjustedGross : totalGross,
           courseRating: courseRatingUsed,
           slopeRating: slopeRatingUsed,
         });

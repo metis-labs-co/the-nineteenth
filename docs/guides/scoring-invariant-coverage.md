@@ -11,3 +11,5 @@
 | I5 alt-shot split differential | `services/rounds/altShotSplit.golden.test.ts` | ✅ |
 | I6 alt-shot combined 50% net-lowest | `services/scoring/altShotCombined.golden.test.ts` | ✅ |
 | I7 stableford/par off round daily handicap | `services/scoring/StablefordEngine.test.ts` | ⬜ verify |
+| I8 differential uses WHS adjusted gross (NDB cap) | `utils/adjustedGross.test.ts`, `services/offline/calculateHandicapData.test.ts` | ✅ |
+| I9 GA handicapping score uses uncapped Rule 21.1 table | `utils/handicappingScore.test.ts` | ✅ |
