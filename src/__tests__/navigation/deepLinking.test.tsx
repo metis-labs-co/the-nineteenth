@@ -45,7 +45,7 @@ const linkingConfig = {
         screens: {
           HomeTab: 'home',
           CompeteTab: 'compete',
-          ActivityTab: 'activity',
+          RoundsTab: 'rounds',
           CoursesTab: 'courses',
           ProfileTab: 'profile',
         },

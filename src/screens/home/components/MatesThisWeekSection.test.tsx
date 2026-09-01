@@ -83,7 +83,7 @@ describe('MatesThisWeekSection', () => {
     mockData(entries);
     const { getByText } = render(wrap(<MatesThisWeekSection />));
     fireEvent.press(getByText('See all'));
-    expect(mockNavigate).toHaveBeenCalledWith('MainTabs', { screen: 'ActivityTab' });
+    expect(mockNavigate).toHaveBeenCalledWith('Activity');
   });
 
   it('renders nothing on error', () => {

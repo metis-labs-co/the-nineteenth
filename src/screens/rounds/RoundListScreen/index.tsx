@@ -1,5 +1,5 @@
 /**
- * RoundsScreen - Main tab screen showing active rounds to score
+ * RoundsScreen - the Rounds tab, showing active rounds to score
  *
  * Features:
  * - "Score New Round" floating button at top
@@ -7,6 +7,11 @@
  * - "Recent Rounds" section with completed rounds and type filters
  * - Links to score entry screen
  * - Pull-to-refresh for updating rounds
+ *
+ * Registered twice: as the `RoundsTab` bottom tab and as the root-stack
+ * `AllRounds` screen (pushed from Home / My Stats with an optional filter).
+ * In the tab the navigator draws the tab bar, so this screen only renders its
+ * own `BottomNavigation` when it is the pushed stack copy.
  */
 
 import React, { useState, useCallback, useMemo } from 'react';
@@ -48,8 +53,14 @@ import type { RoundItem, RoundPlayerInfo } from './types';
 export default function RoundsScreen() {
   const colors = useThemeColors();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const route = useRoute<RouteProp<RootStackParamList, 'AllRounds'>>();
-  const initialFilter = route.params?.initialFilter ?? 'all';
+  // Rendered from two places, so the route is either stack or tab shaped.
+  const route = useRoute<
+    RouteProp<RootStackParamList, 'AllRounds'> | RouteProp<TabParamList, 'RoundsTab'>
+  >();
+  const initialFilter =
+    (route.name === 'AllRounds' ? route.params?.initialFilter : undefined) ?? 'all';
+  // The tab copy sits inside MainTabNavigator, which supplies the tab bar.
+  const isTabScreen = route.name === 'RoundsTab';
   const { user } = useAuth();
   const { limits } = useSubscriptionContext();
   const isSuperAdmin = useIsSuperAdmin();
@@ -272,7 +283,7 @@ export default function RoundsScreen() {
         showInfoIcon={!isFirstVisit}
         onInfoPress={showModal}
         onQuickScore={isSuperAdmin ? quickScore.openRoundPicker : undefined}
-        showBack
+        showBack={!isTabScreen}
         onBack={handleBack}
       />
 
@@ -414,7 +425,7 @@ export default function RoundsScreen() {
         testID="quick-score-player-picker"
       />
 
-      <BottomNavigation onTabPress={handleTabPress} badges={tabBadges} />
+      {!isTabScreen && <BottomNavigation onTabPress={handleTabPress} badges={tabBadges} />}
     </View>
   );
 }
