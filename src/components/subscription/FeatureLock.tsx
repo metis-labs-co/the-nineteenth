@@ -37,6 +37,7 @@
 
 import React, { ReactNode, useCallback } from 'react';
 import { StyleSheet, View, TouchableOpacity, AccessibilityInfo } from 'react-native';
+import type { StyleProp, ViewStyle } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useCheckFeature } from '@/context/SubscriptionContext';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -97,6 +98,17 @@ interface FeatureLockProps {
   hideWhenLocked?: boolean;
 
   /**
+   * Extra style for the wrapper.
+   *
+   * The wrapper sizes to its content by default, which is wrong when the
+   * locked child is a scroll container filling the screen: the wrapper then
+   * grows to the full scroll height and the centred overlay lands halfway
+   * down it, off-screen. Pass `{ flex: 1 }` in that case so the wrapper is
+   * bounded by the viewport and the overlay centres where the user can see it.
+   */
+  style?: StyleProp<ViewStyle>;
+
+  /**
    * Test ID for testing
    */
   testID?: string;
@@ -115,6 +127,7 @@ export const FeatureLock = React.memo(function FeatureLock({
   lockedOpacity = 0.5,
   showLockIcon = true,
   hideWhenLocked = false,
+  style,
   testID,
 }: FeatureLockProps) {
   const colors = useThemeColors();
@@ -154,7 +167,7 @@ export const FeatureLock = React.memo(function FeatureLock({
   // Render locked state with overlay
   return (
     <View
-      style={styles.container}
+      style={[styles.container, style]}
       testID={testID}
       accessibilityLabel={accessibilityLabel}
       accessibilityRole="text"

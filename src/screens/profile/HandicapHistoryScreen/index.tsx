@@ -220,7 +220,11 @@ export default function HandicapHistoryScreen({ navigation }: Props) {
       </View>
 
       {/* Round history, trend chart & combinable pairs — Social tier and above */}
-      <FeatureLock feature="handicap_history" onUpgradePress={() => navigation.navigate('Subscription')}>
+      <FeatureLock
+        feature="handicap_history"
+        onUpgradePress={() => navigation.navigate('Subscription')}
+        style={styles.lockedFill}
+      >
         <FlatList
           data={summary.rounds}
           renderItem={renderRound}
@@ -253,6 +257,11 @@ const styles = StyleSheet.create({
   indexCardWrapper: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
+  },
+  // Bounds the lock wrapper to the viewport; without it the wrapper grows to
+  // the list's full scroll height and the upgrade overlay centres off-screen.
+  lockedFill: {
+    flex: 1,
   },
   listContent: {
     padding: spacing.lg,

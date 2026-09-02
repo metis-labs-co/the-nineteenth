@@ -1232,4 +1232,30 @@ describe('FeatureLock', () => {
       expect(screen.getByText('Child Content')).toBeTruthy();
     });
   });
+
+  describe('Wrapper Style', () => {
+    it('applies a custom wrapper style so full-screen locks stay in the viewport', () => {
+      mockUseCheckFeature.mockReturnValue(() => lockedAccess);
+
+      render(
+        <FeatureLock feature="scoring_pairs" style={{ flex: 1 }} testID="feature-lock">
+          <TestChild />
+        </FeatureLock>
+      );
+
+      expect(screen.getByTestId('feature-lock')).toHaveStyle({ flex: 1 });
+    });
+
+    it('keeps the wrapper content-sized when no style is passed', () => {
+      mockUseCheckFeature.mockReturnValue(() => lockedAccess);
+
+      render(
+        <FeatureLock feature="scoring_pairs" testID="feature-lock">
+          <TestChild />
+        </FeatureLock>
+      );
+
+      expect(screen.getByTestId('feature-lock')).not.toHaveStyle({ flex: 1 });
+    });
+  });
 });
