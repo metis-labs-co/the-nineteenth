@@ -389,7 +389,11 @@ export default function AchievementLeaderboardScreen({ navigation, route }: Prop
         onBack={handleGoBack}
       />
 
-      <FeatureLock feature="achievement_leaderboard" onUpgradePress={() => navigation.navigate('Subscription')}>
+      <FeatureLock
+        feature="achievement_leaderboard"
+        onUpgradePress={() => navigation.navigate('Subscription')}
+        style={styles.lockedFill}
+      >
         <FlatList
           data={leaderboard}
           keyExtractor={keyExtractor}
@@ -456,6 +460,11 @@ export default function AchievementLeaderboardScreen({ navigation, route }: Prop
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  // Bounds the lock wrapper to the viewport so the upgrade overlay centres on
+  // screen rather than halfway down the list's full scroll height.
+  lockedFill: {
     flex: 1,
   },
   // List
