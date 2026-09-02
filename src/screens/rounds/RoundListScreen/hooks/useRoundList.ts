@@ -14,6 +14,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import { fetchRoundIdsWithSideGame } from '@/services/api/rounds';
 import { fetchAcceptedCompetitionIds } from '@/hooks/home/roundScope';
+import { splitActiveAndHistory } from './notPlayedRounds';
 import { parseClubLocation } from '@/utils/gpsCalculations';
 import { useAuth } from '@/hooks/useAuth';
 import { useSubscriptionContext } from '@/context/SubscriptionContext';
@@ -822,29 +823,9 @@ export function useRoundList(): UseRoundListReturn {
         }
       }
 
-      // Separate into active and historical
-      const active = allRounds
-        .filter(r => r.status !== 'completed')
-        .sort((a, b) => {
-          // In-progress first
-          if (a.status === 'in-progress' && b.status !== 'in-progress') return -1;
-          if (b.status === 'in-progress' && a.status !== 'in-progress') return 1;
-          // Then by date (most recent first)
-          if (a.date && b.date) {
-            return new Date(b.date).getTime() - new Date(a.date).getTime();
-          }
-          return 0;
-        });
-
-      const history = allRounds
-        .filter(r => r.status === 'completed')
-        .sort((a, b) => {
-          // Most recent first
-          if (a.date && b.date) {
-            return new Date(b.date).getTime() - new Date(a.date).getTime();
-          }
-          return 0;
-        });
+      // Active feeds the upcoming section, history feeds Recent Rounds;
+      // "not played" competition rounds are routed into history there.
+      const { active, history } = splitActiveAndHistory(allRounds);
 
       // Log unexpected statuses that would cause rounds to not appear in either tab
       const unexpectedRounds = allRounds.filter(

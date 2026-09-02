@@ -73,8 +73,17 @@ jest.mock('@/components/common', () => {
         )}
       </View>
     ),
-    Pill: ({ label, size: _size }: { label: string; size?: string }) => (
-      <View testID="pill">
+    Pill: ({
+      label,
+      testID,
+      size: _size,
+    }: {
+      label: string;
+      testID?: string;
+      size?: string;
+      variant?: string;
+    }) => (
+      <View testID={testID ?? 'pill'}>
         <Text>{label}</Text>
       </View>
     ),
@@ -453,6 +462,28 @@ describe('RoundListCard', () => {
       expect(screen.getByText('Stroke Play')).toBeTruthy();
     });
 
+    it('shows a "Not played" pill when the round was never started', () => {
+      const round = createRoundData({ notPlayed: true });
+      render(<RoundListCard round={round} onPress={defaultOnPress} />);
+
+      expect(screen.getByTestId('round-card-not-played')).toBeTruthy();
+      expect(screen.getByText('Not played')).toBeTruthy();
+    });
+
+    it('omits the "Not played" pill for a normal round', () => {
+      render(<RoundListCard round={createRoundData()} onPress={defaultOnPress} />);
+
+      expect(screen.queryByTestId('round-card-not-played')).toBeNull();
+    });
+
+    it('keeps the format chip alongside the "Not played" pill', () => {
+      const round = createRoundData({ notPlayed: true, gameType: 'stroke' });
+      render(<RoundListCard round={round} onPress={defaultOnPress} />);
+
+      expect(screen.getByText('Not played')).toBeTruthy();
+      expect(screen.getByText('Stroke Play')).toBeTruthy();
+    });
+
     it('shows a tee colour swatch for standalone rounds with a selected tee', () => {
       const round = createStandaloneRound({ selectedTeeName: 'White' });
       render(<RoundListCard round={round} onPress={defaultOnPress} />);
@@ -729,6 +760,14 @@ describe('RoundListCard', () => {
 
       const card = screen.getByTestId('round-card');
       expect(card.props.accessibilityRole).toBe('button');
+    });
+
+    it('announces a not-played round rather than only colouring the pill', () => {
+      const round = createRoundData({ notPlayed: true });
+      render(<RoundListCard round={round} onPress={defaultOnPress} testID="round-card" />);
+
+      const card = screen.getByTestId('round-card');
+      expect(card.props.accessibilityLabel).toContain('not played');
     });
 
     it('has appropriate accessibility label for scheduled round', () => {
