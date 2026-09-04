@@ -1,8 +1,17 @@
-# Under-13 Social Gating — Design
+# Social Media Compliance — Design
 
 **Date:** 2026-09-04
 **Branch:** `feature/under-13-social-gating`
 **Status:** Revised after design review, pending implementation plan
+
+Two coupled workstreams gating the same App Store submission:
+
+- **Part A (§1–§11)** — under-13 social gating, so the age-rating declaration is truthful.
+- **Part B (§12)** — UGC reporting and blocking, required by App Review Guideline 1.2 the
+  moment that declaration is made.
+
+They ship on one branch and one build. Part A needs a native change, so splitting them would
+mean two rounds of provisioning, native builds and review for no benefit.
 
 ## 1. Problem
 
@@ -36,14 +45,16 @@ This project makes the second answer true.
 - Reach that state without degrading the experience of the existing user base at any point
   during rollout.
 - Collect and retain the minimum data necessary — a derived age band, never a birthdate.
+- Give every user a way to report content and block people, and give the operator a way to
+  act on reports (Part B).
 
 ## 3. Non-goals
 
 - Age *verification*. Apple requires a check, not proof. A determined child can lie to a
   neutral age screen; that is true of every app and is not what is being declared. See §6.2
   for what this does and does not guarantee.
-- Guideline 1.2 moderation tooling (in-app report and block). Required for the same
-  submission, but tracked separately — see §12.
+- An in-app moderation console. Reports are actioned from the Supabase dashboard for now;
+  see §12.6 for why that is sufficient and what the upgrade path is.
 - Any change to the Contests/Gambling answers covering Skins, Wolf and prize pools.
 
 ## 4. Decisions
@@ -54,13 +65,16 @@ This project makes the second answer true.
 | When the platform API gives no answer | **Ask for date of birth in-app**; social off until answered |
 | Existing users | **Prompted on next launch**, social off until answered, rest of app usable |
 | Gated surfaces | **All eight** — feed, comments, likes, photos, player search, public leagues, global leaderboard, **social push notifications** |
+| Fallback age input | **Full date of birth**, classified client-side and discarded |
+| Reported content | Hidden from the reporter immediately, queued for review — **no automatic global takedown** |
+| Report handling | **Email alert + Supabase dashboard**, no in-app console |
 
-> **Refinement worth confirming:** the approved option was phrased "ask for birth year".
-> This spec specifies a full date of birth instead, because a birth year alone cannot tell
-> whether someone born 13 years ago has actually had their birthday yet — leaving up to a
-> year of misclassification in both directions, right at the threshold that matters. The DOB
-> is used only to compute the band and is then discarded (§6.2). Reverting to birth year is
-> a one-line change to `classifyDateOfBirth` if the extra field is not worth it.
+>  **On date of birth vs birth year:** confirmed as full DOB. This makes no difference to
+> Apple — the requirement is that the Declared Age Range API is called; the fallback is our
+> own design and is neither specified nor inspected. It is a correctness choice: a birth year
+> alone cannot tell whether someone born 13 years ago has had their birthday yet, forcing a
+> deliberate error in one direction or the other at exactly the boundary that matters. The
+> DOB is classified client-side and discarded (§6.2).
 
 ### Revisions from design review
 
@@ -350,7 +364,13 @@ loses a working feature while waiting for an app update.
 6. Watch adoption: the share of active users still at `age_status = 'unknown'`.
 7. **Flip `enforce = true`** once that share is small enough, after the §9 performance check.
    This is a single row update — no deploy, instantly reversible if anything misbehaves.
-8. Update the privacy policy and Terms to describe age-band collection.
+8. Update the privacy policy and Terms — age-band collection (Part A) and the 24-hour
+   content-removal commitment (Part B, §12.7).
+
+Part B carries no kill switch and needs none: it is purely additive — new tables, new
+affordances, and SELECT policies that only ever hide more. It deploys with Migration A and is
+live the moment the client ships. The `notify-content-report` edge function must be deployed
+before step 5, or the first reports will queue silently with no alert.
 
 The App Store answer can be given at step 5: the API is called and the gating ships with that
 build. Steps 6–7 exist so that users who have not yet updated are not punished for it.
@@ -369,18 +389,162 @@ Note: this is a native change (new pod + entitlement). It cannot ship as an OTA 
 - **Adoption may stall**, leaving a long tail at `unknown`. The kill switch means this costs
   nothing operationally, but it delays the point at which the gate is actually enforcing.
 
-## 12. Out of scope, but required for the same submission
+## 12. Part B — UGC reporting and blocking (Guideline 1.2)
 
-Answering Yes to Social Media brings the app under **Guideline 1.2**, which requires four
-things. The app currently has two:
+### 12.1 Requirement
 
-| Requirement | Status |
+App Review Guideline 1.2 applies to any app carrying user-generated content. Declaring
+**Social Media = Yes** puts The Nineteenth squarely inside it. Four things are required:
+
+| Requirement | Today | After Part B |
+|---|---|---|
+| Filter objectionable material from being posted | ❌ | §12.5 |
+| Report offensive content, acted on promptly | ❌ | §12.3 |
+| Block abusive users | ❌ | §12.4 |
+| Published contact information | ✅ | unchanged |
+
+The exposure is concrete: `round_comments` accepts up to 2000 characters of free text and
+`round_photos` accepts arbitrary images, both visible to everyone who passes
+`can_view_round()` — which includes friends-of-participants, not just the people who played.
+There is currently no report, block, hide or filter affordance anywhere in the codebase.
+Reviewers test this deliberately on UGC apps.
+
+### 12.2 Data model
+
+```sql
+CREATE TABLE content_reports (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  reporter_id  UUID NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+  content_type TEXT NOT NULL CHECK (content_type IN ('round_comment','round_photo','player')),
+  content_id   UUID NOT NULL,
+  author_id    UUID REFERENCES players(id) ON DELETE SET NULL,
+  reason       TEXT NOT NULL CHECK (reason IN ('offensive','harassment','spam','nudity','other')),
+  note         TEXT CHECK (note IS NULL OR char_length(note) <= 500),
+  status       TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','actioned','dismissed')),
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  resolved_at  TIMESTAMPTZ,
+  UNIQUE (reporter_id, content_type, content_id)
+);
+
+CREATE TABLE user_blocks (
+  blocker_id UUID NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+  blocked_id UUID NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (blocker_id, blocked_id),
+  CHECK (blocker_id <> blocked_id)
+);
+```
+
+`author_id` is denormalised onto the report so a takedown decision survives the author
+deleting their account. The `UNIQUE` constraint makes reporting idempotent — a user cannot
+inflate a count by tapping twice.
+
+### 12.3 Report flow
+
+Reporting is available on round comments, round photos, and player profiles via an overflow
+action, opening a `ReportSheet` with the reason list above and an optional note.
+
+On submit:
+
+1. A row is written to `content_reports`.
+2. **The content is hidden from the reporter immediately** — enforced in the SELECT policies
+   (§12.5), not by local state, so it stays hidden across devices and reinstalls.
+3. An email alert fires to the operator (§12.6).
+
+**No automatic global takedown at a report threshold.** Within friend groups a count-based
+auto-hide is trivially abusable as a censorship button, and the volume here does not justify
+the risk. Global removal is an operator decision. Apple's requirement is that reports are
+acted on promptly, not that removal is automatic — and from the reporting user's point of
+view the response *is* immediate, because the content disappears for them on submit.
+
+### 12.4 Block flow
+
+Blocking is available from `PlayerDetailScreen` and from the same overflow actions.
+Blocking is one-directional in intent but symmetric in effect — neither party sees the other:
+
+- Their comments, photos and likes become invisible to you, and yours to them.
+- Neither can send the other a friend request.
+- Neither appears in the other's player search results.
+- **Any existing friendship between the two is deleted.** Without this the blocked user
+  would keep round visibility through `is_friend()` and keep appearing in the activity feed,
+  which is exactly what the person blocking them is trying to stop.
+
+An unblock list lives in Settings. Unblocking does not restore the deleted friendship.
+
+### 12.5 Enforcement
+
+One helper, mirroring the shape of `social_enabled()`:
+
+```sql
+CREATE OR REPLACE FUNCTION is_blocked_pair(a UUID, b UUID)
+RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = public, pg_temp AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM user_blocks
+    WHERE (blocker_id = a AND blocked_id = b)
+       OR (blocker_id = b AND blocked_id = a)
+  );
+$$;
+```
+
+Applied to:
+
+| Surface | Rule |
 |---|---|
-| EULA with objectionable-content clause | Present — `TERMS_OF_SERVICE.md` §5.2/5.3 |
-| Published contact information | Present |
-| In-app reporting of objectionable content | **Missing** |
-| Ability to block abusive users | **Missing** |
+| `round_comments` SELECT | Hide if reported by viewer, or author blocked, or `deleted_at` set |
+| `round_photos` SELECT | Same, keyed on `uploader_id` |
+| `round_likes`, `round_comment_likes` SELECT | Hide blocked users' rows |
+| `friendships` INSERT | Denied for a blocked pair |
+| Player search | Blocked users excluded from results |
 
-There is no report, block, hide or filter affordance anywhere in the codebase. This is a
-likely rejection reason independent of this project and should be scheduled before
-submission.
+**Operator takedown reuses `deleted_at`.** Both tables already soft-delete and every read
+path already filters on it, so a takedown needs no new query changes — it sets `deleted_at`
+and marks the report `actioned`. The audit trail lives in `content_reports`, which is where
+the distinction between author-deleted and moderator-removed belongs.
+
+**Posting filter.** A shared blocklist check (`src/utils/contentFilter.ts`) rejects comment
+bodies matching a profanity/slur list at submit time, with a database trigger on
+`round_comments` as the backstop so it cannot be bypassed by a modified client. This is the
+"filter objectionable material" limb of 1.2; it is deliberately a simple word list, not
+classification — the goal is a good-faith filter, not moderation AI.
+
+### 12.6 Operations
+
+Reports are actioned from the Supabase dashboard, not an in-app console:
+
+- A `notify-content-report` edge function fires on insert and emails the operator with the
+  report, the content, and the author.
+- Two SQL helpers, `moderate_content(report_id, 'actioned'|'dismissed')` and a
+  `pending_reports` view, make the dashboard workflow a two-command job.
+
+Apple requires prompt action, not a particular tool for taking it. At current volume a
+console would be building infrastructure for traffic that does not exist. The upgrade path
+is a super-admin screen reading the same table — deferred until report volume justifies it.
+
+### 12.7 Terms of Service
+
+`TERMS_OF_SERVICE.md` §5.3 already prohibits objectionable content but makes no commitment
+about response. Reviewers look for the commitment. Add: objectionable content is removed and
+abusive accounts ejected within 24 hours of a report. This is the standard EULA language
+Guideline 1.2 expects, and it must be a promise the operator can actually keep — which the
+email alerting in §12.6 is what makes possible.
+
+### 12.8 Testing
+
+- Policy tests: reported content is invisible to the reporter and still visible to everyone
+  else; blocked pairs cannot see each other's comments, photos or likes.
+- Blocking deletes an existing friendship, in both directions.
+- Duplicate reports are rejected by the `UNIQUE` constraint rather than erroring the UI.
+- The content filter rejects on the server even when the client check is bypassed.
+- Takedown via `deleted_at` removes content from every read path, including the feed RPCs.
+
+### 12.9 Interaction with Part A
+
+The two parts touch the same tables and must not fight:
+
+- A restricted (under-13) user cannot see comments or photos at all, so report and block
+  affordances are simply absent for them — no dead buttons.
+- `social_enabled()` and `is_blocked_pair()` both land on the `round_comments` /
+  `round_photos` SELECT policies. They compose as `social_enabled() AND NOT blocked AND NOT
+  reported-by-viewer`, and the §9 performance check must be run against the **combined**
+  policy, not Part A's in isolation.
