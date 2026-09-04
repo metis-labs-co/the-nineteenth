@@ -20,6 +20,12 @@
 - **The kill switch ships `false`.** Every migration in this plan must be a behavioural no-op on deploy.
 - Player profile rows are **snake_case at runtime** (`photo_url`, not `photoUrl`), despite the `Player` interface in `src/types/index.ts`. Use `age_status`.
 - Migration filenames follow `YYYYMMDDHHMMSS_name.sql`.
+- **The client never reads `age_gate_config.enforce`.** Client gating keys off `age_status`
+  alone; the switch is a server-side concern only. Wiring the client to it would let an
+  un-updated client re-enable gated UI and reintroduce the rollout hole the switch exists to
+  close. Do not "helpfully" connect them.
+- **`useSocialAccess` has three states, not two.** `isLoading` must never be collapsed into
+  "restricted" — doing so breaks cold-start deep links and flashes lock UI at eligible users.
 - Verification commands: `pnpm type-check`, `pnpm lint`, `pnpm test`.
 
 ---
@@ -801,14 +807,22 @@ CREATE POLICY "Users can send friend requests" ON friendships FOR INSERT
 -- USING (TRUE) that competitions, leaderboards and pairings all depend on. Editing
 -- it would break unrelated reads, so search enforcement moves into a dedicated RPC
 -- and the blanket policy is left alone.
+-- Returns an explicit column list, NOT `SETOF players`. A SECURITY DEFINER function
+-- bypasses RLS, so `SELECT p.*` would hand every caller each player's email and phone.
+-- The search UI (SearchResultCard) renders only name, photo and handicap.
 CREATE OR REPLACE FUNCTION search_players(p_query TEXT)
-RETURNS SETOF players
+RETURNS TABLE (
+  id        UUID,
+  name      TEXT,
+  photo_url TEXT,
+  handicap  NUMERIC
+)
 LANGUAGE sql
 STABLE
 SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
-  SELECT p.*
+  SELECT p.id, p.name::TEXT, p.photo_url::TEXT, p.handicap
   FROM players p
   WHERE social_enabled()                 -- the searcher must be eligible
     AND social_enabled(p.id)             -- under-13s are not discoverable
@@ -927,7 +941,13 @@ git commit -m "feat(age): enforce the age gate across the eight social surfaces"
 
 **Interfaces:**
 - Consumes: `AgeStatus` from `@/services/age`; the `player` object from `useAuth()`
-- Produces: `useSocialAccess(): { status: AgeStatus; socialEnabled: boolean; isLoading: boolean }`
+- Produces: `useSocialAccess(): { status: AgeStatus; socialEnabled: boolean; isRestricted: boolean; isLoading: boolean }`
+
+⚠️ **Three states, not two.** `socialEnabled` means "positively eligible"; `isRestricted`
+means "positively known to be restricted". While the profile loads **both are false**.
+Consumers that hide things must key off `isRestricted`, never off `!socialEnabled` — the
+latter is true during every cold start and would break deep links (Task 9) and flash lock UI
+at eligible users (Task 8).
 
 - [ ] **Step 1: Write the failing test**
 
@@ -961,6 +981,19 @@ describe('useSocialAccess', () => {
     const { result } = renderHook(() => useSocialAccess());
     expect(result.current.socialEnabled).toBe(false);
     expect(result.current.status).toBe('unknown');
+  });
+
+  // REGRESSION: "still loading" must not be mistaken for "restricted". Consumers hide
+  // routes and content off isRestricted; if it were true during load, every cold start
+  // would unregister the Activity routes and break notification deep links.
+  it('is NOT restricted while the profile is still loading', () => {
+    mockUseAuth.mockReturnValue({ player: null, isLoading: true });
+    expect(renderHook(() => useSocialAccess()).result.current.isRestricted).toBe(false);
+  });
+
+  it('is restricted once an under13 status has actually loaded', () => {
+    mockUseAuth.mockReturnValue({ player: { age_status: 'under13' }, isLoading: false });
+    expect(renderHook(() => useSocialAccess()).result.current.isRestricted).toBe(true);
   });
 });
 ```
@@ -997,19 +1030,27 @@ import type { AgeStatus } from '@/services/age';
 /**
  * Whether the current user may use social features.
  *
- * Fails closed: an unloaded profile or an unresolved age band both deny access,
- * so a slow network never briefly exposes gated content.
+ * Returns three distinguishable states. `socialEnabled` and `isRestricted` are BOTH false
+ * while the profile loads, so callers can tell "not yet known" from "no".
  */
 export function useSocialAccess(): {
   status: AgeStatus;
   socialEnabled: boolean;
+  isRestricted: boolean;
   isLoading: boolean;
 } {
   const { player, isLoading } = useAuth();
 
   return useMemo(() => {
     const status: AgeStatus = player?.age_status ?? 'unknown';
-    return { status, socialEnabled: status === 'eligible', isLoading };
+    return {
+      status,
+      // Positively eligible.
+      socialEnabled: !isLoading && status === 'eligible',
+      // Positively restricted. False while loading - "we don't know yet" is its own state.
+      isRestricted: !isLoading && status !== 'eligible',
+      isLoading,
+    };
   }, [player?.age_status, isLoading]);
 }
 ```
@@ -1060,20 +1101,31 @@ const mockAccess = useSocialAccess as jest.Mock;
 
 describe('AgeLock', () => {
   it('renders children when the user is eligible', () => {
-    mockAccess.mockReturnValue({ status: 'eligible', socialEnabled: true, isLoading: false });
+    mockAccess.mockReturnValue({ status: 'eligible', socialEnabled: true, isRestricted: false, isLoading: false });
     render(<AgeLock><Text>social content</Text></AgeLock>);
     expect(screen.getByText('social content')).toBeTruthy();
   });
 
+  // REGRESSION: without this, every eligible user sees the restriction notice flash
+  // on each cold start while their profile loads.
+  it('shows neither children nor the notice while loading', () => {
+    mockAccess.mockReturnValue({
+      status: 'unknown', socialEnabled: false, isRestricted: false, isLoading: true,
+    });
+    render(<AgeLock><Text>social content</Text></AgeLock>);
+    expect(screen.queryByText('social content')).toBeNull();
+    expect(screen.queryByText(/not available/i)).toBeNull();
+  });
+
   it('hides children and explains why when restricted', () => {
-    mockAccess.mockReturnValue({ status: 'under13', socialEnabled: false, isLoading: false });
+    mockAccess.mockReturnValue({ status: 'under13', socialEnabled: false, isRestricted: true, isLoading: false });
     render(<AgeLock><Text>social content</Text></AgeLock>);
     expect(screen.queryByText('social content')).toBeNull();
     expect(screen.getByText(/not available/i)).toBeTruthy();
   });
 
   it('never offers an upgrade path', () => {
-    mockAccess.mockReturnValue({ status: 'under13', socialEnabled: false, isLoading: false });
+    mockAccess.mockReturnValue({ status: 'under13', socialEnabled: false, isRestricted: true, isLoading: false });
     render(<AgeLock><Text>social content</Text></AgeLock>);
     expect(screen.queryByText(/upgrade/i)).toBeNull();
   });
@@ -1094,7 +1146,7 @@ Expected: FAIL — cannot resolve `@/components/common/AgeLock`.
 // src/components/common/AgeLock.tsx
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Text, Icon } from 'react-native-paper';
+import { Text, Icon, ActivityIndicator } from 'react-native-paper';
 
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, borderRadius, typography } from '@/constants/theme';
@@ -1117,9 +1169,19 @@ const DEFAULT_MESSAGE =
  */
 export function AgeLock({ children, message = DEFAULT_MESSAGE }: AgeLockProps) {
   const colors = useThemeColors();
-  const { socialEnabled } = useSocialAccess();
+  const { isRestricted, isLoading } = useSocialAccess();
 
-  if (socialEnabled) return <>{children}</>;
+  // Neither content nor notice until we actually know - otherwise every eligible
+  // user sees the restriction message flash on cold start.
+  if (isLoading) {
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator />
+      </View>
+    );
+  }
+
+  if (!isRestricted) return <>{children}</>;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -1140,6 +1202,10 @@ const styles = StyleSheet.create({
   message: {
     ...typography.body,
     textAlign: 'center',
+  },
+  loading: {
+    padding: spacing.lg,
+    alignItems: 'center',
   },
 });
 ```
@@ -1200,10 +1266,10 @@ This is what makes search gating server-enforced rather than cosmetic.
 In `src/navigation/RootNavigator.tsx`, inside the root stack:
 
 ```tsx
-const { socialEnabled } = useSocialAccess();
+const { isRestricted } = useSocialAccess();
 
-// ...within the navigator's children:
-{socialEnabled && (
+// ...within the navigator's children (current registrations are at lines 768, 776, 852):
+{!isRestricted && (
   <>
     <RootStack.Screen name="Activity" component={ActivityScreen} />
     <RootStack.Screen name="RoundActivity" component={RoundActivityScreen} />
@@ -1212,8 +1278,12 @@ const { socialEnabled } = useSocialAccess();
 )}
 ```
 
-Registering conditionally rather than blocking on focus means a stale deep link cannot land
-on them at all — which is what Task 12's fallback relies on.
+⚠️ **`!isRestricted`, not `socialEnabled`.** The profile is still loading on every cold
+start, so `socialEnabled` is false then — gating on it would unregister these routes during
+exactly the window when a tapped push notification is trying to navigate to `RoundActivity`.
+This codebase has already had to fix a cold-start deep-link bug once; do not reintroduce it.
+Registering while status is unknown is safe because the screens self-protect: their content
+is wrapped in `AgeLock` (Step 3), which resolves a moment later.
 
 - [ ] **Step 3: Wrap in-place social sections**
 
@@ -1221,7 +1291,10 @@ Wrap the comment list and photo album bodies in `<AgeLock>` so a restricted user
 
 - [ ] **Step 4: Hide the public-league tab**
 
-In `JoinLeagueScreen.tsx`, when `socialEnabled` is false force `mode` to `'private'` and hide the Public/Private segmented control. Invite-code joining must keep working — it is not a social surface.
+In `JoinLeagueScreen.tsx`, when `isRestricted` is true force `mode` to `'private'` and hide
+the Public/Private segmented control. Use `isRestricted`, not `!socialEnabled` — otherwise
+the Public tab vanishes for a beat on every cold start for eligible users. Invite-code
+joining must keep working; it is not a social surface.
 
 - [ ] **Step 5: Verify**
 
@@ -1341,7 +1414,7 @@ Follow the `NotificationsStep.tsx` structure for styling (`OnboardingCard` wrapp
 
 ```tsx
 // src/screens/onboarding/components/AgeCheckStep.tsx
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 
@@ -1352,14 +1425,22 @@ import { classifyDateOfBirth, resolveAgeStatus } from '@/services/age';
 import { useSetAgeStatus } from '@/hooks/useSetAgeStatus';
 import type { StepProps } from '../OnboardingScreen';
 
-export function AgeCheckStep({ onNext }: StepProps) {
+export function AgeCheckStep({ onNext, isActive }: StepProps) {
   const colors = useThemeColors();
   const { setStatus } = useSetAgeStatus();
   const [needsDob, setNeedsDob] = useState(false);
   // DOB lives here and nowhere else. It is never persisted, logged or sent anywhere.
   const [dob, setDob] = useState<Date | null>(null);
+  const hasRun = useRef(false);
 
+  // ⚠️ Fires when this card BECOMES ACTIVE, never on mount. OnboardingScreen renders
+  // every step eagerly (FlatList data={STEPS}, default initialNumToRender of 10), so a
+  // mount effect would pop Apple's system age sheet while the user is still on the Name
+  // card. The ref guard keeps it to one prompt even if isActive flickers.
   useEffect(() => {
+    if (!isActive || hasRun.current) return;
+    hasRun.current = true;
+
     let cancelled = false;
     (async () => {
       const status = await resolveAgeStatus();
@@ -1372,7 +1453,7 @@ export function AgeCheckStep({ onNext }: StepProps) {
       onNext();
     })();
     return () => { cancelled = true; };
-  }, [setStatus, onNext]);
+  }, [isActive, setStatus, onNext]);
 
   const handleConfirmDob = useCallback(async () => {
     if (!dob) return;
@@ -1411,9 +1492,24 @@ const styles = StyleSheet.create({
 
 ⚠️ **The DOB value must stay in component state.** It is never passed to `setStatus`, logged, or sent to analytics — only the derived band leaves this component.
 
-- [ ] **Step 5: Register the step**
+- [ ] **Step 5: Register the step and thread `isActive` through**
 
-Insert `AgeCheckStep` into the `OnboardingScreen` step array immediately after `NameCaptureStep`.
+`StepProps` does not currently carry an active flag, and every step is mounted at once, so
+one must be added or the age sheet fires at the wrong time.
+
+1. Add `isActive: boolean;` to the `StepProps` interface in `OnboardingScreen.tsx` (~line 52).
+2. `OnboardingScreen` already tracks the visible index for `OnboardingDots` via
+   `onViewableItemsChanged`. Pass it down in `renderStep`:
+
+```tsx
+const renderStep = ({ item, index }: { item: Step; index: number }) => (
+  <item.component {...stepProps} isActive={index === currentIndex} />
+);
+```
+
+3. Insert `AgeCheckStep` into the `STEPS` array immediately after `NameCaptureStep`.
+
+Other steps ignore the new prop; only `AgeCheckStep` reads it.
 
 - [ ] **Step 6: Run the test to verify it passes**
 
@@ -1455,29 +1551,38 @@ Without this task an existing user who dismisses the sheet is stranded at `unkno
 import { renderHook, act } from '@testing-library/react-native';
 import { useAgeCheckPrompt } from '@/hooks/useAgeCheckPrompt';
 import { useSocialAccess } from '@/hooks/useSocialAccess';
+import { useAgeGateStore } from '@/store/ageGateStore';
 
 jest.mock('@/hooks/useSocialAccess');
 jest.mock('@/hooks/useSetAgeStatus', () => ({ useSetAgeStatus: () => ({ setStatus: jest.fn() }) }));
 const mockAccess = useSocialAccess as jest.Mock;
 
 describe('useAgeCheckPrompt', () => {
+  // The store is a persisted module-level singleton, so without this the dismissal
+  // cases contaminate each other and the three-dismissal test can pass for the
+  // wrong reason.
+  beforeEach(() => {
+    useAgeGateStore.setState({ dismissCount: 0, lastDismissedAt: null });
+    jest.clearAllMocks();
+  });
+
   it('shows for an unresolved user', () => {
-    mockAccess.mockReturnValue({ status: 'unknown', socialEnabled: false, isLoading: false });
+    mockAccess.mockReturnValue({ status: 'unknown', socialEnabled: false, isRestricted: true, isLoading: false });
     expect(renderHook(() => useAgeCheckPrompt()).result.current.shouldShow).toBe(true);
   });
 
   it('does not show for an eligible user', () => {
-    mockAccess.mockReturnValue({ status: 'eligible', socialEnabled: true, isLoading: false });
+    mockAccess.mockReturnValue({ status: 'eligible', socialEnabled: true, isRestricted: false, isLoading: false });
     expect(renderHook(() => useAgeCheckPrompt()).result.current.shouldShow).toBe(false);
   });
 
   it('does not show for a resolved under13 user', () => {
-    mockAccess.mockReturnValue({ status: 'under13', socialEnabled: false, isLoading: false });
+    mockAccess.mockReturnValue({ status: 'under13', socialEnabled: false, isRestricted: true, isLoading: false });
     expect(renderHook(() => useAgeCheckPrompt()).result.current.shouldShow).toBe(false);
   });
 
   it('stops showing after three dismissals', () => {
-    mockAccess.mockReturnValue({ status: 'unknown', socialEnabled: false, isLoading: false });
+    mockAccess.mockReturnValue({ status: 'unknown', socialEnabled: false, isRestricted: true, isLoading: false });
     const { result, rerender } = renderHook(() => useAgeCheckPrompt());
     for (let i = 0; i < 3; i += 1) {
       act(() => result.current.dismiss());
@@ -1669,38 +1774,46 @@ const SOCIAL_NOTIFICATION_TYPES = new Set([
  */
 export function resolveNotificationRoute(
   type: string,
-  opts: { socialEnabled: boolean }
+  opts: { isRestricted: boolean }
 ): string | undefined {
-  if (SOCIAL_NOTIFICATION_TYPES.has(type) && !opts.socialEnabled) {
+  if (SOCIAL_NOTIFICATION_TYPES.has(type) && opts.isRestricted) {
     return 'ViewRound';
   }
   return NOTIFICATION_ROUTES[type];
 }
 ```
 
-Update the handler's call site to use `resolveNotificationRoute(type, { socialEnabled })`,
-reading `socialEnabled` from the profile cache.
+⚠️ Takes `isRestricted`, not `socialEnabled`. Notifications are frequently handled at cold
+start with no profile cached yet; diverting on "not yet known" would send eligible users to
+the wrong screen on the most common deep-link path in the app. Pass `isRestricted: false`
+when the cached profile is absent — the destination route is registered in that state
+(Task 9) and `AgeLock` covers the content if the user does turn out to be restricted.
+
+Update the handler's call site to `resolveNotificationRoute(type, { isRestricted })`, reading
+the cached profile's `age_status`.
 
 - [ ] **Step 4: Test the fallback**
 
 ```ts
-it.each(['round_liked', 'round_commented', 'round_also_commented', 'comment_liked'])(
-  'falls back to ViewRound for %s when social is disabled',
-  (type) => {
-    expect(resolveNotificationRoute(type, { socialEnabled: false })).toBe('ViewRound');
-  }
-);
+const SOCIAL = ['round_liked', 'round_commented', 'round_also_commented', 'comment_liked'];
 
-it.each(['round_liked', 'round_commented', 'round_also_commented', 'comment_liked'])(
-  'routes %s to RoundActivity when social is enabled',
-  (type) => {
-    expect(resolveNotificationRoute(type, { socialEnabled: true })).toBe('RoundActivity');
-  }
-);
+it.each(SOCIAL)('falls back to ViewRound for %s when positively restricted', (type) => {
+  expect(resolveNotificationRoute(type, { isRestricted: true })).toBe('ViewRound');
+});
+
+it.each(SOCIAL)('routes %s to RoundActivity when not restricted', (type) => {
+  expect(resolveNotificationRoute(type, { isRestricted: false })).toBe('RoundActivity');
+});
+
+// REGRESSION: cold start has no cached profile. Treating that as restricted would send
+// eligible users to the wrong screen on the app's most common deep-link path.
+it('routes to RoundActivity when the profile is not cached yet', () => {
+  expect(resolveNotificationRoute('round_commented', { isRestricted: false })).toBe('RoundActivity');
+});
 
 it('leaves non-social notifications untouched', () => {
-  expect(resolveNotificationRoute('tee_time_reminder', { socialEnabled: false })).toBe('ViewRound');
-  expect(resolveNotificationRoute('prize_pool_settled', { socialEnabled: false })).toBe('CompetitionDetail');
+  expect(resolveNotificationRoute('tee_time_reminder', { isRestricted: true })).toBe('ViewRound');
+  expect(resolveNotificationRoute('prize_pool_settled', { isRestricted: true })).toBe('CompetitionDetail');
 });
 ```
 
@@ -1727,25 +1840,34 @@ git commit -m "feat(age): stop social notifications reaching restricted users"
 - Modify: `src/__tests__/mocks/**` (player fixtures)
 - Modify: various existing activity/feed test suites
 
-- [ ] **Step 1: Capture the baseline**
+- [ ] **Step 1: Confirm the starting point is green**
 
-There are known pre-existing failures on `main`. Capture the count **before** touching fixtures so the diff is attributable:
-
-```bash
-git stash && pnpm test 2>&1 | tail -5 > /tmp/baseline.txt && git stash pop
-```
-
-- [ ] **Step 2: Add `age_status: 'eligible'` to the shared player fixture**
-
-Every existing activity/feed suite assumes social access. Default the shared mock player to `eligible` so those suites keep passing — this is broad but mechanical.
-
-- [ ] **Step 3: Run the full suite and compare**
+The safeguards work greened the suite on `main` (374 suites, 0 failures, 15 legacy skips), so
+this plan expects **0 failures** — not a diff against a baseline of known noise.
 
 ```bash
 pnpm test 2>&1 | tail -5
 ```
 
-Expected: failure count equal to or lower than the baseline. Any new failure must be fixed, not accepted.
+Expected: 0 failed suites, apart from anything this plan's own tasks have yet to fix.
+
+⚠️ Do **not** try to capture a baseline with `git stash` — by this task Tasks 1–12 are all
+committed, so stashing changes nothing and would measure the same tree twice. If the suite is
+unexpectedly red here, find out why before touching fixtures; a red starting point means
+something earlier in the plan regressed and the fixture change would mask it.
+
+- [ ] **Step 2: Add `age_status: 'eligible'` to the shared player fixture**
+
+Every existing activity/feed suite assumes social access. Default the shared mock player to `eligible` so those suites keep passing — this is broad but mechanical.
+
+- [ ] **Step 3: Run the full suite**
+
+```bash
+pnpm test 2>&1 | tail -5
+```
+
+Expected: 0 failures. Any failure is a real regression from this plan — fix it, do not accept
+it as pre-existing noise.
 
 - [ ] **Step 4: Run the performance check**
 
