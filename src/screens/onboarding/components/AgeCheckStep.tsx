@@ -14,7 +14,7 @@ import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 
 import { OnboardingCard } from './OnboardingCard';
-import { DatePicker } from '@/components/common';
+import { DatePicker } from '@/components/common/DatePicker';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { classifyDateOfBirth, resolveAgeStatus } from '@/services/age';

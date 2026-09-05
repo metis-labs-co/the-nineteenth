@@ -21,6 +21,7 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { NotificationProvider } from '@/context/NotificationContext';
 import { useBiometricLock } from '@/hooks/useBiometricLock';
 import { BiometricLockScreen, BiometricEnrollPrompt } from '@/components/biometric';
+import { AgeCheckPrompt } from '@/components/age';
 import { supabase } from '@/services/supabase/client';
 import { activeRoundSession } from '@/services/activeRoundSession';
 import { pushDiagnostic } from '@/services/diagnostics';
@@ -960,6 +961,7 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
         {/* Post-login one-time prompt to enable biometric unlock. Self-gates
             on availability and per-user "seen" flag — safe to always render. */}
         <BiometricEnrollPrompt />
+        <AgeCheckPrompt />
       </NotificationProvider>
     </NavigationContainer>
   );

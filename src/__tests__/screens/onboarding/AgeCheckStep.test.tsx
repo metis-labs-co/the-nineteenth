@@ -14,7 +14,7 @@ jest.mock('@/context/ThemeContext', () => ({
 // DatePicker wraps the native @react-native-community/datetimepicker, which
 // does not render under jest. It has its own test suite; here we only care that
 // the DOB branch is reached and wired.
-jest.mock('@/components/common', () => {
+jest.mock('@/components/common/DatePicker', () => {
   const { TextInput } = require('react-native');
   return {
     DatePicker: ({ value, onChange, label }: any) => (
