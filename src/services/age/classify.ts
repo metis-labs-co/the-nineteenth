@@ -29,8 +29,8 @@ export function classifyDateOfBirth(dob: Date, now: Date = new Date()): AgeStatu
  * belongs upstream — see `platformSignal.ts`.
  */
 export function classifyAgeRangeResponse(r: {
-  lowerBound: number | null;
-  upperBound: number | null;
+  lowerBound?: number | null;
+  upperBound?: number | null;
 }): AgeStatus {
   if (r.lowerBound != null && r.lowerBound >= AGE_THRESHOLD) return 'eligible';
   if (r.upperBound != null && r.upperBound < AGE_THRESHOLD) return 'under13';

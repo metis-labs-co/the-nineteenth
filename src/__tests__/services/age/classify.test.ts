@@ -58,4 +58,14 @@ describe('classifyAgeRangeResponse', () => {
   it('returns unknown when both bounds are null', () => {
     expect(classifyAgeRangeResponse({ lowerBound: null, upperBound: null })).toBe('unknown');
   });
+
+  // expo-age-range@0.2.1 declares both bounds as optional (number | undefined),
+  // not nullable as the newer SDK docs describe. Absent must behave like null.
+  it('returns unknown when the bounds are absent entirely', () => {
+    expect(classifyAgeRangeResponse({})).toBe('unknown');
+  });
+
+  it('returns eligible when only an adult lowerBound is present', () => {
+    expect(classifyAgeRangeResponse({ lowerBound: 18 })).toBe('eligible');
+  });
 });
