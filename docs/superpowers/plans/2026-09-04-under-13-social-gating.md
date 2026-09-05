@@ -46,9 +46,23 @@ Everything downstream assumes this pod compiles against `expo-modules-core@3.0.2
 - Consumes: nothing
 - Produces: `ANDROID_SIGNAL_TRUSTED` — a boolean fact consumed by Task 4's `isPlatformSignalTrusted()`. Record it in §11 of the spec.
 
-- [ ] **Step 1: Confirm the Apple Developer portal capability is enabled**
+- [x] **Step 1: Apple Developer portal capability — DONE 2026-09-05**
 
-The Declared Age Range capability must be enabled on App ID `6758835344` (team `TMB3988D5Z`) and the provisioning profile regenerated. This is a manual portal step and it **blocks the iOS build** — confirm it before installing anything.
+Declared Age Range is enabled on `com.the.nineteenth.golf` (team `TMB3988D5Z`), and the
+production provisioning profile was regenerated: `VC45BP49YB` → **`UPP7W83YD2`**. Verified by
+decoding the downloaded profile:
+
+```bash
+security cms -D -i <profile>.mobileprovision | plutil -p - | grep -i declared-age-range
+# "com.apple.developer.declared-age-range" => 1
+```
+
+The two watchOS targets (`…watchkitapp`, `…TheNineteenthWatchComplication`) kept their
+existing profiles — they do not call the API and do not need the capability.
+
+Note for Step 5: EAS reported `Synced capabilities: No updates` during that run, because the
+entitlement was not yet in the local `.entitlements` file. Once Step 5 lands it, EAS manages
+the capability automatically on future builds and this manual round trip is not repeated.
 
 - [ ] **Step 2: Install the pinned dependency**
 
