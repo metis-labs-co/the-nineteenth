@@ -379,12 +379,25 @@ Note: this is a native change (new pod + entitlement). It cannot ship as an OTA 
 
 ## 11. Open risks
 
-- **Android behaviour in 0.2.1 is unverified.** The iOS path was read end-to-end; the Kotlin
-  module was not. First implementation task is a spike confirming what Android returns on a
-  device without Play Age Signals, and whether it also simulates an adult.
-- **Compilation against `expo-modules-core@3.0.29` is unverified.** 0.2.1 targets the SDK-54
-  toolchain but has not been built here. The spike must run `expo prebuild` plus a device
-  build before any further work depends on it.
+- ~~**Compilation against `expo-modules-core@3.0.29` is unverified.**~~ **RESOLVED
+  2026-09-05.** `expo-age-range@0.2.1` resolves into `Podfile.lock` with no conflict against
+  `ExpoModulesCore`, and all three Swift sources compile to object files (arm64 + x86_64)
+  against the iOS 26.2 SDK under Xcode 26.3 — including `AgeRangeModule.swift`, which carries
+  `import DeclaredAgeRange`. **No Expo SDK upgrade is required.** Note: `expo prebuild` must
+  never be run on this repo; it would destroy the committed watchOS targets. Autolinking plus
+  `pod install` is sufficient.
+- ~~**Android behaviour in 0.2.1 is unverified.**~~ **RESOLVED 2026-09-05** by reading
+  `AgeRangeModule.kt`. Android does **not** fake an adult: `checkAgeSignals` failures reach
+  `promise.reject(...)` and cancellation throws `AgeRangeTaskCancelledException`. A device
+  without Play Age Signals therefore throws, which maps to `unknown` and the DOB fallback —
+  so `ANDROID_SIGNAL_TRUSTED = true`. The `lowerBound: 18` trap is **iOS-only**.
+  Two caveats: Android discards the request options entirely (`_: Any`), so `threshold1` is
+  ignored there and Play returns whatever bands it has — harmless, since classification works
+  off arbitrary bounds. And it pulls `com.google.android.play:age-signals:0.0.2`, a 0.0.x
+  dependency that has not yet been built here.
+- **The iOS 26 happy path has not been exercised at runtime.** Compilation and the
+  below-26 and Android paths are settled from source, but a real age-range response on an
+  iOS 26 device is still unobserved. Verify at first device run.
 - **The entitlement may require Apple approval**, which would add lead time.
 - **Adoption may stall**, leaving a long tail at `unknown`. The kill switch means this costs
   nothing operationally, but it delays the point at which the gate is actually enforcing.

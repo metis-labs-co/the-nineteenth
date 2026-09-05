@@ -133,7 +133,8 @@
       "expo-web-browser",
       "expo-localization",
       "expo-video",
-      "./plugins/withWearOs"
+      "./plugins/withWearOs",
+      "./plugins/withDeclaredAgeRange"
     ],
     "runtimeVersion": "1.12.7",
     "owner": "sam-metislabs",

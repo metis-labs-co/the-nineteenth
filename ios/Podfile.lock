@@ -209,6 +209,8 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
+  - ExpoAgeRange (0.2.1):
+    - ExpoModulesCore
   - ExpoAppleAuthentication (8.0.8):
     - ExpoModulesCore
   - ExpoAsset (12.0.12):
@@ -2490,6 +2492,7 @@ DEPENDENCIES:
   - "expo-dev-launcher (from `../node_modules/.pnpm/expo-dev-launcher@6.0.20_expo@54.0.30/node_modules/expo-dev-launcher`)"
   - "expo-dev-menu (from `../node_modules/.pnpm/expo-dev-menu@7.0.18_expo@54.0.30/node_modules/expo-dev-menu`)"
   - "expo-dev-menu-interface (from `../node_modules/.pnpm/expo-dev-menu-interface@2.0.0_expo@54.0.30/node_modules/expo-dev-menu-interface/ios`)"
+  - "ExpoAgeRange (from `../node_modules/.pnpm/expo-age-range@0.2.1_expo@54.0.30_react-native@0.81.5_@babel+core@7.28.5_@react-native-_4e1c0ecef84c2d9aa66c19a07c9b9f9a/node_modules/expo-age-range/ios`)"
   - "ExpoAppleAuthentication (from `../node_modules/.pnpm/expo-apple-authentication@8.0.8_expo@54.0.30_react-native@0.81.5_@babel+core@7.28.5_@re_c01b0fc0dfd1c50eb3395e6bafefb4c2/node_modules/expo-apple-authentication/ios`)"
   - "ExpoAsset (from `../node_modules/.pnpm/expo-asset@12.0.12_expo@54.0.30_react-native@0.81.5_@babel+core@7.28.5_@react-native-co_cf97be727d66c705972cbfae7787a3ce/node_modules/expo-asset/ios`)"
   - "ExpoBackgroundFetch (from `../node_modules/.pnpm/expo-background-fetch@14.0.9_expo@54.0.30_react-native@0.81.5_@babel+core@7.28.5_@react_7a840ee23be41829d5e7fba2b4643277/node_modules/expo-background-fetch/ios`)"
@@ -2646,6 +2649,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/.pnpm/expo-dev-menu@7.0.18_expo@54.0.30/node_modules/expo-dev-menu"
   expo-dev-menu-interface:
     :path: "../node_modules/.pnpm/expo-dev-menu-interface@2.0.0_expo@54.0.30/node_modules/expo-dev-menu-interface/ios"
+  ExpoAgeRange:
+    :path: "../node_modules/.pnpm/expo-age-range@0.2.1_expo@54.0.30_react-native@0.81.5_@babel+core@7.28.5_@react-native-_4e1c0ecef84c2d9aa66c19a07c9b9f9a/node_modules/expo-age-range/ios"
   ExpoAppleAuthentication:
     :path: "../node_modules/.pnpm/expo-apple-authentication@8.0.8_expo@54.0.30_react-native@0.81.5_@babel+core@7.28.5_@re_c01b0fc0dfd1c50eb3395e6bafefb4c2/node_modules/expo-apple-authentication/ios"
   ExpoAsset:
@@ -2883,6 +2888,7 @@ SPEC CHECKSUMS:
   expo-dev-launcher: a4f4cdef064ab1fb8621e5b8c7c457cd6e9568c3
   expo-dev-menu: 05b18812110c175814c6af0d09dd658abcc5e00d
   expo-dev-menu-interface: 600df12ea01efecdd822daaf13cc0ac091775533
+  ExpoAgeRange: d6d339d334279f0ccb1ad98e67294fcbab429f20
   ExpoAppleAuthentication: 9413ae9a5e631a424cc04c1b13b0694dbab7d594
   ExpoAsset: f867e55ceb428aab99e1e8c082b5aee7c159ea18
   ExpoBackgroundFetch: 1631d1fbf59e6ad98ca83b6780ae3a35f678f632

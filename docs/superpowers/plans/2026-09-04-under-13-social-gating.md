@@ -117,45 +117,100 @@ In `app.json`, append to `expo.plugins` (after `"./plugins/withWearOs"`):
 
 - [ ] **Step 6: Pin an Xcode 26 image for EAS**
 
-`eas.json` currently pins no image. Add `"image": "macos-sequoia-16.0-xcode-26.0"` to the `ios` block of the `preview`, `staging` and `production` build profiles so cloud builds match local Xcode 26.3.
+`eas.json` currently pins no image. Add `"image": "macos-tahoe-26.4-xcode-26.4"` to the `ios`
+block of **all four** build profiles — `development` too, not just the store ones, because
+`import DeclaredAgeRange` needs the iOS 26 SDK and so *every* EAS build requires Xcode 26.
 
-- [ ] **Step 7: Prebuild and install pods**
+Valid Xcode 26 images are `macos-tahoe-26.4-xcode-26.4` (alias `sdk-56`) and
+`macos-tahoe-26.5-xcode-26.6` (aliases `latest`, `sdk-57`). Pin 26.4 — it is closest to the
+local Xcode 26.3, which minimises drift between local and cloud builds. Do not use `latest`;
+it moves under you.
+
+- [ ] **Step 7: Install pods — do NOT run prebuild**
 
 ```bash
-npx expo prebuild -p ios --clean && (cd ios && pod install)
+cd ios && pod install
 ```
 
-Expected: `ExpoAgeRange` appears in the pod install output with no version conflict against `ExpoModulesCore`.
+Expected: no version conflict against `ExpoModulesCore`. Verify by checking the lockfile, not
+the console — local path pods are never listed in CocoaPods' "Installing" output, and there
+is no `Pods/ExpoAgeRange` directory because dev pods are referenced from `node_modules`:
+
+```bash
+grep -i agerange ios/Podfile.lock   # expect: "ExpoAgeRange (0.2.1):" plus a checksum
+```
+
+Resolution is not compilation. Confirm the Swift actually builds against both
+`expo-modules-core@3.0.29` and the iOS 26 SDK before trusting the pin:
+
+```bash
+cd ios && xcodebuild -project Pods/Pods.xcodeproj -target ExpoAgeRange \
+  -sdk iphonesimulator -configuration Debug CODE_SIGNING_ALLOWED=NO build
+```
+
+Expected: `** BUILD SUCCEEDED **`. This is the real gate — it is what proves the SDK-54 pin
+holds, and it is far cheaper than discovering a failure in a full EAS build.
+
+⚠️ **Never run `expo prebuild` on this repo.** `ios/` is committed and hand-maintained: the
+watchOS targets (`TheNineteenthWatch Watch App`, `TheNineteenthWatchComplication`) exist only
+inside `project.pbxproj`, and no config plugin can regenerate them — `plugins/withWearOs.js`
+is Android Wear OS, not watchOS. `prebuild --clean` would delete the watch app from the Xcode
+project.
+
+Autolinking makes prebuild unnecessary anyway: `use_expo_modules!` in the Podfile discovers
+`expo-age-range` from `node_modules`, and the entitlement is added by hand in Step 5. The
+config plugin from Step 3 is insurance for anyone who ever does run prebuild, not the
+mechanism here.
 
 **⚠️ If this fails**, the SDK-54 assumption is wrong. Stop and report — the options are a custom native module or an Expo SDK upgrade, and both change the plan. Do not attempt a workaround unprompted.
 
-- [ ] **Step 8: Verify on iOS 26**
+- [ ] **Step 8: Verify on iOS 26 — CARRIED FORWARD, still unverified**
 
-Build to an iOS 26+ simulator or device. From a scratch screen, call:
+Not done during the spike: exercising this needs the full app running on an iOS 26 device or
+simulator with a signed-in Apple Account, which is a much larger lift than the compile gate
+and was not required to de-risk the pin.
 
-```ts
-import * as AgeRange from 'expo-age-range';
-const r = await AgeRange.requestAgeRangeAsync({ threshold1: 13 });
-console.log('[spike] ios26', JSON.stringify(r));
+Verify at the first device run, once Task 10's `AgeCheckStep` exists and gives a natural call
+site. Expected: a system sheet appears; sharing returns real bounds; declining throws
+`AgeRangeUserDeclinedException`.
+
+This is the only spike question still open. Everything downstream is safe to build in the
+meantime, because every failure path already resolves to `unknown` → DOB fallback.
+
+- [x] **Step 9: iOS < 26 fake-adult behaviour — VERIFIED FROM SOURCE 2026-09-05**
+
+Confirmed by reading `AgeRangeRecords.swift` rather than by running it, which is stronger
+evidence for this particular question — it is the implementation itself, not an observation
+that could vary with device state:
+
+```swift
+public init() {
+  // limited response used by iOS < 26, simulating an adult
+  self.lowerBound = 18
+}
 ```
 
-Expected: a system sheet appears; sharing returns real bounds; declining **throws** `AgeRangeUserDeclinedException`.
+The `guard #available(iOS 26.0, *) else { return AgeRangeResponse() }` in
+`AgeRangeModule.swift` returns exactly this. The trap is real and Task 3's OS-version check is
+mandatory.
 
-- [ ] **Step 9: Verify the iOS < 26 fake-adult behaviour**
+- [x] **Step 10: Android behaviour — VERIFIED FROM SOURCE 2026-09-05**
 
-Run the same call on an iOS 15–25 simulator.
+`AgeRangeModule.kt` rejects rather than fabricating: `checkAgeSignals` failures go to
+`promise.reject(processAgeSignalsError(...))` and cancellation throws
+`AgeRangeTaskCancelledException`. **Android has no fake-adult trap**, so
+`ANDROID_SIGNAL_TRUSTED = true` (already set in Task 3).
 
-Expected: **no sheet**, resolves to `{ lowerBound: 18, upperBound: null }`. This confirms the trap the resolver must defend against. If it does *not* return 18, record what it actually returns — Task 4's test changes.
+Two things to keep in mind, neither blocking:
+- Android discards the request options (`_: Any`), so `threshold1: 13` is ignored there.
+  Classification works off arbitrary bounds, so this needs no code change.
+- It pulls `com.google.android.play:age-signals:0.0.2` — a 0.0.x dependency, not yet built
+  here. Expect the first Android build to be the moment that surfaces any problem.
 
-- [ ] **Step 10: Verify Android**
+- [x] **Step 11: Findings recorded in the spec**
 
-Run the same call on an Android device or emulator **without** Play Age Signals support.
-
-Record whether it returns real bounds, throws, or also fakes an adult. If it fakes an adult, `ANDROID_SIGNAL_TRUSTED` is `false` and Android always uses the DOB fallback.
-
-- [ ] **Step 11: Record findings in the spec**
-
-Replace the two "unverified" bullets in §11 of the spec with what you actually observed, and state the resolved value of `ANDROID_SIGNAL_TRUSTED`. Task 4 depends on this being written down.
+Spec §11 updated: both original risks resolved, with the iOS 26 runtime path listed as the
+one remaining open item.
 
 - [ ] **Step 12: Commit**
 
@@ -372,9 +427,11 @@ describe('isPlatformSignalTrusted', () => {
     expect(isPlatformSignalTrusted()).toBe(false);
   });
 
-  it('returns a boolean for android', () => {
+  // Android rejects rather than fabricating an adult when Play Age Signals is
+  // unavailable, so its answers are trustworthy whenever they arrive.
+  it('trusts android', () => {
     setPlatform('android', 34);
-    expect(typeof isPlatformSignalTrusted()).toBe('boolean');
+    expect(isPlatformSignalTrusted()).toBe(true);
   });
 });
 ```
@@ -400,9 +457,13 @@ const MIN_TRUSTED_IOS_MAJOR = 26;
 
 /**
  * Whether Android's Play Age Signals response can be trusted.
- * Set from the Task 1 build spike — see spec §11.
+ *
+ * TRUE, confirmed by reading AgeRangeModule.kt during the Task 1 spike: Android
+ * rejects the promise when Play Age Signals is unavailable rather than fabricating
+ * an adult response, so any value that does come back is real. The lowerBound: 18
+ * trap is iOS-only. See spec §11.
  */
-const ANDROID_SIGNAL_TRUSTED = false;
+const ANDROID_SIGNAL_TRUSTED = true;
 
 /**
  * Whether the platform age signal can be believed.
