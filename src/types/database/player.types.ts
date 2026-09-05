@@ -149,7 +149,11 @@ export interface FriendRequest {
 /**
  * Player search result for adding friends
  */
-export interface PlayerSearchResult extends Player {
+export interface PlayerSearchResult {
+  id: string;
+  name: string;
+  photo_url: string | null;
+  handicap: number | null;
   is_friend: boolean;
   has_pending_request: boolean;
   request_direction?: 'sent' | 'received'; // if has_pending_request is true

@@ -28,6 +28,7 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useJoinLeague, usePublicLeagues } from '@/hooks/useLeagues';
+import { useSocialAccess } from '@/hooks/useSocialAccess';
 import type { League, LeagueWithPlayerCount } from '@/types/database';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -38,7 +39,9 @@ export default function JoinLeagueScreen() {
   const navigation = useNavigation<NavigationProp>();
   const joinLeague = useJoinLeague();
 
+  const { isRestricted } = useSocialAccess();
   const [mode, setMode] = useState<JoinMode>('public');
+  const effectiveMode: JoinMode = isRestricted ? 'private' : mode;
 
   // Public search
   const [searchQuery, setSearchQuery] = useState('');
@@ -104,18 +107,25 @@ export default function JoinLeagueScreen() {
           onBack={() => navigation.goBack()}
         />
 
-        <View style={styles.toggleContainer}>
-          <SegmentedButton<JoinMode>
-            value={mode}
-            onValueChange={setMode}
-            buttons={[
-              { value: 'public', label: 'Public', icon: 'earth' },
-              { value: 'private', label: 'Private', icon: 'lock-outline' },
-            ]}
-          />
-        </View>
+        {/* Browsing public leagues exposes a restricted user to strangers, so
+            the toggle is hidden and the mode pinned to private. Joining by
+            invite code still works - that is not a social surface.
+            Keyed on isRestricted, not !socialEnabled: the latter is true while
+            the profile loads and would flicker the tab away on cold start. */}
+        {!isRestricted && (
+          <View style={styles.toggleContainer}>
+            <SegmentedButton<JoinMode>
+              value={mode}
+              onValueChange={setMode}
+              buttons={[
+                { value: 'public', label: 'Public', icon: 'earth' },
+                { value: 'private', label: 'Private', icon: 'lock-outline' },
+              ]}
+            />
+          </View>
+        )}
 
-        {mode === 'public' ? (
+        {effectiveMode === 'public' ? (
           <FlatList
             data={publicLeagues ?? []}
             renderItem={renderPublicLeague}

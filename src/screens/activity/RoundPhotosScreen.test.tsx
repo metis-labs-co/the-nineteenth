@@ -10,6 +10,8 @@ jest.mock('@/context/ThemeContext', () => ({
 jest.mock('@/components/common', () => {
   const { TouchableOpacity, Text } = require('react-native');
   return {
+    // Passthrough: the age gate itself is covered by AgeLock's own tests.
+    AgeLock: ({ children }: any) => children,
     PageHeader: ({ title, onBack }: any) => (
       <TouchableOpacity testID="page-header-back" onPress={onBack}>
         <Text>{title}</Text>

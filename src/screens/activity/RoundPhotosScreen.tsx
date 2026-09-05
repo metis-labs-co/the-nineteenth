@@ -6,6 +6,7 @@
  * from other round surfaces (e.g. ViewRound) later.
  */
 
+import { AgeLock } from '@/components/common';
 import React from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -31,7 +32,9 @@ export default function RoundPhotosScreen({ navigation, route }: Props) {
         onBack={() => navigation.goBack()}
       />
       <ScrollView contentContainerStyle={styles.content}>
-        <RoundPhotoAlbum roundId={roundId} canAdd={canAdd} />
+        <AgeLock>
+          <RoundPhotoAlbum roundId={roundId} canAdd={canAdd} />
+        </AgeLock>
       </ScrollView>
     </View>
   );

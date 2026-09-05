@@ -16,6 +16,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { RootStackParamList } from './types';
 import { useAuth } from '@/hooks/useAuth';
 import { useHasSeenWelcome } from '@/hooks/useHasSeenWelcome';
+import { useSocialAccess } from '@/hooks/useSocialAccess';
 import { useThemeColors } from '@/context/ThemeContext';
 import { NotificationProvider } from '@/context/NotificationContext';
 import { useBiometricLock } from '@/hooks/useBiometricLock';
@@ -130,6 +131,7 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
   const { isAuthenticated, isInitializing, isLoading, player, user } = useAuth();
   const colors = useThemeColors();
   const { hasSeenWelcome } = useHasSeenWelcome();
+  const { isRestricted } = useSocialAccess();
   const { isLocked, isAuthenticating: isBioAuthenticating, unlock, error: bioError, biometricType } = useBiometricLock(isAuthenticated);
 
   const handleSignOut = useCallback(() => {
@@ -763,31 +765,41 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
               }}
             />
 
-            {/* Activity Feed Screens */}
-            <Stack.Screen
-              name="Activity"
-              component={ActivityScreen}
-              options={{
-                title: 'Activity',
-                headerShown: false,
-              }}
-            />
-            <Stack.Screen
-              name="RoundActivity"
-              component={RoundActivityScreen}
-              options={{
-                title: 'Round',
-                headerShown: false,
-              }}
-            />
-            <Stack.Screen
-              name="RoundPhotos"
-              component={RoundPhotosScreen}
-              options={{
-                title: 'Round Photos',
-                headerShown: false,
-              }}
-            />
+            {/* Activity Feed Screens — hidden from under-13 accounts.
+                Gated on isRestricted, NOT !socialEnabled: the profile is still
+                loading on every cold start, and unregistering these routes then
+                would break the deep link of a tapped push notification, which is
+                the most common way users reach RoundActivity. Registering while
+                the status is unknown is safe because the screens' content is
+                wrapped in AgeLock. */}
+            {!isRestricted && (
+              <>
+                <Stack.Screen
+                  name="Activity"
+                  component={ActivityScreen}
+                  options={{
+                    title: 'Activity',
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="RoundActivity"
+                  component={RoundActivityScreen}
+                  options={{
+                    title: 'Round',
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="RoundPhotos"
+                  component={RoundPhotosScreen}
+                  options={{
+                    title: 'Round Photos',
+                    headerShown: false,
+                  }}
+                />
+              </>
+            )}
 
             {/* Club & Course Screens */}
             <Stack.Screen
@@ -848,14 +860,16 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
               }}
             />
 
-            <Stack.Screen
-              name="AchievementLeaderboard"
-              component={AchievementLeaderboardScreen}
-              options={{
-                title: 'Achievement Leaders',
-                headerShown: false,
-              }}
-            />
+            {!isRestricted && (
+              <Stack.Screen
+                name="AchievementLeaderboard"
+                component={AchievementLeaderboardScreen}
+                options={{
+                  title: 'Achievement Leaders',
+                  headerShown: false,
+                }}
+              />
+            )}
 
             {/* Game Results (Side Games) */}
             <Stack.Screen
