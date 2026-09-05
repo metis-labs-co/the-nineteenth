@@ -37,6 +37,7 @@ import { ThemeProvider, useThemeColors } from '@/context/ThemeContext';
 
 // Step components
 import NameCaptureStep from './components/NameCaptureStep';
+import { AgeCheckStep } from './components/AgeCheckStep';
 import NotificationsStep from './components/NotificationsStep';
 import HandicapCaptureStep from './components/HandicapCaptureStep';
 import HomeClubStep from './components/HomeClubStep';
@@ -64,10 +65,19 @@ export interface StepProps {
   setHomeClubId: (value: string | undefined) => void;
   playerName?: string;
   isSubmitting: boolean;
+  /**
+   * Whether this card is the one currently on screen.
+   *
+   * Every step is mounted eagerly (FlatList data={STEPS}), so a step that
+   * triggers a system prompt must wait for this rather than firing on mount.
+   * Only AgeCheckStep reads it today.
+   */
+  isActive: boolean;
 }
 
 const STEPS: StepItem[] = [
   { key: 'name', component: NameCaptureStep },
+  { key: 'age', component: AgeCheckStep },
   { key: 'notifications', component: NotificationsStep },
   { key: 'handicap', component: HandicapCaptureStep },
   { key: 'homeClub', component: HomeClubStep },
@@ -196,11 +206,12 @@ function OnboardingContent() {
             setHomeClubId={setHomeClubId}
             playerName={player?.name}
             isSubmitting={isSubmitting}
+            isActive={index === currentStep}
           />
         </View>
       );
     },
-    [handleNext, handleComplete, handleSkip, handicap, firstName, lastName, homeClubId, player?.name, isSubmitting]
+    [handleNext, handleComplete, handleSkip, handicap, firstName, lastName, homeClubId, player?.name, isSubmitting, currentStep]
   );
 
   return (
