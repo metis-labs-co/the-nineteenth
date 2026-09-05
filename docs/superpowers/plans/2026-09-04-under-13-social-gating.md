@@ -10,6 +10,24 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-04-social-media-compliance-design.md` (Part A, §1–§11)
 
+## Status — 2026-09-05
+
+**Tasks 1–13 implemented.** Full suite green (406 suites, 9308 passed, 0 failed),
+`pnpm verify:gate` PASSED, lint 0 errors.
+
+Deferred, and each needs a human or a database:
+
+| Item | Why it is still open |
+|---|---|
+| **Run the two migrations** | Authored but NOT applied. Sam runs them in the Supabase SQL editor: `20260904000000_age_gate_schema.sql`, then `20260904000100_age_gate_policies.sql`, then `20260904000200_age_gate_notifications.sql`. All idempotent, all inert (`enforce = FALSE`). |
+| **Task 1 Step 8 — iOS 26 happy path** | Never exercised at runtime. Needs a device/simulator on iOS 26 with a signed-in Apple Account. `AgeCheckStep` now gives it a call site. |
+| **Task 13 Step 4 — RLS performance** | Needs staging data. Run `EXPLAIN ANALYZE` on the feed query with `enforce = TRUE` before flipping the switch in production. |
+| **On-device pass as a restricted user** | Client gating now spans nine call sites. Dead-end entry points were found by grepping `navigate('<route>')`, which catches direct navigation but not dynamic route strings or nested navigators. Log in as an under-13 account and tap everything. |
+
+Note on Task 13 Step 2: the broad fixture change the plan anticipated was not needed.
+Suites that pulled in the new hooks were fixed by mocking at the hook boundary instead,
+which is narrower and does not bake an `age_status` default into every player fixture.
+
 ## Global Constraints
 
 - **Dependency pin: `expo-age-range@0.2.1` exactly.** It is the last release on the SDK-54 toolchain (`expo-module-scripts@^5.0.7`); 0.2.2+ moved to SDK 55. Do not upgrade, do not use `^`.
