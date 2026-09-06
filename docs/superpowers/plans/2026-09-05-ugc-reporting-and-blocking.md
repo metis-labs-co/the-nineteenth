@@ -29,6 +29,7 @@
 |---|---|
 | `supabase/migrations/20260905000000_ugc_moderation_schema.sql` | `content_reports`, `user_blocks`, `is_blocked_pair()`, RLS on the new tables |
 | `supabase/migrations/20260905000100_ugc_moderation_policies.sql` | Extends Part A's policies with report/block predicates; `search_players` update |
+| `supabase/migrations/20260905000150_ugc_moderation_feed.sql` | Filters blocked/reported rows inside the SECURITY DEFINER feed RPCs, which bypass RLS |
 | `supabase/migrations/20260905000200_ugc_content_filter.sql` | `contains_blocked_terms()` + `round_comments` insert trigger |
 | `supabase/migrations/20260905000300_ugc_moderation_ops.sql` | `pending_reports` view, `moderate_content()` RPC |
 | `src/utils/contentFilter.ts` | Shared word-list check, used client-side and mirrored in SQL |
@@ -53,6 +54,7 @@
   - `content_reports(id, reporter_id, content_type, content_id, author_id, reason, note, status, created_at, resolved_at)`
   - `user_blocks(blocker_id, blocked_id, created_at)`
   - `is_blocked_pair(a UUID, b UUID) RETURNS BOOLEAN`
+  - `is_reported_by_viewer(p_type TEXT, p_id UUID) RETURNS BOOLEAN`
   - `block_user(p_blocked UUID) RETURNS VOID` — inserts the block and deletes any friendship
   - `report_content(p_content_type TEXT, p_content_id UUID, p_author UUID, p_reason TEXT, p_note TEXT) RETURNS VOID`
 
@@ -127,6 +129,24 @@ AS $$
   );
 $$;
 
+-- Reporting hides content from the reporter. This is a SECURITY DEFINER helper
+-- rather than an inline NOT EXISTS in each policy, matching can_view_round(),
+-- social_enabled() and is_blocked_pair(). That is not stylistic: nesting RLS
+-- evaluation of one table inside another table's policy is how this repo got
+-- its rounds <-> scorecards recursion bug (see 20250111000000_fix_rls_recursion
+-- and the warning in 20260521000000).
+CREATE OR REPLACE FUNCTION is_reported_by_viewer(p_type TEXT, p_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM content_reports
+    WHERE reporter_id = auth.uid()
+      AND content_type = p_type
+      AND content_id = p_id
+  );
+$$;
+
 COMMENT ON FUNCTION is_blocked_pair IS
   'True when either user has blocked the other. Applied per policy.
    NEVER call this from can_view_round() - that helper is shared with round
@@ -185,6 +205,7 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION is_blocked_pair(UUID, UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION is_reported_by_viewer(TEXT, UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION block_user(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION report_content(TEXT, UUID, UUID, TEXT, TEXT) TO authenticated;
 ```
@@ -193,7 +214,7 @@ GRANT EXECUTE ON FUNCTION report_content(TEXT, UUID, UUID, TEXT, TEXT) TO authen
 
 ```bash
 grep -c "CREATE TABLE IF NOT EXISTS" supabase/migrations/20260905000000_ugc_moderation_schema.sql   # expect 2
-grep -o '\$\$' supabase/migrations/20260905000000_ugc_moderation_schema.sql | wc -l                 # expect 6 (3 functions)
+grep -o '\$\$' supabase/migrations/20260905000000_ugc_moderation_schema.sql | wc -l                 # expect 8 (4 functions)
 ```
 
 - [ ] **Step 3: Commit**
@@ -236,12 +257,7 @@ CREATE POLICY round_comments_select ON round_comments FOR SELECT
     AND social_enabled()
     AND can_view_round(round_id)
     AND NOT is_blocked_pair(auth.uid(), author_id)
-    AND NOT EXISTS (
-      SELECT 1 FROM content_reports cr
-      WHERE cr.reporter_id = auth.uid()
-        AND cr.content_type = 'round_comment'
-        AND cr.content_id = round_comments.id
-    )
+    AND NOT is_reported_by_viewer('round_comment', round_comments.id)
   );
 
 DROP POLICY IF EXISTS round_photos_select ON round_photos;
@@ -252,12 +268,7 @@ CREATE POLICY round_photos_select ON round_photos FOR SELECT
     AND social_enabled()
     AND can_view_round(round_id)
     AND NOT is_blocked_pair(auth.uid(), uploader_id)
-    AND NOT EXISTS (
-      SELECT 1 FROM content_reports cr
-      WHERE cr.reporter_id = auth.uid()
-        AND cr.content_type = 'round_photo'
-        AND cr.content_id = round_photos.id
-    )
+    AND NOT is_reported_by_viewer('round_photo', round_photos.id)
   );
 
 DROP POLICY IF EXISTS round_likes_select ON round_likes;
@@ -321,13 +332,101 @@ Every recreated policy must still mention `social_enabled`. This grep is the gua
 grep -c "social_enabled" supabase/migrations/20260905000100_ugc_moderation_policies.sql
 ```
 
-Expected: **7** (four SELECT policies, two in the friendships INSERT, one pair in `search_players` counts as two — confirm each policy block individually if the number differs).
+Expected: **10**. Rather than trusting a single total, check each recreated policy carries it:
+
+```bash
+for pol in round_comments_select round_photos_select round_likes_select round_comment_likes_select; do
+  printf '%s: ' "$pol"
+  awk "/CREATE POLICY $pol /,/;/" supabase/migrations/20260905000100_ugc_moderation_policies.sql \
+    | grep -c social_enabled
+done
+```
+
+Expected: `1` for every one. A zero anywhere means Part A's under-13 gate was silently dropped
+from that policy, and no test will tell you.
 
 - [ ] **Step 3: Commit**
 
 ```bash
 git add supabase/migrations/20260905000100_ugc_moderation_policies.sql
 git commit -m "feat(moderation): hide reported and blocked content in RLS"
+```
+
+---
+
+### Task 2b: Filter blocked and reported content out of the feed RPCs
+
+⚠️ **Added after plan review — the policies in Task 2 do not cover this.**
+
+`get_activity_feed` and `get_round_feed_card` are `SECURITY DEFINER`, which **bypasses RLS**.
+They read the social tables directly in subqueries, so without this task a blocked user's
+photos still appear in your feed card and their comments and likes still count toward the
+totals. Part A got away with the same shape because it gated the feed at the top level (zero
+rows for a restricted user); blocking and reporting need per-row filtering *inside* the
+subqueries.
+
+Without this task, you can block someone and still see their photos on every shared round —
+the feature does not work.
+
+**Files:**
+- Create: `supabase/migrations/20260905000150_ugc_moderation_feed.sql`
+
+**Interfaces:**
+- Consumes: `is_blocked_pair()`, `is_reported_by_viewer()` (Task 1)
+- Produces: no new callable surface
+
+- [ ] **Step 1: Reproduce both RPCs with the subqueries filtered**
+
+Extract both function bodies verbatim from their current definition in
+`supabase/migrations/20260904000100_age_gate_policies.sql` — do **not** retype them; they are
+long and one dropped predicate silently removes Part A's age gate. Then apply exactly these
+four edits to each function (the aliases are `vr` in `get_activity_feed` and `r` in
+`get_round_feed_card`; everything else is identical):
+
+```sql
+-- 1. photos: exclude blocked uploaders and anything the viewer reported
+      FROM round_photos ph
+      WHERE ph.round_id = vr.id AND ph.deleted_at IS NULL
+        AND NOT is_blocked_pair(auth.uid(), ph.uploader_id)
+        AND NOT is_reported_by_viewer('round_photo', ph.id)
+
+-- 2. like_count
+    (SELECT COUNT(*) FROM round_likes rl
+      WHERE rl.round_id = vr.id
+        AND NOT is_blocked_pair(auth.uid(), rl.player_id))::INT,
+
+-- 3. comment_count
+    (SELECT COUNT(*) FROM round_comments rc
+      WHERE rc.round_id = vr.id AND rc.deleted_at IS NULL
+        AND NOT is_blocked_pair(auth.uid(), rc.author_id)
+        AND NOT is_reported_by_viewer('round_comment', rc.id))::INT,
+
+-- 4. viewer_has_liked is the viewer's OWN like, so it needs no filtering.
+--    Left unchanged deliberately - do not "tidy" it by adding a predicate.
+```
+
+The `participants` subquery is **not** filtered: it lists who played the round, which is a
+fact about the round rather than user-generated content, and blanking a playing partner out
+of a scorecard would be wrong.
+
+- [ ] **Step 2: Verify the bodies came across intact**
+
+```bash
+F=supabase/migrations/20260905000150_ugc_moderation_feed.sql
+grep -c "social_enabled()" $F          # expect 2 - one per RPC, Part A's gate preserved
+grep -c "is_blocked_pair" $F           # expect 6 - three subqueries x two RPCs
+grep -c "is_reported_by_viewer" $F     # expect 4 - photos + comments, x two RPCs
+grep -o '\$\$' $F | wc -l              # expect 4 - two functions
+```
+
+If `social_enabled()` is not exactly 2, Part A's age gate was lost in the copy and the feed
+is now open to under-13 accounts.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add supabase/migrations/20260905000150_ugc_moderation_feed.sql
+git commit -m "feat(moderation): filter blocked and reported content from feed RPCs"
 ```
 
 ---
@@ -396,6 +495,11 @@ Expected: FAIL — cannot resolve `@/utils/contentFilter`.
  * SLUR_EXAMPLE is a placeholder kept so the tests are readable and the file can
  * be reviewed without shipping slurs in the diff. Replace with a real list
  * before submission — see the note in the Deployment section of the plan.
+ *
+ * ⚠️ MUST be kept in sync with contains_blocked_terms() in
+ * supabase/migrations/20260905000200_ugc_content_filter.sql. This check is UX
+ * (it stops an honest user before they post); the database trigger is the
+ * enforcement, because a modified client can skip this one entirely.
  */
 export const BLOCKED_TERMS: readonly string[] = ['slur_example'];
 
@@ -433,7 +537,12 @@ The client check can be bypassed by a modified client, so the same list is enfor
 ```sql
 -- supabase/migrations/20260905000200_ugc_content_filter.sql
 -- Server-side backstop for the comment content filter.
--- Keep the term list in sync with src/utils/contentFilter.ts.
+--
+-- ⚠️ The term list here MUST match BLOCKED_TERMS in src/utils/contentFilter.ts.
+-- This trigger is the enforcement (a modified client can skip the TS check);
+-- the TS check exists so an honest user is stopped before they post rather than
+-- getting a database error. Update both together or the filter is inconsistent.
+--
 -- Safe to re-run.
 
 CREATE OR REPLACE FUNCTION contains_blocked_terms(p_text TEXT)
@@ -777,6 +886,11 @@ describe('ReportSheet', () => {
     expect(toJSON()).toBeNull();
   });
 
+  it('collects an optional note', () => {
+    render(<ReportSheet visible onSubmit={jest.fn()} onDismiss={jest.fn()} />);
+    expect(screen.getByLabelText('Add detail (optional)')).toBeTruthy();
+  });
+
   it('offers every reason', () => {
     render(<ReportSheet visible onSubmit={jest.fn()} onDismiss={jest.fn()} />);
     ['Offensive', 'Harassment', 'Spam', 'Nudity', 'Other'].forEach((label) => {
@@ -790,6 +904,24 @@ describe('ReportSheet', () => {
     fireEvent.press(screen.getByText('Harassment'));
     fireEvent.press(screen.getByText('Report'));
     await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('harassment', undefined));
+  });
+
+  it('passes an optional note through', async () => {
+    const onSubmit = jest.fn().mockResolvedValue(undefined);
+    render(<ReportSheet visible onSubmit={onSubmit} onDismiss={jest.fn()} />);
+    fireEvent.press(screen.getByText('Other'));
+    fireEvent.changeText(screen.getByLabelText('Add detail (optional)'), 'targeted abuse');
+    fireEvent.press(screen.getByText('Report'));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('other', 'targeted abuse'));
+  });
+
+  it('sends undefined rather than an empty string when the note is blank', async () => {
+    const onSubmit = jest.fn().mockResolvedValue(undefined);
+    render(<ReportSheet visible onSubmit={onSubmit} onDismiss={jest.fn()} />);
+    fireEvent.press(screen.getByText('Spam'));
+    fireEvent.changeText(screen.getByLabelText('Add detail (optional)'), '   ');
+    fireEvent.press(screen.getByText('Report'));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('spam', undefined));
   });
 
   it('does not submit until a reason is chosen', () => {
@@ -814,7 +946,7 @@ Expected: FAIL — cannot resolve `@/components/moderation/ReportSheet`.
 ```tsx
 // src/components/moderation/ReportSheet.tsx
 import React, { useCallback, useState } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
 import { Text } from 'react-native-paper';
 
 import { BottomSheet } from '@/components/common/BottomSheet/BottomSheet';
@@ -839,18 +971,21 @@ export interface ReportSheetProps {
 export function ReportSheet({ visible, onSubmit, onDismiss }: ReportSheetProps) {
   const colors = useThemeColors();
   const [reason, setReason] = useState<ReportReason | null>(null);
+  const [note, setNote] = useState('');
   const [isBusy, setIsBusy] = useState(false);
 
   const handleSubmit = useCallback(async () => {
     if (!reason) return;
     setIsBusy(true);
     try {
-      await onSubmit(reason, undefined);
+      // Blank or whitespace-only becomes undefined rather than an empty string,
+      // so the column stores NULL and the operator email omits the line.
+      await onSubmit(reason, note.trim() || undefined);
       onDismiss();
     } finally {
       setIsBusy(false);
     }
-  }, [reason, onSubmit, onDismiss]);
+  }, [reason, note, onSubmit, onDismiss]);
 
   if (!visible) return null;
 
@@ -880,6 +1015,20 @@ export function ReportSheet({ visible, onSubmit, onDismiss }: ReportSheetProps) 
           </TouchableOpacity>
         ))}
 
+        <TextInput
+          style={[
+            styles.note,
+            { borderColor: colors.border, color: colors.textPrimary, backgroundColor: colors.surface },
+          ]}
+          value={note}
+          onChangeText={setNote}
+          placeholder="Add detail (optional)"
+          placeholderTextColor={colors.textSecondary}
+          accessibilityLabel="Add detail (optional)"
+          multiline
+          maxLength={500}
+        />
+
         <TouchableOpacity
           style={[
             styles.submit,
@@ -907,6 +1056,14 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     borderRadius: borderRadius.lg,
     borderWidth: 1,
+  },
+  note: {
+    marginTop: spacing.sm,
+    minHeight: 64,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderRadius: borderRadius.lg,
+    textAlignVertical: 'top',
   },
   submit: {
     marginTop: spacing.md,
@@ -1057,14 +1214,14 @@ const [reporting, setReporting] = useState<{ id: string; author_id: string } | n
 const { report } = useReportContent();
 
 const handleReport = useCallback(
-  async (reason: ReportReason) => {
+  async (reason: ReportReason, note?: string) => {
     if (!reporting) return;
     await report({
       contentType: 'round_comment',
       contentId: reporting.id,
       authorId: reporting.author_id,
       reason,
-      note: undefined,
+      note,
     });
     setReporting(null);
   },
@@ -1092,14 +1249,14 @@ const [isReporting, setIsReporting] = useState(false);
 const { report } = useReportContent();
 
 const handleReport = useCallback(
-  async (reason: ReportReason) => {
+  async (reason: ReportReason, note?: string) => {
     if (!current) return;
     await report({
       contentType: 'round_photo',
       contentId: current.id,
       authorId: current.uploader_id ?? null,
       reason,
-      note: undefined,
+      note,
     });
     setIsReporting(false);
     onClose(); // the photo is now hidden from this viewer, so the frame is stale
@@ -1366,7 +1523,15 @@ git commit -m "feat(moderation): block/report a player and manage blocks"
 -- Dashboard workflow for actioning reports. Safe to re-run.
 
 -- Everything the operator needs to judge a report, in one place.
-CREATE OR REPLACE VIEW pending_reports AS
+--
+-- ⚠️ security_invoker = true is REQUIRED. Without it the view runs as its owner
+-- and content_reports' RLS does not apply, exposing the entire moderation queue
+-- - reporter names and reported content included - to every authenticated user.
+-- It also trips this project's security linter, which already forced the same
+-- fix on achievement_leaderboard (20260303000000) and the sand-save views.
+-- The operator reads this through the service role, which is unaffected.
+CREATE OR REPLACE VIEW pending_reports
+WITH (security_invoker = true) AS
   SELECT
     cr.id,
     cr.created_at,
@@ -1386,6 +1551,8 @@ CREATE OR REPLACE VIEW pending_reports AS
   LEFT JOIN players author   ON author.id = cr.author_id
   WHERE cr.status = 'open'
   ORDER BY cr.created_at DESC;
+
+ALTER VIEW pending_reports SET (security_invoker = true);
 
 -- Takedown reuses the existing deleted_at soft-delete: every read path already
 -- filters on it, so removal needs no new query changes. The audit trail of who
@@ -1566,11 +1733,11 @@ git commit -m "feat(moderation): operator alerting and dashboard helpers"
 
 - [ ] **Step 1: Add the response commitment**
 
-§5.3 already prohibits objectionable content but promises nothing about response. Reviewers look for the commitment. Append to §5.3:
+§5.3 already prohibits objectionable content but promises nothing about response, and
+reviewers look for the commitment. Spec §12.7 says to amend §5.3, so append this paragraph
+**inside** §5.3 rather than opening a new section:
 
 ```markdown
-### 5.4 Reporting and Enforcement
-
 You can report objectionable content from within the app, and block any other
 user. We remove reported content that breaches these Terms, and eject users who
 post it, within 24 hours of a report being received.
@@ -1682,6 +1849,17 @@ VALUES ('<round-id>', auth.uid(), 'you are a slur_example');
 -- expect: ERROR - Comment contains content that is not allowed
 ```
 
+**Blocked content is gone from the feed, not just from direct table reads.** This is the
+check that would have caught the Task 2b gap: the feed RPCs are SECURITY DEFINER and bypass
+RLS, so passing the table-level checks above proves nothing about them.
+
+```sql
+-- as user A, having blocked B, on a round where B commented and added a photo
+SELECT jsonb_array_length(photos), comment_count, like_count
+FROM get_activity_feed(20) WHERE round_id = '<shared-round-id>';
+-- expect: B's photo absent, and both counts excluding B's rows
+```
+
 **Takedown removes content from every read path, including the feed RPCs.**
 
 ```sql
@@ -1719,8 +1897,9 @@ Migrations are authored, not applied. Run them in the Supabase SQL editor in ord
 
 1. `20260905000000_ugc_moderation_schema.sql`
 2. `20260905000100_ugc_moderation_policies.sql`
-3. `20260905000200_ugc_content_filter.sql`
-4. `20260905000300_ugc_moderation_ops.sql`
+3. `20260905000150_ugc_moderation_feed.sql`
+4. `20260905000200_ugc_content_filter.sql`
+5. `20260905000300_ugc_moderation_ops.sql`
 
 Then:
 
