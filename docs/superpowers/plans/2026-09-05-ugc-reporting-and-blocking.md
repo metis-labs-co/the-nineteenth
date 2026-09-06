@@ -413,10 +413,13 @@ of a scorecard would be wrong.
 
 ```bash
 F=supabase/migrations/20260905000150_ugc_moderation_feed.sql
-grep -c "social_enabled()" $F          # expect 2 - one per RPC, Part A's gate preserved
-grep -c "is_blocked_pair" $F           # expect 6 - three subqueries x two RPCs
-grep -c "is_reported_by_viewer" $F     # expect 4 - photos + comments, x two RPCs
-grep -o '\$\$' $F | wc -l              # expect 4 - two functions
+# Strip comment lines first: the migration header names both helpers, which
+# otherwise inflates each count by one and looks like an extra predicate.
+SQL=$(grep -v '^[[:space:]]*--' $F)
+grep -c "social_enabled()"        <<<"$SQL"   # expect 2 - one per RPC, Part A's gate preserved
+grep -c "is_blocked_pair"         <<<"$SQL"   # expect 6 - photos + likes + comments, x two RPCs
+grep -c "is_reported_by_viewer"   <<<"$SQL"   # expect 4 - photos + comments, x two RPCs
+grep -o '\$\$' $F | wc -l                     # expect 4 - two functions
 ```
 
 If `social_enabled()` is not exactly 2, Part A's age gate was lost in the copy and the feed
