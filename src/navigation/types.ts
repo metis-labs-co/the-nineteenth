@@ -252,6 +252,7 @@ export type RootStackParamList = {
 
   // Privacy & Data
   PrivacyData: undefined;
+  BlockedUsers: undefined;
 
   // Country / Region
   CountryRegion: undefined;

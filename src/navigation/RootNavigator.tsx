@@ -22,6 +22,7 @@ import { NotificationProvider } from '@/context/NotificationContext';
 import { useBiometricLock } from '@/hooks/useBiometricLock';
 import { BiometricLockScreen, BiometricEnrollPrompt } from '@/components/biometric';
 import { AgeCheckPrompt } from '@/components/age';
+import BlockedUsersScreen from '@/screens/profile/BlockedUsersScreen';
 import { supabase } from '@/services/supabase/client';
 import { activeRoundSession } from '@/services/activeRoundSession';
 import { pushDiagnostic } from '@/services/diagnostics';
@@ -727,6 +728,13 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
                 title: 'Privacy & Data',
                 headerShown: false,
               }}
+            />
+            {/* Registered unconditionally - reviewing and undoing blocks is not
+                a social surface, so a restricted user must still reach it. */}
+            <Stack.Screen
+              name="BlockedUsers"
+              component={BlockedUsersScreen}
+              options={{ title: 'Blocked players', headerShown: false }}
             />
 
             <Stack.Screen

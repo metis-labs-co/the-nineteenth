@@ -194,6 +194,7 @@ export default function ProfileScreen() {
           onSubscription={() => navigation.navigate('Subscription')}
           onGuestPlayers={() => navigation.navigate('LinkPlaceholder')}
           onPrivacyData={() => navigation.navigate('PrivacyData')}
+          onBlockedUsers={() => navigation.navigate('BlockedUsers')}
           onAppearance={() => navigation.navigate('Appearance')}
           onGameSettings={() => navigation.navigate('GameSettings')}
           onWhatsInTheBag={() => navigation.navigate('WhatsInTheBag')}
