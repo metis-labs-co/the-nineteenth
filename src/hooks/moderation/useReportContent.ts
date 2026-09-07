@@ -30,7 +30,7 @@ export function useReportContent() {
     async (input: ReportInput) => {
       setIsReporting(true);
       try {
-        const { error } = await (supabase as any).rpc('report_content', {
+        const { data: reportId, error } = await (supabase as any).rpc('report_content', {
           p_content_type: input.contentType,
           p_content_id: input.contentId,
           p_author: input.authorId,
@@ -38,6 +38,15 @@ export function useReportContent() {
           p_note: input.note ?? null,
         });
         if (error) throw error;
+
+        // Best-effort: the report is already recorded, so a failed alert must
+        // not surface to the user as a failed report.
+        if (reportId) {
+          void (supabase as any).functions
+            .invoke('notify-content-report', { body: { report_id: reportId } })
+            .catch(() => undefined);
+        }
+
         await queryClient.invalidateQueries({ queryKey: ['activity'] });
       } finally {
         setIsReporting(false);
