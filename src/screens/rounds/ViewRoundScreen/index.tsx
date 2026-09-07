@@ -61,6 +61,7 @@ import { ConfirmationDialog } from '@/components/common';
 import { useConfirmationDialog } from '@/hooks';
 import { useDeleteShot, useSetShotClub } from '@/hooks/shots';
 import { useBag } from '@/hooks/queries/useBag';
+import { useSocialAccess } from '@/hooks/useSocialAccess';
 import { clubLabel, type ClubKey } from '@/constants/clubs';
 import { filterHolesByNineType } from '@/utils/holeTransformers';
 import type { ShotLogEntry } from '@/types/database/shotLog.types';
@@ -69,6 +70,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'ViewRound'>;
 
 export default function ViewRoundScreen(props: Props) {
   const vm = useViewRoundScreen(props);
+  const { isRestricted } = useSocialAccess();
   const colors = useThemeColors();
   const isDark = useIsDark();
   const insets = useSafeAreaInsets();
@@ -242,7 +244,9 @@ export default function ViewRoundScreen(props: Props) {
         showBack
         onBack={vm.handleBack}
         rightActions={[
-          ...(round.status === 'completed'
+          // RoundActivity is unregistered for restricted users, so the action
+          // has to go with it or the tap navigates nowhere.
+          ...(round.status === 'completed' && !isRestricted
             ? [
                 {
                   icon: 'comment-outline',

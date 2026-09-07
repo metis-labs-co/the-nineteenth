@@ -15,6 +15,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import type { NotificationType } from '@/types/database/enums';
 import { createModuleLogger } from '@/utils/debugLogger';
+import { queryClient } from '@/services/queryClient';
 import {
   NotificationCategories,
   NotificationActions,
@@ -127,6 +128,62 @@ const NOTIFICATION_SCREEN_MAP: Record<NotificationType, keyof RootStackParamList
   comment_liked: 'RoundActivity',
 };
 
+/**
+ * Social notification types whose destination screen is age-gated.
+ *
+ * All four carry user-generated content: the comment ones include a
+ * `comment_preview` holding the comment body verbatim.
+ */
+const SOCIAL_NOTIFICATION_TYPES: ReadonlySet<string> = new Set([
+  'round_liked',
+  'round_commented',
+  'round_also_commented',
+  'comment_liked',
+]);
+
+/**
+ * Resolve a notification's destination screen, accounting for age gating.
+ *
+ * Restricted users have no RoundActivity route registered, so a social
+ * notification that slipped through before reclassification would navigate
+ * nowhere. Those fall back to the round screen.
+ *
+ * ⚠️ Takes `isRestricted`, not `socialEnabled`. Notifications are frequently
+ * handled at cold start with no cached profile; diverting on "not yet known"
+ * would send eligible users to the wrong screen on the most common deep-link
+ * path in the app.
+ */
+export function resolveNotificationRoute(
+  type: NotificationType,
+  opts: { isRestricted: boolean }
+): keyof RootStackParamList {
+  const target = NOTIFICATION_SCREEN_MAP[type] || 'Notifications';
+  if (opts.isRestricted && SOCIAL_NOTIFICATION_TYPES.has(type)) {
+    return 'ViewRound';
+  }
+  return target;
+}
+
+/**
+ * Whether the signed-in user is positively known to be age-restricted.
+ *
+ * Reads the cached player profile; the handler runs outside React so it cannot
+ * use useSocialAccess. Returns false when nothing is cached, which keeps deep
+ * links working during cold start.
+ */
+function isSocialRestrictedFromCache(): boolean {
+  try {
+    const entries = queryClient.getQueriesData<{ age_status?: string }>({
+      queryKey: ['auth', 'player'],
+    });
+    const player = entries.find(([, data]) => Boolean(data))?.[1];
+    if (!player?.age_status) return false;
+    return player.age_status !== 'eligible';
+  } catch {
+    return false;
+  }
+}
+
 // =====================================================
 // HELPER FUNCTIONS
 // =====================================================
@@ -205,7 +262,9 @@ function getTargetScreen(
     return 'Notifications';
   }
 
-  return NOTIFICATION_SCREEN_MAP[type] || 'Notifications';
+  return resolveNotificationRoute(type, {
+    isRestricted: isSocialRestrictedFromCache(),
+  });
 }
 
 /**

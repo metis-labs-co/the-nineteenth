@@ -182,3 +182,5 @@ export { ScoringTypeField } from './ScoringTypeField';
 export type { ScoringTypeFieldProps } from './ScoringTypeField';
 
 export { default as ForceUpdateModal, shouldShowSoft } from './ForceUpdateModal';
+export { AgeLock } from './AgeLock';
+export type { AgeLockProps } from './AgeLock';

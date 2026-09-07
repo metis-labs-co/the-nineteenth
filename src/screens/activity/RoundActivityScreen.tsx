@@ -11,6 +11,7 @@
  * flow never surfaces an image picker.
  */
 
+import { AgeLock } from '@/components/common';
 import React from 'react';
 import {
   View,
@@ -76,7 +77,13 @@ export default function RoundActivityScreen({ route }: Props) {
             showsVerticalScrollIndicator={false}
           >
             <ActivityRoundCard card={card} onOpen={noop} enablePlayerProfileLink />
-            <RoundComments roundId={roundId} />
+            {/* Belt-and-braces: this route is unregistered for restricted
+                users, but it IS registered during the cold-start window
+                before the profile resolves, which is exactly when a tapped
+                push notification lands here. */}
+            <AgeLock>
+              <RoundComments roundId={roundId} />
+            </AgeLock>
           </ScrollView>
           <RoundCommentComposer roundId={roundId} />
         </KeyboardAvoidingView>

@@ -31,6 +31,15 @@ const mockPublicLeagues = [
   { id: 'lg-1', name: 'Sunday Swingers', player_count: 8 },
 ];
 
+jest.mock('@/hooks/useSocialAccess', () => ({
+  useSocialAccess: () => ({
+    status: 'eligible',
+    socialEnabled: true,
+    isRestricted: false,
+    isLoading: false,
+  }),
+}));
+
 jest.mock('@/hooks/useLeagues', () => ({
   useJoinLeague: () => ({ mutateAsync: jest.fn(), isPending: false }),
   usePublicLeagues: () => ({

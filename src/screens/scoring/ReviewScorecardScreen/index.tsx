@@ -20,6 +20,7 @@ import { Tabs } from '@/components/common/Tabs';
 import { MismatchResolutionModal } from '@/components/scoring';
 import { spacing } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
+import { useSocialAccess } from '@/hooks/useSocialAccess';
 import { useAuth, useConfirmationDialog } from '@/hooks';
 import { usePendingMismatches, useResolveMismatch, usePartnerStatus } from '@/hooks/useScoreMismatch';
 import { useRoundScoringPairs, useScorecardsRealtime } from '@/hooks/scorecard';
@@ -60,6 +61,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'ReviewScorecard'>;
 
 export default function ReviewScorecardScreen({ navigation, route }: Props) {
   const colors = useThemeColors();
+  const { isRestricted } = useSocialAccess();
   const insets = useSafeAreaInsets();
   const netInfo = useNetInfo();
   const isOnline = netInfo.isConnected ?? true;
@@ -369,7 +371,7 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
         showBack
         onBack={handleGoBack}
         rightActions={
-          roundId
+          roundId && !isRestricted
             ? [
                 {
                   icon: 'image-multiple',

@@ -177,6 +177,7 @@ jest.mock('@/services/supabase/client', () => ({
         single: jest.fn(() => Promise.resolve({ data: null, error: null })),
       };
     }),
+    rpc: jest.fn(() => Promise.resolve({ data: [], error: null })),
   },
 }));
 
@@ -310,20 +311,16 @@ describe('useSearchPlayers', () => {
     jest.clearAllMocks();
     mockPlayersData = mockPlayers;
 
-    mockSupabase.from.mockImplementation((table: string) => {
-      if (table === 'players') {
-        return {
-          select: jest.fn().mockReturnThis(),
-          neq: jest.fn().mockReturnThis(),
-          ilike: jest.fn().mockReturnThis(),
-          limit: jest.fn(() =>
-            Promise.resolve({
-              data: mockPlayersData,
-              error: null,
-            })
-          ),
-        };
+    // Search goes through the search_players() RPC, not the players table:
+    // the age gate cannot live on the blanket players SELECT policy.
+    mockSupabase.rpc.mockImplementation((fn: string) => {
+      if (fn === 'search_players') {
+        return Promise.resolve({ data: mockPlayersData, error: null });
       }
+      return Promise.resolve({ data: [], error: null });
+    });
+
+    mockSupabase.from.mockImplementation((table: string) => {
       if (table === 'friendships') {
         return {
           select: jest.fn().mockReturnThis(),

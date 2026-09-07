@@ -20,6 +20,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import { useThemeColors } from '@/context/ThemeContext';
+import { useSocialAccess } from '@/hooks/useSocialAccess';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { usePlayer } from '@/hooks/usePlayer';
@@ -189,6 +190,8 @@ export default function AchievementsScreen() {
     : 'My Achievements';
 
   // Navigation to leaderboard
+  const { isRestricted } = useSocialAccess();
+
   const handleNavigateToLeaderboard = useCallback(() => {
     navigation.navigate('AchievementLeaderboard');
   }, [navigation]);
@@ -262,13 +265,16 @@ export default function AchievementsScreen() {
   const keyExtractor = useCallback((item: AchievementWithProgress) => item.id, []);
 
   // Right action for leaderboard navigation
-  const rightActions = [
-    {
-      icon: 'podium',
-      onPress: handleNavigateToLeaderboard,
-      accessibilityLabel: 'View achievement leaderboard',
-    },
-  ];
+  // The leaderboard route is unregistered for restricted users.
+  const rightActions = isRestricted
+    ? []
+    : [
+        {
+          icon: 'podium',
+          onPress: handleNavigateToLeaderboard,
+          accessibilityLabel: 'View achievement leaderboard',
+        },
+      ];
 
   // Loading state
   if (isLoadingSummary && !summary) {

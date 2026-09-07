@@ -33,6 +33,7 @@ interface ProfileMenuSectionProps {
   onSubscription: () => void;
   onGuestPlayers: () => void;
   onPrivacyData: () => void;
+  onBlockedUsers: () => void;
   onAppearance: () => void;
   onGameSettings: () => void;
   onWhatsInTheBag: () => void;
@@ -60,6 +61,7 @@ export const ProfileMenuSection = React.memo(function ProfileMenuSection({
   onGameResults,
   onGuestPlayers,
   onPrivacyData,
+  onBlockedUsers,
   onAppearance,
   onGameSettings,
   onWhatsInTheBag,
@@ -188,6 +190,12 @@ export const ProfileMenuSection = React.memo(function ProfileMenuSection({
             title="Privacy & Data"
             onPress={onPrivacyData}
             testID="menu-privacy-data"
+          />
+          <MenuItemRow
+            icon="block-helper"
+            title="Blocked players"
+            onPress={onBlockedUsers}
+            testID="menu-blocked-users"
           />
         </View>
       </View>

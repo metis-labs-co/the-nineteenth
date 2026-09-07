@@ -5,7 +5,7 @@
  * pinned as a sticky footer above the keyboard.
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { formatDistanceToNow } from 'date-fns';
@@ -15,6 +15,8 @@ import { SectionHeader, PlayerAvatar } from '@/components/common';
 import { useAuth } from '@/hooks/useAuth';
 import { useRoundComments, useDeleteComment, useLikeComment, useUnlikeComment } from '@/hooks/activity';
 import type { RoundComment } from '@/hooks/activity';
+import { ReportSheet } from '@/components/moderation/ReportSheet';
+import { useReportContent, type ReportReason } from '@/hooks/moderation';
 
 function timeAgo(iso: string): string {
   try {
@@ -32,6 +34,26 @@ export function RoundComments({ roundId }: RoundCommentsProps) {
   const colors = useThemeColors();
   const { user } = useAuth();
   const { data: comments, isLoading } = useRoundComments(roundId);
+
+  // Reporting hides the comment from this viewer via RLS, so the list simply
+  // stops returning it - there is no local "hidden" state to maintain.
+  const [reporting, setReporting] = useState<RoundComment | null>(null);
+  const { report } = useReportContent();
+
+  const handleReport = useCallback(
+    async (reason: ReportReason, note?: string) => {
+      if (!reporting) return;
+      await report({
+        contentType: 'round_comment',
+        contentId: reporting.id,
+        authorId: reporting.author_id,
+        reason,
+        note,
+      });
+      setReporting(null);
+    },
+    [reporting, report]
+  );
   const deleteComment = useDeleteComment();
   const likeComment = useLikeComment();
   const unlikeComment = useUnlikeComment();
@@ -106,7 +128,16 @@ export function RoundComments({ roundId }: RoundCommentsProps) {
                     >
                       <Icon source="trash-can-outline" size={16} color={colors.textSecondary} />
                     </TouchableOpacity>
-                  ) : null}
+                  ) : (
+                    <TouchableOpacity
+                      onPress={() => setReporting(comment)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Report comment by ${comment.author?.name ?? 'Player'}`}
+                      hitSlop={8}
+                    >
+                      <Icon source="flag-outline" size={16} color={colors.textSecondary} />
+                    </TouchableOpacity>
+                  )}
                 </View>
                 <Text style={[styles.commentText, { color: colors.textPrimary }]}>
                   {comment.body}
@@ -134,6 +165,12 @@ export function RoundComments({ roundId }: RoundCommentsProps) {
           );
         })}
       </View>
+
+      <ReportSheet
+        visible={reporting !== null}
+        onSubmit={handleReport}
+        onDismiss={() => setReporting(null)}
+      />
     </View>
   );
 }
