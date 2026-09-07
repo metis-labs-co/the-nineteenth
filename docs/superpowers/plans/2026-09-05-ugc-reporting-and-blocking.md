@@ -10,6 +10,26 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-04-social-media-compliance-design.md` (Part B, §12)
 
+## Status — 2026-09-07
+
+**Tasks 1–10 implemented** (11 including Task 2b). Full suite green (411 suites, 9330 passed,
+0 failed), `pnpm verify:gate` PASSED.
+
+Age-gate survival verified per policy after Task 2 recreated them:
+`round_comments_select`, `round_photos_select`, `round_likes_select`,
+`round_comment_likes_select` each carry `social_enabled` once; `search_players` twice;
+the feed RPCs twice, with 6 `is_blocked_pair` and 4 `is_reported_by_viewer`.
+
+Deferred — each needs a human or a database:
+
+| Item | Why it is still open |
+|---|---|
+| **Run the five migrations** | Authored, NOT applied. Order in the Deployment section. All idempotent. |
+| **Populate the word list** | Ships with `slur_example` only, in BOTH `src/utils/contentFilter.ts` and `20260905000200`. The filter does nothing until both are filled in, and they must match. |
+| **Deploy `notify-content-report`** | `supabase functions deploy notify-content-report`, `RESEND_API_KEY` already set for `send-support-email`. The Terms' 24-hour promise depends on it. |
+| **SQL verification** | The policy-level checks cannot run under jest — see the SQL verification section, run as two real accounts after applying. |
+| **End-to-end moderation loop** | Report from a second account, confirm it hides for the reporter and stays visible to others, confirm the email lands, action it from the dashboard. |
+
 ## Global Constraints
 
 - **Part A is already implemented on this branch.** Tasks here MUST extend Part A's policies, never replace them. `round_comments_select`, `round_photos_select`, `round_likes_select`, `round_comment_likes_select` and `search_players()` already carry `social_enabled()`. Dropping and recreating one without re-adding that predicate silently removes the under-13 gate.
