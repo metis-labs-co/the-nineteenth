@@ -46,7 +46,7 @@ export function RoundListHeader({
         }
         rightContent={
           // This IS the rounds screen, so hide the cluster's golf button.
-          <HeaderQuickActions showRounds={false}>
+          <HeaderQuickActions showRounds={false} childrenPlacement="after-weather">
             {onQuickScore ? (
               <HeaderIconButton
                 icon="flash"

@@ -21,6 +21,12 @@
  *     </HeaderQuickActions>
  *   }
  * />
+ *
+ * // Use `childrenPlacement="after-weather"` to sit them to the right of the
+ * // weather chip instead:
+ * <HeaderQuickActions childrenPlacement="after-weather">
+ *   <HeaderIconButton icon="flash" onPress={onQuickScore} accessibilityLabel="Quick score" />
+ * </HeaderQuickActions>
  * ```
  */
 
@@ -93,6 +99,13 @@ interface HeaderQuickActionsProps {
   /** Optional screen-specific action(s) rendered before the trio */
   children?: React.ReactNode;
   /**
+   * Where the screen-specific `children` sit within the cluster.
+   * - `before-weather` (default): leading the cluster
+   * - `after-weather`: between the weather chip and the remaining icons
+   * @default 'before-weather'
+   */
+  childrenPlacement?: 'before-weather' | 'after-weather';
+  /**
    * Hide the rounds (golf) button — e.g. on the rounds list screen itself,
    * where it would navigate to the screen the user is already on.
    * @default true
@@ -102,6 +115,7 @@ interface HeaderQuickActionsProps {
 
 export function HeaderQuickActions({
   children,
+  childrenPlacement = 'before-weather',
   showRounds = true,
 }: HeaderQuickActionsProps) {
   const navigation = useNavigation<Nav>();
@@ -117,10 +131,11 @@ export function HeaderQuickActions({
 
   return (
     <View style={styles.row}>
-      {children}
+      {childrenPlacement === 'before-weather' ? children : null}
       {/* Always render the chip — it's a "my location" ambient indicator.
           The chip self-hides when there is no snapshot yet. */}
       <HeaderWeatherChip />
+      {childrenPlacement === 'after-weather' ? children : null}
       {showRounds ? (
         <HeaderIconButton
           icon="golf"
