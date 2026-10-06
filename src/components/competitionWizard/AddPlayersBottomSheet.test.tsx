@@ -19,7 +19,7 @@ import {
   waitFor,
 } from '@/__tests__/utils/renderHelpers';
 import AddPlayersBottomSheet from './AddPlayersBottomSheet';
-import type { Friend } from '@/types/database.types';
+import type { Friend, PlaceholderPlayerWithStats } from '@/types/database.types';
 
 // ============================================================================
 // MOCKS
@@ -342,6 +342,38 @@ jest.mock('@/types/subscription.types', () => ({
   isNoLimit: (value: number) => value === -2,
 }));
 
+// Mock toast
+const mockShowErrorToast = jest.fn();
+jest.mock('@/context/ToastContext', () => ({
+  useToast: () => ({ showErrorToast: mockShowErrorToast }),
+}));
+
+// Mock the organiser's guest (placeholder) players
+const mockGuests: PlaceholderPlayerWithStats[] = [
+  {
+    id: 'guest-1',
+    name: 'Guest Gary',
+    email: 'guest-1@placeholder.local',
+    handicap: 20,
+    created_at: new Date().toISOString(),
+    competitions_count: 0,
+    scorecards_count: 0,
+  },
+];
+const mockUsePlaceholderPlayers = jest.fn(() => ({ data: mockGuests }));
+jest.mock('@/hooks/usePlaceholderPlayers', () => ({
+  usePlaceholderPlayers: () => mockUsePlaceholderPlayers(),
+}));
+
+// Mock the create-guest modal
+jest.mock('@/components/common/AddPlaceholderModal', () => {
+  const { View } = require('react-native');
+  return {
+    AddPlaceholderModal: ({ visible }: { visible: boolean }) =>
+      visible ? <View testID="add-placeholder-modal" /> : null,
+  };
+});
+
 // ============================================================================
 // TEST SETUP
 // ============================================================================
@@ -362,6 +394,7 @@ describe('AddPlayersBottomSheet', () => {
       data: mockFriends,
       isLoading: false,
     });
+    mockUsePlaceholderPlayers.mockReturnValue({ data: mockGuests });
     mockSupabaseSelect.mockResolvedValue({ data: [], error: null });
     mockSupabaseInsert.mockResolvedValue({ error: null });
   });
@@ -501,10 +534,11 @@ describe('AddPlayersBottomSheet', () => {
         isLoading: false,
       });
 
+      // Guests already in the competition too, so the list is genuinely empty
       render(
         <AddPlayersBottomSheet
           {...defaultProps}
-          existingPlayerIds={['friend-1', 'friend-2', 'friend-3']}
+          existingPlayerIds={['friend-1', 'friend-2', 'friend-3', 'guest-1']}
         />
       );
 
@@ -933,6 +967,61 @@ describe('AddPlayersBottomSheet', () => {
 
       // Search bar accessibility label
       expect(screen.getByLabelText('Search friends')).toBeTruthy();
+    });
+  });
+
+  // ===========================================================================
+  // GUEST TESTS
+  // ===========================================================================
+
+  describe('Guests', () => {
+    it('shows the Add Guest button and guest list by default', () => {
+      render(<AddPlayersBottomSheet {...defaultProps} />);
+
+      expect(screen.getByLabelText('Add Guest')).toBeTruthy();
+      expect(screen.getByText('GUESTS')).toBeTruthy();
+      expect(screen.getByText('Guest Gary')).toBeTruthy();
+    });
+
+    it('opens the create-guest modal when Add Guest is pressed', () => {
+      render(<AddPlayersBottomSheet {...defaultProps} />);
+
+      fireEvent.press(screen.getByLabelText('Add Guest'));
+
+      expect(screen.getByTestId('add-placeholder-modal')).toBeTruthy();
+    });
+
+    it('hides guests already in the competition', () => {
+      render(<AddPlayersBottomSheet {...defaultProps} existingPlayerIds={['guest-1']} />);
+
+      expect(screen.queryByText('Guest Gary')).toBeNull();
+    });
+
+    it('hides the Add Guest button and guest list when the competition disallows guests', () => {
+      render(<AddPlayersBottomSheet {...defaultProps} allowGuests={false} />);
+
+      expect(screen.queryByLabelText('Add Guest')).toBeNull();
+      expect(screen.queryByText('GUESTS')).toBeNull();
+      expect(screen.queryByText('Guest Gary')).toBeNull();
+      // Friends are unaffected
+      expect(screen.getByText('John Smith')).toBeTruthy();
+    });
+
+    it('shows an error toast when adding players fails', async () => {
+      mockSupabaseInsert.mockResolvedValue({
+        error: { message: 'Guest players are disabled for this competition' },
+      });
+      render(<AddPlayersBottomSheet {...defaultProps} />);
+
+      fireEvent.press(screen.getByLabelText('Add John Smith'));
+      fireEvent.press(screen.getByText('Add 1 Player'));
+
+      await waitFor(() => {
+        expect(mockShowErrorToast).toHaveBeenCalledWith(
+          "Couldn't Add Players",
+          expect.stringContaining('Guest players are disabled')
+        );
+      });
     });
   });
 });

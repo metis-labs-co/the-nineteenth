@@ -5,6 +5,7 @@
  * - Slides up from bottom of screen
  * - Search friends to add
  * - Multi-select players with chips display
+ * - Add/select guest (placeholder) players when the competition allows guests
  * - Backdrop dismissal
  */
 
@@ -39,6 +40,11 @@ interface AddPlayersBottomSheetProps {
    * Current player count in the competition (existing players)
    */
   currentPlayerCount?: number;
+  /**
+   * Whether the competition allows guest (placeholder) players. When false the
+   * guest list and "Add Guest" button are hidden; the DB rejects guest inserts.
+   */
+  allowGuests?: boolean;
 }
 
 export default function AddPlayersBottomSheet({
@@ -48,6 +54,7 @@ export default function AddPlayersBottomSheet({
   existingPlayerIds,
   maxPlayers,
   currentPlayerCount = 0,
+  allowGuests = true,
 }: AddPlayersBottomSheetProps) {
   const colors = useThemeColors();
   const queryClient = useQueryClient();
@@ -85,8 +92,11 @@ export default function AddPlayersBottomSheet({
 
   // Filter to only show guests not already in the competition
   const availablePlaceholders = useMemo(
-    () => (placeholderPlayers ?? []).filter((p) => !existingPlayerIds.includes(p.id)),
-    [placeholderPlayers, existingPlayerIds]
+    () =>
+      allowGuests
+        ? (placeholderPlayers ?? []).filter((p) => !existingPlayerIds.includes(p.id))
+        : [],
+    [allowGuests, placeholderPlayers, existingPlayerIds]
   );
 
   // Add players mutation
@@ -119,6 +129,7 @@ export default function AddPlayersBottomSheet({
     },
     onError: (error) => {
       console.error('Failed to add players:', error);
+      showErrorToast("Couldn't Add Players", error.message);
     },
   });
 
@@ -207,7 +218,7 @@ export default function AddPlayersBottomSheet({
         }
         testID="add-players-selector"
         placeholderPlayers={availablePlaceholders}
-        onAddPlaceholderPress={() => setShowAddPlaceholderModal(true)}
+        onAddPlaceholderPress={allowGuests ? () => setShowAddPlaceholderModal(true) : undefined}
         addPlaceholderLabel="Add Guest"
       />
 
