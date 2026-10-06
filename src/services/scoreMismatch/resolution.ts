@@ -10,6 +10,7 @@ import { isSingleBallScore } from '@/types/database/base';
 import {
   getStrokesReceived,
   calculateStablefordPointsNet,
+  getEffectiveGrossStrokes,
 } from '@/utils/scoring';
 import { createModuleLogger } from '@/utils/debugLogger';
 import { fromTable } from './types';
@@ -152,7 +153,8 @@ export async function applyResolvedScoreToScorecard(
  * `calculatePlayerStats` (scorecard view) and the sync pipeline so all three
  * writers agree on total_gross / total_net / total_points.
  *
- * - `totalGross`: sum of single-ball strokes across scored holes
+ * - `totalGross`: sum of single-ball strokes across scored holes, with a pickup
+ *   counted as net double bogey (I3) when hole data is available
  * - `totalNet`: `totalGross - daily_handicap_used` when DHC is present, else null
  * - `totalPoints`: stableford per-hole sum (only when game_type === 'stableford'
  *   and holes + DHC are available), else null
@@ -176,14 +178,13 @@ export function recomputeScorecardTotals(
       if (!score || !isSingleBallScore(score) || !score.strokes || score.strokes <= 0) {
         continue;
       }
-      totalGross += score.strokes;
+      const strokesReceived = dhc != null ? getStrokesReceived(dhc, hole.strokeIndex) : 0;
+      // A pickup counts as net double bogey, matching the store's totals.
+      const strokes = getEffectiveGrossStrokes(score.strokes, hole.par, strokesReceived);
+      if (strokes == null) continue;
+      totalGross += strokes;
       if (canComputePoints) {
-        const strokesReceived = getStrokesReceived(dhc as number, hole.strokeIndex);
-        totalPoints += calculateStablefordPointsNet(
-          score.strokes,
-          hole.par,
-          strokesReceived
-        );
+        totalPoints += calculateStablefordPointsNet(strokes, hole.par, strokesReceived);
       }
     }
   } else {
