@@ -15,6 +15,7 @@ import {
 } from '@/utils/scoring';
 import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
 import { calculateScoreDifferential } from '@/utils/handicapDifferential';
+import { calculateAdjustedGrossScore } from '@/utils/adjustedGross';
 import { getBaseHandicap, type ScorecardPlayerInfo } from '@/utils/scorecardCalculations';
 import type { Hole, TeeBox } from '@/types/database.types';
 import type { HandicapSource } from '@/types/database/enums';
@@ -162,15 +163,23 @@ export function useQuickScoreEntry({ roundId, playerId }: UseQuickScoreEntryPara
     return { totalGross, totalNet, totalPoints, holesEntered };
   }, [scores, holes, holePoints, dailyHandicap]);
 
-  // Handicap differential for review
+  // Handicap differential for review. Uses the WHS ADJUSTED gross (every hole
+  // capped at net double bogey) so this preview matches what the submit path
+  // persists — quick entry accepts up to 12 strokes on a hole, well above the
+  // cap on most holes.
   const handicapDifferential = useMemo(() => {
     if (!selectedTee?.courseRating || !selectedTee?.slopeRating || totals.totalGross <= 0) return null;
+    const { adjustedGross } = calculateAdjustedGrossScore({
+      holes,
+      scores,
+      dailyHandicap,
+    });
     return calculateScoreDifferential({
-      adjustedGrossScore: totals.totalGross,
+      adjustedGrossScore: adjustedGross > 0 ? adjustedGross : totals.totalGross,
       courseRating: selectedTee.courseRating,
       slopeRating: selectedTee.slopeRating,
     });
-  }, [selectedTee, totals.totalGross]);
+  }, [selectedTee, totals.totalGross, holes, scores, dailyHandicap]);
 
   // Score manipulation
   const incrementScore = useCallback((holeNumber: number) => {

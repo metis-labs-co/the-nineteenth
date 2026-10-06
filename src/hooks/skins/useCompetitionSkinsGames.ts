@@ -14,6 +14,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
+import { indexById } from '@/utils/collections';
 import { supabase } from '@/services/supabase/client';
 import { skinsKeys } from '@/hooks/queryKeys';
 import { CACHE_TIMES, GC_TIMES } from '@/constants/cacheConfig';
@@ -49,6 +50,9 @@ export interface CompetitionSkinsCard {
   topNetResult: number | null;
   /** Number of remaining participants for the "+N other" line on the card. */
   otherParticipantCount: number;
+  /** IDs used to decide whether a competitor may see the real-money side game. */
+  participantPlayerIds: string[];
+  participantTeamIds: string[];
 }
 
 interface RoundRow {
@@ -141,7 +145,7 @@ export function useCompetitionSkinsGames(competitionId: string | undefined) {
           .select('id, sort_order')
           .in('id', subMatchIds);
         const subMatches = (rawSubMatches ?? []) as unknown as SubMatchRow[];
-        subMatchById = new Map(subMatches.map((sm) => [sm.id, sm]));
+        subMatchById = indexById(subMatches);
       }
 
       // 4. Payouts for the games we found.
@@ -191,7 +195,7 @@ export function useCompetitionSkinsGames(competitionId: string | undefined) {
         }
       }
 
-      const roundById = new Map(rounds.map((r) => [r.id, r]));
+      const roundById = indexById(rounds);
 
       return games.map<CompetitionSkinsCard>((g) => {
         const round = roundById.get(g.round_id);
@@ -223,6 +227,8 @@ export function useCompetitionSkinsGames(competitionId: string | undefined) {
           topName,
           topNetResult: top ? Number(top.net_result) : null,
           otherParticipantCount: Math.max(0, gamePayouts.length - 1),
+          participantPlayerIds: g.participant_ids ?? [],
+          participantTeamIds: g.participant_team_ids ?? [],
         };
       });
     },

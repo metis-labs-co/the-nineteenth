@@ -21,6 +21,7 @@ import { CardContainer, Pill, PlayerAvatar } from '@/components/common';
 import { getTeeSwatch } from '@/utils/teeColors';
 import type { GameType } from '@/types/database.types';
 import { inferPresetIdFromRound, ROUND_PRESETS } from '@/constants/roundPresets';
+import { formatRelativeToPar } from '@/utils/formatting';
 import { GAME_TYPE_LABELS, type RoundWithCourse } from '../types';
 
 export interface InProgressRoundSectionProps {
@@ -46,16 +47,8 @@ const CARD_GAP = spacing.sm;
 /** How much of the next card peeks into view, signaling "swipe for more". */
 const NEXT_CARD_PEEK = 32;
 
-/** Coral "live round" indicator dot — fixed accent in both themes. */
-const LIVE_DOT = '#e0795f';
 /** Most companion avatars shown before collapsing into the "with N" count. */
 const MAX_AVATARS = 3;
-
-/** Format gross-to-par golf style: +2 / E / -1. */
-function formatToPar(toPar: number): string {
-  if (toPar === 0) return 'E';
-  return toPar > 0 ? `+${toPar}` : `${toPar}`;
-}
 
 interface RoundCardProps {
   round: RoundWithCourse;
@@ -105,7 +98,7 @@ function RoundCard({
   const progressParts: string[] = [];
   if (progress && progress.holesScored > 0) {
     progressParts.push(`Hole ${progress.currentHole}`);
-    if (progress.toPar !== null) progressParts.push(formatToPar(progress.toPar));
+    if (progress.toPar !== null) progressParts.push(formatRelativeToPar(progress.toPar));
     if (progress.points !== null) progressParts.push(`${progress.points} pts`);
   }
   const subtitle =
@@ -135,7 +128,7 @@ function RoundCard({
       ]}
     >
       <View style={styles.topRow}>
-        <View style={styles.liveDot} />
+        <View style={[styles.liveDot, { backgroundColor: colors.error }]} />
         <View style={styles.titleBlock}>
           <Text
             style={[styles.title, { color: colors.textPrimary }]}
@@ -386,7 +379,6 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: LIVE_DOT,
   },
   titleBlock: {
     flex: 1,

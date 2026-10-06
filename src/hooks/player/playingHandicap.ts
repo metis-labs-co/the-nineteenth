@@ -8,10 +8,9 @@
  */
 
 import { useMemo } from 'react';
-import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
+import { calculateNineAwareDailyHandicap } from '@/utils/dailyHandicap';
 import { getBaseHandicap } from '@/utils/scorecardCalculations';
 import { getHandicapAllowance } from '@/services/scoring/utils/handicapUtils';
-import { getEffectiveTeeRatings } from '@/utils/teeResolution';
 import type { Hole, TeeBox, GameType, HandicapSource } from '@/types/database';
 import type { NineType } from '@/types/database/enums';
 
@@ -53,62 +52,21 @@ interface PlayingHandicapResult {
  * @param params.gameType - Game type for allowance calculation
  * @param params.nineType - Nine type for selecting appropriate slope/CR ratings (default: 'full')
  */
-export function usePlayingHandicap({
-  player,
-  selectedTeeData,
-  holes,
-  handicapSource,
-  gameType,
-  nineType,
-}: UsePlayingHandicapParams): PlayingHandicapResult {
-  return useMemo(() => {
-    const source = handicapSource ?? 'profile';
-
-    // Step 1: Get base handicap (WHS or Social)
-    const baseHandicap = getBaseHandicap(player as Parameters<typeof getBaseHandicap>[0], source);
-
-    // Step 2: Calculate daily handicap when tee data is available
-    let dailyHandicap = baseHandicap;
-    let isDailyHandicap = false;
-
-    if (source !== 'none' && selectedTeeData) {
-      const { slope, cr } = getEffectiveTeeRatings(selectedTeeData, nineType ?? 'full');
-
-      if (slope && cr) {
-        const coursePar = Array.isArray(holes)
-          ? holes.reduce((sum, h) => sum + h.par, 0)
-          : 0;
-
-        if (coursePar > 0) {
-          const result = calculateGADailyHandicap({
-            gaHandicap: baseHandicap,
-            slopeRating: slope,
-            courseRating: cr,
-            par: coursePar,
-            gender: player?.gender,
-          });
-          dailyHandicap = result.dailyHandicap;
-          isDailyHandicap = true;
-        }
-      }
-    }
-
-    // Step 3: Apply game type allowance
-    const allowance = getHandicapAllowance(gameType);
-    const playingHandicap = Math.round(dailyHandicap * allowance);
-
-    return {
-      baseHandicap,
-      dailyHandicap,
-      playingHandicap,
-      handicapLabel: isDailyHandicap ? 'DHC' : 'HC',
-      isDailyHandicap,
-    };
-  }, [player, selectedTeeData, holes, handicapSource, gameType, nineType]);
+export function usePlayingHandicap(params: UsePlayingHandicapParams): PlayingHandicapResult {
+  const { player, selectedTeeData, holes, handicapSource, gameType, nineType } = params;
+  return useMemo(
+    () => calculatePlayingHandicap({ player, selectedTeeData, holes, handicapSource, gameType, nineType }),
+    [player, selectedTeeData, holes, handicapSource, gameType, nineType],
+  );
 }
 
 /**
  * Pure function version for use outside React components.
+ *
+ * Daily handicap is nine-aware: for a 9-hole round (`nineType` of 'front9' or
+ * 'back9') the par summed from `holes` is the 9-hole par, so the course rating
+ * is matched to that scale via {@link calculateNineAwareDailyHandicap} rather
+ * than naively pairing the full 18-hole course rating with a 9-hole par.
  */
 export function calculatePlayingHandicap(params: {
   player: ScorecardPlayerInfo | null;
@@ -128,24 +86,25 @@ export function calculatePlayingHandicap(params: {
   let isDailyHandicap = false;
 
   if (applyDailyHandicap && source !== 'none' && selectedTeeData) {
-    const { slope, cr } = getEffectiveTeeRatings(selectedTeeData, nineType ?? 'full');
+    const coursePar = Array.isArray(holes)
+      ? holes.reduce((sum, h) => sum + h.par, 0)
+      : 0;
 
-    if (slope && cr) {
-      const coursePar = Array.isArray(holes)
-        ? holes.reduce((sum, h) => sum + h.par, 0)
-        : 0;
-
-      if (coursePar > 0) {
-        const result = calculateGADailyHandicap({
-          gaHandicap: baseHandicap,
-          slopeRating: slope,
-          courseRating: cr,
-          par: coursePar,
-          gender: player?.gender,
-        });
-        dailyHandicap = result.dailyHandicap;
-        isDailyHandicap = true;
-      }
+    if (selectedTeeData.slopeRating && selectedTeeData.courseRating && coursePar > 0) {
+      const result = calculateNineAwareDailyHandicap({
+        gaHandicap: baseHandicap,
+        nineType: nineType ?? 'full',
+        par: coursePar,
+        slopeRating: selectedTeeData.slopeRating,
+        courseRating: selectedTeeData.courseRating,
+        slopeRatingFront9: selectedTeeData.slopeRatingFront9,
+        courseRatingFront9: selectedTeeData.courseRatingFront9,
+        slopeRatingBack9: selectedTeeData.slopeRatingBack9,
+        courseRatingBack9: selectedTeeData.courseRatingBack9,
+        gender: player?.gender,
+      });
+      dailyHandicap = result.dailyHandicap;
+      isDailyHandicap = true;
     }
   }
 

@@ -17,6 +17,7 @@ import { EmptyState, LoadingSpinner } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { DifferentialBadge } from './DifferentialBadge';
+import { formatDateDisplay } from '@/utils/formatting';
 import type { LeagueRoundDetail } from '@/types/database';
 
 export interface LeaguePlayerRoundsModalProps {
@@ -46,8 +47,7 @@ function getOrdinalSuffix(n: number): string {
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return 'No date';
-  const date = new Date(dateStr);
-  return date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+  return formatDateDisplay(dateStr, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 export function LeaguePlayerRoundsModal({

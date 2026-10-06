@@ -5,11 +5,14 @@
  */
 
 export { CompetitionInfoSection } from './CompetitionInfoSection';
+export { ManageActionsSection, type ManageAction } from './ManageActionsSection';
+export { ScoringFormatSummarySection } from './ScoringFormatSummarySection';
 export { MiniLeaderboardSection } from './MiniLeaderboardSection';
 export { InProgressRoundSection } from './InProgressRoundSection';
 export { SettingsSection } from './SettingsSection';
 export { PrizePoolSection } from './PrizePoolSection';
 export { WhatsAppGroupSection } from './WhatsAppGroupSection';
+export { PointsConfigSection } from './PointsConfigSection';
 
 // Re-export types
 export * from './types';

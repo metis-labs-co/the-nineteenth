@@ -112,14 +112,16 @@ export function calculateFinalPayouts(
  * const result = calculateFinalPayoutsWithCarryover(game, results, participants);
  * // result.hole18CarryoverSplit = true, result.remainingCarryover = 0
  */
-export function calculateFinalPayoutsWithCarryover(
-  game: Pick<SkinsGame, 'pot_type' | 'pot_value' | 'participant_ids'>,
+/**
+ * Build a payout entry per participant and accumulate hole outcomes
+ * (wins/ties/losses and banked winnings). Shared by the final settlement
+ * and the in-progress standings so the two can never drift.
+ */
+function accumulateHoleOutcomes(
   results: Pick<SkinsResult, 'hole_number' | 'winner_id' | 'is_carryover' | 'payout_amount' | 'carryover_to_next' | 'hole_scores'>[],
-  participants: PayoutParticipant[]
-): FinalPayoutResult {
-  const buyIn = calculateBuyIn(game.pot_type, game.pot_value, participants.length);
-
-  // Initialize payout tracking for each participant
+  participants: PayoutParticipant[],
+  buyIn: number
+): Map<string, CalculatedPayout> {
   const payoutMap = new Map<string, CalculatedPayout>();
   for (const participant of participants) {
     payoutMap.set(participant.id, {
@@ -133,7 +135,6 @@ export function calculateFinalPayoutsWithCarryover(
     });
   }
 
-  // Process each hole result
   for (const result of results) {
     const participantIds = Object.keys(result.hole_scores);
 
@@ -161,6 +162,17 @@ export function calculateFinalPayoutsWithCarryover(
     }
   }
 
+  return payoutMap;
+}
+
+export function calculateFinalPayoutsWithCarryover(
+  game: Pick<SkinsGame, 'pot_type' | 'pot_value' | 'participant_ids'>,
+  results: Pick<SkinsResult, 'hole_number' | 'winner_id' | 'is_carryover' | 'payout_amount' | 'carryover_to_next' | 'hole_scores'>[],
+  participants: PayoutParticipant[]
+): FinalPayoutResult {
+  const buyIn = calculateBuyIn(game.pot_type, game.pot_value, participants.length);
+  const payoutMap = accumulateHoleOutcomes(results, participants, buyIn);
+
   // Calculate remaining carryover (from hole 18 if it was tied)
   const remainingCarryover = calculateCurrentCarryover(results);
   let hole18CarryoverSplit = false;
@@ -185,6 +197,50 @@ export function calculateFinalPayoutsWithCarryover(
     payouts,
     remainingCarryover: 0,
     hole18CarryoverSplit,
+  };
+}
+
+/**
+ * Result of an in-progress standings calculation
+ */
+export interface InProgressPayoutResult {
+  /** Current standing per participant (as if the game ended now) */
+  payouts: CalculatedPayout[];
+  /** Carryover still up for grabs on the remaining holes — NOT distributed */
+  unsettledCarryover: number;
+}
+
+/**
+ * Calculate the current standing of an ACTIVE skins game.
+ *
+ * Same accumulation as the final settlement, except the pending carryover
+ * is not split — mid-game it is still winnable on the holes ahead, so it
+ * is reported separately instead of being banked to anyone.
+ *
+ * @param game - The skins game configuration
+ * @param results - Hole results so far (partial round)
+ * @param participants - List of participants
+ * @param totalHoles - Holes the round actually plays (9 or 18); prices the buy-in
+ * @returns Standing per participant plus the undistributed carryover
+ */
+export function calculateInProgressPayouts(
+  game: Pick<SkinsGame, 'pot_type' | 'pot_value' | 'participant_ids'>,
+  results: Pick<SkinsResult, 'hole_number' | 'winner_id' | 'is_carryover' | 'payout_amount' | 'carryover_to_next' | 'hole_scores'>[],
+  participants: PayoutParticipant[],
+  totalHoles?: number
+): InProgressPayoutResult {
+  const buyIn = calculateBuyIn(game.pot_type, game.pot_value, participants.length, totalHoles);
+  const payoutMap = accumulateHoleOutcomes(results, participants, buyIn);
+
+  const payouts: CalculatedPayout[] = [];
+  for (const payout of payoutMap.values()) {
+    payout.net_result = roundCurrency(payout.total_winnings - payout.buy_in);
+    payouts.push(payout);
+  }
+
+  return {
+    payouts,
+    unsettledCarryover: calculateCurrentCarryover(results),
   };
 }
 

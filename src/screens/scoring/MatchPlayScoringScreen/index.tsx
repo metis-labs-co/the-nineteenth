@@ -29,11 +29,12 @@ import { useIsSuperAdmin } from '@/store/subscriptionStore';
 import { useMatchPlayData, useMatchPlayScoring, useOfflineSync } from '@/hooks/scorecard';
 import { useProcessSkinsIfNeeded, useOnlineStatus, useAuth } from '@/hooks';
 import { useRoundDetails, useSubMatches } from '@/hooks/rounds';
+import { useDeleteRound } from '@/hooks/rounds/mutations';
 import { useCompetitionInfo } from '@/hooks/competitions';
 import { resolveSubMatchForUser } from '@/utils/subMatches';
 import { supabase } from '@/services/supabase/client';
 import { matchPlayLogger } from '@/utils/debugLogger';
-import { getStrokesReceived } from '@/utils/scoring';
+import { getMatchPlayStrokes } from '@/utils/scoring';
 import { resolvePlayerTee } from '@/utils/teeResolution';
 import { getTeeColor } from '@/services/courses';
 import { calculatePlayingHandicap } from '@/hooks/usePlayingHandicap';
@@ -51,6 +52,7 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
 
   // Confirmation dialog hook
   const { dialogConfig, showDialog, showAlert, dismissDialog } = useConfirmationDialog();
+  const deleteRoundMutation = useDeleteRound();
 
   // Online status for round status update
   const isOnline = useOnlineStatus();
@@ -126,6 +128,41 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
     player2Id: resolvedPlayer2Id,
   });
 
+  // Use course holes if available, otherwise default
+  const safeHoles = useMemo(() => {
+    if (holes && holes.length > 0) {
+      return holes;
+    }
+    return DEFAULT_HOLES;
+  }, [holes]);
+
+  const teeData = storeTeeData || selectedTeeBox;
+
+  // Calculate playing handicap + display info for both players (daily HC when tee/rating data is available)
+  const player1HandicapResult = useMemo(() => {
+    const result = calculatePlayingHandicap({
+      player: player1,
+      selectedTeeData: teeData,
+      holes: safeHoles,
+      handicapSource,
+      gameType: 'match-play',
+    });
+    return result;
+  }, [player1, teeData, safeHoles, handicapSource]);
+  const player1Handicap = player1HandicapResult.playingHandicap;
+
+  const player2HandicapResult = useMemo(() => {
+    const result = calculatePlayingHandicap({
+      player: player2,
+      selectedTeeData: teeData,
+      holes: safeHoles,
+      handicapSource,
+      gameType: 'match-play',
+    });
+    return result;
+  }, [player2, teeData, safeHoles, handicapSource]);
+  const player2Handicap = player2HandicapResult.playingHandicap;
+
   // Use the new hook for score management - persists to store
   const {
     handleScoreSelect: storeHandleScoreSelect,
@@ -144,13 +181,13 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
     player2Id: player2.id,
     player1Name: player1.name,
     player2Name: player2.name,
-    player1Handicap: player1.handicap,
-    player2Handicap: player2.handicap,
+    player1Handicap: player1Handicap,
+    player2Handicap: player2Handicap,
     currentHole,
   });
 
   // Sync status (drives the offline indicator + animated sync line in RoundHeader).
-  const { isSyncing, pendingSyncCount, submitScorecards } = useScorecardStore();
+  const { isSyncing, pendingSyncCount, failedSyncCount, syncError, submitScorecards } = useScorecardStore();
   const { triggerSync } = useOfflineSync();
 
   // Skins processing hook
@@ -196,43 +233,9 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
   // Get the tee color string for HoleHeader (uses tee color to look up yardages)
   const selectedTeeColor = selectedTeeBox?.color ?? 'white';
 
-  // Use course holes if available, otherwise default
-  const safeHoles = useMemo(() => {
-    if (holes && holes.length > 0) {
-      return holes;
-    }
-    return DEFAULT_HOLES;
-  }, [holes]);
-
   const currentHoleData = safeHoles[currentHole - 1];
 
-  // Calculate playing handicap + display info for both players (daily HC when tee/rating data is available)
-  const teeData = storeTeeData || selectedTeeBox;
   const baseLabel = handicapSource === 'calculated' ? 'SHC' : 'HC';
-
-  const player1HandicapResult = useMemo(() => {
-    const result = calculatePlayingHandicap({
-      player: player1,
-      selectedTeeData: teeData,
-      holes: safeHoles,
-      handicapSource,
-      gameType: 'match-play',
-    });
-    return result;
-  }, [player1, teeData, safeHoles, handicapSource]);
-  const player1Handicap = player1HandicapResult.playingHandicap;
-
-  const player2HandicapResult = useMemo(() => {
-    const result = calculatePlayingHandicap({
-      player: player2,
-      selectedTeeData: teeData,
-      holes: safeHoles,
-      handicapSource,
-      gameType: 'match-play',
-    });
-    return result;
-  }, [player2, teeData, safeHoles, handicapSource]);
-  const player2Handicap = player2HandicapResult.playingHandicap;
 
   // Resolve per-player tee colour for the dot next to the player's name.
   // Uses the per-player override from the store, falling back to the round default.
@@ -360,12 +363,16 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
       icon: 'trash-can-outline',
       onConfirm: () => {
         dismissDialog();
-        // TODO: Implement actual deletion
-        matchPlayLogger.info('MATCH PLAY: Delete requested', { roundId });
-        navigation.goBack();
+        deleteRoundMutation.mutate(
+          { roundId, competitionId: isStandalone ? undefined : competitionId },
+          {
+            onSuccess: () => navigation.goBack(),
+            onError: () => showAlert('Delete failed', 'The match could not be deleted. Please try again.'),
+          }
+        );
       },
     });
-  }, [navigation, roundId, showDialog, dismissDialog]);
+  }, [competitionId, deleteRoundMutation, dismissDialog, isStandalone, navigation, roundId, showAlert, showDialog]);
 
   // Show submit confirmation dialog
   const handleSubmitMatch = useCallback(() => {
@@ -479,6 +486,11 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
 
       const holeResult = getHoleResult(holeNumber);
       const holeResultDisplay = getHoleResultDisplay(holeResult);
+      const { a: p1ShotsOnHole, b: p2ShotsOnHole } = getMatchPlayStrokes(
+        player1Handicap,
+        player2Handicap,
+        holeData.strokeIndex
+      );
 
       // Calculate navigation state for this hole — bound to the round's
       // actual hole range so back-9 / combo rounds don't fall off the end.
@@ -509,7 +521,7 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
                 par={holeData.par}
                 isMatchComplete={isMatchComplete}
                 matchStatus={player1MatchStatus}
-                strokesReceived={getStrokesReceived(player1Handicap, holeData.strokeIndex)}
+                strokesReceived={p1ShotsOnHole}
                 onScoreAdjust={(delta) => handleScoreAdjust('player1', delta)}
                 onParSelect={() => handleScoreSelect('player1', holeData.par)}
                 onPickUp={() => handlePickUp('player1')}
@@ -537,7 +549,7 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
                 par={holeData.par}
                 isMatchComplete={isMatchComplete}
                 matchStatus={player2MatchStatus}
-                strokesReceived={getStrokesReceived(player2Handicap, holeData.strokeIndex)}
+                strokesReceived={p2ShotsOnHole}
                 onScoreAdjust={(delta) => handleScoreAdjust('player2', delta)}
                 onParSelect={() => handleScoreSelect('player2', holeData.par)}
                 onPickUp={() => handlePickUp('player2')}
@@ -650,6 +662,8 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
         isOnline={isOnline}
         isSyncing={isSyncing}
         pendingSyncCount={pendingSyncCount}
+        failedSyncCount={failedSyncCount}
+        syncError={syncError}
         onSyncPress={triggerSync}
         canChangeTees={canChangeTees}
         onChangeTeesPress={() => setShowChangeTeesSheet(true)}
@@ -677,7 +691,8 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
       {/* Allow swipe navigation even after match is complete so user can review/edit scores */}
       <SwipeableHoleNavigator
         currentHole={currentHole}
-        totalHoles={18}
+        totalHoles={lastHoleNumber}
+        firstHole={firstHoleNumber}
         onHoleChange={setCurrentHole}
         enabled={!isSubmitting && !isScrollingProgress}
         renderHole={renderHoleContent}

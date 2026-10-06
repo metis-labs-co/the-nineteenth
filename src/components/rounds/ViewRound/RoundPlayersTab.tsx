@@ -18,6 +18,7 @@ import { EmptyState } from '@/components/common/EmptyState';
 import type { ScorecardWithPlayer, CourseWithClub } from '@/hooks/useRoundDetails';
 import type { HoleScore, MultiBallHoleScore } from '@/types/database/base';
 import { isSingleBallScore } from '@/types/database/base';
+import { getScoreCategory } from '@/utils/scoring';
 
 // =====================================================
 // TYPES
@@ -71,13 +72,14 @@ function calculatePlayerStats(
     if (holeScore && isSingleBallScore(holeScore) && holeScore.strokes > 0) {
       stats.holesCompleted++;
       const par = parMap.get(parseInt(holeNum, 10)) || 4;
-      const diff = holeScore.strokes - par;
+      const category = getScoreCategory(holeScore.strokes, par);
 
-      if (diff <= -2) stats.eagles++;
-      else if (diff === -1) stats.birdies++;
-      else if (diff === 0) stats.pars++;
-      else if (diff === 1) stats.bogeys++;
-      else stats.doublePlus++;
+      // Pickups (null) count as a completed hole but no score category.
+      if (category === 'albatross' || category === 'eagle') stats.eagles++;
+      else if (category === 'birdie') stats.birdies++;
+      else if (category === 'par') stats.pars++;
+      else if (category === 'bogey') stats.bogeys++;
+      else if (category === 'double-bogey' || category === 'triple-plus') stats.doublePlus++;
     }
   });
 

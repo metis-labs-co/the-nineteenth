@@ -53,12 +53,15 @@ import { StablefordLeaderboardFull } from '@/components/scorecard/StablefordLead
 import { ParLeaderboardFull } from '@/components/scorecard/ParLeaderboardFull';
 import { SubMatchesTab } from './tabs/SubMatchesTab';
 import { IndividualTeamLeaderboardTab } from './tabs/IndividualTeamLeaderboardTab';
+import { RoundSubMatchLeaderboard } from '@/components/leaderboard';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ShotLogList } from '@/components/features/shots/ShotLogList';
 import { BagClubPickerSheet } from '@/components/features/bag/BagClubPickerSheet';
 import { ConfirmationDialog } from '@/components/common';
 import { useConfirmationDialog } from '@/hooks';
 import { useDeleteShot, useSetShotClub } from '@/hooks/shots';
 import { useBag } from '@/hooks/queries/useBag';
+import { useSocialAccess } from '@/hooks/useSocialAccess';
 import { clubLabel, type ClubKey } from '@/constants/clubs';
 import { filterHolesByNineType } from '@/utils/holeTransformers';
 import type { ShotLogEntry } from '@/types/database/shotLog.types';
@@ -67,8 +70,10 @@ type Props = NativeStackScreenProps<RootStackParamList, 'ViewRound'>;
 
 export default function ViewRoundScreen(props: Props) {
   const vm = useViewRoundScreen(props);
+  const { isRestricted } = useSocialAccess();
   const colors = useThemeColors();
   const isDark = useIsDark();
+  const insets = useSafeAreaInsets();
   const competitionIconBackground = isDark ? `${colors.primary}33` : colors.primaryLighter;
   const userScorecard = vm.scorecards?.find((sc) => sc.id === vm.userScorecardId);
 
@@ -239,7 +244,9 @@ export default function ViewRoundScreen(props: Props) {
         showBack
         onBack={vm.handleBack}
         rightActions={[
-          ...(round.status === 'completed'
+          // RoundActivity is unregistered for restricted users, so the action
+          // has to go with it or the tap navigates nowhere.
+          ...(round.status === 'completed' && !isRestricted
             ? [
                 {
                   icon: 'comment-outline',
@@ -388,20 +395,35 @@ export default function ViewRoundScreen(props: Props) {
           />
         )}
         {vm.activeTab === 'match' && (vm.isMatchPlayRound || vm.isTeamMatchPlayRound) && (
-          <MatchTab
-            isMatchPlayRound={vm.isMatchPlayRound}
-            isTeamMatchPlayRound={vm.isTeamMatchPlayRound}
-            matchPlayPlayers={vm.matchPlayPlayers}
-            holes={round.course?.holes || null}
-            getPlayerScore={vm.getPlayerScore}
-            matchPlayData={vm.matchPlayData}
-            currentUserId={vm.user?.id}
-            roundStatus={round.status}
-            isTeamRound={round.is_team_round || false}
-            isSplitRound={vm.isSplitRound}
-            roundId={round.id}
-            startHole={round.course?.start_hole ?? 1}
-          />
+          // Split rounds (singles or team) and combined team match play both use
+          // the sub-match leaderboard: split shows a row per sub-match; combined
+          // team match play renders as a single team-vs-team row (synthesized in
+          // SubMatchLeaderboardTab). Combined singles match play keeps MatchTab.
+          vm.isSplitRound || vm.isTeamMatchPlayRound ? (
+            <RoundSubMatchLeaderboard
+              roundId={round.id}
+              competitionId={vm.competitionId ?? null}
+              currentUserId={vm.user?.id}
+              isRefreshing={vm.isRefreshing}
+              onRefresh={vm.handleRefresh}
+              bottomInset={insets.bottom}
+            />
+          ) : (
+            <MatchTab
+              isMatchPlayRound={vm.isMatchPlayRound}
+              isTeamMatchPlayRound={vm.isTeamMatchPlayRound}
+              matchPlayPlayers={vm.matchPlayPlayers}
+              holes={round.course?.holes || null}
+              getPlayerScore={vm.getPlayerScore}
+              matchPlayData={vm.matchPlayData}
+              currentUserId={vm.user?.id}
+              roundStatus={round.status}
+              isTeamRound={round.is_team_round || false}
+              isSplitRound={vm.isSplitRound}
+              roundId={round.id}
+              startHole={round.course?.start_hole ?? 1}
+            />
+          )
         )}
         {vm.activeTab === 'subMatches' && (
           <SubMatchesTab
@@ -468,6 +490,7 @@ export default function ViewRoundScreen(props: Props) {
               holes={round.course?.holes as Hole[] || []}
               getPlayerScore={vm.getStrokePlayPlayerScore}
               currentUserId={vm.user?.id}
+              dailyHandicaps={vm.leaderboardDailyHandicaps}
             />
           ) : vm.isStablefordRound ? (
             <StablefordLeaderboardFull
@@ -475,6 +498,7 @@ export default function ViewRoundScreen(props: Props) {
               holes={(round.course?.holes as Hole[]) || []}
               getPlayerScore={vm.getStrokePlayPlayerScore}
               currentUserId={vm.user?.id}
+              dailyHandicaps={vm.leaderboardDailyHandicaps}
             />
           ) : (
             <ParLeaderboardFull
@@ -482,6 +506,7 @@ export default function ViewRoundScreen(props: Props) {
               holes={(round.course?.holes as Hole[]) || []}
               getPlayerScore={vm.getStrokePlayPlayerScore}
               currentUserId={vm.user?.id}
+              dailyHandicaps={vm.leaderboardDailyHandicaps}
             />
           );
 
@@ -497,12 +522,23 @@ export default function ViewRoundScreen(props: Props) {
                 getPlayerScore={vm.getStrokePlayPlayerScore}
                 subMatches={vm.subMatches}
                 currentUserId={vm.user?.id}
+                dailyHandicaps={vm.leaderboardDailyHandicaps}
                 individualView={individualView}
               />
             );
           }
           return individualView;
         })()}
+        {vm.activeTab === 'leaderboard' && vm.isAltShotSplitRound && vm.round && (
+          <RoundSubMatchLeaderboard
+            roundId={vm.round.id}
+            competitionId={vm.competitionId ?? null}
+            currentUserId={vm.user?.id}
+            isRefreshing={vm.isRefreshing}
+            onRefresh={vm.handleRefresh}
+            bottomInset={insets.bottom}
+          />
+        )}
         {vm.activeTab === 'teamScores' && vm.isShambleRound && (
           <ShambleTeamScoresTab
             shamblePlayers={vm.shamblePlayers}

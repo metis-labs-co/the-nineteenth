@@ -365,7 +365,7 @@ describe('useSubscription', () => {
         expect(result.current.limits).not.toBeNull();
       });
 
-      const access = result.current.checkFeature('add_player', { playerCount: 15 });
+      const access = result.current.checkFeature('add_player', { playerCount: 11 });
 
       expect(access.allowed).toBe(true);
     });
@@ -379,10 +379,10 @@ describe('useSubscription', () => {
         expect(result.current.limits).not.toBeNull();
       });
 
-      const access = result.current.checkFeature('add_player', { playerCount: 16 });
+      const access = result.current.checkFeature('add_player', { playerCount: 12 });
 
       expect(access.allowed).toBe(false);
-      expect(access.reason).toContain('maximum of 16');
+      expect(access.reason).toContain('maximum of 12');
     });
 
     it('should allow unlimited competitions for premium', async () => {

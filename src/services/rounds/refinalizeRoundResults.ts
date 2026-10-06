@@ -40,7 +40,8 @@ import type {
   PointSystemConfig,
   RoundRulesOverride,
 } from '@/types/database.types';
-import type { RoundTemplateId } from '@/types/database/enums';
+import type { RoundTemplateId, NineType } from '@/types/database/enums';
+import type { TeeBox, HandicapSource } from '@/types/database';
 
 /**
  * Fill in any rule fields the saved override is missing using the latest
@@ -92,7 +93,7 @@ export async function refinalizeRoundResults(roundId: string): Promise<void> {
 
     const { data: round, error: roundError } = await supabase
       .from('rounds')
-      .select('game_type, competition_id, rules_override, round_format, team1_id, team2_id, team_format')
+      .select('game_type, competition_id, rules_override, round_format, team1_id, team2_id, team_format, selected_tee, handicap_source, nine_type')
       .eq('id', roundId)
       .single() as unknown as {
         data: {
@@ -103,6 +104,9 @@ export async function refinalizeRoundResults(roundId: string): Promise<void> {
           team1_id: string | null;
           team2_id: string | null;
           team_format: string | null;
+          selected_tee: TeeBox | null;
+          handicap_source: HandicapSource | null;
+          nine_type: NineType;
         } | null;
         error: PostgrestError | null;
       };
@@ -144,6 +148,34 @@ export async function refinalizeRoundResults(roundId: string): Promise<void> {
     // added after the round was created). Saved values are preserved.
     const effectiveOverride = mergeTemplateDefaults(round.rules_override);
 
+    // Computed early (rather than at its original later usage site) so it can
+    // gate the all-status scorecards fetch below, which also feeds the
+    // no-completed-scorecards early-return path further down.
+    const splitWithPairPoints = isPairPointsOverride(round.round_format, effectiveOverride);
+
+    // Split match-play rounds recompute sub-match outcomes live via
+    // `finalizePairResults`' match-play resolver, which must keep counting a
+    // match whose card is still in-progress or was closed out early — the
+    // same behaviour as the live sub-match leaderboard. That requires ALL
+    // scorecards for the round regardless of status, not just completed
+    // ones. Fetched separately from the completed-only `scorecards` query
+    // below, which stays scoped to completed cards for every other caller
+    // (individual finalize, other formats).
+    let allScorecards: Scorecard[] | undefined;
+    if (splitWithPairPoints && round.game_type === 'match-play') {
+      const { data: allSc, error: allScError } = await supabase
+        .from('scorecards')
+        .select('*')
+        .eq('round_id', roundId) as unknown as { data: Scorecard[] | null; error: PostgrestError | null };
+      if (allScError) {
+        submitLogger.error('Failed to fetch all-status scorecards for match-play recompute', allScError, {
+          roundId: roundId.substring(0, 8) + '...',
+        });
+      } else {
+        allScorecards = allSc ?? undefined;
+      }
+    }
+
     const { data: scorecards, error: scError } = await supabase
       .from('scorecards')
       .select('*')
@@ -151,6 +183,51 @@ export async function refinalizeRoundResults(roundId: string): Promise<void> {
       .eq('status', 'completed') as unknown as { data: Scorecard[] | null; error: PostgrestError | null };
 
     if (scError || !scorecards || scorecards.length === 0) {
+      // Split pair-points rounds (Ryder-Cup singles, split match play, alt-shot
+      // foursomes) score entirely from sub-match outcomes, which are stored
+      // self-contained on the `sub_matches` rows. When the organiser finalizes
+      // such a round via manual sub-match results (or forfeits) WITHOUT any
+      // completed scorecards, finalization must still write the pair-point team
+      // rows. Bailing here left the competition standings with no contribution
+      // from the round (empty round_results).
+      if (!scError && isPairPointsOverride(round.round_format, effectiveOverride)) {
+        submitLogger.info('Finalizing split pair-points round from sub-matches (no completed scorecards)', {
+          roundId: roundId.substring(0, 8) + '...',
+        });
+        try {
+          await deleteIndividualRoundResults(roundId);
+        } catch (err) {
+          submitLogger.error('Failed to clear stale individual rows', err, {
+            roundId: roundId.substring(0, 8) + '...',
+          });
+        }
+        try {
+          const pairRowCount = await finalizePairResults({
+            roundId,
+            team1Id: round.team1_id,
+            team2Id: round.team2_id,
+            competitionId: round.competition_id,
+            gameType: round.game_type as GameType,
+            scorecards: [],
+            rulesOverride: effectiveOverride,
+            perRoundRulesEnabled,
+            selectedTee: round.selected_tee,
+            handicapSource: round.handicap_source,
+            nineType: round.nine_type,
+            allScorecards,
+          });
+          submitLogger.info('Pair results persisted (no completed scorecards)', {
+            roundId: roundId.substring(0, 8) + '...',
+            pairRowCount,
+          });
+        } catch (err) {
+          submitLogger.error('Pair finalization failed (no completed scorecards)', err, {
+            roundId: roundId.substring(0, 8) + '...',
+          });
+        }
+        return;
+      }
+
       submitLogger.warn('No completed scorecards found for finalization', { roundId: roundId.substring(0, 8) + '...' });
       return;
     }
@@ -162,14 +239,10 @@ export async function refinalizeRoundResults(roundId: string): Promise<void> {
 
     const gameType = round.game_type as GameType;
 
-    // Split rounds (Ryder-Cup style) with a pair_points override score
-    // exclusively from sub-match outcomes. This holds even for team-only
-    // game types like scramble where the round-total Ambrose score has no
-    // bearing on the result — only which pair won each sub-match matters.
-    const splitWithPairPoints = isPairPointsOverride(
-      round.round_format,
-      effectiveOverride
-    );
+    // `splitWithPairPoints` (split rounds — Ryder-Cup style — with a
+    // pair_points override scoring exclusively from sub-match outcomes) was
+    // already computed above, before the completed-scorecards fetch, so it
+    // could gate the all-status scorecards fetch for match-play recompute.
 
     // Team-only formats (Scramble, Best Ball, Shamble) when NOT in a
     // pair-points split round: the team is the unit of competition. Skip
@@ -228,14 +301,12 @@ export async function refinalizeRoundResults(roundId: string): Promise<void> {
         });
       }
 
-      if (!round.team1_id || !round.team2_id) {
-        submitLogger.warn(
-          'Split team-only round with pair_points missing team1_id/team2_id',
-          { roundId: roundId.substring(0, 8) + '...' }
-        );
-        return;
-      }
-
+      // team1_id/team2_id are NOT required: split team-only rounds (e.g.
+      // alt-shot foursomes, which is a 'team-only' engine shape) carry no team
+      // ids on the round — the two sides are derived from competition team
+      // membership inside finalizePairResults, and sub-match outcomes are
+      // computed live from scorecards. Bailing here was the cause of empty
+      // standings (0–0) on alt-shot split rounds.
       try {
         const pairRowCount = await finalizePairResults({
           roundId,
@@ -246,6 +317,10 @@ export async function refinalizeRoundResults(roundId: string): Promise<void> {
           scorecards,
           rulesOverride: effectiveOverride,
           perRoundRulesEnabled,
+          selectedTee: round.selected_tee,
+          handicapSource: round.handicap_source,
+          nineType: round.nine_type,
+          allScorecards,
         });
         submitLogger.info('Pair results persisted (split team-only)', {
           roundId: roundId.substring(0, 8) + '...',
@@ -363,6 +438,10 @@ export async function refinalizeRoundResults(roundId: string): Promise<void> {
           scorecards,
           rulesOverride: effectiveOverride,
           perRoundRulesEnabled,
+          selectedTee: round.selected_tee,
+          handicapSource: round.handicap_source,
+          nineType: round.nine_type,
+          allScorecards,
         });
         if (pairRowCount > 0) {
           submitLogger.info('Pair results persisted', {

@@ -18,6 +18,7 @@ const participants: FeedParticipant[] = [
 function setup(overrides: Partial<React.ComponentProps<typeof RoundPlayersBottomSheet>> = {}) {
   const onClose = jest.fn();
   const onSelectPlayer = jest.fn();
+  const onSelectScorecard = jest.fn();
   render(
     <RoundPlayersBottomSheet
       visible
@@ -25,10 +26,11 @@ function setup(overrides: Partial<React.ComponentProps<typeof RoundPlayersBottom
       participants={participants}
       gameType="stroke"
       onSelectPlayer={onSelectPlayer}
+      onSelectScorecard={onSelectScorecard}
       {...overrides}
     />,
   );
-  return { onClose, onSelectPlayer };
+  return { onClose, onSelectPlayer, onSelectScorecard };
 }
 
 describe('RoundPlayersBottomSheet', () => {
@@ -48,11 +50,20 @@ describe('RoundPlayersBottomSheet', () => {
     expect(screen.getByText('–')).toBeTruthy();
   });
 
-  it('calls onClose then onSelectPlayer with the player id when a row is pressed', () => {
-    const { onClose, onSelectPlayer } = setup();
+  it('calls onClose then onSelectPlayer with the player id when the name is pressed', () => {
+    const { onClose, onSelectPlayer, onSelectScorecard } = setup();
     fireEvent.press(screen.getByLabelText("View Alex's profile"));
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(onSelectPlayer).toHaveBeenCalledWith('p1');
+    expect(onSelectScorecard).not.toHaveBeenCalled();
+  });
+
+  it('calls onClose then onSelectScorecard with the player id when the score is pressed', () => {
+    const { onClose, onSelectPlayer, onSelectScorecard } = setup();
+    fireEvent.press(screen.getByLabelText("View Alex's scorecard"));
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onSelectScorecard).toHaveBeenCalledWith('p1');
+    expect(onSelectPlayer).not.toHaveBeenCalled();
   });
 
   it('renders nothing visible when visible is false', () => {

@@ -13,7 +13,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { getOfflinePlayersForRound } from '@/store/initializeRoundSlice';
 import { supabase } from '@/services/supabase/client';
-import { saveScorecard } from '@/services/offline/database';
+import { saveScorecard, markScorecardAsSynced } from '@/services/offline/database';
 import { roundDataLogger } from '@/utils/debugLogger';
 import { pushDiagnostic } from '@/services/diagnostics';
 import { getDisplayName } from '@/utils/displayHelpers';
@@ -575,13 +575,14 @@ export function useRoundData({
           total_net: number | null;
           total_points: number | null;
           status: string;
+          revision: number;
         }
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types workaround
         const { data: remoteScorecards, error } = await (supabase.from('scorecards') as any)
-          .select('player_id, scores, total_gross, total_net, total_points, status')
+          .select('player_id, scores, total_gross, total_net, total_points, status, revision')
           .eq('round_id', roundId)
-          .eq('status', 'completed') as { data: RemoteScorecard[] | null; error: { message: string } | null };
+          .is('deleted_at', null) as { data: RemoteScorecard[] | null; error: { message: string } | null };
 
         if (error || !remoteScorecards?.length) return;
 
@@ -597,29 +598,32 @@ export function useRoundData({
             Object.values(localScorecard.scores).some(
               (s) => s && ('strokes' in s ? s.strokes !== undefined : true)
             );
+          // Scores already entered locally have no trustworthy server base;
+          // leave their revision unset so the write RPC reports a conflict.
           if (localHasScores) continue;
 
           const remoteScores = remote.scores;
-          if (!remoteScores || Object.keys(remoteScores).length === 0) continue;
+          const hasRemoteScores = !!remoteScores && Object.keys(remoteScores).length > 0;
 
           // Convert string-keyed Supabase scores to number-keyed store format
           const convertedScores: { [holeNumber: number]: HoleScore } = {};
-          for (const [holeStr, scoreData] of Object.entries(remoteScores)) {
+          for (const [holeStr, scoreData] of Object.entries(remoteScores ?? {})) {
             const holeNum = parseInt(holeStr, 10);
             if (!isNaN(holeNum) && scoreData?.strokes != null) {
               convertedScores[holeNum] = { ...scoreData, strokes: scoreData.strokes! } as HoleScore;
             }
           }
 
-          if (Object.keys(convertedScores).length === 0) continue;
-
           // Update the local scorecard with remote data
           const updatedScorecard: Scorecard = {
             ...localScorecard,
-            scores: convertedScores,
-            totalGross: remote.total_gross ?? 0,
-            totalNet: remote.total_net ?? 0,
-            status: 'completed',
+            ...(hasRemoteScores && {
+              scores: convertedScores,
+              totalGross: remote.total_gross ?? 0,
+              totalNet: remote.total_net ?? 0,
+              status: remote.status as Scorecard['status'],
+            }),
+            serverRevision: remote.revision,
             updatedAt: new Date(),
           };
 
@@ -629,6 +633,7 @@ export function useRoundData({
           // Persist to SQLite so future offline loads pick it up
           try {
             await saveScorecard(updatedScorecard);
+            await markScorecardAsSynced(updatedScorecard.id, remote.revision);
           } catch {
             // Non-critical: store is already updated
           }

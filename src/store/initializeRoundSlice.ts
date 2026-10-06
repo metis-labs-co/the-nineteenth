@@ -269,6 +269,60 @@ export async function loadFromOffline(
       }
     }
 
+    // Refresh each not-yet-submitted player's handicap from the live `players`
+    // table. The player object embedded in a cached scorecard is frozen into
+    // SQLite (ScorecardDAO.player_handicap) when the round is FIRST opened on
+    // this device; if the player's handicap changed since, resuming the round
+    // would otherwise score with — and snapshot at submit — the stale value
+    // (the original cause of a resumed round using a month-old handicap).
+    // Submitted cards ('completed'/'confirmed') are intentionally left frozen
+    // so their recorded handicap is preserved. Network-guarded: on any failure
+    // we keep the cached values (offline-first). players[i] and
+    // newScorecards.get(id).player are the same reference (loop above), so
+    // patching `players` updates the embedded scorecard players too.
+    try {
+      const refreshableIds = new Set(
+        scorecards
+          .filter((sc) => sc.status !== 'completed' && sc.status !== 'confirmed')
+          .map((sc) => sc.playerId)
+      );
+      const idsToRefresh = players
+        .map((p) => p.id)
+        .filter((id) => refreshableIds.has(id));
+      if (idsToRefresh.length > 0) {
+        const { data: livePlayers } = (await (
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase typed query workaround
+          supabase.from('players') as any
+        )
+          .select('id, handicap, handicap_index, gender')
+          .in('id', idsToRefresh)) as {
+          data:
+            | {
+                id: string;
+                handicap: number | null;
+                handicap_index: number | null;
+                gender: 'male' | 'female' | null;
+              }[]
+            | null;
+        };
+        if (livePlayers && livePlayers.length > 0) {
+          const liveById = new Map(livePlayers.map((lp) => [lp.id, lp]));
+          for (const p of players) {
+            const live = liveById.get(p.id);
+            if (!live) continue;
+            if (live.handicap != null) p.handicap = live.handicap;
+            if (live.handicap_index != null) p.handicapIndex = live.handicap_index;
+            if (live.gender != null) p.gender = live.gender;
+          }
+        }
+      }
+    } catch (err) {
+      storeLogger.warn(
+        'Could not refresh live player handicaps during offline load (using cached)',
+        { roundId, error: err instanceof Error ? err.message : String(err) }
+      );
+    }
+
     // Restore tee + game context from persisted scorecard metadata +
     // a lightweight query to the rounds table. Without this, a mid-round
     // resume after an app kill would submit with teeData=null, causing

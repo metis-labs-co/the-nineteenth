@@ -11,6 +11,7 @@
 import { renderHook, act } from '@testing-library/react-native';
 import { useMatchPlayScoring } from './useMatchPlayScoring';
 import { useScorecardStore } from '@/store/scorecardStore';
+import { PICKUP_SCORE } from '@/constants/scoring';
 import type { Hole } from '@/types';
 
 // ============================================================================
@@ -104,7 +105,10 @@ describe('useMatchPlayScoring', () => {
 
   describe('initialization', () => {
     it('initializes with no hole results when no scores exist', () => {
-      const { result } = renderHook(() => useMatchPlayScoring(defaultParams));
+      const { result } = renderHook(() => useMatchPlayScoring({
+        ...defaultParams,
+        player2Handicap: defaultParams.player1Handicap,
+      }));
 
       expect(result.current.holeResults).toBeDefined();
       expect(result.current.matchStatus.status).toBe('in_progress');
@@ -112,7 +116,12 @@ describe('useMatchPlayScoring', () => {
     });
 
     it('returns correct match status text for all square', () => {
-      const { result } = renderHook(() => useMatchPlayScoring(defaultParams));
+      const { result } = renderHook(() =>
+        useMatchPlayScoring({
+          ...defaultParams,
+          player2Handicap: defaultParams.player1Handicap,
+        })
+      );
 
       expect(result.current.matchStatusText).toBe('All Square with 18 to play');
     });
@@ -220,33 +229,43 @@ describe('useMatchPlayScoring', () => {
       expect(mockSetPlayerScore).toHaveBeenCalledWith('player-1', 1, 1);
     });
 
-    it('does not exceed maximum score of 12', () => {
-      // For hole 1 (par 4, stroke index 1, handicap 18):
-      // Pickup threshold = par + strokes received + 2 = 4 + 1 + 2 = 7
-      // So we need a score of 6 (just under pickup threshold) to test max capping
-      // Starting from 6 and incrementing 6 times would give 12, then one more should still be 12
+    it('increments a blow-up score above double bogey without conceding the hole', () => {
+      // Hole 1 is par 4, so double bogey is 6. A 6 must be a real, scored hole
+      // (not a pickup) and the stepper must keep going past it.
       setupStoreMock({
         'player-1': { 1: { strokes: 6 } },
       });
 
       const { result } = renderHook(() => useMatchPlayScoring(defaultParams));
 
-      // Increment 7 times to go from 6 to 13 (but should cap at 12)
+      expect(result.current.isPlayerPickedUp('player1')).toBe(false);
+
       act(() => {
-        // First increment: 6 -> 7 (but 7 is pickup, so this test may not work as expected)
-        // Actually, let's just verify the score adjustment logic itself by checking
-        // that scores at the max bound don't exceed it
         result.current.handleScoreAdjust('player1', 1);
       });
 
-      // The score should be set (6 + 1 = 7, which happens to be the pickup threshold)
-      // This tests that normal score adjustment works
       expect(mockSetPlayerScore).toHaveBeenCalledWith('player-1', 1, 7);
+    });
+
+    it('caps manual score one below the pickup sentinel', () => {
+      // PICKUP_SCORE is reserved for explicit concessions, so manual entry must
+      // never reach it via the stepper.
+      setupStoreMock({
+        'player-1': { 1: { strokes: PICKUP_SCORE - 1 } },
+      });
+
+      const { result } = renderHook(() => useMatchPlayScoring(defaultParams));
+
+      act(() => {
+        result.current.handleScoreAdjust('player1', 1);
+      });
+
+      expect(mockSetPlayerScore).toHaveBeenCalledWith('player-1', 1, PICKUP_SCORE - 1);
     });
   });
 
   describe('handlePickUp', () => {
-    it('sets pickup score for player1', () => {
+    it('stores the explicit pickup sentinel for player1', () => {
       setupStoreMock({});
 
       const { result } = renderHook(() => useMatchPlayScoring(defaultParams));
@@ -255,14 +274,11 @@ describe('useMatchPlayScoring', () => {
         result.current.handlePickUp('player1');
       });
 
-      // Pickup score = par + strokes received + 2
-      // Hole 1: par 4, stroke index 1, handicap 18
-      // getStrokesReceived(18, 1) = floor(18/18) + (1 <= 18%18 ? 1 : 0) = 1 + 0 = 1
-      // Expected pickup score = 4 + 1 + 2 = 7
-      expect(mockSetPlayerScore).toHaveBeenCalledWith('player-1', 1, 7);
+      // A concession is always the same sentinel, independent of par/handicap.
+      expect(mockSetPlayerScore).toHaveBeenCalledWith('player-1', 1, PICKUP_SCORE);
     });
 
-    it('sets pickup score for player2 with different handicap', () => {
+    it('stores the same pickup sentinel for player2 regardless of handicap', () => {
       setupStoreMock({});
 
       const { result } = renderHook(() => useMatchPlayScoring(defaultParams));
@@ -271,15 +287,13 @@ describe('useMatchPlayScoring', () => {
         result.current.handlePickUp('player2');
       });
 
-      // Hole 1: par 4, stroke index 1, handicap 10 = 1 stroke received
-      // Expected pickup score = 4 + 1 + 2 = 7
-      expect(mockSetPlayerScore).toHaveBeenCalledWith('player-2', 1, 7);
+      expect(mockSetPlayerScore).toHaveBeenCalledWith('player-2', 1, PICKUP_SCORE);
     });
 
     it('toggles pickup off by setting back to par', () => {
-      // First, set up a pickup score
+      // First, set up a conceded hole
       setupStoreMock({
-        'player-1': { 1: { strokes: 8 } }, // Pickup score
+        'player-1': { 1: { strokes: PICKUP_SCORE } },
       });
 
       const { result } = renderHook(() => useMatchPlayScoring(defaultParams));
@@ -328,7 +342,10 @@ describe('useMatchPlayScoring', () => {
         'player-2': { 1: { strokes: 4 } },
       });
 
-      const { result } = renderHook(() => useMatchPlayScoring(defaultParams));
+      const { result } = renderHook(() => useMatchPlayScoring({
+        ...defaultParams,
+        player2Handicap: defaultParams.player1Handicap,
+      }));
 
       const holeResult = result.current.getHoleResult(1);
 
@@ -341,7 +358,10 @@ describe('useMatchPlayScoring', () => {
         'player-2': { 1: { strokes: 4 } },
       });
 
-      const { result } = renderHook(() => useMatchPlayScoring(defaultParams));
+      const { result } = renderHook(() => useMatchPlayScoring({
+        ...defaultParams,
+        player2Handicap: defaultParams.player1Handicap,
+      }));
 
       const holeResult = result.current.getHoleResult(1);
 
@@ -349,37 +369,76 @@ describe('useMatchPlayScoring', () => {
     });
 
     it('applies handicap strokes when comparing equal gross scores', () => {
-      // Hole 11 has SI 11. P1 HC 18 gets a stroke there (11 ≤ 18);
-      // P2 HC 10 does not (11 > 10). Equal gross 4/4 should resolve to P1 on net.
+      // Match-play difference is 8, so the higher-handicap player receives a
+      // stroke on SI 1..8. Equal gross on SI 8 resolves to P1 on net.
       setupStoreMock({
-        'player-1': { 11: { strokes: 4 } },
-        'player-2': { 11: { strokes: 4 } },
+        'player-1': { 8: { strokes: 4 } },
+        'player-2': { 8: { strokes: 4 } },
       });
 
       const { result } = renderHook(() =>
-        useMatchPlayScoring({ ...defaultParams, currentHole: 11 })
+        useMatchPlayScoring({ ...defaultParams, currentHole: 8 })
       );
 
-      expect(result.current.getHoleResult(11).winner).toBe('player1');
+      expect(result.current.getHoleResult(8).winner).toBe('player1');
     });
 
     it('halves the hole when both players receive the same strokes on the hole', () => {
-      // Hole 1 SI 1: both P1 (HC 18) and P2 (HC 10) receive 1 stroke, so equal
-      // gross stays halved on net too.
+      // Hole 9 is outside the 8-stroke handicap difference, so neither player
+      // receives a stroke and equal gross remains halved.
       setupStoreMock({
-        'player-1': { 1: { strokes: 5 } },
-        'player-2': { 1: { strokes: 5 } },
+        'player-1': { 9: { strokes: 5 } },
+        'player-2': { 9: { strokes: 5 } },
       });
 
       const { result } = renderHook(() => useMatchPlayScoring(defaultParams));
 
-      expect(result.current.getHoleResult(1).winner).toBe('halved');
+      expect(result.current.getHoleResult(9).winner).toBe('halved');
     });
 
-    it('marks player as picked up when score exceeds threshold', () => {
+    it('records a blow-up score above double bogey as a real score, not a pickup', () => {
+      // Hole 1 is par 4 → double bogey is 6. A 7 used to be swallowed as a
+      // pickup; now it must be a scored hole decided on merit.
       setupStoreMock({
-        'player-1': { 1: { strokes: 8 } }, // Pickup score
+        'player-1': { 1: { strokes: 7 } },
         'player-2': { 1: { strokes: 4 } },
+      });
+
+      const { result } = renderHook(() => useMatchPlayScoring({
+        ...defaultParams,
+        player2Handicap: defaultParams.player1Handicap,
+      }));
+
+      const holeResult = result.current.getHoleResult(1);
+
+      expect(holeResult.player1PickedUp).toBe(false);
+      expect(holeResult.player1Score).toBe(7);
+      // Net: P1 7-1=6 vs P2 4-1=3 → player2 wins on merit.
+      expect(holeResult.winner).toBe('player2');
+    });
+
+    it('awards the hole to the opponent when a player concedes and the opponent has a score', () => {
+      setupStoreMock({
+        'player-1': { 1: { strokes: PICKUP_SCORE } },
+        'player-2': { 1: { strokes: 4 } },
+      });
+
+      const { result } = renderHook(() => useMatchPlayScoring({
+        ...defaultParams,
+        player2Handicap: defaultParams.player1Handicap,
+      }));
+
+      const holeResult = result.current.getHoleResult(1);
+
+      expect(holeResult.player1PickedUp).toBe(true);
+      expect(holeResult.player2PickedUp).toBe(false);
+      expect(holeResult.winner).toBe('player2');
+    });
+
+    it('leaves the hole undecided when a player concedes but the opponent has no score', () => {
+      setupStoreMock({
+        'player-1': { 1: { strokes: PICKUP_SCORE } },
+        // player-2 has not entered a score yet
       });
 
       const { result } = renderHook(() => useMatchPlayScoring(defaultParams));
@@ -387,8 +446,18 @@ describe('useMatchPlayScoring', () => {
       const holeResult = result.current.getHoleResult(1);
 
       expect(holeResult.player1PickedUp).toBe(true);
-      expect(holeResult.player2PickedUp).toBe(false);
-      expect(holeResult.winner).toBe('player2');
+      expect(holeResult.winner).toBeNull();
+    });
+
+    it('halves the hole when both players concede', () => {
+      setupStoreMock({
+        'player-1': { 1: { strokes: PICKUP_SCORE } },
+        'player-2': { 1: { strokes: PICKUP_SCORE } },
+      });
+
+      const { result } = renderHook(() => useMatchPlayScoring(defaultParams));
+
+      expect(result.current.getHoleResult(1).winner).toBe('halved');
     });
   });
 
@@ -399,7 +468,10 @@ describe('useMatchPlayScoring', () => {
         'player-2': { 1: { strokes: 5 }, 2: { strokes: 4 } },
       });
 
-      const { result } = renderHook(() => useMatchPlayScoring(defaultParams));
+      const { result } = renderHook(() => useMatchPlayScoring({
+        ...defaultParams,
+        player2Handicap: defaultParams.player1Handicap,
+      }));
 
       expect(result.current.matchStatus.status).toBe('in_progress');
       if (result.current.matchStatus.status === 'in_progress') {
@@ -415,7 +487,10 @@ describe('useMatchPlayScoring', () => {
         'player-2': { 1: { strokes: 5 }, 2: { strokes: 4 } },
       });
 
-      const { result } = renderHook(() => useMatchPlayScoring(defaultParams));
+      const { result } = renderHook(() => useMatchPlayScoring({
+        ...defaultParams,
+        player2Handicap: defaultParams.player1Handicap,
+      }));
 
       expect(result.current.matchStatus.status).toBe('in_progress');
       if (result.current.matchStatus.status === 'in_progress') {
@@ -466,10 +541,15 @@ describe('useMatchPlayScoring', () => {
         'player-2': { 1: { strokes: 4 } },
       });
 
-      const { result } = renderHook(() => useMatchPlayScoring(defaultParams));
+      const { result } = renderHook(() =>
+        useMatchPlayScoring({
+          ...defaultParams,
+          player2Handicap: defaultParams.player1Handicap,
+        })
+      );
 
-      expect(result.current.player1MatchStatus.text).toBe('AS');
-      expect(result.current.player2MatchStatus.text).toBe('AS');
+      expect(result.current.player1MatchStatus.text).toBe('A/S');
+      expect(result.current.player2MatchStatus.text).toBe('A/S');
     });
   });
 
@@ -506,7 +586,7 @@ describe('useMatchPlayScoring', () => {
 
     it('returns true when player has picked up', () => {
       setupStoreMock({
-        'player-1': { 1: { strokes: 8 } }, // Pickup score
+        'player-1': { 1: { strokes: PICKUP_SCORE } }, // Conceded hole
       });
 
       const { result } = renderHook(() => useMatchPlayScoring(defaultParams));

@@ -2,7 +2,7 @@
  * HandicapCaptureStep - Final onboarding step for handicap capture
  *
  * Collects the user's golf handicap for accurate Stableford scoring.
- * Validates handicap is between 0-54 (WHS max).
+ * Validates handicap is between -5 and 54.
  * Defaults to 54 if skipped or left empty.
  */
 
@@ -17,6 +17,7 @@ import {
   Keyboard,
 } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
+import { isHandicapInRange, HANDICAP_RANGE_ERROR } from '@/constants/scoring';
 import { FormInput } from '@/components/common';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { spacing, typography, borderRadius } from '@/constants/theme';
@@ -40,8 +41,8 @@ export function HandicapCaptureStep({
       return true;
     }
     const num = parseFloat(value);
-    if (isNaN(num) || num < 0 || num > 54) {
-      setError('Handicap must be between 0 and 54');
+    if (!isHandicapInRange(num)) {
+      setError(HANDICAP_RANGE_ERROR);
       return false;
     }
     setError(null);
@@ -112,10 +113,10 @@ export function HandicapCaptureStep({
               placeholder="e.g., 18.5"
               keyboardType="decimal"
               error={error || undefined}
-              hint={!error ? 'Enter a value between 0 and 54 (or skip to use 54)' : undefined}
+              hint={!error ? 'Enter a value between -5 and 54 (or skip to use 54)' : undefined}
               disabled={isSubmitting}
               leftAffix="HC:"
-              accessibilityHint="Enter your golf handicap between 0 and 54"
+              accessibilityHint="Enter your golf handicap between -5 and 54"
               returnKeyType="done"
               onSubmitEditing={handleContinue}
             />

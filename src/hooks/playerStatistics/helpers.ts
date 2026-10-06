@@ -12,6 +12,7 @@
  */
 
 import type { Hole, HoleScore } from '@/types/database.types';
+import { getScoreCategory as classifyScore } from '@/utils/scoring';
 import type {
   ScoreDistribution,
   ParTypeStats,
@@ -20,16 +21,33 @@ import type {
 } from './types';
 
 /**
- * Calculate score relative to par and categorize
+ * Categorise a gross score into a {@link ScoreDistribution} bucket, or `null`
+ * when the hole should not be counted (no score or a pickup). Delegates the
+ * classification to the canonical `getScoreCategory` in `@/utils/scoring` and
+ * folds albatross into eagles, since this distribution has no albatross bucket.
  */
-export function getScoreCategory(strokes: number, par: number): keyof ScoreDistribution {
-  const diff = strokes - par;
-  if (diff <= -2) return 'eagles';
-  if (diff === -1) return 'birdies';
-  if (diff === 0) return 'pars';
-  if (diff === 1) return 'bogeys';
-  if (diff === 2) return 'doubleBogeys';
-  return 'triplePlus';
+export function getScoreCategory(
+  strokes: number,
+  par: number
+): keyof ScoreDistribution | null {
+  const category = classifyScore(strokes, par);
+  switch (category) {
+    case 'albatross':
+    case 'eagle':
+      return 'eagles';
+    case 'birdie':
+      return 'birdies';
+    case 'par':
+      return 'pars';
+    case 'bogey':
+      return 'bogeys';
+    case 'double-bogey':
+      return 'doubleBogeys';
+    case 'triple-plus':
+      return 'triplePlus';
+    default:
+      return null; // no score or pickup
+  }
 }
 
 /**
@@ -60,7 +78,7 @@ export function countScoreDistribution(
 
     const par = parMap.get(parseInt(holeNum, 10)) || 4; // Default to par 4
     const category = getScoreCategory(holeScore.strokes, par);
-    distribution[category]++;
+    if (category) distribution[category]++; // skip pickups / no-score
   });
 
   return distribution;

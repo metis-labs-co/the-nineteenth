@@ -1,23 +1,37 @@
 /**
- * RoundListSections - List header rendering the In Progress section,
- * Recent Rounds title, and round type filter pills
+ * RoundListSections - List header rendering the scope filter, the In Progress
+ * section, the Recent Rounds title, and the round type filter pills.
+ *
+ * The scope filter (All / Social / Comps) sits at the very top because it
+ * scopes every section below it, unlike the type pills which only narrow the
+ * Recent Rounds list.
  */
 
 import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { spacing } from '@/constants/theme';
-import { SectionHeader, FilterPill } from '@/components/common';
+import { SectionHeader, FilterPill, SegmentedButton } from '@/components/common';
+import type { SegmentOption } from '@/components/common';
 import { LimitIndicator } from '@/components/subscription';
 import { RoundListCard } from '@/components/rounds';
 import { InProgressRoundSection } from '@/components/competitions/detail/sections';
 import type { RoundWithCourse } from '@/components/competitions/detail/types';
 import type { GameType } from '@/types/database.types';
-import type { RoundTypeFilter, RoundItem } from '../types';
+import type { RoundScopeFilter, RoundTypeFilter, RoundItem } from '../types';
+
+const ROUND_SCOPES: SegmentOption<RoundScopeFilter>[] = [
+  { value: 'all', label: 'All' },
+  { value: 'social', label: 'Social' },
+  { value: 'comps', label: 'Comps' },
+];
 
 const ROUND_TYPE_FILTERS: { key: RoundTypeFilter; label: string }[] = [
   { key: 'all', label: 'All' },
   { key: 'practice', label: 'Practice' },
   { key: 'match', label: 'Match' },
+  { key: 'matchplay', label: 'Match Play' },
+  { key: 'handicap', label: 'Handicap' },
+  { key: 'ninehole', label: '9-Hole' },
   { key: 'skins', label: 'Skins' },
   { key: 'wolf', label: 'Wolf' },
 ];
@@ -25,6 +39,8 @@ const ROUND_TYPE_FILTERS: { key: RoundTypeFilter; label: string }[] = [
 interface RoundListSectionsProps {
   inProgressRounds: RoundWithCourse[];
   upcomingRounds: RoundItem[];
+  roundScope: RoundScopeFilter;
+  onRoundScopeChange: (scope: RoundScopeFilter) => void;
   roundTypeFilter: RoundTypeFilter;
   onRoundTypeFilterChange: (filter: RoundTypeFilter) => void;
   onResumeRound: (roundId: string, gameType: GameType, isTeamRound: boolean) => void;
@@ -43,6 +59,8 @@ interface RoundListSectionsProps {
 export function RoundListSections({
   inProgressRounds,
   upcomingRounds,
+  roundScope,
+  onRoundScopeChange,
   roundTypeFilter,
   onRoundTypeFilterChange,
   onResumeRound,
@@ -68,6 +86,14 @@ export function RoundListSections({
 
   return (
     <>
+      <SegmentedButton
+        value={roundScope}
+        onValueChange={onRoundScopeChange}
+        buttons={ROUND_SCOPES}
+        size="small"
+        style={styles.scopeRow}
+      />
+
       {(inProgressRounds.length > 0 || upcomingRounds.length > 0) && (
         <View style={styles.inProgressSection}>
           <SectionHeader title="In Progress" />
@@ -83,8 +109,8 @@ export function RoundListSections({
               <RoundListCard
                 round={round}
                 onPress={() => (onUpcomingRoundPress ?? onScoreRound)(round)}
-                onDelete={onDeleteRound}
-                swipeEnabled={true}
+                onDelete={round.isStandalone === false ? undefined : onDeleteRound}
+                swipeEnabled={round.isStandalone !== false}
                 actionLabel="View"
                 currentUserId={currentUserId}
               />
@@ -96,7 +122,9 @@ export function RoundListSections({
       <SectionHeader
         title="Recent Rounds"
         rightContent={
-          !hasUnlimitedRounds ? (
+          // The allowance only covers social rounds, so it would misread
+          // alongside a competition-only list.
+          !hasUnlimitedRounds && roundScope !== 'comps' ? (
             <LimitIndicator
               current={roundsPlayedCount}
               max={maxRoundsPlayed}
@@ -125,6 +153,9 @@ export function RoundListSections({
 }
 
 const styles = StyleSheet.create({
+  scopeRow: {
+    marginBottom: spacing.md,
+  },
   inProgressSection: {
     marginBottom: spacing.sm,
   },
@@ -133,6 +164,7 @@ const styles = StyleSheet.create({
   },
   filterRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.sm,
     marginBottom: spacing.md,
   },

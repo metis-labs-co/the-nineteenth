@@ -217,7 +217,7 @@ export default function LeagueDetailScreen() {
           ) : (
             <View style={[styles.noAccessCard, { backgroundColor: colors.surface }]}>
               <Text style={[styles.noAccessText, { color: colors.textSecondary }]}>
-                You don't have access to this league. Ask the organiser for an invite code.
+                You don’t have access to this league. Ask the organiser for an invite code.
               </Text>
             </View>
           )}

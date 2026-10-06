@@ -52,9 +52,15 @@ interface UseTeamScoreControlsParams {
   shotContributions?: ShotContributions;
   onShotContributionsChange?: (contributions: ShotContributions) => void;
   disabled: boolean;
-  activeShotType: ShotSlot | null;
-  setActiveShotType: (type: ShotSlot | null) => void;
-  slideAnim: Animated.Value;
+  activeShotType?: ShotSlot | null;
+  setActiveShotType?: (type: ShotSlot | null) => void;
+  slideAnim?: Animated.Value;
+  /**
+   * Pre-computed team handicap, overriding the default Scramble 25% allowance.
+   * Alt Shot (foursomes) passes its 50% allowance here so the score-entry card
+   * and per-hole strokes match the finalized scoring (calculateAltShotTeamHandicap).
+   */
+  teamHandicapOverride?: number;
 }
 
 export function useTeamScoreControls({
@@ -70,14 +76,16 @@ export function useTeamScoreControls({
   activeShotType,
   setActiveShotType,
   slideAnim,
+  teamHandicapOverride,
 }: UseTeamScoreControlsParams) {
   // Determine if we should use the new shot contributions UI or the legacy contributor UI
   const usesShotContributions = !!onShotContributionsChange;
 
-  // Calculate team handicap
+  // Calculate team handicap. Alt Shot supplies its 50% foursomes allowance via
+  // teamHandicapOverride; otherwise fall back to the Scramble 25% calculation.
   const teamHandicap = useMemo(
-    () => calculateTeamHandicap(team.members),
-    [team.members]
+    () => teamHandicapOverride ?? calculateTeamHandicap(team.members),
+    [teamHandicapOverride, team.members]
   );
 
   // Calculate strokes received on this hole
@@ -157,13 +165,17 @@ export function useTeamScoreControls({
       [shotType]: playerId,
     });
     // Animate the close
-    Animated.timing(slideAnim, {
-      toValue: SHEET_HEIGHT,
-      duration: 200,
-      useNativeDriver: true,
-    }).start(() => {
-      setActiveShotType(null);
-    });
+    if (slideAnim) {
+      Animated.timing(slideAnim, {
+        toValue: SHEET_HEIGHT,
+        duration: 200,
+        useNativeDriver: true,
+      }).start(() => {
+        setActiveShotType?.(null);
+      });
+    } else {
+      setActiveShotType?.(null);
+    }
   }, [onShotContributionsChange, shotContributions, slideAnim, setActiveShotType]);
 
   const handlePlayerSelectForShot = useCallback((playerId: string) => {
@@ -187,13 +199,17 @@ export function useTeamScoreControls({
 
   // Close modal with animation
   const handleCloseModal = useCallback(() => {
-    Animated.timing(slideAnim, {
-      toValue: SHEET_HEIGHT,
-      duration: 200,
-      useNativeDriver: true,
-    }).start(() => {
-      setActiveShotType(null);
-    });
+    if (slideAnim) {
+      Animated.timing(slideAnim, {
+        toValue: SHEET_HEIGHT,
+        duration: 200,
+        useNativeDriver: true,
+      }).start(() => {
+        setActiveShotType?.(null);
+      });
+    } else {
+      setActiveShotType?.(null);
+    }
   }, [slideAnim, setActiveShotType]);
 
   return {

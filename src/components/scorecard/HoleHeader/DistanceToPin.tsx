@@ -413,8 +413,9 @@ const styles = StyleSheet.create({
     ...typography.small,
   },
   distanceText: {
-    ...typography.small,
-    fontWeight: '600',
+    fontSize: 23,
+    lineHeight: 28,
+    fontWeight: '700',
   },
 });
 

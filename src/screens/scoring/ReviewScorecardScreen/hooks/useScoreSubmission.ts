@@ -25,6 +25,7 @@ import {
 } from '@/services/scoreMismatch';
 import { getScoringPartner } from '@/services/scoringPairs';
 import { submitLogger } from '@/utils/debugLogger';
+import { isSharedBallRound } from '@/utils/roundFormat';
 import { useCheckAchievements } from '@/hooks/achievements/useCheckAchievements';
 import { useAchievementToast } from '@/context/AchievementToastContext';
 import { useAuth } from '@/hooks/useAuth';
@@ -37,11 +38,14 @@ import { useScorecardStore } from '@/store/scorecardStore';
 import { isSingleBallScore } from '@/types/database/base';
 import type { Hole, Scorecard } from '@/types';
 import { useQueryClient } from '@tanstack/react-query';
-import { roundKeys, scorecardKeys } from '@/hooks/queryKeys';
+import { roundKeys, scorecardKeys, competitionDetailsKeys, leaderboardKeys } from '@/hooks/queryKeys';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
+import { buildPostSubmitResetState } from '@/navigation/postSubmitNavigation';
 import type { IncompleteHole } from './useScoreReview';
 import { useRoundFinalization } from './useRoundFinalization';
+import { usePairings } from '@/hooks/rounds';
+import { resolveGroupScopeIds } from './resolveGroupScope';
 
 // =====================================================
 // SCORE STATISTICS FOR ACHIEVEMENTS
@@ -121,7 +125,7 @@ interface UseScoreSubmissionParams {
   scorecardCount: number;
   validateScores: () => IncompleteHole[];
   setShowIncompleteModal: (show: boolean) => void;
-  submitScorecards: (options?: { bypassed?: boolean }) => Promise<void>;
+  submitScorecards: (options?: { bypassed?: boolean; playerIds?: string[] }) => Promise<void>;
   resetRound: () => void;
   navigation: NativeStackNavigationProp<RootStackParamList, 'ReviewScorecard'>;
   // Scoring pairs mismatch detection
@@ -193,6 +197,19 @@ export function useScoreSubmission({
   const [isWaitingForPartner, setIsWaitingForPartner] = useState(false);
   const [partnerName, setPartnerName] = useState<string | null>(null);
   const [partnerProgress, setPartnerProgress] = useState<{ completed: number; total: number } | null>(null);
+
+  // Pairings for group-scope resolution
+  const { data: roundPairings } = usePairings(currentRoundId ?? routeRoundId ?? undefined);
+
+  const getGroupScopeIds = useCallback((): string[] => {
+    const { allowedPlayerIds, groupScorecards } = useScorecardStore.getState();
+    return resolveGroupScopeIds({
+      allowedPlayerIds,
+      pairings: roundPairings,
+      currentUserId,
+      groupScorecardPlayerIds: [...groupScorecards.keys()],
+    });
+  }, [roundPairings, currentUserId]);
 
   // Round finalization (extracted hook)
   const { updateRoundStatus, finalizeRoundResults } = useRoundFinalization();
@@ -270,6 +287,11 @@ export function useScoreSubmission({
         const userScorecard = storeScorecards.get(achievementPlayerId);
 
         if (!userScorecard || storeHoles.length === 0) return;
+
+        // Shared-ball team formats (scramble, alt-shot) score a single team
+        // ball, so this scorecard's birdies/eagles/score belong to the team,
+        // not the individual. Don't award individual achievements off them.
+        if (isSharedBallRound({ game_type: storeGameType })) return;
 
         const scoreStats = calculateScoreStats(userScorecard, storeHoles);
 
@@ -363,20 +385,11 @@ export function useScoreSubmission({
     resetRound();
     if (roundId) {
       submitLogger.info('Navigating to ViewRound (resetting stack)', { roundId: roundId.substring(0, 8) + '...' });
-      // Reset navigation stack so back button goes to rounds list, not score entry
-      navigation.reset({
-        index: 1,
-        routes: [
-          { name: 'MainTabs' },
-          {
-            name: 'ViewRound',
-            params: {
-              roundId,
-              competitionId: competitionId !== 'standalone' ? competitionId : undefined,
-            },
-          },
-        ],
-      });
+      // Reset the stack so back goes to the competition (rounds list) for
+      // competition rounds, or the tabs for standalone rounds — never back
+      // into the scoring flow. See buildPostSubmitResetState for why
+      // CompetitionDetail must sit beneath ViewRound.
+      navigation.reset(buildPostSubmitResetState(roundId, competitionId));
     } else {
       submitLogger.info('Navigating to dashboard (no round ID)');
       navigation.popToTop();
@@ -413,12 +426,20 @@ export function useScoreSubmission({
     //    rounds short-circuit inside the service and submit normally.
     if (currentUserId && roundId && isOnline) {
       try {
-        submitLogger.info('Checking submission readiness', { scoringPairsEnabled });
+        // Scope the readiness gate to the players this device is responsible for
+        // (its on-course group / pair) so different groups submit independently.
+        // See resolveGroupScope: allowedPlayerIds → user's pairing → full field.
+        const groupPlayerIds = getGroupScopeIds();
+        submitLogger.info('Checking submission readiness', {
+          scoringPairsEnabled,
+          groupPlayerCount: groupPlayerIds.length,
+        });
         const readiness = await checkSubmissionReadiness(
           roundId,
           currentUserId,
           scoringPairsEnabled,
           holeCount,
+          groupPlayerIds,
         );
 
         if (!readiness.canSubmit) {
@@ -568,7 +589,8 @@ export function useScoreSubmission({
           isStandalone: !competitionId || competitionId === 'standalone',
           isOnline,
         });
-        await submitScorecards();
+        const submitScopeIds = getGroupScopeIds();
+        await submitScorecards({ playerIds: submitScopeIds });
         submitLogger.info('submitScorecards completed successfully');
 
         if (roundId && isOnline) {
@@ -651,12 +673,24 @@ export function useScoreSubmission({
           submitLogger.info('Invalidating round list query', { userId: userId.substring(0, 8) + '...' });
           queryClient.invalidateQueries({ queryKey: ['rounds', userId] });
         }
+        // Home "Continue scoring" carousel: this user's card is now terminal,
+        // so the round should drop off Home even while it stays in-progress
+        // for other players (prefix matches every user variant).
+        queryClient.invalidateQueries({ queryKey: ['home', 'inProgressRounds'] });
         // Also invalidate the round detail + scorecards so ViewRound shows
         // the new status / submitted scores on its next mount instead of
         // serving stale cache (no swipe-to-refresh needed).
         if (roundId) {
           queryClient.invalidateQueries({ queryKey: roundKeys.detail(roundId) });
           queryClient.invalidateQueries({ queryKey: scorecardKeys.list({ roundId }) });
+        }
+        // Refresh the competition's detail (rounds tab status) + leaderboard so
+        // in-progress standings update live as each (sub-)group submits — e.g. a
+        // completed alt-shot sub-match's pair points appear without a manual
+        // refresh. finalizeRoundResults above already wrote the partial results.
+        if (competitionId && competitionId !== 'standalone') {
+          queryClient.invalidateQueries({ queryKey: competitionDetailsKeys.detail(competitionId) });
+          queryClient.invalidateQueries({ queryKey: leaderboardKeys.competition(competitionId) });
         }
 
         if (!isOnline) {
@@ -749,6 +783,7 @@ export function useScoreSubmission({
     showMultipleToasts,
     queryClient,
     user?.id,
+    getGroupScopeIds,
   ]);
 
   // Handle bypass submission (skip partner verification)
@@ -775,7 +810,8 @@ export function useScoreSubmission({
         submitLogger.info('Bypass scores applied');
 
         // Continue with normal submission (with bypassed flag)
-        await submitScorecards({ bypassed: true });
+        const submitScopeIds = getGroupScopeIds();
+        await submitScorecards({ bypassed: true, playerIds: submitScopeIds });
         submitLogger.info('Bypassed submission completed');
 
         if (isOnline) {
@@ -836,9 +872,16 @@ export function useScoreSubmission({
           submitLogger.info('Invalidating round list query (bypass)', { userId: userId.substring(0, 8) + '...' });
           queryClient.invalidateQueries({ queryKey: ['rounds', userId] });
         }
+        // Home "Continue scoring" carousel — see handleSubmit for rationale.
+        queryClient.invalidateQueries({ queryKey: ['home', 'inProgressRounds'] });
         // Also invalidate round detail + scorecards (see handleSubmit for rationale).
         queryClient.invalidateQueries({ queryKey: roundKeys.detail(roundId) });
         queryClient.invalidateQueries({ queryKey: scorecardKeys.list({ roundId }) });
+        // Refresh competition detail + leaderboard so in-progress standings update live.
+        if (competitionId && competitionId !== 'standalone') {
+          queryClient.invalidateQueries({ queryKey: competitionDetailsKeys.detail(competitionId) });
+          queryClient.invalidateQueries({ queryKey: leaderboardKeys.competition(competitionId) });
+        }
 
         showDialog({
           title: 'Submitted (Unverified)',
@@ -896,6 +939,7 @@ export function useScoreSubmission({
     showMultipleToasts,
     queryClient,
     user?.id,
+    getGroupScopeIds,
   ]);
 
   const handleSyncPress = useCallback(async () => {
@@ -910,7 +954,8 @@ export function useScoreSubmission({
     setIsSubmitting(true);
     try {
       submitLogger.info('Attempting manual sync');
-      await submitScorecards();
+      const submitScopeIds = getGroupScopeIds();
+      await submitScorecards({ playerIds: submitScopeIds });
       setPendingSyncs(0);
       setSyncError(null);
       submitLogger.info('Manual sync completed successfully');
@@ -922,7 +967,7 @@ export function useScoreSubmission({
     } finally {
       setIsSubmitting(false);
     }
-  }, [isOnline, submitScorecards, pendingSyncs, showAlert]);
+  }, [isOnline, submitScorecards, pendingSyncs, showAlert, getGroupScopeIds]);
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);

@@ -90,6 +90,14 @@ export interface Competition {
   // for organiser-led member coordination. Editable by the organiser only.
   whatsapp_group_invite_url: string | null;
 
+  // Organizer-controlled competition-wide notification emission flags.
+  // When false, neither an in-app notification nor a push is emitted.
+  round_reminders_enabled: boolean;
+  results_summary_enabled: boolean;
+  // Controls creation/addition of placeholder guest players. Existing guests
+  // remain attached when this is disabled.
+  allow_guests: boolean;
+
   // Optional player slot capacity. NULL = unlimited.
   max_players?: number | null;
   // When true and max_players is set, joins are blocked once capacity is reached.

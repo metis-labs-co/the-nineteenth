@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import { prizePoolKeys } from '@/hooks/queryKeys';
 import { CACHE_TIMES, GC_TIMES } from '@/constants/cacheConfig';
-import { createError } from '@/services/errors';
+import { assertNoDbError } from '@/services/errors';
 import type { PoolTransactionsOptions } from './types';
 import type {
   CompetitionPrizePool,
@@ -37,9 +37,7 @@ export function useCompetitionPrizePool(
         .eq('target_type', target)
         .maybeSingle();
 
-      if (error) {
-        throw createError(`Failed to fetch prize pool: ${error.message}`, 'DATABASE');
-      }
+      assertNoDbError(error, 'fetch prize pool');
 
       return (pool as unknown as CompetitionPrizePool) ?? null;
     },
@@ -66,9 +64,7 @@ export function useCompetitionPrizePools(competitionId: string | undefined) {
         .select('*')
         .eq('competition_id', competitionId);
 
-      if (error) {
-        throw createError(`Failed to fetch prize pools: ${error.message}`, 'DATABASE');
-      }
+      assertNoDbError(error, 'fetch prize pools');
 
       const rows = (data ?? []) as unknown as CompetitionPrizePool[];
       return {
@@ -96,9 +92,7 @@ export function usePrizePoolPlacements(poolId: string | undefined) {
         .eq('pool_id', poolId)
         .order('position', { ascending: true });
 
-      if (error) {
-        throw createError(`Failed to fetch placements: ${error.message}`, 'DATABASE');
-      }
+      assertNoDbError(error, 'fetch placements');
 
       return (data ?? []) as unknown as PrizePoolPlacement[];
     },
@@ -135,9 +129,7 @@ export function usePoolTransactions(
 
       const { data: transactions, error } = await query;
 
-      if (error) {
-        throw createError(`Failed to fetch pool transactions: ${error.message}`, 'DATABASE');
-      }
+      assertNoDbError(error, 'fetch pool transactions');
 
       return (transactions ?? []) as unknown as PoolTransaction[];
     },

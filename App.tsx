@@ -36,11 +36,15 @@ import { AuthProvider } from '@/context/AuthContext';
 import { ToastProvider } from '@/context/ToastContext';
 import { AchievementToastProvider } from '@/context/AchievementToastContext';
 import { UnifiedToastDisplay } from '@/components/common/Toast';
+import { ForceUpdateModal } from '@/components/common';
 import { lightColors, darkColors } from '@/constants/theme';
 import { activeBrand } from '@/config/brands';
 import { useWatchBridge } from '@/watch/useWatchBridge';
 
+// React Native resolves static image assets through require().
+// eslint-disable-next-line @typescript-eslint/no-var-requires
 const darkBackdrop = require('./assets/images/dark-backdrop-bg.png');
+// eslint-disable-next-line @typescript-eslint/no-var-requires
 const lightBackdrop = require('./assets/images/light-backdrop-bg.png');
 
 // ============================================================================
@@ -217,6 +221,7 @@ function AppContent() {
             <RootNavigator theme={navigationTheme} />
             <StatusBar style={isDark ? 'light' : 'dark'} />
             <UnifiedToastDisplay />
+            <ForceUpdateModal />
           </View>
         </AchievementToastProvider>
       </ToastProvider>

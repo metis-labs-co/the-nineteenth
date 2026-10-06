@@ -18,6 +18,7 @@ import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { getStrokesOnHole, calculateStablefordPoints } from '@/utils/scoring';
 import { getScoreBackgroundColor } from '@/utils/displayHelpers';
+import { formatRelativeToPar } from '@/utils/formatting';
 import { isSingleBallScore } from '@/types/database';
 import type { Hole, HoleScore, MultiBallHoleScore } from '@/types';
 
@@ -133,13 +134,6 @@ export function ScrambleScorecardTable({
     pts: 1,
   };
 
-  // Format to-par display
-  const formatToPar = (value: number | null): string => {
-    if (value === null) return '-';
-    if (value === 0) return 'E';
-    return value > 0 ? `+${value}` : `${value}`;
-  };
-
   // Get color for to-par value
   const getToParColor = (value: number | null): string => {
     if (value === null) return colors.textSecondary;
@@ -216,7 +210,7 @@ export function ScrambleScorecardTable({
         </View>
         <View style={[styles.cell, { flex: colFlex.toPar }]}>
           <Text style={[styles.cellTextBold, { color: getToParColor(data.toPar) }]}>
-            {formatToPar(data.toPar)}
+            {data.toPar === null ? '-' : formatRelativeToPar(data.toPar)}
           </Text>
         </View>
         <View style={[styles.cell, { flex: colFlex.pts }]}>
@@ -296,7 +290,9 @@ export function ScrambleScorecardTable({
               { color: isGrandTotal ? getToParColorForTotal(totals.toPar) : getToParColor(totals.toPar) },
             ]}
           >
-            {totals.hasScores ? formatToPar(totals.toPar) : '-'}
+            {totals.hasScores && totals.toPar !== null
+              ? formatRelativeToPar(totals.toPar)
+              : '-'}
           </Text>
         </View>
         <View style={[styles.cell, { flex: colFlex.pts }]}>

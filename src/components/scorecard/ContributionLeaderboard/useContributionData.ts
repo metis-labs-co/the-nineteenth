@@ -8,6 +8,7 @@
 import { useMemo } from 'react';
 import type { Player, HoleScore, MultiBallHoleScore, Hole } from '@/types';
 import { isSingleBallScore } from '@/types/database';
+import { getStrokesReceived, calculateStablefordPointsNet } from '@/utils/scoring';
 
 // =====================================================
 // TYPES
@@ -56,32 +57,10 @@ export interface PlayerScoreSummary {
   holesPlayed: number;
 }
 
-// =====================================================
-// PURE CALCULATION HELPERS
-// =====================================================
-
-/** Calculate stableford points for a score relative to par */
-export function calculateStablefordPoints(strokes: number, par: number, handicapStrokes: number): number {
-  const netStrokes = strokes - handicapStrokes;
-  const relativeToParNet = netStrokes - par;
-
-  if (relativeToParNet <= -3) return 5;
-  if (relativeToParNet === -2) return 4;
-  if (relativeToParNet === -1) return 3;
-  if (relativeToParNet === 0) return 2;
-  if (relativeToParNet === 1) return 1;
-  return 0;
-}
-
-/** Calculate handicap strokes for a hole based on player handicap and stroke index */
-export function getHandicapStrokesForHole(playerHandicap: number, strokeIndex: number): number {
-  if (playerHandicap <= 0) return 0;
-  if (playerHandicap >= 36) {
-    const extraStrokes = playerHandicap - 18;
-    return strokeIndex <= extraStrokes ? 2 : 1;
-  }
-  return playerHandicap >= strokeIndex ? 1 : 0;
-}
+// Handicap-stroke and net-Stableford math come from the canonical helpers in
+// `@/utils/scoring` (`getStrokesReceived`, `calculateStablefordPointsNet`) — the
+// former local copies diverged for handicaps > 18 (audit bug #1). Cards/hooks
+// must not re-implement scoring math.
 
 // =====================================================
 // HOOK
@@ -221,11 +200,11 @@ export function useContributionData({
         playersOnHole++;
         const strokes = score.strokes;
         const playerHandicap = player.handicap ?? 0;
-        const handicapStrokes = getHandicapStrokesForHole(playerHandicap, hole.strokeIndex);
+        const handicapStrokes = getStrokesReceived(playerHandicap, hole.strokeIndex);
 
         grossTotal += strokes;
         netTotal += strokes - handicapStrokes;
-        stablefordTotal += calculateStablefordPoints(strokes, hole.par, handicapStrokes);
+        stablefordTotal += calculateStablefordPointsNet(strokes, hole.par, handicapStrokes);
       }
 
       if (holeHasScores) {
@@ -254,7 +233,7 @@ export function useContributionData({
 
         holesPlayed++;
         const strokes = score.strokes;
-        const handicapStrokes = getHandicapStrokesForHole(playerHandicap, hole.strokeIndex);
+        const handicapStrokes = getStrokesReceived(playerHandicap, hole.strokeIndex);
 
         gross += strokes;
         net += strokes - handicapStrokes;

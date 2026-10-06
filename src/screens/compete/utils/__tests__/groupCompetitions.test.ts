@@ -11,6 +11,7 @@ function comp(overrides: Partial<CompetitionItem>): CompetitionItem {
     players: 4,
     isOrganizer: true,
     startDate: null,
+    teamMode: 'none',
     ...overrides,
   };
 }

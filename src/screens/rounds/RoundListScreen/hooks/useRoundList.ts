@@ -1,9 +1,21 @@
 /**
- * useRoundList - Fetches and manages standalone rounds data
+ * useRoundList - Fetches the rounds shown on the Rounds tab.
+ *
+ * Scope: standalone rounds the user owns or was invited to, PLUS rounds in
+ * competitions the user has accepted. Competition rounds are included so a
+ * player added to a competition by a friend can find and score the round from
+ * the Rounds tab; the screen's scope filter can narrow back to social rounds.
+ *
+ * Note the social-round tier limit (`roundsPlayedCount`) still counts only
+ * standalone rounds — competition rounds do not consume that allowance.
  */
 
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
+import { fetchRoundIdsWithSideGame } from '@/services/api/rounds';
+import { fetchAcceptedCompetitionIds } from '@/hooks/home/roundScope';
+import { splitActiveAndHistory } from './notPlayedRounds';
+import { parseClubLocation } from '@/utils/gpsCalculations';
 import { useAuth } from '@/hooks/useAuth';
 import { useSubscriptionContext } from '@/context/SubscriptionContext';
 import { isUnlimited, isNoLimit } from '@/types/subscription.types';
@@ -14,7 +26,7 @@ import type { WinnerInfo } from '@/components/common';
 import type { HoleScore, MultiBallHoleScore, Hole, TeeBox } from '@/types/database/base';
 import type { HandicapSource } from '@/types/database/enums';
 import { isSingleBallScore } from '@/types/database/base';
-import { getStrokesReceived } from '@/utils/scoring';
+import { getMatchPlayStrokes } from '@/utils/scoring';
 import {
   calculatePlayerStats,
   type ScorecardPlayerData,
@@ -42,18 +54,6 @@ function countScoredHoles(scores: Record<string, unknown> | null | undefined): n
     const balls = (s as MultiBallHoleScore).balls;
     return Array.isArray(balls) && balls.some((b) => b.strokes != null && b.strokes > 0);
   }).length;
-}
-
-function parseClubLocation(
-  location: { type: 'Point'; coordinates: [number, number] } | null | undefined,
-): { latitude: number | null; longitude: number | null } {
-  if (!location?.coordinates || location.coordinates.length < 2) {
-    return { latitude: null, longitude: null };
-  }
-  return {
-    longitude: location.coordinates[0],
-    latitude: location.coordinates[1],
-  };
 }
 
 export function useRoundList(): UseRoundListReturn {
@@ -91,8 +91,8 @@ export function useRoundList(): UseRoundListReturn {
     enabled: !!user?.id && !hasUnlimitedRounds,
   });
 
-  // Fetch standalone/practice rounds for the user (both active and historical)
-  // Competition rounds are accessed via the Competitions screen
+  // Fetch the user's rounds — standalone plus accepted-competition rounds —
+  // in both active and historical states.
   const {
     data: rounds,
     isLoading,
@@ -329,6 +329,122 @@ export function useRoundList(): UseRoundListReturn {
         // Silently ignore if round_players table doesn't exist yet
       }
 
+      // 2b. Fetch rounds from competitions the user has accepted. These use the
+      // same card shape as standalone rounds — `isStandalone: false` plus a
+      // `competition` label is what the card and the scope filter key off.
+      const competitionIds = await fetchAcceptedCompetitionIds(user.id, 'useRoundList');
+
+      if (competitionIds.length > 0) {
+        try {
+          interface CompetitionRoundRow extends StandaloneRoundRow {
+            competition_id: string;
+            competition: { id: string; name: string } | null;
+          }
+
+          const { data: competitionRounds, error: competitionError } = await (supabase
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
+            .from('rounds') as any)
+            .select(`
+              id,
+              round_number,
+              game_type,
+              is_team_round,
+              status,
+              date,
+              tee_time,
+              nine_type,
+              handicap_source,
+              selected_tee,
+              competition_id,
+              competition:competitions(id, name),
+              courses!course_id(
+                id,
+                name,
+                holes,
+                club:clubs(
+                  name,
+                  city,
+                  state,
+                  location
+                )
+              )
+            `)
+            .in('competition_id', competitionIds)
+            .is('deleted_at', null)
+            .order('date', { ascending: false });
+
+          if (competitionError) {
+            roundListLogger.error('Error fetching competition rounds', competitionError, {
+              userId: user.id.substring(0, 8) + '...',
+            });
+          } else {
+            const competitionRows = (competitionRounds || []) as CompetitionRoundRow[];
+            roundListLogger.info('Competition rounds fetched', {
+              count: competitionRows.length,
+              competitions: competitionIds.length,
+            });
+
+            // "Round 2 of 5" needs the competition's total round count, which
+            // this query already holds in full for every accepted competition.
+            const roundsPerCompetition = new Map<string, number>();
+            for (const round of competitionRows) {
+              roundsPerCompetition.set(
+                round.competition_id,
+                (roundsPerCompetition.get(round.competition_id) ?? 0) + 1
+              );
+            }
+
+            for (const round of competitionRows) {
+              if (allRounds.some((r) => r.id === round.id)) continue;
+
+              const holes = Array.isArray(round.courses?.holes)
+                ? (round.courses!.holes as Hole[])
+                : [];
+              roundMetaByRound.set(round.id, {
+                holes,
+                selectedTee: round.selected_tee,
+                handicapSource: round.handicap_source ?? 'profile',
+              });
+              allRounds.push({
+                id: round.id,
+                roundNumber: round.round_number,
+                totalRounds: roundsPerCompetition.get(round.competition_id) ?? 1,
+                gameType: round.game_type,
+                isTeamRound: round.is_team_round ?? false,
+                status: round.status,
+                date: round.date,
+                teeTime: round.tee_time,
+                isStandalone: false,
+                competition: round.competition
+                  ? { id: round.competition.id, name: round.competition.name }
+                  : undefined,
+                course: {
+                  id: round.courses?.id || '',
+                  name: round.courses?.name || 'Unknown Course',
+                  venueName: round.courses?.club?.name,
+                  city: round.courses?.club?.city ?? undefined,
+                  state: round.courses?.club?.state ?? undefined,
+                  clubs: round.courses?.club
+                    ? {
+                        ...parseClubLocation(round.courses.club.location),
+                        name: round.courses.club.name,
+                      }
+                    : null,
+                },
+                holesCompleted: 0,
+                totalHoles: holes.length || 18,
+                players: [], // Populated from scorecards in step 8
+                handicapSource: round.handicap_source,
+                selectedTeeName: round.selected_tee?.name ?? null,
+                nineType: round.nine_type ?? null,
+              });
+            }
+          }
+        } catch (err) {
+          roundListLogger.debug('Competition rounds fetch skipped', { error: err });
+        }
+      }
+
       // 3. Fetch players for all standalone rounds
       // Collect all standalone round IDs
       const allStandaloneRoundIds = allRounds
@@ -455,73 +571,13 @@ export function useRoundList(): UseRoundListReturn {
         .filter(r => r.status === 'completed')
         .map(r => r.id);
 
-      // 6. Fetch skins games for all rounds to set hasSkins flag
+      // 6-7. Fetch skins/wolf games for all rounds to set hasSkins/hasWolf flags
       const allRoundIds = allRounds.map(r => r.id);
-      if (allRoundIds.length > 0) {
-        try {
-          interface SkinsGameRow {
-            round_id: string;
-          }
-
-          const { data: skinsGamesData, error: skinsGamesError } = await (supabase
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
-            .from('skins_games') as any)
-            .select('round_id')
-            .in('round_id', allRoundIds)
-            .in('status', ['active', 'completed']);
-
-          if (skinsGamesError) {
-            if (skinsGamesError.code !== 'PGRST205') {
-              console.error('Error fetching skins games:', skinsGamesError);
-            }
-          } else if (skinsGamesData) {
-            // Create a set of round IDs that have skins games
-            const roundsWithSkins = new Set(
-              (skinsGamesData as SkinsGameRow[]).map(sg => sg.round_id)
-            );
-
-            // Update hasSkins flag on rounds
-            for (const round of allRounds) {
-              round.hasSkins = roundsWithSkins.has(round.id);
-            }
-          }
-        } catch {
-          // skins_games table may not exist yet
-        }
-      }
-
-      // 7. Fetch wolf games for all rounds to set hasWolf flag
-      if (allRoundIds.length > 0) {
-        try {
-          interface WolfGameRow {
-            round_id: string;
-          }
-
-          const { data: wolfGamesData, error: wolfGamesError } = await (supabase
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
-            .from('wolf_games') as any)
-            .select('round_id')
-            .in('round_id', allRoundIds)
-            .in('status', ['active', 'completed']);
-
-          if (wolfGamesError) {
-            if (wolfGamesError.code !== 'PGRST205') {
-              console.error('Error fetching wolf games:', wolfGamesError);
-            }
-          } else if (wolfGamesData) {
-            // Create a set of round IDs that have wolf games
-            const roundsWithWolf = new Set(
-              (wolfGamesData as WolfGameRow[]).map(wg => wg.round_id)
-            );
-
-            // Update hasWolf flag on rounds
-            for (const round of allRounds) {
-              round.hasWolf = roundsWithWolf.has(round.id);
-            }
-          }
-        } catch {
-          // wolf_games table may not exist yet
-        }
+      const roundsWithSkins = await fetchRoundIdsWithSideGame('skins_games', allRoundIds);
+      const roundsWithWolf = await fetchRoundIdsWithSideGame('wolf_games', allRoundIds);
+      for (const round of allRounds) {
+        round.hasSkins = roundsWithSkins.has(round.id);
+        round.hasWolf = roundsWithWolf.has(round.id);
       }
 
       // 8. Fetch scorecards for completed rounds; compute userScore and winner
@@ -543,6 +599,7 @@ export function useRoundList(): UseRoundListReturn {
             player: {
               id: string;
               name: string;
+              photo_url: string | null;
               handicap: number | null;
               handicap_index: number | null;
               gender: 'male' | 'female' | null;
@@ -567,6 +624,7 @@ export function useRoundList(): UseRoundListReturn {
               player:players!player_id(
                 id,
                 name,
+                photo_url,
                 handicap,
                 handicap_index,
                 gender
@@ -594,6 +652,22 @@ export function useRoundList(): UseRoundListReturn {
               if (!scorecards || scorecards.length === 0) {
                 round.userScore = { hasScorecard: false };
                 continue;
+              }
+
+              // Competition rounds have no `round_players` rows (step 3 only
+              // covers standalone rounds), so the card's avatar stack and
+              // winner row come from whoever actually submitted a scorecard.
+              if (!round.isStandalone && (round.players?.length ?? 0) === 0) {
+                round.players = scorecards.reduce<RoundPlayerInfo[]>((acc, sc) => {
+                  if (sc.player) {
+                    acc.push({
+                      id: sc.player.id,
+                      name: sc.player.name,
+                      photo_url: sc.player.photo_url,
+                    });
+                  }
+                  return acc;
+                }, []);
               }
 
               const meta = roundMetaByRound.get(round.id);
@@ -749,29 +823,9 @@ export function useRoundList(): UseRoundListReturn {
         }
       }
 
-      // Separate into active and historical
-      const active = allRounds
-        .filter(r => r.status !== 'completed')
-        .sort((a, b) => {
-          // In-progress first
-          if (a.status === 'in-progress' && b.status !== 'in-progress') return -1;
-          if (b.status === 'in-progress' && a.status !== 'in-progress') return 1;
-          // Then by date (most recent first)
-          if (a.date && b.date) {
-            return new Date(b.date).getTime() - new Date(a.date).getTime();
-          }
-          return 0;
-        });
-
-      const history = allRounds
-        .filter(r => r.status === 'completed')
-        .sort((a, b) => {
-          // Most recent first
-          if (a.date && b.date) {
-            return new Date(b.date).getTime() - new Date(a.date).getTime();
-          }
-          return 0;
-        });
+      // Active feeds the upcoming section, history feeds Recent Rounds;
+      // "not played" competition rounds are routed into history there.
+      const { active, history } = splitActiveAndHistory(allRounds);
 
       // Log unexpected statuses that would cause rounds to not appear in either tab
       const unexpectedRounds = allRounds.filter(
@@ -904,8 +958,6 @@ function computeMatchPlayResult(
 } | null {
   const dhc1 = p1.daily_handicap_used ?? 0;
   const dhc2 = p2.daily_handicap_used ?? 0;
-  const handicapDiff = Math.abs(dhc1 - dhc2);
-  const player1GivesStrokes = dhc1 < dhc2;
 
   const sortedHoles = [...holes].sort((a, b) => a.number - b.number);
   const totalHoles = sortedHoles.length;
@@ -926,13 +978,13 @@ function computeMatchPlayResult(
         : null;
     if (gross1 == null || gross2 == null) continue;
 
-    let strokes1 = 0;
-    let strokes2 = 0;
-    if (handicapDiff > 0) {
-      const sr = getStrokesReceived(handicapDiff, hole.strokeIndex);
-      if (player1GivesStrokes) strokes2 = sr;
-      else strokes1 = sr;
-    }
+    // Difference method: the lower-DHC player plays off scratch and the
+    // higher-DHC player receives the difference on this hole.
+    const { a: strokes1, b: strokes2 } = getMatchPlayStrokes(
+      dhc1,
+      dhc2,
+      hole.strokeIndex
+    );
 
     const net1 = gross1 - strokes1;
     const net2 = gross2 - strokes2;

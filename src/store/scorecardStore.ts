@@ -19,12 +19,19 @@ import type { NineType } from '@/types/database/enums';
 import type { BallCount } from '@/types/multiball.types';
 import type { MultiBallHoleScore, BallTotals } from '@/types/database/base';
 import { isSingleBallScore } from '@/types/database/base';
-import { saveScorecard, saveHoles, markScorecardsAsSynced } from '@/services/offline/database';
+import {
+  saveScorecard,
+  saveHoles,
+  markScorecardAsSynced,
+  getFailedSyncCountForRound,
+} from '@/services/offline/database';
 import {
   queueScorecardSync,
   syncScorecard,
   subscribeSyncState,
+  subscribeScorecardSynced,
   getIsOnline,
+  ScorecardConflictError,
 } from '@/services/offline/sync';
 import { storeLogger, logScorecardSummary } from '@/utils/debugLogger';
 import { calculatePlayerTotals } from './utils/scorecardCalculations';
@@ -62,6 +69,7 @@ interface ScorecardState {
   isOnline: boolean;
   isSyncing: boolean;
   pendingSyncCount: number;
+  failedSyncCount: number;
   syncError: string | null;
 
   // Loading states
@@ -98,7 +106,7 @@ interface ScorecardState {
   getHoleInfo: (holeNumber: number) => Hole | undefined;
   isHoleComplete: (hole: number) => boolean;
   getCompletedHolesCount: () => number;
-  submitScorecards: () => Promise<void>;
+  submitScorecards: (options?: { bypassed?: boolean; playerIds?: string[] }) => Promise<void>;
   resetRound: () => void;
 
   // Multi-ball scoring functions
@@ -116,6 +124,34 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
   // Subscribe to sync state changes
   let unsubscribe: (() => void) | null = null;
 
+  /**
+   * Recount retained sync failures for the round being scored.
+   *
+   * The sync service's `failedCount` is device-wide, which is the wrong number
+   * for an on-course banner: one unrecoverable row left over from an earlier
+   * round would raise a red "score changes not uploaded" strip on every
+   * subsequent scorecard, including solo and local-only rounds. Device-wide
+   * failures remain visible in Settings → Developer.
+   */
+  const refreshRoundFailedSyncCount = async () => {
+    const roundId = get().currentRoundId;
+    if (!roundId) {
+      set({ failedSyncCount: 0 });
+      return;
+    }
+
+    try {
+      const count = await getFailedSyncCountForRound(roundId);
+      // The round can change while the query is in flight.
+      if (get().currentRoundId !== roundId) return;
+      set({ failedSyncCount: count });
+    } catch (error) {
+      storeLogger.warn('Failed to read retained sync failures for round', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  };
+
   const initSyncListener = () => {
     if (unsubscribe) return;
     unsubscribe = subscribeSyncState((syncState) => {
@@ -125,6 +161,23 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
         pendingSyncCount: syncState.pendingCount,
         syncError: syncState.error,
       });
+      void refreshRoundFailedSyncCount();
+    });
+
+    // Keep the in-memory serverRevision in step with the server after every
+    // successful background sync. markScorecardAsSynced only updates SQLite;
+    // without this, later writes send a stale expected revision and are
+    // falsely rejected as "changed on another device" conflicts.
+    subscribeScorecardSynced(({ scorecardId, serverRevision }) => {
+      const { groupScorecards } = get();
+      for (const [playerId, scorecard] of groupScorecards) {
+        if (scorecard.id !== scorecardId) continue;
+        if ((scorecard.serverRevision ?? 0) >= serverRevision) return;
+        const next = new Map(groupScorecards);
+        next.set(playerId, { ...scorecard, serverRevision });
+        set({ groupScorecards: next });
+        return;
+      }
     });
   };
 
@@ -147,16 +200,24 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
     isOnline: true,
     isSyncing: false,
     pendingSyncCount: 0,
+    failedSyncCount: 0,
     syncError: null,
     isLoading: false,
     isInitialized: false,
 
     // Initialization (delegated to initializeRoundSlice)
-    initializeRound: (roundId, players, holes, gameType, isStandalone, allowedPlayerIds, selectedTeeData, handicapSource, playerTeeMap, nineType, startHole) =>
-      initSlice.initializeRound(set, initSyncListener, roundId, players, holes, gameType, isStandalone, allowedPlayerIds, selectedTeeData, handicapSource, playerTeeMap, nineType, startHole),
+    // The failure recount runs after the slice resolves: it is scoped to
+    // `currentRoundId`, which the slice only sets once the round has loaded.
+    initializeRound: async (roundId, players, holes, gameType, isStandalone, allowedPlayerIds, selectedTeeData, handicapSource, playerTeeMap, nineType, startHole) => {
+      await initSlice.initializeRound(set, initSyncListener, roundId, players, holes, gameType, isStandalone, allowedPlayerIds, selectedTeeData, handicapSource, playerTeeMap, nineType, startHole);
+      await refreshRoundFailedSyncCount();
+    },
 
-    loadFromOffline: (roundId) =>
-      initSlice.loadFromOffline(set, initSyncListener, roundId),
+    loadFromOffline: async (roundId) => {
+      const loaded = await initSlice.loadFromOffline(set, initSyncListener, roundId);
+      await refreshRoundFailedSyncCount();
+      return loaded;
+    },
 
     ensureTeamMemberScorecards: (teamMemberPlayers) =>
       initSlice.ensureTeamMemberScorecards(
@@ -307,8 +368,11 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
       return count;
     },
 
-    submitScorecards: async () => {
+    submitScorecards: async (options) => {
       const { groupScorecards, currentRoundId, selectedTeeData, holes, gameType, nineType } = get();
+      const scopeIds = options?.playerIds;
+      const targetIds =
+        scopeIds && scopeIds.length > 0 ? new Set(scopeIds) : null;
 
       storeLogger.info('Submitting scorecards', {
         roundId: currentRoundId?.substring(0, 8) + '...',
@@ -351,6 +415,9 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
       let errorCount = 0;
 
       for (const [playerId, scorecard] of newScorecards) {
+        if (targetIds && !targetIds.has(playerId)) {
+          continue; // group-scoped submit: leave other groups' cards untouched
+        }
         try {
           const updatedScorecard: Scorecard = {
             ...scorecard,
@@ -379,8 +446,28 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
             // the scorecard never reaches the server — leaving it scoreless and
             // missing from handicap history / stats. Throwing on failure keeps
             // the round un-completed and therefore recoverable.
-            await syncScorecard(updatedScorecard, { skipServerCheck: true });
-            await markScorecardsAsSynced([updatedScorecard.id]);
+            let result;
+            try {
+              result = await syncScorecard(updatedScorecard);
+            } catch (error) {
+              if (!(error instanceof ScorecardConflictError)) throw error;
+              // Stale expected revision. At explicit submission the scorer's
+              // local card is authoritative, so adopt the server's revision
+              // and retry once with the local snapshot. Without this, a card
+              // whose tracked revision fell behind (e.g. a crash before the
+              // revision was persisted) can never be submitted again.
+              storeLogger.warn('Submit hit a stale revision conflict; retrying with server revision', {
+                playerId: playerId.substring(0, 8) + '...',
+                serverRevision: error.serverRevision,
+              });
+              result = await syncScorecard({
+                ...updatedScorecard,
+                serverRevision: error.serverRevision,
+              });
+            }
+            updatedScorecard.serverRevision = result.serverRevision;
+            newScorecards.set(playerId, updatedScorecard);
+            await markScorecardAsSynced(updatedScorecard.id, result.serverRevision);
           } else {
             // Offline: queue for durable retry on reconnect. The submission
             // flow leaves the round status unchanged while offline, so no
@@ -429,6 +516,8 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
         isLoading: false,
         isInitialized: false,
         syncError: null,
+        // Round-scoped, so it cannot outlive the round it belongs to.
+        failedSyncCount: 0,
       });
     },
 

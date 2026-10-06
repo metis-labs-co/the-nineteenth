@@ -60,7 +60,7 @@ import type { ScrambleTeam } from '@/screens/rounds/CreateRoundBottomSheet/types
 import type { SkinsConfig } from '@/types';
 import type { WolfConfig } from '@/types/database/wolf.types';
 import type { ScoringPairCreateInput } from '@/types';
-import type { HandicapSource } from '@/types/database/enums';
+import type { HandicapSource, NineType } from '@/types/database/enums';
 import { ScoringSetupStep } from '@/screens/rounds/CreateRoundBottomSheet/steps/ScoringSetupStep';
 import { RoundHeaderCard } from './components/RoundHeaderCard';
 import { PlayersSection } from './components/PlayersSection';
@@ -737,6 +737,7 @@ export default function ScheduledRoundScreen({ route, navigation }: Props) {
                     }
                   : null
               }
+              nineType={(round.nine_type as NineType) ?? 'full'}
               // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TeeBox runtime shape from DB
               selectedTee={round.selected_tee as any}
               // eslint-disable-next-line @typescript-eslint/no-explicit-any -- GameType string from DB

@@ -23,6 +23,10 @@ import {
   removePendingSync,
   incrementSyncRetryCount,
   getPendingSyncCount,
+  getFailedSyncCountForRound,
+  getFailedSyncs,
+  discardPendingSync,
+  updatePendingSyncData,
   clearAllData,
   clearInvalidMockData,
   clearAllPendingSyncs,
@@ -44,6 +48,7 @@ let mockRunAsync: jest.Mock;
 let mockGetFirstAsync: jest.Mock;
 let mockGetAllAsync: jest.Mock;
 let mockCloseAsync: jest.Mock;
+let mockWithTransactionAsync: jest.Mock;
 
 // Mock database instance
 const createMockDatabase = () => {
@@ -52,6 +57,7 @@ const createMockDatabase = () => {
   mockGetFirstAsync = jest.fn().mockResolvedValue(null);
   mockGetAllAsync = jest.fn().mockResolvedValue([]);
   mockCloseAsync = jest.fn().mockResolvedValue(undefined);
+  mockWithTransactionAsync = jest.fn(async (callback: () => Promise<void>) => callback());
 
   return {
     execAsync: mockExecAsync,
@@ -59,6 +65,7 @@ const createMockDatabase = () => {
     getFirstAsync: mockGetFirstAsync,
     getAllAsync: mockGetAllAsync,
     closeAsync: mockCloseAsync,
+    withTransactionAsync: mockWithTransactionAsync,
   };
 };
 
@@ -736,7 +743,12 @@ describe('Pending Sync Operations', () => {
       const sync: Omit<PendingSync, 'id'> = {
         type: 'scorecard',
         action: 'update',
-        data: { scorecardId: 'sc-1', score: 4 },
+        data: {
+          scorecardId: 'sc-1',
+          roundId: '550e8400-e29b-41d4-a716-446655440000',
+          playerId: '550e8400-e29b-41d4-a716-446655440001',
+          score: 4,
+        },
         timestamp: new Date('2025-01-15T10:00:00Z'),
         retryCount: 0,
       };
@@ -763,6 +775,7 @@ describe('Pending Sync Operations', () => {
           type: 'scorecard',
           action: 'create',
           data: {},
+          entityKey: 'scorecard:test',
           timestamp: new Date(),
           retryCount: 0,
         })
@@ -843,7 +856,7 @@ describe('Pending Sync Operations', () => {
       await removePendingSync(123);
 
       expect(mockRunAsync).toHaveBeenCalledWith(
-        'DELETE FROM pending_syncs WHERE id = ?',
+        expect.stringContaining('DELETE FROM pending_syncs'),
         [123]
       );
     });
@@ -854,8 +867,8 @@ describe('Pending Sync Operations', () => {
       await incrementSyncRetryCount(456);
 
       expect(mockRunAsync).toHaveBeenCalledWith(
-        'UPDATE pending_syncs SET retry_count = retry_count + 1 WHERE id = ?',
-        [456]
+        expect.stringContaining('SET retry_count = retry_count + 1'),
+        expect.arrayContaining([456])
       );
     });
   });
@@ -868,7 +881,7 @@ describe('Pending Sync Operations', () => {
 
       expect(result).toBe(5);
       expect(mockGetFirstAsync).toHaveBeenCalledWith(
-        'SELECT COUNT(*) as count FROM pending_syncs'
+        expect.stringContaining("WHERE status = 'pending'")
       );
     });
 
@@ -878,6 +891,97 @@ describe('Pending Sync Operations', () => {
       const result = await getPendingSyncCount();
 
       expect(result).toBe(0);
+    });
+  });
+
+  describe('getFailedSyncCountForRound()', () => {
+    it('should count only failures belonging to the given round', async () => {
+      mockGetFirstAsync.mockResolvedValueOnce({ count: 1 });
+
+      const result = await getFailedSyncCountForRound('round-abc');
+
+      expect(result).toBe(1);
+      const [sql, params] = mockGetFirstAsync.mock.calls[0];
+      expect(sql).toContain("status = 'failed'");
+      expect(sql).toContain('entity_key LIKE');
+      expect(params).toEqual(['scorecard:round-abc:%']);
+    });
+
+    it('should return 0 when no round id is given', async () => {
+      const result = await getFailedSyncCountForRound('');
+
+      expect(result).toBe(0);
+      expect(mockGetFirstAsync).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getFailedSyncs()', () => {
+    it('should return retained failures with their error detail', async () => {
+      mockGetAllAsync.mockResolvedValueOnce([
+        {
+          id: 7,
+          type: 'scorecard',
+          action: 'update',
+          data: '{"id":"sc-1","roundId":"round-abc","playerId":"player-1"}',
+          timestamp: '2025-01-15T10:00:00Z',
+          retry_count: 3,
+          entity_key: 'scorecard:round-abc:player-1',
+          revision: 2,
+          status: 'failed',
+          last_error: 'row-level security policy',
+          last_attempt_at: '2025-01-15T11:00:00Z',
+        },
+      ]);
+
+      const result = await getFailedSyncs();
+
+      expect(mockGetAllAsync).toHaveBeenCalledWith(
+        expect.stringContaining("WHERE status = 'failed'")
+      );
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe(7);
+      expect(result[0].lastError).toBe('row-level security policy');
+      expect(result[0].entityKey).toBe('scorecard:round-abc:player-1');
+      expect(result[0].data).toEqual({
+        id: 'sc-1',
+        roundId: 'round-abc',
+        playerId: 'player-1',
+      });
+      expect(result[0].lastAttemptAt).toBeInstanceOf(Date);
+    });
+  });
+
+  describe('discardPendingSync()', () => {
+    it('should delete the row regardless of its revision', async () => {
+      mockRunAsync.mockResolvedValueOnce({ changes: 1 });
+
+      const removed = await discardPendingSync(7);
+
+      expect(removed).toBe(true);
+      expect(mockRunAsync).toHaveBeenCalledWith(
+        expect.stringContaining('DELETE FROM pending_syncs'),
+        [7]
+      );
+    });
+
+    it('should report false when the row no longer exists', async () => {
+      mockRunAsync.mockResolvedValueOnce({ changes: 0 });
+
+      expect(await discardPendingSync(7)).toBe(false);
+    });
+  });
+
+  describe('updatePendingSyncData()', () => {
+    it('should overwrite the stored payload for the given row', async () => {
+      mockRunAsync.mockResolvedValueOnce({ changes: 1 });
+
+      const updated = await updatePendingSyncData(7, { id: 'sc-1', serverRevision: 9 });
+
+      expect(updated).toBe(true);
+      expect(mockRunAsync).toHaveBeenCalledWith(
+        expect.stringContaining('SET data = ?'),
+        [JSON.stringify({ id: 'sc-1', serverRevision: 9 }), 7]
+      );
     });
   });
 });

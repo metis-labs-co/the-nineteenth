@@ -11,6 +11,7 @@ import { CACHE_TIMES } from '@/constants/cacheConfig';
 import { supabase } from '@/services/supabase/client';
 import { calculateHandicapIndex, getQualifyingCount } from '@/utils/handicapDifferential';
 import { recalculateScorecardDifferential } from '@/services/handicap/recalculateScorecardDifferential';
+import { isSharedBallRound } from '@/utils/roundFormat';
 import { updatePlayerHandicapIndex } from '@/services/handicap/updatePlayerHandicapIndex';
 import {
   fetchCombinedHandicapRounds,
@@ -42,6 +43,8 @@ interface ScorecardWithRound {
   rounds: {
     id: string;
     date: string;
+    game_type: string | null;
+    team_format: string | null;
     courses: {
       id: string;
       name: string;
@@ -105,6 +108,8 @@ async function fetchHandicapHistory(playerId: string): Promise<HandicapSummary> 
         id,
         date,
         nine_type,
+        game_type,
+        team_format,
         courses (
           id,
           name,
@@ -185,13 +190,16 @@ async function fetchHandicapHistory(playerId: string): Promise<HandicapSummary> 
     }
   }
 
-  // Filter out any rows with missing required data
+  // Filter out any rows with missing required data, plus any shared-ball team
+  // round (scramble, alt-shot) that may have retained a stale differential
+  // before the backfill ran — those are never handicap eligible.
   const validScorecards = (scorecards as ScorecardWithRound[]).filter(
     (sc) =>
       sc.handicap_differential !== null &&
       sc.daily_handicap_used !== null &&
       sc.course_rating_used !== null &&
-      sc.slope_rating_used !== null
+      sc.slope_rating_used !== null &&
+      !isSharedBallRound(sc.rounds ?? {})
   );
 
   // Fetch combined rounds and combinable 9-hole pairs in parallel

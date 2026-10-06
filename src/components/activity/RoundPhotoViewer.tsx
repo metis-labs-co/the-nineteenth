@@ -10,7 +10,7 @@
  * placeholder until the full-res image loads.
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -24,6 +24,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { spacing } from '@/constants/theme';
 import { SystemModalTheme, AppImage } from '@/components/common';
 import { signFullPhotos } from '@/hooks/activity';
+import { ReportSheet } from '@/components/moderation/ReportSheet';
+import { useReportContent, type ReportReason } from '@/hooks/moderation';
 
 export interface RoundPhotoViewerPhoto {
   id: string;
@@ -31,6 +33,12 @@ export interface RoundPhotoViewerPhoto {
   storagePath: string;
   /** Cached thumbnail url, shown as a placeholder while full-res loads. */
   thumbUrl: string | null;
+  /**
+   * Who uploaded it. Needed to attribute a report - content_reports
+   * denormalises the author so a takedown survives them deleting their
+   * account. Optional so existing fixtures still typecheck.
+   */
+  uploaderId?: string | null;
 }
 
 export interface RoundPhotoViewerProps {
@@ -41,6 +49,27 @@ export interface RoundPhotoViewerProps {
 }
 
 export function RoundPhotoViewer({ photos, index, onClose }: RoundPhotoViewerProps) {
+  const current = index !== null ? photos[index] : null;
+  const [isReporting, setIsReporting] = useState(false);
+  const { report } = useReportContent();
+
+  const handleReport = useCallback(
+    async (reason: ReportReason, note?: string) => {
+      if (!current) return;
+      await report({
+        contentType: 'round_photo',
+        contentId: current.id,
+        authorId: current.uploaderId ?? null,
+        reason,
+        note,
+      });
+      setIsReporting(false);
+      // The photo is now hidden from this viewer, so the frame is stale.
+      onClose();
+    },
+    [current, report, onClose]
+  );
+
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const visible = index !== null;
@@ -115,6 +144,21 @@ export function RoundPhotoViewer({ photos, index, onClose }: RoundPhotoViewerPro
           </View>
         </SystemModalTheme>
       ) : null}
+      <TouchableOpacity
+        onPress={() => setIsReporting(true)}
+        style={[styles.report, { top: insets.top + spacing.sm }]}
+        accessibilityRole="button"
+        accessibilityLabel="Report photo"
+        hitSlop={8}
+      >
+        <Icon source="flag-outline" size={22} color="#fff" />
+      </TouchableOpacity>
+
+      <ReportSheet
+        visible={isReporting}
+        onSubmit={handleReport}
+        onDismiss={() => setIsReporting(false)}
+      />
     </Modal>
   );
 }
@@ -123,6 +167,11 @@ const styles = StyleSheet.create({
   viewer: {
     flex: 1,
     backgroundColor: '#000',
+  },
+  report: {
+    position: 'absolute',
+    left: spacing.md,
+    padding: spacing.sm,
   },
   close: {
     position: 'absolute',

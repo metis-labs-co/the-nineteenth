@@ -199,7 +199,7 @@ describe('MatchPlayEngine', () => {
       const result = engine.calculateMatch(player1, player2, courseData);
 
       expect(result.result).toBe('player2');
-      expect(result.margin).toBe('1UP');
+      expect(result.margin).toBe('1 UP');
       expect(result.holesPlayed).toBe(18);
     });
 
@@ -275,7 +275,7 @@ describe('MatchPlayEngine', () => {
 
       // P1 wins hole 1 only, all others halved
       expect(result.result).toBe('player1');
-      expect(result.margin).toBe('1UP');
+      expect(result.margin).toBe('1 UP');
     });
 
     it('large handicap difference gives 2+ strokes per hole', () => {

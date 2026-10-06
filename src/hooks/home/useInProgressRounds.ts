@@ -15,7 +15,9 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import { CACHE_TIMES, GC_TIMES } from '@/constants/cacheConfig';
 import { useAuth } from '@/hooks/useAuth';
+import { fetchRoundIdsWithSideGame } from '@/services/api/rounds';
 import { isSingleBallScore } from '@/types/database/base';
+import type { ScorecardStatus } from '@/types/database/enums';
 import type {
   Hole,
   HoleScore,
@@ -27,6 +29,10 @@ import {
   calculatePlayerStats,
   type ScorecardPlayerInfo,
 } from '@/utils/scorecardCalculations';
+import {
+  fetchAcceptedCompetitionIds,
+  applyUserRoundScope,
+} from './roundScope';
 import type { RoundWithCourse } from '@/components/competitions/detail/types';
 
 const ROUND_SELECT = `
@@ -47,41 +53,20 @@ export function useInProgressRounds() {
       if (!user?.id) return [];
 
       // Step 1: find all competition IDs the user is an accepted player in.
+      const competitionIds = await fetchAcceptedCompetitionIds(
+        user.id,
+        'useInProgressRounds'
+      );
+
+      // Step 2: fetch in-progress rounds, scoped to standalone rounds the user
+      // owns OR competition rounds in accepted comps.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase typed-row workaround
-      const { data: cpData, error: cpError } = await (supabase
-        .from('competition_players') as any)
-        .select('competition_id')
-        .eq('player_id', user.id)
-        .eq('status', 'accepted');
-
-      if (cpError) {
-        console.error(
-          '[useInProgressRounds] Error fetching competition players:',
-          cpError
-        );
-      }
-
-      const competitionIds = ((cpData ?? []) as { competition_id: string }[])
-        .map((cp) => cp.competition_id)
-        .filter(Boolean);
-
-      // Step 2: fetch in-progress rounds.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase typed-row workaround
-      let query = (supabase.from('rounds') as any)
+      const baseQuery = (supabase.from('rounds') as any)
         .select(ROUND_SELECT)
         .eq('status', 'in-progress')
         .is('deleted_at', null)
         .order('updated_at', { ascending: false });
-
-      if (competitionIds.length > 0) {
-        // user_id = me (standalone owned by user) OR competition rounds in
-        // accepted comps. The empty-comp-list path skips the OR branch.
-        query = query.or(
-          `user_id.eq.${user.id},competition_id.in.(${competitionIds.join(',')})`
-        );
-      } else {
-        query = query.eq('user_id', user.id).is('competition_id', null);
-      }
+      const query = applyUserRoundScope(baseQuery, user.id, competitionIds);
 
       const { data, error } = await query;
 
@@ -93,6 +78,11 @@ export function useInProgressRounds() {
       const rounds = (data ?? []) as RoundWithCourse[];
       const roundIds = rounds.map((r) => r.id);
       if (roundIds.length === 0) return rounds;
+
+      // Competition rounds the signed-in user has personally finished — their
+      // own scorecard is terminal (completed/confirmed). Populated from the
+      // scorecard fetch below and used to drop these rounds from the carousel.
+      const userTerminalRoundIds = new Set<string>();
 
       // Standalone-round players for the home carousel. Competition rounds
       // already show their roster on the comp detail screen, so we only
@@ -142,50 +132,13 @@ export function useInProgressRounds() {
         }
       }
 
-      // Skins games: mark `has_skins` for rounds with active/completed games.
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase typed-row workaround
-        const { data: skinsData, error: skinsError } = await (supabase
-          .from('skins_games') as any)
-          .select('round_id')
-          .in('round_id', roundIds)
-          .in('status', ['active', 'completed']);
-
-        if (skinsError && skinsError.code !== 'PGRST205') {
-          console.error('[useInProgressRounds] skins_games error:', skinsError);
-        } else if (skinsData) {
-          const set = new Set(
-            (skinsData as { round_id: string }[]).map((r) => r.round_id)
-          );
-          for (const round of rounds) {
-            round.has_skins = set.has(round.id);
-          }
-        }
-      } catch {
-        // skins_games table may not exist on older deployments
-      }
-
-      // Wolf games: mark `has_wolf` for rounds with active/completed games.
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase typed-row workaround
-        const { data: wolfData, error: wolfError } = await (supabase
-          .from('wolf_games') as any)
-          .select('round_id')
-          .in('round_id', roundIds)
-          .in('status', ['active', 'completed']);
-
-        if (wolfError && wolfError.code !== 'PGRST205') {
-          console.error('[useInProgressRounds] wolf_games error:', wolfError);
-        } else if (wolfData) {
-          const set = new Set(
-            (wolfData as { round_id: string }[]).map((r) => r.round_id)
-          );
-          for (const round of rounds) {
-            round.has_wolf = set.has(round.id);
-          }
-        }
-      } catch {
-        // wolf_games table may not exist on older deployments
+      // Side games: mark `has_skins` / `has_wolf` for rounds with
+      // active/completed games.
+      const skinsSet = await fetchRoundIdsWithSideGame('skins_games', roundIds);
+      const wolfSet = await fetchRoundIdsWithSideGame('wolf_games', roundIds);
+      for (const round of rounds) {
+        round.has_skins = skinsSet.has(round.id);
+        round.has_wolf = wolfSet.has(round.id);
       }
 
       // Live progress for the carousel card ("Hole 7 · +2 · 21 pts"): the
@@ -197,7 +150,7 @@ export function useInProgressRounds() {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase typed-row workaround
           .from('scorecards') as any)
           .select(
-            'round_id, scores, daily_handicap_used, ga_handicap_used, total_points, player:players!player_id(id, name, handicap, handicap_index, gender)'
+            'round_id, status, scores, daily_handicap_used, ga_handicap_used, total_points, player:players!player_id(id, name, handicap, handicap_index, gender)'
           )
           .eq('player_id', user.id)
           .in('round_id', roundIds);
@@ -208,6 +161,9 @@ export function useInProgressRounds() {
           const scorecardByRound = new Map<string, ProgressScorecardRow>();
           for (const sc of scData as ProgressScorecardRow[]) {
             scorecardByRound.set(sc.round_id, sc);
+            if (isTerminalScorecardStatus(sc.status)) {
+              userTerminalRoundIds.add(sc.round_id);
+            }
           }
           for (const round of rounds) {
             const sc = scorecardByRound.get(round.id);
@@ -216,9 +172,20 @@ export function useInProgressRounds() {
         }
       } catch {
         // Progress is decorative — the card falls back to course/format info.
+        // (If this fetch fails, no rounds are filtered out below, so the
+        // carousel degrades to the previous status-only behaviour.)
       }
 
-      return rounds;
+      // Drop competition rounds this user has personally finished. Competition
+      // rounds stay `in-progress` until EVERY player submits, so without this
+      // an organiser who has already scored and submitted their own group keeps
+      // getting nagged on Home to "continue scoring" a round they're done with.
+      // Standalone rounds are left untouched — the owner drives the whole group
+      // from one device, so their own card being terminal doesn't mean the
+      // round is finished.
+      return rounds.filter(
+        (round) => shouldShowInProgressRound(round, userTerminalRoundIds)
+      );
     },
     enabled: !!user?.id,
     staleTime: CACHE_TIMES.SHORT,
@@ -228,9 +195,42 @@ export function useInProgressRounds() {
   });
 }
 
+/** Scorecard statuses that mean the user has nothing left to score. */
+const TERMINAL_SCORECARD_STATUSES: ReadonlySet<ScorecardStatus> = new Set([
+  'completed',
+  'confirmed',
+]);
+
+/** True when the user's scorecard is submitted (completed or confirmed). */
+export function isTerminalScorecardStatus(
+  status: ScorecardStatus | null | undefined
+): boolean {
+  return status != null && TERMINAL_SCORECARD_STATUSES.has(status);
+}
+
+/**
+ * Whether an in-progress round should still appear in the Home "Continue
+ * scoring" carousel. It should, UNLESS it is a competition round the
+ * signed-in user has personally finished (their own scorecard is terminal):
+ * competition rounds stay `in-progress` until every player submits, but this
+ * user has nothing left to score. Standalone rounds always stay visible while
+ * in-progress — the owner scores the whole group, so their own card being
+ * terminal does not mean the round is done.
+ */
+export function shouldShowInProgressRound(
+  round: { id: string; competition_id?: string | null },
+  userTerminalRoundIds: ReadonlySet<string>
+): boolean {
+  if (round.competition_id && userTerminalRoundIds.has(round.id)) {
+    return false;
+  }
+  return true;
+}
+
 /** Slice of the scorecards row needed to compute live round progress. */
 interface ProgressScorecardRow {
   round_id: string;
+  status: ScorecardStatus | null;
   scores: Record<string, HoleScore | MultiBallHoleScore> | null;
   daily_handicap_used: number | null;
   ga_handicap_used: number | null;

@@ -34,6 +34,10 @@ interface LeaderboardTabContentProps {
   /** When provided, tapping a player row in the individual leaderboard opens
    *  that player's scorecard. */
   onPlayerPress?: (playerId: string) => void;
+  /** Map of playerId → daily (playing) handicap so the stableford/par
+   *  leaderboards score off the round's daily handicap — matching the scorecard
+   *  — instead of the raw profile index. */
+  dailyHandicaps?: Record<string, number>;
   isRefreshing: boolean;
   onRefresh: () => void;
   bottomInset: number;
@@ -49,6 +53,7 @@ export function LeaderboardTabContent({
   competitionId,
   teamFormat,
   onPlayerPress,
+  dailyHandicaps,
   isRefreshing,
   onRefresh,
   bottomInset,
@@ -88,8 +93,9 @@ export function LeaderboardTabContent({
       teamFormat,
       getPlayerScore,
       subMatches: subMatches ?? undefined,
+      dailyHandicaps,
     });
-  }, [showToggle, teams, holes, gameType, teamFormat, getPlayerScore, subMatches]);
+  }, [showToggle, teams, holes, gameType, teamFormat, getPlayerScore, subMatches, dailyHandicaps]);
 
   const renderIndividual = () => {
     if (gameType === 'stableford') {
@@ -99,6 +105,7 @@ export function LeaderboardTabContent({
           holes={holes}
           getPlayerScore={getPlayerScore}
           currentUserId={currentUserId}
+          dailyHandicaps={dailyHandicaps}
           onPlayerPress={onPlayerPress}
           testID="stableford-leaderboard-full"
         />
@@ -111,6 +118,7 @@ export function LeaderboardTabContent({
           holes={holes}
           getPlayerScore={getPlayerScore}
           currentUserId={currentUserId}
+          dailyHandicaps={dailyHandicaps}
           onPlayerPress={onPlayerPress}
           testID="par-leaderboard-full"
         />
@@ -122,6 +130,7 @@ export function LeaderboardTabContent({
         holes={holes}
         getPlayerScore={getPlayerScore}
         currentUserId={currentUserId}
+        dailyHandicaps={dailyHandicaps}
         onPlayerPress={onPlayerPress}
         testID="stroke-play-leaderboard-full"
       />

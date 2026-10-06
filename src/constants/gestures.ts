@@ -1,6 +1,6 @@
 /**
  * Swipe gesture configuration constants
- * Used by useSwipeToDelete hook for consistent swipe-to-delete behavior
+ * Used by swipeable rows and hole navigation for consistent gesture behavior.
  */
 export const SWIPE_GESTURE = {
   /** Width of the delete button revealed on swipe */

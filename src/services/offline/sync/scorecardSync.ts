@@ -7,12 +7,16 @@
 
 import { supabase, getCurrentUser } from '@/services/supabase/client';
 import { invalidateHandicapCache } from '@/services/queryClient';
-import { saveScoreEntry } from '@/services/scoreMismatch';
-import type { Scorecard, PendingSync } from '@/types';
+import { saveScoreEntries } from '@/services/scoreMismatch';
+import type { Scorecard, PendingSync, HoleScore } from '@/types';
 import { isSingleBallScore } from '@/types/database/base';
 import { syncLogger, logScorecardSummary } from '@/utils/debugLogger';
 import { calculateScoreDifferential, getRatingsForGender } from '@/utils/handicapDifferential';
-import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
+import {
+  calculateAdjustedGrossScore,
+  type AdjustedGrossParams,
+} from '@/utils/adjustedGross';
+import { calculateNineAwareDailyHandicap } from '@/utils/dailyHandicap';
 import {
   getStrokesReceived,
   calculateStablefordPointsNet,
@@ -21,6 +25,7 @@ import {
 import { teeBoxToRatings } from '@/utils/teeTransformers';
 import { getEffectiveTeeRatings } from '@/utils/teeResolution';
 import { updatePlayerHandicapIndex } from '@/services/handicap/updatePlayerHandicapIndex';
+import { isSharedBallRound } from '@/utils/roundFormat';
 
 /**
  * Check if a string is a valid UUID
@@ -33,7 +38,7 @@ export function isValidUUID(str: string): boolean {
 /**
  * Process scorecard sync action
  */
-export async function processScorecardSync(sync: PendingSync): Promise<void> {
+export async function processScorecardSync(sync: PendingSync): Promise<ScorecardSyncResult | void> {
   const { action, data } = sync;
 
   syncLogger.debug('Processing scorecard sync', { action, dataId: data?.id });
@@ -41,24 +46,61 @@ export async function processScorecardSync(sync: PendingSync): Promise<void> {
   switch (action) {
     case 'create':
     case 'update':
-      // Pending queue has authoritative submission data — skip server comparison
-      await syncScorecard(data as Scorecard, { skipServerCheck: true });
-      break;
+      return syncScorecard(data as Scorecard);
     case 'delete':
-      syncLogger.info('Delete scorecard (not implemented)', { dataId: data.id });
+      await deleteRemoteScorecard(data as Scorecard);
       break;
     default:
       syncLogger.warn('Unknown action', { action });
   }
 }
 
+async function deleteRemoteScorecard(scorecard: Scorecard): Promise<void> {
+  if (!isValidUUID(scorecard.roundId) || !isValidUUID(scorecard.playerId)) {
+    throw new Error('Cannot delete scorecard with invalid round or player identifier');
+  }
+
+  const { error } = await supabase
+    .from('scorecards')
+    .delete()
+    .eq('round_id', scorecard.roundId)
+    .eq('player_id', scorecard.playerId);
+
+  if (error) {
+    throw new Error(`Failed to delete scorecard: ${error.code ?? ''} ${error.message}`.trim());
+  }
+}
+
 /**
  * Sync a scorecard to Supabase
  */
-export async function syncScorecard(
-  scorecard: Scorecard,
-  options?: { skipServerCheck?: boolean }
-): Promise<void> {
+export interface ScorecardSyncResult {
+  serverRevision: number;
+}
+
+export class ScorecardConflictError extends Error {
+  readonly serverRevision: number;
+  readonly serverStatus: string | null;
+  readonly serverScores: Record<string, unknown>;
+
+  constructor(row: ScorecardWriteResult) {
+    super('This scorecard changed on another device. Your local scores were kept and were not uploaded.');
+    this.name = 'ScorecardConflictError';
+    this.serverRevision = Number(row.server_revision);
+    this.serverStatus = row.server_status;
+    this.serverScores = row.server_scores ?? {};
+  }
+}
+
+interface ScorecardWriteResult {
+  applied: boolean;
+  conflict: boolean;
+  server_revision: number | null;
+  server_status: string | null;
+  server_scores: Record<string, unknown> | null;
+}
+
+export async function syncScorecard(scorecard: Scorecard): Promise<ScorecardSyncResult> {
   syncLogger.info('Syncing scorecard to Supabase', logScorecardSummary(scorecard));
 
   // Skip standalone rounds - they are local-only and don't sync to server
@@ -66,7 +108,7 @@ export async function syncScorecard(
     syncLogger.info('Skipping standalone scorecard (local-only)', {
       id: scorecard.id.substring(0, 20) + '...',
     });
-    return;
+    return { serverRevision: scorecard.serverRevision ?? 0 };
   }
 
   // Validate that round_id and player_id are valid UUIDs
@@ -206,37 +248,7 @@ export async function syncScorecard(
     slope_rating_used: handicapData.slopeRatingUsed,
   };
 
-  // Check if server has more complete data before overwriting (unless skipServerCheck is set)
-  if (!options?.skipServerCheck) {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types workaround
-      const { data: existingScorecard } = await (supabase.from('scorecards') as any)
-        .select('scores')
-        .eq('round_id', scorecard.roundId)
-        .eq('player_id', scorecard.playerId)
-        .maybeSingle();
-
-      if (existingScorecard?.scores) {
-        const serverHoleCount = Object.keys(existingScorecard.scores).length;
-        if (serverHoleCount > holesWithScores) {
-          syncLogger.warn('Skipping sync - server has more complete data', {
-            serverHoles: serverHoleCount,
-            localHoles: holesWithScores,
-            roundId: scorecard.roundId.substring(0, 8) + '...',
-            playerId: scorecard.playerId.substring(0, 8) + '...',
-          });
-          return;
-        }
-      }
-    } catch (checkError) {
-      // Non-blocking — if the check fails, proceed with sync
-      syncLogger.warn('Server check failed, proceeding with sync', {
-        error: checkError instanceof Error ? checkError.message : String(checkError),
-      });
-    }
-  }
-
-  syncLogger.debug('Upserting to Supabase', {
+  syncLogger.debug('Writing scorecard with optimistic concurrency', {
     roundId: scorecard.roundId.substring(0, 8) + '...',
     playerId: scorecard.playerId.substring(0, 8) + '...',
     status: scorecardData.status,
@@ -244,18 +256,17 @@ export async function syncScorecard(
     hasHandicapDifferential: handicapData.handicapDifferential !== null,
   });
 
-  // Use type assertion due to Supabase types configuration
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
-  const { error, data: _data } = await (
-    supabase
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types workaround
-      .from('scorecards') as any
-  ).upsert(scorecardData, {
-    onConflict: 'round_id,player_id',
+  // Generated Supabase types lag the migration until the next schema generation.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error, data } = await (supabase.rpc as any)('write_scorecard_snapshot', {
+    p_round_id: scorecard.roundId,
+    p_player_id: scorecard.playerId,
+    p_expected_revision: scorecard.serverRevision ?? 0,
+    p_snapshot: scorecardData,
   });
 
   if (error) {
-    syncLogger.error('Supabase upsert error', error, {
+    syncLogger.error('Supabase scorecard write error', error, {
       errorCode: error.code,
       errorMessage: error.message,
       errorDetails: error.details,
@@ -264,6 +275,17 @@ export async function syncScorecard(
       playerId: scorecard.playerId.substring(0, 8) + '...',
     });
     throw new Error(`Failed to sync scorecard: ${error.message}`);
+  }
+
+  const result = (Array.isArray(data) ? data[0] : data) as ScorecardWriteResult | undefined;
+  if (!result) {
+    throw new Error('Failed to sync scorecard: server returned an invalid concurrency response');
+  }
+  if (!result.applied || result.conflict) {
+    throw new ScorecardConflictError(result);
+  }
+  if (typeof result.server_revision !== 'number') {
+    throw new Error('Failed to sync scorecard: server returned an invalid concurrency response');
   }
 
   syncLogger.info('Scorecard synced successfully', {
@@ -288,12 +310,17 @@ export async function syncScorecard(
 
   // Sync score entries for mismatch detection
   await syncScoreEntries(scorecard);
+  return { serverRevision: result.server_revision };
 }
 
 /**
- * Calculate handicap data for a scorecard
+ * Calculate handicap data for a scorecard.
+ *
+ * Exported for characterization tests: the WHS differential branch is
+ * high-blast-radius (it feeds `players.handicap_index` and handicap history)
+ * and must never emit a differential for a scoreless / zero-gross card.
  */
-function calculateHandicapData(scorecard: Scorecard): {
+export function calculateHandicapData(scorecard: Scorecard): {
   gaHandicapUsed: number | null;
   dailyHandicapUsed: number | null;
   handicapDifferential: number | null;
@@ -322,12 +349,8 @@ function calculateHandicapData(scorecard: Scorecard): {
       const nineType = scorecard.syncNineType ?? 'full';
       let finalCourseRating = ratings.courseRating;
       let finalSlopeRating = ratings.slopeRating;
-      let has9HoleRatings = false;
 
       if (nineType !== 'full' && teeData) {
-        const nineRatingField = nineType === 'front9' ? teeData.courseRatingFront9 : teeData.courseRatingBack9;
-        has9HoleRatings = nineRatingField != null;
-
         const { slope, cr } = getEffectiveTeeRatings(
           {
             name: teeData.name,
@@ -348,42 +371,65 @@ function calculateHandicapData(scorecard: Scorecard): {
       courseRatingUsed = finalCourseRating;
       slopeRatingUsed = finalSlopeRating;
 
-      // Calculate daily handicap if player has a WHS handicap index
+      // Calculate daily handicap if player has a WHS handicap index.
+      // Shared with the on-course scoring display via calculateNineAwareDailyHandicap
+      // so the value shown while scoring can never diverge from what is persisted.
       if (playerHandicap != null) {
         // Capture the WHS handicap index used for this round (historical snapshot)
         gaHandicapUsed = playerHandicap;
 
-        if (nineType !== 'full' && !has9HoleRatings) {
-          // No 9-hole ratings available: calculate 18-hole daily handicap then halve it
-          // Use 18-hole par (coursePar × 2 approximation since coursePar is already 9-hole filtered)
-          const fullPar = coursePar * 2;
-          const fullDailyResult = calculateGADailyHandicap({
-            gaHandicap: playerHandicap,
-            slopeRating: ratings.slopeRating,
-            courseRating: ratings.courseRating,
-            par: fullPar,
-            gender: playerGender,
-          });
-          dailyHandicapUsed = Math.round(fullDailyResult.dailyHandicap / 2);
-        } else {
-          const dailyResult = calculateGADailyHandicap({
-            gaHandicap: playerHandicap,
-            slopeRating: finalSlopeRating,
-            courseRating: finalCourseRating,
-            par: coursePar,
-            gender: playerGender,
-          });
-          dailyHandicapUsed = dailyResult.dailyHandicap;
-        }
+        // coursePar is already 9-hole filtered for 9-hole rounds, matching the
+        // helper's expectation that `par` is the par of the holes being played.
+        const dailyResult = calculateNineAwareDailyHandicap({
+          gaHandicap: playerHandicap,
+          nineType,
+          par: coursePar,
+          slopeRating: ratings.slopeRating,
+          courseRating: ratings.courseRating,
+          slopeRatingFront9: teeData.slopeRatingFront9,
+          courseRatingFront9: teeData.courseRatingFront9,
+          slopeRatingBack9: teeData.slopeRatingBack9,
+          courseRatingBack9: teeData.courseRatingBack9,
+          gender: playerGender,
+        });
+        dailyHandicapUsed = dailyResult.dailyHandicap;
       }
 
-      // Calculate score differential (uses raw gross score - no Net Double Bogey adjustment)
-      const differential = calculateScoreDifferential({
-        adjustedGrossScore: scorecard.totalGross || 0,
-        courseRating: finalCourseRating,
-        slopeRating: finalSlopeRating,
-      });
-      handicapDifferential = differential;
+      // Calculate score differential from the WHS ADJUSTED gross score — every
+      // hole capped at net double bogey (par + 2 + strokes received) via
+      // calculateAdjustedGrossScore. Cards synced without hole data fall back
+      // to the raw total_gross, which is what this call site used throughout.
+      //
+      // Skip for shared-ball team formats (scramble, alt-shot): the stored
+      // total_gross is the TEAM's single-ball score, not the player's own
+      // play, so it must never become a handicap-eligible differential.
+      // Also skip when the gross is not a positive number: an empty / abandoned
+      // scorecard (total_gross = 0) would otherwise produce a huge negative
+      // differential of (113 / slope) × (0 − courseRating) and poison the WHS
+      // index. This mirrors the guard in recalculateScorecardDifferential.ts
+      // and the other differential call sites.
+      // Leaving handicapDifferential null excludes the round from both the
+      // handicap history and the WHS index (both filter on a non-null value).
+      const grossIsPositive =
+        typeof scorecard.totalGross === 'number' && scorecard.totalGross > 0;
+      if (!isSharedBallRound({ game_type: scorecard.syncGameType }) && grossIsPositive) {
+        const holes = scorecard.syncHoles;
+        const adjustedGross =
+          holes && holes.length > 0
+            ? calculateAdjustedGrossScore({
+                holes,
+                scores: scorecard.scores as AdjustedGrossParams['scores'],
+                dailyHandicap: dailyHandicapUsed ?? 0,
+              }).adjustedGross
+            : scorecard.totalGross;
+
+        const differential = calculateScoreDifferential({
+          adjustedGrossScore: adjustedGross > 0 ? adjustedGross : scorecard.totalGross,
+          courseRating: finalCourseRating,
+          slopeRating: finalSlopeRating,
+        });
+        handicapDifferential = differential;
+      }
 
       syncLogger.debug('Calculated handicap data for scorecard', {
         dailyHandicapUsed,
@@ -492,48 +538,72 @@ function calculateTotalParScore(
  * Sync score entries for mismatch detection
  */
 async function syncScoreEntries(scorecard: Scorecard): Promise<void> {
-  // Populate score_entries for mismatch detection (if scores have scoredBy attribution)
-  // This ensures offline scores are available for mismatch detection after reconnect
-  // NOTE: Only sync entries where the current user is the scorer (RLS policy requirement)
-  let scoreEntriesSynced = 0;
-  let entriesSkipped = 0;
+  // Populate score_entries for mismatch detection (if scores have scoredBy attribution).
+  // This ensures offline scores are available for mismatch detection after reconnect.
+  // NOTE: Only sync entries where the current user is the scorer (RLS policy requires
+  // scorer_id = auth.uid()); entries scored by others sync from those users' own devices.
+  //
+  // All of this scorecard's entries are pushed in a SINGLE batched upsert rather than
+  // one network call per hole. The per-hole loop previously fired up to 18 concurrent
+  // single-row upserts that contended for the same rows and hit the 8s statement
+  // timeout; batching collapses them into one short transaction. This is now the sole
+  // writer of score_entries — the per-keystroke write in scoreUpdateSlice was removed
+  // to eliminate the foreground/background race on these rows.
   const currentUser = await getCurrentUser();
   const currentUserId = currentUser?.id;
+
+  const entries: {
+    roundId: string;
+    playerId: string;
+    holeNumber: number;
+    scorerId: string;
+    score: HoleScore;
+  }[] = [];
+  let entriesSkipped = 0;
 
   for (const [holeNum, score] of Object.entries(scorecard.scores)) {
     if (score && isSingleBallScore(score) && score.strokes !== undefined && score.scoredBy) {
       // Only sync entries where current user was the scorer (RLS policy requires scorer_id = auth.uid())
-      // Entries scored by others will be synced when they sync their own device
       if (currentUserId && score.scoredBy !== currentUserId) {
         entriesSkipped++;
         continue;
       }
 
-      try {
-        await saveScoreEntry(
-          scorecard.roundId,
-          scorecard.playerId,
-          parseInt(holeNum),
-          score.scoredBy,
-          score
-        );
-        scoreEntriesSynced++;
-      } catch (entryError) {
-        // Non-critical - log but don't fail the sync
-        syncLogger.warn('Failed to save score entry during sync', {
-          error: entryError instanceof Error ? entryError.message : 'Unknown error',
-          holeNum,
-        });
-      }
+      entries.push({
+        roundId: scorecard.roundId,
+        playerId: scorecard.playerId,
+        holeNumber: parseInt(holeNum),
+        scorerId: score.scoredBy,
+        score,
+      });
     }
   }
 
-  if (scoreEntriesSynced > 0 || entriesSkipped > 0) {
+  if (entries.length === 0) {
+    if (entriesSkipped > 0) {
+      syncLogger.debug('Score entries synced for mismatch detection', {
+        roundId: scorecard.roundId.substring(0, 8) + '...',
+        playerId: scorecard.playerId.substring(0, 8) + '...',
+        entriesCount: 0,
+        entriesSkipped, // Skipped because scorer was another user
+      });
+    }
+    return;
+  }
+
+  try {
+    await saveScoreEntries(entries);
     syncLogger.debug('Score entries synced for mismatch detection', {
       roundId: scorecard.roundId.substring(0, 8) + '...',
       playerId: scorecard.playerId.substring(0, 8) + '...',
-      entriesCount: scoreEntriesSynced,
-      entriesSkipped: entriesSkipped, // Skipped because scorer was another user
+      entriesCount: entries.length,
+      entriesSkipped, // Skipped because scorer was another user
+    });
+  } catch (entryError) {
+    // Non-critical - log but don't fail the scorecard sync
+    syncLogger.warn('Failed to save score entries during sync', {
+      error: entryError instanceof Error ? entryError.message : 'Unknown error',
+      entriesCount: entries.length,
     });
   }
 }

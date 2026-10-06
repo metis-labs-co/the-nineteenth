@@ -169,8 +169,8 @@ describe('Match Play Scorecard Integration', () => {
       // Get player-specific status
       const tigerStatus = getPlayerMatchStatus(status, 'player1');
       const philStatus = getPlayerMatchStatus(status, 'player2');
-      expect(tigerStatus.text).toBe('AS');
-      expect(philStatus.text).toBe('AS');
+      expect(tigerStatus.text).toBe('A/S');
+      expect(philStatus.text).toBe('A/S');
     });
 
     it('tracks a match where player dominates and wins early', () => {
@@ -452,8 +452,8 @@ describe('Match Play Scorecard Integration', () => {
       }[] = [
         {
           status: { status: 'in_progress', leader: null, holesUp: 0, holesRemaining: 18 },
-          player1Expected: { text: 'AS', type: 'square' },
-          player2Expected: { text: 'AS', type: 'square' },
+          player1Expected: { text: 'A/S', type: 'square' },
+          player2Expected: { text: 'A/S', type: 'square' },
         },
         {
           status: { status: 'in_progress', leader: 'player1', holesUp: 2, holesRemaining: 10 },
@@ -472,8 +472,8 @@ describe('Match Play Scorecard Integration', () => {
         },
         {
           status: { status: 'complete', winner: 'halved', margin: 'All Square' },
-          player1Expected: { text: 'AS', type: 'halved' },
-          player2Expected: { text: 'AS', type: 'halved' },
+          player1Expected: { text: 'A/S', type: 'halved' },
+          player2Expected: { text: 'A/S', type: 'halved' },
         },
       ];
 

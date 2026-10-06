@@ -509,7 +509,7 @@ describe('getPlayerMatchStatus', () => {
 
     it('returns AS for player1', () => {
       const display = getPlayerMatchStatus(status, 'player1');
-      expect(display.text).toBe('AS');
+      expect(display.text).toBe('A/S');
       expect(display.fullText).toBe('All Square');
       expect(display.type).toBe('halved');
       expect(display.holesUpDown).toBe(0);
@@ -517,7 +517,7 @@ describe('getPlayerMatchStatus', () => {
 
     it('returns AS for player2', () => {
       const display = getPlayerMatchStatus(status, 'player2');
-      expect(display.text).toBe('AS');
+      expect(display.text).toBe('A/S');
       expect(display.fullText).toBe('All Square');
       expect(display.type).toBe('halved');
       expect(display.holesUpDown).toBe(0);
@@ -580,13 +580,13 @@ describe('getPlayerMatchStatus', () => {
 
     it('returns AS for both players', () => {
       const display1 = getPlayerMatchStatus(status, 'player1');
-      expect(display1.text).toBe('AS');
+      expect(display1.text).toBe('A/S');
       expect(display1.fullText).toBe('All Square');
       expect(display1.type).toBe('square');
       expect(display1.holesUpDown).toBe(0);
 
       const display2 = getPlayerMatchStatus(status, 'player2');
-      expect(display2.text).toBe('AS');
+      expect(display2.text).toBe('A/S');
       expect(display2.type).toBe('square');
     });
   });
@@ -761,11 +761,11 @@ describe('Match Play Scenarios', () => {
 
       // Both players should show halved status
       const p1Status = getPlayerMatchStatus(status, 'player1');
-      expect(p1Status.text).toBe('AS');
+      expect(p1Status.text).toBe('A/S');
       expect(p1Status.type).toBe('halved');
 
       const p2Status = getPlayerMatchStatus(status, 'player2');
-      expect(p2Status.text).toBe('AS');
+      expect(p2Status.text).toBe('A/S');
       expect(p2Status.type).toBe('halved');
     });
   });

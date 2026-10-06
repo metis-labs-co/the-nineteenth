@@ -8,12 +8,13 @@
  * Gesture API (LongPress + Pan composed with `Gesture.Simultaneous`) rather
  * than a list library. The 300ms long-press requirement means short
  * vertical swipes pass through to the parent ScrollView for normal scroll;
- * only a deliberate hold engages drag. On release the new order is
- * computed from the pan offset and the surrounding cards re-layout via
- * the standard rounds-list re-render.
+ * only a deliberate hold engages drag. During the drag the surrounding cards
+ * animate to open a gap at the projected drop slot (driven by shared drag
+ * state — see `DraggableRow`); on release the new order is computed from the
+ * pan offset and persisted via `onReorder`.
  */
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -24,24 +25,61 @@ import { Text, Icon } from 'react-native-paper';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   runOnJS,
+  useAnimatedReaction,
   useAnimatedStyle,
+  useDerivedValue,
   useSharedValue,
   withTiming,
+  type SharedValue,
 } from 'react-native-reanimated';
-import { spacing, typography, borderRadius } from '@/constants/theme';
+import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import type { ColorPalette } from '@/context/ThemeContext';
-import type { RoundWithCourse } from './types';
+import { GAME_TYPE_LABELS, type RoundWithCourse } from './types';
 import type { GameType } from '@/types';
+import { inferPresetIdFromRound, ROUND_PRESETS } from '@/constants/roundPresets';
 import { CompetitionRoundCard } from './CompetitionRoundCard';
+import { getHoverIndex, computeReorderShift } from './reorderMath';
 import { EmptyState, SwipeableRow } from '@/components/common';
+import { useForceFinalizeRound } from '@/hooks/rounds';
+import ForceSubmitRoundDialog from '@/components/rounds/ForceSubmitRoundDialog';
+import { useToast } from '@/context/ToastContext';
 
 /** Long-press threshold before drag activates. Short enough to feel snappy,
  *  long enough that vertical scrolls pass through to the parent ScrollView. */
 const LONG_PRESS_MS = 300;
 
+/**
+ * Identity key for a round's format, used to decide whether the competition
+ * runs a single format or a mix. Mirrors the fields that drive the round's
+ * displayed format label so two rounds collapse only when they truly share a
+ * format (e.g. team scramble vs individual stableford stay distinct).
+ */
+function roundFormatKey(r: RoundWithCourse): string {
+  return `${r.game_type}|${r.team_format ?? ''}|${r.round_format ?? ''}|${r.sub_match_size ?? ''}`;
+}
+
+/**
+ * Human label for a round's format — the matched preset's title (e.g.
+ * "1v1 Singles Match Play"), else the bare game-type label. Same derivation
+ * as CompetitionRoundCard and PointsConfigSection.
+ */
+function roundFormatLabel(r: RoundWithCourse): string {
+  const presetId = inferPresetIdFromRound({
+    game_type: r.game_type,
+    is_team_round: r.is_team_round,
+    team_format: r.team_format,
+    round_format: r.round_format,
+    sub_match_size: r.sub_match_size,
+    rules_override: r.rules_override ?? null,
+  });
+  return (presetId && ROUND_PRESETS[presetId]?.title) || GAME_TYPE_LABELS[r.game_type];
+}
+
 export interface RoundsTabProps {
   rounds: RoundWithCourse[];
   isOrganizer: boolean;
+  /** Competition ID, required for force-submit cache invalidation. */
+  competitionId: string;
   /** Number of players in the competition (used to validate scoring requirements) */
   playerCount: number;
   onAddRound: () => void;
@@ -64,18 +102,23 @@ export interface RoundsTabProps {
 }
 
 /**
- * Single draggable row wrapper. Owns its own pan/long-press gestures and
- * the translateY shared value. Other rows are unaffected during drag —
- * they snap to their new positions when the parent re-renders after
- * `onMove` updates the ordering.
+ * Single draggable row wrapper. Owns its own long-press + pan gestures and
+ * its finger-follow `dragY`. While another row is being dragged, this row
+ * reads the parent-owned `activeIndex` / `activeOffsetY` shared values to
+ * compute where the dragged card is hovering and shifts by one slot to open
+ * the gap; the actively-dragged row itself never shifts and floats on top.
+ * The combined transform is `translateY = dragY + shift`.
  */
 interface DraggableRowProps {
   index: number;
   totalCount: number;
   reorderEnabled: boolean;
-  rowHeight: number;
+  slotHeight: number;
+  /** Parent-owned: index of the row being dragged, -1 when idle. */
+  activeIndex: SharedValue<number>;
+  /** Parent-owned: live pan translationY of the dragged row. */
+  activeOffsetY: SharedValue<number>;
   onMove: (fromIndex: number, toIndex: number) => void;
-  onActiveChange: (isActive: boolean) => void;
   onLayout: (e: LayoutChangeEvent) => void;
   children: (isDragging: boolean) => React.ReactNode;
 }
@@ -84,60 +127,52 @@ function DraggableRow({
   index,
   totalCount,
   reorderEnabled,
-  rowHeight,
+  slotHeight,
+  activeIndex,
+  activeOffsetY,
   onMove,
-  onActiveChange,
   onLayout,
   children,
 }: DraggableRowProps) {
+  // This row's own finger-follow translation (non-zero only while IT is the
+  // dragged row). Siblings keep this at 0 and move via the shift term instead.
   const dragY = useSharedValue(0);
   const elevated = useSharedValue(0);
-  // React state mirrors the active flag so child cards (which run their
-  // wiggle from a prop) re-render when drag starts/ends.
+  // Mirrors the active flag so the child card (which runs its wiggle from a
+  // prop) re-renders when this row's drag starts/ends.
   const [isActive, setIsActive] = useState(false);
-
-  const setActiveJS = useCallback(
-    (active: boolean) => {
-      setIsActive(active);
-      onActiveChange(active);
-    },
-    [onActiveChange]
-  );
 
   const finishDrag = useCallback(
     (translationY: number) => {
-      if (rowHeight <= 0) return;
-      const indexDelta = Math.round(translationY / rowHeight);
-      const newIndex = Math.max(
-        0,
-        Math.min(totalCount - 1, index + indexDelta)
-      );
+      if (slotHeight <= 0) return;
+      const indexDelta = Math.round(translationY / slotHeight);
+      const newIndex = Math.max(0, Math.min(totalCount - 1, index + indexDelta));
       if (newIndex !== index) {
         onMove(index, newIndex);
       }
     },
-    [index, totalCount, rowHeight, onMove]
+    [index, totalCount, slotHeight, onMove]
   );
 
-  // LongPress fires after the hold threshold. Pan is composed simultaneously
-  // and only activates after the long-press, so short vertical swipes pass
-  // through to the parent ScrollView (no scroll fight).
   const longPress = Gesture.LongPress()
     .minDuration(LONG_PRESS_MS)
     .enabled(reorderEnabled)
     .onStart(() => {
       'worklet';
       elevated.value = 1;
-      runOnJS(setActiveJS)(true);
+      activeIndex.value = index;
+      activeOffsetY.value = 0;
+      runOnJS(setIsActive)(true);
     })
     .onFinalize(() => {
       'worklet';
-      // Only the pan's onEnd fires the actual move; this just resets the
-      // elevated state if the pan never activated (e.g. user lifted finger
-      // immediately after long-press without panning).
+      // If the pan never engaged (finger lifted right after the long-press),
+      // release the elevated/active state and clear the shared drag flag.
       if (dragY.value === 0) {
         elevated.value = 0;
-        runOnJS(setActiveJS)(false);
+        activeIndex.value = -1;
+        activeOffsetY.value = 0;
+        runOnJS(setIsActive)(false);
       }
     });
 
@@ -147,36 +182,68 @@ function DraggableRow({
     .onUpdate((e) => {
       'worklet';
       dragY.value = e.translationY;
+      activeOffsetY.value = e.translationY;
     })
     .onEnd((e) => {
       'worklet';
       runOnJS(finishDrag)(e.translationY);
       dragY.value = withTiming(0, { duration: 180 });
       elevated.value = 0;
-      runOnJS(setActiveJS)(false);
+      activeIndex.value = -1;
+      activeOffsetY.value = 0;
+      runOnJS(setIsActive)(false);
     })
     .onFinalize(() => {
       'worklet';
       // Safety net for cancelled gestures.
       dragY.value = withTiming(0, { duration: 180 });
       elevated.value = 0;
-      runOnJS(setActiveJS)(false);
+      activeIndex.value = -1;
+      activeOffsetY.value = 0;
+      runOnJS(setIsActive)(false);
     });
 
   const composed = Gesture.Simultaneous(longPress, pan);
 
+  // Discrete shift direction for THIS row while another row is being dragged:
+  // -1 = slide up to fill, +1 = slide down, 0 = stay put (idle, self, or out of
+  // range). Recomputed on the UI thread whenever the drag position crosses a
+  // slot boundary. Kept as a bare direction so the reaction below fires only on
+  // real boundary crossings, not on every pan frame.
+  const shiftDir = useDerivedValue(() => {
+    const hover = getHoverIndex(
+      activeIndex.value,
+      activeOffsetY.value,
+      slotHeight,
+      totalCount
+    );
+    return computeReorderShift(index, activeIndex.value, hover);
+  }, [index, totalCount, slotHeight]);
+
+  // The row's animated gap offset, driven imperatively — the canonical
+  // Reanimated pattern. Starting a `withTiming` inside `useAnimatedStyle`
+  // instead re-issues it every frame, so the animation never settles and the
+  // gap never visibly opens; here a single timing runs per boundary crossing.
+  const shift = useSharedValue(0);
+  useAnimatedReaction(
+    () => shiftDir.value,
+    (dir, prev) => {
+      if (dir !== prev) {
+        shift.value = withTiming(dir * slotHeight, { duration: 160 });
+      }
+    },
+    [slotHeight]
+  );
+
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: dragY.value }],
+    transform: [{ translateY: dragY.value + shift.value }],
     zIndex: elevated.value ? 100 : 1,
     elevation: elevated.value ? 12 : 0,
   }));
 
   return (
     <GestureDetector gesture={composed}>
-      <Animated.View
-        style={[styles.row, animatedStyle]}
-        onLayout={onLayout}
-      >
+      <Animated.View style={[styles.row, animatedStyle]} onLayout={onLayout}>
         {children(isActive)}
       </Animated.View>
     </GestureDetector>
@@ -186,6 +253,7 @@ function DraggableRow({
 export const RoundsTab = React.memo(function RoundsTab({
   rounds,
   isOrganizer,
+  competitionId,
   playerCount,
   onAddRound,
   onScoreRound,
@@ -201,19 +269,58 @@ export const RoundsTab = React.memo(function RoundsTab({
   const canSwipeDelete = isOrganizer && !!onDeleteRound;
   const canReorder = isOrganizer && !!onReorder && rounds.length > 1;
 
-  // Track the height of a row so the drag can map translationY back to an
-  // index delta. Cards are roughly the same height; we measure the first
-  // one to land. Includes the bottom margin so each "step" in the drag is
-  // exactly one row.
-  const [rowHeight, setRowHeight] = useState(0);
+  // Orientation strip: "N rounds · <format>" where <format> is the single
+  // shared format, or "mixed formats" when rounds differ. Presentational —
+  // derived purely from the rounds already in scope (no scoring math). The
+  // points total belongs to Details' Points & Rules section, which guards it
+  // for non-points competitions.
+  const formatDescriptor = useMemo(() => {
+    if (rounds.length === 0) return null;
+    const keys = new Set(rounds.map(roundFormatKey));
+    return keys.size > 1 ? 'mixed formats' : roundFormatLabel(rounds[0]);
+  }, [rounds]);
+
+  const [forceSubmitRoundId, setForceSubmitRoundId] = useState<string | null>(null);
+  const { mutate: forceFinalize, isPending: isForceSubmitting } = useForceFinalizeRound();
+  const { showToast } = useToast();
+
+  const handleForceSubmitConfirm = useCallback(() => {
+    if (!forceSubmitRoundId) return;
+    forceFinalize(
+      { roundId: forceSubmitRoundId, competitionId },
+      {
+        onSuccess: () => {
+          setForceSubmitRoundId(null);
+          showToast({ variant: 'success', title: 'Round submitted' });
+        },
+        onError: (error) => {
+          setForceSubmitRoundId(null);
+          showToast({
+            variant: 'error',
+            title: 'Could not submit round',
+            message: error instanceof Error
+              ? error.message
+              : 'Unknown error.',
+          });
+        },
+      }
+    );
+  }, [forceFinalize, forceSubmitRoundId, competitionId, showToast]);
+
+  // Parent-owned drag state, shared with every DraggableRow so siblings can
+  // compute where the dragged card is hovering and shift to open a gap.
+  const activeIndex = useSharedValue(-1);
+  const activeOffsetY = useSharedValue(0);
+
+  // A "slot" is one card plus its bottom margin. onLayout measures the card
+  // without margin, so we add spacing.md back to keep the opened gap and the
+  // release drop index aligned. Lock to the first non-zero measurement so the
+  // math stays stable across re-renders (the active card scales during drag).
+  const [slotHeight, setSlotHeight] = useState(0);
   const handleRowLayout = useCallback((e: LayoutChangeEvent) => {
     const measured = e.nativeEvent.layout.height;
     if (measured > 0) {
-      setRowHeight((current) =>
-        // Lock to the first non-zero measurement to keep drag math stable
-        // across re-renders (cards can shrink during drag for the active row).
-        current === 0 ? measured : current
-      );
+      setSlotHeight((current) => (current === 0 ? measured + spacing.md : current));
     }
   }, []);
 
@@ -228,11 +335,6 @@ export const RoundsTab = React.memo(function RoundsTab({
     [rounds, onReorder]
   );
 
-  const handleActiveChange = useCallback(() => {
-    // Hook left in place for future polish (e.g. dimming non-active rows).
-    // Currently a no-op; per-row wiggle is driven by the render-prop arg.
-  }, []);
-
   return (
     <View>
       {rounds.length === 0 ? (
@@ -244,6 +346,21 @@ export const RoundsTab = React.memo(function RoundsTab({
         />
       ) : (
         <View>
+          <View
+            style={[
+              styles.summaryStrip,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+            ]}
+          >
+            <Icon source="golf" size={16} color={colors.textTertiary} />
+            <Text style={[styles.summaryText, { color: colors.textSecondary }]}>
+              <Text style={[styles.summaryCount, { color: colors.textPrimary }]}>
+                {rounds.length}
+              </Text>
+              {` ${rounds.length === 1 ? 'round' : 'rounds'}`}
+              {formatDescriptor ? ` · ${formatDescriptor}` : ''}
+            </Text>
+          </View>
           {rounds.map((round, index) => {
             // Display number is derived from position so gaps left by deleted
             // rounds don't surface to users. The stored `round.round_number`
@@ -265,6 +382,10 @@ export const RoundsTab = React.memo(function RoundsTab({
                   allPlayersScored={allScoredStatus?.[round.id]}
                   colors={colors}
                   isDragging={isDragging}
+                  canForceSubmit={
+                    isOrganizer && round.status === 'in-progress' && (round.sub_match_size ?? 0) === 0
+                  }
+                  onForceSubmit={(id) => setForceSubmitRoundId(id)}
                 />
               );
 
@@ -289,9 +410,10 @@ export const RoundsTab = React.memo(function RoundsTab({
                 index={index}
                 totalCount={rounds.length}
                 reorderEnabled={canReorder}
-                rowHeight={rowHeight}
+                slotHeight={slotHeight}
+                activeIndex={activeIndex}
+                activeOffsetY={activeOffsetY}
                 onMove={handleMove}
-                onActiveChange={handleActiveChange}
                 onLayout={handleRowLayout}
               >
                 {renderCard}
@@ -314,11 +436,37 @@ export const RoundsTab = React.memo(function RoundsTab({
           <Text style={[styles.addRoundButtonText, { color: colors.primary }]}>Add another round</Text>
         </TouchableOpacity>
       )}
+
+      <ForceSubmitRoundDialog
+        visible={!!forceSubmitRoundId}
+        roundId={forceSubmitRoundId ?? ''}
+        loading={isForceSubmitting}
+        onConfirm={handleForceSubmitConfirm}
+        onCancel={() => setForceSubmitRoundId(null)}
+      />
     </View>
   );
 });
 
 const styles = StyleSheet.create({
+  summaryStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.md,
+    borderWidth: 1,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.md,
+    ...shadows.sm,
+  },
+  summaryText: {
+    ...typography.small,
+    flexShrink: 1,
+  },
+  summaryCount: {
+    ...typography.smallBold,
+  },
   row: {
     marginBottom: spacing.md,
   },

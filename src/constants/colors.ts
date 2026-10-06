@@ -22,6 +22,38 @@ const accentColors = {
   accentLight: '#a78bfa', // Violet 400
 };
 
+/**
+ * Green-tinted neutral ramps used by the solid competition-redesign theme.
+ *
+ * Keep these separate from each brand's gray scale: translucent surfaces still
+ * derive their tint from the active brand, while the shared text and elevated
+ * surface roles intentionally carry this neutral family across surface styles.
+ */
+const redesignLightNeutrals = {
+  background: '#f3f4f6',
+  surface: '#ffffff',
+  surfaceVariant: '#f2f4ef',
+  surfaceSelected: '#f7f9f4',
+  border: '#e7ebe2',
+  borderLight: '#ecefe8',
+  textPrimary: '#141b10',
+  textSecondary: '#66705c',
+  textTertiary: '#8a9382',
+};
+
+const redesignDarkNeutrals = {
+  background: '#0e140d',
+  surface: '#1c281a',
+  surfaceVariant: '#232f20',
+  surfaceSelected: '#24331b',
+  border: '#2d3b27',
+  borderLight: '#26331f',
+  textPrimary: '#eef3ea',
+  textSecondary: '#909e7c',
+  textTertiary: '#8b9980',
+  primaryBackground: '#21301a',
+};
+
 // ============================================================================
 // COLOR MANIPULATION UTILITIES
 // ============================================================================
@@ -238,22 +270,22 @@ export function generateLightColors(
   const tinted = {
     surface: translucent
       ? withOpacity(tintColor, surfaceAlpha)
-      : grays.white,
+      : redesignLightNeutrals.surface,
     surfaceVariant: translucent
       ? withOpacity(tintColor, surfaceVariantAlpha)
-      : grays.gray200,
+      : redesignLightNeutrals.surfaceVariant,
     surfaceSelected: translucent
       ? withOpacity(tintColor, surfaceSelectedAlpha)
-      : grays.white,
+      : redesignLightNeutrals.surfaceSelected,
     border: translucent
       ? withOpacity(tintColor, borderAlpha)
-      : grays.gray200,
+      : redesignLightNeutrals.border,
     borderStrong: translucent
       ? withOpacity(tintColor, borderStrongAlpha)
       : grays.gray300,
     borderLight: translucent
       ? withOpacity(tintColor, borderLightAlpha)
-      : grays.gray100,
+      : redesignLightNeutrals.borderLight,
   };
 
   return {
@@ -321,10 +353,10 @@ export function generateLightColors(
     // navigator root). Modals, cards, and buttons must use `surface` or
     // `surfaceElevated` so they stay opaque against system white in
     // iOS-rendered modals or against the dim overlay in transparent modals.
-    background: backdropStyle === 'image' ? 'transparent' : grays.gray100,
+    background: backdropStyle === 'image' ? 'transparent' : redesignLightNeutrals.background,
     surface: tinted.surface,
     surfaceVariant: tinted.surfaceVariant,
-    surfaceElevated: grays.white,
+    surfaceElevated: redesignLightNeutrals.surface,
     surfaceSelected: tinted.surfaceSelected,
 
     // Borders
@@ -333,9 +365,9 @@ export function generateLightColors(
     borderLight: tinted.borderLight,
 
     // Text
-    textPrimary: grays.gray900,
-    textSecondary: grays.gray500,
-    textTertiary: grays.gray400,
+    textPrimary: redesignLightNeutrals.textPrimary,
+    textSecondary: redesignLightNeutrals.textSecondary,
+    textTertiary: redesignLightNeutrals.textTertiary,
     textDisabled: grays.gray400,
     textInverse: grays.white,
     textOnColored: '#ffffff', // Always white - for text on colored backgrounds (badges, buttons on primary/warning/etc.)
@@ -348,6 +380,15 @@ export function generateLightColors(
     accent: accentColors.accent,
     accentDark: accentColors.accentDark,
     accentLight: accentColors.accentLight,
+
+    // Leaderboard "cup" scoreboard — an always-dark feature surface (the
+    // head-to-head board reads as a dark scoreboard in both themes, matching
+    // the redesign mock). Deliberately theme-independent.
+    scoreboardGradientStart: '#1f2a19',
+    scoreboardGradientEnd: '#131a0f',
+    scoreboardLabel: '#8ba079',
+    scoreboardTrack: 'rgba(255,255,255,0.09)',
+    scoreboardMarker: 'rgba(255,255,255,0.4)',
   };
 }
 
@@ -377,22 +418,22 @@ export function generateDarkColors(
   const tinted = {
     surface: translucent
       ? withOpacity(darkMode.primary, 0.08)
-      : darkMode.surface,
+      : redesignDarkNeutrals.surface,
     surfaceVariant: translucent
       ? withOpacity(darkMode.primary, 0.14)
-      : darkMode.surfaceVariant,
+      : redesignDarkNeutrals.surfaceVariant,
     surfaceSelected: translucent
       ? withOpacity(darkMode.primary, 0.2)
-      : darkenColor(darkMode.surface, 0.3),
+      : redesignDarkNeutrals.surfaceSelected,
     border: translucent
       ? withOpacity(darkMode.primary, 0.18)
-      : darkMode.surfaceVariant,
+      : redesignDarkNeutrals.border,
     borderStrong: translucent
       ? withOpacity(darkMode.primary, 0.3)
       : brightenColor(darkMode.surfaceVariant, 0.15),
     borderLight: translucent
       ? withOpacity(darkMode.primary, 0.1)
-      : darkMode.surface,
+      : redesignDarkNeutrals.borderLight,
   };
 
   // Brighten semantic colors for dark backgrounds
@@ -457,16 +498,16 @@ export function generateDarkColors(
     successBackground: '#052e16', // Green 950
     warningBackground: '#451a03', // Amber 950
     errorBackground: '#450a0a', // Red 950
-    primaryBackground: darkenColor(primary.primary, 0.8),
+    primaryBackground: redesignDarkNeutrals.primaryBackground,
 
     // Backgrounds
     // Background is transparent whenever the photographic backdrop is on,
     // so the app-level image in App.tsx shows through every screen
     // regardless of whether surfaces are solid or translucent.
-    background: backdropStyle === 'image' ? 'transparent' : darkMode.background,
+    background: backdropStyle === 'image' ? 'transparent' : redesignDarkNeutrals.background,
     surface: tinted.surface,
     surfaceVariant: tinted.surfaceVariant,
-    surfaceElevated: darkMode.surface,
+    surfaceElevated: redesignDarkNeutrals.surface,
     surfaceSelected: tinted.surfaceSelected,
 
     // Borders
@@ -475,9 +516,9 @@ export function generateDarkColors(
     borderLight: tinted.borderLight,
 
     // Text
-    textPrimary: '#f1f5f9', // Slate 100
-    textSecondary: '#94a3b8', // Slate 400
-    textTertiary: '#64748b', // Slate 500
+    textPrimary: redesignDarkNeutrals.textPrimary,
+    textSecondary: redesignDarkNeutrals.textSecondary,
+    textTertiary: redesignDarkNeutrals.textTertiary,
     textDisabled: '#475569', // Slate 600
     textInverse: darkMode.background,
     textOnColored: '#ffffff', // Always white - for text on colored backgrounds (badges, buttons on primary/warning/etc.)
@@ -490,5 +531,13 @@ export function generateDarkColors(
     accent: accentColors.accentLight, // Lighter for dark mode visibility
     accentDark: accentColors.accent,
     accentLight: brightenColor(accentColors.accentLight, 0.15),
+
+    // Leaderboard "cup" scoreboard — always-dark feature surface (identical to
+    // light so the head-to-head board reads the same in both themes).
+    scoreboardGradientStart: '#1f2a19',
+    scoreboardGradientEnd: '#131a0f',
+    scoreboardLabel: '#8ba079',
+    scoreboardTrack: 'rgba(255,255,255,0.09)',
+    scoreboardMarker: 'rgba(255,255,255,0.4)',
   };
 }

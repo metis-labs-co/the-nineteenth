@@ -25,6 +25,7 @@ import type { Club, Course } from '@/types/database.types';
 
 // Mock ThemeContext
 jest.mock('@/context/ThemeContext', () => ({
+  ThemeProvider: ({ children }: { children: React.ReactNode }) => children,
   useThemeColors: () => ({
     primary: '#2196F3',
     white: '#FFFFFF',
@@ -348,7 +349,34 @@ const createMockHoles = (): HoleFormData[] =>
     par: 4 as const,
     strokeIndex: i + 1,
     yardages: { 'tee-1': 400, 'tee-2': 380 },
-  }));
+}));
+
+jest.mock('@/components/common/FullScreenWizard', () => {
+  const { View, Text, TouchableOpacity } = require('react-native');
+  return {
+    FullScreenWizard: ({ wizard, onClose, children }: any) => (
+      <View>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+          onPress={onClose}
+        >
+          <Text>Cancel</Text>
+        </TouchableOpacity>
+        <View testID="step-indicator">
+          <Text testID="step-indicator-current">
+            {`Step ${wizard.currentStepIndex + 1} of ${wizard.totalSteps}`}
+          </Text>
+          <Text testID="progress-bar">Progress</Text>
+          {wizard.steps.map((step: any, index: number) => (
+            <Text key={step.key} testID={`step-${index + 1}`}>{step.title}</Text>
+          ))}
+        </View>
+        {children}
+      </View>
+    ),
+  };
+});
 
 // =====================================================
 // TEST SUITE

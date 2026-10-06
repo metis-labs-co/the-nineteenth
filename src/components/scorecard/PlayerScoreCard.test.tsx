@@ -46,6 +46,19 @@ jest.mock('@/utils/scoring', () => ({
     if (relativeToPar === 1) return 1;
     return 0;
   }),
+  // Net variant: strokes received is passed in directly (already resolved via
+  // getStrokesOnHole upstream), so no handicap→strokes derivation is needed here.
+  calculateStablefordPointsNet: jest.fn((strokes: number, par: number, strokesReceived: number) => {
+    const netStrokes = strokes - strokesReceived;
+    const relativeToPar = netStrokes - par;
+
+    if (relativeToPar <= -3) return 5;
+    if (relativeToPar === -2) return 4;
+    if (relativeToPar === -1) return 3;
+    if (relativeToPar === 0) return 2;
+    if (relativeToPar === 1) return 1;
+    return 0;
+  }),
 }));
 
 // react-native-paper is mocked globally in jest.setup.js

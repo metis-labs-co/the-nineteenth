@@ -20,6 +20,7 @@ import { Tabs } from '@/components/common/Tabs';
 import { MismatchResolutionModal } from '@/components/scoring';
 import { spacing } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
+import { useSocialAccess } from '@/hooks/useSocialAccess';
 import { useAuth, useConfirmationDialog } from '@/hooks';
 import { usePendingMismatches, useResolveMismatch, usePartnerStatus } from '@/hooks/useScoreMismatch';
 import { useRoundScoringPairs, useScorecardsRealtime } from '@/hooks/scorecard';
@@ -31,6 +32,10 @@ import { BagClubPickerSheet } from '@/components/features/bag/BagClubPickerSheet
 import { clubLabel, type ClubKey } from '@/constants/clubs';
 import type { ShotLogEntry } from '@/types/database/shotLog.types';
 
+import { buildDailyHandicapMap } from '@/utils/leaderboardHandicaps';
+import { SubMatchLeaderboardTab } from '@/components/leaderboard';
+import { useRoundScorecards } from '@/hooks/rounds';
+import { createMergedGetStrokes, resolveSplitMatchDisplayPoints } from './utils/subMatchLeaderboard';
 import { useScoreReview, useScoreSubmission, useReviewScorecardTabs, useScrambleTeams } from './hooks';
 import {
   IncompleteScoresModal,
@@ -56,6 +61,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'ReviewScorecard'>;
 
 export default function ReviewScorecardScreen({ navigation, route }: Props) {
   const colors = useThemeColors();
+  const { isRestricted } = useSocialAccess();
   const insets = useSafeAreaInsets();
   const netInfo = useNetInfo();
   const isOnline = netInfo.isConnected ?? true;
@@ -80,6 +86,8 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
     selectedTeeData,
     handicapSource,
     startHole,
+    isMultiBall,
+    ballCount,
     setCurrentHole,
     resetRound,
     submitScorecards,
@@ -93,6 +101,12 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
   // stay in sync without waiting for the 30s poll.
   useScorecardsRealtime(roundId || undefined, route.params?.competitionId);
 
+  // The scoring store (`getPlayerScore`) only holds the current scorer's own
+  // playing group, so a store-only sub-match leaderboard can never update other
+  // groups' matches live. Pull the round's server scorecards too and merge them
+  // (local edits win) so every sub-match updates as other groups' scores sync.
+  const { data: roundScorecards } = useRoundScorecards(roundId ?? '');
+
   // Tab definitions and game type detection
   const {
     activeTab,
@@ -103,6 +117,7 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
     isScramble,
     isShamble,
     isMatchPlayTeam,
+    isSubMatchRound,
     roundDetails,
     scoringPairsRequired,
     skinsGame,
@@ -160,6 +175,43 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
     }
     return map;
   }, [currentUserId, holes, getPlayerScore, groupScorecards]);
+
+  // Daily (playing) handicap per player for the stableford/par leaderboard so
+  // its points match the scorecard, which scores off the round's daily handicap
+  // (derived from the tee slope/CR) rather than the raw index. Cards under
+  // review are in-progress (no stored snapshot yet), so this computes GA→daily
+  // from the selected tee — the same live recompute the scorecard performs.
+  const leaderboardDailyHandicaps = useMemo<Record<string, number>>(() => {
+    const inputs = currentPlayers.map((p) => {
+      const base =
+        handicapSource === 'none'
+          ? 0
+          : handicapSource === 'calculated'
+            ? p.handicapIndex ?? p.handicap ?? 0
+            : p.handicap ?? 0;
+      return { playerId: p.id, gaHandicap: base, gender: p.gender ?? null };
+    });
+    return buildDailyHandicapMap(inputs, holes, selectedTeeData, handicapSource ?? 'profile');
+  }, [currentPlayers, holes, selectedTeeData, handicapSource]);
+
+  // getStrokes for SubMatchLeaderboardTab: local store first (the current
+  // scorer's own group, including unsynced edits), server scorecards as
+  // fallback for players in other groups so all sub-matches update live.
+  const getStrokes = useMemo(
+    () => createMergedGetStrokes(getPlayerScore, roundScorecards),
+    [getPlayerScore, roundScorecards]
+  );
+
+  // Per-match points for the sub-match tally header, resolved from the
+  // round's configured rules (defaults to flat 1 / 0.5 when unset).
+  const matchPoints = useMemo(
+    () =>
+      resolveSplitMatchDisplayPoints({
+        round_format: roundDetails?.round_format ?? null,
+        rules_override: roundDetails?.rules_override ?? null,
+      }),
+    [roundDetails?.round_format, roundDetails?.rules_override]
+  );
 
   // Mismatch hooks
   const { data: mismatches = [] } = usePendingMismatches(roundId || undefined);
@@ -319,7 +371,7 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
         showBack
         onBack={handleGoBack}
         rightActions={
-          roundId
+          roundId && !isRestricted
             ? [
                 {
                   icon: 'image-multiple',
@@ -383,6 +435,8 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
           selectedTeeData={selectedTeeData}
           handicapSource={handicapSource}
           startHole={startHole}
+          isMultiBall={isMultiBall}
+          ballCount={ballCount}
         />
       )}
 
@@ -426,7 +480,25 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
         />
       )}
 
-      {activeTab === 'leaderboard' && isScramble && (
+      {activeTab === 'leaderboard' && isSubMatchRound && roundId && (
+        <SubMatchLeaderboardTab
+          roundId={roundId}
+          getStrokes={getStrokes}
+          competitionId={route.params?.competitionId}
+          gameType={effectiveGameType}
+          teamFormat={roundDetails?.team_format ?? null}
+          holes={holes}
+          currentUserId={currentUserId}
+          selectedTeeData={selectedTeeData}
+          handicapSource={handicapSource}
+          isRefreshing={isRefreshing}
+          onRefresh={handleRefresh}
+          bottomInset={insets.bottom}
+          matchPoints={matchPoints}
+        />
+      )}
+
+      {activeTab === 'leaderboard' && !isSubMatchRound && isScramble && (
         <ScrambleLeaderboardTab
           holes={holes}
           currentPlayers={currentPlayers}
@@ -439,7 +511,7 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
         />
       )}
 
-      {activeTab === 'leaderboard' && !isScramble && isMatchPlayTeam && (
+      {activeTab === 'leaderboard' && !isSubMatchRound && !isScramble && isMatchPlayTeam && (
         <MatchPlayLeaderboardTab
           roundId={roundId || undefined}
           holes={holes}
@@ -454,7 +526,7 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
         />
       )}
 
-      {activeTab === 'leaderboard' && !isScramble && !isMatchPlayTeam && (
+      {activeTab === 'leaderboard' && !isSubMatchRound && !isScramble && !isMatchPlayTeam && (
         <LeaderboardTabContent
           players={currentPlayers}
           holes={holes}
@@ -469,6 +541,7 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
               ? (playerId) => navigation.navigate('PlayerScorecard', { playerId, roundId })
               : undefined
           }
+          dailyHandicaps={leaderboardDailyHandicaps}
           isRefreshing={isRefreshing}
           onRefresh={handleRefresh}
           bottomInset={insets.bottom}

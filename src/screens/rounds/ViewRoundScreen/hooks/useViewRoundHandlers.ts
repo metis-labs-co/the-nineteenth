@@ -6,6 +6,7 @@ import type { CourseWithFavoriteStatus } from '@/hooks/useClubs';
 import type { Club } from '@/types/database.types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
+import { resolveCompetitionBackAction } from '@/navigation/competitionBackNavigation';
 import type { RoundWithCourse, ScorecardWithPlayer } from '@/hooks/useRoundDetails';
 
 interface UseViewRoundHandlersParams {
@@ -78,7 +79,27 @@ export function useViewRoundHandlers({
 
   // Navigation handlers
   const handleBack = useCallback(() => {
-    // If the previous screen in the stack is a scoring screen, go to round list instead
+    // Competition rounds always return to the competition detail → Rounds tab,
+    // regardless of how the user reached this screen (round list, scoring flow,
+    // deep link, etc.). How we get there depends on the stack: pop back to an
+    // existing CompetitionDetail, otherwise replace this screen with one —
+    // pushing would leave CompetitionDetail on top of ViewRound and the two
+    // would ping-pong on back. See resolveCompetitionBackAction.
+    const compId = round?.competition?.id ?? competitionId;
+    if (compId) {
+      const action = resolveCompetitionBackAction(navigation.getState(), compId);
+      if (action.type === 'navigate') {
+        navigation.navigate('CompetitionDetail', action.params);
+      } else if (action.type === 'replace') {
+        navigation.replace('CompetitionDetail', action.params);
+      } else {
+        navigation.reset(action.state);
+      }
+      return;
+    }
+
+    // Standalone rounds: if the previous screen is a scoring screen, jump back
+    // to the main tabs rather than re-entering the scoring flow.
     const state = navigation.getState();
     const currentIndex = state.index;
     if (currentIndex > 0) {
@@ -93,7 +114,7 @@ export function useViewRoundHandlers({
       }
     }
     navigation.goBack();
-  }, [navigation]);
+  }, [navigation, round?.competition?.id, competitionId]);
 
   const handleScoreRound = useCallback(() => {
     if (isTeamMatchPlayRound) {

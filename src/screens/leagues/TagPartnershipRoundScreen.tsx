@@ -22,7 +22,7 @@ import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useLeague } from '@/hooks/useLeagues';
 import { useMyPartnership, useTagPartnershipRound } from '@/hooks/usePartnershipLeague';
 import { useAuth } from '@/hooks/useAuth';
-import { parseLocalDateString } from '@/utils/formatting';
+import { formatDateDisplay } from '@/utils/formatting';
 import { supabase } from '@/services/supabase/client';
 import {
   calculatePartnershipTarget,
@@ -210,8 +210,7 @@ export default function TagPartnershipRoundScreen() {
 
   function formatDate(d: string | null) {
     if (!d) return '';
-    const date = /^\d{4}-\d{2}-\d{2}$/.test(d) ? parseLocalDateString(d) : new Date(d);
-    return date.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' });
+    return formatDateDisplay(d, { day: '2-digit', month: 'short', year: 'numeric' });
   }
 
   if (isLoadingCards) {

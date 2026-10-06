@@ -65,6 +65,8 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
     resetRound,
     isSyncing,
     pendingSyncCount,
+    failedSyncCount,
+    syncError,
     startHole,
   } = useScorecardStore();
   const isOnline = useOnlineStatus();
@@ -338,6 +340,8 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
       differential: number;
     }) => {
       if (!isSplitRound || !activeSubMatch) return;
+      // Never overwrite an organiser's manually-entered result with a scored one.
+      if (activeSubMatch.manual_result) return;
       const result =
         winner === 'team1' ? 'a-wins' : winner === 'team2' ? 'b-wins' : 'halved';
       await updateSubMatchResult({
@@ -732,6 +736,8 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
         isOnline={isOnline}
         isSyncing={isSyncing}
         pendingSyncCount={pendingSyncCount}
+        failedSyncCount={failedSyncCount}
+        syncError={syncError}
         onSyncPress={triggerSync}
         canChangeTees={isOrganizer}
         onChangeTeesPress={() => setShowChangeTeesSheet(true)}

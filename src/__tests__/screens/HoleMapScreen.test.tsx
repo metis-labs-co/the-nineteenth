@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, fireEvent } from '@testing-library/react-native';
+import { render, fireEvent } from '@/__tests__/utils/renderHelpers';
 import HoleMapScreen from '@/screens/scoring/HoleMapScreen';
 
 jest.mock('@/context/ThemeContext', () => ({

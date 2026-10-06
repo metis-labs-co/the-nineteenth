@@ -59,21 +59,3 @@ export function useScorecardsByRound(
     gcTime: 1000 * 60 * 30, // 30 minutes (was cacheTime)
   });
 }
-
-/**
- * Fetch a single scorecard by ID
- */
-export function useScorecard(scorecardId: string | undefined) {
-  return useQuery({
-    queryKey: scorecardKeys.detail(scorecardId ?? ''),
-    queryFn: async (): Promise<Scorecard | null> => {
-      // TODO: Replace with actual API call when backend is ready
-      // const response = await apiClient.get<Scorecard>(`/scorecards/${scorecardId}`);
-      // return response.data;
-
-      // TODO: Replace with actual API call when backend is ready
-      return null;
-    },
-    enabled: !!scorecardId,
-  });
-}

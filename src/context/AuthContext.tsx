@@ -124,7 +124,9 @@ async function attemptPushTokenRegistration(userId: string): Promise<boolean> {
     // Mark as registered in AsyncStorage
     await markPushTokenRegistered(true);
     if (__DEV__) {
-      console.log('[AuthProvider] Push: Token registered successfully:', result.data?.expoToken);
+      const token = result.data?.expoToken;
+      const redactedToken = token ? `…${token.slice(-6)}` : 'unavailable';
+      console.log('[AuthProvider] Push: Token registered successfully:', redactedToken);
     }
     return true;
   } else {

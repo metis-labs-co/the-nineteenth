@@ -17,7 +17,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '@/services/supabase/client';
 import { activityKeys } from '@/hooks/queryKeys';
 import { useAuth } from '@/hooks/useAuth';
-import { createError } from '@/services/errors';
+import { createError, assertNoDbError } from '@/services/errors';
 import type {
   ActivityFeedCard,
   AddCommentInput,
@@ -98,7 +98,7 @@ export function useLikeRound() {
           { round_id: roundId, player_id: user.id },
           { onConflict: 'round_id,player_id', ignoreDuplicates: true }
         );
-      if (error) throw createError(`Failed to like round: ${error.message}`, 'DATABASE');
+      assertNoDbError(error, 'like round');
     },
     onMutate: (roundId: string) => {
       patchFeedCaches(qc, roundId, (c) =>
@@ -123,7 +123,7 @@ export function useUnlikeRound() {
         .delete()
         .eq('round_id', roundId)
         .eq('player_id', user.id);
-      if (error) throw createError(`Failed to unlike round: ${error.message}`, 'DATABASE');
+      assertNoDbError(error, 'unlike round');
     },
     onMutate: (roundId: string) => {
       patchFeedCaches(qc, roundId, (c) =>
@@ -148,7 +148,7 @@ export function useAddComment() {
       const { error } = await sb
         .from('round_comments')
         .insert({ round_id: roundId, author_id: user.id, body: trimmed });
-      if (error) throw createError(`Failed to add comment: ${error.message}`, 'DATABASE');
+      assertNoDbError(error, 'add comment');
     },
     onSuccess: (_data, { roundId }) => {
       qc.invalidateQueries({ queryKey: activityKeys.comments(roundId) });
@@ -169,7 +169,7 @@ export function useDeleteComment() {
         .update({ deleted_at: new Date().toISOString() })
         .eq('id', commentId)
         .eq('author_id', user.id);
-      if (error) throw createError(`Failed to delete comment: ${error.message}`, 'DATABASE');
+      assertNoDbError(error, 'delete comment');
     },
     onSuccess: (_data, { roundId }) => {
       qc.invalidateQueries({ queryKey: activityKeys.comments(roundId) });
@@ -194,7 +194,7 @@ export function useLikeComment() {
           { comment_id: commentId, player_id: user.id },
           { onConflict: 'comment_id,player_id', ignoreDuplicates: true }
         );
-      if (error) throw createError(`Failed to like comment: ${error.message}`, 'DATABASE');
+      assertNoDbError(error, 'like comment');
     },
     onMutate: ({ commentId, roundId }: LikeCommentInput) => {
       qc.setQueryData<RoundComment[]>(activityKeys.comments(roundId), (old) =>
@@ -219,7 +219,7 @@ export function useUnlikeComment() {
         .delete()
         .eq('comment_id', commentId)
         .eq('player_id', user.id);
-      if (error) throw createError(`Failed to unlike comment: ${error.message}`, 'DATABASE');
+      assertNoDbError(error, 'unlike comment');
     },
     onMutate: ({ commentId, roundId }: LikeCommentInput) => {
       qc.setQueryData<RoundComment[]>(activityKeys.comments(roundId), (old) =>
@@ -259,9 +259,7 @@ export function useUploadRoundPhoto() {
           contentType: mimeType ?? 'image/jpeg',
           upsert: false,
         });
-      if (uploadError) {
-        throw createError(`Failed to upload photo: ${uploadError.message}`, 'DATABASE');
-      }
+      assertNoDbError(uploadError, 'upload photo');
 
       const { error: rowError } = await sb.from('round_photos').insert({
         round_id: roundId,
@@ -273,7 +271,7 @@ export function useUploadRoundPhoto() {
       if (rowError) {
         // Best-effort cleanup so we don't orphan the uploaded object.
         await sb.storage.from(PHOTO_BUCKET).remove([path]);
-        throw createError(`Failed to save photo: ${rowError.message}`, 'DATABASE');
+        assertNoDbError(rowError, 'save photo');
       }
 
       return path;
@@ -298,7 +296,7 @@ export function useDeleteRoundPhoto() {
       // RPC runs as definer and enforces ownership internally (uploader_id =
       // auth.uid()); it returns TRUE only when a row was actually soft-deleted.
       const { data, error } = await sb.rpc('delete_round_photo', { p_photo_id: photoId });
-      if (error) throw createError(`Failed to delete photo: ${error.message}`, 'DATABASE');
+      assertNoDbError(error, 'delete photo');
 
       const removed = data === true;
       // Only remove the object when a row was actually soft-deleted, so a no-op

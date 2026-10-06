@@ -11,6 +11,7 @@ import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, borderRadius, typography } from '@/constants/theme';
 import { formatHandicapIndex } from '@/utils/displayHelpers';
+import { formatDateDisplay } from '@/utils/formatting';
 import type { HandicapRound } from '@/types';
 
 interface HandicapRoundRowProps {
@@ -27,8 +28,7 @@ interface HandicapRoundRowProps {
 function formatDate(dateString: string): string {
   if (!dateString) return '';
   try {
-    const date = new Date(dateString);
-    return date.toLocaleDateString(undefined, {
+    return formatDateDisplay(dateString, {
       day: '2-digit',
       month: 'short',
       year: 'numeric',

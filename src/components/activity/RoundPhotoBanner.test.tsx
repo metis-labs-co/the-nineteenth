@@ -1,6 +1,13 @@
 import { render, screen, fireEvent } from '@testing-library/react-native';
 import { RoundPhotoBanner } from './RoundPhotoBanner';
 
+// The viewer now offers a Report action, which pulls in react-query via
+// useReportContent. These suites cover viewer behaviour, not reporting.
+jest.mock('@/hooks/moderation', () => ({
+  useReportContent: () => ({ report: jest.fn(), isReporting: false }),
+}));
+
+
 jest.mock('@/context/ThemeContext', () => ({ useThemeColors: () => ({ white: '#fff' }) }));
 jest.mock('@/hooks/activity', () => ({
   useRoundPhotos: () => ({

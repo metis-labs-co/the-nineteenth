@@ -17,9 +17,11 @@ import type {
   HoleScore,
 } from '../types';
 import { DEFAULT_ENGINE_CONFIG } from '../types';
-import { getPlayingHandicap, calculateStrokesForHole } from '../utils/handicapUtils';
+import { getPlayingHandicap } from '../utils/handicapUtils';
 import { calculateNetScore } from '../utils/netScoreUtils';
 import { assignPositions, createLeaderboardEntry } from '../utils/leaderboardUtils';
+import { formatMatchMargin } from '@/utils/matchMargin';
+import { getMatchPlayStrokes } from '@/utils/scoring';
 
 /**
  * Match Play scoring engine.
@@ -149,10 +151,6 @@ export class MatchPlayEngine implements IScoringEngine {
         )
       : 0;
 
-    // In match play, difference in handicaps determines strokes given
-    const handicapDiff = Math.abs(handicap1 - handicap2);
-    const player1GivesStrokes = handicap1 < handicap2;
-
     // Parse scores
     const scores1 = this.parseScores(player1.scorecard.scores);
     const scores2 = this.parseScores(player2.scorecard.scores);
@@ -171,23 +169,13 @@ export class MatchPlayEngine implements IScoringEngine {
       const score1 = scores1.find((s) => s.holeNumber === holeNum);
       const score2 = scores2.find((s) => s.holeNumber === holeNum);
 
-      // Calculate strokes received on this hole
-      let strokes1 = 0;
-      let strokes2 = 0;
-
-      if (handicapDiff > 0) {
-        const receivingPlayer = player1GivesStrokes ? 2 : 1;
-        const strokesReceived = calculateStrokesForHole(
-          handicapDiff,
-          hole.strokeIndex
-        );
-
-        if (receivingPlayer === 1) {
-          strokes1 = strokesReceived;
-        } else {
-          strokes2 = strokesReceived;
-        }
-      }
+      // Calculate strokes received on this hole (difference method — the
+      // lower-handicap player plays off scratch).
+      const { a: strokes1, b: strokes2 } = getMatchPlayStrokes(
+        handicap1,
+        handicap2,
+        hole.strokeIndex
+      );
 
       const gross1 = score1?.strokes ?? null;
       const gross2 = score2?.strokes ?? null;
@@ -239,21 +227,13 @@ export class MatchPlayEngine implements IScoringEngine {
 
     if (netUp > 0) {
       result = 'player1';
-      if (holesRemaining > 0) {
-        margin = `${netUp}&${holesRemaining}`;
-      } else {
-        margin = `${netUp}UP`;
-      }
+      margin = formatMatchMargin(netUp, holesRemaining, false);
     } else if (netUp < 0) {
       result = 'player2';
-      if (holesRemaining > 0) {
-        margin = `${Math.abs(netUp)}&${holesRemaining}`;
-      } else {
-        margin = `${Math.abs(netUp)}UP`;
-      }
+      margin = formatMatchMargin(Math.abs(netUp), holesRemaining, false);
     } else if (holesPlayed === 18) {
       result = 'halved';
-      margin = 'A/S';
+      margin = formatMatchMargin(0, 0, true);
     } else {
       result = 'incomplete';
     }

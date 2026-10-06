@@ -12,6 +12,7 @@ import { spacing, typography, borderRadius } from '@/constants/theme';
 import { BottomSheet } from '@/components/common/BottomSheet';
 import { LoadingSpinner } from '@/components/common';
 import { PlayerAvatar } from '@/components/common/PlayerAvatar';
+import { formatDateDisplay } from '@/utils/formatting';
 import type { PartnershipRound, PartnershipLeaderboardEntry, DifficultyLevel } from '@/types/database';
 
 interface PartnershipRoundsModalProps {
@@ -31,8 +32,7 @@ const DIFFICULTY_COLORS: Record<DifficultyLevel, string> = {
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return '';
-  const d = new Date(dateStr);
-  return d.toLocaleDateString(undefined, { day: '2-digit', month: 'short' });
+  return formatDateDisplay(dateStr, { day: '2-digit', month: 'short' });
 }
 
 function getOrdinalSuffix(n: number): string {

@@ -9,6 +9,8 @@ import type { FriendshipStatus } from './enums';
  * Player gender for WHS Daily Handicap consistency factor
  * Male: 0.9986, Female: 1.0483
  */
+import type { AgeStatus } from '@/services/age';
+
 export type PlayerGender = 'male' | 'female';
 
 /**
@@ -37,6 +39,15 @@ export interface Player {
   handicap_index: number | null; // NUMERIC(4,1) - calculated social handicap index (max 54.0)
   handicap_index_updated_at: string | null; // ISO timestamp when index was last calculated
   photo_url: string | null;
+  /**
+   * Derived age band for under-13 social gating. Snake_case to match the row
+   * shape returned by Supabase. Optional so pre-migration cached rows and
+   * existing test fixtures still typecheck; absent is treated as 'unknown'.
+   * No date of birth is ever stored - only this band.
+   */
+  age_status?: AgeStatus;
+  age_source?: 'declared_age_range' | 'self_declared' | null;
+  age_resolved_at?: string | null;
   home_club_id: string | null; // UUID, reference to player's designated home golf club (renamed from home_venue_id)
   country?: string | null; // ISO-3166 alpha-2 (e.g. 'AU', 'GB', 'US') captured from device region at signup (optional for backwards compat with existing mocks)
 
@@ -138,7 +149,11 @@ export interface FriendRequest {
 /**
  * Player search result for adding friends
  */
-export interface PlayerSearchResult extends Player {
+export interface PlayerSearchResult {
+  id: string;
+  name: string;
+  photo_url: string | null;
+  handicap: number | null;
   is_friend: boolean;
   has_pending_request: boolean;
   request_direction?: 'sent' | 'received'; // if has_pending_request is true

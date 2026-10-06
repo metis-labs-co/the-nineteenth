@@ -1,4 +1,5 @@
 import type { CompetitionWinnerInfo } from '@/components/competitions/CompetitionListCard';
+import type { TeamMode } from '@/types/database.types';
 
 export interface CompetitionItem {
   id: string;
@@ -8,6 +9,12 @@ export interface CompetitionItem {
   players: number;
   isOrganizer: boolean;
   startDate: string | null;
+  /**
+   * Team mode: 'none' | 'fixed' | 'per-round'. Drives the card's team vs
+   * individual mini-leaderboard. Always populated by useCompetitionGroups;
+   * optional to stay mutually assignable with CompetitionListCardData.
+   */
+  teamMode?: TeamMode;
   /** Whether this competition is grandfathered (over tier limit) */
   isLegacy?: boolean;
   /** Winner information (only for completed competitions) */

@@ -31,6 +31,7 @@ import {
   TextInput,
 } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
+import { isHandicapInRange, HANDICAP_RANGE_ERROR } from '@/constants/scoring';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 
@@ -49,14 +50,13 @@ export interface HandicapEditSheetProps {
 
 /**
  * Parse and validate a handicap string. Returns the rounded numeric value
- * when valid (0.0–54.0, one decimal place). Returns null when invalid.
+ * when valid (-5.0–54.0, one decimal place). Returns null when invalid.
  */
 function parseHandicap(raw: string): number | null {
   const trimmed = raw.trim();
   if (!trimmed) return null;
   const value = parseFloat(trimmed);
-  if (Number.isNaN(value)) return null;
-  if (value < 0 || value > 54) return null;
+  if (!isHandicapInRange(value)) return null;
   // Match DB column precision: NUMERIC(4,1)
   return Math.round(value * 10) / 10;
 }
@@ -102,8 +102,8 @@ export function HandicapEditSheet({
       setError('Enter a valid number');
       return;
     }
-    if (parsed < 0 || parsed > 54) {
-      setError('Must be between 0 and 54');
+    if (!isHandicapInRange(parsed)) {
+      setError(HANDICAP_RANGE_ERROR);
       return;
     }
     setError(undefined);
@@ -160,7 +160,7 @@ export function HandicapEditSheet({
                     {`${playerName}'s Handicap`}
                   </Text>
                   <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                    WHS Handicap Index (0–54)
+                    WHS Handicap Index (-5–54)
                   </Text>
                 </View>
 
@@ -184,7 +184,7 @@ export function HandicapEditSheet({
                       },
                     ]}
                     accessibilityLabel="Handicap input"
-                    accessibilityHint="Enter a handicap between 0 and 54"
+                    accessibilityHint="Enter a handicap between -5 and 54"
                   />
                   {error && (
                     <Text

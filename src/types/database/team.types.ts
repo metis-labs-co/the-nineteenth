@@ -126,5 +126,5 @@ export interface MatchPlayHoleResult {
   player_score: number;
   opponent_score: number;
   result: 'won' | 'lost' | 'halved';
-  cumulative_status: string; // e.g., "1 UP", "2 DN", "AS"
+  cumulative_status: string; // e.g., "1 UP", "2 DN", "A/S"
 }

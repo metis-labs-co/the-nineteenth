@@ -10,16 +10,22 @@
 import React, { useCallback, useEffect, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { LoadingSpinner } from '@/components/common';
+// Import ErrorState directly (not via the barrel): the barrel exports it late,
+// and RootNavigator's module graph can otherwise resolve it to undefined.
+import { ErrorState } from '@/components/common/ErrorState';
 import { NavigationContainer, Theme } from '@react-navigation/native';
 import { navigationRef, navigate } from './navigationRef';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { RootStackParamList } from './types';
 import { useAuth } from '@/hooks/useAuth';
 import { useHasSeenWelcome } from '@/hooks/useHasSeenWelcome';
+import { useSocialAccess } from '@/hooks/useSocialAccess';
 import { useThemeColors } from '@/context/ThemeContext';
 import { NotificationProvider } from '@/context/NotificationContext';
 import { useBiometricLock } from '@/hooks/useBiometricLock';
 import { BiometricLockScreen, BiometricEnrollPrompt } from '@/components/biometric';
+import { AgeCheckPrompt } from '@/components/age';
+import BlockedUsersScreen from '@/screens/profile/BlockedUsersScreen';
 import { supabase } from '@/services/supabase/client';
 import { activeRoundSession } from '@/services/activeRoundSession';
 import { pushDiagnostic } from '@/services/diagnostics';
@@ -91,7 +97,7 @@ import PlayerDetailScreen from '@/screens/social/PlayerDetailScreen';
 import CompareStatsScreen from '@/screens/social/CompareStatsScreen';
 
 // Activity Feed Screens
-import { RoundActivityScreen, RoundPhotosScreen } from '@/screens/activity';
+import { ActivityScreen, RoundActivityScreen, RoundPhotosScreen } from '@/screens/activity';
 
 // Course & Club Screens
 import ClubScreen from '@/screens/courses/ClubScreen';
@@ -127,9 +133,10 @@ interface RootNavigatorProps {
 }
 
 export default function RootNavigator({ theme }: RootNavigatorProps) {
-  const { isAuthenticated, isInitializing, isLoading, player, user } = useAuth();
+  const { isAuthenticated, isInitializing, isLoading, isPlayerError, player, user, refreshProfile } = useAuth();
   const colors = useThemeColors();
   const { hasSeenWelcome } = useHasSeenWelcome();
+  const { isRestricted } = useSocialAccess();
   const { isLocked, isAuthenticating: isBioAuthenticating, unlock, error: bioError, biometricType } = useBiometricLock(isAuthenticated);
 
   const handleSignOut = useCallback(() => {
@@ -137,10 +144,15 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
   }, []);
 
   // Check if onboarding is needed:
-  // 1. Player record doesn't exist (trigger failed to create it)
+  // 1. Player record doesn't exist (trigger failed to create it, OR genuinely
+  //    a brand-new user whose profile query SUCCEEDED and returned no row)
   // 2. Player exists but hasn't completed onboarding (handicap_updated_at is null)
-  // Only check after loading completes (isLoading is handled above)
-  const needsOnboarding = isAuthenticated && (!player || player.handicap_updated_at === null);
+  // Only check after loading completes (isLoading is handled above). Crucially,
+  // never treat a FAILED player fetch (isPlayerError) as "no account" — that is
+  // handled by its own error/retry branch below, so a transient cold-start blip
+  // can't drop a real user into onboarding (and let them overwrite their handicap).
+  const needsOnboarding =
+    isAuthenticated && !isPlayerError && (!player || player.handicap_updated_at === null);
 
   // Resume the score-entry screen on cold start if a session was persisted.
   // Runs once per app launch — only for the matching signed-in user, and only
@@ -276,6 +288,27 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
         error={bioError}
         biometricType={biometricType}
       />
+    );
+  }
+
+  // Player profile failed to load (transient network / RLS error after retries),
+  // not a missing account. Show a retry rather than falling through to Onboarding
+  // — routing a real, signed-in user into onboarding here would let them overwrite
+  // their existing handicap. Retrying refetches the profile query.
+  if (isAuthenticated && isPlayerError && !player) {
+    return (
+      <View
+        testID="profile-load-error"
+        style={[styles.loadingContainer, { backgroundColor: colors.background }]}
+      >
+        <ErrorState
+          title="Couldn't load your profile"
+          error="Check your connection and try again."
+          onRetry={() => {
+            refreshProfile();
+          }}
+        />
+      </View>
     );
   }
 
@@ -725,6 +758,13 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
                 headerShown: false,
               }}
             />
+            {/* Registered unconditionally - reviewing and undoing blocks is not
+                a social surface, so a restricted user must still reach it. */}
+            <Stack.Screen
+              name="BlockedUsers"
+              component={BlockedUsersScreen}
+              options={{ title: 'Blocked players', headerShown: false }}
+            />
 
             <Stack.Screen
               name="CountryRegion"
@@ -763,23 +803,41 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
               }}
             />
 
-            {/* Activity Feed Screens */}
-            <Stack.Screen
-              name="RoundActivity"
-              component={RoundActivityScreen}
-              options={{
-                title: 'Round',
-                headerShown: false,
-              }}
-            />
-            <Stack.Screen
-              name="RoundPhotos"
-              component={RoundPhotosScreen}
-              options={{
-                title: 'Round Photos',
-                headerShown: false,
-              }}
-            />
+            {/* Activity Feed Screens — hidden from under-13 accounts.
+                Gated on isRestricted, NOT !socialEnabled: the profile is still
+                loading on every cold start, and unregistering these routes then
+                would break the deep link of a tapped push notification, which is
+                the most common way users reach RoundActivity. Registering while
+                the status is unknown is safe because the screens' content is
+                wrapped in AgeLock. */}
+            {!isRestricted && (
+              <>
+                <Stack.Screen
+                  name="Activity"
+                  component={ActivityScreen}
+                  options={{
+                    title: 'Activity',
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="RoundActivity"
+                  component={RoundActivityScreen}
+                  options={{
+                    title: 'Round',
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="RoundPhotos"
+                  component={RoundPhotosScreen}
+                  options={{
+                    title: 'Round Photos',
+                    headerShown: false,
+                  }}
+                />
+              </>
+            )}
 
             {/* Club & Course Screens */}
             <Stack.Screen
@@ -840,14 +898,16 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
               }}
             />
 
-            <Stack.Screen
-              name="AchievementLeaderboard"
-              component={AchievementLeaderboardScreen}
-              options={{
-                title: 'Achievement Leaders',
-                headerShown: false,
-              }}
-            />
+            {!isRestricted && (
+              <Stack.Screen
+                name="AchievementLeaderboard"
+                component={AchievementLeaderboardScreen}
+                options={{
+                  title: 'Achievement Leaders',
+                  headerShown: false,
+                }}
+              />
+            )}
 
             {/* Game Results (Side Games) */}
             <Stack.Screen
@@ -938,6 +998,7 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
         {/* Post-login one-time prompt to enable biometric unlock. Self-gates
             on availability and per-user "seen" flag — safe to always render. */}
         <BiometricEnrollPrompt />
+        <AgeCheckPrompt />
       </NotificationProvider>
     </NavigationContainer>
   );

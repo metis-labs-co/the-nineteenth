@@ -66,6 +66,17 @@ export interface RoundLeaderboardProps {
    * individual standings). Pass only when the parent has team data available.
    */
   playerTeamLookup?: PlayerTeamLookup;
+  /** Optional round name to display in the header (falls back to "Round N"). */
+  roundName?: string | null;
+  /**
+   * Optional positional round number to display in the header (1-based
+   * position within the display_order-sorted list). When provided, this
+   * overrides the metadata-derived round number (which is a stable id with
+   * gaps and must not be shown to users).
+   */
+  roundNumber?: number;
+  /** Optional right-aligned points/status badge (e.g. "Dinner bet · 0 points"). */
+  pointsBadge?: string;
 }
 
 // =====================================================
@@ -83,6 +94,9 @@ export const RoundLeaderboard = React.memo(function RoundLeaderboard({
   testID,
   filterView,
   playerTeamLookup,
+  roundName,
+  roundNumber,
+  pointsBadge,
 }: RoundLeaderboardProps) {
   const colors = useThemeColors();
 
@@ -94,6 +108,11 @@ export const RoundLeaderboard = React.memo(function RoundLeaderboard({
       enabled: !!roundId,
     }
   );
+
+  // Prefer the caller-supplied positional round number (1-based position
+  // within the display_order-sorted list) over the metadata-derived value,
+  // which is `round_number` — a stable id with gaps that must not be shown.
+  const displayRoundNumber = roundNumber ?? data?.metadata.roundNumber;
 
   // Subset to display based on filterView. When unfiltered, this is the full
   // sorted list; the renderer below picks the split layout when both subsets
@@ -120,6 +139,15 @@ export const RoundLeaderboard = React.memo(function RoundLeaderboard({
       data.individualEntries.length > 0,
     [data, filterView]
   );
+
+  // DNF section: only on completed rounds, only when there are unfinished
+  // players, and not in the team-only filtered view (DNF is individual).
+  const dnfEntries = data?.dnfEntries ?? [];
+  const showDnf =
+    !!data &&
+    data.metadata.status === 'completed' &&
+    filterView !== 'team' &&
+    dnfEntries.length > 0;
 
   // Loading state
   if (isLoading) {
@@ -155,11 +183,13 @@ export const RoundLeaderboard = React.memo(function RoundLeaderboard({
           isTeamRound={data?.metadata.isTeamRound ?? isTeamRound}
           date={data?.metadata.date}
           courseName={data?.metadata.courseName}
-          roundNumber={data?.metadata.roundNumber || 1}
+          roundNumber={displayRoundNumber || 1}
           teamFormat={data?.metadata.teamFormat}
           roundFormat={data?.metadata.roundFormat}
           subMatchSize={data?.metadata.subMatchSize}
           rulesOverride={data?.metadata.rulesOverride}
+          roundName={roundName}
+          pointsBadge={pointsBadge}
         />
         <EmptyState
           title="No scores yet"
@@ -249,11 +279,13 @@ export const RoundLeaderboard = React.memo(function RoundLeaderboard({
         isTeamRound={metadata.isTeamRound}
         date={metadata.date}
         courseName={metadata.courseName}
-        roundNumber={metadata.roundNumber}
+        roundNumber={displayRoundNumber ?? metadata.roundNumber}
         teamFormat={metadata.teamFormat}
         roundFormat={metadata.roundFormat}
         subMatchSize={metadata.subMatchSize}
         rulesOverride={metadata.rulesOverride}
+        roundName={roundName}
+        pointsBadge={pointsBadge}
       />
 
       {/* Leaderboard Content. When a round has both team and individual
@@ -301,6 +333,26 @@ export const RoundLeaderboard = React.memo(function RoundLeaderboard({
           </ScaledText>
         </View>
       )}
+
+      {/* Did Not Finish — roster players with no result row. No position/points. */}
+      {showDnf && (
+        <View style={[styles.card, { backgroundColor: colors.surface }, dnfStyles.section]}>
+          <ScaledText category="caption" style={[dnfStyles.label, { color: colors.textSecondary }]}>
+            Did Not Finish
+          </ScaledText>
+          {dnfEntries.map((d) => (
+            <View key={d.playerId} style={dnfStyles.row}>
+              <IconAlertTriangle size={16} color={colors.textTertiary} />
+              <ScaledText category="body" style={[dnfStyles.name, { color: colors.textPrimary }]}>
+                {d.playerName}
+              </ScaledText>
+            </View>
+          ))}
+          <ScaledText category="caption" style={[dnfStyles.hint, { color: colors.textTertiary }]}>
+            No position or points — round submitted before they finished.
+          </ScaledText>
+        </View>
+      )}
     </View>
   );
 });
@@ -320,6 +372,33 @@ const legendStyles = StyleSheet.create({
   },
   text: {
     ...typography.caption,
+  },
+});
+
+const dnfStyles = StyleSheet.create({
+  section: {
+    marginTop: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  label: {
+    ...typography.captionBold,
+    textTransform: 'uppercase',
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.sm,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  name: {
+    ...typography.body,
+  },
+  hint: {
+    ...typography.caption,
+    paddingTop: spacing.sm,
   },
 });
 

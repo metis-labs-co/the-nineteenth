@@ -18,6 +18,7 @@ import {
 } from '@/utils/scoring';
 import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
 import { calculateScoreDifferential } from '@/utils/handicapDifferential';
+import { calculateAdjustedGrossScore } from '@/utils/adjustedGross';
 import { getBaseHandicap, type ScorecardPlayerInfo } from '@/utils/scorecardCalculations';
 import { getLocalDateString } from '@/utils/formatting';
 import type { Hole, TeeBox } from '@/types/database.types';
@@ -120,15 +121,23 @@ export function useLeagueQuickAddRound({ leagueId }: UseLeagueQuickAddRoundParam
     return { totalGross, totalNet, totalPoints, holesEntered };
   }, [scores, holes, holePoints, dailyHandicap]);
 
-  // Handicap differential
+  // Handicap differential, computed from the WHS ADJUSTED gross score (every
+  // hole capped at net double bogey). This value is persisted to
+  // league_rounds.handicap_differential and IS the league leaderboard, so it
+  // must share a basis with the player's handicap index.
   const handicapDifferential = useMemo(() => {
     if (!selectedTee?.courseRating || !selectedTee?.slopeRating || totals.totalGross <= 0) return null;
+    const { adjustedGross } = calculateAdjustedGrossScore({
+      holes,
+      scores,
+      dailyHandicap,
+    });
     return calculateScoreDifferential({
-      adjustedGrossScore: totals.totalGross,
+      adjustedGrossScore: adjustedGross > 0 ? adjustedGross : totals.totalGross,
       courseRating: selectedTee.courseRating,
       slopeRating: selectedTee.slopeRating,
     });
-  }, [selectedTee, totals.totalGross]);
+  }, [selectedTee, totals.totalGross, holes, scores, dailyHandicap]);
 
   // Score manipulation
   const incrementScore = useCallback((holeNumber: number) => {
@@ -269,11 +278,18 @@ export function useLeagueQuickAddRound({ leagueId }: UseLeagueQuickAddRoundParam
 
       if (!scData?.id) throw new Error('Scorecard not found after creation');
 
-      // 5. Calculate differential at save time (ensures fresh values)
+      // 5. Calculate differential at save time (ensures fresh values).
+      // Same adjusted-gross basis as the memo above, so the saved value can
+      // never diverge from the one previewed on screen.
       let differential = handicapDifferential;
       if (differential == null && selectedTee?.courseRating && selectedTee?.slopeRating && totals.totalGross > 0) {
+        const { adjustedGross } = calculateAdjustedGrossScore({
+          holes,
+          scores,
+          dailyHandicap,
+        });
         differential = calculateScoreDifferential({
-          adjustedGrossScore: totals.totalGross,
+          adjustedGrossScore: adjustedGross > 0 ? adjustedGross : totals.totalGross,
           courseRating: selectedTee.courseRating,
           slopeRating: selectedTee.slopeRating,
         });
@@ -306,7 +322,7 @@ export function useLeagueQuickAddRound({ leagueId }: UseLeagueQuickAddRoundParam
     } finally {
       setIsSaving(false);
     }
-  }, [selectedPlayer, selectedCourse, selectedTee, scores, totals, roundDate, handicapDifferential, leagueId, holes, submitScorecard, queryClient, navigation]);
+  }, [selectedPlayer, selectedCourse, selectedTee, scores, totals, roundDate, handicapDifferential, dailyHandicap, leagueId, holes, submitScorecard, queryClient, navigation]);
 
   return {
     // Wizard

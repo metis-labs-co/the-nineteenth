@@ -3,9 +3,9 @@ import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Text } from 'react-native-paper';
 
 import { BottomSheet } from '@/components/common/BottomSheet';
-import { DateTimeFieldGroup } from '@/components/common';
+import { DateTimeFieldGroup, SheetFooterActions } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
-import { borderRadius, spacing, typography } from '@/constants/theme';
+import { spacing, typography } from '@/constants/theme';
 import { getLocalDateString, parseLocalDateString } from '@/utils/formatting';
 import type { CompetitionType } from '@/types/database.types';
 
@@ -139,30 +139,7 @@ export function EditDatesSheet({
         )}
       </View>
 
-      <View style={[styles.footer, { borderTopColor: colors.border }]}>
-        <TouchableOpacity
-          onPress={onDismiss}
-          style={[styles.button, styles.cancelButton, { borderColor: colors.gray300 }]}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          disabled={isPending}
-        >
-          <Text style={[styles.buttonLabel, { color: colors.textSecondary }]}>
-            Cancel
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={handleSave}
-          style={[styles.button, { backgroundColor: colors.primary }]}
-          activeOpacity={0.8}
-          accessibilityRole="button"
-          disabled={isPending}
-        >
-          <Text style={[styles.buttonLabel, { color: colors.white }]}>
-            {isPending ? 'Saving…' : 'Save'}
-          </Text>
-        </TouchableOpacity>
-      </View>
+      <SheetFooterActions onCancel={onDismiss} onSave={handleSave} saving={isPending} />
     </BottomSheet>
   );
 }
@@ -185,25 +162,6 @@ const styles = StyleSheet.create({
     ...typography.small,
     marginTop: -spacing.sm,
     marginBottom: spacing.md,
-  },
-  footer: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    padding: spacing.lg,
-    borderTopWidth: 1,
-  },
-  button: {
-    flex: 1,
-    height: 48,
-    borderRadius: borderRadius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cancelButton: {
-    borderWidth: 1,
-  },
-  buttonLabel: {
-    ...typography.bodyBold,
   },
 });
 

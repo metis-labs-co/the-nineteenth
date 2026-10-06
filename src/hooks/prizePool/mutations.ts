@@ -5,7 +5,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import { prizePoolKeys, competitionKeys } from '@/hooks/queryKeys';
-import { createError } from '@/services/errors';
+import { createError, assertNoDbError } from '@/services/errors';
 import type {
   CompetitionPrizePool,
   CreatePrizePoolInput,
@@ -46,9 +46,7 @@ export function useCreatePrizePool() {
         .select()
         .single();
 
-      if (error) {
-        throw createError(`Failed to create prize pool: ${error.message}`, 'DATABASE');
-      }
+      assertNoDbError(error, 'create prize pool');
 
       const pool = data as unknown as CompetitionPrizePool;
 
@@ -68,7 +66,7 @@ export function useCreatePrizePool() {
           .from('competition_prize_pools' as never)
           .delete()
           .eq('id', pool.id);
-        throw createError(`Failed to create placements: ${placementError.message}`, 'DATABASE');
+        assertNoDbError(placementError, 'create placements');
       }
 
       return pool;
@@ -111,9 +109,7 @@ export function useUpdatePrizePool() {
         .eq('id', poolId)
         .single();
 
-      if (fetchError) {
-        throw createError(`Failed to fetch pool: ${fetchError.message}`, 'DATABASE');
-      }
+      assertNoDbError(fetchError, 'fetch pool');
 
       const currentPool = currentPoolData as unknown as CompetitionPrizePool;
 
@@ -140,9 +136,7 @@ export function useUpdatePrizePool() {
         .select()
         .single();
 
-      if (error) {
-        throw createError(`Failed to update prize pool: ${error.message}`, 'DATABASE');
-      }
+      assertNoDbError(error, 'update prize pool');
 
       const pool = data as unknown as CompetitionPrizePool;
 
@@ -168,9 +162,7 @@ export function useUpdatePrizePool() {
           .from('prize_pool_placements' as never)
           .insert(placementRows as never);
 
-        if (placementError) {
-          throw createError(`Failed to update placements: ${placementError.message}`, 'DATABASE');
-        }
+        assertNoDbError(placementError, 'update placements');
       } else {
         const { error: recalcError } = await supabase.rpc(
           'recalculate_placement_amounts' as never,
@@ -219,9 +211,7 @@ export function useDeletePrizePool() {
         .eq('id', poolId)
         .single();
 
-      if (fetchError) {
-        throw createError(`Failed to fetch pool: ${fetchError.message}`, 'DATABASE');
-      }
+      assertNoDbError(fetchError, 'fetch pool');
 
       const pool = poolData as { is_locked: boolean } | null;
 
@@ -234,9 +224,7 @@ export function useDeletePrizePool() {
         .delete()
         .eq('id', poolId);
 
-      if (error) {
-        throw createError(`Failed to delete prize pool: ${error.message}`, 'DATABASE');
-      }
+      assertNoDbError(error, 'delete prize pool');
     },
 
     onSuccess: (_, variables) => {
@@ -269,9 +257,7 @@ export function useSettlePrizePool() {
         p_pool_id: poolId,
       } as never);
 
-      if (error) {
-        throw createError(`Failed to settle prize pool: ${error.message}`, 'DATABASE');
-      }
+      assertNoDbError(error, 'settle prize pool');
     },
 
     onSuccess: (_, variables) => {
@@ -332,21 +318,14 @@ export function useSettleCompetitionPayouts() {
             .eq('competition_id', competitionId)
             .eq('player_id', standing.participantId);
 
-          if (updateError) {
-            throw createError(
-              `Failed to set final position for player: ${updateError.message}`,
-              'DATABASE'
-            );
-          }
+          assertNoDbError(updateError, 'set final position for player');
         }
 
         const { error: rpcError } = await supabase.rpc('settle_prize_pool' as never, {
           p_pool_id: poolId,
         } as never);
 
-        if (rpcError) {
-          throw createError(`Failed to settle prize pool: ${rpcError.message}`, 'DATABASE');
-        }
+        assertNoDbError(rpcError, 'settle prize pool');
       } else {
         for (const standing of standings) {
           const { error: updateError } = await supabase
@@ -356,12 +335,7 @@ export function useSettleCompetitionPayouts() {
             .eq('competition_id', competitionId)
             .eq('id', standing.participantId);
 
-          if (updateError) {
-            throw createError(
-              `Failed to set final position for team: ${updateError.message}`,
-              'DATABASE'
-            );
-          }
+          assertNoDbError(updateError, 'set final position for team');
         }
 
         const { error: rpcError } = await supabase.rpc(
@@ -369,12 +343,7 @@ export function useSettleCompetitionPayouts() {
           { p_pool_id: poolId } as never
         );
 
-        if (rpcError) {
-          throw createError(
-            `Failed to settle team prize pool: ${rpcError.message}`,
-            'DATABASE'
-          );
-        }
+        assertNoDbError(rpcError, 'settle team prize pool');
       }
     },
 

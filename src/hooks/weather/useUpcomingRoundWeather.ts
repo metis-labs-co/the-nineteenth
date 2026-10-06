@@ -17,6 +17,7 @@
 import { useMemo } from 'react';
 import { useWeather, type WeatherInput } from './useWeather';
 import { useFallbackCourseCoords } from './useFallbackCourseCoords';
+import { parseClubCoords, type ClubCoordsSource } from '@/utils/gpsCalculations';
 import type { RoundWithCourse } from '@/components/competitions/detail/types';
 
 /**
@@ -35,24 +36,7 @@ function readTeeTime(r: { tee_time?: string | null; teeTime?: string | null }): 
 function extractClubCoords(
   round: RoundWithCourse,
 ): { lat: number; lng: number } | null {
-  const club = round.course?.clubs as
-    | {
-        latitude?: number | null;
-        longitude?: number | null;
-        location?: { type?: string; coordinates?: [number, number] } | null;
-      }
-    | null
-    | undefined;
-  if (!club) return null;
-
-  if (club.latitude != null && club.longitude != null) {
-    return { lat: club.latitude, lng: club.longitude };
-  }
-  const coords = club.location?.coordinates;
-  if (coords && coords.length >= 2) {
-    return { lat: coords[1], lng: coords[0] };
-  }
-  return null;
+  return parseClubCoords(round.course?.clubs as ClubCoordsSource | null | undefined);
 }
 
 export function useUpcomingRoundWeather(round: RoundWithCourse | null) {

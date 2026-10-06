@@ -7,8 +7,8 @@
 
 import React from 'react';
 import { StyleSheet, View, TouchableOpacity } from 'react-native';
-import { Text, Icon } from 'react-native-paper';
-import { PlayerAvatar } from '@/components/common';
+import { Text, Icon, Portal } from 'react-native-paper';
+import { PlayerAvatar, InputtedHandicapInfoSheet } from '@/components/common';
 import { ProfileFrame, ProfileBadge, ProfileTitle } from '@/components/cosmetics';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
@@ -45,8 +45,10 @@ export const ProfileHeader = React.memo(function ProfileHeader({
   onEditPress,
 }: ProfileHeaderProps) {
   const colors = useThemeColors();
+  const [showHandicapInfo, setShowHandicapInfo] = React.useState(false);
 
   return (
+    <>
     <TouchableOpacity
       style={[styles.container, { backgroundColor: colors.surface }]}
       activeOpacity={0.7}
@@ -75,14 +77,32 @@ export const ProfileHeader = React.memo(function ProfileHeader({
           {displayEmail}
         </Text>
         {displayHandicap !== null && (
-          <Text style={[styles.userHandicap, { color: colors.primary }]}>
-            Handicap: {formatHandicapIndex(displayHandicap)}
-          </Text>
+          <View style={styles.handicapRow}>
+            <Text style={[styles.userHandicap, { color: colors.primary }]}>
+              Handicap: {formatHandicapIndex(displayHandicap)}
+            </Text>
+            <TouchableOpacity
+              onPress={() => setShowHandicapInfo(true)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityRole="button"
+              accessibilityLabel="About your inputted handicap"
+              style={styles.infoButton}
+            >
+              <Icon source="information-outline" size={16} color={colors.textTertiary} />
+            </TouchableOpacity>
+          </View>
         )}
       </View>
 
       <Icon source="chevron-right" size={20} color={colors.gray400} />
     </TouchableOpacity>
+    <Portal>
+      <InputtedHandicapInfoSheet
+        visible={showHandicapInfo}
+        onClose={() => setShowHandicapInfo(false)}
+      />
+    </Portal>
+    </>
   );
 });
 
@@ -111,9 +131,17 @@ const styles = StyleSheet.create({
     ...typography.small,
     marginTop: spacing.xs,
   },
+  handicapRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.xs,
+  },
   userHandicap: {
     ...typography.small,
-    marginTop: spacing.xs,
+  },
+  infoButton: {
+    padding: 2,
   },
 });
 

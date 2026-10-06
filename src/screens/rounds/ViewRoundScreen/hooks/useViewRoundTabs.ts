@@ -11,6 +11,8 @@ interface UseViewRoundTabsParams {
    *  cross-field Scramble Scorecard/Leaderboard tabs are wrong for this
    *  format; only Contributions is kept alongside the Sub-Matches tab. */
   isAltShotSplitRound: boolean;
+  /** True for any alt-shot round (combined or split). Hides the Contributions tab. */
+  isAltShotRound: boolean;
   isStrokePlayRound: boolean;
   isStablefordRound: boolean;
   isParRound: boolean;
@@ -56,6 +58,7 @@ export function useViewRoundTabs({
   isShambleRound,
   isScrambleRound,
   isAltShotSplitRound,
+  isAltShotRound,
   isStrokePlayRound,
   isStablefordRound,
   isParRound,
@@ -105,6 +108,12 @@ export function useViewRoundTabs({
       result.push({ key: 'leaderboard', label: 'Leaderboard' });
     }
 
+    // Split alt-shot rounds get the live sub-match leaderboard under the same
+    // 'leaderboard' tab key (rendered by RoundSubMatchLeaderboard in index.tsx).
+    if (isAltShotSplitRound) {
+      result.push({ key: 'leaderboard', label: 'Leaderboard' });
+    }
+
     // Scorecard (scramble rounds have their own dedicated scorecard tab
     // in the scramble suite below).
     if (!isScrambleRound) {
@@ -121,13 +130,17 @@ export function useViewRoundTabs({
 
     if (isScrambleRound) {
       // Split alt-shot is head-to-head 2v2: the cross-field Scorecard/Leaderboard
-      // tabs rank across all players and are wrong here. Keep only Contributions;
-      // the Sub-Matches tab already shows the pair results.
+      // tabs rank across all players and are wrong there, so they're suppressed —
+      // the Sub-Matches tab already shows the pair results. Alt-shot (combined or
+      // split) also has no Contributions tab. Net: real scramble keeps all three;
+      // combined alt-shot keeps Scorecard/Leaderboard only; split alt-shot keeps none.
       if (!isAltShotSplitRound) {
         result.push({ key: 'scrambleTeamScore', label: 'Scorecard' });
         result.push({ key: 'scrambleLeaderboard', label: 'Leaderboard' });
       }
-      result.push({ key: 'scrambleContributions', label: 'Contributions' });
+      if (!isAltShotRound) {
+        result.push({ key: 'scrambleContributions', label: 'Contributions' });
+      }
     }
 
     if (hasSkinsGame) {
@@ -158,5 +171,5 @@ export function useViewRoundTabs({
     }
 
     return result;
-  }, [isMatchPlayRound, isTeamMatchPlayRound, isShambleRound, isScrambleRound, isAltShotSplitRound, isStrokePlayRound, isStablefordRound, isParRound, isSplitRound, isTeamRound, hasSkinsGame, hasWolfGame, hasPayoutsTab, hasStats, hasShots, playerCount, groupCount, teamCount]);
+  }, [isMatchPlayRound, isTeamMatchPlayRound, isShambleRound, isScrambleRound, isAltShotSplitRound, isAltShotRound, isStrokePlayRound, isStablefordRound, isParRound, isSplitRound, isTeamRound, hasSkinsGame, hasWolfGame, hasPayoutsTab, hasStats, hasShots, playerCount, groupCount, teamCount]);
 }

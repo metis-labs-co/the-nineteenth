@@ -33,7 +33,6 @@ import {
   FeatureButton,
 } from '@/components/common';
 import { InProgressRoundSection } from '@/components/competitions/detail/sections';
-import { FeatureLock } from '@/components/subscription';
 import CreateRoundBottomSheet from '@/screens/rounds/CreateRoundBottomSheet';
 import { useStartNewRound, useScheduleRound } from '@/screens/rounds/RoundListScreen/hooks';
 import { useHomeData } from '@/hooks/home';
@@ -49,9 +48,10 @@ import {
   HomeSkeleton,
   SectionHeader,
   RoundTodayCard,
+  NextCompetitionCard,
   HomeTileGrid,
   MatesThisWeekSection,
-  HandicapHomeCard,
+  HandicapHomeSection,
 } from './components';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -140,6 +140,10 @@ export default function HomeScreen() {
     navigation.navigate('HandicapHistory');
   }, [navigation]);
 
+  const handleUpgrade = useCallback(() => {
+    navigation.navigate('Subscription');
+  }, [navigation]);
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <PageHeader
@@ -205,16 +209,18 @@ export default function HomeScreen() {
                 <RoundTodayCard round={home.upcomingWithin24h} />
               ) : null}
 
-              <FeatureLock
-                feature="handicap_history"
-                onUpgradePress={() => navigation.navigate('Subscription')}
-              >
-                <HandicapHomeCard
-                  summary={home.handicapSummary}
-                  onPress={handleViewHandicap}
-                  testID="home-handicap-card"
+              {home.nextCompetition ? (
+                <NextCompetitionCard
+                  round={home.nextCompetition}
+                  days={home.nextCompetitionDays}
                 />
-              </FeatureLock>
+              ) : null}
+
+              <HandicapHomeSection
+                summary={home.handicapSummary}
+                onPress={handleViewHandicap}
+                onUpgradePress={handleUpgrade}
+              />
 
               <PendingActionsSection actions={home.pendingActions} />
 

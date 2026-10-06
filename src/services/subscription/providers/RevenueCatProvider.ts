@@ -11,7 +11,7 @@
  * - Restore purchases for reinstalls/device transfers
  *
  * @see https://docs.revenuecat.com/docs/reactnative
- * @see src/services/subscription/webhooks.ts for server-side sync
+ * @see supabase/functions/revenuecat-webhook/index.ts for server-side sync
  */
 
 import { Platform } from 'react-native';

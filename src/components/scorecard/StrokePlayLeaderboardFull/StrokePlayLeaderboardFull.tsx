@@ -27,8 +27,7 @@ import {
 import { useThemeColors } from '@/context/ThemeContext';
 import type { Player, Hole, HoleScore, MultiBallHoleScore } from '@/types';
 import { isSingleBallScore } from '@/types/database';
-import { calculateNetScore } from '@/utils/scoring';
-import { PICKUP_SCORE } from '@/constants/scoring';
+import { getStrokesReceived, getEffectiveGrossStrokes } from '@/utils/scoring';
 
 /** Props for the StrokePlayLeaderboardFull component */
 export interface StrokePlayLeaderboardFullProps {
@@ -40,6 +39,14 @@ export interface StrokePlayLeaderboardFullProps {
   holes: Hole[];
   /** Current user's ID for highlighting */
   currentUserId?: string;
+  /**
+   * Map of playerId → daily (playing) handicap for the round. When present it is
+   * used as the strokes-received basis so the leaderboard's net matches the
+   * scorecard, which scores off the round's daily handicap (`daily_handicap_used`)
+   * rather than the raw profile index. Falls back to the player's raw `handicap`
+   * when a player is missing from the map.
+   */
+  dailyHandicaps?: Record<string, number>;
   /** When provided, each player row becomes tappable and calls this with the
    *  player's id (used to open that player's individual scorecard). */
   onPlayerPress?: (playerId: string) => void;
@@ -81,6 +88,7 @@ export const StrokePlayLeaderboardFull = React.memo(function StrokePlayLeaderboa
   getPlayerScore,
   holes,
   currentUserId,
+  dailyHandicaps,
   onPlayerPress,
   testID,
 }: StrokePlayLeaderboardFullProps) {
@@ -90,6 +98,10 @@ export const StrokePlayLeaderboardFull = React.memo(function StrokePlayLeaderboa
   // Calculate totals and standings for all players
   const leaderboardData = useMemo((): LeaderboardRow[] => {
     const playerScores = players.map((player) => {
+      // Net is computed off the round's daily (playing) handicap — matching the
+      // scorecard. Fall back to the raw profile index only when no daily
+      // handicap is known.
+      const dailyHandicap = dailyHandicaps?.[player.id] ?? player.handicap ?? 0;
       let gross = 0;
       let net = 0;
       let coursePar = 0;
@@ -104,19 +116,15 @@ export const StrokePlayLeaderboardFull = React.memo(function StrokePlayLeaderboa
         // Handle single ball score only
         if (!isSingleBallScore(score)) continue;
 
-        // Skip picked up holes for gross calculation but count them
-        if (score.strokes === PICKUP_SCORE) {
-          // For picked up holes, use double par as penalty
-          const penaltyStrokes = hole.par * 2;
-          gross += penaltyStrokes;
-          net += calculateNetScore(penaltyStrokes, player.handicap ?? 0, hole);
-          coursePar += hole.par;
-          holesCompleted++;
-          continue;
-        }
+        const strokesReceived = getStrokesReceived(dailyHandicap, hole.strokeIndex);
+        // Pickups (>= PICKUP_SCORE) resolve to WHS net double bogey for both
+        // gross and net — matching the scorecard's totals. Unplayed holes
+        // (no/zero score) return null and are skipped.
+        const effectiveStrokes = getEffectiveGrossStrokes(score.strokes, hole.par, strokesReceived);
+        if (effectiveStrokes === null) continue;
 
-        gross += score.strokes;
-        net += calculateNetScore(score.strokes, player.handicap ?? 0, hole);
+        gross += effectiveStrokes;
+        net += effectiveStrokes - strokesReceived;
         coursePar += hole.par;
         holesCompleted++;
       }
@@ -124,7 +132,7 @@ export const StrokePlayLeaderboardFull = React.memo(function StrokePlayLeaderboa
       return {
         playerId: player.id,
         playerName: player.name,
-        handicap: player.handicap ?? 0,
+        handicap: dailyHandicap,
         position: 0, // Will be calculated after sorting
         gross,
         grossRelativeToPar: gross - coursePar,
@@ -161,7 +169,7 @@ export const StrokePlayLeaderboardFull = React.memo(function StrokePlayLeaderboa
     }
 
     return playerScores;
-  }, [players, getPlayerScore, holes, currentUserId, sortBy]);
+  }, [players, getPlayerScore, holes, currentUserId, sortBy, dailyHandicaps]);
 
   // Get the maximum completed hole for "thru" display
   const maxCompletedHole = useMemo(() => {

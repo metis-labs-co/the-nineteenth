@@ -12,6 +12,7 @@ import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { formatHandicapIndex } from '@/utils/displayHelpers';
+import { formatDateDisplay } from '@/utils/formatting';
 import type { CombinableNinePair } from '@/types';
 
 interface CombinablePairsSectionProps {
@@ -23,14 +24,10 @@ interface CombinablePairsSectionProps {
 
 function formatDate(dateString: string): string {
   if (!dateString) return '';
-  try {
-    return new Date(dateString).toLocaleDateString(undefined, {
-      day: '2-digit',
-      month: 'short',
-    });
-  } catch {
-    return dateString;
-  }
+  return formatDateDisplay(dateString, {
+    day: '2-digit',
+    month: 'short',
+  });
 }
 
 export function CombinablePairsSection({

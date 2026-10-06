@@ -23,6 +23,7 @@ export type {
 // Score Entries
 export {
   saveScoreEntry,
+  saveScoreEntries,
   getRoundScoreEntries,
   getScorerEntries,
   isScorerComplete,
@@ -53,7 +54,13 @@ export {
 } from './submission';
 
 // Singleton (preserves backward compatibility)
-import { saveScoreEntry, getRoundScoreEntries, getScorerEntries, isScorerComplete } from './entries';
+import {
+  saveScoreEntry,
+  saveScoreEntries,
+  getRoundScoreEntries,
+  getScorerEntries,
+  isScorerComplete,
+} from './entries';
 import { detectMismatches, createMismatchRecords, getPendingMismatches, getMismatch } from './detection';
 import { resolveMismatch, applyResolvedScoreToScorecard } from './resolution';
 import {
@@ -68,6 +75,7 @@ import {
 export const scoreMismatchService = {
   // Score Entries
   saveScoreEntry,
+  saveScoreEntries,
   getRoundScoreEntries,
   getScorerEntries,
   isScorerComplete,

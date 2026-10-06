@@ -11,6 +11,7 @@ import { Text, Icon } from 'react-native-paper';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import type { PlayerScoreSummary } from './useContributionData';
+import { formatRelativeToPar } from '@/utils/formatting';
 
 interface PlayerBreakdownCardProps {
   players: PlayerScoreSummary[];
@@ -22,11 +23,6 @@ export const PlayerBreakdownCard = React.memo(function PlayerBreakdownCard({
   totalHoles,
 }: PlayerBreakdownCardProps) {
   const colors = useThemeColors();
-
-  const formatToPar = useCallback((value: number): string => {
-    if (value === 0) return 'E';
-    return value > 0 ? `+${value}` : `${value}`;
-  }, []);
 
   const getToParColor = useCallback(
     (value: number): string => {
@@ -94,7 +90,7 @@ export const PlayerBreakdownCard = React.memo(function PlayerBreakdownCard({
             {player.net}
           </Text>
           <Text style={[styles.playerBreakdownToPar, styles.toParCol, { color: getToParColor(player.toPar) }]}>
-            {formatToPar(player.toPar)}
+            {formatRelativeToPar(player.toPar)}
           </Text>
         </View>
       ))}

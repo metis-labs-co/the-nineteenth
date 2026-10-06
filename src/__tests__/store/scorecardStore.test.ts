@@ -25,8 +25,15 @@ import {
   saveHoles,
   getHoles,
   markScorecardsAsSynced,
+  markScorecardAsSynced,
+  getFailedSyncCountForRound,
 } from '@/services/offline/database';
-import { queueScorecardSync, syncScorecard, getIsOnline } from '@/services/offline/sync';
+import {
+  queueScorecardSync,
+  syncScorecard,
+  getIsOnline,
+  ScorecardConflictError,
+} from '@/services/offline/sync';
 import { storeLogger } from '@/utils/debugLogger';
 
 // Helper to get store state
@@ -48,6 +55,15 @@ const getGreenInRegulation = (score: HoleScore | MultiBallHoleScore | undefined)
 // Helper to wait for async operations
 const _waitFor = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// Conflict-response row for constructing ScorecardConflictError in tests
+const makeConflictRow = (serverRevision: number) => ({
+  applied: false,
+  conflict: true,
+  server_revision: serverRevision,
+  server_status: 'in-progress',
+  server_scores: {},
+});
+
 // Mock the offline database service
 jest.mock('@/services/offline/database', () => ({
   saveScorecard: jest.fn(() => Promise.resolve()),
@@ -56,18 +72,67 @@ jest.mock('@/services/offline/database', () => ({
   saveHoles: jest.fn(() => Promise.resolve()),
   getHoles: jest.fn(() => Promise.resolve([])),
   markScorecardsAsSynced: jest.fn(() => Promise.resolve()),
+  markScorecardAsSynced: jest.fn(() => Promise.resolve()),
+  getFailedSyncCountForRound: jest.fn(() => Promise.resolve(0)),
 }));
 
+// Captured listener for the scorecard-synced event (set when the store
+// subscribes via initSyncListener). Prefixed "mock" so jest allows the
+// factory below to close over it.
+let mockScorecardSyncedListener:
+  | ((info: { scorecardId: string; serverRevision: number }) => void)
+  | null = null;
+
+// Captured listener for sync-state changes, so tests can emit the state the
+// sync service would publish after a drain.
+let mockSyncStateListener:
+  | ((state: {
+      status: string;
+      pendingCount: number;
+      failedCount: number;
+      lastSyncAt: Date | null;
+      error: string | null;
+    }) => void)
+  | null = null;
+
 // Mock the sync service
-jest.mock('@/services/offline/sync', () => ({
-  queueScorecardSync: jest.fn(() => Promise.resolve()),
-  syncScorecard: jest.fn(() => Promise.resolve()),
-  subscribeSyncState: jest.fn((callback) => {
-    callback({ status: 'idle', pendingCount: 0, error: null });
-    return jest.fn();
-  }),
-  getIsOnline: jest.fn(() => true),
-}));
+jest.mock('@/services/offline/sync', () => {
+  // Minimal stand-in matching the real class's shape; instanceof works
+  // because the store imports the class from this same (mocked) module.
+  class ScorecardConflictError extends Error {
+    readonly serverRevision: number;
+    readonly serverStatus: string | null;
+    readonly serverScores: Record<string, unknown>;
+
+    constructor(row: {
+      server_revision: number | null;
+      server_status: string | null;
+      server_scores: Record<string, unknown> | null;
+    }) {
+      super('This scorecard changed on another device.');
+      this.name = 'ScorecardConflictError';
+      this.serverRevision = Number(row.server_revision);
+      this.serverStatus = row.server_status;
+      this.serverScores = row.server_scores ?? {};
+    }
+  }
+
+  return {
+    queueScorecardSync: jest.fn(() => Promise.resolve()),
+    syncScorecard: jest.fn(() => Promise.resolve({ serverRevision: 1 })),
+    subscribeSyncState: jest.fn((callback) => {
+      mockSyncStateListener = callback;
+      callback({ status: 'idle', pendingCount: 0, error: null });
+      return jest.fn();
+    }),
+    subscribeScorecardSynced: jest.fn((callback) => {
+      mockScorecardSyncedListener = callback;
+      return jest.fn();
+    }),
+    getIsOnline: jest.fn(() => true),
+    ScorecardConflictError,
+  };
+});
 
 // Mock the Supabase client. loadFromOffline reads the round's metadata
 // (nine_type, game_type, etc.) and bails out early unless nine_type is known,
@@ -83,12 +148,22 @@ jest.mock('@/services/supabase/client', () => {
     },
     error: null,
   };
+  // Mutable result for the `players` table lookup (live handicap refresh on
+  // resume). Tests set this via __setPlayersResult. A `__reject` flag makes the
+  // terminal `.in()` reject, simulating an offline/network failure.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test mock state
+  let playersResult: any = { data: null, error: null };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test mock chain
   const makeChain = (result: any) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- self-referential chain
     const chain: any = {
       select: jest.fn(() => chain),
       eq: jest.fn(() => chain),
+      in: jest.fn(() =>
+        result && result.__reject
+          ? Promise.reject(new Error('network error'))
+          : Promise.resolve(result)
+      ),
       maybeSingle: jest.fn(() => Promise.resolve(result)),
       single: jest.fn(() => Promise.resolve(result)),
     };
@@ -97,12 +172,34 @@ jest.mock('@/services/supabase/client', () => {
   return {
     supabase: {
       from: jest.fn((table: string) =>
-        makeChain(table === 'rounds' ? roundsResult : { data: null, error: null })
+        makeChain(
+          table === 'rounds'
+            ? roundsResult
+            : table === 'players'
+              ? playersResult
+              : { data: null, error: null }
+        )
       ),
     },
     getCurrentUser: jest.fn(() => Promise.resolve({ id: 'test-user-id' })),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
+    __setPlayersResult: (r: any) => {
+      playersResult = r;
+    },
+    __resetPlayersResult: () => {
+      playersResult = { data: null, error: null };
+    },
   };
 });
+
+// Test-only handles into the supabase mock above (typed loosely via requireMock
+// so they don't need to exist on the real module's exports).
+const { __setPlayersResult, __resetPlayersResult } = jest.requireMock(
+  '@/services/supabase/client'
+) as {
+  __setPlayersResult: (r: unknown) => void;
+  __resetPlayersResult: () => void;
+};
 
 // Mock the debug logger
 jest.mock('@/utils/debugLogger', () => {
@@ -267,6 +364,89 @@ describe('ScorecardStore', () => {
     });
   });
 
+  // ==========================================================================
+  // SYNC FAILURE SCOPING
+  // ==========================================================================
+
+  /**
+   * The score-entry banner is driven by `failedSyncCount`. Sourcing it from the
+   * device-wide failure count made a single unrecoverable row from an old round
+   * raise a red "score changes not uploaded" strip on every subsequent
+   * scorecard, including solo and local-only rounds.
+   */
+  describe('failedSyncCount scoping', () => {
+    // jest.clearAllMocks() clears calls but not implementations, so restore the
+    // default here rather than leaking a value into unrelated suites.
+    afterEach(() => {
+      (getFailedSyncCountForRound as jest.Mock).mockResolvedValue(0);
+    });
+
+    it('counts only failures belonging to the current round', async () => {
+      (getFailedSyncCountForRound as jest.Mock).mockResolvedValue(2);
+
+      await getStore().initializeRound(testRoundId, testPlayers, testHoles);
+
+      expect(getFailedSyncCountForRound).toHaveBeenCalledWith(testRoundId);
+      expect(getStore().failedSyncCount).toBe(2);
+    });
+
+    it('ignores failures retained from other rounds', async () => {
+      (getFailedSyncCountForRound as jest.Mock).mockResolvedValue(0);
+
+      await getStore().initializeRound(testRoundId, testPlayers, testHoles);
+
+      expect(getStore().failedSyncCount).toBe(0);
+    });
+
+    it('recounts for the current round when sync state changes', async () => {
+      (getFailedSyncCountForRound as jest.Mock).mockResolvedValue(0);
+      await getStore().initializeRound(testRoundId, testPlayers, testHoles);
+      (getFailedSyncCountForRound as jest.Mock).mockClear();
+      (getFailedSyncCountForRound as jest.Mock).mockResolvedValue(1);
+
+      // A drain that retains a failure pushes new sync state to subscribers.
+      mockSyncStateListener?.({
+        status: 'error',
+        pendingCount: 0,
+        failedCount: 7,
+        lastSyncAt: null,
+        error: null,
+      });
+      await _waitFor(0);
+
+      expect(getFailedSyncCountForRound).toHaveBeenCalledWith(testRoundId);
+      // 7 device-wide failures, 1 of which belongs to this round.
+      expect(getStore().failedSyncCount).toBe(1);
+    });
+
+    it('leaves the count untouched when the lookup fails', async () => {
+      (getFailedSyncCountForRound as jest.Mock).mockResolvedValue(2);
+      await getStore().initializeRound(testRoundId, testPlayers, testHoles);
+      (getFailedSyncCountForRound as jest.Mock).mockRejectedValue(new Error('db closed'));
+
+      mockSyncStateListener?.({
+        status: 'idle',
+        pendingCount: 0,
+        failedCount: 0,
+        lastSyncAt: null,
+        error: null,
+      });
+      await _waitFor(0);
+
+      expect(getStore().failedSyncCount).toBe(2);
+    });
+
+    it('clears the count when the round is reset', async () => {
+      (getFailedSyncCountForRound as jest.Mock).mockResolvedValue(3);
+      await getStore().initializeRound(testRoundId, testPlayers, testHoles);
+      expect(getStore().failedSyncCount).toBe(3);
+
+      getStore().resetRound();
+
+      expect(getStore().failedSyncCount).toBe(0);
+    });
+  });
+
   describe('loadFromOffline', () => {
     // Helper function to create valid mock scorecards - use actual testPlayers at test time
     const createMockScorecards = (
@@ -287,6 +467,63 @@ describe('ScorecardStore', () => {
         updatedAt: new Date(),
       }));
     };
+
+    // Regression: a round opened on the device long ago freezes each player's
+    // handicap into SQLite (ScorecardDAO.player_handicap). On resume, the cached
+    // player must be refreshed from the live `players` table so scoring — and the
+    // handicap snapshot written at submit — use the player's CURRENT handicap,
+    // not the stale value from when the round was first opened.
+    describe('live handicap refresh on resume', () => {
+      const STALE_PLAYER_ID = '44444444-4444-4444-a444-444444444444';
+
+      afterEach(() => {
+        __resetPlayersResult();
+      });
+
+      it('refreshes a stale cached player handicap from the live players table', async () => {
+        const stalePlayer = createTestPlayer({
+          id: STALE_PLAYER_ID,
+          name: 'Ben',
+          handicap: 13.2, // frozen value from when the round was first opened
+        });
+        const mockScorecards = createMockScorecards([stalePlayer], testRoundId);
+        (getScorecardsByRound as jest.Mock).mockReset().mockResolvedValue(mockScorecards);
+        (getHoles as jest.Mock).mockReset().mockResolvedValue(testHoles);
+        // Live profile handicap has since dropped to 10.7
+        __setPlayersResult({
+          data: [{ id: STALE_PLAYER_ID, handicap: 10.7, handicap_index: null, gender: null }],
+          error: null,
+        });
+
+        await getStore().loadFromOffline(testRoundId);
+
+        const player = getStore().currentPlayers.find((p) => p.id === STALE_PLAYER_ID);
+        expect(player?.handicap).toBe(10.7);
+        // the cached scorecard's embedded player is refreshed too (used at submit)
+        expect(
+          getStore().groupScorecards.get(STALE_PLAYER_ID)?.player?.handicap
+        ).toBe(10.7);
+      });
+
+      it('keeps the cached handicap when the live fetch fails (offline)', async () => {
+        const stalePlayer = createTestPlayer({
+          id: STALE_PLAYER_ID,
+          name: 'Ben',
+          handicap: 13.2,
+        });
+        const mockScorecards = createMockScorecards([stalePlayer], testRoundId);
+        (getScorecardsByRound as jest.Mock).mockReset().mockResolvedValue(mockScorecards);
+        (getHoles as jest.Mock).mockReset().mockResolvedValue(testHoles);
+        __setPlayersResult({ __reject: true }); // simulate offline / network failure
+
+        const loaded = await getStore().loadFromOffline(testRoundId);
+
+        expect(loaded).toBe(true);
+        expect(
+          getStore().currentPlayers.find((p) => p.id === STALE_PLAYER_ID)?.handicap
+        ).toBe(13.2);
+      });
+    });
 
     it('loads cached scorecards from SQLite', async () => {
       const mockScorecards = createMockScorecards(testPlayers, testRoundId);
@@ -829,7 +1066,7 @@ describe('ScorecardStore', () => {
       // Online submit must push directly and wait for confirmation, so the
       // round can't be marked completed while a scorecard is still local-only.
       expect(syncScorecard).toHaveBeenCalledTimes(testPlayers.length);
-      expect(markScorecardsAsSynced).toHaveBeenCalledTimes(testPlayers.length);
+      expect(markScorecardAsSynced).toHaveBeenCalledTimes(testPlayers.length);
       // It must NOT rely on the fire-and-forget background queue when online.
       expect(queueScorecardSync).not.toHaveBeenCalled();
     });
@@ -872,6 +1109,168 @@ describe('ScorecardStore', () => {
       await store.submitScorecards();
 
       expect(saveScorecard).toHaveBeenCalledTimes(testPlayers.length);
+    });
+
+    it('only completes scorecards for the passed playerIds (group-scoped submit)', async () => {
+      const PLAYER_A = 'aaaaaaaa-aaaa-4aaa-a111-111111111111';
+      const PLAYER_B = 'bbbbbbbb-bbbb-4bbb-b111-111111111111';
+      const PLAYER_C = 'cccccccc-cccc-4ccc-a111-111111111111';
+      const PLAYER_D = 'dddddddd-dddd-4ddd-b111-111111111111';
+
+      const fourPlayers = [
+        createTestPlayer({ id: PLAYER_A, name: 'Player A', handicap: 10 }),
+        createTestPlayer({ id: PLAYER_B, name: 'Player B', handicap: 14 }),
+        createTestPlayer({ id: PLAYER_C, name: 'Player C', handicap: 18 }),
+        createTestPlayer({ id: PLAYER_D, name: 'Player D', handicap: 22 }),
+      ];
+
+      const store = getStore();
+      // Reset first so we start clean (the beforeEach already seeded 3 players)
+      store.resetRound();
+      await store.initializeRound(testRoundId, fourPlayers, testHoles);
+
+      // Add a score for each player so scorecards are in-progress
+      for (const player of fourPlayers) {
+        await store.setPlayerScore(player.id, 1, 4);
+      }
+
+      // All four should be in-progress before submit
+      const before = useScorecardStore.getState().groupScorecards;
+      expect(before.get(PLAYER_A)!.status).toBe('in-progress');
+      expect(before.get(PLAYER_C)!.status).toBe('in-progress');
+
+      // Submit only group 1 (A + B)
+      await useScorecardStore.getState().submitScorecards({ playerIds: [PLAYER_A, PLAYER_B] });
+
+      const cards = useScorecardStore.getState().groupScorecards;
+      expect(cards.get(PLAYER_A)!.status).toBe('completed');
+      expect(cards.get(PLAYER_B)!.status).toBe('completed');
+      expect(cards.get(PLAYER_C)!.status).not.toBe('completed'); // other group untouched
+      expect(cards.get(PLAYER_D)!.status).not.toBe('completed');
+    });
+
+    it('propagates the server-returned revision into the store after submit', async () => {
+      jest.clearAllMocks();
+      (getIsOnline as jest.Mock).mockReturnValue(true);
+      (syncScorecard as jest.Mock).mockResolvedValue({ serverRevision: 5 });
+
+      await getStore().submitScorecards();
+
+      for (const [, scorecard] of getStore().groupScorecards) {
+        expect(scorecard.serverRevision).toBe(5);
+        expect(markScorecardAsSynced).toHaveBeenCalledWith(scorecard.id, 5);
+      }
+
+      // Restore default for subsequent tests
+      (syncScorecard as jest.Mock).mockImplementation(() =>
+        Promise.resolve({ serverRevision: 1 })
+      );
+    });
+
+    it('self-heals a revision conflict by retrying once with the server revision (local scores win)', async () => {
+      jest.clearAllMocks();
+      (getIsOnline as jest.Mock).mockReturnValue(true);
+      // First call hits a stale-revision conflict (server is at 7);
+      // the retry and all other players' submits succeed at revision 8.
+      (syncScorecard as jest.Mock)
+        .mockRejectedValueOnce(new ScorecardConflictError(makeConflictRow(7)))
+        .mockResolvedValue({ serverRevision: 8 });
+
+      await getStore().submitScorecards();
+
+      // One extra call for the single retry
+      expect(syncScorecard).toHaveBeenCalledTimes(testPlayers.length + 1);
+
+      const firstAttempt = (syncScorecard as jest.Mock).mock.calls[0][0] as Scorecard;
+      const retryAttempt = (syncScorecard as jest.Mock).mock.calls[1][0] as Scorecard;
+      // The retry must adopt the server's revision but keep the local scores
+      expect(retryAttempt.serverRevision).toBe(7);
+      expect(retryAttempt.playerId).toBe(firstAttempt.playerId);
+      expect(retryAttempt.scores).toEqual(firstAttempt.scores);
+      expect(retryAttempt.status).toBe('completed');
+
+      // The healed scorecard ends up on the new server revision
+      const healed = getStore().groupScorecards.get(retryAttempt.playerId);
+      expect(healed!.serverRevision).toBe(8);
+      expect(markScorecardAsSynced).toHaveBeenCalledWith(healed!.id, 8);
+
+      // Restore default for subsequent tests
+      (syncScorecard as jest.Mock).mockImplementation(() =>
+        Promise.resolve({ serverRevision: 1 })
+      );
+    });
+
+    it('throws if the conflict persists after one retry (no retry loop)', async () => {
+      jest.clearAllMocks();
+      (getIsOnline as jest.Mock).mockReturnValue(true);
+      (syncScorecard as jest.Mock).mockRejectedValue(
+        new ScorecardConflictError(makeConflictRow(7))
+      );
+
+      await expect(getStore().submitScorecards()).rejects.toThrow(/Failed to submit/);
+
+      // Exactly one retry per scorecard, never a loop
+      expect(syncScorecard).toHaveBeenCalledTimes(testPlayers.length * 2);
+
+      // Restore default for subsequent tests
+      (syncScorecard as jest.Mock).mockImplementation(() =>
+        Promise.resolve({ serverRevision: 1 })
+      );
+    });
+
+    it('does not treat non-conflict errors as healable', async () => {
+      jest.clearAllMocks();
+      (getIsOnline as jest.Mock).mockReturnValue(true);
+      (syncScorecard as jest.Mock).mockRejectedValue(new Error('network down'));
+
+      await expect(getStore().submitScorecards()).rejects.toThrow(/Failed to submit/);
+
+      // No retry for generic errors
+      expect(syncScorecard).toHaveBeenCalledTimes(testPlayers.length);
+
+      // Restore default for subsequent tests
+      (syncScorecard as jest.Mock).mockImplementation(() =>
+        Promise.resolve({ serverRevision: 1 })
+      );
+    });
+  });
+
+  // ==========================================================================
+  // LIVE SYNC REVISION PROPAGATION
+  // ==========================================================================
+
+  describe('live sync revision propagation', () => {
+    beforeEach(async () => {
+      await getStore().initializeRound(testRoundId, testPlayers, testHoles);
+    });
+
+    it('subscribes to scorecard-synced events on round initialization', () => {
+      expect(mockScorecardSyncedListener).not.toBeNull();
+    });
+
+    it('updates the in-memory serverRevision when a background sync completes', () => {
+      const [playerId, scorecard] = [...getStore().groupScorecards.entries()][0];
+
+      mockScorecardSyncedListener!({ scorecardId: scorecard.id, serverRevision: 42 });
+
+      expect(getStore().groupScorecards.get(playerId)!.serverRevision).toBe(42);
+    });
+
+    it('never downgrades the revision from a stale event', () => {
+      const [playerId, scorecard] = [...getStore().groupScorecards.entries()][0];
+
+      mockScorecardSyncedListener!({ scorecardId: scorecard.id, serverRevision: 42 });
+      mockScorecardSyncedListener!({ scorecardId: scorecard.id, serverRevision: 3 });
+
+      expect(getStore().groupScorecards.get(playerId)!.serverRevision).toBe(42);
+    });
+
+    it('ignores events for scorecards not in the current round', () => {
+      const before = getStore().groupScorecards;
+
+      mockScorecardSyncedListener!({ scorecardId: 'not-a-current-card', serverRevision: 9 });
+
+      expect(getStore().groupScorecards).toBe(before);
     });
   });
 

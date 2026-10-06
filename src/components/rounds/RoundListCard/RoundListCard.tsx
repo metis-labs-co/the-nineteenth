@@ -118,8 +118,9 @@ export const RoundListCard = React.memo(function RoundListCard<
     const result = scoreDisplay
       ? `, ${scoreDisplay.value}${scoreDisplay.label ? ` ${scoreDisplay.label}` : ''}`
       : '';
+    const notPlayed = round.notPlayed ? ', not played' : '';
     const deleteHint = swipeEnabled ? ', swipe left to delete' : '';
-    return `${actionLabel || status} round at ${location}${result}${deleteHint}`;
+    return `${actionLabel || status} round at ${location}${notPlayed}${result}${deleteHint}`;
   };
 
   return (
@@ -165,6 +166,17 @@ export const RoundListCard = React.memo(function RoundListCard<
       <View style={[styles.divider, { backgroundColor: colors.borderLight }]} />
 
       <View style={styles.chipsRow}>
+        {/* Leads the row: the round never happened, so it frames everything
+            else on the card. */}
+        {round.notPlayed && (
+          <Pill
+            label="Not played"
+            size="sm"
+            variant="warning"
+            style={styles.formatPill}
+            testID="round-card-not-played"
+          />
+        )}
         {/* Badge defaults to alignSelf flex-start; recenter it in the chips row */}
         <Pill label={getGameTypeLabel(round.gameType)} size="sm" style={styles.formatPill} />
         {round.nineType && round.nineType !== 'full' && (

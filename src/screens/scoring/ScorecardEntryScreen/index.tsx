@@ -127,6 +127,8 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
     isInitialized,
     isSyncing,
     pendingSyncCount,
+    failedSyncCount,
+    syncError,
     isMultiBall,
     ballCount: storeBallCount,
     setCurrentHole,
@@ -145,6 +147,7 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
     selectedTeeData,
     handicapSource,
     playerTeeMap,
+    nineType,
     startHole,
     currentRoundId,
     setAllowedPlayers,
@@ -177,6 +180,7 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
         selectedTeeData: playerTee,
         holes,
         handicapSource,
+        nineType, // 9-hole rounds pair a 9-hole par with a matching course rating
         gameType: undefined, // Game type allowance applied separately per format
       });
       map.set(player.id, {
@@ -187,7 +191,7 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
       });
     }
     return map;
-  }, [currentPlayers, playerTeeMap, selectedTeeData, holes, handicapSource]);
+  }, [currentPlayers, playerTeeMap, selectedTeeData, holes, handicapSource, nineType]);
 
   // Show tee color dots next to player names (always when tee data is available)
   const showTeeDots = selectedTeeData != null || playerTeeMap.size > 0;
@@ -474,32 +478,20 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
     }
   }, [roundId, isInitialized, dataLoading, holes, playersToRender, currentHole, setCurrentHole, buildAsYouPlay.enabled]);
 
-  // Narrow the store's `allowedPlayerIds` to the active sub-match so
-  // completion checks (isHoleComplete, validateScores) match what the user
-  // can actually score. useRoundData already sets this for the scoring-pair
-  // case; this effect runs after and intersects the two scopes when both
-  // apply. Cleared back to the scoring-pair default when the sub-match
-  // scope disappears (e.g. data becomes unavailable).
+  // Keep the store's `allowedPlayerIds` in sync with the players this device is
+  // actually responsible for scoring — `playersToRender` already resolves the
+  // effective scope (scoring-pair set, on-course group filter incl. its show-all
+  // toggle, and/or sub-match scope). Driving the store from one place lets the
+  // submission gate, submit, and round-completion all scope to the same group.
   useEffect(() => {
     if (!isInitialized || currentRoundId !== roundId) return;
-    if (!activePlayerIds) return;
-    const subMatchIds = Array.from(activePlayerIds);
-    const intersected =
-      scoringPairsEnabled && playersToScore.length > 0
-        ? playersToScore
-            .filter((p) => activePlayerIds.has(p.id))
-            .map((p) => p.id)
-        : subMatchIds;
-    setAllowedPlayers(intersected);
-  }, [
-    isInitialized,
-    currentRoundId,
-    roundId,
-    activePlayerIds,
-    scoringPairsEnabled,
-    playersToScore,
-    setAllowedPlayers,
-  ]);
+    if (playersToRender.length === 0) return;
+    const ids = playersToRender.map((p) => p.id);
+    const current = useScorecardStore.getState().allowedPlayerIds;
+    // Avoid redundant sets (prevents render loops).
+    if (current.length === ids.length && current.every((id) => ids.includes(id))) return;
+    setAllowedPlayers(ids);
+  }, [isInitialized, currentRoundId, roundId, playersToRender, setAllowedPlayers]);
 
   // Render content for any hole number (used by SwipeableHoleNavigator for transitions)
   const renderHoleContent = useCallback(
@@ -746,6 +738,8 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
         isOnline={isOnline}
         isSyncing={isSyncing}
         pendingSyncCount={pendingSyncCount}
+        failedSyncCount={failedSyncCount}
+        syncError={syncError}
         onSyncPress={triggerSync}
         scoringPairsEnabled={scoringPairsEnabled}
         playersToScore={playersToScore}

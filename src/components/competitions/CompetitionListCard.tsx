@@ -14,6 +14,7 @@ import {
 } from '@/components/common';
 import type { StatusVariant } from '@/components/common';
 import type { WinnerInfo } from '@/components/common/WinnerRow';
+import type { TeamMode } from '@/types/database.types';
 import { CompetitionMiniLeaderboard } from './CompetitionMiniLeaderboard';
 import { CompetitionFirstRoundLine } from './CompetitionFirstRoundLine';
 
@@ -47,6 +48,11 @@ export interface CompetitionListCardData {
   hasPrizePool?: boolean;
   /** Total prize pool amount (in competition currency) */
   prizePoolAmount?: number;
+  /**
+   * Team mode: 'none' | 'fixed' | 'per-round'. Fixed-team comps show the team
+   * mini-leaderboard on the card; others show the individual one.
+   */
+  teamMode?: TeamMode;
 }
 
 export interface CompetitionListCardProps<T extends CompetitionListCardData = CompetitionListCardData> {
@@ -153,6 +159,8 @@ export const CompetitionListCard = React.memo(function CompetitionListCard<
     normalizedStatus === 'active';
   const isUpcoming = normalizedStatus === 'upcoming';
   const isCompleted = normalizedStatus === 'completed';
+  // Fixed-team comps show team standings on the card; per-round/none stay individual.
+  const isFixedTeam = competition.teamMode === 'fixed';
 
   const getAccessibilityLabel = () => {
     const role = competition.isOrganizer ? 'Organiser' : 'Player';
@@ -228,7 +236,10 @@ export const CompetitionListCard = React.memo(function CompetitionListCard<
 
         {/* Mini leaderboard for in-progress competitions */}
         {isInProgress && (
-          <CompetitionMiniLeaderboard competitionId={competition.id} />
+          <CompetitionMiniLeaderboard
+            competitionId={competition.id}
+            isTeamComp={isFixedTeam}
+          />
         )}
 
         {/* First-round venue + date/time for upcoming competitions */}

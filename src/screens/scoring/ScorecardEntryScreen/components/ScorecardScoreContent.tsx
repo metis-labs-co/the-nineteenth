@@ -240,6 +240,22 @@ export function ScorecardScoreContent({
     [handleShotContributionsChange]
   );
 
+  // Alt-shot: the player who tees hole 1 (stored as hole-1 teeShot) drives all
+  // shot derivation. Falls back to the first team member until chosen.
+  const getTeamFirstTee = useCallback(
+    (teamIndex: number): string | undefined => {
+      const team = teams[teamIndex];
+      const firstMember = team?.members?.[0];
+      if (!firstMember) return undefined;
+      const holeOne = getPlayerScore(firstMember.player_id, 1);
+      if (holeOne && isSingleBallScore(holeOne)) {
+        return holeOne.shotContributions?.teeShot ?? firstMember.player_id;
+      }
+      return firstMember.player_id;
+    },
+    [teams, getPlayerScore]
+  );
+
   // Helper: get the playing handicap for a player (daily HC when tee data is available, raw otherwise)
   const getHandicap = useCallback(
     (player: Player): number => playerHandicapMap?.get(player.id)?.playingHandicap ?? player.handicap ?? 0,
@@ -251,6 +267,18 @@ export function ScorecardScoreContent({
     (player: Player): PlayerHandicapDisplay | undefined => playerHandicapMap?.get(player.id),
     [playerHandicapMap]
   );
+
+  // Per-player daily (playing) handicap for the best-ball team header, taken
+  // from the same handicap map the individual score cards use — so the team
+  // total matches the cards and the team leaderboard rather than the raw index.
+  const teamDailyHandicaps = useMemo<Record<string, number>>(() => {
+    const map: Record<string, number> = {};
+    if (!playerHandicapMap) return map;
+    for (const [playerId, display] of playerHandicapMap) {
+      if (typeof display.dailyHandicap === 'number') map[playerId] = display.dailyHandicap;
+    }
+    return map;
+  }, [playerHandicapMap]);
 
   // Determine which players to render based on scoring pairs setting
   // When scoring pairs are off, an optional `playersOverride` (e.g. group filter) wins over the full list
@@ -404,6 +432,7 @@ export function ScorecardScoreContent({
                 onScoreSelect={(strokes) => handleTeamScoreSelect(index, strokes)}
                 shotContributions={getTeamShotContributions(index)}
                 onShotContributionsChange={createShotContributionsHandler(index)}
+                firstTeePlayerId={getTeamFirstTee(index)}
               />
             );
           })
@@ -436,6 +465,7 @@ export function ScorecardScoreContent({
                   holes={holes}
                   currentHole={currentHoleData}
                   getPlayerScore={getPlayerScore}
+                  dailyHandicaps={teamDailyHandicaps}
                 />
                 {members.map((member) => {
                   const player = member.player;

@@ -4,7 +4,7 @@
  * Exports all subscription-related services:
  * - subscriptionService: Provider abstraction for subscription management
  * - grandfatheringService: Handle downgrade scenarios
- * - (Future) webhooks: IAP webhook handlers
+ * Server-side webhook handling lives exclusively in the Supabase Edge Function.
  */
 
 // Subscription service - main provider abstraction
@@ -49,28 +49,3 @@ export type {
   CompetitionWithCounts,
   OverLimitCompetition,
 } from './grandfathering';
-
-// Webhook handlers for RevenueCat IAP events
-export {
-  handleRevenueCatWebhook,
-  mapProductToTier,
-  updateSubscription,
-  verifyWebhookSignature,
-  // Individual handlers (for testing)
-  handleInitialPurchase,
-  handleRenewal,
-  handleCancellation,
-  handleExpiration,
-  handleBillingIssue,
-  handleProductChange,
-  handleUncancellation,
-} from './webhooks';
-
-// Types from webhooks
-export type {
-  RevenueCatEventType,
-  RevenueCatSubscriber,
-  RevenueCatWebhookEvent,
-  WebhookHandlerResult,
-  SubscriptionUpdate,
-} from './webhooks';

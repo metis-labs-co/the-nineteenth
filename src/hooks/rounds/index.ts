@@ -74,7 +74,10 @@ export {
   useDeleteRound,
   useUpdatePlayerTee,
   useRecalculateRoundResults,
+  useUpdateRoundRules,
   useForceSyncRoundScorecards,
+  useForceFinalizeRound,
+  useReopenRound,
 } from './mutations';
 
 export type {
@@ -82,6 +85,7 @@ export type {
   DeleteRoundResult,
   UpdatePlayerTeeInput,
   RecalculateRoundResultsInput,
+  UpdateRoundRulesInput,
   ForceSyncRoundScorecardsInput,
   ForceSyncRoundScorecardsResult,
 } from './mutations';

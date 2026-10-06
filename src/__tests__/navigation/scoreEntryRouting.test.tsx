@@ -50,8 +50,17 @@ jest.mock('@/hooks/useAuth', () => ({
   }),
 }));
 
+jest.mock('@/context/ToastContext', () => ({
+  useToast: () => ({
+    showToast: jest.fn(),
+    showErrorToast: jest.fn(),
+    showSuccessToast: jest.fn(),
+  }),
+}));
+
 // Mock React Query
 jest.mock('@tanstack/react-query', () => ({
+  ...jest.requireActual('@tanstack/react-query'),
   useMutation: () => ({
     mutate: jest.fn(),
     isPending: false,

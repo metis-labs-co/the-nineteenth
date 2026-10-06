@@ -96,4 +96,5 @@ export const contributionKeys = {
   roundHoles: (roundId: string) => [...contributionKeys.all, 'roundHoles', roundId] as const,
   scorecards: (roundId: string) => [...contributionKeys.all, 'scorecards', roundId] as const,
   teams: (competitionId: string) => [...contributionKeys.all, 'teams', competitionId] as const,
+  subMatches: (roundId: string) => [...contributionKeys.all, 'subMatches', roundId] as const,
 } as const;

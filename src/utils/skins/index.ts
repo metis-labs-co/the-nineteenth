@@ -41,6 +41,7 @@ export type {
   PayoutParticipant,
   CalculatedPayout,
   FinalPayoutResult,
+  InProgressPayoutResult,
   TeamPayoutParticipant,
   CalculatedTeamPayout,
   FinalTeamPayoutResult,
@@ -48,6 +49,7 @@ export type {
 export {
   calculateFinalPayouts,
   calculateFinalPayoutsWithCarryover,
+  calculateInProgressPayouts,
   calculateTeamFinalPayouts,
 } from './payouts';
 

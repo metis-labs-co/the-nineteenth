@@ -50,7 +50,17 @@ export interface RoundHeaderProps {
   /** Offline / sync state. */
   isOnline: boolean;
   isSyncing: boolean;
+  /** Device-wide queue depth — what "changes pending" means while offline. */
   pendingSyncCount: number;
+  /**
+   * Retained failures **for this round only**.
+   *
+   * Deliberately not the device-wide failure count: a single unrecoverable row
+   * left over from an earlier round would otherwise raise this banner on every
+   * scorecard forever. Device-wide failures are listed in Settings → Developer.
+   */
+  failedSyncCount?: number;
+  syncError?: string | null;
   onSyncPress: () => void;
 
   /** Scoring-pairs banner (stroke play only — leave default false otherwise). */
@@ -77,6 +87,8 @@ export function RoundHeader({
   isOnline,
   isSyncing,
   pendingSyncCount,
+  failedSyncCount = 0,
+  syncError,
   onSyncPress,
   scoringPairsEnabled = false,
   playersToScore = [],
@@ -171,8 +183,13 @@ export function RoundHeader({
     return undefined;
   }, [isSyncing, syncLineAnim]);
 
-  const offlineStatus: 'online' | 'offline' | 'syncing' | 'error' =
-    isOnline ? 'online' : 'offline';
+  const offlineStatus: 'online' | 'offline' | 'syncing' | 'error' = !isOnline
+    ? 'offline'
+    : isSyncing
+      ? 'syncing'
+      : failedSyncCount > 0 || syncError
+        ? 'error'
+        : 'online';
 
   const renderRightContent = () => (
     <View style={styles.rightContent}>
@@ -196,8 +213,14 @@ export function RoundHeader({
 
       <OfflineIndicator
         status={offlineStatus}
+        // Queue depth only. `failedSyncCount` is round-scoped, so adding the
+        // two would report a count spanning two different scopes.
         pendingSyncs={pendingSyncCount}
+        errorMessage={syncError || (failedSyncCount > 0
+          ? `${failedSyncCount} score change${failedSyncCount === 1 ? '' : 's'} not uploaded`
+          : undefined)}
         onSyncPress={onSyncPress}
+        isSyncing={isSyncing}
       />
 
       {isSyncing && (

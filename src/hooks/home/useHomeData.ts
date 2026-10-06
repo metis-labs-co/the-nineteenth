@@ -8,6 +8,8 @@
 
 import { useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { getLocalDateString } from '@/utils/formatting';
+import { parseClubCoords, type ClubCoordsSource } from '@/utils/gpsCalculations';
 import { useRoundList } from '@/screens/rounds/RoundListScreen/hooks/useRoundList';
 import { useCompetitions } from '@/hooks/competitions/queries';
 import { useLeagues } from '@/hooks/leagues/queries';
@@ -46,6 +48,7 @@ import type { HandicapSummary } from '@/types/handicap.types';
 // ---------------------------------------------------------------------------
 
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
  * Returns the first upcoming round whose tee time falls within the next 24h
@@ -90,6 +93,88 @@ export function computeUpcomingRwcWithin24h(
     if (start >= now.getTime() && start <= cutoff) return r;
   }
   return null;
+}
+
+/**
+ * Returns the next *competition* round (RoundWithCourse) whose tee time falls
+ * within the next 7 days from `now`, or null. `excludeId` lets the caller drop
+ * the round already shown in the 24h hero card so it isn't surfaced twice.
+ * Standalone (non-competition) rounds are ignored. Assumes `upcoming` is sorted
+ * by date ascending (as returned by useUpcomingRounds), so the first match is
+ * the earliest.
+ */
+export function computeNextCompetitionWithin7Days(
+  upcoming: RoundWithCourse[],
+  now: Date,
+  excludeId: string | null,
+): RoundWithCourse | null {
+  const cutoff = now.getTime() + SEVEN_DAYS_MS;
+  for (const r of upcoming) {
+    if (excludeId && r.id === excludeId) continue;
+    if (!r.competition?.id) continue;
+    if (!r.date) continue;
+    const teeTime = r.tee_time ?? '09:00:00';
+    const dateStr =
+      typeof r.date === 'string'
+        ? r.date.slice(0, 10)
+        : (r.date as Date).toISOString().slice(0, 10);
+    const start = new Date(`${dateStr}T${teeTime}`).getTime();
+    if (start >= now.getTime() && start <= cutoff) return r;
+  }
+  return null;
+}
+
+/**
+ * A single day a competition runs, with the coordinates used to fetch that
+ * day's weather forecast. Drives the per-day weather lines on the Home
+ * upcoming-competition card.
+ */
+export interface CompetitionDay {
+  /** Local `YYYY-MM-DD` for the round day. */
+  dateIso: string;
+  lat: number;
+  lng: number;
+}
+
+/**
+ * Resolve a round's club coordinates: the hydrated camelCase fields first
+ * (set by useUpcomingRounds), then the raw `location` GeoJSON `[lng, lat]`.
+ * Returns null when neither is available.
+ */
+function resolveClubCoords(
+  round: RoundWithCourse,
+): { lat: number; lng: number } | null {
+  return parseClubCoords(round.course?.clubs as ClubCoordsSource | null | undefined);
+}
+
+/**
+ * Distinct days the given competition runs, derived from the already-fetched
+ * upcoming rounds (`useUpcomingRounds` returns every upcoming round for the
+ * user, including all of a competition's rounds). Rounds with no resolvable
+ * club coordinates are dropped; days are deduped (first round wins for that
+ * day's coords) and sorted ascending. Returns [] when `competitionId` is null.
+ */
+export function computeCompetitionDays(
+  upcoming: RoundWithCourse[],
+  competitionId: string | null,
+): CompetitionDay[] {
+  if (!competitionId) return [];
+  const byDate = new Map<string, CompetitionDay>();
+  for (const r of upcoming) {
+    if (r.competition?.id !== competitionId) continue;
+    if (!r.date) continue;
+    const dateIso =
+      typeof r.date === 'string'
+        ? r.date.slice(0, 10)
+        : (r.date as Date).toISOString().slice(0, 10);
+    if (byDate.has(dateIso)) continue;
+    const coords = resolveClubCoords(r);
+    if (!coords) continue;
+    byDate.set(dateIso, { dateIso, lat: coords.lat, lng: coords.lng });
+  }
+  return Array.from(byDate.values()).sort((a, b) =>
+    a.dateIso < b.dateIso ? -1 : a.dateIso > b.dateIso ? 1 : 0,
+  );
 }
 
 /**
@@ -210,6 +295,18 @@ export interface HomeData {
    */
   upcomingWithin24h: RoundWithCourse | null;
   /**
+   * The user's next competition round whose tee time is within the next
+   * 7 days, or null. Excludes the round already shown by `upcomingWithin24h`
+   * so the home screen never shows it twice. Drives the NextCompetitionCard.
+   */
+  nextCompetition: RoundWithCourse | null;
+  /**
+   * Distinct days the `nextCompetition`'s competition runs (with per-day
+   * coordinates), used to render the upcoming-competition card's weather
+   * forecast. Empty when there is no next competition.
+   */
+  nextCompetitionDays: CompetitionDay[];
+  /**
    * `upcomingRounds` with `upcomingWithin24h` removed.
    * Use this for the scrollable list below the hero so the chosen round
    * isn't shown twice.
@@ -291,7 +388,7 @@ export function useHomeData(): HomeData {
     useUpcomingRounds();
 
   const upcomingRounds = useMemo(() => {
-    const todayIso = new Date().toISOString().slice(0, 10);
+    const todayIso = getLocalDateString();
     return (rounds?.active ?? [])
       .filter((r) => r.status === 'upcoming')
       .filter((r) => {
@@ -311,6 +408,26 @@ export function useHomeData(): HomeData {
   const upcomingWithin24h = useMemo<RoundWithCourse | null>(() => {
     return computeUpcomingRwcWithin24h(upcomingRoundsRwc, new Date());
   }, [upcomingRoundsRwc]);
+
+  // The next competition round within a week — surfaced as a dedicated card.
+  // Excludes the hero round (if any) so it isn't duplicated.
+  const nextCompetition = useMemo<RoundWithCourse | null>(() => {
+    return computeNextCompetitionWithin7Days(
+      upcomingRoundsRwc,
+      new Date(),
+      upcomingWithin24h?.id ?? null,
+    );
+  }, [upcomingRoundsRwc, upcomingWithin24h]);
+
+  // Distinct days the next competition runs — drives the per-day weather
+  // forecast on the upcoming-competition card. Derived from the already-fetched
+  // upcoming rounds, so no extra network request.
+  const nextCompetitionDays = useMemo<CompetitionDay[]>(() => {
+    return computeCompetitionDays(
+      upcomingRoundsRwc,
+      nextCompetition?.competition?.id ?? null,
+    );
+  }, [upcomingRoundsRwc, nextCompetition]);
 
   // The "Coming up" list still draws from the standalone-only round-list
   // (RoundItem). We exclude any round that the hero already shows.
@@ -505,6 +622,8 @@ export function useHomeData(): HomeData {
       inProgressRounds: [],
       upcomingRounds: [],
       upcomingWithin24h: null,
+      nextCompetition: null,
+      nextCompetitionDays: [],
       upcomingRoundsForList: [],
       lastRound: null,
       pendingActions: [],
@@ -529,6 +648,8 @@ export function useHomeData(): HomeData {
     inProgressRounds,
     upcomingRounds,
     upcomingWithin24h,
+    nextCompetition,
+    nextCompetitionDays,
     upcomingRoundsForList,
     lastRound,
     pendingActions,

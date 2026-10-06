@@ -1,7 +1,7 @@
 /**
  * BottomNavigation - Footer navigation component for main app screens
  *
- * Provides navigation between Home, Competitions, and Profile tabs
+ * Provides navigation between Home, Comps, Rounds, Courses and Profile tabs
  * with proper safe area handling and accessibility support.
  *
  * @example
@@ -15,7 +15,7 @@ import React, { useCallback } from 'react';
 import { StyleSheet, TouchableOpacity, Platform, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { IconHome, IconTrophy, IconUser, IconActivity, IconMap } from '@tabler/icons-react-native';
+import { IconHome, IconTrophy, IconUser, IconGolf, IconMap } from '@tabler/icons-react-native';
 import { spacing, typography, shadows, layout } from '@/constants/theme';
 import { useThemeColors, type ColorPalette } from '@/context/ThemeContext';
 
@@ -24,7 +24,7 @@ import { useThemeColors, type ColorPalette } from '@/context/ThemeContext';
  */
 export interface NavigationTab {
   /** Unique identifier for the tab */
-  key: 'home' | 'compete' | 'activity' | 'courses' | 'profile';
+  key: 'home' | 'compete' | 'rounds' | 'courses' | 'profile';
   /** Display label */
   label: string;
   /** Route name for navigation */
@@ -64,15 +64,15 @@ const NAVIGATION_TABS: NavigationTab[] = [
   },
   {
     key: 'compete',
-    label: 'Compete',
+    label: 'Comps',
     route: 'CompeteTab',
     accessibilityLabel: 'Navigate to competitions and leagues',
   },
   {
-    key: 'activity',
-    label: 'Activity',
-    route: 'ActivityTab',
-    accessibilityLabel: 'Navigate to activity feed',
+    key: 'rounds',
+    label: 'Rounds',
+    route: 'RoundsTab',
+    accessibilityLabel: 'Navigate to your rounds',
   },
   {
     key: 'courses',
@@ -104,8 +104,8 @@ const getTabIcon = (
       return <IconHome size={iconSize} color={iconColor} />;
     case 'compete':
       return <IconTrophy size={iconSize} color={iconColor} />;
-    case 'activity':
-      return <IconActivity size={iconSize} color={iconColor} />;
+    case 'rounds':
+      return <IconGolf size={iconSize} color={iconColor} />;
     case 'courses':
       return <IconMap size={iconSize} color={iconColor} />;
     case 'profile':
@@ -180,7 +180,7 @@ const TabItem = React.memo(function TabItem({
 /**
  * BottomNavigation component
  *
- * A footer navigation bar with Home, Competitions, and Profile tabs.
+ * A footer navigation bar with Home, Comps, Rounds, Courses and Profile tabs.
  * Handles safe area insets for devices with home indicators (iPhone X+, Android gesture nav).
  */
 export const BottomNavigation = React.memo(function BottomNavigation({

@@ -20,6 +20,7 @@ export type SyncStatus = 'idle' | 'syncing' | 'error' | 'offline';
 export interface SyncState {
   status: SyncStatus;
   pendingCount: number;
+  failedCount: number;
   lastSyncAt: Date | null;
   error: string | null;
 }
@@ -35,6 +36,7 @@ export type SyncListener = (state: SyncState) => void;
 export const INITIAL_SYNC_STATE: SyncState = {
   status: 'idle',
   pendingCount: 0,
+  failedCount: 0,
   lastSyncAt: null,
   error: null,
 };

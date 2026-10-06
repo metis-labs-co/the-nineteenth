@@ -16,6 +16,33 @@ import type { Session } from '@supabase/supabase-js';
 import type { Player } from '@/types/database.types';
 
 /**
+ * Fetch a player profile by id.
+ *
+ * Returns `null` ONLY when the row genuinely does not exist (maybeSingle yields
+ * no row and no error) — that is a real "new user → onboarding" signal. Any
+ * other failure (network / timeout / RLS / transient) THROWS, so React Query
+ * retries it and callers can tell "fetch failed" apart from "no account".
+ *
+ * Extracted (and exported) so this branch is unit-testable without React Query:
+ * the previous inline version swallowed every error to `null`, which the
+ * onboarding gate misread as "no account" and used to drop real, signed-in
+ * users into onboarding on a single cold-start blip.
+ */
+export async function fetchPlayerProfile(userId: string): Promise<Player | null> {
+  const { data, error } = await supabase
+    .from('players')
+    .select('*')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return (data as Player | null) ?? null;
+}
+
+/**
  * Hook for user and player profile data
  *
  * @param session - Current auth session (from useAuthSession)
@@ -55,25 +82,17 @@ export function useAuthUser(session: Session | null) {
   const {
     data: player = null,
     isLoading: isLoadingPlayer,
+    isError: isPlayerError,
   } = useQuery({
     queryKey: authKeys.player(user?.id ?? ''),
     queryFn: async () => {
       if (!user?.id) return null;
-
-      const { data, error } = await supabase
-        .from('players')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-
-      if (error || !data) {
-        return null;
-      }
-
-      return data as Player;
+      return fetchPlayerProfile(user.id);
     },
     enabled: !!user?.id,
     staleTime: CACHE_TIMES.STANDARD,
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
   });
 
   /**
@@ -93,6 +112,8 @@ export function useAuthUser(session: Session | null) {
     isLoadingUser,
     isLoadingPlayer,
     isLoading: isLoadingUser || isLoadingPlayer,
+    /** True when the player-profile fetch failed (vs. a genuinely absent row). */
+    isPlayerError,
     refreshProfile,
   };
 }

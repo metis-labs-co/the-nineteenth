@@ -27,6 +27,19 @@ jest.mock('@/hooks/useCompetitionLeaderboard', () => ({
   useCompetitionLeaderboard: (...args: unknown[]) => mockUseCompetitionLeaderboard(...args),
 }));
 
+// Mock the useTeams hook (drives the configured-team-count gate for the
+// head-to-head vs. ranked-table branch, independent of how many teams have
+// scored per `useCompetitionLeaderboard`). Defaults to "not loaded" so
+// existing tests (which don't care about configured team count) keep
+// falling back to TeamLeaderboardTable; the regression test below overrides
+// it to a genuine 2-team roster.
+const mockUseTeams = jest.fn();
+
+jest.mock('@/hooks/rounds', () => ({
+  ...jest.requireActual('@/hooks/rounds'),
+  useTeams: (...args: unknown[]) => mockUseTeams(...args),
+}));
+
 // Mock icons
 jest.mock('@tabler/icons-react-native', () => {
   const { View, Text } = require('react-native');
@@ -62,6 +75,9 @@ jest.mock('@/components/common', () => {
         {icon === 'account-outline' && <View testID="icon-user" />}
         {icon === 'account-group-outline' && <View testID="icon-users" />}
       </View>
+    ),
+    EmptyState: ({ title, message }: { title: string; message: string }) => (
+      <View><Text>{title}</Text><Text>{message}</Text></View>
     ),
   };
 });
@@ -112,6 +128,27 @@ jest.mock('./TeamLeaderboardTable', () => {
   };
 });
 
+// Mock TeamHeadToHeadCard (rendered instead of TeamLeaderboardTable when there
+// are exactly two teams). Shallow like the other sub-component mocks — the
+// card's own rendering/expand behaviour is covered by TeamHeadToHeadCard.test.tsx.
+jest.mock('./TeamHeadToHeadCard', () => {
+  const { View, Text } = require('react-native');
+  return {
+    TeamHeadToHeadCard: ({ entries, testID, currentUserId }: any) => (
+      <View testID={testID || 'team-head-to-head-card'}>
+        <Text>TeamHeadToHeadCard</Text>
+        {currentUserId && <Text testID="h2h-current-user">{currentUserId}</Text>}
+        {entries?.map((entry: any) => (
+          <View key={entry.teamId} testID={`h2h-team-${entry.teamId}`}>
+            <Text>{entry.teamName}</Text>
+            <Text>{entry.totalPoints} pts</Text>
+          </View>
+        ))}
+      </View>
+    ),
+  };
+});
+
 // Mock RoundLeaderboard
 jest.mock('./RoundLeaderboard', () => {
   const { View, Text } = require('react-native');
@@ -125,6 +162,26 @@ jest.mock('./RoundLeaderboard', () => {
         {currentUserId && <Text testID={`round-current-user-${roundId}`}>{currentUserId}</Text>}
         {autoRefresh && <Text testID={`auto-refresh-${roundId}`}>auto-refresh</Text>}
       </View>
+    ),
+  };
+});
+
+// Mock RoundSubMatchLeaderboard
+jest.mock('./RoundSubMatchLeaderboard', () => {
+  const { View, Text } = require('react-native');
+  return {
+    RoundSubMatchLeaderboard: ({ roundId }: { roundId: string }) => (
+      <View testID={`submatch-leaderboard-${roundId}`}><Text>SubMatch LB</Text></View>
+    ),
+  };
+});
+
+// Mock LeaderboardHeader (assert round number + that the alt-shot entry gets a header)
+jest.mock('./LeaderboardHeader', () => {
+  const { View, Text } = require('react-native');
+  return {
+    LeaderboardHeader: ({ roundNumber }: { roundNumber: number }) => (
+      <View testID={`lb-header-${roundNumber}`}><Text>Round {roundNumber}</Text></View>
     ),
   };
 });
@@ -255,12 +312,19 @@ describe('LeaderboardTab', () => {
     competitionId: 'comp-1',
     teamMode: 'none' as const,
     rounds: [] as RoundWithCourse[],
+    perRoundRulesEnabled: false,
   };
 
   beforeEach(() => {
     jest.clearAllMocks();
     mockUseCompetitionLeaderboard.mockReturnValue({
       data: null,
+      isLoading: true,
+      error: null,
+      refetch: jest.fn(),
+    });
+    mockUseTeams.mockReturnValue({
+      data: undefined,
       isLoading: true,
       error: null,
       refetch: jest.fn(),
@@ -653,6 +717,34 @@ describe('LeaderboardTab', () => {
         error: null,
         refetch: jest.fn(),
       });
+      // A genuine 2-team competition: `useTeams` (configured team roster) must
+      // also report exactly 2 teams for the head-to-head card to render — see
+      // LeaderboardTab's `teams?.length === 2 && teamEntries.length === 2` gate.
+      mockUseTeams.mockReturnValue({
+        data: [
+          {
+            id: 'team-a',
+            competition_id: 'comp-1',
+            name: 'Team A',
+            color: null,
+            created_at: '2025-01-01T00:00:00.000Z',
+            updated_at: '2025-01-01T00:00:00.000Z',
+            members: [{ team_id: 'team-a', player_id: 'p1', joined_at: '2025-01-01T00:00:00.000Z' }],
+          },
+          {
+            id: 'team-b',
+            competition_id: 'comp-1',
+            name: 'Team B',
+            color: null,
+            created_at: '2025-01-01T00:00:00.000Z',
+            updated_at: '2025-01-01T00:00:00.000Z',
+            members: [{ team_id: 'team-b', player_id: 'p2', joined_at: '2025-01-01T00:00:00.000Z' }],
+          },
+        ],
+        isLoading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
 
       render(
         <LeaderboardTab
@@ -662,11 +754,14 @@ describe('LeaderboardTab', () => {
         />
       );
 
-      // Team Standings rendered with both teams.
+      // Team Standings rendered with both teams. A genuinely 2-team
+      // competition (both configured roster and scored entries) renders the
+      // head-to-head scoreboard (not the ranked table) — see LeaderboardTab's
+      // `teams?.length === 2 && teamEntries.length === 2` branch.
       expect(screen.getByText('Team Standings')).toBeTruthy();
-      expect(screen.getByTestId('competition-team-leaderboard')).toBeTruthy();
-      expect(screen.getByTestId('team-row-team-a')).toBeTruthy();
-      expect(screen.getByTestId('team-row-team-b')).toBeTruthy();
+      expect(screen.getByTestId('competition-team-headtohead')).toBeTruthy();
+      expect(screen.getByText('Team A')).toBeTruthy();
+      expect(screen.getByText('Team B')).toBeTruthy();
       // Hook called with teams filter, not individuals.
       expect(mockUseCompetitionLeaderboard).toHaveBeenCalledWith(
         'comp-1',
@@ -821,6 +916,9 @@ describe('LeaderboardTab', () => {
 
       render(<LeaderboardTab {...defaultProps} rounds={[completedRound]} />);
 
+      // Scope switcher: a round's leaderboard renders only when its chip is selected.
+      fireEvent.press(screen.getByText('R1'));
+
       expect(screen.getByTestId('round-leaderboard-1')).toBeTruthy();
       expect(screen.getByText('Round Results')).toBeTruthy();
     });
@@ -840,7 +938,9 @@ describe('LeaderboardTab', () => {
 
       render(<LeaderboardTab {...defaultProps} rounds={[inProgressRound]} />);
 
-      expect(screen.getByTestId('round-leaderboard-1')).toBeTruthy();
+      fireEvent.press(screen.getByText('R1'));
+
+      expect(screen.getByTestId('round-leaderboard-1-live')).toBeTruthy();
     });
 
     it('passes correct props to RoundLeaderboard', () => {
@@ -867,6 +967,8 @@ describe('LeaderboardTab', () => {
         />
       );
 
+      fireEvent.press(screen.getByText('R1'));
+
       expect(screen.getByTestId('round-id-round-1')).toBeTruthy();
       expect(screen.getByTestId('game-type-round-1')).toBeTruthy();
       expect(screen.getByText('stroke')).toBeTruthy();
@@ -874,7 +976,7 @@ describe('LeaderboardTab', () => {
       expect(screen.getByTestId('round-current-user-round-1')).toBeTruthy();
     });
 
-    it('enables auto-refresh for in-progress rounds', () => {
+    it('renders the live leaderboard for an in-progress round', () => {
       const inProgressRound = createMockRound({
         id: 'round-1',
         round_number: 1,
@@ -889,7 +991,9 @@ describe('LeaderboardTab', () => {
 
       render(<LeaderboardTab {...defaultProps} rounds={[inProgressRound]} autoRefresh />);
 
-      expect(screen.getByTestId('auto-refresh-round-1')).toBeTruthy();
+      fireEvent.press(screen.getByText('R1'));
+
+      expect(screen.getByTestId('round-leaderboard-1-live')).toBeTruthy();
     });
 
     it('disables auto-refresh for completed rounds', () => {
@@ -907,8 +1011,34 @@ describe('LeaderboardTab', () => {
 
       render(<LeaderboardTab {...defaultProps} rounds={[completedRound]} autoRefresh />);
 
+      fireEvent.press(screen.getByText('R1'));
+
       // Completed rounds should not have auto-refresh
       expect(screen.queryByTestId('auto-refresh-round-1')).toBeNull();
+    });
+
+    it('renders the sub-match leaderboard for an in-progress split alt-shot round', () => {
+      const splitAltShotRound = createMockRound({
+        id: 'round-1',
+        round_number: 1,
+        round_format: 'split',
+        game_type: 'alt-shot',
+        team_format: 'alt-shot',
+        is_team_round: true,
+        status: 'in-progress',
+      });
+      mockUseCompetitionLeaderboard.mockReturnValue({
+        data: [createIndividualEntry('p1', 'John', 15, 36, 1, 1)],
+        isLoading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      render(<LeaderboardTab {...defaultProps} rounds={[splitAltShotRound]} />);
+
+      fireEvent.press(screen.getByText('R1'));
+
+      expect(screen.getByTestId('submatch-leaderboard-round-1')).toBeTruthy();
     });
 
     it('shows multiple round leaderboards', () => {
@@ -926,10 +1056,19 @@ describe('LeaderboardTab', () => {
 
       render(<LeaderboardTab {...defaultProps} rounds={rounds} />);
 
-      // Should show completed and in-progress, not upcoming
+      // Scope switcher offers a chip per completed/in-progress round, but NOT
+      // the upcoming one; each round's board shows one at a time when selected.
+      expect(screen.getByText('R1')).toBeTruthy();
+      expect(screen.getByText('R2')).toBeTruthy();
+      expect(screen.queryByText('R3')).toBeNull();
+
+      fireEvent.press(screen.getByText('R1'));
       expect(screen.getByTestId('round-leaderboard-1')).toBeTruthy();
-      expect(screen.getByTestId('round-leaderboard-2')).toBeTruthy();
-      expect(screen.queryByTestId('round-leaderboard-3')).toBeNull();
+      expect(screen.queryByTestId('round-leaderboard-2-live')).toBeNull();
+
+      fireEvent.press(screen.getByText('R2'));
+      expect(screen.getByTestId('round-leaderboard-2-live')).toBeTruthy();
+      expect(screen.queryByTestId('round-leaderboard-1')).toBeNull();
     });
   });
 
@@ -1074,6 +1213,8 @@ describe('LeaderboardTab', () => {
       });
 
       render(<LeaderboardTab {...defaultProps} rounds={[round]} />);
+
+      fireEvent.press(screen.getByText('R1'));
 
       expect(screen.getByText('Round Results')).toBeTruthy();
     });
@@ -1246,11 +1387,175 @@ describe('LeaderboardTab', () => {
       // Re-render with same rounds
       rerender(<LeaderboardTab {...defaultProps} rounds={rounds} />);
 
-      // Both round leaderboards should still be present - use getAllByTestId since there could be duplicate renders
-      const round1Leaderboards = screen.getAllByTestId('round-leaderboard-1');
-      const round2Leaderboards = screen.getAllByTestId('round-leaderboard-2');
-      expect(round1Leaderboards.length).toBeGreaterThanOrEqual(1);
-      expect(round2Leaderboards.length).toBeGreaterThanOrEqual(1);
+      // The scope switcher shows one round at a time; each round's board is
+      // reachable via its chip and survives the re-render.
+      fireEvent.press(screen.getByText('R1'));
+      expect(screen.getAllByTestId('round-leaderboard-1').length).toBeGreaterThanOrEqual(1);
+
+      fireEvent.press(screen.getByText('R2'));
+      expect(screen.getAllByTestId('round-leaderboard-2-live').length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  // ===========================================================================
+  // ORDERING AND ALT-SHOT HEADER TESTS
+  // ===========================================================================
+
+  describe('Round Results — ordering and alt-shot header', () => {
+    beforeEach(() => {
+      mockUseCompetitionLeaderboard.mockReturnValue({
+        data: [createIndividualEntry('p1', 'John', 15, 36, 1, 1)],
+        teamData: [],
+        isLoading: false,
+        error: null,
+      });
+    });
+
+    const completedR1 = createMockRound({ id: 'r1', round_number: 1, status: 'completed' });
+    const altShotR2 = createMockRound({
+      id: 'r2',
+      round_number: 2,
+      display_order: 2,
+      status: 'in-progress',
+      round_format: 'split',
+      game_type: 'alt-shot',
+      team_format: 'alt-shot',
+      is_team_round: true,
+    });
+
+    it('orders rounds by round number across statuses (completed R1 before in-progress alt-shot R2)', () => {
+      // Pass out of order (alt-shot first) to prove sorting, not input order.
+      // teamMode="fixed" keeps effectiveView='team' so the alt-shot sub-match leaderboard is visible.
+      render(<LeaderboardTab {...defaultProps} teamMode="fixed" rounds={[altShotR2, completedR1]} />);
+      // Scope chips are ordered by positional round number regardless of input
+      // order: R1 (completed) precedes R2 (in-progress alt-shot).
+      const json = JSON.stringify(screen.toJSON());
+      const r1Index = json.indexOf('Show R1 standings');
+      const r2Index = json.indexOf('Show R2 standings');
+      expect(r1Index).toBeGreaterThan(-1);
+      expect(r2Index).toBeGreaterThan(-1);
+      expect(r1Index).toBeLessThan(r2Index);
+      // Each round's board is reachable via its chip.
+      fireEvent.press(screen.getByText('R1'));
+      expect(screen.getByTestId('round-leaderboard-1')).toBeTruthy();
+      fireEvent.press(screen.getByText('R2'));
+      expect(screen.getByTestId('submatch-leaderboard-r2')).toBeTruthy();
+    });
+
+    it('renders a Round header + format pill for the split alt-shot round', () => {
+      render(<LeaderboardTab {...defaultProps} rounds={[altShotR2]} />);
+      // Positional numbering: it's the only round in the list, so its chip is
+      // "R1" regardless of its round_number/display_order value.
+      fireEvent.press(screen.getByText('R1'));
+      expect(screen.getByTestId('lb-header-1')).toBeTruthy();
+      expect(screen.getByTestId('submatch-leaderboard-r2')).toBeTruthy();
+    });
+  });
+
+  // ===========================================================================
+  // TEAM-VIEW ONLY: ALT-SHOT SUB-MATCH LEADERBOARD
+  // ===========================================================================
+
+  describe('Round Results — alt-shot round is Team-view only', () => {
+    beforeEach(() => {
+      mockUseCompetitionLeaderboard.mockReturnValue({
+        data: [createIndividualEntry('p1', 'John', 15, 36, 1, 1)],
+        teamData: [],
+        isLoading: false,
+        error: null,
+      });
+    });
+
+    // Mixed competition: a completed non-scramble round + an in-progress split alt-shot round.
+    const completedStrokeR1 = createMockRound({
+      id: 'r1',
+      round_number: 1,
+      status: 'completed',
+      game_type: 'stableford',
+      team_format: null,
+    });
+    const altShotR2 = createMockRound({
+      id: 'r2',
+      round_number: 2,
+      display_order: 2,
+      status: 'in-progress',
+      round_format: 'split',
+      game_type: 'alt-shot',
+      team_format: 'alt-shot',
+      is_team_round: true,
+    });
+
+    it('hides the alt-shot sub-match leaderboard on the Individual view (keeps other rounds)', () => {
+      render(
+        <LeaderboardTab
+          {...defaultProps}
+          teamMode="fixed"
+          selectedView="individual"
+          onViewChange={() => {}}
+          rounds={[altShotR2, completedStrokeR1]}
+        />
+      );
+      // Alt-shot round (R2) is hidden on the individual view even when selected.
+      fireEvent.press(screen.getByText('R2'));
+      expect(screen.queryByTestId('submatch-leaderboard-r2')).toBeNull();
+      // the non-alt-shot round (R1) still renders on the individual view
+      fireEvent.press(screen.getByText('R1'));
+      expect(screen.getByTestId('round-leaderboard-1')).toBeTruthy();
+    });
+
+    it('shows the alt-shot sub-match leaderboard on the Team view', () => {
+      render(
+        <LeaderboardTab
+          {...defaultProps}
+          teamMode="fixed"
+          selectedView="team"
+          onViewChange={() => {}}
+          rounds={[altShotR2, completedStrokeR1]}
+        />
+      );
+      fireEvent.press(screen.getByText('R2'));
+      expect(screen.getByTestId('submatch-leaderboard-r2')).toBeTruthy();
+    });
+  });
+
+  // ===========================================================================
+  // TEAM-VIEW ONLY: SPLIT MATCH-PLAY SUB-MATCH LEADERBOARD
+  // ===========================================================================
+
+  describe('Round Results — split match-play leaderboard (Team-view only)', () => {
+    beforeEach(() => {
+      mockUseCompetitionLeaderboard.mockReturnValue({
+        data: [createIndividualEntry('p1', 'John', 15, 36, 1, 1)],
+        teamData: [],
+        isLoading: false,
+        error: null,
+      });
+    });
+
+    const completedStrokeR1 = createMockRound({
+      id: 'r1', round_number: 1, status: 'completed', game_type: 'stableford', team_format: null,
+    });
+    const matchPlayR2 = createMockRound({
+      id: 'r2', round_number: 2, display_order: 2, status: 'in-progress',
+      round_format: 'split', game_type: 'match-play', team_format: 'match-play-team', is_team_round: true,
+    });
+
+    it('renders the sub-match leaderboard for a split match-play round in the Team view', () => {
+      render(
+        <LeaderboardTab {...defaultProps} teamMode="fixed" selectedView="team" onViewChange={() => {}} rounds={[matchPlayR2, completedStrokeR1]} />
+      );
+      fireEvent.press(screen.getByText('R2'));
+      expect(screen.getByTestId('submatch-leaderboard-r2')).toBeTruthy();
+    });
+
+    it('hides the split match-play leaderboard in the Individual view (keeps other rounds)', () => {
+      render(
+        <LeaderboardTab {...defaultProps} teamMode="fixed" selectedView="individual" onViewChange={() => {}} rounds={[matchPlayR2, completedStrokeR1]} />
+      );
+      fireEvent.press(screen.getByText('R2'));
+      expect(screen.queryByTestId('submatch-leaderboard-r2')).toBeNull();
+      fireEvent.press(screen.getByText('R1'));
+      expect(screen.getByTestId('round-leaderboard-1')).toBeTruthy();
     });
   });
 });

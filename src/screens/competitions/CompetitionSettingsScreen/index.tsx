@@ -6,8 +6,8 @@
  * - Sharing the invite code
  * - Deleting the competition
  *
- * Other per-field edits (dates, handicap system, team settings) still live
- * on the Details tab.
+ * Structural and scoring configuration is grouped here rather than on the
+ * competition Details tab.
  */
 
 import React, { useCallback, useState } from 'react';
@@ -29,6 +29,7 @@ import {
 import { useThemeColors } from '@/context/ThemeContext';
 import { useAuth } from '@/hooks/useAuth';
 import { useConfirmationDialog } from '@/hooks';
+import { useCompetitionDetailsData } from '@/hooks';
 import { borderRadius, spacing, typography } from '@/constants/theme';
 import { useDeleteCompetition } from '@/screens/competitions/CompetitionDetailScreen/hooks/useDeleteCompetition';
 import { openWhatsAppGroup, shareWhatsAppLink } from '@/utils/whatsapp';
@@ -38,6 +39,11 @@ import { useCompetitionPrizePools } from '@/hooks/prizePool';
 import { useCheckFeature } from '@/context/SubscriptionContext';
 import { EditPrizePoolBottomSheet, type PoolTabKey } from '@/components/prizePool';
 import { useTeams } from '@/hooks/rounds/teams';
+import { useToast } from '@/context/ToastContext';
+import { useUpdateCompetitionField } from '@/components/competitions/detail/sections/sheets/useUpdateCompetitionField';
+import { CompetitionNotificationSettings } from './CompetitionNotificationSettings';
+import { CompetitionGuestSettings } from './CompetitionGuestSettings';
+import { SettingsSection } from '@/components/competitions/detail/sections/SettingsSection';
 
 function formatMoney(amount: number, currency: string): string {
   try {
@@ -57,6 +63,7 @@ export default function CompetitionSettingsScreen({ navigation, route }: Props) 
   const colors = useThemeColors();
   const { competitionId } = route.params;
   const { user } = useAuth();
+  const { showErrorToast } = useToast();
   const {
     dialogConfig: alertDialogConfig,
     showAlert,
@@ -71,6 +78,11 @@ export default function CompetitionSettingsScreen({ navigation, route }: Props) 
     roundCount,
     hasStartedRound,
   } = useCompetitionData({ competitionId });
+  const {
+    data: competitionDetails,
+    isLoading: isLoadingDetails,
+    error: detailsError,
+  } = useCompetitionDetailsData(competitionId);
 
   const [isEditNameOpen, setIsEditNameOpen] = useState(false);
   const [isEditDescriptionOpen, setIsEditDescriptionOpen] = useState(false);
@@ -86,6 +98,7 @@ export default function CompetitionSettingsScreen({ navigation, route }: Props) 
   const [poolSheetTab, setPoolSheetTab] = useState<PoolTabKey | null>(null);
 
   const isOrganizer = !!user && !!competition && competition.organizer_id === user.id;
+  const updateCompetitionField = useUpdateCompetitionField({ competitionId });
 
   const {
     showDeleteDialog,
@@ -123,7 +136,7 @@ export default function CompetitionSettingsScreen({ navigation, route }: Props) 
     }
   }, [whatsappUrl, competition]);
 
-  if (isLoading) {
+  if (isLoading || isLoadingDetails) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <PageHeader title="Competition Settings" showBack onBack={() => navigation.goBack()} />
@@ -134,14 +147,14 @@ export default function CompetitionSettingsScreen({ navigation, route }: Props) 
     );
   }
 
-  if (error || !competition) {
+  if (error || detailsError || !competition || !competitionDetails) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <PageHeader title="Competition Settings" showBack onBack={() => navigation.goBack()} />
         <View style={styles.centerContent}>
           <Icon source="alert-circle-outline" size={48} color={colors.error} />
           <Text style={[styles.errorText, { color: colors.textSecondary }]}>
-            {error?.message || 'Competition not found'}
+            {error?.message || detailsError?.message || 'Competition not found'}
           </Text>
         </View>
       </View>
@@ -160,6 +173,19 @@ export default function CompetitionSettingsScreen({ navigation, route }: Props) 
         {/* Details - organizer only */}
         {isOrganizer && (
           <>
+            <View style={styles.section}>
+              <CompetitionGuestSettings
+                allowGuests={competition.allow_guests}
+                onUpdate={(value) =>
+                  updateCompetitionField.mutateAsync({ allow_guests: value })
+                }
+                onError={(message) =>
+                  showErrorToast('Guest setting not saved', message)
+                }
+              />
+            </View>
+            <Divider style={[styles.divider, { backgroundColor: colors.border }]} />
+
             <View style={styles.section}>
               <SectionHeader title="Details" />
               <TouchableOpacity
@@ -213,6 +239,45 @@ export default function CompetitionSettingsScreen({ navigation, route }: Props) 
               </TouchableOpacity>
             </View>
 
+            <Divider style={[styles.divider, { backgroundColor: colors.border }]} />
+          </>
+        )}
+
+        <View style={styles.section}>
+          <SettingsSection
+            competition={competition}
+            isOrganizer={isOrganizer}
+            hasStartedRound={hasStartedRound}
+            teams={teams ?? []}
+            rounds={competitionDetails.rounds}
+            onViewTeams={
+              competition.team_mode !== 'none'
+                ? () =>
+                    navigation.navigate('CompetitionDetail', {
+                      id: competitionId,
+                      initialTab: 'teams',
+                    })
+                : undefined
+            }
+          />
+        </View>
+
+        <Divider style={[styles.divider, { backgroundColor: colors.border }]} />
+
+        {isOrganizer && (
+          <>
+            <View style={styles.section}>
+              <CompetitionNotificationSettings
+                round_reminders_enabled={competition.round_reminders_enabled}
+                results_summary_enabled={competition.results_summary_enabled}
+                onUpdate={(field, value) =>
+                  updateCompetitionField.mutateAsync({ [field]: value })
+                }
+                onError={(message) =>
+                  showErrorToast('Notification settings not saved', message)
+                }
+              />
+            </View>
             <Divider style={[styles.divider, { backgroundColor: colors.border }]} />
           </>
         )}

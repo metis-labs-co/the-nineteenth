@@ -108,6 +108,35 @@ describe('usePlayerScorecard — read-only (from leaderboard)', () => {
     expect(result.current.playerStats.totalStableford).toBe(6); // 2 + 1 + 3
   });
 
+  it('counts a picked-up hole as net double bogey in gross, not the raw pickup score', () => {
+    mockedUseRoundScorecards.mockReturnValue({
+      data: [
+        {
+          player_id: 'p1',
+          daily_handicap_used: 0, // strokes-received 0 on every hole
+          ga_handicap_used: 10,
+          scores: {
+            '1': { strokes: 4, putts: 2 }, // par
+            '2': { strokes: 10 }, // pickup -> net double bogey = par 4 + 2 + 0 = 6
+          },
+          player: {
+            id: 'p1',
+            name: 'Alice',
+            handicap: 10,
+            handicap_index: null,
+            gender: 'male',
+          },
+        },
+      ],
+      isLoading: false,
+    });
+
+    const { result } = renderHook(() => usePlayerScorecard('p1', 'r1'));
+
+    // 4 (par) + 6 (net double bogey for the pickup), NOT 4 + 10.
+    expect(result.current.playerStats.totalGross).toBe(10);
+  });
+
   it('does not fetch read-only data once the live store owns the round', () => {
     mockedUseScorecardStore.mockReturnValue({
       ...emptyStore(),

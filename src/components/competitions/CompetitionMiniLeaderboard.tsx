@@ -25,6 +25,11 @@ interface CompetitionMiniLeaderboardProps {
   competitionId: string;
   /** Max top rows to display. Defaults to 3. */
   limit?: number;
+  /**
+   * When true, show the team standings (filter: 'teams') instead of individual.
+   * Set for fixed-team competitions. Defaults to false (individual standings).
+   */
+  isTeamComp?: boolean;
 }
 
 interface MiniRow {
@@ -51,14 +56,17 @@ export const CompetitionMiniLeaderboard = React.memo(
   function CompetitionMiniLeaderboard({
     competitionId,
     limit = MAX_ROWS_DEFAULT,
+    isTeamComp = false,
   }: CompetitionMiniLeaderboardProps) {
     const colors = useThemeColors();
     const { user } = useAuth();
     const currentUserId = user?.id;
 
     // Disable auto-refresh on the list view; the detail screen will refresh.
+    // Fixed-team comps show team standings; everything else shows individuals.
     const { data, isLoading } = useCompetitionLeaderboard(competitionId, {
       autoRefresh: false,
+      filter: isTeamComp ? 'teams' : 'individuals',
     });
 
     const rows = useMemo<MiniRow[]>(() => {

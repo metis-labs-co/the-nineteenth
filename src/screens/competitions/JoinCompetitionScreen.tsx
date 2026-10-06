@@ -152,24 +152,12 @@ export default function JoinCompetitionScreen({ navigation }: Props) {
     setCompetition(null);
 
     try {
-      // Fetch competition by invite code (exclude soft-deleted)
+      // Private competitions are not directly readable before membership.
+      // This narrow RPC returns only the fields needed for the join preview.
       const { data: competitionData, error: competitionError } = await supabase
-        .from('competitions')
-        .select(`
-          id,
-          name,
-          description,
-          start_date,
-          end_date,
-          handicap_system,
-          status,
-          organizer_id,
-          max_players,
-          lock_at_capacity,
-          players:competition_players(count)
-        `)
-        .eq('invite_code', trimmedCode)
-        .is('deleted_at', null)
+        .rpc('lookup_competition_by_invite_code' as never, {
+          p_code: trimmedCode,
+        } as never)
         .single();
 
       if (competitionError) {
@@ -203,10 +191,10 @@ export default function JoinCompetitionScreen({ navigation }: Props) {
         organizer_id: string;
         max_players: number | null;
         lock_at_capacity: boolean | null;
-        players: { count: number }[];
+        player_count: number;
       };
 
-      const compLookup = competitionData as CompetitionLookupResult;
+      const compLookup = competitionData as unknown as CompetitionLookupResult;
 
       // Fetch organizer name
       const { data: organizerData } = await supabase
@@ -238,7 +226,7 @@ export default function JoinCompetitionScreen({ navigation }: Props) {
         startDate: compLookup.start_date,
         endDate: compLookup.end_date,
         organizerName: (organizerData as { name: string } | null)?.name ?? 'Unknown',
-        playerCount: compLookup.players?.[0]?.count ?? 0,
+        playerCount: compLookup.player_count ?? 0,
         handicapSystem: compLookup.handicap_system,
         status: compLookup.status,
         maxPlayers: compLookup.max_players ?? null,

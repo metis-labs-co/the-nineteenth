@@ -7,20 +7,34 @@
  * Supports both single-ball and multi-ball scoring modes.
  */
 
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { useRoundScorecards, useRoundDetails } from '@/hooks/rounds/queries';
 import {
   getStrokesReceived,
   calculateStablefordPointsNet,
+  getEffectiveGrossStrokes,
 } from '@/utils/scoring';
 import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
 import { getBaseHandicap } from '@/utils/scorecardCalculations';
-import { isMultiBallScore, isSingleBallScore } from '@/types/database/base';
+import {
+  buildMultiBallHoleData,
+  buildMultiBallStats,
+  detectBallCount,
+  hasMultiBallScores,
+} from '@/utils/multiBallScorecard';
+import { isSingleBallScore } from '@/types/database/base';
 import type { HandicapSource } from '@/types/database/enums';
-import type { Hole, Player, Scorecard, HoleScore } from '@/types';
+import type { Hole, Player, Scorecard } from '@/types';
 import type { BallCount } from '@/types/multiball.types';
+import type { MultiBallHoleRowData, MultiBallStats } from '@/utils/multiBallScorecard';
 import { PICKUP_SCORE } from '@/constants/scoring';
+
+export type {
+  BallScoreData,
+  MultiBallHoleRowData,
+  MultiBallStats,
+} from '@/utils/multiBallScorecard';
 
 export interface PlayerStats {
   front9Gross: number;
@@ -56,38 +70,6 @@ export interface HoleRowData {
   greenInRegulation: boolean | undefined;
 }
 
-// Multi-ball specific types
-export interface BallScoreData {
-  strokes: number | undefined;
-  stablefordPoints: number;
-  isPickup: boolean;
-  fairwayHit: boolean | undefined;
-  greenInRegulation: boolean | undefined;
-}
-
-export interface MultiBallHoleRowData {
-  hole: Hole;
-  strokesReceived: number;
-  balls: BallScoreData[];
-}
-
-export interface MultiBallStats {
-  // Per-ball stats indexed by ball number (1-based)
-  ballStats: {
-    [ballNumber: number]: {
-      front9Gross: number;
-      back9Gross: number;
-      front9Stableford: number;
-      back9Stableford: number;
-      totalGross: number;
-      totalStableford: number;
-    };
-  };
-  front9Par: number;
-  back9Par: number;
-  totalPar: number;
-}
-
 interface UsePlayerScorecardResult {
   player: Player | undefined;
   scorecard: Scorecard | undefined;
@@ -98,6 +80,10 @@ interface UsePlayerScorecardResult {
   back9Holes: HoleRowData[];
   isLoading: boolean;
   isInitialized: boolean;
+  /** True when the read-only (DB) load failed — e.g. a round/scorecard the viewer can't read. */
+  isError: boolean;
+  /** Retry the read-only (DB) fetch. No-op in the live scoring path. */
+  refetch: () => void;
   /** True when viewing a completed/other round (data loaded from DB, not the live scoring store). */
   isReadOnly: boolean;
   /** First hole played (1 normally, 10 for back-9 rounds) — for hole-number display. */
@@ -135,12 +121,31 @@ export function usePlayerScorecard(playerId: string, roundId?: string): UsePlaye
   const readOnlyEnabled = !!roundId && isReadOnly;
 
   // Read-only sources (DB). Gated so live scoring doesn't trigger extra fetches.
-  const { data: roScorecards, isLoading: roScLoading } = useRoundScorecards(roundId ?? '', {
+  const {
+    data: roScorecards,
+    isLoading: roScLoading,
+    isError: roScError,
+    refetch: refetchScorecards,
+  } = useRoundScorecards(roundId ?? '', {
     enabled: readOnlyEnabled,
   });
-  const { data: roRound, isLoading: roRoundLoading } = useRoundDetails(roundId ?? '', {
+  const {
+    data: roRound,
+    isLoading: roRoundLoading,
+    isError: roRoundError,
+    refetch: refetchRound,
+  } = useRoundDetails(roundId ?? '', {
     enabled: readOnlyEnabled,
   });
+
+  // Surface genuine load failures (e.g. a round/scorecard the viewer can't read)
+  // so the screen can show a retryable error instead of a misleading empty state.
+  // Only meaningful for the read-only (DB) path; the live store path never errors here.
+  const isError = isReadOnly && (roScError || roRoundError);
+  const refetch = useCallback(() => {
+    void refetchScorecards();
+    void refetchRound();
+  }, [refetchScorecards, refetchRound]);
 
   const roScorecardRaw = useMemo(
     () => roScorecards?.find((sc) => sc.player_id === playerId),
@@ -189,20 +194,12 @@ export function usePlayerScorecard(playerId: string, roundId?: string): UsePlaye
   // Multi-ball flags. The live store tracks these directly; read-only detects from data.
   const isMultiBall = useMemo(() => {
     if (isLive) return storeIsMultiBall;
-    const scores = roScorecardRaw?.scores;
-    if (!scores) return false;
-    return Object.values(scores).some((s) => isMultiBallScore(s));
+    return hasMultiBallScores(roScorecardRaw?.scores);
   }, [isLive, storeIsMultiBall, roScorecardRaw]);
 
   const ballCount: BallCount = useMemo(() => {
     if (isLive) return storeBallCount;
-    const scores = roScorecardRaw?.scores;
-    if (!scores) return 1;
-    let max = 1;
-    for (const s of Object.values(scores)) {
-      if (isMultiBallScore(s)) max = Math.max(max, s.balls.length);
-    }
-    return max as BallCount;
+    return detectBallCount(roScorecardRaw?.scores);
   }, [isLive, storeBallCount, roScorecardRaw]);
 
   // Get holes data
@@ -317,16 +314,20 @@ export function usePlayerScorecard(playerId: string, roundId?: string): UsePlaye
     let totalGIRPossible = 0;
 
     holeRowData.forEach((data) => {
-      const { hole, strokes, putts, stablefordPoints, fairwayHit, greenInRegulation, isPickup } = data;
+      const { hole, strokes, putts, stablefordPoints, strokesReceived, fairwayHit, greenInRegulation, isPickup } = data;
+
+      // Pickups count as net double bogey (WHS "most likely score"), matching the
+      // stored gross/differential — not the raw pickup sentinel.
+      const grossStrokes = getEffectiveGrossStrokes(strokes, hole.par, strokesReceived);
 
       if (hole.number <= 9) {
         front9Par += hole.par;
-        if (strokes) front9Gross += strokes;
+        if (grossStrokes != null) front9Gross += grossStrokes;
         front9Stableford += stablefordPoints;
         if (putts) front9Putts += putts;
       } else {
         back9Par += hole.par;
-        if (strokes) back9Gross += strokes;
+        if (grossStrokes != null) back9Gross += grossStrokes;
         back9Stableford += stablefordPoints;
         if (putts) back9Putts += putts;
       }
@@ -385,42 +386,11 @@ export function usePlayerScorecard(playerId: string, roundId?: string): UsePlaye
   const multiBallHoleData: MultiBallHoleRowData[] = useMemo(() => {
     if (!isMultiBall || ballCount <= 1) return [];
 
-    return holes.map((hole) => {
-      const score = scorecard?.scores[hole.number];
-      // Use daily handicap for strokes received calculation
-      const strokesReceived = getStrokesReceived(dailyHandicap, hole.strokeIndex);
-
-      // Get ball scores from multi-ball structure
-      const balls: BallScoreData[] = [];
-
-      if (score && isMultiBallScore(score)) {
-        // Multi-ball score structure: { balls: HoleScore[] }
-        for (let i = 0; i < ballCount; i++) {
-          const ballScore = score.balls[i] as HoleScore | undefined;
-          const strokes = ballScore?.strokes;
-          const isPickup = strokes !== undefined && strokes >= PICKUP_SCORE;
-          const fairwayHit = ballScore?.fairwayHit;
-          const greenInRegulation = ballScore?.greenInRegulation;
-
-          let stablefordPoints = 0;
-          if (strokes && strokes > 0 && !isPickup) {
-            stablefordPoints = calculateStablefordPointsNet(strokes, hole.par, strokesReceived);
-          }
-
-          balls.push({ strokes, stablefordPoints, isPickup, fairwayHit, greenInRegulation });
-        }
-      } else {
-        // No scores yet - create empty ball data
-        for (let i = 0; i < ballCount; i++) {
-          balls.push({ strokes: undefined, stablefordPoints: 0, isPickup: false, fairwayHit: undefined, greenInRegulation: undefined });
-        }
-      }
-
-      return {
-        hole,
-        strokesReceived,
-        balls,
-      };
+    return buildMultiBallHoleData({
+      holes,
+      scores: scorecard?.scores,
+      dailyHandicap,
+      ballCount,
     });
   }, [holes, scorecard, dailyHandicap, isMultiBall, ballCount]);
 
@@ -434,65 +404,10 @@ export function usePlayerScorecard(playerId: string, roundId?: string): UsePlaye
   }, [multiBallHoleData]);
 
   // Calculate multi-ball statistics per ball
-  const multiBallStats: MultiBallStats = useMemo(() => {
-    const ballStats: MultiBallStats['ballStats'] = {};
-
-    // Initialize stats for each ball
-    for (let b = 1; b <= ballCount; b++) {
-      ballStats[b] = {
-        front9Gross: 0,
-        back9Gross: 0,
-        front9Stableford: 0,
-        back9Stableford: 0,
-        totalGross: 0,
-        totalStableford: 0,
-      };
-    }
-
-    let front9Par = 0;
-    let back9Par = 0;
-
-    multiBallHoleData.forEach((data) => {
-      const { hole, balls } = data;
-
-      if (hole.number <= 9) {
-        front9Par += hole.par;
-      } else {
-        back9Par += hole.par;
-      }
-
-      // Accumulate stats for each ball
-      balls.forEach((ball, index) => {
-        const ballNumber = index + 1;
-        const stats = ballStats[ballNumber];
-        if (!stats) return;
-
-        if (ball.strokes && !ball.isPickup) {
-          if (hole.number <= 9) {
-            stats.front9Gross += ball.strokes;
-            stats.front9Stableford += ball.stablefordPoints;
-          } else {
-            stats.back9Gross += ball.strokes;
-            stats.back9Stableford += ball.stablefordPoints;
-          }
-        }
-      });
-    });
-
-    // Calculate totals
-    for (let b = 1; b <= ballCount; b++) {
-      const stats = ballStats[b];
-      stats.totalGross = stats.front9Gross + stats.back9Gross;
-      stats.totalStableford = stats.front9Stableford + stats.back9Stableford;
-    }
-
-    return {
-      ballStats,
-      front9Par,
-      back9Par,
-      totalPar: front9Par + back9Par,
-    };
-  }, [multiBallHoleData, ballCount]);
+  const multiBallStats: MultiBallStats = useMemo(
+    () => buildMultiBallStats(multiBallHoleData, ballCount),
+    [multiBallHoleData, ballCount]
+  );
 
   return {
     player,
@@ -504,6 +419,8 @@ export function usePlayerScorecard(playerId: string, roundId?: string): UsePlaye
     back9Holes,
     isLoading,
     isInitialized,
+    isError,
+    refetch,
     isReadOnly,
     startHole,
     // Multi-ball support

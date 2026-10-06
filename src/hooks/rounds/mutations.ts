@@ -21,11 +21,14 @@ import {
 import { recalculateScorecardDifferential } from '@/services/handicap/recalculateScorecardDifferential';
 import { upsertRoundPlayerTee } from '@/services/competitionPlayers/competitionPlayersService';
 import { refinalizeRoundResults } from '@/services/rounds/refinalizeRoundResults';
-import { getScorecardsByRound, markScorecardsAsSynced, deleteScorecardsByRound } from '@/services/offline/database';
-import { syncScorecard } from '@/services/offline/sync';
+import { forceFinalizeRound } from '@/services/rounds/forceFinalizeRound';
+import { reopenRound } from '@/services/rounds/reopenRound';
+import { getScorecardsByRound, markScorecardAsSynced, deleteScorecardsByRound } from '@/services/offline/database';
+import { syncScorecard, ScorecardConflictError } from '@/services/offline/sync';
 import { useToast } from '@/context/ToastContext';
 import type { TeeBox } from '@/types';
 import type { CompetitionData, RoundWithCourse } from '@/components/competitions/detail';
+import type { RoundRulesOverride } from '@/types/database/roundRules.types';
 
 // =====================================================
 // TYPES
@@ -408,6 +411,57 @@ export function useRecalculateRoundResults() {
 }
 
 // =====================================================
+// UPDATE PER-ROUND RULES (rules_override)
+// =====================================================
+
+export interface UpdateRoundRulesInput {
+  /** Round whose rules_override is being replaced. */
+  roundId: string;
+  /** Competition ID for leaderboard cache invalidation (optional). */
+  competitionId?: string;
+  /** Full replacement rules_override payload. */
+  rulesOverride: RoundRulesOverride;
+}
+
+/**
+ * Replace a round's rules_override, then re-finalize so the new points apply
+ * immediately. refinalizeRoundResults is idempotent (same path as the
+ * Recalculate Results action). Editing should be gated at the call site by the
+ * advanced_round_rules feature; applying is never gated.
+ */
+export function useUpdateRoundRules() {
+  const queryClient = useQueryClient();
+
+  return useMutation<void, Error, UpdateRoundRulesInput>({
+    mutationFn: async ({ roundId, rulesOverride }) => {
+      const { error } = await supabase
+        .from('rounds')
+        // @ts-expect-error - Supabase types don't model partial JSONB updates
+        .update({ rules_override: rulesOverride })
+        .eq('id', roundId);
+      if (error) throw new Error(error.message);
+      await refinalizeRoundResults(roundId);
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: roundKeys.detail(variables.roundId) });
+      queryClient.invalidateQueries({ queryKey: leaderboardKeys.round(variables.roundId) });
+      if (variables.competitionId) {
+        queryClient.invalidateQueries({
+          queryKey: leaderboardKeys.competition(variables.competitionId),
+        });
+        queryClient.invalidateQueries({ queryKey: competitionKeys.detail(variables.competitionId) });
+        queryClient.invalidateQueries({
+          queryKey: competitionDetailsKeys.detail(variables.competitionId),
+        });
+      }
+    },
+    onError: (error) => {
+      console.error('[useUpdateRoundRules] Failed:', error);
+    },
+  });
+}
+
+// =====================================================
 // REORDER COMPETITION ROUNDS (DRAG-AND-DROP)
 // =====================================================
 
@@ -534,8 +588,7 @@ export interface ForceSyncRoundScorecardsResult {
  * leaderboard read empty from Supabase.
  *
  * This hook is the manual recovery lever: it reads from local SQLite for
- * THIS round only, calls `syncScorecard` per row (skipServerCheck=true so
- * we don't bail when the server has zero rows), and on success marks the
+ * THIS round only, calls the revision-guarded `syncScorecard` per row, and on success marks the
  * row synced in SQLite. After all pushes complete, it re-runs
  * `refinalizeRoundResults` so the leaderboard reflects the freshly-landed
  * data.
@@ -558,8 +611,16 @@ export function useForceSyncRoundScorecards() {
 
       for (const sc of eligible) {
         try {
-          await syncScorecard(sc, { skipServerCheck: true });
-          await markScorecardsAsSynced([sc.id]);
+          let result;
+          try {
+            result = await syncScorecard(sc);
+          } catch (error) {
+            if (!(error instanceof ScorecardConflictError)) throw error;
+            // Force-push means local wins: adopt the server's revision and
+            // retry once so a stale tracked revision can't block recovery.
+            result = await syncScorecard({ ...sc, serverRevision: error.serverRevision });
+          }
+          await markScorecardAsSynced(sc.id, result.serverRevision);
           pushed++;
         } catch (error) {
           failed++;
@@ -609,5 +670,66 @@ export function useForceSyncRoundScorecards() {
     onError: (error) => {
       console.error('[useForceSyncRoundScorecards] Failed:', error);
     },
+  });
+}
+
+// =====================================================
+// FORCE-FINALIZE / RE-OPEN ROUND (ORGANISER)
+// =====================================================
+
+export interface ForceFinalizeRoundInput {
+  roundId: string;
+  /** Competition ID for cache invalidation. */
+  competitionId?: string;
+}
+
+/** Shared cache invalidation for force-finalize / re-open. */
+function invalidateRoundStatusCaches(
+  queryClient: ReturnType<typeof useQueryClient>,
+  input: ForceFinalizeRoundInput
+) {
+  queryClient.invalidateQueries({ queryKey: roundKeys.detail(input.roundId) });
+  queryClient.invalidateQueries({ queryKey: roundKeys.lists() });
+  queryClient.invalidateQueries({ queryKey: leaderboardKeys.round(input.roundId) });
+  queryClient.invalidateQueries({ queryKey: scorecardKeys.list({ roundId: input.roundId }) });
+  // Home "Continue scoring" carousel keys off round status; force-submit /
+  // re-open flips it, so refresh it too (prefix matches every user variant).
+  queryClient.invalidateQueries({ queryKey: ['home', 'inProgressRounds'] });
+  if (input.competitionId) {
+    queryClient.invalidateQueries({ queryKey: roundKeys.list(input.competitionId) });
+    queryClient.invalidateQueries({ queryKey: leaderboardKeys.competition(input.competitionId) });
+    queryClient.invalidateQueries({ queryKey: competitionKeys.detail(input.competitionId) });
+    queryClient.invalidateQueries({ queryKey: competitionDetailsKeys.detail(input.competitionId) });
+  }
+}
+
+/**
+ * Organiser force-submit: mark the round completed regardless of incomplete
+ * players, then re-finalize results (incomplete players become DNF).
+ */
+export function useForceFinalizeRound() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: ForceFinalizeRoundInput) => {
+      await forceFinalizeRound(input.roundId);
+    },
+    onSuccess: (_, input) => invalidateRoundStatusCaches(queryClient, input),
+    onError: (error) => console.error('[useForceFinalizeRound] Failed:', error),
+  });
+}
+
+/**
+ * Organiser re-open: flip a completed round back to in-progress so a DNF
+ * player can finish. Re-finalize happens via normal submission or the
+ * existing Recalculate Results action.
+ */
+export function useReopenRound() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: ForceFinalizeRoundInput) => {
+      await reopenRound(input.roundId);
+    },
+    onSuccess: (_, input) => invalidateRoundStatusCaches(queryClient, input),
+    onError: (error) => console.error('[useReopenRound] Failed:', error),
   });
 }

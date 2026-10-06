@@ -3,6 +3,7 @@
  */
 
 import type { Hole } from '@/types';
+import { PICKUP_SCORE } from '@/constants/scoring';
 
 // Default holes (fallback when course data not available)
 export const DEFAULT_HOLES: Hole[] = Array.from({ length: 18 }, (_, i) => ({
@@ -13,4 +14,6 @@ export const DEFAULT_HOLES: Hole[] = Array.from({ length: 18 }, (_, i) => ({
 }));
 
 export const MIN_SCORE = 1;
-export const MAX_SCORE = 12;
+// Manual entry stops one below the pickup sentinel — PICKUP_SCORE is reserved
+// for explicit concessions, never reached by the score stepper.
+export const MAX_SCORE = PICKUP_SCORE - 1;

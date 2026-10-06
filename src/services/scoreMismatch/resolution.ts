@@ -157,7 +157,7 @@ export async function applyResolvedScoreToScorecard(
  * - `totalPoints`: stableford per-hole sum (only when game_type === 'stableford'
  *   and holes + DHC are available), else null
  */
-function recomputeScorecardTotals(
+export function recomputeScorecardTotals(
   scores: Record<string, HoleScore>,
   holes: Hole[],
   gameType: string | null,

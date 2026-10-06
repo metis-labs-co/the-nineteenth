@@ -3,13 +3,13 @@
  *
  * Displays a dog icon with optional decision badge (Lone Wolf / Blind Wolf).
  * Shows a loading spinner while the Wolf game data is loading.
+ * Thin wrapper over the shared GameIndicatorBadge.
  */
 
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Text, Icon, ActivityIndicator } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
-import { borderRadius, typography, wolfColor } from '@/constants/theme';
+import { wolfColor } from '@/constants/theme';
+import { GameIndicatorBadge } from '@/components/common/GameIndicatorBadge';
 
 // ============================================================================
 // TYPES
@@ -56,90 +56,26 @@ export const WolfIndicatorBadge = React.memo(function WolfIndicatorBadge({
 }: WolfIndicatorBadgeProps) {
   const colors = useThemeColors();
 
-  const iconSize = size === 'sm' ? 18 : 24;
-  const containerSize = size === 'sm' ? 32 : 40;
-
-  // Don't render if no active Wolf game and not loading
-  if (!hasWolfGame && !isLoading) {
-    return null;
-  }
-
-  // Show loading state
-  if (isLoading) {
-    return (
-      <View
-        style={[
-          styles.container,
-          { width: containerSize, height: containerSize },
-        ]}
-        testID={testID}
-      >
-        <ActivityIndicator size="small" color={wolfColor} />
-      </View>
-    );
-  }
-
   return (
-    <TouchableOpacity
-      style={[
-        styles.container,
-        {
-          width: containerSize,
-          height: containerSize,
-          backgroundColor: variant === 'default' ? `${wolfColor}15` : 'transparent',
-        },
-      ]}
+    <GameIndicatorBadge
+      isLoading={isLoading}
+      hidden={!hasWolfGame}
+      color={wolfColor}
+      icon="dog-side"
+      size={size}
+      variant={variant}
       onPress={onPress}
-      activeOpacity={0.7}
-      accessibilityRole="button"
       accessibilityLabel={`Wolf game active${currentWolfName ? `, ${currentWolfName} is Wolf` : ''}`}
       accessibilityHint="Tap to view Wolf game summary"
+      badge={
+        hasDecision && isLoneOrBlind
+          ? {
+              backgroundColor: isBlindWolf ? colors.warning : wolfColor,
+              content: isBlindWolf ? '🔥' : 'L',
+            }
+          : null
+      }
       testID={testID}
-    >
-      <Icon source="dog-side" size={iconSize} color={wolfColor} />
-
-      {/* Badge showing decision status */}
-      {hasDecision && isLoneOrBlind && (
-        <View
-          style={[
-            styles.badge,
-            { backgroundColor: isBlindWolf ? colors.warning : wolfColor },
-          ]}
-        >
-          <Text style={styles.badgeText}>
-            {isBlindWolf ? '🔥' : 'L'}
-          </Text>
-        </View>
-      )}
-    </TouchableOpacity>
+    />
   );
-});
-
-// ============================================================================
-// STYLES
-// ============================================================================
-
-const styles = StyleSheet.create({
-  container: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: borderRadius.lg,
-    position: 'relative',
-  },
-  badge: {
-    position: 'absolute',
-    top: -4,
-    right: -4,
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 4,
-  },
-  badgeText: {
-    ...typography.captionBold,
-    color: '#fff',
-    fontSize: 10,
-  },
 });

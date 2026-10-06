@@ -6,6 +6,7 @@
  */
 
 import { supabase } from '@/services/supabase/client';
+import { fetchPlayersByIds } from '@/services/api/players';
 import { prepareTeamHoleScores } from '@/utils/skins';
 import type { SkinsTeamInfo } from '@/utils/skins';
 import { useProcessTeamSkinsHole } from './mutations';
@@ -136,13 +137,7 @@ export async function processTeamSkins(
 
     if (teamConfig?.teams && teamConfig.teams.length > 0) {
       const allMemberIds = teamConfig.teams.flatMap(t => t.memberIds);
-      const { data: rawPlayers } = await supabase
-        .from('players')
-        .select('id, name, handicap')
-        .in('id', allMemberIds);
-
-      const playersList = (rawPlayers ?? []) as unknown as PlayerRow[];
-      const playerMap = new Map(playersList.map(p => [p.id, p]));
+      const playerMap = await fetchPlayersByIds(allMemberIds);
 
       teams = teamConfig.teams.map(team => ({
         id: team.id,

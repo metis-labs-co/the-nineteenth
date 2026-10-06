@@ -17,6 +17,7 @@
 
 import type { Hole } from '@/types/database.types';
 import { calculateAltShotTeamHandicap } from '@/utils/teamScoring/altShot';
+import { getStrokesReceived } from '@/utils/scoring';
 
 export type SideOutcome = 'a-wins' | 'b-wins' | 'halved';
 
@@ -184,4 +185,56 @@ export function resolveAltShotSubMatchOutcome(params: {
 
   if (aNet === bNet) return 'halved';
   return aNet < bNet ? 'a-wins' : 'b-wins';
+}
+
+/**
+ * Per-hole holes-up margin for an alt-shot (foursomes) sub-match scored as stroke
+ * play. Builds a match-play view from the one-ball gross: each side's net per hole
+ * (the higher-combined-handicap side receives the rounded handicap difference,
+ * allocated per hole by stroke index), lower net wins the hole, equal halves.
+ *
+ * Returns the signed margin from side A's perspective (positive = A ahead), or
+ * null when no hole has a usable gross for both sides (incomplete → no bonus).
+ */
+export function computeAltShotHolesUpMargin(params: {
+  teamAPlayerIds: string[];
+  teamBPlayerIds: string[];
+  holes: Hole[];
+  getGross: (playerId: string, hole: Hole) => number | null;
+  dailyHandicaps: Map<string, number>;
+}): number | null {
+  const { teamAPlayerIds, teamBPlayerIds, holes, getGross, dailyHandicaps } = params;
+
+  const aHc = sideTeamHandicap(teamAPlayerIds, dailyHandicaps);
+  const bHc = sideTeamHandicap(teamBPlayerIds, dailyHandicaps);
+  const diff = Math.round(Math.abs(aHc - bHc));
+  const aReceives = aHc > bHc; // higher-handicap side receives the strokes
+
+  // One ball per side: first partner with a recorded gross on the hole.
+  const sideHoleGross = (playerIds: string[], hole: Hole): number | null => {
+    for (const id of playerIds) {
+      const g = getGross(id, hole);
+      if (g != null) return g;
+    }
+    return null;
+  };
+
+  let holesWonA = 0;
+  let holesWonB = 0;
+  let comparable = 0;
+  for (const hole of holes) {
+    const aGross = sideHoleGross(teamAPlayerIds, hole);
+    const bGross = sideHoleGross(teamBPlayerIds, hole);
+    if (aGross == null || bGross == null) continue;
+    comparable += 1;
+    const strokes = getStrokesReceived(diff, hole.strokeIndex);
+    const aNet = aGross - (aReceives ? strokes : 0);
+    const bNet = bGross - (!aReceives ? strokes : 0);
+    if (aNet < bNet) holesWonA += 1;
+    else if (bNet < aNet) holesWonB += 1;
+    // equal → halved (no change)
+  }
+
+  if (comparable === 0) return null;
+  return holesWonA - holesWonB;
 }

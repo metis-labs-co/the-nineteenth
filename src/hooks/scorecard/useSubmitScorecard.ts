@@ -20,6 +20,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useCheckAchievements } from '@/hooks/achievements/useCheckAchievements';
 import { useAchievementToast } from '@/context/AchievementToastContext';
 import { isSingleBallScore } from '@/types/database/base';
+import { getScoreCategory } from '@/utils/scoring';
 import type { Scorecard, Hole, GameType } from '@/types';
 import type { AchievementEventData, AchievementDefinition } from '@/types/database/achievement.types';
 import type { CosmeticDefinition } from '@/types/database/cosmetic.types';
@@ -88,25 +89,26 @@ function calculateScoreStats(
 
     holesPlayed++;
     totalGross += strokes;
-    const diff = strokes - hole.par;
 
     // Check for hole-in-one
     if (strokes === 1) {
       holeInOne = true;
     }
 
-    // Categorize by score type
-    if (diff <= -3) {
+    // Categorize by score type via the canonical classifier. A pickup
+    // (strokes >= PICKUP_SCORE) returns null and is counted in no category.
+    const category = getScoreCategory(strokes, hole.par);
+    if (category === 'albatross') {
       albatross++;
-    } else if (diff === -2) {
+    } else if (category === 'eagle') {
       eagles++;
-    } else if (diff === -1) {
+    } else if (category === 'birdie') {
       birdies++;
-    } else if (diff === 0) {
+    } else if (category === 'par') {
       pars++;
-    } else if (diff === 1) {
+    } else if (category === 'bogey') {
       bogeys++;
-    } else {
+    } else if (category === 'double-bogey' || category === 'triple-plus') {
       doubleBogeys++;
     }
   }
@@ -309,79 +311,6 @@ export function useSubmitScorecards() {
       } catch {
         // Don't fail the submission if achievement check fails
       }
-    },
-  });
-}
-
-interface UpdateScoreInput {
-  scorecardId: string;
-  roundId: string;
-  holeNumber: number;
-  strokes: number;
-}
-
-/**
- * Update a single hole score
- * Uses optimistic update for instant UI feedback
- */
-export function useUpdateScore() {
-  const queryClient = useQueryClient();
-
-  return useMutation<void, Error, UpdateScoreInput>({
-    mutationFn: async ({ scorecardId: _scorecardId, roundId: _roundId, holeNumber: _holeNumber, strokes: _strokes }) => {
-      // TODO: Implement when we need direct mutation
-      // For now, score updates go through the Zustand store
-    },
-
-    onMutate: async ({ scorecardId, roundId, holeNumber, strokes }): Promise<{ previousScorecards: Scorecard[] | undefined }> => {
-      // Cancel outgoing queries
-      await queryClient.cancelQueries({
-        queryKey: scorecardKeys.list({ roundId }),
-      });
-
-      // Get current data
-      const previousScorecards = queryClient.getQueryData<Scorecard[]>(
-        scorecardKeys.list({ roundId })
-      );
-
-      // Optimistically update
-      if (previousScorecards) {
-        const updated = previousScorecards.map((sc) => {
-          if (sc.id === scorecardId) {
-            return {
-              ...sc,
-              scores: {
-                ...sc.scores,
-                [holeNumber]: { strokes },
-              },
-              updatedAt: new Date(),
-            };
-          }
-          return sc;
-        });
-
-        queryClient.setQueryData(scorecardKeys.list({ roundId }), updated);
-      }
-
-      return { previousScorecards };
-    },
-
-    onError: (err, variables, _onMutateResult, context) => {
-      // Rollback on error - context from onMutate
-      const ctx = context as unknown as { previousScorecards: Scorecard[] | undefined } | undefined;
-      if (ctx?.previousScorecards) {
-        queryClient.setQueryData(
-          scorecardKeys.list({ roundId: variables.roundId }),
-          ctx.previousScorecards
-        );
-      }
-    },
-
-    onSettled: (data, error, variables) => {
-      // Always refetch after mutation
-      queryClient.invalidateQueries({
-        queryKey: scorecardKeys.list({ roundId: variables.roundId }),
-      });
     },
   });
 }

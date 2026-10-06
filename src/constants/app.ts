@@ -67,7 +67,7 @@ export const FAQ_DATA: FAQItem[] = [
     id: '5',
     question: 'How do I update my handicap?',
     answer:
-      'Go to Profile and tap "Edit Profile". You can update your handicap (between 0 and 54) there. It\'s used to calculate your strokes received on each hole based on the course stroke index. You can also view your handicap history from the Profile menu.',
+      'Go to Profile and tap "Edit Profile". You can update your handicap (between -5 and 54) there. It\'s used to calculate your strokes received on each hole based on the course stroke index. You can also view your handicap history from the Profile menu.',
     category: 'account',
   },
   {

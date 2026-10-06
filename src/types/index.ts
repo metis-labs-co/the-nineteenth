@@ -122,11 +122,7 @@ export type {
   TeeTimeInterval,
 } from './pairing.types';
 
-export {
-  toPairingPlayer,
-  DEFAULT_TEE_TIME_CONFIG,
-  TEE_TIME_INTERVALS,
-} from './pairing.types';
+export { toPairingPlayer, DEFAULT_TEE_TIME_CONFIG, TEE_TIME_INTERVALS } from './pairing.types';
 
 // Re-export player gender type
 export type { PlayerGender } from './database/player.types';
@@ -238,6 +234,7 @@ export interface Competition {
   maxPlayers?: number | null;
   lockAtCapacity?: boolean;
   organizerIsPlayer?: boolean;
+  allowGuests?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -262,6 +259,8 @@ export interface CompetitionCreateInput {
   lockAtCapacity?: boolean;
   // When false, the organizer is not auto-added as a player
   organizerIsPlayer?: boolean;
+  /** Defaults true; controls placeholder guest creation for this competition. */
+  allowGuests?: boolean;
 }
 
 // Round
@@ -293,7 +292,7 @@ export interface Course {
   id: string;
   source: 'api' | 'manual';
   apiId?: string;
-  
+
   // Basic Info
   name: string;
   state: AustralianState;
@@ -304,13 +303,13 @@ export interface Course {
   website?: string;
   latitude: number;
   longitude: number;
-  
+
   // Course Details
   holes: Hole[];
   tees?: TeeBox[];
   slopeRating?: number;
   courseRating?: number;
-  
+
   // Metadata
   lastSynced?: Date;
   createdAt: Date;
@@ -394,6 +393,8 @@ export interface Scorecard {
   submittedBy?: string;
   createdAt: Date;
   updatedAt: Date;
+  /** Last server revision successfully read or written by this device. */
+  serverRevision?: number | null;
   /** True if this is a standalone/local round that shouldn't sync to server */
   isStandalone?: boolean;
 
@@ -459,6 +460,13 @@ export interface PendingSync {
   data: any;
   timestamp: Date;
   retryCount: number;
+  /** Stable identity used to coalesce repeated writes for the same entity. */
+  entityKey?: string;
+  /** Incremented whenever a queued snapshot is replaced while sync is in flight. */
+  revision?: number;
+  status?: 'pending' | 'failed';
+  lastError?: string | null;
+  lastAttemptAt?: Date | null;
 }
 
 // Form types (for react-hook-form)
@@ -525,4 +533,19 @@ export interface ScoringPairCreateInput {
 export interface AutoPairResult {
   pairs: ScoringPairCreateInput[];
   type: 'reciprocal' | 'circular';
+}
+
+// =====================================================
+// APP VERSION CONFIG
+// =====================================================
+
+// Remote force-update gate configuration (mirrors public.app_version_config).
+export type GatePlatform = 'ios' | 'android';
+
+export interface AppVersionConfig {
+  platform: GatePlatform;
+  minimumVersion: string;
+  latestVersion: string;
+  storeUrl: string;
+  message: string | null;
 }

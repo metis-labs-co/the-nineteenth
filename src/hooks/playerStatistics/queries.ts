@@ -12,6 +12,7 @@ import { CACHE_TIMES, GC_TIMES } from '@/constants/cacheConfig';
 import { supabase } from '@/services/supabase/client';
 import { statisticsKeys } from '@/hooks/queryKeys';
 import { parseAndTransformHoles } from '@/utils/holeTransformers';
+import { isSharedBallRound } from '@/utils/roundFormat';
 import {
   countScoreDistribution,
   calculateParTypeStats,
@@ -109,6 +110,7 @@ export function usePlayerStatistics(
             course_id,
             date,
             game_type,
+            team_format,
             handicap_source,
             status,
             courses!inner (
@@ -148,7 +150,17 @@ export function usePlayerStatistics(
         throw scorecardsError;
       }
 
-      const scorecards = scorecardsData || [];
+      // Exclude shared-ball team rounds (scramble, alt-shot) from individual
+      // statistics: the player's total_gross/scores belong to the team's single
+      // ball, not their own play, so counting them inflates rounds played and
+      // skews scoring/putting/FIR/GIR averages. Own-ball team formats
+      // (best-ball, shamble, aggregate, team match play) are real individual
+      // scores and are intentionally kept.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Complex Supabase join response type
+      const scorecards = (scorecardsData || []).filter(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (sc: any) => !isSharedBallRound(sc.rounds ?? {})
+      );
 
       // If filtering returned no results, return empty stats
       if (hasFilters && scorecards.length === 0) {
@@ -265,6 +277,7 @@ export function usePlayerStatistics(
 
       // Track practice vs competition rounds and game type breakdown
       let practiceRoundsCount = 0;
+      let competitionRoundsCount = 0;
       let matchPlayRoundsCount = 0;
       let handicapRoundsCount = 0;
       let nineHoleRoundsCount = 0;
@@ -319,6 +332,12 @@ export function usePlayerStatistics(
         const isPracticeRound = isStandaloneRound && effectiveHandicapSource === 'none';
         if (isHandicapRound) {
           handicapRoundsCount++;
+        }
+        // A competition round is one linked to a competition. Count it directly
+        // rather than deriving it by subtraction, so standalone handicap rounds
+        // (source 'profile') are never miscounted as competition rounds.
+        if (!isStandaloneRound) {
+          competitionRoundsCount++;
         }
 
         // Count game types
@@ -705,7 +724,7 @@ export function usePlayerStatistics(
       return {
         roundsPlayed,
         practiceRoundsPlayed: practiceRoundsCount,
-        competitionRoundsPlayed: roundsPlayed - practiceRoundsCount,
+        competitionRoundsPlayed: competitionRoundsCount,
         matchPlayRoundsPlayed: matchPlayRoundsCount,
         handicapRoundsPlayed: handicapRoundsCount,
         nineHoleRoundsPlayed: nineHoleRoundsCount,

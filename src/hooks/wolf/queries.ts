@@ -19,6 +19,7 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
+import { fetchPlayersByIds, fetchPlayerListByIds } from '@/services/api/players';
 import { wolfKeys } from '@/hooks/queryKeys';
 import { CACHE_TIMES, GC_TIMES } from '@/constants/cacheConfig';
 import {
@@ -165,20 +166,9 @@ export function useWolfGame(gameId: string | undefined) {
       const transformedGame = transformRawGame(game);
 
       // Fetch player participants
-      const { data: players, error: playersError } = await supabase
-        .from('players')
-        .select('id, name, handicap')
-        .in('id', game.participant_ids);
-
-      if (playersError) {
-        console.error('[useWolfGame] Failed to fetch participants:', playersError);
-      }
-
-      const participants: WolfParticipant[] = ((players ?? []) as RawPlayer[]).map((p) => ({
-        id: p.id,
-        name: p.name,
-        handicap: p.handicap,
-      }));
+      const participants: WolfParticipant[] = await fetchPlayerListByIds(
+        game.participant_ids
+      );
 
       return {
         ...transformedGame,
@@ -223,20 +213,9 @@ export function useWolfGameByRound(roundId: string | undefined) {
       const transformedGame = transformRawGame(game);
 
       // Fetch player participants
-      const { data: players, error: playersError } = await supabase
-        .from('players')
-        .select('id, name, handicap')
-        .in('id', game.participant_ids);
-
-      if (playersError) {
-        console.error('[useWolfGameByRound] Failed to fetch participants:', playersError);
-      }
-
-      const participants: WolfParticipant[] = ((players ?? []) as RawPlayer[]).map((p) => ({
-        id: p.id,
-        name: p.name,
-        handicap: p.handicap,
-      }));
+      const participants: WolfParticipant[] = await fetchPlayerListByIds(
+        game.participant_ids
+      );
 
       return {
         ...transformedGame,
@@ -286,19 +265,7 @@ export function useWolfHoleDecisions(gameId: string | undefined) {
       const allPlayerIds = [...new Set([...wolfIds, ...partnerIds])];
 
       // Fetch player details
-      let playerMap = new Map<string, WolfParticipant>();
-      if (allPlayerIds.length > 0) {
-        const { data: players } = await supabase
-          .from('players')
-          .select('id, name, handicap')
-          .in('id', allPlayerIds);
-
-        if (players) {
-          playerMap = new Map(
-            (players as RawPlayer[]).map((p) => [p.id, { id: p.id, name: p.name, handicap: p.handicap }])
-          );
-        }
-      }
+      const playerMap = await fetchPlayersByIds(allPlayerIds);
 
       return decisions.map((decision) => ({
         ...decision,

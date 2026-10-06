@@ -11,7 +11,8 @@
  * decided on net scores (same as the score-entry screen).
  */
 
-import { getStrokesReceived, isPickupScore } from '@/utils/scoring';
+import { getFourBallStrokes } from '@/utils/scoring';
+import { PICKUP_SCORE } from '@/constants/scoring';
 import {
   determineHoleWinner,
   calculateMatchStatus,
@@ -33,15 +34,15 @@ interface TeamHoleContribution {
  */
 function findBestContributor(
   team: MatchTeam,
-  hole: Hole,
-  getGross: (playerId: string) => number | undefined
+  getGross: (playerId: string) => number | undefined,
+  strokesForHole: Map<string, number>
 ): TeamHoleContribution | null {
   let best: TeamHoleContribution | null = null;
   for (const member of team.members) {
     const gross = getGross(member.id);
     if (gross == null) continue;
-    if (isPickupScore(gross, hole.par, member.handicap, hole.strokeIndex)) continue;
-    const strokes = getStrokesReceived(member.handicap, hole.strokeIndex);
+    if (gross === PICKUP_SCORE) continue;
+    const strokes = strokesForHole.get(member.id) ?? 0;
     const net = gross - strokes;
     if (
       best === null ||
@@ -61,7 +62,6 @@ function findBestContributor(
  */
 function isTeamPickedUp(
   team: MatchTeam,
-  hole: Hole,
   getGross: (playerId: string) => number | undefined
 ): boolean {
   let sawAny = false;
@@ -69,7 +69,7 @@ function isTeamPickedUp(
     const gross = getGross(member.id);
     if (gross == null) continue;
     sawAny = true;
-    if (!isPickupScore(gross, hole.par, member.handicap, hole.strokeIndex)) {
+    if (gross !== PICKUP_SCORE) {
       return false;
     }
   }
@@ -83,6 +83,11 @@ export function calculateTeamMatchData(
   getPlayerScore: (playerId: string, holeNumber: number) => number | undefined
 ): TeamCalculatedData {
   const holeResults: Record<number, HoleResult> = {};
+  // All players in the match (both teams), for relative-to-lowest allocation.
+  const allPlayers = [...team1.members, ...team2.members].map((m) => ({
+    playerId: m.id,
+    handicap: m.handicap,
+  }));
   const runningStatus: Record<number, MatchStatus> = {};
 
   let front9Par = 0;
@@ -101,21 +106,27 @@ export function calculateTeamMatchData(
     const holeNum = hole.number;
 
     const getGrossForHole = (playerId: string) => getPlayerScore(playerId, holeNum);
-    const t1Best = findBestContributor(team1, hole, getGrossForHole);
-    const t2Best = findBestContributor(team2, hole, getGrossForHole);
+    const strokesForHole = getFourBallStrokes(allPlayers, hole.strokeIndex);
+    const t1Best = findBestContributor(team1, getGrossForHole, strokesForHole);
+    const t2Best = findBestContributor(team2, getGrossForHole, strokesForHole);
 
-    const t1PickedUp = isTeamPickedUp(team1, hole, getGrossForHole);
-    const t2PickedUp = isTeamPickedUp(team2, hole, getGrossForHole);
+    const t1PickedUp = isTeamPickedUp(team1, getGrossForHole);
+    const t2PickedUp = isTeamPickedUp(team2, getGrossForHole);
 
     const baseWinner = determineHoleWinner(t1Best?.net ?? null, t2Best?.net ?? null);
-    // If one team fully pickd up and the other has any score, that team loses.
+    // A team that fully conceded loses the hole, but only once the opponent has
+    // actually carded a (non-pickup) score; mutual concessions are halved.
     const winner =
-      t1PickedUp && !t2PickedUp
-        ? 'player2'
-        : t2PickedUp && !t1PickedUp
-          ? 'player1'
-          : t1PickedUp && t2PickedUp
-            ? 'halved'
+      t1PickedUp && t2PickedUp
+        ? 'halved'
+        : t1PickedUp
+          ? t2Best
+            ? 'player2'
+            : null
+          : t2PickedUp
+            ? t1Best
+              ? 'player1'
+              : null
             : baseWinner;
 
     holeResults[holeNum] = {

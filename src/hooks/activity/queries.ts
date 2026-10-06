@@ -12,7 +12,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '@/services/supabase/client';
 import { activityKeys } from '@/hooks/queryKeys';
 import { CACHE_TIMES, GC_TIMES } from '@/constants/cacheConfig';
-import { createError } from '@/services/errors';
+import { assertNoDbError } from '@/services/errors';
 import { buildTransform, type ImagePreset } from '@/utils/imageTransform';
 import { useAuth } from '@/hooks/useAuth';
 import type {
@@ -99,9 +99,7 @@ export function useActivityFeed() {
         p_limit: ACTIVITY_PAGE_SIZE,
         p_before: pageParam,
       });
-      if (error) {
-        throw createError(`Failed to load activity feed: ${error.message}`, 'DATABASE');
-      }
+      assertNoDbError(error, 'load activity feed');
       return (data ?? []) as ActivityFeedCard[];
     },
     getNextPageParam: (lastPage) =>
@@ -124,9 +122,7 @@ export function useRoundFeedCard(roundId: string | undefined) {
       const { data, error } = await sb.rpc('get_round_feed_card', {
         p_round_id: roundId,
       });
-      if (error) {
-        throw createError(`Failed to load round: ${error.message}`, 'DATABASE');
-      }
+      assertNoDbError(error, 'load round');
       const rows = (data ?? []) as ActivityFeedCard[];
       return rows[0] ?? null;
     },
@@ -158,9 +154,7 @@ export function useRoundComments(roundId: string | undefined) {
         .eq('round_id', roundId)
         .is('deleted_at', null)
         .order('created_at', { ascending: true });
-      if (error) {
-        throw createError(`Failed to load comments: ${error.message}`, 'DATABASE');
-      }
+      assertNoDbError(error, 'load comments');
       return (data ?? []).map((row): RoundComment => {
         const { like_count, viewer_has_liked } = deriveCommentLikes(row.likes, user?.id);
         return {
@@ -195,9 +189,7 @@ export function useRoundPhotos(roundId: string | undefined) {
         .eq('round_id', roundId)
         .is('deleted_at', null)
         .order('created_at', { ascending: true });
-      if (error) {
-        throw createError(`Failed to load photos: ${error.message}`, 'DATABASE');
-      }
+      assertNoDbError(error, 'load photos');
 
       const rows = (data ?? []) as FeedPhoto[];
       if (rows.length === 0) return [] as RoundPhoto[];

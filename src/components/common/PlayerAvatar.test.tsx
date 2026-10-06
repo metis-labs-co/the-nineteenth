@@ -43,6 +43,20 @@ jest.mock('./GolferIcon', () => {
   };
 });
 
+// Mock SimpleGolferIcon
+jest.mock('./SimpleGolferIcon', () => {
+  const { View } = require('react-native');
+  return {
+    SimpleGolferIcon: ({ size, colorPalette }: any) => (
+      <View
+        testID="simple-golfer-icon"
+        accessibilityLabel={`simple-golfer-icon-${colorPalette?.mid || 'unknown'}`}
+        style={{ width: size, height: size }}
+      />
+    ),
+  };
+});
+
 // Mock AppImage so we can assert the (possibly transformed) uri it receives.
 // The remote-URL branch renders AppImage instead of Paper's Avatar.Image.
 jest.mock('./AppImage', () => {
@@ -65,10 +79,13 @@ jest.mock('./AppImage', () => {
 // Mock avatar constants
 jest.mock('@/constants/avatars', () => ({
   AVATAR_PREFIX: 'avatar:',
+  SIMPLE_AVATAR_PREFIX: 'avatar-simple-',
   DEFAULT_AVATAR_ID: 'avatar-green',
   isAvatarId: (photoUrl: string | null | undefined) =>
     !!photoUrl && photoUrl.startsWith('avatar:'),
   getAvatarId: (photoUrl: string) => photoUrl.replace('avatar:', ''),
+  getAvatarVariant: (avatarId: string) =>
+    avatarId.startsWith('avatar-simple-') ? 'simple' : 'beer',
   getAvatarById: (avatarId: string) => {
     const avatars: Record<string, any> = {
       'avatar-green': {
@@ -93,11 +110,22 @@ jest.mock('@/constants/avatars', () => ({
           lightest: '#4da0cf',
         },
       },
+      'avatar-simple-blue': {
+        id: 'avatar-simple-blue',
+        name: 'Blue',
+        colorPalette: {
+          darkest: '#0a3d5d',
+          dark: '#2e6e8e',
+          mid: '#3478a3',
+          light: '#4998c7',
+          lightest: '#4da0cf',
+        },
+      },
     };
     return avatars[avatarId];
   },
   getDefaultAvatar: () => ({
-    id: 'avatar-green',
+    id: 'avatar-simple-green',
     name: 'Green',
     colorPalette: {
       darkest: '#0a5d24',
@@ -117,7 +145,7 @@ describe('PlayerAvatar', () => {
   describe('Rendering', () => {
     it('renders without crashing', () => {
       render(<PlayerAvatar photoUrl={null} />);
-      expect(screen.getByTestId('golfer-icon')).toBeTruthy();
+      expect(screen.getByTestId('simple-golfer-icon')).toBeTruthy();
     });
 
     it('renders with all props', () => {
@@ -166,6 +194,22 @@ describe('PlayerAvatar', () => {
       expect(screen.queryByTestId('app-image')).toBeNull();
       expect(screen.queryByText(/render\/image\/public/)).toBeNull();
     });
+
+    it('renders SimpleGolferIcon for a "simple" bundled avatar', () => {
+      render(<PlayerAvatar photoUrl="avatar:avatar-simple-blue" />);
+
+      expect(screen.getByTestId('simple-golfer-icon')).toBeTruthy();
+      // The beer GolferIcon must NOT be used for simple avatars
+      expect(screen.queryByTestId('golfer-icon')).toBeNull();
+      expect(screen.queryByTestId('app-image')).toBeNull();
+    });
+
+    it('uses the matching palette for a simple bundled avatar', () => {
+      render(<PlayerAvatar photoUrl="avatar:avatar-simple-blue" />);
+
+      const simpleIcon = screen.getByTestId('simple-golfer-icon');
+      expect(simpleIcon.props.accessibilityLabel).toBe('simple-golfer-icon-#3478a3');
+    });
   });
 
   // =========================================================================
@@ -213,32 +257,35 @@ describe('PlayerAvatar', () => {
   // =========================================================================
 
   describe('Null/Undefined Fallback', () => {
-    it('renders default green GolferIcon for null photoUrl', () => {
+    it('renders default simple green icon for null photoUrl', () => {
       render(<PlayerAvatar photoUrl={null} />);
 
-      expect(screen.getByTestId('golfer-icon')).toBeTruthy();
+      // Default avatar is now the first simple avatar (simple green)
+      expect(screen.getByTestId('simple-golfer-icon')).toBeTruthy();
+      expect(screen.queryByTestId('golfer-icon')).toBeNull();
       expect(screen.queryByTestId('app-image')).toBeNull();
 
       // Check it uses default green palette (mid colour)
-      const golferIcon = screen.getByTestId('golfer-icon');
-      expect(golferIcon.props.accessibilityLabel).toBe('golfer-icon-#34953d');
+      const simpleIcon = screen.getByTestId('simple-golfer-icon');
+      expect(simpleIcon.props.accessibilityLabel).toBe('simple-golfer-icon-#34953d');
     });
 
-    it('renders default green GolferIcon for undefined photoUrl', () => {
+    it('renders default simple green icon for undefined photoUrl', () => {
       render(<PlayerAvatar photoUrl={undefined} />);
 
-      expect(screen.getByTestId('golfer-icon')).toBeTruthy();
+      expect(screen.getByTestId('simple-golfer-icon')).toBeTruthy();
+      expect(screen.queryByTestId('golfer-icon')).toBeNull();
       expect(screen.queryByTestId('app-image')).toBeNull();
 
-      // Check it uses default green palette
-      const golferIcon = screen.getByTestId('golfer-icon');
-      expect(golferIcon.props.accessibilityLabel).toBe('golfer-icon-#34953d');
+      const simpleIcon = screen.getByTestId('simple-golfer-icon');
+      expect(simpleIcon.props.accessibilityLabel).toBe('simple-golfer-icon-#34953d');
     });
 
-    it('renders default green GolferIcon for empty string photoUrl', () => {
+    it('renders default simple green icon for empty string photoUrl', () => {
       render(<PlayerAvatar photoUrl="" />);
 
-      expect(screen.getByTestId('golfer-icon')).toBeTruthy();
+      expect(screen.getByTestId('simple-golfer-icon')).toBeTruthy();
+      expect(screen.queryByTestId('golfer-icon')).toBeNull();
       expect(screen.queryByTestId('app-image')).toBeNull();
     });
   });
@@ -506,7 +553,7 @@ describe('PlayerAvatar', () => {
       ).toBeGreaterThan(0);
     });
 
-    it('renders new player avatar with no photo', () => {
+    it('renders new player avatar with no photo (default simple)', () => {
       render(
         <PlayerAvatar
           photoUrl={null}
@@ -515,7 +562,7 @@ describe('PlayerAvatar', () => {
         />
       );
 
-      expect(screen.getByTestId('golfer-icon')).toBeTruthy();
+      expect(screen.getByTestId('simple-golfer-icon')).toBeTruthy();
       expect(screen.getByLabelText("New Player's avatar")).toBeTruthy();
     });
 

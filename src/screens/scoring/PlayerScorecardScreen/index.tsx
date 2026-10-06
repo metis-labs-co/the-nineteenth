@@ -36,6 +36,7 @@ import {
   ScorecardPlayerHeader,
   ScorecardTable,
   ScorecardLoadingState,
+  ScorecardLoadError,
   ScorecardPlayerNotFound,
   ScorecardNoScores,
 } from './components';
@@ -59,6 +60,8 @@ export default function PlayerScorecardScreen({ navigation, route }: Props) {
     back9Holes,
     isLoading,
     isInitialized,
+    isError,
+    refetch,
     isReadOnly,
     startHole,
     // Multi-ball support
@@ -138,7 +141,7 @@ export default function PlayerScorecardScreen({ navigation, route }: Props) {
       playerId: playerId?.substring(0, 8),
     });
     try {
-      await submitScorecards();
+      await submitScorecards({ playerIds: [playerId] });
       scoringLogger.info('SUBMIT: Scorecard submission successful');
 
       // Update round status to completed
@@ -208,6 +211,12 @@ export default function PlayerScorecardScreen({ navigation, route }: Props) {
   // Loading state
   if (isLoading || !isInitialized) {
     return <ScorecardLoadingState />;
+  }
+
+  // Genuine load failure (e.g. a round/scorecard the viewer can't read) — show a
+  // retryable error instead of the misleading "Player not found" empty state.
+  if (isError) {
+    return <ScorecardLoadError onRetry={refetch} />;
   }
 
   // Player not found

@@ -14,6 +14,7 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
+import { fetchPlayersByIds, fetchPlayerListByIds } from '@/services/api/players';
 import { skinsKeys } from '@/hooks/queryKeys';
 import { CACHE_TIMES, GC_TIMES } from '@/constants/cacheConfig';
 import {
@@ -178,13 +179,7 @@ export function useSkinsGame(gameId: string | undefined) {
           if (teamConfig?.teams && teamConfig.teams.length > 0) {
             // Get player details for members
             const allMemberIds = teamConfig.teams.flatMap(t => t.memberIds);
-            const { data: rawPlayers } = await supabase
-              .from('players')
-              .select('id, name, handicap')
-              .in('id', allMemberIds);
-
-            const players = (rawPlayers ?? []) as unknown as PlayerRow[];
-            const playerMap = new Map(players.map(p => [p.id, p]));
+            const playerMap = await fetchPlayersByIds(allMemberIds);
 
             teamParticipants = teamConfig.teams.map(team => ({
               id: team.id,
@@ -212,22 +207,9 @@ export function useSkinsGame(gameId: string | undefined) {
       }
 
       // Individual skins - fetch player participants
-      const { data: rawPlayers, error: playersError } = await supabase
-        .from('players')
-        .select('id, name, handicap')
-        .in('id', game.participant_ids);
-
-      if (playersError) {
-        console.error('[useSkins] Failed to fetch participants:', playersError);
-      }
-
-      const players = (rawPlayers ?? []) as unknown as PlayerRow[];
-
-      const participants: SkinsParticipant[] = players.map((p) => ({
-        id: p.id,
-        name: p.name,
-        handicap: p.handicap,
-      }));
+      const participants: SkinsParticipant[] = await fetchPlayerListByIds(
+        game.participant_ids
+      );
 
       return {
         ...game,
@@ -271,20 +253,7 @@ export function useSkinsGamesByRound(roundId: string | undefined) {
       const allParticipantIds = [...new Set(games.flatMap((g) => g.participant_ids))];
 
       // Fetch all participants in one query
-      const { data: rawPlayers, error: playersError } = await supabase
-        .from('players')
-        .select('id, name, handicap')
-        .in('id', allParticipantIds);
-
-      if (playersError) {
-        console.error('[useSkins] Failed to fetch participants:', playersError);
-      }
-
-      const players = (rawPlayers ?? []) as unknown as PlayerRow[];
-
-      const playerMap = new Map(
-        players.map((p) => [p.id, { id: p.id, name: p.name, handicap: p.handicap }])
-      );
+      const playerMap = await fetchPlayersByIds(allParticipantIds);
 
       return games.map((game) => ({
         ...game,

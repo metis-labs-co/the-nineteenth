@@ -49,6 +49,9 @@ export type {
 export { ScorecardTable } from './ScorecardTable';
 export type { ScorecardTableProps, ScorecardTablePlayer } from './ScorecardTable';
 
+// Multi-ball scorecard table (one card per ball)
+export { ScorecardTableBallsAsPlayers } from './ScorecardTableBallsAsPlayers';
+
 // Match play scorecard table
 export { MatchPlayScorecardTable } from './MatchPlayScorecardTable';
 export type { MatchPlayScorecardTableProps } from './MatchPlayScorecardTable';

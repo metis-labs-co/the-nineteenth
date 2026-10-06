@@ -21,6 +21,8 @@ function makeSubMatch(
     status: 'upcoming',
     result: null,
     final_differential: null,
+    final_holes_remaining: null,
+    manual_result: false,
     team_a_net_total: null,
     team_b_net_total: null,
     created_at: '2026-01-01T00:00:00Z',

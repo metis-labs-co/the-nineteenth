@@ -18,7 +18,7 @@ import { ScoreIndicator } from '@/components/scorecard';
 import { displayHoleNumber } from '@/utils/holeTransformers';
 import { formatHandicapIndex } from '@/utils/displayHelpers';
 import { ScorecardTableMultiBall } from './ScorecardTableMultiBall';
-import { ScorecardTableBallsAsPlayers } from './ScorecardTableBallsAsPlayers';
+import { ScorecardTableBallsAsPlayers } from '@/components/scorecard';
 import type { HoleRowData, PlayerStats, MultiBallHoleRowData, MultiBallStats } from '../hooks';
 import type { BallCount } from '@/types/multiball.types';
 import type { ScorecardViewMode } from './ScorecardPlayerHeader';

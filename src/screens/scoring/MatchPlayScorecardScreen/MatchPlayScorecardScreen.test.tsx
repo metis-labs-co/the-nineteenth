@@ -99,6 +99,12 @@ jest.mock('@/utils/debugLogger', () => ({
     error: jest.fn(),
     warn: jest.fn(),
   },
+  createModuleLogger: () => ({
+    debug: jest.fn(),
+    info: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
+  }),
 }));
 
 // Mock playing handicap calculation so the test doesn't pull in the

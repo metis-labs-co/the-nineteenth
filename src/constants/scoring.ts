@@ -78,9 +78,24 @@ export const DEFAULT_HANDICAP = 18;
 export const MAX_HANDICAP = 54;
 
 /**
- * Minimum handicap (scratch or better)
+ * Minimum handicap. Negative values are "plus" handicaps (better than scratch),
+ * which are valid for elite players, so the floor is -5 rather than 0.
  */
-export const MIN_HANDICAP = 0;
+export const MIN_HANDICAP = -5;
+
+/**
+ * Shared "out of range" message for handicap inputs, so every form reads the
+ * same bounds.
+ */
+export const HANDICAP_RANGE_ERROR = `Handicap must be between ${MIN_HANDICAP} and ${MAX_HANDICAP}`;
+
+/**
+ * Whether a numeric handicap is within the allowed range. Returns false for
+ * NaN, so callers can use it as the sole range check.
+ */
+export function isHandicapInRange(value: number): boolean {
+  return !Number.isNaN(value) && value >= MIN_HANDICAP && value <= MAX_HANDICAP;
+}
 
 /**
  * Number of holes in a full round

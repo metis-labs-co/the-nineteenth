@@ -13,7 +13,7 @@
  * - Skip button (always visible)
  * - Progress dots
  * - Push notification permission request
- * - Handicap input with validation (0-54)
+ * - Handicap input with validation (-5 to 54)
  * - Home club selection (optional)
  */
 
@@ -32,10 +32,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/hooks/useAuth';
 import { useScreenInfoStore } from '@/store/screenInfoStore';
 import { spacing, typography } from '@/constants/theme';
+import { MAX_HANDICAP } from '@/constants/scoring';
 import { ThemeProvider, useThemeColors } from '@/context/ThemeContext';
 
 // Step components
 import NameCaptureStep from './components/NameCaptureStep';
+import { AgeCheckStep } from './components/AgeCheckStep';
 import NotificationsStep from './components/NotificationsStep';
 import HandicapCaptureStep from './components/HandicapCaptureStep';
 import HomeClubStep from './components/HomeClubStep';
@@ -63,10 +65,19 @@ export interface StepProps {
   setHomeClubId: (value: string | undefined) => void;
   playerName?: string;
   isSubmitting: boolean;
+  /**
+   * Whether this card is the one currently on screen.
+   *
+   * Every step is mounted eagerly (FlatList data={STEPS}), so a step that
+   * triggers a system prompt must wait for this rather than firing on mount.
+   * Only AgeCheckStep reads it today.
+   */
+  isActive: boolean;
 }
 
 const STEPS: StepItem[] = [
   { key: 'name', component: NameCaptureStep },
+  { key: 'age', component: AgeCheckStep },
   { key: 'notifications', component: NotificationsStep },
   { key: 'handicap', component: HandicapCaptureStep },
   { key: 'homeClub', component: HomeClubStep },
@@ -130,7 +141,7 @@ function OnboardingContent() {
       setIsSubmitting(true);
       try {
         const handicapValue =
-          skipHandicap || !handicap ? 54 : parseFloat(handicap);
+          skipHandicap || !handicap ? MAX_HANDICAP : parseFloat(handicap);
 
         // Reset screen welcome modals so they show for first-time users
         resetAllScreensSeen();
@@ -195,11 +206,12 @@ function OnboardingContent() {
             setHomeClubId={setHomeClubId}
             playerName={player?.name}
             isSubmitting={isSubmitting}
+            isActive={index === currentStep}
           />
         </View>
       );
     },
-    [handleNext, handleComplete, handleSkip, handicap, firstName, lastName, homeClubId, player?.name, isSubmitting]
+    [handleNext, handleComplete, handleSkip, handicap, firstName, lastName, homeClubId, player?.name, isSubmitting, currentStep]
   );
 
   return (

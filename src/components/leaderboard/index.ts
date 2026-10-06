@@ -44,6 +44,10 @@ export type { StrokePlayLeaderboardProps } from './StrokePlayLeaderboard';
 export { MatchPlayLeaderboard } from './MatchPlayLeaderboard';
 export type { MatchPlayLeaderboardProps } from './MatchPlayLeaderboard';
 
+export { SubMatchLeaderboardTab } from './SubMatchLeaderboardTab';
+
+export { RoundSubMatchLeaderboard } from './RoundSubMatchLeaderboard';
+
 // Utilities
 export {
   getGameTypeLabel,

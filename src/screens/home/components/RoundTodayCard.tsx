@@ -10,7 +10,7 @@ import { WeatherStrip } from './WeatherStrip';
 import { SectionHeader } from './SectionHeader';
 import type { RootStackParamList } from '@/navigation/types';
 import type { RoundWithCourse } from '@/components/competitions/detail/types';
-import { formatDisplayDate } from '@/utils/locale';
+import { formatDayLabel } from './dateLabels';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -30,23 +30,6 @@ function formatTeeTime(teeTime: string | null): string {
   const hour12 = h % 12 === 0 ? 12 : h % 12;
   const minStr = String(m).padStart(2, '0');
   return `${hour12}:${minStr} ${period}`;
-}
-
-function localDateStr(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
-
-function formatDayLabel(dateIso: string | null): string {
-  if (!dateIso) return '';
-  const today = localDateStr(new Date());
-  if (dateIso === today) return 'Today';
-  const tomorrow = localDateStr(new Date(Date.now() + 24 * 60 * 60 * 1000));
-  if (dateIso === tomorrow) return 'Tomorrow';
-  const d = new Date(`${dateIso}T00:00:00`);
-  return formatDisplayDate(d, { weekday: 'long' });
 }
 
 export const RoundTodayCard = React.memo(function RoundTodayCard({

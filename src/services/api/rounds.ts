@@ -284,3 +284,40 @@ export async function getCompetitionResults(competitionId: string): Promise<Roun
     updatedAt: new Date(r.updated_at),
   }));
 }
+
+/**
+ * Return the subset of `roundIds` that have an active or completed side-game of
+ * the given kind (skins or wolf), as a Set for O(1) membership tests when
+ * stamping a `has_skins`/`has_wolf` flag onto a round list.
+ *
+ * Resilient by design: an empty id list short-circuits without a query, and any
+ * error — including the `PGRST205` "table not found" on older deployments — is
+ * swallowed and yields an empty Set, so a missing side-game table never breaks
+ * the round list.
+ */
+export async function fetchRoundIdsWithSideGame(
+  table: 'skins_games' | 'wolf_games',
+  roundIds: string[]
+): Promise<Set<string>> {
+  if (roundIds.length === 0) return new Set();
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
+    const { data, error } = await (supabase.from(table) as any)
+      .select('round_id')
+      .in('round_id', roundIds)
+      .in('status', ['active', 'completed']);
+
+    if (error) {
+      if (error.code !== 'PGRST205') {
+        console.error(`[fetchRoundIdsWithSideGame] ${table} error:`, error);
+      }
+      return new Set();
+    }
+
+    return new Set(((data ?? []) as { round_id: string }[]).map((r) => r.round_id));
+  } catch {
+    // Table may not exist on older deployments.
+    return new Set();
+  }
+}

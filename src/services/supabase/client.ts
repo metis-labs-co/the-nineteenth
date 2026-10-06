@@ -10,8 +10,8 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Database } from '@/types/database.types';
+import { secureSessionStorage } from './secureStorage';
 
 // Environment variables (from .env)
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
@@ -36,8 +36,8 @@ if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
  */
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
-    // Use AsyncStorage for session persistence
-    storage: AsyncStorage,
+    // Encrypt persisted sessions and migrate the legacy AsyncStorage value.
+    storage: secureSessionStorage,
 
     // Auto-refresh tokens 60 seconds before expiry
     autoRefreshToken: true,

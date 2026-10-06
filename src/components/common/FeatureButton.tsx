@@ -55,6 +55,13 @@ interface FeatureButtonProps {
    * Layout variant - 'horizontal' (default) or 'compact' for side-by-side
    */
   variant?: 'horizontal' | 'compact';
+  /**
+   * When true, renders as an outlined button (surface background with a colored
+   * border and matching content) instead of a solid filled button. The accent
+   * color is taken from `backgroundColor` (defaults to primary). Use for
+   * non-AI actions, since solid purple/accent fills are reserved for AI buttons.
+   */
+  outlined?: boolean;
 }
 
 /**
@@ -85,11 +92,17 @@ export const FeatureButton = React.memo(function FeatureButton({
   style,
   showChevron = true,
   variant = 'horizontal',
+  outlined = false,
 }: FeatureButtonProps) {
   const colors = useThemeColors();
 
-  const buttonBackgroundColor = backgroundColor ?? colors.primary;
+  const accentColor = backgroundColor ?? colors.primary;
   const isCompact = variant === 'compact';
+
+  // Filled buttons use the accent as the fill with white content; outlined
+  // buttons use a surface fill with the accent as the border + content color.
+  const buttonBackgroundColor = outlined ? colors.surface : accentColor;
+  const contentColor = outlined ? accentColor : colors.white;
 
   return (
     <TouchableOpacity
@@ -97,6 +110,8 @@ export const FeatureButton = React.memo(function FeatureButton({
         styles.container,
         isCompact && styles.containerCompact,
         { backgroundColor: buttonBackgroundColor },
+        outlined && { borderWidth: 1, borderColor: accentColor },
+        outlined && shadows.none,
         disabled && styles.containerDisabled,
         style,
       ]}
@@ -108,12 +123,20 @@ export const FeatureButton = React.memo(function FeatureButton({
       accessibilityState={{ disabled }}
       testID={testID}
     >
-      <View style={[styles.iconContainer, isCompact && styles.iconContainerCompact]}>{icon}</View>
-      <View style={[styles.textContainer, isCompact && styles.textContainerCompact]}>
-        <Text style={[styles.title, { color: colors.white }, isCompact && styles.titleCompact]} numberOfLines={1}>{title}</Text>
-        <Text style={[styles.subtitle, { color: colors.white }, isCompact && styles.subtitleCompact]} numberOfLines={1}>{subtitle}</Text>
+      <View
+        style={[
+          styles.iconContainer,
+          isCompact && styles.iconContainerCompact,
+          outlined && styles.iconContainerOutlined,
+        ]}
+      >
+        {icon}
       </View>
-      {showChevron && <IconChevronRight size={24} color={colors.white} />}
+      <View style={[styles.textContainer, isCompact && styles.textContainerCompact]}>
+        <Text style={[styles.title, { color: contentColor }, isCompact && styles.titleCompact]} numberOfLines={1}>{title}</Text>
+        <Text style={[styles.subtitle, { color: contentColor }, isCompact && styles.subtitleCompact]} numberOfLines={1}>{subtitle}</Text>
+      </View>
+      {showChevron && <IconChevronRight size={24} color={contentColor} />}
     </TouchableOpacity>
   );
 });
@@ -151,6 +174,11 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     marginRight: spacing.sm,
+  },
+  iconContainerOutlined: {
+    // No translucent white wash on a surface background; let the icon's own
+    // color carry the accent.
+    backgroundColor: 'transparent',
   },
   textContainer: {
     flex: 1,

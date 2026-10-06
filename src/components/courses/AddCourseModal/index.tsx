@@ -107,6 +107,7 @@ export function AddCourseModal({ visible, onClose, onVenueCreated }: AddCourseMo
 
   return (
     <Modal
+      testID="add-course-modal"
       visible={visible}
       animationType="slide"
       presentationStyle="fullScreen"

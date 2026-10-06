@@ -14,6 +14,7 @@
 
 import { STANDARD_SLOPE_RATING } from '@/constants/scoring';
 import type { DailyHandicapParams, DailyHandicapResult } from '@/types/handicap.types';
+import type { NineType } from '@/types/database/enums';
 
 // =====================================================
 // CONSTANTS
@@ -112,5 +113,88 @@ export function calculateGADailyHandicap(params: DailyHandicapParams): DailyHand
     dailyHandicap,
     courseHandicap: Math.round(courseHandicap * 10) / 10, // 1 decimal place
     consistencyFactor,
+  };
+}
+
+/**
+ * Parameters for the nine-aware daily handicap calculation.
+ */
+export interface NineAwareDailyHandicapParams {
+  /** Player's WHS Handicap Index */
+  gaHandicap: number;
+  /** Which holes are being played: 'full' (18), 'front9', or 'back9' */
+  nineType: NineType;
+  /**
+   * Par of the holes actually being played. For a 9-hole round this is the
+   * 9-hole par (~36), NOT the full course par. The caller is expected to pass
+   * the par summed over the holes it is scoring.
+   */
+  par: number;
+  /** Full 18-hole slope rating for the tee */
+  slopeRating?: number;
+  /** Full 18-hole course rating for the tee */
+  courseRating?: number;
+  /** Dedicated 9-hole ratings, when the tee provides them */
+  slopeRatingFront9?: number;
+  courseRatingFront9?: number;
+  slopeRatingBack9?: number;
+  courseRatingBack9?: number;
+  /** Player gender for consistency factor */
+  gender?: 'male' | 'female' | null;
+}
+
+/**
+ * Calculate a daily handicap that is correct for 9-hole rounds.
+ *
+ * WHS pitfall: a daily handicap pairs a `courseRating − par` term. For a 9-hole
+ * round the par is the 9-hole par (~36), so the course rating MUST also be a
+ * 9-hole rating (~36). Pairing the full 18-hole course rating (~72) with a
+ * 9-hole par inflates the result by roughly +36 strokes.
+ *
+ * Resolution order for a 9-hole round:
+ * 1. Use the tee's dedicated 9-hole slope/course ratings when present.
+ * 2. Otherwise compute the full 18-hole daily handicap (par × 2 to rebuild the
+ *    18-hole par) and halve it.
+ *
+ * This is the single source of truth shared by the on-course scoring display
+ * and the scorecard sync/persistence path so the two can never diverge.
+ */
+export function calculateNineAwareDailyHandicap(
+  params: NineAwareDailyHandicapParams,
+): DailyHandicapResult {
+  const { gaHandicap, nineType, par, slopeRating, courseRating, gender } = params;
+
+  if (nineType === 'full') {
+    return calculateGADailyHandicap({ gaHandicap, slopeRating, courseRating, par, gender });
+  }
+
+  const nineCr = nineType === 'front9' ? params.courseRatingFront9 : params.courseRatingBack9;
+  const nineSlope = nineType === 'front9' ? params.slopeRatingFront9 : params.slopeRatingBack9;
+
+  // Dedicated 9-hole ratings available: use them directly against the 9-hole par.
+  if (nineCr != null) {
+    return calculateGADailyHandicap({
+      gaHandicap,
+      slopeRating: nineSlope ?? slopeRating,
+      courseRating: nineCr,
+      par,
+      gender,
+    });
+  }
+
+  // No 9-hole ratings: compute the full 18-hole daily handicap (par × 2 rebuilds
+  // the 18-hole par so it matches the 18-hole course rating), then halve.
+  const fullResult = calculateGADailyHandicap({
+    gaHandicap,
+    slopeRating,
+    courseRating,
+    par: par * 2,
+    gender,
+  });
+
+  return {
+    dailyHandicap: Math.round(fullResult.dailyHandicap / 2),
+    courseHandicap: Math.round((fullResult.courseHandicap / 2) * 10) / 10,
+    consistencyFactor: fullResult.consistencyFactor,
   };
 }

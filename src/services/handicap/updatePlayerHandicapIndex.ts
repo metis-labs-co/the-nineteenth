@@ -12,6 +12,7 @@ import { supabase } from '@/services/supabase/client';
 import type { PostgrestError } from '@supabase/supabase-js';
 import { queryClient } from '@/services/queryClient';
 import { calculateHandicapIndex } from '@/utils/handicapDifferential';
+import { isSharedBallRound } from '@/utils/roundFormat';
 import { syncLogger } from '@/utils/debugLogger';
 
 /**
@@ -40,7 +41,7 @@ export async function updatePlayerHandicapIndex(playerId: string): Promise<void>
     // combined via handicap_combined_rounds.
     const { data: scorecards, error: fetchError } = await supabase
       .from('scorecards')
-      .select('handicap_differential, submitted_at, rounds!inner(nine_type)')
+      .select('handicap_differential, submitted_at, rounds!inner(nine_type, game_type, team_format)')
       .eq('player_id', playerId)
       .in('status', ['completed', 'confirmed'])
       .not('handicap_differential', 'is', null)
@@ -48,7 +49,11 @@ export async function updatePlayerHandicapIndex(playerId: string): Promise<void>
       .eq('rounds.nine_type', 'full')
       .order('submitted_at', { ascending: false })
       .limit(20) as unknown as {
-        data: { handicap_differential: number | null; submitted_at: string | null }[] | null;
+        data: {
+          handicap_differential: number | null;
+          submitted_at: string | null;
+          rounds: { game_type: string | null; team_format: string | null } | null;
+        }[] | null;
         error: PostgrestError | null;
       };
 
@@ -93,6 +98,11 @@ export async function updatePlayerHandicapIndex(playerId: string): Promise<void>
     const entries: DiffEntry[] = [];
     if (haveScorecards) {
       for (const sc of scorecards!) {
+        // Defense-in-depth: never let a shared-ball team round (scramble,
+        // alt-shot) influence the index even if a stale differential survived
+        // the backfill. The canonical guard is the null differential written
+        // at sync time; this is a backstop.
+        if (isSharedBallRound(sc.rounds ?? {})) continue;
         if (sc.handicap_differential != null) {
           entries.push({
             differential: sc.handicap_differential,

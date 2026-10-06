@@ -8,3 +8,6 @@ export { EditDatesSheet } from './EditDatesSheet';
 export { EditCompetitionRulesSheet, detectActivePreset } from './EditCompetitionRulesSheet';
 export { EditScoringRulesModeSheet } from './EditScoringRulesModeSheet';
 export { EditWhatsAppLinkSheet } from './EditWhatsAppLinkSheet';
+export { EditVisibilitySheet } from './EditVisibilitySheet';
+export { PointsConfigSheet } from './PointsConfigSheet';
+export type { PointsConfigSheetProps } from './PointsConfigSheet';

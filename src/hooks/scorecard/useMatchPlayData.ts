@@ -17,9 +17,12 @@ import { supabase } from '@/services/supabase/client';
 import { saveScorecard } from '@/services/offline/database';
 import { roundDataLogger } from '@/utils/debugLogger';
 import { getDisplayName } from '@/utils/displayHelpers';
+import { filterHolesByNineType } from '@/utils/holeTransformers';
 import { useRoundDetails, useRoundPlayers } from '@/hooks/useRoundDetails';
 import { useRoundCourse } from './useRoundCourse';
 import type { Player, Scorecard, Hole, TeeBox } from '@/types';
+import type { HandicapSource } from '@/types/database';
+import type { NineType } from '@/types/database/enums';
 import type { HoleScore } from '@/types/database/base';
 import type { MatchPlayer } from '@/screens/scoring/MatchPlayScoringScreen/types';
 
@@ -72,6 +75,8 @@ export function useMatchPlayData({
     currentRoundId,
     currentPlayers,
     isInitialized,
+    holes: storeHoles,
+    nineType: storeNineType,
     loadFromOffline,
     initializeRound,
     resetRound,
@@ -93,6 +98,13 @@ export function useMatchPlayData({
 
   // Fetch course and hole data
   const courseHook = useRoundCourse(roundId);
+
+  // The round's nine_type from the server (null until metadata resolves).
+  // Match play rounds can be front9/back9; using the raw 18-hole course
+  // array without this filter was the cause of 9-hole rounds resuming as
+  // 18-hole matches with a permanently-blocked submit gate.
+  const roundNineType: NineType | null =
+    (roundData?.nine_type as NineType | undefined) ?? null;
 
   // Extract player data
   const player1: MatchPlayer = useMemo(() => {
@@ -151,6 +163,10 @@ export function useMatchPlayData({
     };
   }, [player2Id, playersData]);
 
+  // One-shot guard so a nine_type divergence only triggers a single reset
+  // per (round, nine_type) — prevents reset loops if re-init fails.
+  const nineTypeResetRef = useRef<string | null>(null);
+
   // Initialize the scorecard store
   const initializeMatchData = useCallback(async () => {
     roundDataLogger.info('useMatchPlayData: initializeMatchData called', {
@@ -160,12 +176,37 @@ export function useMatchPlayData({
       isInitialized,
       currentRoundId: currentRoundId?.substring(0, 8),
       currentPlayersCount: currentPlayers.length,
+      roundNineType,
+      storeNineType,
     });
 
-    // Skip if store is already initialized for this round
-    if (isInitialized && currentPlayers.length > 0 && currentRoundId === roundId) {
+    const initializedForRound =
+      isInitialized && currentPlayers.length > 0 && currentRoundId === roundId;
+
+    // If the store's nine_type diverges from the round's (poisoned resume
+    // state, or the user changed nine_type in EditNineTypeSheet), reset and
+    // rebuild. loadFromOffline below re-filters holes to the round's current
+    // nine_type while preserving locally-scored scorecards.
+    const nineTypeDiverged =
+      initializedForRound && roundNineType !== null && storeNineType !== roundNineType;
+
+    if (initializedForRound && !nineTypeDiverged) {
       roundDataLogger.info('Store already initialized for this round');
       return;
+    }
+
+    if (nineTypeDiverged) {
+      const resetKey = `${roundId}:${roundNineType}`;
+      if (nineTypeResetRef.current === resetKey) {
+        return; // already attempted recovery for this nine_type
+      }
+      nineTypeResetRef.current = resetKey;
+      roundDataLogger.info('Resetting store - nine_type diverged from round', {
+        roundId: roundId?.substring(0, 8),
+        storeNineType,
+        roundNineType,
+      });
+      resetRound();
     }
 
     // If store has data from a different round, reset it
@@ -199,8 +240,16 @@ export function useMatchPlayData({
       return;
     }
 
-    // Need hole data to initialize
-    const holes = courseHook.holes;
+    // Never initialize with an unknown nine_type: defaulting to 'full' here
+    // would rebuild a front9/back9 round as 18 holes AND overwrite the SQLite
+    // scorecards with blanks. Wait for metadata (React Query retries).
+    if (roundNineType === null) {
+      roundDataLogger.warn('nine_type not yet known - deferring init');
+      return;
+    }
+
+    // Need hole data to initialize (filtered to the round's nine_type)
+    const holes = filterHolesByNineType(courseHook.holes, roundNineType);
     if (holes.length === 0) {
       roundDataLogger.warn('No holes data available');
       return;
@@ -226,15 +275,28 @@ export function useMatchPlayData({
       },
     ];
 
-    // Initialize round with match play game type
+    // Initialize round with match play game type, carrying the round's real
+    // config (nine_type, tee, handicap source) so a resume matches creation.
     roundDataLogger.info('Initializing match play round', {
       roundId: roundId?.substring(0, 8),
       player1: player1.name,
       player2: player2.name,
       holeCount: holes.length,
+      nineType: roundNineType,
     });
 
-    await initializeRound(roundId, matchPlayers, holes, 'match-play');
+    await initializeRound(
+      roundId,
+      matchPlayers,
+      holes,
+      'match-play',
+      false,
+      [],
+      roundData?.selected_tee ?? null,
+      (roundData?.handicap_source as HandicapSource | undefined) ?? 'profile',
+      new Map(),
+      roundNineType
+    );
   }, [
     roundId,
     player1Id,
@@ -244,6 +306,10 @@ export function useMatchPlayData({
     isInitialized,
     currentRoundId,
     currentPlayers.length,
+    roundNineType,
+    storeNineType,
+    roundData?.selected_tee,
+    roundData?.handicap_source,
     isRoundLoading,
     isPlayersLoading,
     courseHook.isLoading,
@@ -371,10 +437,25 @@ export function useMatchPlayData({
   // Get selected tee from round data
   const selectedTee: TeeBox | undefined = roundData?.selected_tee ?? undefined;
 
+  // Holes for the match: the store's (already nine-filtered) holes are the
+  // source of truth once initialized for this round; before that, filter the
+  // raw course holes by the round's nine_type. Returning the raw 18-hole
+  // array here made every completion/submit gate compare against 18 for
+  // front9/back9 rounds.
+  const matchHoles: Hole[] = useMemo(() => {
+    if (isInitialized && currentRoundId === roundId && storeHoles.length > 0) {
+      return storeHoles;
+    }
+    if (roundNineType !== null) {
+      return filterHolesByNineType(courseHook.holes, roundNineType);
+    }
+    return courseHook.holes;
+  }, [isInitialized, currentRoundId, roundId, storeHoles, roundNineType, courseHook.holes]);
+
   return {
     player1,
     player2,
-    holes: courseHook.holes,
+    holes: matchHoles,
     courseId: roundData?.course?.id ?? courseHook.course?.id ?? null,
     courseName: roundData?.course?.name || courseHook.course?.name || null,
     clubName: roundData?.course?.club?.name || null,

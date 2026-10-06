@@ -11,6 +11,7 @@ import type {
   CompositeScreenProps,
   NavigatorScreenParams,
 } from '@react-navigation/native';
+import type { RoundTypeFilter } from '@/screens/rounds/RoundListScreen/types';
 
 /**
  * Root Stack - Top-level navigation
@@ -32,7 +33,24 @@ export type RootStackParamList = {
   MainTabs: NavigatorScreenParams<TabParamList> | undefined;
 
   // Competitions
-  CompetitionDetail: { id: string };
+  CompetitionDetail: {
+    id: string;
+    /**
+     * Optional tab to focus on mount / when navigated back to. Used by the
+     * round detail back button to return the user to the Rounds tab.
+     */
+    initialTab?:
+      | 'details'
+      | 'rounds'
+      | 'players'
+      | 'teams'
+      | 'leaderboard'
+      | 'bracket'
+      | 'stats'
+      | 'payouts'
+      | 'skins'
+      | 'breakdown';
+  };
   CreateCompetition: { initialState?: import('@/utils/aiToWizardState').WizardState } | undefined;
   AICompetition: undefined;
   CompetitionSettings: { competitionId: string };
@@ -40,7 +58,7 @@ export type RootStackParamList = {
   // Rounds
   Rounds: { competitionId: string };
   RoundDetail: { id: string };
-  AllRounds: undefined; // Full standalone-rounds list (formerly the Rounds tab)
+  AllRounds: { initialFilter?: RoundTypeFilter } | undefined; // Full standalone-rounds list (formerly the Rounds tab)
   ScheduledRound: { roundId: string }; // Upcoming scheduled round detail + start-day flow
   AddRound: { competitionId: string };
   EditRound: { roundId: string; competitionId?: string }; // Edit round details (organizers only)
@@ -169,6 +187,7 @@ export type RootStackParamList = {
   Friends: { fromProfile?: boolean } | undefined;
 
   // Activity Feed
+  Activity: undefined; // Global activity feed (formerly the Activity tab)
   RoundActivity: { roundId: string }; // Likes/comments/photos for a single round
   RoundPhotos: { roundId: string; canAdd?: boolean }; // Shared photo album for a single round (canAdd defaults true)
 
@@ -233,6 +252,7 @@ export type RootStackParamList = {
 
   // Privacy & Data
   PrivacyData: undefined;
+  BlockedUsers: undefined;
 
   // Country / Region
   CountryRegion: undefined;
@@ -254,7 +274,7 @@ export type RootStackParamList = {
 export type TabParamList = {
   HomeTab: undefined;
   CompeteTab: undefined;
-  ActivityTab: undefined;
+  RoundsTab: undefined;
   CoursesTab: undefined;
   ProfileTab: undefined;
 };

@@ -164,9 +164,9 @@ describe('BestBallScoreView', () => {
 
       // Each player should show their HC and shots on hole
       // John (HC: 15), Jane (HC: 20), Bob (HC: 10)
-      expect(screen.getByText(/HC: 15/)).toBeTruthy();
-      expect(screen.getByText(/HC: 20/)).toBeTruthy();
-      expect(screen.getByText(/HC: 10/)).toBeTruthy();
+      expect(screen.getByText(/HC 15/)).toBeTruthy();
+      expect(screen.getByText(/HC 20/)).toBeTruthy();
+      expect(screen.getByText(/HC 10/)).toBeTruthy();
     });
 
     it('renders score controls for each player', () => {
@@ -250,7 +250,7 @@ describe('BestBallScoreView', () => {
       render(<BestBallScoreView {...props} />);
 
       // Should show shots text for each player
-      // Format: "HC: X • +Y shot(s)"
+      // Format: "HC X • +Y shot(s)"
       const shotTexts = screen.getAllByText(/shot/);
       expect(shotTexts.length).toBe(3);
     });
@@ -726,7 +726,7 @@ describe('BestBallScoreView', () => {
       const props = createDefaultProps({ team: highHCTeam });
       render(<BestBallScoreView {...props} />);
 
-      expect(screen.getByText(/HC: 54/)).toBeTruthy();
+      expect(screen.getByText(/HC 54/)).toBeTruthy();
     });
 
     it('handles zero handicap player', () => {
@@ -734,7 +734,7 @@ describe('BestBallScoreView', () => {
       const props = createDefaultProps({ team: scratchTeam });
       render(<BestBallScoreView {...props} />);
 
-      expect(screen.getByText(/HC: 0/)).toBeTruthy();
+      expect(screen.getByText(/HC 0/)).toBeTruthy();
     });
 
     it('handles all players picked up', () => {

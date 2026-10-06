@@ -292,12 +292,18 @@ export function useSearchPlayers(searchQuery: string) {
     queryFn: async (): Promise<PlayerSearchResult[]> => {
       if (!user?.id || !searchQuery.trim()) return [];
 
-      const { data: players, error: playersError } = await supabase
-        .from('players')
-        .select('*')
-        .neq('id', user.id)
-        .ilike('name', `%${searchQuery}%`)
-        .limit(20);
+      // Goes through search_players() rather than querying the table directly.
+      // The players SELECT policy is a blanket USING (TRUE) that competitions,
+      // leaderboards and pairings depend on, so the age gate cannot live there.
+      // The RPC applies it, and returns only id/name/photo_url/handicap - never
+      // email or phone.
+      // `as any` matches the existing convention for RPCs absent from the
+      // generated database types (see useAchievementLeaderboard). Drop the cast
+      // once 20260904000100 is applied and types are regenerated.
+      const { data: players, error: playersError } = await (supabase as any).rpc(
+        'search_players',
+        { p_query: searchQuery }
+      );
 
       if (playersError) {
         console.error('Error searching players:', playersError);
@@ -330,7 +336,9 @@ export function useSearchPlayers(searchQuery: string) {
         friendshipMap.set(otherId, { status: f.status, direction });
       });
 
-      return (players as Player[]).map((player) => {
+      type SearchRow = Pick<PlayerSearchResult, 'id' | 'name' | 'photo_url' | 'handicap'>;
+
+      return (players as SearchRow[]).map((player) => {
         const friendship = friendshipMap.get(player.id);
         const isFriend = friendship?.status === 'accepted';
         const hasPending = friendship?.status === 'pending';

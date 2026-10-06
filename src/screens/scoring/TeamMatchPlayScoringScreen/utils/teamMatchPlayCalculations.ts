@@ -127,7 +127,7 @@ export function getTeamMatchStatusText(
  * Get individual team's match status from their perspective
  * @param matchStatus - The overall match status
  * @param team - Which team's perspective ('team1' or 'team2')
- * @returns TeamMatchStatusDisplay with text like "1 UP", "2 DN", "AS"
+ * @returns TeamMatchStatusDisplay with text like "1 UP", "2 DN", "A/S"
  */
 export function getTeamMatchStatusDisplay(
   matchStatus: TeamMatchStatus,
@@ -137,7 +137,7 @@ export function getTeamMatchStatusDisplay(
   if (matchStatus.status === 'complete') {
     if (matchStatus.winner === 'halved') {
       return {
-        text: 'AS',
+        text: 'A/S',
         fullText: 'All Square',
         type: 'halved',
         holesUpDown: 0,
@@ -156,7 +156,7 @@ export function getTeamMatchStatusDisplay(
   // Match in progress - all square
   if (matchStatus.leader === null) {
     return {
-      text: 'AS',
+      text: 'A/S',
       fullText: 'All Square',
       type: 'square',
       holesUpDown: 0,

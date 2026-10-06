@@ -13,6 +13,8 @@ interface StrokePlayLeaderboardTabProps {
   holes: Hole[];
   getPlayerScore: (playerId: string, holeNumber: number) => HoleScore | MultiBallHoleScore | undefined;
   currentUserId: string | undefined;
+  /** Map of playerId → daily handicap so net matches the scorecard. */
+  dailyHandicaps?: Record<string, number>;
 }
 
 export function StrokePlayLeaderboardTab({
@@ -20,6 +22,7 @@ export function StrokePlayLeaderboardTab({
   holes,
   getPlayerScore,
   currentUserId,
+  dailyHandicaps,
 }: StrokePlayLeaderboardTabProps) {
   return (
     <View style={styles.leaderboardTabContent}>
@@ -28,6 +31,7 @@ export function StrokePlayLeaderboardTab({
         holes={holes}
         getPlayerScore={getPlayerScore}
         currentUserId={currentUserId}
+        dailyHandicaps={dailyHandicaps}
       />
     </View>
   );

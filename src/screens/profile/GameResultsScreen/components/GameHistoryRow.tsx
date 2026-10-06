@@ -10,6 +10,7 @@ import { View, StyleSheet } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
+import { formatDateDisplay } from '@/utils/formatting';
 import type { CombinedGameHistoryEntry } from '@/hooks/useGameResults';
 
 interface GameHistoryRowProps {
@@ -18,16 +19,11 @@ interface GameHistoryRowProps {
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return '';
-  try {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString(undefined, {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
-  } catch {
-    return '';
-  }
+  return formatDateDisplay(dateStr, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
 }
 
 function formatCurrency(value: number): string {

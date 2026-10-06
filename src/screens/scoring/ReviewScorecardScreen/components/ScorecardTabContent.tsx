@@ -17,9 +17,17 @@ import {
 import { Text } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
-import { ScorecardTable, ScrambleTeamSelector, ScrambleScorecardTable } from '@/components/scorecard';
+import {
+  ScorecardTable,
+  ScorecardTableBallsAsPlayers,
+  ScrambleTeamSelector,
+  ScrambleScorecardTable,
+} from '@/components/scorecard';
 import type { ScorecardTablePlayer } from '@/components/scorecard';
 import type { ScoreDisplayMode } from '@/components/scorecard/ScorecardTable/types';
+import { buildMultiBallHoleData, buildMultiBallStats } from '@/utils/multiBallScorecard';
+import { calculatePlayerStats } from '@/utils/scorecardCalculations';
+import type { BallCount } from '@/types/multiball.types';
 import type { Player, Hole, HoleScore, MultiBallHoleScore, GameType, TeeBox } from '@/types';
 import type { HandicapSource } from '@/types/database/enums';
 import type { ScrambleTeam } from '../hooks/useScrambleTeams';
@@ -40,6 +48,9 @@ interface ScorecardTabContentProps {
   handicapSource?: HandicapSource;
   /** Display offset for combo / cross-nine courses (default 1). */
   startHole?: number;
+  /** True for solo practice rounds scored with more than one ball. */
+  isMultiBall?: boolean;
+  ballCount?: BallCount;
 }
 
 export function ScorecardTabContent({
@@ -57,9 +68,45 @@ export function ScorecardTabContent({
   selectedTeeData,
   handicapSource,
   startHole = 1,
+  isMultiBall = false,
+  ballCount = 1,
 }: ScorecardTabContentProps) {
   const colors = useThemeColors();
   const { width: screenWidth } = useWindowDimensions();
+
+  // Multi-ball is a solo practice format, so it only applies to a lone player.
+  const multiBallPlayer =
+    isMultiBall && ballCount > 1 && tablePlayerData.length === 1
+      ? tablePlayerData[0]
+      : undefined;
+
+  const multiBall = React.useMemo(() => {
+    if (!multiBallPlayer) return undefined;
+
+    // Reuse the table's own handicap resolution so strokes received — and
+    // therefore per-ball points — match what the single-ball table would show.
+    const [stats] = calculatePlayerStats(
+      [multiBallPlayer],
+      holes,
+      selectedTeeData,
+      handicapSource
+    );
+    const dailyHandicap = stats?.dailyHandicap ?? 0;
+
+    const holeData = buildMultiBallHoleData({
+      holes,
+      scores: multiBallPlayer.scores,
+      dailyHandicap,
+      ballCount,
+    });
+
+    return {
+      dailyHandicap,
+      front9: holeData.filter((d) => d.hole.number <= 9),
+      back9: holeData.filter((d) => d.hole.number > 9),
+      stats: buildMultiBallStats(holeData, ballCount),
+    };
+  }, [multiBallPlayer, holes, selectedTeeData, handicapSource, ballCount]);
 
   const [selectedTeamIndex, setSelectedTeamIndex] = useState(0);
   const [scoreDisplayMode, setScoreDisplayMode] = useState<ScoreDisplayMode>(
@@ -182,6 +229,14 @@ export function ScorecardTabContent({
               onHolePress={onHolePress}
             />
           </>
+        ) : multiBall ? (
+          <ScorecardTableBallsAsPlayers
+            front9Holes={multiBall.front9}
+            back9Holes={multiBall.back9}
+            multiBallStats={multiBall.stats}
+            ballCount={ballCount}
+            playerHandicap={multiBall.dailyHandicap}
+          />
         ) : (
           <ScorecardTable
             players={tablePlayerData}

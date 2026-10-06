@@ -65,6 +65,7 @@ export function useRoundSubmission({
     const { skinsEnabled, skinsConfig } = formData;
     const existingGameId = skinsEditState.existingSkinsGameId;
 
+    // eslint-disable-next-line no-useless-catch -- boundary retained for future non-fatal reporting
     try {
       if (skinsEnabled && skinsConfig) {
         if (existingGameId) {
@@ -133,6 +134,7 @@ export function useRoundSubmission({
     const { wolfEnabled, wolfConfig } = formData;
     const existingGameId = wolfEditState.existingWolfGameId;
 
+    // eslint-disable-next-line no-useless-catch -- boundary retained for future non-fatal reporting
     try {
       if (wolfEnabled && wolfConfig) {
         if (existingGameId) {

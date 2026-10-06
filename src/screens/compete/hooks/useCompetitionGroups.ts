@@ -13,6 +13,7 @@ import { getCompetitionsOverLimit } from '@/services/subscription/grandfathering
 import { isUnlimited, isNoLimit } from '@/types/subscription.types';
 import { fetchCompetitionWinner } from '@/services/competitions/winnerService';
 import { useToast } from '@/context/ToastContext';
+import type { TeamMode } from '@/types/database.types';
 import { groupCompetitions, type CompetitionItem } from '../utils/groupCompetitions';
 
 export type { CompetitionItem };
@@ -22,6 +23,7 @@ interface CompetitionRow {
   name: string;
   status: string | null;
   start_date: string | null;
+  team_mode: TeamMode | null;
   rounds: { count: number }[] | null;
   players: { count: number }[] | null;
 }
@@ -32,6 +34,7 @@ interface JoinedCompetitionRow {
     name: string;
     status: string | null;
     start_date: string | null;
+    team_mode: TeamMode | null;
     organizer_id: string;
     deleted_at: string | null;
     rounds: { count: number }[] | null;
@@ -76,6 +79,7 @@ export function useCompetitionGroups() {
           name,
           status,
           start_date,
+          team_mode,
           rounds:rounds(count),
           players:competition_players(count)
         `
@@ -102,11 +106,12 @@ export function useCompetitionGroups() {
             rounds: comp.rounds?.[0]?.count || 0,
             players: comp.players?.[0]?.count || 0,
             isOrganizer: true,
+            teamMode: comp.team_mode ?? 'none',
           };
 
           // Fetch winner for completed competitions
           if (comp.status === 'completed') {
-            const winner = await fetchCompetitionWinner(comp.id);
+            const winner = await fetchCompetitionWinner(comp.id, comp.team_mode ?? 'none');
             return { ...baseCompetition, winner };
           }
 
@@ -139,6 +144,7 @@ export function useCompetitionGroups() {
             name,
             status,
             start_date,
+            team_mode,
             organizer_id,
             deleted_at,
             rounds:rounds(count),
@@ -176,11 +182,12 @@ export function useCompetitionGroups() {
             rounds: comp.rounds?.[0]?.count || 0,
             players: comp.players?.[0]?.count || 0,
             isOrganizer: false,
+            teamMode: comp.team_mode ?? 'none',
           };
 
           // Fetch winner for completed competitions
           if (comp.status === 'completed') {
-            const winner = await fetchCompetitionWinner(comp.id);
+            const winner = await fetchCompetitionWinner(comp.id, comp.team_mode ?? 'none');
             return { ...baseCompetition, winner };
           }
 

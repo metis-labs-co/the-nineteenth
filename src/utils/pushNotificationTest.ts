@@ -442,7 +442,7 @@ export interface PushDebugInfo {
   };
   token: {
     hasToken: boolean;
-    token: string | null;
+    tokenSuffix: string | null;
     error?: string;
   };
   registration: {
@@ -453,7 +453,7 @@ export interface PushDebugInfo {
     tokenCount: number;
     tokens: {
       id: string;
-      expoToken: string;
+      tokenSuffix: string;
       platform: string | null;
       enabled: boolean;
       lastUsedAt: string | null;
@@ -509,7 +509,7 @@ export async function logPushDebugInfo(): Promise<PushDebugInfo> {
     },
     token: {
       hasToken: false,
-      token: null,
+      tokenSuffix: null,
     },
     registration: {
       isRegisteredOnDevice: false,
@@ -574,12 +574,12 @@ export async function logPushDebugInfo(): Promise<PushDebugInfo> {
     const tokenResult = await pushService.getExpoPushToken();
     debugInfo.token = {
       hasToken: tokenResult.success,
-      token: tokenResult.data ?? null,
+      tokenSuffix: tokenResult.data ? tokenResult.data.slice(-6) : null,
       error: tokenResult.error,
     };
 
     if (tokenResult.success && tokenResult.data) {
-      console.log(`   Token: ${tokenResult.data}`);
+      console.log(`   Token suffix: …${tokenResult.data.slice(-6)}`);
     } else {
       console.log(`   Error: ${tokenResult.error || 'Failed to get token'}`);
     }
@@ -589,7 +589,7 @@ export async function logPushDebugInfo(): Promise<PushDebugInfo> {
       : 'Permission not granted';
     debugInfo.token = {
       hasToken: false,
-      token: null,
+      tokenSuffix: null,
       error: reason,
     };
     console.log(`   Not available: ${reason}`);
@@ -640,7 +640,7 @@ export async function logPushDebugInfo(): Promise<PushDebugInfo> {
         debugInfo.database.tokenCount = tokens.length;
         debugInfo.database.tokens = tokens.map((t) => ({
           id: t.id,
-          expoToken: t.expo_token,
+          tokenSuffix: t.expo_token.slice(-6),
           platform: t.platform,
           enabled: t.enabled,
           lastUsedAt: t.last_used_at,
@@ -650,7 +650,7 @@ export async function logPushDebugInfo(): Promise<PushDebugInfo> {
         tokens.forEach((token, i) => {
           console.log(`   Token ${i + 1}:`);
           console.log(`      ID: ${token.id}`);
-          console.log(`      Token: ${token.expo_token.substring(0, 30)}...`);
+          console.log(`      Token suffix: …${token.expo_token.slice(-6)}`);
           console.log(`      Platform: ${token.platform || 'Unknown'}`);
           console.log(`      Enabled: ${token.enabled ? 'Yes' : 'No'}`);
           console.log(`      Last Used: ${token.last_used_at || 'Never'}`);

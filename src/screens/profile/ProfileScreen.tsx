@@ -5,6 +5,8 @@
  * Accessible via the Profile tab in bottom navigation.
  */
 
+import { AgeConfirmCard } from '@/components/age';
+import { useSocialAccess } from '@/hooks/useSocialAccess';
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { StyleSheet, View, ScrollView } from 'react-native';
 import { LoadingSpinner } from '@/components/common';
@@ -44,6 +46,7 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 export default function ProfileScreen() {
   const navigation = useNavigation<NavigationProp>();
   const colors = useThemeColors();
+  const { isRestricted: isSocialRestricted } = useSocialAccess();
 
   // Profile data hook
   const {
@@ -165,8 +168,15 @@ export default function ProfileScreen() {
           onPress={() => setShowClubModal(true)}
         />
 
-        {/* Activity Feed */}
-        <ActivitySection onPress={() => navigation.navigate('MainTabs', { screen: 'ActivityTab' })} />
+        {/* Permanent route back for anyone not yet age-resolved. Never
+            suppressed by dismissal count, unlike the one-time sheet. */}
+        <AgeConfirmCard />
+
+        {/* Activity Feed — the Activity route is unregistered for restricted
+            users, so this entry point must go with it or tapping it fails. */}
+        {!isSocialRestricted && (
+          <ActivitySection onPress={() => navigation.navigate('Activity')} />
+        )}
 
         {/* Menu Sections */}
         <ProfileMenuSection
@@ -184,6 +194,7 @@ export default function ProfileScreen() {
           onSubscription={() => navigation.navigate('Subscription')}
           onGuestPlayers={() => navigation.navigate('LinkPlaceholder')}
           onPrivacyData={() => navigation.navigate('PrivacyData')}
+          onBlockedUsers={() => navigation.navigate('BlockedUsers')}
           onAppearance={() => navigation.navigate('Appearance')}
           onGameSettings={() => navigation.navigate('GameSettings')}
           onWhatsInTheBag={() => navigation.navigate('WhatsInTheBag')}

@@ -67,6 +67,8 @@ export type {
 // Informational sheets and modals
 export { HandicapInfoSheet } from './HandicapInfoSheet';
 export type { HandicapInfoSheetProps } from './HandicapInfoSheet';
+export { InputtedHandicapInfoSheet } from './InputtedHandicapInfoSheet';
+export type { InputtedHandicapInfoSheetProps } from './InputtedHandicapInfoSheet';
 export { ShotLoggingInfoSheet } from './ShotLoggingInfoSheet';
 export type { ShotLoggingInfoSheetProps } from './ShotLoggingInfoSheet';
 
@@ -165,13 +167,20 @@ export { PlayerAvatar } from './PlayerAvatar';
 export type { PlayerAvatarProps } from './PlayerAvatar';
 export { GolferIcon } from './GolferIcon';
 export type { GolferIconProps, ColorPalette } from './GolferIcon';
+export { SimpleGolferIcon } from './SimpleGolferIcon';
+export type { SimpleGolferIconProps } from './SimpleGolferIcon';
 export { AppIcon } from './AppIcon';
 export { Logo } from './Logo';
 export { LogoHorizontal } from './LogoHorizontal';
 
 export { SystemModalTheme } from './SystemModalTheme';
+export { SheetFooterActions } from './SheetFooterActions';
+export type { SheetFooterActionsProps } from './SheetFooterActions';
+export { GameIndicatorBadge } from './GameIndicatorBadge';
+export type { GameIndicatorBadgeProps } from './GameIndicatorBadge';
+export { ScoringTypeField } from './ScoringTypeField';
+export type { ScoringTypeFieldProps } from './ScoringTypeField';
 
-// === Hooks ===
-// Shared hooks for common component behaviors
-export { useSwipeToDelete } from './hooks';
-export type { UseSwipeToDeleteOptions, UseSwipeToDeleteReturn } from './hooks';
+export { default as ForceUpdateModal, shouldShowSoft } from './ForceUpdateModal';
+export { AgeLock } from './AgeLock';
+export type { AgeLockProps } from './AgeLock';

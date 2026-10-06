@@ -82,8 +82,6 @@ export async function importCourse(golfapiCourseId: string): Promise<ImportCours
     let coordinatesImported = 0;
     try {
       coordinatesImported = await importCoordinates(golfapiCourseId, course.id);
-      if (coordinatesImported > 0) {
-      }
     } catch (coordError) {
       logger.warn('Failed to import coordinates (non-blocking)', { error: coordError instanceof Error ? coordError.message : String(coordError) });
     }

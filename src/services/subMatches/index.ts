@@ -35,6 +35,8 @@ export interface UpdateSubMatchResultInput {
   status: SubMatchStatus;
   result?: SubMatchResult | null;
   finalDifferential?: number | null;
+  finalHolesRemaining?: number | null;
+  manualResult?: boolean;
   teamANetTotal?: number | null;
   teamBNetTotal?: number | null;
 }
@@ -50,6 +52,8 @@ type Row = {
   status: SubMatchStatus;
   result: SubMatchResult | null;
   final_differential: number | null;
+  final_holes_remaining: number | null;
+  manual_result: boolean;
   team_a_net_total: number | null;
   team_b_net_total: number | null;
   created_at: string;
@@ -67,6 +71,8 @@ const rowToSubMatch = (r: Row): SubMatch => ({
   status: r.status,
   result: r.result,
   final_differential: r.final_differential,
+  final_holes_remaining: r.final_holes_remaining,
+  manual_result: r.manual_result,
   team_a_net_total: r.team_a_net_total,
   team_b_net_total: r.team_b_net_total,
   created_at: r.created_at,
@@ -175,6 +181,8 @@ export async function updateSubMatchResult(
     status,
     result,
     finalDifferential,
+    finalHolesRemaining,
+    manualResult,
     teamANetTotal,
     teamBNetTotal,
   } = input;
@@ -186,6 +194,8 @@ export async function updateSubMatchResult(
   const patch: Record<string, unknown> = { status };
   if (result !== undefined) patch.result = result;
   if (finalDifferential !== undefined) patch.final_differential = finalDifferential;
+  if (finalHolesRemaining !== undefined) patch.final_holes_remaining = finalHolesRemaining;
+  if (manualResult !== undefined) patch.manual_result = manualResult;
   if (teamANetTotal !== undefined) patch.team_a_net_total = teamANetTotal;
   if (teamBNetTotal !== undefined) patch.team_b_net_total = teamBNetTotal;
 

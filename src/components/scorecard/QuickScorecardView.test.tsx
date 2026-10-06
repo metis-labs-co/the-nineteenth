@@ -49,6 +49,7 @@ jest.mock('@/context/ThemeContext', () => ({
     bogey: '#FF9800',
     doubleBogey: '#F44336',
   }),
+  useIsDark: () => false,
 }));
 
 // Mock react-native-paper
@@ -535,10 +536,12 @@ describe('QuickScorecardView', () => {
       props.holes = [];
       render(<QuickScorecardView {...props} />);
 
-      // Should still render container and labels
+      // Should still render container; Front/Back labels are hidden when there
+      // are no holes in that nine (see QuickScorecardView's frontNine/backNine
+      // length guards).
       expect(screen.getByText('Quick View')).toBeTruthy();
-      expect(screen.getByText('Front')).toBeTruthy();
-      expect(screen.getByText('Back')).toBeTruthy();
+      expect(screen.queryByText('Front')).toBeNull();
+      expect(screen.queryByText('Back')).toBeNull();
     });
 
     it('handles missing hole in holes array', () => {

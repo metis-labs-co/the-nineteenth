@@ -61,6 +61,10 @@ jest.mock('@/components/common', () => {
       const RN = require('react-native');
       return <RN.Text style={style} {...props}>{children}</RN.Text>;
     },
+    Badge: ({ label }: { label: string }) => {
+      const RN = require('react-native');
+      return <RN.Text>{label}</RN.Text>;
+    },
   };
 });
 
@@ -437,7 +441,7 @@ describe('LeaderboardTable', () => {
   // ===========================================================================
 
   describe('Current User Highlighting', () => {
-    it('shows "You" for current user instead of name', () => {
+    it('shows a "You" badge for the current user', () => {
       const leaderboard = [
         createLeaderboardEntry({ playerId: 'current-user', playerName: 'John Smith', totalPoints: 38 }),
         createLeaderboardEntry({ playerId: 'p2', playerName: 'Jane Doe', totalPoints: 34 }),
@@ -445,7 +449,7 @@ describe('LeaderboardTable', () => {
       render(<LeaderboardTable leaderboard={leaderboard} currentUserId="current-user" />);
 
       expect(screen.getByText('You')).toBeTruthy();
-      expect(screen.queryByText('John Smith')).toBeNull();
+      expect(screen.getByText('John Smith')).toBeTruthy();
       expect(screen.getByText('Jane Doe')).toBeTruthy();
     });
 

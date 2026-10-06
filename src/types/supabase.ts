@@ -547,6 +547,7 @@ export type Database = {
       competitions: {
         Row: {
           competition_type: string
+          allow_guests: boolean
           created_at: string | null
           deleted_at: string | null
           description: string | null
@@ -571,6 +572,7 @@ export type Database = {
           whatsapp_group_invite_url: string | null
         }
         Insert: {
+          allow_guests?: boolean
           competition_type?: string
           created_at?: string | null
           deleted_at?: string | null
@@ -596,6 +598,7 @@ export type Database = {
           whatsapp_group_invite_url?: string | null
         }
         Update: {
+          allow_guests?: boolean
           competition_type?: string
           created_at?: string | null
           deleted_at?: string | null

@@ -29,8 +29,11 @@ import {
   EditDatesSheet,
   EditCompetitionRulesSheet,
   EditScoringRulesModeSheet,
+  EditVisibilitySheet,
+  PointsConfigSheet,
   detectActivePreset,
 } from './sheets';
+import { summarizeCompetition } from '@/utils/competitionPoints/roundPointsSummary';
 
 type OpenSheet =
   | 'type'
@@ -39,6 +42,8 @@ type OpenSheet =
   | 'dates'
   | 'rules-mode'
   | 'general-rules'
+  | 'points-config'
+  | 'visibility'
   | null;
 
 // =====================================================
@@ -98,6 +103,24 @@ function SettingRow({ icon, label, onPress, locked = false, accessibilityLabel, 
   return <View style={styles.row}>{content}</View>;
 }
 
+function SettingsGroupCard({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  const colors = useThemeColors();
+  return (
+    <View style={styles.group}>
+      <SectionHeader title={title} />
+      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        {children}
+      </View>
+    </View>
+  );
+}
+
 // =====================================================
 // SETTINGS SECTION
 // =====================================================
@@ -107,6 +130,7 @@ export function SettingsSection({
   isOrganizer,
   hasStartedRound,
   teams = [],
+  rounds,
   onViewTeams,
 }: SettingsSectionProps) {
   const colors = useThemeColors();
@@ -148,12 +172,18 @@ export function SettingsSection({
       ? 'Standard'
       : 'Custom';
 
+  const pointsMembersPerTeam = useMemo(() => {
+    const counts = teams.map((t) => t.members.length).filter((n) => n > 0);
+    return counts.length ? Math.max(...counts) : (competition.team_size ?? 1);
+  }, [teams, competition.team_size]);
+  const pointsTotal = useMemo(
+    () => summarizeCompetition(rounds, { membersPerTeam: pointsMembersPerTeam }).total,
+    [rounds, pointsMembersPerTeam]
+  );
+
   return (
     <View style={styles.section}>
-      <SectionHeader title="Competition Details" icon="cog-outline" primaryIcon={false} />
-
-      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        {/* Type */}
+      <SettingsGroupCard title="Competition">
         <SettingRow
           icon="tag-outline"
           label="Type"
@@ -167,20 +197,6 @@ export function SettingsSection({
           />
         </SettingRow>
 
-        {/* Handicap System */}
-        <View style={[styles.divider, { backgroundColor: colors.border }]} />
-        <SettingRow
-          icon="golf"
-          label="Handicap"
-          onPress={canEditStructure ? () => setOpenSheet('handicap') : undefined}
-          locked={canEdit && structureLocked}
-        >
-          <Text style={[styles.value, { color: colors.textPrimary }]}>
-            {handicapSystemLabels[competition.handicap_system]}
-          </Text>
-        </SettingRow>
-
-        {/* Format (team mode) */}
         <View style={[styles.divider, { backgroundColor: colors.border }]} />
         <SettingRow
           icon="account-group-outline"
@@ -242,10 +258,32 @@ export function SettingsSection({
             </SettingRow>
           </>
         )}
+      </SettingsGroupCard>
 
-        {/* Scoring Rules Mode (Phase 6). Always visible to organisers so
-            the choice is explicit up-front. Per-round option is tier-gated
-            inside the sheet itself. */}
+      <SettingsGroupCard title="Visibility">
+        <SettingRow
+          icon="eye-outline"
+          label="Visibility"
+          onPress={canEdit ? () => setOpenSheet('visibility') : undefined}
+        >
+          <Text style={[styles.value, { color: colors.textPrimary }]}>
+            {competition.visibility.charAt(0).toUpperCase() + competition.visibility.slice(1)}
+          </Text>
+        </SettingRow>
+      </SettingsGroupCard>
+
+      <SettingsGroupCard title="Scoring & handicaps">
+        <SettingRow
+          icon="golf"
+          label="Handicap"
+          onPress={canEditStructure ? () => setOpenSheet('handicap') : undefined}
+          locked={canEdit && structureLocked}
+        >
+          <Text style={[styles.value, { color: colors.textPrimary }]}>
+            {handicapSystemLabels[competition.handicap_system]}
+          </Text>
+        </SettingRow>
+
         <View style={[styles.divider, { backgroundColor: colors.border }]} />
         <SettingRow
           icon="scale-balance"
@@ -277,7 +315,25 @@ export function SettingsSection({
           </>
         )}
 
-      </View>
+        {/* Points Config — shown only in per-round mode. Unconditionally
+            tappable by organisers AND players (editing is gated inside
+            the sheet); NOT locked by structureLocked. */}
+        {perRoundEnabled && (
+          <>
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            <SettingRow
+              icon="medal-outline"
+              label="Points Config"
+              onPress={() => setOpenSheet('points-config')}
+              accessibilityLabel="View or edit competition points config"
+            >
+              <Text style={[styles.value, { color: colors.textPrimary }]}>
+                {pointsTotal} pts
+              </Text>
+            </SettingRow>
+          </>
+        )}
+      </SettingsGroupCard>
 
       {canEdit && structureLocked && (
         <Text style={[styles.lockedFootnote, { color: colors.textSecondary }]}>
@@ -338,6 +394,24 @@ export function SettingsSection({
           currentPointSystem={competition.point_system ?? null}
         />
       )}
+      {openSheet === 'points-config' && (
+        <PointsConfigSheet
+          visible
+          onDismiss={handleClose}
+          competition={competition}
+          rounds={rounds}
+          teams={teams}
+          isOrganizer={isOrganizer}
+        />
+      )}
+      {openSheet === 'visibility' && (
+        <EditVisibilitySheet
+          visible
+          onDismiss={handleClose}
+          competitionId={competition.id}
+          currentVisibility={competition.visibility}
+        />
+      )}
     </View>
   );
 }
@@ -348,7 +422,10 @@ export function SettingsSection({
 
 const styles = StyleSheet.create({
   section: {
-    marginTop: spacing.md,
+    gap: spacing.lg,
+  },
+  group: {
+    gap: spacing.sm,
   },
   card: {
     borderRadius: borderRadius.lg,

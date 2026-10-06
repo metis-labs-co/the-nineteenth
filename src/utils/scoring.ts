@@ -8,12 +8,8 @@ import { colors, ColorPalette } from '@/constants/theme';
  * based on their handicap and the hole's stroke index
  */
 export function getStrokesOnHole(playerHandicap: number, hole: Hole): number {
-  if (playerHandicap <= 0) return 0;
-
-  const baseStrokes = Math.floor(playerHandicap / 18);
-  const additionalStroke = hole.strokeIndex <= (playerHandicap % 18) ? 1 : 0;
-
-  return baseStrokes + additionalStroke;
+  // Thin wrapper over getStrokesReceived for callers that hold a full Hole.
+  return getStrokesReceived(playerHandicap, hole.strokeIndex);
 }
 
 /**
@@ -27,6 +23,52 @@ export function getStrokesReceived(handicap: number, strokeIndex: number): numbe
   const additionalStroke = strokeIndex <= (handicap % 18) ? 1 : 0;
 
   return baseStrokes + additionalStroke;
+}
+
+/**
+ * Match-play per-hole stroke allocation (difference method).
+ *
+ * The lower-handicap player plays off scratch; the higher-handicap player
+ * receives the whole handicap difference, allocated by stroke index using the
+ * standard {@link getStrokesReceived} rule. Equal handicaps yield no strokes
+ * either side. Uses the regular per-hole stroke index — no match-play-specific
+ * index is available from our course data.
+ *
+ * @returns strokes received by each player on the hole (`{ a, b }`).
+ */
+export function getMatchPlayStrokes(
+  handicapA: number,
+  handicapB: number,
+  strokeIndex: number
+): { a: number; b: number } {
+  const diff = Math.abs(handicapA - handicapB);
+  const strokes = getStrokesReceived(diff, strokeIndex);
+  if (handicapA > handicapB) return { a: strokes, b: 0 };
+  if (handicapB > handicapA) return { a: 0, b: strokes };
+  return { a: 0, b: 0 };
+}
+
+/**
+ * Four-ball match-play per-hole stroke allocation (relative-to-lowest method).
+ *
+ * Among all players in the match (both teams), the lowest playing handicap
+ * plays off scratch; every other player receives the difference from that
+ * lowest handicap, allocated by stroke index via {@link getStrokesReceived}.
+ * Tied-lowest players all receive 0. Uses the regular per-hole stroke index.
+ *
+ * @returns strokes received on the hole, keyed by playerId.
+ */
+export function getFourBallStrokes(
+  players: { playerId: string; handicap: number }[],
+  strokeIndex: number
+): Map<string, number> {
+  const result = new Map<string, number>();
+  if (players.length === 0) return result;
+  const lowest = Math.min(...players.map((p) => p.handicap));
+  for (const p of players) {
+    result.set(p.playerId, getStrokesReceived(p.handicap - lowest, strokeIndex));
+  }
+  return result;
 }
 
 /**
@@ -58,6 +100,39 @@ export function isPickupScore(
   strokeIndex: number
 ): boolean {
   return score >= calculatePickupScore(par, handicap, strokeIndex);
+}
+
+/**
+ * WHS net-double-bogey offset used as the maximum score for handicap purposes.
+ * Net double bogey = par + 2 (double bogey) + strokes received on the hole.
+ */
+export const NET_DOUBLE_BOGEY_OFFSET = 2;
+
+/**
+ * Resolve the effective gross strokes for a hole under WHS "most likely score"
+ * handling, used for gross/net/differential totals.
+ *
+ * - Not played (no score, zero, or negative): returns `null` so the hole is
+ *   excluded from totals.
+ * - Pickup (strokes at or above PICKUP_SCORE — the app's max-strokes sentinel):
+ *   the player did not hole out, so WHS records net double bogey
+ *   (`par + 2 + strokesReceived`) rather than the raw sentinel or nothing.
+ * - Completed hole below the pickup threshold: the actual strokes.
+ *
+ * Net double bogey is exactly the threshold for 0 Stableford points / a lost
+ * Par-game hole, so callers can pass the result straight into the points
+ * helpers and get the same result as treating the hole as a blow-up.
+ */
+export function getEffectiveGrossStrokes(
+  strokes: number | undefined | null,
+  par: number,
+  strokesReceived: number
+): number | null {
+  if (!strokes || strokes <= 0) return null;
+  if (strokes >= PICKUP_SCORE) {
+    return par + NET_DOUBLE_BOGEY_OFFSET + strokesReceived;
+  }
+  return strokes;
 }
 
 /**
@@ -124,20 +199,27 @@ export function calculateStablefordPoints(
  * - 1 over par: 1 point (bogey)
  * - 2+ over par: 0 points (double bogey or worse)
  */
+/**
+ * Extended Stableford points for a net score relative to par — the single
+ * source of truth for the points lookup table.
+ * (`services/scoring` re-exports this.)
+ */
+export function getStablefordPoints(netToPar: number): number {
+  if (netToPar <= -3) return STABLEFORD_POINTS.ALBATROSS_OR_BETTER;
+  if (netToPar === -2) return STABLEFORD_POINTS.EAGLE;
+  if (netToPar === -1) return STABLEFORD_POINTS.BIRDIE;
+  if (netToPar === 0) return STABLEFORD_POINTS.PAR;
+  if (netToPar === 1) return STABLEFORD_POINTS.BOGEY;
+  return STABLEFORD_POINTS.DOUBLE_OR_WORSE;
+}
+
 export function calculateStablefordPointsNet(
   strokes: number,
   par: number,
   strokesReceived: number
 ): number {
   const netStrokes = strokes - strokesReceived;
-  const relativeToPar = netStrokes - par;
-
-  if (relativeToPar <= -3) return STABLEFORD_POINTS.ALBATROSS_OR_BETTER;
-  if (relativeToPar === -2) return STABLEFORD_POINTS.EAGLE;
-  if (relativeToPar === -1) return STABLEFORD_POINTS.BIRDIE;
-  if (relativeToPar === 0) return STABLEFORD_POINTS.PAR;
-  if (relativeToPar === 1) return STABLEFORD_POINTS.BOGEY;
-  return STABLEFORD_POINTS.DOUBLE_OR_WORSE;
+  return getStablefordPoints(netStrokes - par);
 }
 
 /**
@@ -267,6 +349,47 @@ export function getScoreColor(score: number, par: number, themeColors?: ColorPal
 }
 
 /**
+ * Canonical gross score categories relative to par, finest granularity.
+ * Consumers that display a coarser breakdown fold neighbouring categories
+ * themselves (e.g. albatross → eagles).
+ */
+export type ScoreCategory =
+  | 'albatross'
+  | 'eagle'
+  | 'birdie'
+  | 'par'
+  | 'bogey'
+  | 'double-bogey'
+  | 'triple-plus';
+
+/**
+ * Classify a gross hole score relative to par — the single source of truth for
+ * score-distribution counting across the app.
+ *
+ * Returns `null` when the hole should not be counted in a gross distribution:
+ * - no score (undefined, zero, or negative)
+ * - a pickup (strokes at or above {@link PICKUP_SCORE}, the max-strokes sentinel);
+ *   the player never holed out, so it belongs to no gross category. Net/points
+ *   views handle pickups separately via {@link getEffectiveGrossStrokes}.
+ */
+export function getScoreCategory(
+  strokes: number | undefined | null,
+  par: number
+): ScoreCategory | null {
+  if (!strokes || strokes <= 0) return null;
+  if (strokes >= PICKUP_SCORE) return null;
+
+  const diff = strokes - par;
+  if (diff <= -3) return 'albatross';
+  if (diff === -2) return 'eagle';
+  if (diff === -1) return 'birdie';
+  if (diff === 0) return 'par';
+  if (diff === 1) return 'bogey';
+  if (diff === 2) return 'double-bogey';
+  return 'triple-plus';
+}
+
+/**
  * Calculate statistics from hole scores
  * Accepts any object with a `scores` property matching the HoleScore format
  * Works with both app-level (number keys) and database (string keys) Scorecard types
@@ -304,13 +427,18 @@ export function calculateStatistics(
   
   holes.forEach((hole) => {
     const holeScore = scorecard.scores[hole.number];
-    if (!holeScore?.strokes) return;
-    
-    const diff = holeScore.strokes - hole.par;
-    if (diff <= -1) birdiesOrBetter++;
-    else if (diff === 0) pars++;
-    else if (diff === 1) bogeys++;
-    else doubleBogeyOrWorse++;
+    const category = getScoreCategory(holeScore?.strokes, hole.par);
+    if (!category) return; // no score or pickup
+
+    if (category === 'albatross' || category === 'eagle' || category === 'birdie') {
+      birdiesOrBetter++;
+    } else if (category === 'par') {
+      pars++;
+    } else if (category === 'bogey') {
+      bogeys++;
+    } else {
+      doubleBogeyOrWorse++; // double-bogey or triple-plus
+    }
   });
   
   return {

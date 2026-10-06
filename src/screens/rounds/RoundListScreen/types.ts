@@ -10,7 +10,22 @@ export interface PlayingPartner {
   handicap?: number;
 }
 
-export type RoundTypeFilter = 'all' | 'practice' | 'match' | 'skins' | 'wolf';
+export type RoundTypeFilter =
+  | 'all'
+  | 'practice'
+  | 'match'
+  | 'matchplay'
+  | 'skins'
+  | 'wolf'
+  | 'handicap'
+  | 'ninehole';
+
+/**
+ * Screen-wide scope. Unlike `RoundTypeFilter` (which only narrows the Recent
+ * Rounds list) this scopes every section — In Progress, Upcoming and Recent —
+ * so 'social' genuinely hides competition rounds from the whole screen.
+ */
+export type RoundScopeFilter = 'all' | 'social' | 'comps';
 
 // Player info for round (matches RoundListCard's internal type)
 export interface RoundPlayerInfo {
@@ -30,7 +45,11 @@ export interface RoundListData {
 export interface UseRoundFiltersReturn {
   roundTypeFilter: RoundTypeFilter;
   setRoundTypeFilter: (filter: RoundTypeFilter) => void;
+  roundScope: RoundScopeFilter;
+  setRoundScope: (scope: RoundScopeFilter) => void;
+  /** Completed rounds after both the scope and the type filter. */
   filteredHistoryRounds: RoundItem[];
+  /** Non-completed rounds after the scope filter. */
   activeRounds: RoundItem[];
   historyRounds: RoundItem[];
 }

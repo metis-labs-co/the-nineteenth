@@ -52,6 +52,27 @@ export function ScorecardPlayerNotFound({
   );
 }
 
+interface ScorecardLoadErrorProps {
+  onRetry: () => void;
+}
+
+export function ScorecardLoadError({ onRetry }: ScorecardLoadErrorProps) {
+  const colors = useThemeColors();
+
+  return (
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+    >
+      <ErrorState
+        title="Couldn't Load Scorecard"
+        error="We couldn't load this scorecard. Check your connection and try again."
+        onRetry={onRetry}
+        retryLabel="Retry"
+      />
+    </SafeAreaView>
+  );
+}
+
 interface ScorecardNoScoresProps {
   playerName: string;
   onGoBack: () => void;

@@ -68,6 +68,66 @@ export async function saveScoreEntry(
 }
 
 /**
+ * Batch save/update many score entries in a single upsert.
+ *
+ * Collapses what would otherwise be one network round-trip (and one row-lock
+ * window) per hole into a single short transaction. This is the contention
+ * fix for the sync path: hammering this table with many concurrent single-row
+ * upserts of the same keys caused writes to block and hit the 8s statement
+ * timeout. One batched call holds locks for a fraction of the time.
+ *
+ * No `.select()` is chained, so supabase-js sends `Prefer: return=minimal` —
+ * the rows aren't read back (callers don't use them), which skips the SELECT
+ * RLS-policy evaluation and shortens the lock hold further.
+ *
+ * Every row's `scorer_id` must be the authenticated user (RLS INSERT/UPDATE
+ * policy requires `scorer_id = auth.uid()`); callers filter before passing.
+ *
+ * @param entries - Rows to upsert. A no-op when empty.
+ */
+export async function saveScoreEntries(
+  entries: {
+    roundId: string;
+    playerId: string;
+    holeNumber: number;
+    scorerId: string;
+    score: HoleScore;
+  }[]
+): Promise<void> {
+  if (entries.length === 0) {
+    return;
+  }
+
+  const rows = entries.map(({ roundId, playerId, holeNumber, scorerId, score }) => {
+    if (!roundId || !playerId || !scorerId) {
+      throw createError('Round ID, Player ID, and Scorer ID are required', 'VALIDATION');
+    }
+    if (holeNumber < 1 || holeNumber > 18) {
+      throw createError('Hole number must be between 1 and 18', 'VALIDATION');
+    }
+    return {
+      round_id: roundId,
+      player_id: playerId,
+      hole_number: holeNumber,
+      scorer_id: scorerId,
+      strokes: score.strokes,
+      putts: score.putts ?? null,
+      penalties: score.penalties ?? 0,
+      updated_at: new Date().toISOString(),
+    };
+  });
+
+  const { error } = await fromTable('score_entries').upsert(rows, {
+    onConflict: 'round_id,player_id,hole_number,scorer_id',
+  });
+
+  if (error) {
+    logger.error('Failed to save score entries (batch)', error);
+    throw createError(`Failed to save score entries: ${error.message}`, 'DATABASE');
+  }
+}
+
+/**
  * Get all score entries for a round
  */
 export async function getRoundScoreEntries(roundId: string): Promise<ScoreEntry[]> {

@@ -187,6 +187,7 @@ export default function CompareStatsScreen({ navigation, route }: Props) {
         feature={featureId}
         onUpgradePress={handleShowUpgradePrompt}
         lockedMessage={hasFilters ? 'Upgrade to Premium for filtered comparison' : 'Upgrade to compare stats with friends'}
+        style={styles.lockedFill}
       >
         <ScrollView
           style={styles.scrollView}
@@ -291,6 +292,11 @@ export default function CompareStatsScreen({ navigation, route }: Props) {
 
 const styles = StyleSheet.create({
   safeArea: {
+    flex: 1,
+  },
+  // Bounds the lock wrapper to the viewport so the upgrade overlay centres on
+  // screen rather than halfway down the scroll content's full height.
+  lockedFill: {
     flex: 1,
   },
   scrollView: {

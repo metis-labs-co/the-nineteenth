@@ -63,6 +63,7 @@ export function createWatchConnectivityTransport(): WatchTransport {
   }
   let rnwc: any;
   try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports -- optional native module
     rnwc = require('react-native-watch-connectivity');
   } catch {
     warnUnavailable('react-native-watch-connectivity');
@@ -104,6 +105,7 @@ export function createWearTransport(): WatchTransport {
   }
   let bridge: any;
   try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports -- optional native module
     bridge = require('../../modules/wear-bridge').default;
   } catch {
     warnUnavailable('wear-bridge');

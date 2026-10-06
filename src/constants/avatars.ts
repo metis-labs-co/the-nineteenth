@@ -1,10 +1,14 @@
 /**
  * Avatar Configuration Module
  *
- * Defines 12 colour variations of The Nineteenth golfer icon.
- * Each avatar uses the same icon with different colour palettes.
+ * Defines colour variations of The Nineteenth avatars across two styles:
+ * - "beer"   - the full golfer mascot (GolferIcon)
+ * - "simple" - the simplified golf-ball + cap mark (SimpleGolferIcon)
  *
- * Storage format: photo_url = "avatar:avatar-blue"
+ * Both styles share the same 12 colour palettes.
+ *
+ * Storage format: photo_url = "avatar:avatar-blue" (beer)
+ *                 photo_url = "avatar:avatar-simple-blue" (simple)
  */
 
 export interface ColorPalette {
@@ -15,6 +19,9 @@ export interface ColorPalette {
   lightest: string;
 }
 
+/** Visual style of an avatar. */
+export type AvatarVariant = 'beer' | 'simple';
+
 export interface AvatarOption {
   id: string;
   name: string;
@@ -22,7 +29,10 @@ export interface AvatarOption {
 }
 
 export const AVATAR_PREFIX = 'avatar:';
-export const DEFAULT_AVATAR_ID = 'avatar-green';
+/** ID prefix for the "simple" style variants (e.g. "avatar-simple-blue"). */
+export const SIMPLE_AVATAR_PREFIX = 'avatar-simple-';
+/** The default avatar shown to users who have not chosen one (first simple avatar). */
+export const DEFAULT_AVATAR_ID = 'avatar-simple-green';
 
 export const AVATARS: AvatarOption[] = [
   {
@@ -81,14 +91,17 @@ export const AVATARS: AvatarOption[] = [
     },
   },
   {
+    // NOTE: id retained as 'avatar-violet' for backward-compat with users who
+    // already selected this slot (stored as photo_url "avatar:avatar-violet").
+    // The visual is now a bright lemon yellow — violet was too close to purple.
     id: 'avatar-violet',
-    name: 'Violet',
+    name: 'Yellow',
     colorPalette: {
-      darkest: '#4a0a5d',
-      dark: '#7a2e8e',
-      mid: '#8a349d',
-      light: '#b249c7',
-      lightest: '#bc4dcf',
+      darkest: '#6b650a',
+      dark: '#b3a814',
+      mid: '#d1c519',
+      light: '#e8dc2d',
+      lightest: '#f2e63c',
     },
   },
   {
@@ -105,12 +118,14 @@ export const AVATARS: AvatarOption[] = [
   {
     id: 'avatar-orange',
     name: 'Orange',
+    // Retuned to a true orange (~28° hue). The previous values sat at ~42°
+    // (yellow-orange), so it read as yellow and clashed with Gold.
     colorPalette: {
-      darkest: '#5d3d0a',
-      dark: '#8e6e2e',
-      mid: '#9d7d34',
-      light: '#c7a149',
-      lightest: '#cfab4d',
+      darkest: '#5d310a',
+      dark: '#8e5019',
+      mid: '#9d581c',
+      light: '#c77228',
+      lightest: '#cf7929',
     },
   },
   {
@@ -160,6 +175,28 @@ export const AVATARS: AvatarOption[] = [
 ];
 
 /**
+ * The "simple" style avatars - same 12 colour palettes as the beer avatars,
+ * rendered with the simplified golf-ball + cap mark. IDs are prefixed with
+ * "avatar-simple-" (e.g. "avatar-simple-blue").
+ */
+export const SIMPLE_AVATARS: AvatarOption[] = AVATARS.map((avatar) => ({
+  ...avatar,
+  id: avatar.id.replace('avatar-', SIMPLE_AVATAR_PREFIX),
+}));
+
+/** All avatars across both styles (beer first, then simple). */
+export const ALL_AVATARS: AvatarOption[] = [...AVATARS, ...SIMPLE_AVATARS];
+
+/**
+ * Determine the visual style of an avatar from its ID.
+ * @example getAvatarVariant("avatar-simple-blue") => "simple"
+ * @example getAvatarVariant("avatar-blue") => "beer"
+ */
+export function getAvatarVariant(avatarId: string): AvatarVariant {
+  return avatarId.startsWith(SIMPLE_AVATAR_PREFIX) ? 'simple' : 'beer';
+}
+
+/**
  * Check if a photo URL is a bundled avatar ID
  */
 export function isAvatarId(photoUrl: string | null | undefined): boolean {
@@ -175,10 +212,10 @@ export function getAvatarId(photoUrl: string): string {
 }
 
 /**
- * Find an avatar configuration by its ID
+ * Find an avatar configuration by its ID (searches both styles)
  */
 export function getAvatarById(avatarId: string): AvatarOption | undefined {
-  return AVATARS.find((a) => a.id === avatarId);
+  return ALL_AVATARS.find((a) => a.id === avatarId);
 }
 
 /**
@@ -190,8 +227,9 @@ export function formatAvatarUrl(avatarId: string): string {
 }
 
 /**
- * Get the default avatar option (green)
+ * Get the default avatar option (the first simple avatar - simple green).
+ * Shown to users who have not chosen an avatar.
  */
 export function getDefaultAvatar(): AvatarOption {
-  return AVATARS[0];
+  return getAvatarById(DEFAULT_AVATAR_ID) ?? AVATARS[0];
 }

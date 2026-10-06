@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNetInfo } from '@react-native-community/netinfo';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
+import { buildPostSubmitResetState } from '@/navigation/postSubmitNavigation';
 import { PageHeader, Tabs, LoadingSpinner, ErrorState, EmptyState, ConfirmationDialog } from '@/components/common';
 import { MatchPlayScorecardTable } from '@/components/scorecard';
 import { SkinsResultsCard } from '@/components/skins';
@@ -195,20 +196,11 @@ export default function MatchPlayScorecardScreen({ navigation, route }: Props) {
   const navigateAfterSubmit = useCallback(() => {
     resetRound();
     scoringLogger.info('SUBMIT: Navigating to ViewRound (resetting stack)', { roundId: roundId?.substring(0, 8) });
-    // Reset navigation stack so back button goes to rounds list, not score entry
-    navigation.reset({
-      index: 1,
-      routes: [
-        { name: 'MainTabs' },
-        {
-          name: 'ViewRound',
-          params: {
-            roundId,
-            competitionId: competitionId !== 'standalone' ? competitionId : undefined,
-          },
-        },
-      ],
-    });
+    // Reset the stack so back goes to the competition (rounds list) for
+    // competition rounds, or the tabs for standalone rounds — never back into
+    // the scoring flow. See buildPostSubmitResetState for why CompetitionDetail
+    // must sit beneath ViewRound.
+    navigation.reset(buildPostSubmitResetState(roundId, competitionId));
   }, [navigation, roundId, competitionId, resetRound]);
 
   // Perform the actual submission

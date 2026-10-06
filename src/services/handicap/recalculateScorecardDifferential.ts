@@ -10,10 +10,15 @@
 import { supabase } from '@/services/supabase/client';
 import { invalidateHandicapCache } from '@/services/queryClient';
 import { calculateScoreDifferential, getRatingsForGender } from '@/utils/handicapDifferential';
+import {
+  calculateAdjustedGrossScore,
+  type AdjustedGrossParams,
+} from '@/utils/adjustedGross';
 import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
 import { updatePlayerHandicapIndex } from '@/services/handicap/updatePlayerHandicapIndex';
 import { syncLogger } from '@/utils/debugLogger';
 import { getEffectiveTeeRatings } from '@/utils/teeResolution';
+import { isSharedBallRound } from '@/utils/roundFormat';
 import { getStrokesReceived, calculateStablefordPointsNet } from '@/utils/scoring';
 import type { TeeBox, Hole, HoleScore } from '@/types/database/base';
 import { isSingleBallScore } from '@/types/database/base';
@@ -53,6 +58,7 @@ interface RoundRecord {
   id: string;
   course_id: string;
   game_type: string | null;
+  team_format: string | null;
   selected_tee: TeeBox | null;
   nine_type: NineType | null;
   courses: { holes: Hole[] | null } | null;
@@ -178,7 +184,7 @@ export async function recalculateScorecardDifferential(
 
   // 2. Fetch the round with course data
   const { data: roundData, error: roundError } = await from('rounds')
-    .select('id, course_id, game_type, selected_tee, nine_type, courses!course_id (holes)')
+    .select('id, course_id, game_type, team_format, selected_tee, nine_type, courses!course_id (holes)')
     .eq('id', scorecard.round_id)
     .single();
 
@@ -190,6 +196,13 @@ export async function recalculateScorecardDifferential(
 
   if (!round.course_id) {
     throw new Error('Round has no associated course');
+  }
+
+  // Shared-ball team formats (scramble, alt-shot) share a single ball, so the
+  // scorecard's total_gross is the team's score — never a handicap-eligible
+  // individual differential. Refuse to (re)compute one.
+  if (isSharedBallRound({ game_type: round.game_type, team_format: round.team_format })) {
+    throw new Error('Shared-ball team round (scramble/alt-shot) is not handicap eligible');
   }
 
   // 2b. Check for per-player tee override from round_players
@@ -263,18 +276,11 @@ export async function recalculateScorecardDifferential(
 
   const ratings = { slopeRating: finalSlopeRating, courseRating: finalCourseRating };
 
-  // 7. Calculate differential
-  const handicapDifferential = calculateScoreDifferential({
-    adjustedGrossScore: scorecard.total_gross,
-    courseRating: ratings.courseRating,
-    slopeRating: ratings.slopeRating,
-  });
-
-  if (handicapDifferential === null) {
-    throw new Error('Failed to calculate differential from current ratings');
-  }
-
-  // 8. Calculate daily handicap if player has a WHS index
+  // 7. Calculate daily handicap if player has a WHS index.
+  // NOTE: this used to run AFTER the differential, but the differential now
+  // needs dailyHandicapUsed to work out strokes received for the net double
+  // bogey cap, so the two steps are swapped. Nothing between them depends on
+  // the differential.
   let gaHandicapUsed = scorecard.ga_handicap_used;
   let dailyHandicapUsed: number | null = null;
 
@@ -321,6 +327,29 @@ export async function recalculateScorecardDifferential(
         dailyHandicapUsed = dailyResult.dailyHandicap;
       }
     }
+  }
+
+  // 8. Calculate differential from the WHS ADJUSTED gross score — every hole
+  // capped at net double bogey (par + 2 + strokes received). Falls back to the
+  // raw total_gross when hole data is unavailable, which is what this call site
+  // used before the cap was introduced.
+  const adjustedGross =
+    effectiveHoles.length > 0 && scorecard.scores
+      ? calculateAdjustedGrossScore({
+          holes: effectiveHoles,
+          scores: scorecard.scores as AdjustedGrossParams['scores'],
+          dailyHandicap: dailyHandicapUsed ?? 0,
+        }).adjustedGross
+      : scorecard.total_gross;
+
+  const handicapDifferential = calculateScoreDifferential({
+    adjustedGrossScore: adjustedGross > 0 ? adjustedGross : scorecard.total_gross,
+    courseRating: ratings.courseRating,
+    slopeRating: ratings.slopeRating,
+  });
+
+  if (handicapDifferential === null) {
+    throw new Error('Failed to calculate differential from current ratings');
   }
 
   // 9. Recalculate total_points if this is a Stableford round with daily handicap

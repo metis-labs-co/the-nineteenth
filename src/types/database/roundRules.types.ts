@@ -63,6 +63,19 @@ export interface TeamAggregationConfig {
 }
 
 /**
+ * Optional per-round bonus point. v1 supports a single metric:
+ * `combined_match_margin` — the team with the higher net holes-up margin
+ * (signed sum of sub-match `final_differential`) across the round's
+ * sub-matches earns `points`. Exact tie resolves per `tie`.
+ */
+export interface MarginBonusConfig {
+  enabled: boolean;
+  metric: 'combined_match_margin';
+  points: number;
+  tie: 'split' | 'void' | 'carry';
+}
+
+/**
  * Full per-round override. All fields optional — unset means inherit the
  * competition-level default.
  */
@@ -78,6 +91,8 @@ export interface RoundRulesOverride {
   team_points?: WinTieLossPoints;
   /** Points awarded per sub-match (pair) outcome — used when round_format='split'. */
   pair_points?: WinTieLossPoints;
+  /** Optional bonus point awarded on a round-level margin metric. */
+  bonus_points?: MarginBonusConfig;
   /**
    * How individual results contribute to the competition individual leaderboard.
    * See `IndividualPointsRule` for modes. Legacy rounds may persist a bare

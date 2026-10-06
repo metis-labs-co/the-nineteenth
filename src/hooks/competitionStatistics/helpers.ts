@@ -14,6 +14,7 @@
  */
 
 import { PICKUP_SCORE } from '@/constants/scoring';
+import { getScoreCategory } from '@/utils/scoring';
 import type { Hole, HoleScore } from '@/types';
 import { netStrokesForHole, bucketForNetScore, type ScoreBucket } from './netScore';
 import type {
@@ -102,13 +103,23 @@ export interface AggregatableScorecard {
  * so a picked-up hole doesn't look like a triple bogey.
  */
 function bucketForGrossScore(strokes: number, par: number): ScoreBucket | null {
-  if (strokes >= PICKUP_SCORE) return null;
-  const diff = strokes - par;
-  if (diff <= -2) return 'eagleOrBetter';
-  if (diff === -1) return 'birdie';
-  if (diff === 0) return 'par';
-  if (diff === 1) return 'bogey';
-  return 'doublePlus';
+  const category = getScoreCategory(strokes, par);
+  switch (category) {
+    case 'albatross':
+    case 'eagle':
+      return 'eagleOrBetter';
+    case 'birdie':
+      return 'birdie';
+    case 'par':
+      return 'par';
+    case 'bogey':
+      return 'bogey';
+    case 'double-bogey':
+    case 'triple-plus':
+      return 'doublePlus';
+    default:
+      return null; // no score or pickup (strokes >= PICKUP_SCORE)
+  }
 }
 
 /**

@@ -42,6 +42,7 @@ export interface Scorecard {
   // Offline Sync Support
   device_id: string | null; // For conflict resolution
   synced_at: string | null; // ISO timestamp
+  revision?: number; // Optimistic-concurrency version (present after migration)
 
   // Handicap Tracking (captured at submission time)
   // These fields store the handicap data when the scorecard is synced for historical accuracy.

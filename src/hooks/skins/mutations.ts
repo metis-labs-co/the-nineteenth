@@ -13,6 +13,7 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
+import { fetchPlayerListByIds } from '@/services/api/players';
 import { skinsKeys } from '@/hooks/queryKeys';
 import {
   calculateHoleValue,
@@ -53,13 +54,6 @@ interface SkinsResultRow {
   carryover_to_next: number;
   payout_amount: number;
   calculated_at: string;
-}
-
-/** Row shape for player queries */
-interface PlayerRow {
-  id: string;
-  name: string;
-  handicap: number | null;
 }
 
 // =====================================================
@@ -438,18 +432,7 @@ export function useFinalizeSkinsGame() {
 
       const results = (rawResults ?? []) as unknown as SkinsResultRow[];
 
-      const { data: rawPlayers } = await supabase
-        .from('players')
-        .select('id, name, handicap')
-        .in('id', game.participant_ids);
-
-      const players = (rawPlayers ?? []) as unknown as PlayerRow[];
-
-      const participants = players.map((p) => ({
-        id: p.id,
-        name: p.name,
-        handicap: p.handicap,
-      }));
+      const participants = await fetchPlayerListByIds(game.participant_ids);
 
       const payoutResult = calculateFinalPayoutsWithCarryover(
         game as SkinsGame,

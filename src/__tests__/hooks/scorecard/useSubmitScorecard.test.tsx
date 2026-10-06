@@ -7,10 +7,10 @@
  * @see src/hooks/scorecard/useSubmitScorecard.ts
  */
 
-import { renderHook, act } from '@testing-library/react-native';
+import { renderHook, act, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
-import { useSubmitScorecards, useUpdateScore } from '@/hooks/scorecard/useSubmitScorecard';
+import { useSubmitScorecards } from '@/hooks/scorecard/useSubmitScorecard';
 import * as offlineDatabase from '@/services/offline/database';
 import * as offlineSync from '@/services/offline/sync';
 import type { Scorecard } from '@/types';
@@ -338,11 +338,8 @@ describe('useSubmitScorecards', () => {
 
 });
 
+/* Removed with the dormant useUpdateScore hook.
 // ============================================================================
-// TEST SUITE: useUpdateScore
-// ============================================================================
-
-describe('useUpdateScore', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -370,8 +367,10 @@ describe('useUpdateScore', () => {
     });
 
     // Verify mutation completed successfully
-    expect(result.current.isSuccess).toBe(true);
-    expect(result.current.isError).toBe(false);
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+      expect(result.current.isError).toBe(false);
+    });
   });
 
   it('should rollback on mutation error', async () => {
@@ -450,3 +449,4 @@ describe('useUpdateScore', () => {
   });
 
 });
+*/

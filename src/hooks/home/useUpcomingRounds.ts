@@ -7,8 +7,8 @@
  *   - Competition rounds where the user is an accepted player.
  *
  * Includes both `clubs(*)` (so `course.clubs.location` is available for the
- * weather forecast) and `competition:competitions(id, name)` so the hero
- * card can show the comp name.
+ * weather forecast) and `competition:competitions(id, name, description)` so
+ * the hero/upcoming-competition cards can show the comp name and blurb.
  *
  * Filters to `status = 'upcoming'` and `date >= today` so the cache stays
  * small (we don't care about rounds long in the past).
@@ -18,6 +18,12 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import { CACHE_TIMES, GC_TIMES } from '@/constants/cacheConfig';
 import { useAuth } from '@/hooks/useAuth';
+import { getLocalDateString } from '@/utils/formatting';
+import { parseClubLocation } from '@/utils/gpsCalculations';
+import {
+  fetchAcceptedCompetitionIds,
+  applyUserRoundScope,
+} from './roundScope';
 import type { RoundWithCourse } from '@/components/competitions/detail/types';
 
 const ROUND_SELECT = `
@@ -26,16 +32,8 @@ const ROUND_SELECT = `
     *,
     clubs(*)
   ),
-  competition:competitions(id, name)
+  competition:competitions(id, name, description)
 `;
-
-function todayIsoDate(): string {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
 
 /**
  * `clubs.latitude` / `clubs.longitude` are TypeScript-only convenience
@@ -55,10 +53,10 @@ function hydrateClubCoords(rounds: RoundWithCourse[]): RoundWithCourse[] {
       | null
       | undefined;
     if (!club) continue;
-    const loc = club.location;
-    if (loc?.coordinates && loc.coordinates.length >= 2) {
-      club.longitude = loc.coordinates[0];
-      club.latitude = loc.coordinates[1];
+    const { latitude, longitude } = parseClubLocation(club.location);
+    if (latitude != null && longitude != null) {
+      club.latitude = latitude;
+      club.longitude = longitude;
     }
   }
   return rounds;
@@ -73,43 +71,23 @@ export function useUpcomingRounds() {
       if (!user?.id) return [];
 
       // Step 1: find competition IDs the user is an accepted player in.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase typed-row workaround
-      const { data: cpData, error: cpError } = await (supabase
-        .from('competition_players') as any)
-        .select('competition_id')
-        .eq('player_id', user.id)
-        .eq('status', 'accepted');
-
-      if (cpError) {
-        console.error(
-          '[useUpcomingRounds] Error fetching competition players:',
-          cpError
-        );
-      }
-
-      const competitionIds = ((cpData ?? []) as { competition_id: string }[])
-        .map((cp) => cp.competition_id)
-        .filter(Boolean);
+      const competitionIds = await fetchAcceptedCompetitionIds(
+        user.id,
+        'useUpcomingRounds'
+      );
 
       // Step 2: fetch upcoming rounds (standalone owned by user OR
       // competition rounds in accepted comps), dated today or later.
-      const today = todayIsoDate();
+      const today = getLocalDateString();
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase typed-row workaround
-      let query = (supabase.from('rounds') as any)
+      const baseQuery = (supabase.from('rounds') as any)
         .select(ROUND_SELECT)
         .eq('status', 'upcoming')
         .gte('date', today)
         .is('deleted_at', null)
         .order('date', { ascending: true })
         .order('tee_time', { ascending: true });
-
-      if (competitionIds.length > 0) {
-        query = query.or(
-          `user_id.eq.${user.id},competition_id.in.(${competitionIds.join(',')})`
-        );
-      } else {
-        query = query.eq('user_id', user.id).is('competition_id', null);
-      }
+      const query = applyUserRoundScope(baseQuery, user.id, competitionIds);
 
       const { data, error } = await query;
 

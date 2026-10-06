@@ -66,7 +66,7 @@ export type TeamMatchStatus =
  * Per-team match status display
  */
 export interface TeamMatchStatusDisplay {
-  /** Short text: "1 UP", "2 DN", "AS" */
+  /** Short text: "1 UP", "2 DN", "A/S" */
   text: string;
   /** Full text: "1 Up", "2 Down", "All Square" */
   fullText: string;

@@ -32,6 +32,8 @@ export interface LeaderboardHeaderProps {
   courseName?: string;
   /** Round number */
   roundNumber: number;
+  /** Optional user-defined round name; shown instead of "Round N" when set. */
+  roundName?: string | null;
   /**
    * Optional fields used to derive the preset-accurate format label
    * (e.g. "Team Stableford (aggregate)" instead of just "Stableford"). When
@@ -41,6 +43,8 @@ export interface LeaderboardHeaderProps {
   roundFormat?: RoundFormat;
   subMatchSize?: number | null;
   rulesOverride?: RoundRulesOverride | null;
+  /** Optional right-aligned points/status badge (e.g. "Dinner bet · 0 pts"). */
+  pointsBadge?: string;
 }
 
 export const LeaderboardHeader = React.memo(function LeaderboardHeader({
@@ -49,12 +53,17 @@ export const LeaderboardHeader = React.memo(function LeaderboardHeader({
   date,
   courseName,
   roundNumber,
+  roundName,
   teamFormat,
   roundFormat,
   subMatchSize,
   rulesOverride,
+  pointsBadge,
 }: LeaderboardHeaderProps) {
   const colors = useThemeColors();
+
+  const title =
+    roundName && roundName.trim().length > 0 ? roundName : `Round ${roundNumber}`;
 
   // Resolve the most specific format label available. The engine label
   // (e.g. "Stableford") is shared across many presets — when the parent has
@@ -81,8 +90,12 @@ export const LeaderboardHeader = React.memo(function LeaderboardHeader({
   return (
     <View style={styles.header}>
       <View style={styles.headerTop}>
-        <ScaledText category="title" style={[styles.roundTitle, { color: colors.textPrimary }]}>
-          Round {roundNumber}
+        <ScaledText
+          category="title"
+          style={[styles.roundTitle, { color: colors.textPrimary }]}
+          numberOfLines={1}
+        >
+          {title}
         </ScaledText>
         <View style={styles.badgeRow}>
           <Pill
@@ -95,6 +108,13 @@ export const LeaderboardHeader = React.memo(function LeaderboardHeader({
               <IconUsers size={12} color={colors.textSecondary} />
               <ScaledText category="caption" style={[styles.teamBadgeText, { color: colors.textSecondary }]}>
                 Teams
+              </ScaledText>
+            </View>
+          )}
+          {pointsBadge && (
+            <View style={[styles.pointsBadge, { backgroundColor: colors.primaryLighter }]}>
+              <ScaledText category="caption" style={[styles.pointsBadgeText, { color: colors.primary }]}>
+                {pointsBadge}
               </ScaledText>
             </View>
           )}
