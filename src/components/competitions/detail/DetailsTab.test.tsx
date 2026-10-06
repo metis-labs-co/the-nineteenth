@@ -13,7 +13,7 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 import { DetailsTab } from './DetailsTab';
-import type { Competition, Course, CompetitionType, HandicapSystem, TeamMode, TeamWithMembers } from '@/types/database.types';
+import type { Competition, Course, CompetitionType, HandicapSystem, TeamMode } from '@/types/database.types';
 import { DEFAULT_POINT_SYSTEM } from '@/types/database.types';
 import type { RoundWithCourse } from './types';
 import type { MiniLeaderboardData } from '@/utils/miniLeaderboard';
@@ -145,6 +145,7 @@ function createTestCompetition(overrides: Partial<Competition> = {}): Competitio
     ...overrides,
     round_reminders_enabled: overrides.round_reminders_enabled ?? true,
     results_summary_enabled: overrides.results_summary_enabled ?? true,
+    allow_guests: overrides.allow_guests ?? true,
   };
 }
 
@@ -213,30 +214,11 @@ function createTestRound(roundNumber: number, course: Course | null = null): Rou
   };
 }
 
-function createTestTeam(id: string, memberCount: number): TeamWithMembers {
-  return {
-    id,
-    competition_id: 'comp-1',
-    name: `Team ${id}`,
-    color: null,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    members: Array.from({ length: memberCount }, (_, i) => ({
-      team_id: id,
-      player_id: `${id}-player-${i}`,
-      joined_at: new Date().toISOString(),
-    })),
-  };
-}
-
 // =====================================================
 // TESTS
 // =====================================================
 
 describe('DetailsTab', () => {
-  const mockOnEdit = jest.fn();
-  const mockOnUpdateCompetition = jest.fn();
-
   const defaultCompetition = createTestCompetition();
   const defaultCourse = createTestCourse();
   const defaultRounds: RoundWithCourse[] = [
@@ -252,7 +234,6 @@ describe('DetailsTab', () => {
     miniIndividual: null,
     miniTeam: null,
     isOrganizer: true,
-    onUpdateCompetition: mockOnUpdateCompetition,
   };
 
   beforeEach(() => {
@@ -285,21 +266,6 @@ describe('DetailsTab', () => {
       expect(screen.queryByText('Annual summer golf competition')).toBeNull();
     });
 
-    it('renders date range for events with end date', () => {
-      render(<DetailsTab {...defaultProps} />);
-      // Dates formatted as DD/M/YYYY (15/1/2025 - 16/1/2025)
-      expect(screen.getByText(/15\/1\/2025/)).toBeTruthy();
-      expect(screen.getByText(/16\/1\/2025/)).toBeTruthy();
-    });
-
-    it('renders single date for knockout without end date', () => {
-      const knockout = createTestCompetition({
-        competition_type: 'knockout',
-        end_date: null,
-      });
-      render(<DetailsTab {...defaultProps} competition={knockout} />);
-      expect(screen.getByText('15/1/2025')).toBeTruthy();
-    });
   });
 
   // ===========================================================================
@@ -430,69 +396,20 @@ describe('DetailsTab', () => {
   });
 
   // ===========================================================================
-  // SETTINGS SECTION TESTS
+  // RELOCATED SETTINGS
   // ===========================================================================
 
-  describe('Settings Section', () => {
-    it('displays competition settings', () => {
+  describe('Relocated settings', () => {
+    it('keeps status context and a read-only scoring glance, not editable settings', () => {
       render(<DetailsTab {...defaultProps} />);
+      // Editable SettingsSection rows remain relocated to the Settings screen.
+      expect(screen.queryByText('Team Size')).toBeNull();
+      expect(screen.queryByText('Rules Mode')).toBeNull();
+      // The redesign's read-only "Scoring & format" glance surfaces Handicap on
+      // Details (mirrors the mock); it taps through to Settings to edit.
+      expect(screen.getByText('Scoring & format')).toBeTruthy();
       expect(screen.getByText('Handicap')).toBeTruthy();
-    });
-
-    it('displays competition type', () => {
-      render(<DetailsTab {...defaultProps} />);
-      expect(screen.getAllByText('Event').length).toBeGreaterThanOrEqual(1);
-    });
-
-    it('displays knockout type correctly', () => {
-      const knockout = createTestCompetition({ competition_type: 'knockout' });
-      render(<DetailsTab {...defaultProps} competition={knockout} />);
-      expect(screen.getAllByText('Knockout').length).toBeGreaterThanOrEqual(1);
-    });
-
-    it('displays team mode - Individual', () => {
-      render(<DetailsTab {...defaultProps} />);
-      expect(screen.getByText('Individual')).toBeTruthy();
-    });
-
-    it('displays team mode - Fixed Teams', () => {
-      const comp = createTestCompetition({ team_mode: 'fixed', team_size: 2 });
-      render(<DetailsTab {...defaultProps} competition={comp} />);
-      expect(screen.getByText('Fixed Teams')).toBeTruthy();
-    });
-
-    it('displays team mode - Per-Round Teams', () => {
-      const comp = createTestCompetition({ team_mode: 'per-round', team_size: 4 });
-      render(<DetailsTab {...defaultProps} competition={comp} />);
-      expect(screen.getByText('Per-Round Teams')).toBeTruthy();
-    });
-
-    it('falls back to competition.team_size when no teams generated', () => {
-      const comp = createTestCompetition({ team_mode: 'fixed', team_size: 2 });
-      render(<DetailsTab {...defaultProps} competition={comp} />);
-      expect(screen.getByText('2 players')).toBeTruthy();
-    });
-
-    it('displays actual team size from generated teams, not stale team_size', () => {
-      // Regression: team_size is a static wizard field; teams are generated by
-      // count so the real size lives in member counts. Two teams of 4 → "4 players".
-      const comp = createTestCompetition({ team_mode: 'fixed', team_size: 2 });
-      const teams = [createTestTeam('a', 4), createTestTeam('b', 4)];
-      render(<DetailsTab {...defaultProps} competition={comp} teams={teams} />);
-      expect(screen.getByText('4 players')).toBeTruthy();
-      expect(screen.queryByText('2 players')).toBeNull();
-    });
-
-    it('displays a range when generated teams are uneven', () => {
-      const comp = createTestCompetition({ team_mode: 'fixed', team_size: 3 });
-      const teams = [createTestTeam('a', 4), createTestTeam('b', 3)];
-      render(<DetailsTab {...defaultProps} competition={comp} teams={teams} />);
-      expect(screen.getByText('3–4 players')).toBeTruthy();
-    });
-
-    it('does not display team size when team mode is none', () => {
-      render(<DetailsTab {...defaultProps} />);
-      expect(screen.queryByText(/players$/)).toBeNull();
+      expect(screen.getByTestId('status-badge')).toBeTruthy();
     });
 
     it('displays competition status', () => {
@@ -527,24 +444,6 @@ describe('DetailsTab', () => {
     it('does not show add prize pool button for non-organizers', () => {
       render(<DetailsTab {...defaultProps} isOrganizer={false} prizePool={null} />);
       expect(screen.queryByLabelText('Manage prize pools')).toBeNull();
-    });
-  });
-
-  // ===========================================================================
-  // COMPETITION TYPE BADGE TESTS
-  // ===========================================================================
-
-  describe('Competition Type Badge', () => {
-    it('shows Event badge in header', () => {
-      render(<DetailsTab {...defaultProps} />);
-      const pills = screen.getAllByTestId('pill');
-      expect(pills.length).toBeGreaterThanOrEqual(1);
-    });
-
-    it('shows Knockout badge for knockout competitions', () => {
-      const knockout = createTestCompetition({ competition_type: 'knockout' });
-      render(<DetailsTab {...defaultProps} competition={knockout} />);
-      expect(screen.getAllByText('Knockout').length).toBeGreaterThanOrEqual(1);
     });
   });
 
@@ -584,14 +483,6 @@ describe('DetailsTab', () => {
       expect(screen.queryByText('')).toBeNull(); // Empty text not rendered
     });
 
-    it('handles competition with team_size null when team_mode is not none', () => {
-      // Edge case: team_mode is set but team_size is null (shouldn't happen but handling gracefully)
-      const comp = createTestCompetition({ team_mode: 'fixed', team_size: null });
-      render(<DetailsTab {...defaultProps} competition={comp} />);
-      expect(screen.getByText('Fixed Teams')).toBeTruthy();
-      // Should not crash and should not show team size
-    });
-
     it('handles very long competition name', () => {
       const comp = createTestCompetition({
         name: 'The Annual Melbourne Metropolitan Golf Championship Series 2025',
@@ -606,10 +497,6 @@ describe('DetailsTab', () => {
       expect(screen.getByText('TEST-2025!')).toBeTruthy();
     });
 
-    it('works without onUpdateCompetition callback', () => {
-      render(<DetailsTab {...defaultProps} onUpdateCompetition={undefined} />);
-      expect(screen.getByText('Summer Championship')).toBeTruthy();
-    });
   });
 
   // ===========================================================================
@@ -723,7 +610,7 @@ describe('DetailsTab', () => {
 
     it('updates when rounds change', () => {
       const { rerender } = render(<DetailsTab {...defaultProps} />);
-      expect(screen.getByText('Handicap')).toBeTruthy();
+      expect(screen.getByText('Summer Championship')).toBeTruthy();
 
       const course2 = createTestCourse({ id: 'course-2', name: 'Kingston Heath' });
       const newRounds: RoundWithCourse[] = [
@@ -732,7 +619,7 @@ describe('DetailsTab', () => {
       ];
       rerender(<DetailsTab {...defaultProps} rounds={newRounds} />);
 
-      expect(screen.getByText('Handicap')).toBeTruthy();
+      expect(screen.getByText('Summer Championship')).toBeTruthy();
     });
   });
 });

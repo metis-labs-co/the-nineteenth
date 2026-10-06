@@ -14,6 +14,7 @@ import { useThemeColors, useIsDark } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { PlayerAvatar } from '@/components/common/PlayerAvatar';
 import { useMatesThisWeek } from '@/hooks/home/useMatesThisWeek';
+import { useSocialAccess } from '@/hooks/useSocialAccess';
 import type { MateWeeklyEntry } from '@/hooks/home/matesLeaderboard';
 import type { RootStackParamList } from '@/navigation/types';
 import { SectionHeader } from './SectionHeader';
@@ -72,6 +73,7 @@ const MateRow = React.memo(function MateRow({ entry, position, leaderPoints, onP
 
 export const MatesThisWeekSection = React.memo(function MatesThisWeekSection() {
   const colors = useThemeColors();
+  const { isRestricted } = useSocialAccess();
   const navigation = useNavigation<Nav>();
   const { data, isLoading, isError } = useMatesThisWeek();
 
@@ -80,12 +82,14 @@ export const MatesThisWeekSection = React.memo(function MatesThisWeekSection() {
     [navigation]
   );
   const openActivity = useCallback(
-    () => navigation.navigate('MainTabs', { screen: 'ActivityTab' }),
+    () => navigation.navigate('Activity'),
     [navigation]
   );
 
   const entries = data ?? [];
-  if (isLoading || isError || entries.length === 0) return null;
+  // Both actions here target age-gated routes, so the whole section goes
+  // for restricted users rather than leaving taps that navigate nowhere.
+  if (isRestricted || isLoading || isError || entries.length === 0) return null;
 
   const leaderPoints = entries[0].points;
 

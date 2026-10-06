@@ -6,6 +6,16 @@ import * as matesHook from '@/hooks/home/useMatesThisWeek';
 import type { MateWeeklyEntry } from '@/hooks/home/matesLeaderboard';
 
 jest.mock('@/hooks/home/useMatesThisWeek');
+// The section links to age-gated routes, so it consults social access.
+let mockSocialAccess = {
+  status: 'eligible',
+  socialEnabled: true,
+  isRestricted: false,
+  isLoading: false,
+};
+jest.mock('@/hooks/useSocialAccess', () => ({
+  useSocialAccess: () => mockSocialAccess,
+}));
 
 const mockNavigate = jest.fn();
 jest.mock('@react-navigation/native', () => {
@@ -83,7 +93,7 @@ describe('MatesThisWeekSection', () => {
     mockData(entries);
     const { getByText } = render(wrap(<MatesThisWeekSection />));
     fireEvent.press(getByText('See all'));
-    expect(mockNavigate).toHaveBeenCalledWith('MainTabs', { screen: 'ActivityTab' });
+    expect(mockNavigate).toHaveBeenCalledWith('Activity');
   });
 
   it('renders nothing on error', () => {
@@ -97,5 +107,27 @@ describe('MatesThisWeekSection', () => {
     const { getByText, queryByText } = render(wrap(<MatesThisWeekSection />));
     expect(getByText('Leading')).toBeTruthy();
     expect(queryByText(/behind/)).toBeNull();
+  });
+
+  it('renders nothing for a restricted user', () => {
+    mockData([
+      { player_id: 'p1', name: 'Alex', photo_url: null, points: 40, round_id: 'r1' },
+    ] as never);
+    // Both the "See all" action and the row taps navigate to age-gated routes,
+    // so the whole section goes rather than leaving taps that go nowhere.
+    mockSocialAccess = {
+      status: 'under13',
+      socialEnabled: false,
+      isRestricted: true,
+      isLoading: false,
+    };
+    const { queryByText } = render(wrap(<MatesThisWeekSection />));
+    expect(queryByText('Mates this week')).toBeNull();
+    mockSocialAccess = {
+      status: 'eligible',
+      socialEnabled: true,
+      isRestricted: false,
+      isLoading: false,
+    };
   });
 });

@@ -55,7 +55,7 @@ export async function createCompetition(
   }
 
   // Use custom invite code or generate one
-  const inviteCode = input.inviteCode || generateInviteCode();
+  const inviteCode = (input.inviteCode || generateInviteCode()).trim().toUpperCase();
 
   // Convert app TeamMode to DB TeamMode
   const dbTeamMode = mapTeamModeToDb(input.teamMode);
@@ -72,6 +72,7 @@ export async function createCompetition(
   const maxPlayers = input.maxPlayers != null && input.maxPlayers > 0 ? input.maxPlayers : null;
   const lockAtCapacity = input.lockAtCapacity !== false;
   const organizerIsPlayer = input.organizerIsPlayer !== false;
+  const allowGuests = input.allowGuests !== false;
 
   // Create competition in Supabase
   const { data: competition, error: compError } = await supabase
@@ -96,6 +97,7 @@ export async function createCompetition(
       max_players: maxPlayers,
       lock_at_capacity: lockAtCapacity,
       organizer_is_player: organizerIsPlayer,
+      allow_guests: allowGuests,
     } as unknown as never)
     .select()
     .single();
@@ -229,7 +231,7 @@ export async function createCompetition(
   // This lets the organizer configure teams, pairings, and 2v2 round types
   // before any real players join — real players replace placeholders on join
   // via the claim_competition_placeholder RPC.
-  if (maxPlayers != null && maxPlayers > 0) {
+  if (allowGuests && maxPlayers != null && maxPlayers > 0) {
     const { count: currentCount, error: countError } = await supabase
       .from('competition_players')
       .select('*', { count: 'exact', head: true })
@@ -302,6 +304,7 @@ export async function createCompetition(
       maxPlayers: comp.max_players ?? null,
       lockAtCapacity: comp.lock_at_capacity ?? true,
       organizerIsPlayer: comp.organizer_is_player ?? true,
+      allowGuests: comp.allow_guests ?? true,
       createdAt: new Date(comp.created_at),
       updatedAt: new Date(comp.updated_at),
     },
@@ -334,6 +337,7 @@ function mapDbCompetitionToCompetition(c: DBCompetition): Competition {
     maxPlayers: c.max_players ?? null,
     lockAtCapacity: c.lock_at_capacity ?? true,
     organizerIsPlayer: c.organizer_is_player ?? true,
+    allowGuests: c.allow_guests ?? true,
     createdAt: new Date(c.created_at),
     updatedAt: new Date(c.updated_at),
   };
@@ -435,6 +439,7 @@ export async function getCompetition(id: string): Promise<Competition | null> {
     maxPlayers: c.max_players ?? null,
     lockAtCapacity: c.lock_at_capacity ?? true,
     organizerIsPlayer: c.organizer_is_player ?? true,
+    allowGuests: c.allow_guests ?? true,
     createdAt: new Date(c.created_at),
     updatedAt: new Date(c.updated_at),
   };

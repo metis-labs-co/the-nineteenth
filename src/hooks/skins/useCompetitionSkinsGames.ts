@@ -50,6 +50,9 @@ export interface CompetitionSkinsCard {
   topNetResult: number | null;
   /** Number of remaining participants for the "+N other" line on the card. */
   otherParticipantCount: number;
+  /** IDs used to decide whether a competitor may see the real-money side game. */
+  participantPlayerIds: string[];
+  participantTeamIds: string[];
 }
 
 interface RoundRow {
@@ -224,6 +227,8 @@ export function useCompetitionSkinsGames(competitionId: string | undefined) {
           topName,
           topNetResult: top ? Number(top.net_result) : null,
           otherParticipantCount: Math.max(0, gamePayouts.length - 1),
+          participantPlayerIds: g.participant_ids ?? [],
+          participantTeamIds: g.participant_team_ids ?? [],
         };
       });
     },

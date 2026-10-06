@@ -16,6 +16,10 @@ import {
   calculateScoreDifferential,
   getRatingsForGender,
 } from '@/utils/handicapDifferential';
+import {
+  calculateAdjustedGrossScore,
+  type AdjustedGrossParams,
+} from '@/utils/adjustedGross';
 import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
 import { syncLogger } from '@/utils/debugLogger';
 import type { TeeBox, Hole } from '@/types/database/base';
@@ -31,6 +35,8 @@ interface ScorecardLite {
   total_gross: number;
   ga_handicap_used: number | null;
   status: string;
+  /** Hole-by-hole scores — required for the WHS net double bogey cap. */
+  scores: Record<string, unknown> | null;
 }
 
 interface RoundLite {
@@ -72,7 +78,7 @@ export interface CombineResult {
 async function loadScorecard(id: string): Promise<ScorecardLite> {
   const { data, error } = await supabase
     .from('scorecards')
-    .select('id, player_id, round_id, total_gross, ga_handicap_used, status')
+    .select('id, player_id, round_id, total_gross, ga_handicap_used, status, scores')
     .eq('id', id)
     .single();
   if (error || !data) {
@@ -153,6 +159,12 @@ interface PairContext {
   combinedGross: number;
   /** Full 18-hole par from the course (for daily handicap calculation) */
   fullPar: number;
+  /** All 18 course holes, for the WHS net double bogey cap. */
+  allHoles: Hole[];
+  /** Front-9 hole-by-hole scores. */
+  frontScores: Record<string, unknown> | null;
+  /** Back-9 hole-by-hole scores. */
+  backScores: Record<string, unknown> | null;
 }
 
 async function validateAndBuildContext(
@@ -221,6 +233,9 @@ async function validateAndBuildContext(
     backNineType: 'back9',
     combinedGross: front.total_gross + back.total_gross,
     fullPar,
+    allHoles,
+    frontScores: front.scores,
+    backScores: back.scores,
   };
 }
 
@@ -255,15 +270,9 @@ export async function previewCombinedDifferential(
     throw new Error(`Tee "${tee.name}" is missing slope/course ratings`);
   }
 
-  const differential = calculateScoreDifferential({
-    adjustedGrossScore: ctx.combinedGross,
-    courseRating: ratings.courseRating,
-    slopeRating: ratings.slopeRating,
-  });
-  if (differential === null) {
-    throw new Error('Failed to calculate combined differential');
-  }
-
+  // The daily handicap is resolved BEFORE the differential because the WHS
+  // net double bogey cap needs strokes received on each hole. Combining two
+  // nines produces an 18-hole score, so the 18-hole daily handicap applies.
   let dailyHandicapUsed: number | null = null;
   const gaHandicapUsed = ctx.player?.handicap ?? null;
   if (gaHandicapUsed != null && ctx.fullPar > 0) {
@@ -275,6 +284,35 @@ export async function previewCombinedDifferential(
       gender: ctx.player?.gender ?? null,
     });
     dailyHandicapUsed = dh.dailyHandicap;
+  }
+
+  // Cap each nine against its own holes, then add the two adjusted totals.
+  const frontHoles = ctx.allHoles.filter((h) => h.number <= 9);
+  const backHoles = ctx.allHoles.filter((h) => h.number > 9);
+  const canCap =
+    frontHoles.length > 0 && backHoles.length > 0 && ctx.frontScores && ctx.backScores;
+
+  const adjustedCombinedGross = canCap
+    ? calculateAdjustedGrossScore({
+        holes: frontHoles,
+        scores: ctx.frontScores as AdjustedGrossParams['scores'],
+        dailyHandicap: dailyHandicapUsed ?? 0,
+      }).adjustedGross +
+      calculateAdjustedGrossScore({
+        holes: backHoles,
+        scores: ctx.backScores as AdjustedGrossParams['scores'],
+        dailyHandicap: dailyHandicapUsed ?? 0,
+      }).adjustedGross
+    : ctx.combinedGross;
+
+  const differential = calculateScoreDifferential({
+    adjustedGrossScore:
+      adjustedCombinedGross > 0 ? adjustedCombinedGross : ctx.combinedGross,
+    courseRating: ratings.courseRating,
+    slopeRating: ratings.slopeRating,
+  });
+  if (differential === null) {
+    throw new Error('Failed to calculate combined differential');
   }
 
   return {

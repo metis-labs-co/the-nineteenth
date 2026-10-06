@@ -43,6 +43,8 @@ import {
   useAcceptFriendRequest,
 } from '@/hooks/friends';
 import { useConfirmationDialog } from '@/hooks';
+import { useBlockUser, useReportContent, type ReportReason } from '@/hooks/moderation';
+import { ReportSheet } from '@/components/moderation/ReportSheet';
 import { useToast } from '@/context/ToastContext';
 import { useSubscriptionContext } from '@/context/SubscriptionContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
@@ -67,7 +69,10 @@ export default function PlayerDetailScreen({ navigation, route }: Props) {
   const { id: playerId } = route.params;
   const { user } = useAuth();
   const { showSuccessToast } = useToast();
-  const { dialogConfig, showAlert, dismissDialog } = useConfirmationDialog();
+  const { dialogConfig, showDialog, showAlert, dismissDialog } = useConfirmationDialog();
+  const { block } = useBlockUser();
+  const { report } = useReportContent();
+  const [isReportingPlayer, setIsReportingPlayer] = useState(false);
   const { tier } = useSubscriptionContext();
 
   // Card background
@@ -211,6 +216,44 @@ export default function PlayerDetailScreen({ navigation, route }: Props) {
     showAlert,
     showSuccessToast,
   ]);
+
+  const handleBlock = useCallback(() => {
+    showDialog({
+      title: `Block ${player?.name ?? 'this player'}?`,
+      // Say the friendship goes: unblocking does NOT restore it.
+      message:
+        "You won't see each other's comments, photos or activity, and any friendship between you will be removed.",
+      confirmLabel: 'Block',
+      cancelLabel: 'Cancel',
+      confirmVariant: 'destructive',
+      onConfirm: () => {
+        void (async () => {
+          try {
+            await block(playerId);
+            dismissDialog();
+            navigation.goBack();
+          } catch {
+            dismissDialog();
+            showAlert('Could not block', 'Something went wrong. Please try again.');
+          }
+        })();
+      },
+    });
+  }, [showDialog, dismissDialog, showAlert, block, playerId, player?.name, navigation]);
+
+  const handleReportPlayer = useCallback(
+    async (reason: ReportReason, note?: string) => {
+      await report({
+        contentType: 'player',
+        contentId: playerId,
+        authorId: playerId,
+        reason,
+        note,
+      });
+      setIsReportingPlayer(false);
+    },
+    [report, playerId]
+  );
 
   const handleUpgrade = useCallback(() => {
     setShowUpgradePrompt(false);
@@ -621,11 +664,43 @@ export default function PlayerDetailScreen({ navigation, route }: Props) {
           </>
         ))}
 
+        {/* Safety actions — Guideline 1.2 requires reporting and blocking to be
+            reachable from the profile of the person concerned. */}
+        <View style={styles.safetyActions}>
+          <TouchableOpacity
+            onPress={() => setIsReportingPlayer(true)}
+            style={styles.safetyAction}
+            accessibilityRole="button"
+            accessibilityLabel={`Report ${player.name}`}
+          >
+            <Icon source="flag-outline" size={18} color={colors.textSecondary} />
+            <Text style={[styles.safetyActionText, { color: colors.textSecondary }]}>
+              Report
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={handleBlock}
+            style={styles.safetyAction}
+            accessibilityRole="button"
+            accessibilityLabel={`Block ${player.name}`}
+          >
+            <Icon source="block-helper" size={18} color={colors.error} />
+            <Text style={[styles.safetyActionText, { color: colors.error }]}>Block</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Footer spacing */}
         <View style={styles.footer} />
       </ScrollView>
 
       <ConfirmationDialog {...dialogConfig} onCancel={dismissDialog} />
+
+      <ReportSheet
+        visible={isReportingPlayer}
+        onSubmit={handleReportPlayer}
+        onDismiss={() => setIsReportingPlayer(false)}
+      />
 
       <UpgradePrompt
         config={upgradePromptConfig}
@@ -862,6 +937,21 @@ const styles = StyleSheet.create({
   },
 
   // Footer
+  safetyActions: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: spacing.xl,
+    marginTop: spacing.lg,
+  },
+  safetyAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    padding: spacing.sm,
+  },
+  safetyActionText: {
+    ...typography.body,
+  },
   footer: {
     height: spacing.xxxl,
   },

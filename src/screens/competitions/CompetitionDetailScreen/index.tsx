@@ -10,7 +10,7 @@
  */
 
 import React, { useState, useMemo, useCallback } from 'react';
-import { View, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Share } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text, Icon } from 'react-native-paper';
 import { LoadingSpinner } from '@/components/common';
@@ -37,6 +37,7 @@ import {
   StatsTab,
   PayoutsTab,
   SkinsTab,
+  CompetitionHero,
 } from '@/components/competitions/detail';
 import { BreakdownTab } from '@/components/competitions/breakdown';
 import { useCompetitionSkinsGames } from '@/hooks/skins';
@@ -48,20 +49,15 @@ import {
   useCompetitionDetailHandlers,
   useDeleteCompetitionRound,
 } from './hooks';
+import {
+  buildCompetitionDetailTabs,
+  reconcileCompetitionDetailTab,
+  type CompetitionDetailTab,
+} from './tabModel';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CompetitionDetail'>;
 
-type TabValue =
-  | 'details'
-  | 'rounds'
-  | 'players'
-  | 'teams'
-  | 'leaderboard'
-  | 'bracket'
-  | 'stats'
-  | 'payouts'
-  | 'skins'
-  | 'breakdown';
+type TabValue = CompetitionDetailTab;
 
 export default function CompetitionDetailScreen({ navigation, route }: Props) {
   const colors = useThemeColors();
@@ -72,15 +68,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
 
   // Tab state
   const [activeTab, setActiveTab] = useState<TabValue>(initialTab ?? 'details');
-
-  // When the screen is navigated back to with a new `initialTab` param (e.g. the
-  // round detail back button returning to the Rounds tab), the component is
-  // already mounted so the initial state above doesn't re-run — sync here.
-  React.useEffect(() => {
-    if (initialTab) {
-      setActiveTab(initialTab);
-    }
-  }, [initialTab]);
+  const lastHandledInitialTab = React.useRef(initialTab);
 
   // Lifted leaderboard state — lets the mini-leaderboard tap-through select a view
   const [leaderboardView, setLeaderboardView] = useState<'individual' | 'team'>(
@@ -140,6 +128,13 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
   // by query key).
   const { data: competitionSkinsGames } = useCompetitionSkinsGames(id);
   const hasSkinsGames = (competitionSkinsGames?.length ?? 0) > 0;
+  const canViewSkinsTab =
+    isOrganizer ||
+    (competitionSkinsGames ?? []).some(
+      (game) =>
+        (!!user?.id && game.participantPlayerIds.includes(user.id)) ||
+        (!!userTeamId && game.participantTeamIds.includes(userTeamId))
+    );
 
   const handleOpenLeaderboardFromMini = useCallback(
     (view: 'individual' | 'team') => {
@@ -238,6 +233,17 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
     [reorderRounds, id]
   );
 
+  // Share invite — opens the OS share sheet with the competition's invite code.
+  // Declared before the loading/error early returns (rules of hooks); reads the
+  // nullable competitionData and no-ops until it has loaded.
+  const handleShareInvite = useCallback(() => {
+    const comp = competitionData?.competition;
+    if (!comp) return;
+    void Share.share({
+      message: `Join "${comp.name}" on The Nineteenth — use invite code ${comp.invite_code} to join.`,
+    });
+  }, [competitionData]);
+
   // Refetch on focus so returning from a round detail/settings screen shows
   // updated round data (name, course, date, status) without a manual pull-to-refresh.
   useFocusEffect(
@@ -278,13 +284,6 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
   // Breakdown tab surfaces if either segment has data.
   const showBreakdownTab = showRingerTab || showContributionsTab;
 
-  // Once the competition is live, surface standings earlier — leaderboard (or
-  // bracket for knockouts) jumps to the 3rd tab so players can see results
-  // without scrolling past Players/Teams/Stats.
-  const promoteLeaderboard =
-    competitionData?.competition.status === 'in-progress' ||
-    competitionData?.competition.status === 'completed';
-
   // Mirrors the visibility logic inside LeaderboardTab so the pinned
   // Individual/Team toggle only renders when the inline one would have.
   const showLeaderboardToggle = useMemo(() => {
@@ -297,6 +296,65 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
       roundsList.every((r) => r.team_format === 'scramble' || r.team_format === 'alt-shot');
     return !isAllSingleBallTeam;
   }, [competitionData]);
+
+  const tabRole = isOrganizer ? 'organizer' : 'competitor';
+  const competitionType = competitionData?.competition.competition_type ?? 'event';
+  const competitionStatus = competitionData?.competition.status ?? 'upcoming';
+  const tabs = useMemo(
+    () =>
+      buildCompetitionDetailTabs({
+        role: tabRole,
+        competitionType,
+        status: competitionStatus,
+        availability: {
+          roundsCount: competitionData?.rounds.length ?? 0,
+          playersCount: competitionData?.players.length ?? 0,
+          teams: competitionData?.competition.team_mode !== 'none',
+          stats: showStatsTab,
+          breakdown: showBreakdownTab,
+          payouts: !!(prizePool || teamPrizePool),
+          skins: hasSkinsGames && canViewSkinsTab,
+          skinsCount: competitionSkinsGames?.length,
+        },
+      }),
+    [
+      competitionData,
+      competitionSkinsGames?.length,
+      competitionStatus,
+      competitionType,
+      canViewSkinsTab,
+      hasSkinsGames,
+      prizePool,
+      showBreakdownTab,
+      showStatsTab,
+      tabRole,
+      teamPrizePool,
+    ]
+  );
+  // Effects run after paint. Resolve the render key synchronously as well so
+  // competitors never paint organizer-only Details content for one frame.
+  const visibleActiveTab = reconcileCompetitionDetailTab(
+    activeTab,
+    tabs,
+    tabRole,
+    competitionType
+  );
+
+  // Navigation can request a tab that the resolved role/status cannot access.
+  // Clamp both incoming params and stale local state to a visible tab.
+  React.useEffect(() => {
+    setActiveTab((current) => {
+      const initialTabChanged = initialTab !== lastHandledInitialTab.current;
+      const requestedTab = initialTabChanged && initialTab ? initialTab : current;
+      lastHandledInitialTab.current = initialTab;
+      return reconcileCompetitionDetailTab(
+        requestedTab,
+        tabs,
+        tabRole,
+        competitionType
+      );
+    });
+  }, [competitionType, initialTab, tabRole, tabs]);
 
   // Loading state
   if (isLoading) {
@@ -336,6 +394,10 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
   const roundToDeleteDisplayNumber = roundToDelete
     ? rounds.findIndex((r) => r.id === roundToDelete.id) + 1
     : 0;
+  const liveRound = rounds.find((round) => round.status === 'in-progress');
+  const handleHeroAction = liveRound
+    ? () => handleViewRound(liveRound.id)
+    : undefined;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -353,6 +415,12 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
       {/* Header */}
       <PageHeader
         title={competition.name}
+        subtitle={
+          !isOrganizer && userTeamName
+            ? `Your team · ${userTeamName}`
+            : `${rounds.length} ${rounds.length === 1 ? 'round' : 'rounds'}`
+        }
+        variant="centered"
         showBack
         onBack={handleBack}
         rightActions={
@@ -368,48 +436,30 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
         }
       />
 
+      <CompetitionHero
+        status={competition.status}
+        startDate={competition.start_date}
+        isOrganizer={isOrganizer}
+        teamName={!isOrganizer ? userTeamName : undefined}
+        liveRoundName={
+          liveRound
+            ? `Round ${rounds.findIndex((round) => round.id === liveRound.id) + 1} is live`
+            : undefined
+        }
+        onPrimaryAction={handleHeroAction}
+      />
+
       {/* Tab Bar */}
       <Tabs
-        tabs={[
-          { key: 'details', label: 'Details' },
-          { key: 'rounds', label: 'Rounds', count: rounds.length },
-          ...(promoteLeaderboard
-            ? [
-                competition.competition_type === 'knockout'
-                  ? ({ key: 'bracket', label: 'Bracket' } as const)
-                  : ({ key: 'leaderboard', label: 'Leaderboard' } as const),
-              ]
-            : []),
-          { key: 'players', label: 'Players', count: players.length },
-          ...(competition.team_mode !== 'none' ? [{ key: 'teams' as const, label: 'Teams' }] : []),
-          ...(showStatsTab ? [{ key: 'stats' as const, label: 'Stats' }] : []),
-          ...(showBreakdownTab ? [{ key: 'breakdown' as const, label: 'Breakdown' }] : []),
-          ...(!promoteLeaderboard
-            ? [
-                competition.competition_type === 'knockout'
-                  ? ({ key: 'bracket', label: 'Bracket' } as const)
-                  : ({ key: 'leaderboard', label: 'Leaderboard' } as const),
-              ]
-            : []),
-          ...(prizePool || teamPrizePool ? [{ key: 'payouts' as const, label: 'Payouts' }] : []),
-          ...(hasSkinsGames
-            ? [
-                {
-                  key: 'skins' as const,
-                  label: 'Skins',
-                  count: competitionSkinsGames?.length,
-                },
-              ]
-            : []),
-        ]}
-        selectedTab={activeTab}
+        tabs={tabs}
+        selectedTab={visibleActiveTab}
         onTabChange={setActiveTab}
         style={styles.tabContainer}
       />
 
       {/* Pinned leaderboard sub-tabs: render outside the ScrollView so the
           Individual/Team toggle stays visible while scrolling the standings. */}
-      {activeTab === 'leaderboard' &&
+      {visibleActiveTab === 'leaderboard' &&
         competition.competition_type !== 'knockout' &&
         showLeaderboardToggle && (
           <LeaderboardViewToggle
@@ -437,19 +487,17 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
         }
         showsVerticalScrollIndicator={false}
       >
-        {activeTab === 'details' && (
+        {visibleActiveTab === 'details' && (
           <DetailsTab
             competition={competition}
             rounds={rounds}
             playerCount={players.length}
-            teams={teams || []}
             isPlayer={isPlayer}
             miniIndividual={miniIndividual}
             miniTeam={miniTeam}
             userTeamName={userTeamName}
             onOpenLeaderboard={handleOpenLeaderboardFromMini}
             isOrganizer={isOrganizer}
-            hasStartedRound={hasStartedRound}
             prizePool={prizePool}
             prizePoolPlacements={prizePoolPlacements}
             teamPrizePool={teamPrizePool}
@@ -461,15 +509,22 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
             onViewPrizePoolTransactions={
               prizePool || teamPrizePool ? () => setActiveTab('payouts') : undefined
             }
-            onViewTeams={
-              competition.team_mode !== 'none' ? () => setActiveTab('teams') : undefined
-            }
             onScoreRound={handleScoreRound}
             onViewRound={handleViewRound}
+            onAddRound={handleAddRound}
+            onFormatsPoints={() => setActiveTab('rounds')}
+            onManageTeams={
+              competition.team_mode !== 'none' ? () => setActiveTab('teams') : undefined
+            }
+            onPairings={() => setActiveTab('rounds')}
+            onOpenSettings={() =>
+              navigation.navigate('CompetitionSettings', { competitionId: id })
+            }
+            onShareInvite={handleShareInvite}
           />
         )}
 
-        {activeTab === 'rounds' && (
+        {visibleActiveTab === 'rounds' && (
           <RoundsTab
             rounds={rounds}
             isOrganizer={isOrganizer}
@@ -488,7 +543,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
           />
         )}
 
-        {activeTab === 'players' && (
+        {visibleActiveTab === 'players' && (
           <PlayersTab
             players={players}
             currentUserId={user?.id}
@@ -509,7 +564,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
           />
         )}
 
-        {activeTab === 'teams' && competition.team_mode !== 'none' && (
+        {visibleActiveTab === 'teams' && competition.team_mode !== 'none' && (
           <TeamsTab
             competitionId={id}
             teams={teams || []}
@@ -526,11 +581,11 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
           />
         )}
 
-        {activeTab === 'stats' && showStatsTab && (
+        {visibleActiveTab === 'stats' && showStatsTab && (
           <StatsTab competitionId={id} />
         )}
 
-        {activeTab === 'leaderboard' && competition.competition_type !== 'knockout' && (
+        {visibleActiveTab === 'leaderboard' && competition.competition_type !== 'knockout' && (
           <LeaderboardTab
             competitionId={id}
             teamMode={competition.team_mode}
@@ -546,7 +601,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
           />
         )}
 
-        {activeTab === 'bracket' && competition.competition_type === 'knockout' && (
+        {visibleActiveTab === 'bracket' && competition.competition_type === 'knockout' && (
           <BracketTab
             competitionId={id}
             knockoutConfig={competition.knockout_config}
@@ -557,7 +612,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
           />
         )}
 
-        {activeTab === 'payouts' && (prizePool || teamPrizePool) && (
+        {visibleActiveTab === 'payouts' && (prizePool || teamPrizePool) && (
           <PayoutsTab
             competition={competition}
             prizePool={prizePool}
@@ -568,11 +623,11 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
           />
         )}
 
-        {activeTab === 'skins' && hasSkinsGames && (
+        {visibleActiveTab === 'skins' && hasSkinsGames && (
           <SkinsTab competitionId={id} />
         )}
 
-        {activeTab === 'breakdown' && showBreakdownTab && (
+        {visibleActiveTab === 'breakdown' && showBreakdownTab && (
           <BreakdownTab
             competitionId={id}
             showRinger={showRingerTab}

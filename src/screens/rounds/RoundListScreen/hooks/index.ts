@@ -1,5 +1,7 @@
-export { useRoundFilters } from './useRoundFilters';
+export { useRoundFilters, matchesRoundScope, isCompetitionRoundItem } from './useRoundFilters';
 export { useRoundList } from './useRoundList';
+export { selectUpcomingRounds } from './selectUpcomingRounds';
+export { isNotPlayedRound, splitActiveAndHistory } from './notPlayedRounds';
 export { useRoundActions } from './useRoundActions';
 export { useStartNewRound } from './useStartNewRound';
 export { useScheduleRound } from './useScheduleRound';

@@ -28,9 +28,9 @@ organiser-only per the mock. Captured in `PHASE-1A-PLAN.md` Task 1B (competitor 
   only** — no component creation. (`CompetitionDetailScreen/index.tsx`; tabs under
   `components/competitions/detail/`, `components/competitions/breakdown/`, `components/leaderboard/`,
   `components/knockout/`.)
-- **The tab bar is dynamic and must be preserved:** tabs are conditionally spread in; order changes
-  with status (`promoteLeaderboard` moves Leaderboard to 3rd when in-progress/completed); knockout
-  swaps Leaderboard→Bracket; up to ~8 tabs can show at once (confirm `Tabs` horizontal scroll).
+- **The tab bar is dynamic and must be preserved:** tabs are conditionally spread in; the mock's
+  organiser order keeps Standings/Results third; knockout swaps Standings→Bracket; up to ~8 tabs can
+  show at once (confirm `Tabs` horizontal scroll).
 - **Role** = `isOrganizer`/`isPlayer` computed in `useCompetitionDetailData` (client-side vs
   `organizer_id` / players list). No dedicated role hook.
 - **Status-driven hero/CTA is new work.** Status logic is duplicated (screen + `DetailsTab`), and
@@ -89,7 +89,7 @@ each tab an independently-reviewable PR.
 **Files (modify):**
 - `screens/competitions/CompetitionDetailScreen/index.tsx` — chrome, `PageHeader` (centered + gear),
   status-driven hero/CTA, upcoming green-calendar + "Nd" card. **Preserve** the dynamic tab array,
-  status reorder, knockout swap, and screen-level realtime subs.
+  locked mock order, knockout swap, and screen-level realtime subs.
 - `components/common/Tabs.tsx` — confirm horizontal-scroll behaviour with up to 8 tabs (pills already
   set by Phase 0; do not restyle to underline — `PLAN.md` #1).
 - Per-tab (one slice each): `detail/DetailsTab.tsx` (+ `sections/*`), `detail/RoundsTab.tsx`,

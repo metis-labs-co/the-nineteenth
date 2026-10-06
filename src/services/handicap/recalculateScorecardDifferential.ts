@@ -10,6 +10,10 @@
 import { supabase } from '@/services/supabase/client';
 import { invalidateHandicapCache } from '@/services/queryClient';
 import { calculateScoreDifferential, getRatingsForGender } from '@/utils/handicapDifferential';
+import {
+  calculateAdjustedGrossScore,
+  type AdjustedGrossParams,
+} from '@/utils/adjustedGross';
 import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
 import { updatePlayerHandicapIndex } from '@/services/handicap/updatePlayerHandicapIndex';
 import { syncLogger } from '@/utils/debugLogger';
@@ -272,18 +276,11 @@ export async function recalculateScorecardDifferential(
 
   const ratings = { slopeRating: finalSlopeRating, courseRating: finalCourseRating };
 
-  // 7. Calculate differential
-  const handicapDifferential = calculateScoreDifferential({
-    adjustedGrossScore: scorecard.total_gross,
-    courseRating: ratings.courseRating,
-    slopeRating: ratings.slopeRating,
-  });
-
-  if (handicapDifferential === null) {
-    throw new Error('Failed to calculate differential from current ratings');
-  }
-
-  // 8. Calculate daily handicap if player has a WHS index
+  // 7. Calculate daily handicap if player has a WHS index.
+  // NOTE: this used to run AFTER the differential, but the differential now
+  // needs dailyHandicapUsed to work out strokes received for the net double
+  // bogey cap, so the two steps are swapped. Nothing between them depends on
+  // the differential.
   let gaHandicapUsed = scorecard.ga_handicap_used;
   let dailyHandicapUsed: number | null = null;
 
@@ -330,6 +327,29 @@ export async function recalculateScorecardDifferential(
         dailyHandicapUsed = dailyResult.dailyHandicap;
       }
     }
+  }
+
+  // 8. Calculate differential from the WHS ADJUSTED gross score — every hole
+  // capped at net double bogey (par + 2 + strokes received). Falls back to the
+  // raw total_gross when hole data is unavailable, which is what this call site
+  // used before the cap was introduced.
+  const adjustedGross =
+    effectiveHoles.length > 0 && scorecard.scores
+      ? calculateAdjustedGrossScore({
+          holes: effectiveHoles,
+          scores: scorecard.scores as AdjustedGrossParams['scores'],
+          dailyHandicap: dailyHandicapUsed ?? 0,
+        }).adjustedGross
+      : scorecard.total_gross;
+
+  const handicapDifferential = calculateScoreDifferential({
+    adjustedGrossScore: adjustedGross > 0 ? adjustedGross : scorecard.total_gross,
+    courseRating: ratings.courseRating,
+    slopeRating: ratings.slopeRating,
+  });
+
+  if (handicapDifferential === null) {
+    throw new Error('Failed to calculate differential from current ratings');
   }
 
   // 9. Recalculate total_points if this is a Stableford round with daily handicap

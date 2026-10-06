@@ -104,6 +104,8 @@ Each row is a behavioural contract. **File** owns it; **Test** locks it.
 | I5 | Alt-shot **split** = differential total-net across the pair. | `services/rounds/pairPointsCalculation.ts` (`resolveAltShotSubMatchOutcome`) | `src/__tests__/services/rounds/altShotSplit.golden.test.ts` |
 | I6 | Alt-shot **combined** = own 50% handicap, net-lowest scoring. | (finalize service) | characterization (Task 3) |
 | I7 | Stableford/Par leaderboards + best-ball header score off the **round daily handicap**. | engines + `leaderboardHandicaps.ts` | `src/__tests__/services/scoring/StablefordEngine.test.ts` |
+| I8 | A Score Differential is computed from the **WHS Adjusted Gross Score** — every hole capped at `par + 2 + strokesReceived` via `calculateAdjustedGrossScore`, never the raw total gross. All seven differential call sites must agree. | `utils/adjustedGross.ts` | `utils/adjustedGross.test.ts`, `src/__tests__/services/offline/calculateHandicapData.test.ts` |
+| I9 | GA CONNECT's `stablefordScore` uses the **uncapped Rule 21.1 table** (`2 + (par − net)`, floored at 0). The app's display tables clamp at 5 (`getStablefordPoints`) and 4 (`calculateStablefordPoints`) and must NOT be reused for it. | `utils/handicappingScore.ts` | `utils/handicappingScore.test.ts` |
 
 > This is the seed set. During Task 2/3, verify each against code and add any
 > missing invariant you encounter. An invariant with no locking test is

@@ -49,6 +49,7 @@
     "axios": "^1.6.5",
     "date-fns": "^3.2.0",
     "expo": "~54.0.30",
+    "expo-age-range": "0.2.1",
     "expo-apple-authentication": "^8.0.8",
     "expo-auth-session": "^7.0.10",
     "expo-background-fetch": "~14.0.9",

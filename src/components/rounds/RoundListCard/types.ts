@@ -90,6 +90,12 @@ export interface RoundListCardData {
   isTeamRound?: boolean;
   /** Whether this is a standalone practice round */
   isStandalone?: boolean;
+  /**
+   * The round's scheduled date passed while it was still upcoming — nobody
+   * started it. Set by the round list for competition rounds; the card shows
+   * a "Not played" pill instead of treating it as still-scheduled.
+   */
+  notPlayed?: boolean;
   /** Round number within competition */
   roundNumber: number;
   /** Total rounds in competition */

@@ -17,6 +17,8 @@ type CompetitionUpdate = Partial<
     | 'point_system'
     | 'per_round_rules_enabled'
     | 'whatsapp_group_invite_url'
+    | 'visibility'
+    | 'allow_guests'
     | 'round_reminders_enabled'
     | 'results_summary_enabled'
   >

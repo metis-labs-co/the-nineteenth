@@ -22,6 +22,21 @@ jest.mock('@/components/weather', () => {
   };
 });
 
+/** Collect testIDs / accessibilityLabels in render (left-to-right) order. */
+function renderOrder(tree: unknown): string[] {
+  const found: string[] = [];
+  const walk = (node: unknown) => {
+    if (Array.isArray(node)) return node.forEach(walk);
+    if (!node || typeof node !== 'object') return;
+    const el = node as { props?: Record<string, unknown>; children?: unknown };
+    const marker = el.props?.testID ?? el.props?.accessibilityLabel;
+    if (typeof marker === 'string') found.push(marker);
+    walk(el.children);
+  };
+  walk(tree);
+  return found;
+}
+
 function mockUnreadCount(count: number) {
   (notificationHooks.useUnreadNotificationCount as jest.Mock).mockReturnValue({
     data: count,
@@ -92,6 +107,27 @@ describe('HeaderQuickActions', () => {
     );
     fireEvent.press(getByLabelText('Course info'));
     expect(onInfoPress).toHaveBeenCalled();
+  });
+
+  it('places children before the weather chip by default', () => {
+    const { toJSON } = render(
+      <HeaderQuickActions>
+        <HeaderIconButton icon="flash" onPress={jest.fn()} accessibilityLabel="Extra" />
+      </HeaderQuickActions>
+    );
+    const order = renderOrder(toJSON());
+    expect(order.indexOf('Extra')).toBeLessThan(order.indexOf('weather-chip-stub'));
+  });
+
+  it('places children after the weather chip when childrenPlacement is after-weather', () => {
+    const { toJSON } = render(
+      <HeaderQuickActions childrenPlacement="after-weather">
+        <HeaderIconButton icon="flash" onPress={jest.fn()} accessibilityLabel="Extra" />
+      </HeaderQuickActions>
+    );
+    const order = renderOrder(toJSON());
+    expect(order.indexOf('weather-chip-stub')).toBeLessThan(order.indexOf('Extra'));
+    expect(order.indexOf('Extra')).toBeLessThan(order.indexOf('View all rounds'));
   });
 });
 

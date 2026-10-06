@@ -14,7 +14,7 @@
  * pan offset and persisted via `onReorder`.
  */
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -32,10 +32,11 @@ import Animated, {
   withTiming,
   type SharedValue,
 } from 'react-native-reanimated';
-import { spacing, typography, borderRadius } from '@/constants/theme';
+import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import type { ColorPalette } from '@/context/ThemeContext';
-import type { RoundWithCourse } from './types';
+import { GAME_TYPE_LABELS, type RoundWithCourse } from './types';
 import type { GameType } from '@/types';
+import { inferPresetIdFromRound, ROUND_PRESETS } from '@/constants/roundPresets';
 import { CompetitionRoundCard } from './CompetitionRoundCard';
 import { getHoverIndex, computeReorderShift } from './reorderMath';
 import { EmptyState, SwipeableRow } from '@/components/common';
@@ -46,6 +47,33 @@ import { useToast } from '@/context/ToastContext';
 /** Long-press threshold before drag activates. Short enough to feel snappy,
  *  long enough that vertical scrolls pass through to the parent ScrollView. */
 const LONG_PRESS_MS = 300;
+
+/**
+ * Identity key for a round's format, used to decide whether the competition
+ * runs a single format or a mix. Mirrors the fields that drive the round's
+ * displayed format label so two rounds collapse only when they truly share a
+ * format (e.g. team scramble vs individual stableford stay distinct).
+ */
+function roundFormatKey(r: RoundWithCourse): string {
+  return `${r.game_type}|${r.team_format ?? ''}|${r.round_format ?? ''}|${r.sub_match_size ?? ''}`;
+}
+
+/**
+ * Human label for a round's format — the matched preset's title (e.g.
+ * "1v1 Singles Match Play"), else the bare game-type label. Same derivation
+ * as CompetitionRoundCard and PointsConfigSection.
+ */
+function roundFormatLabel(r: RoundWithCourse): string {
+  const presetId = inferPresetIdFromRound({
+    game_type: r.game_type,
+    is_team_round: r.is_team_round,
+    team_format: r.team_format,
+    round_format: r.round_format,
+    sub_match_size: r.sub_match_size,
+    rules_override: r.rules_override ?? null,
+  });
+  return (presetId && ROUND_PRESETS[presetId]?.title) || GAME_TYPE_LABELS[r.game_type];
+}
 
 export interface RoundsTabProps {
   rounds: RoundWithCourse[];
@@ -241,6 +269,17 @@ export const RoundsTab = React.memo(function RoundsTab({
   const canSwipeDelete = isOrganizer && !!onDeleteRound;
   const canReorder = isOrganizer && !!onReorder && rounds.length > 1;
 
+  // Orientation strip: "N rounds · <format>" where <format> is the single
+  // shared format, or "mixed formats" when rounds differ. Presentational —
+  // derived purely from the rounds already in scope (no scoring math). The
+  // points total belongs to Details' Points & Rules section, which guards it
+  // for non-points competitions.
+  const formatDescriptor = useMemo(() => {
+    if (rounds.length === 0) return null;
+    const keys = new Set(rounds.map(roundFormatKey));
+    return keys.size > 1 ? 'mixed formats' : roundFormatLabel(rounds[0]);
+  }, [rounds]);
+
   const [forceSubmitRoundId, setForceSubmitRoundId] = useState<string | null>(null);
   const { mutate: forceFinalize, isPending: isForceSubmitting } = useForceFinalizeRound();
   const { showToast } = useToast();
@@ -307,6 +346,21 @@ export const RoundsTab = React.memo(function RoundsTab({
         />
       ) : (
         <View>
+          <View
+            style={[
+              styles.summaryStrip,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+            ]}
+          >
+            <Icon source="golf" size={16} color={colors.textTertiary} />
+            <Text style={[styles.summaryText, { color: colors.textSecondary }]}>
+              <Text style={[styles.summaryCount, { color: colors.textPrimary }]}>
+                {rounds.length}
+              </Text>
+              {` ${rounds.length === 1 ? 'round' : 'rounds'}`}
+              {formatDescriptor ? ` · ${formatDescriptor}` : ''}
+            </Text>
+          </View>
           {rounds.map((round, index) => {
             // Display number is derived from position so gaps left by deleted
             // rounds don't surface to users. The stored `round.round_number`
@@ -395,6 +449,24 @@ export const RoundsTab = React.memo(function RoundsTab({
 });
 
 const styles = StyleSheet.create({
+  summaryStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.md,
+    borderWidth: 1,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.md,
+    ...shadows.sm,
+  },
+  summaryText: {
+    ...typography.small,
+    flexShrink: 1,
+  },
+  summaryCount: {
+    ...typography.smallBold,
+  },
   row: {
     marginBottom: spacing.md,
   },

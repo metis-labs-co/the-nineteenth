@@ -34,6 +34,7 @@ export const SCREEN_WELCOME_CONTENT: Record<WelcomeScreenId, ScreenWelcomeConten
       'Score your rounds on-course with full offline support.',
     items: [
       { icon: 'account-multiple-outline', text: 'Score solo or with friends in your group' },
+      { icon: 'trophy-outline', text: 'Competition rounds show here too — filter by Social or Comps' },
       { icon: 'cards-playing-outline', text: 'Add skins & wolf mini-games for extra fun' },
       { icon: 'wifi-off', text: 'Full offline scoring — syncs when back online' },
       { icon: 'history', text: 'View your complete round history and stats' },

@@ -26,6 +26,7 @@ import {
   getHoles,
   markScorecardsAsSynced,
   markScorecardAsSynced,
+  getFailedSyncCountForRound,
 } from '@/services/offline/database';
 import {
   queueScorecardSync,
@@ -72,6 +73,7 @@ jest.mock('@/services/offline/database', () => ({
   getHoles: jest.fn(() => Promise.resolve([])),
   markScorecardsAsSynced: jest.fn(() => Promise.resolve()),
   markScorecardAsSynced: jest.fn(() => Promise.resolve()),
+  getFailedSyncCountForRound: jest.fn(() => Promise.resolve(0)),
 }));
 
 // Captured listener for the scorecard-synced event (set when the store
@@ -79,6 +81,18 @@ jest.mock('@/services/offline/database', () => ({
 // factory below to close over it.
 let mockScorecardSyncedListener:
   | ((info: { scorecardId: string; serverRevision: number }) => void)
+  | null = null;
+
+// Captured listener for sync-state changes, so tests can emit the state the
+// sync service would publish after a drain.
+let mockSyncStateListener:
+  | ((state: {
+      status: string;
+      pendingCount: number;
+      failedCount: number;
+      lastSyncAt: Date | null;
+      error: string | null;
+    }) => void)
   | null = null;
 
 // Mock the sync service
@@ -107,6 +121,7 @@ jest.mock('@/services/offline/sync', () => {
     queueScorecardSync: jest.fn(() => Promise.resolve()),
     syncScorecard: jest.fn(() => Promise.resolve({ serverRevision: 1 })),
     subscribeSyncState: jest.fn((callback) => {
+      mockSyncStateListener = callback;
       callback({ status: 'idle', pendingCount: 0, error: null });
       return jest.fn();
     }),
@@ -346,6 +361,89 @@ describe('ScorecardStore', () => {
       for (const [, scorecard] of getStore().groupScorecards) {
         expect(scorecard.isStandalone).toBe(true);
       }
+    });
+  });
+
+  // ==========================================================================
+  // SYNC FAILURE SCOPING
+  // ==========================================================================
+
+  /**
+   * The score-entry banner is driven by `failedSyncCount`. Sourcing it from the
+   * device-wide failure count made a single unrecoverable row from an old round
+   * raise a red "score changes not uploaded" strip on every subsequent
+   * scorecard, including solo and local-only rounds.
+   */
+  describe('failedSyncCount scoping', () => {
+    // jest.clearAllMocks() clears calls but not implementations, so restore the
+    // default here rather than leaking a value into unrelated suites.
+    afterEach(() => {
+      (getFailedSyncCountForRound as jest.Mock).mockResolvedValue(0);
+    });
+
+    it('counts only failures belonging to the current round', async () => {
+      (getFailedSyncCountForRound as jest.Mock).mockResolvedValue(2);
+
+      await getStore().initializeRound(testRoundId, testPlayers, testHoles);
+
+      expect(getFailedSyncCountForRound).toHaveBeenCalledWith(testRoundId);
+      expect(getStore().failedSyncCount).toBe(2);
+    });
+
+    it('ignores failures retained from other rounds', async () => {
+      (getFailedSyncCountForRound as jest.Mock).mockResolvedValue(0);
+
+      await getStore().initializeRound(testRoundId, testPlayers, testHoles);
+
+      expect(getStore().failedSyncCount).toBe(0);
+    });
+
+    it('recounts for the current round when sync state changes', async () => {
+      (getFailedSyncCountForRound as jest.Mock).mockResolvedValue(0);
+      await getStore().initializeRound(testRoundId, testPlayers, testHoles);
+      (getFailedSyncCountForRound as jest.Mock).mockClear();
+      (getFailedSyncCountForRound as jest.Mock).mockResolvedValue(1);
+
+      // A drain that retains a failure pushes new sync state to subscribers.
+      mockSyncStateListener?.({
+        status: 'error',
+        pendingCount: 0,
+        failedCount: 7,
+        lastSyncAt: null,
+        error: null,
+      });
+      await _waitFor(0);
+
+      expect(getFailedSyncCountForRound).toHaveBeenCalledWith(testRoundId);
+      // 7 device-wide failures, 1 of which belongs to this round.
+      expect(getStore().failedSyncCount).toBe(1);
+    });
+
+    it('leaves the count untouched when the lookup fails', async () => {
+      (getFailedSyncCountForRound as jest.Mock).mockResolvedValue(2);
+      await getStore().initializeRound(testRoundId, testPlayers, testHoles);
+      (getFailedSyncCountForRound as jest.Mock).mockRejectedValue(new Error('db closed'));
+
+      mockSyncStateListener?.({
+        status: 'idle',
+        pendingCount: 0,
+        failedCount: 0,
+        lastSyncAt: null,
+        error: null,
+      });
+      await _waitFor(0);
+
+      expect(getStore().failedSyncCount).toBe(2);
+    });
+
+    it('clears the count when the round is reset', async () => {
+      (getFailedSyncCountForRound as jest.Mock).mockResolvedValue(3);
+      await getStore().initializeRound(testRoundId, testPlayers, testHoles);
+      expect(getStore().failedSyncCount).toBe(3);
+
+      getStore().resetRound();
+
+      expect(getStore().failedSyncCount).toBe(0);
     });
   });
 

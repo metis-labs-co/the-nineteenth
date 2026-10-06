@@ -1,6 +1,13 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 import { RoundPhotoViewer } from './RoundPhotoViewer';
 
+// The viewer now offers a Report action, which pulls in react-query via
+// useReportContent. These suites cover viewer behaviour, not reporting.
+jest.mock('@/hooks/moderation', () => ({
+  useReportContent: () => ({ report: jest.fn(), isReporting: false }),
+}));
+
+
 const mockSignFullPhotos = jest.fn((_paths: string[]) =>
   Promise.resolve(new Map<string, string>())
 );

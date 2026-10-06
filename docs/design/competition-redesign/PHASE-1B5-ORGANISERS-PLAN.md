@@ -13,15 +13,19 @@ parity but owner-only destructive/financial actions.
 - **Scope:** co-organisers have **operational parity** (rounds, players, settings, teams, scoring,
   skins/wolf). **Owner-only:** delete competition, transfer ownership, settle prize-pool payouts.
 - **Add/remove:** **primary owner only, instant** (no accept flow) — pick an existing friend/player.
-- **Notifications:** co-organisers **receive** the organiser notifications (5 triggers loop over all
-  organisers).
+- **Notifications:** co-organisers **receive** organiser alerts; participant broadcasts retain their
+  existing audiences. For organiser-initiated actions, attribute the actor from `auth.uid()` only when
+  that user is an operational organiser. Automated/service-driven actions use a `NULL` actor and neutral
+  copy — never fall back to `organizer_id`, which would falsely attribute the action to the owner.
 - **Tier billing:** pinned to the **primary owner** for v1 (co-organised competitions do NOT count
   against a co-organiser's own tier limits; tier functions stay keyed on `organizer_id`).
 
 ## Representation
 
 - **New `competition_organizers` join table** — `(competition_id, player_id, added_by, added_at)`,
-  PK `(competition_id, player_id)`, FKs to `competitions`/`players` (cascade). Co-organisers are rows.
+  PK `(competition_id, player_id)`. FKs: `competition_id`→`competitions` and `player_id`→`players` are
+  **`ON DELETE CASCADE`**; **`added_by` is nullable, `ON DELETE SET NULL`** (deleting the player who added
+  a co-organiser must NOT delete the assignment — finding #4). Co-organisers are rows.
 - **`competitions.organizer_id` stays the immutable primary owner** (delete/transfer/tier-billing anchor).
 - Rationale (from the blast-radius map): organiser is a pure *ownership* attribute, orthogonal to
   `competition_players` (the `organizer_is_player` flag already decouples them) — so a role-flag on
@@ -31,8 +35,10 @@ parity but owner-only destructive/financial actions.
 ## Two helpers (the crux)
 
 Not every organiser check becomes a co-organiser check. Split into:
-- **`is_competition_owner(comp_id, uid)`** = `organizer_id = uid` — for **owner-only** actions
-  (delete/restore, transfer, prize-pool payout settlement, tier-limit resolution).
+- **`is_competition_owner(comp_id, uid)`** = `organizer_id = uid` — for **owner-only** actions:
+  **competition** delete/restore, transfer, prize-pool **payout settlement**, tier-limit resolution, and
+  changing ownership-only columns (`organizer_id`, `deleted_at`). NB: **round** delete/restore and
+  **settings edits** are operational, not owner-only (findings #1, #2).
 - **`is_competition_organizer(comp_id, uid)`** = **operational** organiser — Phase A: `organizer_id = uid`
   (behaviour-preserving); Phase B: `organizer_id = uid OR EXISTS (competition_organizers …)`.
 
@@ -79,19 +85,30 @@ while owner-only sites are untouched.
 - [ ] Commit: `refactor(db): competition organiser/owner RLS helpers (1B.5.A1)`
 
 ### Task A2: Re-point RLS policies to the helpers (classified)
-- [ ] For each organiser-aware policy across the ~21 tables, replace the inlined `organizer_id` subquery
-  with `is_competition_owner(...)` (owner-only tables: `competitions` FOR ALL, prize pools, pool
-  transactions) or `is_competition_organizer(...)` (everything operational: rounds, scorecards, pairings,
-  teams, team_members, round_results, scoring_pairs, score_entries/mismatches/submission_status,
-  knockout_matches, sub_matches, competition_round_player_tees, skins/wolf, competition_players).
+- [ ] **`competitions` must be SPLIT by operation (finding #1)** — settings edits UPDATE this table
+  (`useUpdateCompetitionField`), so a co-organiser needs UPDATE. Replace the single `FOR ALL USING
+  organizer_id = auth.uid()` with: **SELECT + UPDATE** via `is_competition_organizer(id, auth.uid())`
+  (operational), **DELETE** via `is_competition_owner(...)`. Add a **`BEFORE UPDATE` guard trigger** on
+  `competitions` that raises if a non-owner changes `organizer_id` or `deleted_at` (RLS can't restrict
+  columns; the trigger sees OLD vs NEW). In Phase A both helpers = owner, so behaviour is unchanged.
+- [ ] For every other organiser-aware policy across the ~21 tables, replace the inlined `organizer_id`
+  subquery with the right helper: **owner-only** = prize pools + pool transactions (payout money);
+  **operational** = rounds, scorecards, pairings, teams, team_members, round_results, scoring_pairs,
+  score_entries/mismatches/submission_status, knockout_matches, sub_matches,
+  competition_round_player_tees, skins/wolf, competition_players.
 - [ ] **Characterization tests** (before/after): owner retains all access; non-member denied; friend
-  visibility on scorecards/rounds unchanged. Run against staging.
+  visibility on scorecards/rounds unchanged; competitions still not UPDATE-able by non-organisers and
+  `organizer_id`/`deleted_at` unchangeable except by owner. Run against staging.
 - [ ] Commit: `refactor(db): route organiser RLS through helpers, no behaviour change (1B.5.A2)`
 
 ### Task A3: Route the DB functions/RPCs
-- [ ] `soft_delete_/restore_competition`, `soft_delete_/restore_round`, the 3 tier fns → `is_competition_owner`.
-  `reorder_competition_rounds` → `is_competition_organizer` (operational). Behaviour-preserving.
-- [ ] Test each RPC still authorises exactly as before.
+- [ ] **Owner-only:** `soft_delete_/restore_competition` (whole competition) + the 3 tier fns →
+  `is_competition_owner`.
+- [ ] **Operational (finding #2):** `soft_delete_/restore_round` and `reorder_competition_rounds` are
+  ordinary round management → for **competition** rounds use `is_competition_organizer`; **retain the
+  standalone-round path** (authorise on the round's own `user_id`, which the RPC already branches on when
+  `competition_id IS NULL`). Do not force round delete through the owner helper.
+- [ ] Test each RPC still authorises exactly as before (Phase A: helpers = owner, so identical).
 - [ ] Commit: `refactor(db): organiser RPCs via helpers (1B.5.A3)`
 
 ### Task A4: Consolidate the client derivations
@@ -109,8 +126,9 @@ while owner-only sites are untouched.
 ## Phase B — Extend to co-organisers
 
 ### Task B1: `competition_organizers` table + RLS
-- [ ] Migration: create the table; RLS — SELECT for competition members/organisers; INSERT/DELETE only by
-  `is_competition_owner`. Index on `player_id`.
+- [ ] Migration: create the table per the Representation spec — `competition_id`/`player_id`
+  `ON DELETE CASCADE`, **`added_by` nullable `ON DELETE SET NULL`** (finding #4). RLS — SELECT for
+  competition members/organisers; INSERT/DELETE only by `is_competition_owner`. Index on `player_id`.
 - [ ] Commit: `feat(db): competition_organizers table (1B.5.B1)`
 
 ### Task B2: Flip the operational helper
@@ -130,13 +148,30 @@ while owner-only sites are untouched.
 - [ ] Tests: co-organiser sees org affordances but not delete/settle; comp appears in their My Competitions.
 - [ ] Commit: `feat(competition): co-organiser client access (1B.5.B3)`
 
-### Task B4: Notifications to co-organisers
-- [ ] Update the 5 triggers (`notify_competition_player_added/joined`, `notify_new_round_created`,
-  `notify_scorecard_submitted` [note: trigger dropped — verify current set], `notify_competition_status_changed`,
-  and round-complete) to notify **`organizer_id` ∪ `competition_organizers`**, de-duped, excluding the
-  actor. Use latest bodies (grep the latest `CREATE OR REPLACE`).
-- [ ] Test: co-organiser receives player-joined/round-created; no duplicate to the owner; actor excluded.
-- [ ] Commit: `feat(notifications): notify co-organisers (1B.5.B4)`
+### Task B4: Notifications — per-trigger recipient/actor matrix (finding #3)
+
+These triggers have **different semantics** — do NOT blanket-add organisers to every recipient loop.
+Classify and change per-trigger (grep the latest `CREATE OR REPLACE` for each body first):
+
+| Trigger | Type | Recipient change | Actor change |
+|---|---|---|---|
+| `notify_competition_player_joined` | **organiser alert** | recipients → **owner ∪ co-organisers** (de-dup) | the joining player is the actor; exclude them if they are already a co-org |
+| `notify_competition_player_added` | **added-player alert** | **unchanged** (notifies the added player) | use the validated acting organiser from `auth.uid()` |
+| `notify_new_round_created` | **participant broadcast** | **unchanged** (accepted players) — do NOT add non-playing co-orgs | use and exclude the validated acting organiser from `auth.uid()`, not `organizer_id` |
+| `notify_competition_status_changed` | **participant broadcast** | unchanged | use and exclude the validated acting organiser from `auth.uid()` |
+| round-complete (`notify_round_completed`) | **participant broadcast** | unchanged | fired by scoring completion, not an organiser action — leave actor logic as-is |
+| `notify_scorecard_submitted` | — | **trigger was DROPPED** (`20260629010000`) — verify; no change |
+
+- [ ] **Actor-attribution decision:** capture `auth.uid()` inside the trigger transaction and retain it
+  only when `is_competition_organizer(competition_id, auth.uid())` is true. Use that player as the actor
+  and exclude them from the broadcast audience. If the action is automated/service-driven, or the caller
+  is not an operational organiser, store `NULL` and render neutral notification copy. **Never** fall back
+  to `organizer_id`. No new schema column is required for v1; add explicit `created_by`/audit columns later
+  only if actor history must survive independently of notification creation.
+- [ ] Tests per row: co-org receives player-joined; participant broadcasts keep their audience; the
+  acting owner/co-org is correctly attributed and excluded; player-initiated joins use the player actor;
+  automated/service calls use `NULL` and neutral copy; no duplicate to the owner.
+- [ ] Commit: `feat(notifications): co-organiser recipient/actor matrix (1B.5.B4)`
 
 ### Task B5: Add/remove RPCs (owner-only) + Manage-organisers UI
 - [ ] RPCs `add_competition_organizer(comp_id, player_id)` / `remove_competition_organizer(...)` —

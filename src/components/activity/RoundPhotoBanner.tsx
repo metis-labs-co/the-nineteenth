@@ -135,7 +135,7 @@ export function RoundPhotoBanner({ roundId, rounded = true, onPress }: RoundPhot
       )}
 
       <RoundPhotoViewer
-        photos={items.map((p) => ({ id: p.id, storagePath: p.storage_path, thumbUrl: p.url }))}
+        photos={items.map((p) => ({ id: p.id, storagePath: p.storage_path, thumbUrl: p.url, uploaderId: p.uploader_id }))}
         index={viewerIndex}
         onClose={() => setViewerIndex(null)}
       />

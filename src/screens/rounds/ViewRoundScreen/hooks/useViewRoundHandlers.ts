@@ -6,6 +6,7 @@ import type { CourseWithFavoriteStatus } from '@/hooks/useClubs';
 import type { Club } from '@/types/database.types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
+import { resolveCompetitionBackAction } from '@/navigation/competitionBackNavigation';
 import type { RoundWithCourse, ScorecardWithPlayer } from '@/hooks/useRoundDetails';
 
 interface UseViewRoundHandlersParams {
@@ -80,11 +81,20 @@ export function useViewRoundHandlers({
   const handleBack = useCallback(() => {
     // Competition rounds always return to the competition detail → Rounds tab,
     // regardless of how the user reached this screen (round list, scoring flow,
-    // deep link, etc.). navigate() pops back to the existing CompetitionDetail
-    // instance when present, or pushes a fresh one otherwise.
+    // deep link, etc.). How we get there depends on the stack: pop back to an
+    // existing CompetitionDetail, otherwise replace this screen with one —
+    // pushing would leave CompetitionDetail on top of ViewRound and the two
+    // would ping-pong on back. See resolveCompetitionBackAction.
     const compId = round?.competition?.id ?? competitionId;
     if (compId) {
-      navigation.navigate('CompetitionDetail', { id: compId, initialTab: 'rounds' });
+      const action = resolveCompetitionBackAction(navigation.getState(), compId);
+      if (action.type === 'navigate') {
+        navigation.navigate('CompetitionDetail', action.params);
+      } else if (action.type === 'replace') {
+        navigation.replace('CompetitionDetail', action.params);
+      } else {
+        navigation.reset(action.state);
+      }
       return;
     }
 

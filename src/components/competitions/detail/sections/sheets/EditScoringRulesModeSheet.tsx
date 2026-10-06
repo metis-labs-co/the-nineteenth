@@ -153,7 +153,7 @@ export function EditScoringRulesModeSheet({
                     Per-round rules
                   </Text>
                   <View
-                    style={[styles.premiumPill, { backgroundColor: colors.warning ?? '#f59e0b' }]}
+                    style={[styles.premiumPill, { backgroundColor: colors.warning }]}
                   >
                     <Text style={[styles.premiumPillText, { color: colors.white }]}>
                       Premium

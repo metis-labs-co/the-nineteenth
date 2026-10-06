@@ -1,19 +1,23 @@
 /**
- * TeamHeadToHeadCard - Ryder-cup style 2-team head-to-head scoreboard
+ * TeamHeadToHeadCard - Ryder-cup style 2-team head-to-head scoreboard.
  *
- * Features:
- * - Two-column layout: team colour accent, name, "You" badge, member names,
- *   avg handicap, and a big accumulated-points number per side
- * - Leader (higher totalPoints) shown in the left column with a trophy;
- *   an exact tie keeps input order and shows no trophy
- * - Tap the card to expand a per-round breakdown (round label + course,
- *   both teams' points, winning side highlighted in its team colour)
+ * Renders as a dark "cup" board (an always-dark feature surface, per the
+ * redesign mock): centered team names with big accumulated-points totals, a
+ * cup progress bar with a "first to N" marker, and an outcome pill. Tapping
+ * the board expands a per-round breakdown (round label + course, both teams'
+ * points, winning side highlighted in its team colour).
+ *
+ * The leader (higher totalPoints) is shown on the left; an exact tie keeps
+ * input order. The progress bar + outcome "win/lead" state only render when
+ * the caller supplies pointsAvailable / pointsToWin.
  */
 
 import React, { useMemo, useState } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Badge, ScaledText } from '@/components/common';
-import { IconTrophy, IconChevronDown, IconChevronUp } from '@tabler/icons-react-native';
+import { View, StyleSheet, TouchableOpacity, type DimensionValue } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Text } from 'react-native-paper';
+import { Badge } from '@/components/common';
+import { IconChevronDown, IconChevronUp } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import type { TeamLeaderboardEntry } from './TeamLeaderboardTable';
@@ -30,8 +34,22 @@ export interface TeamHeadToHeadCardProps {
   currentUserId?: string;
   /** Rounds used to compute positional round numbers + course names */
   rounds: RoundWithCourse[];
+  /** Total points available across the competition (drives the progress bar). */
+  pointsAvailable?: number;
+  /** Points needed to win the cup (drives the bar marker + win/lead outcome). */
+  pointsToWin?: number;
+  /** Optional centered eyebrow on the board (e.g. "Overall"). */
+  headlineLabel?: string;
   /** Test ID for testing */
   testID?: string;
+}
+
+/** Format a points total for display, rendering halves as ½ (e.g. 6.5 -> 6½). */
+function formatPoints(value: number): string {
+  const whole = Math.floor(value);
+  const hasHalf = value - whole === 0.5;
+  if (hasHalf) return whole === 0 ? '½' : `${whole}½`;
+  return String(value);
 }
 
 export function TeamHeadToHeadCard({
@@ -39,6 +57,9 @@ export function TeamHeadToHeadCard({
   teamColors,
   currentUserId,
   rounds,
+  pointsAvailable,
+  pointsToWin,
+  headlineLabel,
   testID,
 }: TeamHeadToHeadCardProps) {
   const colors = useThemeColors();
@@ -50,8 +71,8 @@ export function TeamHeadToHeadCard({
   );
   const isTie = entries[0].totalPoints === entries[1].totalPoints;
 
-  const leftColor = teamColors.get(leader.teamId) ?? colors.textSecondary;
-  const rightColor = teamColors.get(other.teamId) ?? colors.textSecondary;
+  const leftColor = teamColors.get(leader.teamId) ?? colors.scoreboardLabel;
+  const rightColor = teamColors.get(other.teamId) ?? colors.scoreboardLabel;
 
   const leaderHasCurrentUser = currentUserId
     ? leader.members.some((m) => m.playerId === currentUserId)
@@ -66,110 +87,123 @@ export function TeamHeadToHeadCard({
     [leader.roundBreakdown, other.roundBreakdown, roundNumberByRoundId]
   );
 
+  // Progress bar geometry — each side fills from its edge by its share of the
+  // total available points; the marker sits at the "first to N" threshold.
+  const showBar = !!pointsAvailable && pointsAvailable > 0;
+  const leftPct = (
+    showBar ? `${Math.min(100, (leader.totalPoints / pointsAvailable!) * 100)}%` : '0%'
+  ) as DimensionValue;
+  const rightPct = (
+    showBar ? `${Math.min(100, (other.totalPoints / pointsAvailable!) * 100)}%` : '0%'
+  ) as DimensionValue;
+  const markerPct = (
+    showBar && pointsToWin ? `${Math.min(100, (pointsToWin / pointsAvailable!) * 100)}%` : null
+  ) as DimensionValue | null;
+
+  // Outcome: clinched ("win") once the leader reaches the win threshold; a
+  // dead-level total is "All square"; otherwise the leader "leads".
+  const clinched = pointsToWin != null && leader.totalPoints >= pointsToWin;
+  const outcomeText = isTie
+    ? 'All square'
+    : `${leader.teamName} ${clinched ? 'win' : 'lead'}`;
+
   return (
     <TouchableOpacity
-      style={[styles.card, { backgroundColor: colors.surface }]}
+      style={styles.card}
       onPress={() => setExpanded((v) => !v)}
-      activeOpacity={0.7}
+      activeOpacity={0.85}
       accessibilityRole="button"
       accessibilityState={{ expanded }}
+      accessibilityLabel={`${leader.teamName} ${formatPoints(leader.totalPoints)}, ${other.teamName} ${formatPoints(other.totalPoints)}. ${outcomeText}.`}
       testID={testID ? `${testID}-card` : undefined}
     >
-      <View style={styles.scoreboardRow}>
-        {/* Left column - leader */}
-        <View style={styles.teamCol} testID={testID ? `${testID}-team-left` : undefined}>
-          <View style={styles.teamHeaderRow}>
-            <View style={[styles.dot, { backgroundColor: leftColor }]} />
-            <ScaledText
-              category="body"
-              style={[styles.teamName, { color: colors.textPrimary }]}
-              numberOfLines={1}
-            >
-              {leader.teamName}
-            </ScaledText>
-            {leaderHasCurrentUser && <Badge label="You" variant="primary" size="sm" />}
-          </View>
-          <ScaledText
-            category="caption"
-            style={[styles.memberNames, { color: colors.textTertiary }]}
-            numberOfLines={1}
-          >
-            {leader.members.map((m) => m.playerName).join(', ')}
-          </ScaledText>
-          <ScaledText category="caption" style={[styles.handicap, { color: colors.textSecondary }]}>
-            HC {leader.avgHandicap.toFixed(1)}
-          </ScaledText>
-
-          <View style={styles.pointsRow}>
-            {!isTie && <IconTrophy size={20} color={colors.warning} style={styles.trophy} />}
-            <ScaledText
-              category="body"
-              style={[
-                styles.points,
-                { color: colors.textPrimary },
-                !isTie && [styles.pointsLeader, { color: leftColor }],
-              ]}
-            >
-              {leader.totalPoints}
-            </ScaledText>
-          </View>
-        </View>
-
-        <ScaledText category="body" style={[styles.dash, { color: colors.textSecondary }]}>
-          –
-        </ScaledText>
-
-        {/* Right column - other team */}
-        <View style={[styles.teamCol, styles.teamColRight]} testID={testID ? `${testID}-team-right` : undefined}>
-          <View style={[styles.teamHeaderRow, styles.teamHeaderRowRight]}>
-            {otherHasCurrentUser && <Badge label="You" variant="primary" size="sm" />}
-            <ScaledText
-              category="body"
-              style={[styles.teamName, { color: colors.textPrimary }]}
-              numberOfLines={1}
-            >
-              {other.teamName}
-            </ScaledText>
-            <View style={[styles.dot, { backgroundColor: rightColor }]} />
-          </View>
-          <ScaledText
-            category="caption"
-            style={[styles.memberNames, styles.textRight, { color: colors.textTertiary }]}
-            numberOfLines={1}
-          >
-            {other.members.map((m) => m.playerName).join(', ')}
-          </ScaledText>
-          <ScaledText
-            category="caption"
-            style={[styles.handicap, styles.textRight, { color: colors.textSecondary }]}
-          >
-            HC {other.avgHandicap.toFixed(1)}
-          </ScaledText>
-
-          <View style={[styles.pointsRow, styles.pointsRowRight]}>
-            <ScaledText category="body" style={[styles.points, { color: colors.textPrimary }]}>
-              {other.totalPoints}
-            </ScaledText>
-          </View>
-        </View>
-      </View>
-
-      <View style={styles.expandIconRow}>
-        {expanded ? (
-          <IconChevronUp size={20} color={colors.textSecondary} />
-        ) : (
-          <IconChevronDown size={20} color={colors.textSecondary} />
+      <LinearGradient
+        colors={[colors.scoreboardGradientStart, colors.scoreboardGradientEnd]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.board}
+      >
+        {headlineLabel && (
+          <Text style={[styles.headline, { color: colors.scoreboardLabel }]}>
+            {headlineLabel.toUpperCase()}
+          </Text>
         )}
-      </View>
+
+        <View style={styles.scoreRow}>
+          {/* Left column - leader */}
+          <View style={styles.teamCol} testID={testID ? `${testID}-team-left` : undefined}>
+            <View style={styles.teamNameRow}>
+              <View style={[styles.dot, { backgroundColor: leftColor }]} />
+              <Text style={[styles.teamName, { color: colors.white }]} numberOfLines={1}>
+                {leader.teamName}
+              </Text>
+              {leaderHasCurrentUser && <Badge label="You" variant="primary" size="sm" />}
+            </View>
+          </View>
+
+          <View style={styles.scores}>
+            <Text style={[styles.scoreNum, { color: colors.white }]}>
+              {formatPoints(leader.totalPoints)}
+            </Text>
+            <Text style={[styles.scoreDash, { color: colors.scoreboardLabel }]}>–</Text>
+            <Text style={[styles.scoreNum, { color: colors.white }]}>
+              {formatPoints(other.totalPoints)}
+            </Text>
+          </View>
+
+          {/* Right column - other team */}
+          <View
+            style={[styles.teamCol, styles.teamColRight]}
+            testID={testID ? `${testID}-team-right` : undefined}
+          >
+            <View style={[styles.teamNameRow, styles.teamNameRowRight]}>
+              {otherHasCurrentUser && <Badge label="You" variant="primary" size="sm" />}
+              <Text style={[styles.teamName, styles.textRight, { color: colors.white }]} numberOfLines={1}>
+                {other.teamName}
+              </Text>
+              <View style={[styles.dot, { backgroundColor: rightColor }]} />
+            </View>
+          </View>
+        </View>
+
+        {showBar && (
+          <View style={styles.barWrap}>
+            <View style={[styles.barTrack, { backgroundColor: colors.scoreboardTrack }]}>
+              <View style={[styles.barFillLeft, { width: leftPct, backgroundColor: leftColor }]} />
+              <View style={[styles.barFillRight, { width: rightPct, backgroundColor: rightColor }]} />
+            </View>
+            {markerPct && (
+              <View style={[styles.marker, { left: markerPct }]}>
+                <View style={[styles.markerLine, { backgroundColor: colors.scoreboardMarker }]} />
+                <Text style={[styles.markerLabel, { color: colors.scoreboardLabel }]}>
+                  {formatPoints(pointsToWin!)} to win
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        <View style={styles.outcomeRow}>
+          <View style={[styles.outcomePill, { backgroundColor: colors.scoreboardTrack }]}>
+            <Text style={[styles.outcomeText, { color: colors.white }]}>{outcomeText}</Text>
+          </View>
+        </View>
+
+        <View style={styles.expandIconRow}>
+          {expanded ? (
+            <IconChevronUp size={18} color={colors.scoreboardLabel} />
+          ) : (
+            <IconChevronDown size={18} color={colors.scoreboardLabel} />
+          )}
+        </View>
+      </LinearGradient>
 
       {expanded && (
         <View
-          style={[styles.expandedContainer, { backgroundColor: colors.surfaceVariant }]}
+          style={[styles.breakdown, { backgroundColor: colors.surface }]}
           testID={testID ? `${testID}-breakdown` : undefined}
         >
-          <ScaledText category="caption" style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-            Round Breakdown
-          </ScaledText>
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Round Breakdown</Text>
 
           {roundRows.length > 0 ? (
             roundRows.map((row, index) => {
@@ -184,26 +218,20 @@ export function TeamHeadToHeadCard({
                   ]}
                   testID={testID ? `${testID}-round-${row.roundId}` : undefined}
                 >
-                  <ScaledText
-                    category="caption"
+                  <Text
                     style={[
                       styles.roundPoints,
                       { color: colors.textSecondary },
                       leftWins && [styles.roundPointsWinner, { color: leftColor }],
                     ]}
                   >
-                    {row.pointsLeft}
-                  </ScaledText>
-                  <ScaledText
-                    category="caption"
-                    style={[styles.roundLabel, { color: colors.textPrimary }]}
-                    numberOfLines={1}
-                  >
+                    {formatPoints(row.pointsLeft)}
+                  </Text>
+                  <Text style={[styles.roundLabel, { color: colors.textPrimary }]} numberOfLines={1}>
                     {row.roundLabel}
                     {row.courseName ? ` · ${row.courseName}` : ''}
-                  </ScaledText>
-                  <ScaledText
-                    category="caption"
+                  </Text>
+                  <Text
                     style={[
                       styles.roundPoints,
                       styles.textRight,
@@ -211,18 +239,13 @@ export function TeamHeadToHeadCard({
                       rightWins && [styles.roundPointsWinner, { color: rightColor }],
                     ]}
                   >
-                    {row.pointsRight}
-                  </ScaledText>
+                    {formatPoints(row.pointsRight)}
+                  </Text>
                 </View>
               );
             })
           ) : (
-            <ScaledText
-              category="caption"
-              style={{ color: colors.textTertiary, textAlign: 'center' }}
-            >
-              No rounds played yet
-            </ScaledText>
+            <Text style={[styles.emptyText, { color: colors.textTertiary }]}>No rounds played yet</Text>
           )}
         </View>
       )}
@@ -232,11 +255,19 @@ export function TeamHeadToHeadCard({
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
+    borderRadius: borderRadius.xl,
     overflow: 'hidden',
   },
-  scoreboardRow: {
+  board: {
+    padding: spacing.lg,
+  },
+  headline: {
+    ...typography.captionBold,
+    letterSpacing: 1.2,
+    textAlign: 'center',
+    marginBottom: spacing.md,
+  },
+  scoreRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -246,63 +277,92 @@ const styles = StyleSheet.create({
   teamColRight: {
     alignItems: 'flex-end',
   },
-  teamHeaderRow: {
+  teamNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
   },
-  teamHeaderRowRight: {
+  teamNameRowRight: {
     justifyContent: 'flex-end',
   },
   dot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
   },
   teamName: {
-    ...typography.h4,
+    ...typography.bodyBold,
     flexShrink: 1,
-  },
-  memberNames: {
-    ...typography.caption,
-    marginTop: 2,
-  },
-  handicap: {
-    ...typography.caption,
-    marginTop: 2,
   },
   textRight: {
     textAlign: 'right',
   },
-  pointsRow: {
+  scores: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    marginTop: spacing.sm,
+    alignItems: 'baseline',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.sm,
   },
-  pointsRowRight: {
-    justifyContent: 'flex-end',
-  },
-  trophy: {
-    // Icon size/color set inline
-  },
-  points: {
-    ...typography.h1,
-  },
-  pointsLeader: {
+  scoreNum: {
+    fontSize: 40,
     fontWeight: '800',
+    lineHeight: 44,
   },
-  dash: {
-    ...typography.h3,
-    marginHorizontal: spacing.md,
+  scoreDash: {
+    ...typography.h4,
+  },
+  barWrap: {
+    marginTop: spacing.lg,
+    marginBottom: spacing.md,
+  },
+  barTrack: {
+    height: 9,
+    borderRadius: 5,
+    overflow: 'hidden',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  barFillLeft: {
+    height: '100%',
+    borderTopLeftRadius: 5,
+    borderBottomLeftRadius: 5,
+  },
+  barFillRight: {
+    height: '100%',
+    borderTopRightRadius: 5,
+    borderBottomRightRadius: 5,
+  },
+  marker: {
+    position: 'absolute',
+    top: -3,
+    alignItems: 'center',
+  },
+  markerLine: {
+    width: 1,
+    height: 15,
+  },
+  markerLabel: {
+    ...typography.caption,
+    fontSize: 9,
+    marginTop: 2,
+  },
+  outcomeRow: {
+    alignItems: 'center',
+    marginTop: spacing.xs,
+  },
+  outcomePill: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+  },
+  outcomeText: {
+    ...typography.smallBold,
   },
   expandIconRow: {
     alignItems: 'center',
     marginTop: spacing.sm,
   },
-  expandedContainer: {
-    marginHorizontal: -spacing.lg,
-    marginTop: spacing.md,
+  breakdown: {
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
   },
@@ -328,6 +388,10 @@ const styles = StyleSheet.create({
   },
   roundPointsWinner: {
     fontWeight: '800',
+  },
+  emptyText: {
+    ...typography.caption,
+    textAlign: 'center',
   },
 });
 

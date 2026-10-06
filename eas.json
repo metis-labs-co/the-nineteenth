@@ -8,7 +8,8 @@
       "developmentClient": true,
       "distribution": "internal",
       "ios": {
-        "simulator": true
+        "simulator": true,
+        "image": "macos-tahoe-26.4-xcode-26.4"
       },
       "channel": "development"
     },
@@ -18,7 +19,8 @@
         "key": "preview-v1"
       },
       "ios": {
-        "simulator": false
+        "simulator": false,
+        "image": "macos-tahoe-26.4-xcode-26.4"
       },
       "android": {
         "buildType": "apk"
@@ -39,7 +41,8 @@
         "key": "staging-v1"
       },
       "ios": {
-        "simulator": false
+        "simulator": false,
+        "image": "macos-tahoe-26.4-xcode-26.4"
       },
       "android": {
         "buildType": "app-bundle"
@@ -59,7 +62,8 @@
         "key": "production-v1"
       },
       "ios": {
-        "resourceClass": "m-medium"
+        "resourceClass": "m-medium",
+        "image": "macos-tahoe-26.4-xcode-26.4"
       },
       "android": {
         "buildType": "app-bundle",

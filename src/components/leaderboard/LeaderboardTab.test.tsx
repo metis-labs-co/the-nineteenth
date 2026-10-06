@@ -916,6 +916,9 @@ describe('LeaderboardTab', () => {
 
       render(<LeaderboardTab {...defaultProps} rounds={[completedRound]} />);
 
+      // Scope switcher: a round's leaderboard renders only when its chip is selected.
+      fireEvent.press(screen.getByText('R1'));
+
       expect(screen.getByTestId('round-leaderboard-1')).toBeTruthy();
       expect(screen.getByText('Round Results')).toBeTruthy();
     });
@@ -934,6 +937,8 @@ describe('LeaderboardTab', () => {
       });
 
       render(<LeaderboardTab {...defaultProps} rounds={[inProgressRound]} />);
+
+      fireEvent.press(screen.getByText('R1'));
 
       expect(screen.getByTestId('round-leaderboard-1-live')).toBeTruthy();
     });
@@ -962,6 +967,8 @@ describe('LeaderboardTab', () => {
         />
       );
 
+      fireEvent.press(screen.getByText('R1'));
+
       expect(screen.getByTestId('round-id-round-1')).toBeTruthy();
       expect(screen.getByTestId('game-type-round-1')).toBeTruthy();
       expect(screen.getByText('stroke')).toBeTruthy();
@@ -984,6 +991,8 @@ describe('LeaderboardTab', () => {
 
       render(<LeaderboardTab {...defaultProps} rounds={[inProgressRound]} autoRefresh />);
 
+      fireEvent.press(screen.getByText('R1'));
+
       expect(screen.getByTestId('round-leaderboard-1-live')).toBeTruthy();
     });
 
@@ -1001,6 +1010,8 @@ describe('LeaderboardTab', () => {
       });
 
       render(<LeaderboardTab {...defaultProps} rounds={[completedRound]} autoRefresh />);
+
+      fireEvent.press(screen.getByText('R1'));
 
       // Completed rounds should not have auto-refresh
       expect(screen.queryByTestId('auto-refresh-round-1')).toBeNull();
@@ -1025,6 +1036,8 @@ describe('LeaderboardTab', () => {
 
       render(<LeaderboardTab {...defaultProps} rounds={[splitAltShotRound]} />);
 
+      fireEvent.press(screen.getByText('R1'));
+
       expect(screen.getByTestId('submatch-leaderboard-round-1')).toBeTruthy();
     });
 
@@ -1043,10 +1056,19 @@ describe('LeaderboardTab', () => {
 
       render(<LeaderboardTab {...defaultProps} rounds={rounds} />);
 
-      // Should show completed and in-progress, not upcoming
+      // Scope switcher offers a chip per completed/in-progress round, but NOT
+      // the upcoming one; each round's board shows one at a time when selected.
+      expect(screen.getByText('R1')).toBeTruthy();
+      expect(screen.getByText('R2')).toBeTruthy();
+      expect(screen.queryByText('R3')).toBeNull();
+
+      fireEvent.press(screen.getByText('R1'));
       expect(screen.getByTestId('round-leaderboard-1')).toBeTruthy();
+      expect(screen.queryByTestId('round-leaderboard-2-live')).toBeNull();
+
+      fireEvent.press(screen.getByText('R2'));
       expect(screen.getByTestId('round-leaderboard-2-live')).toBeTruthy();
-      expect(screen.queryByTestId('round-leaderboard-3')).toBeNull();
+      expect(screen.queryByTestId('round-leaderboard-1')).toBeNull();
     });
   });
 
@@ -1191,6 +1213,8 @@ describe('LeaderboardTab', () => {
       });
 
       render(<LeaderboardTab {...defaultProps} rounds={[round]} />);
+
+      fireEvent.press(screen.getByText('R1'));
 
       expect(screen.getByText('Round Results')).toBeTruthy();
     });
@@ -1363,11 +1387,13 @@ describe('LeaderboardTab', () => {
       // Re-render with same rounds
       rerender(<LeaderboardTab {...defaultProps} rounds={rounds} />);
 
-      // Both round leaderboards should still be present - use getAllByTestId since there could be duplicate renders
-      const round1Leaderboards = screen.getAllByTestId('round-leaderboard-1');
-      const round2Leaderboards = screen.getAllByTestId('round-leaderboard-2-live');
-      expect(round1Leaderboards.length).toBeGreaterThanOrEqual(1);
-      expect(round2Leaderboards.length).toBeGreaterThanOrEqual(1);
+      // The scope switcher shows one round at a time; each round's board is
+      // reachable via its chip and survives the re-render.
+      fireEvent.press(screen.getByText('R1'));
+      expect(screen.getAllByTestId('round-leaderboard-1').length).toBeGreaterThanOrEqual(1);
+
+      fireEvent.press(screen.getByText('R2'));
+      expect(screen.getAllByTestId('round-leaderboard-2-live').length).toBeGreaterThanOrEqual(1);
     });
   });
 
@@ -1401,18 +1427,26 @@ describe('LeaderboardTab', () => {
       // Pass out of order (alt-shot first) to prove sorting, not input order.
       // teamMode="fixed" keeps effectiveView='team' so the alt-shot sub-match leaderboard is visible.
       render(<LeaderboardTab {...defaultProps} teamMode="fixed" rounds={[altShotR2, completedR1]} />);
+      // Scope chips are ordered by positional round number regardless of input
+      // order: R1 (completed) precedes R2 (in-progress alt-shot).
       const json = JSON.stringify(screen.toJSON());
-      const r1Index = json.indexOf('round-leaderboard-1');     // completed R1 (RoundLeaderboard mock, testID by round_number)
-      const r2Index = json.indexOf('submatch-leaderboard-r2'); // in-progress alt-shot R2 (RoundSubMatchLeaderboard mock, testID by id)
+      const r1Index = json.indexOf('Show R1 standings');
+      const r2Index = json.indexOf('Show R2 standings');
       expect(r1Index).toBeGreaterThan(-1);
       expect(r2Index).toBeGreaterThan(-1);
       expect(r1Index).toBeLessThan(r2Index);
+      // Each round's board is reachable via its chip.
+      fireEvent.press(screen.getByText('R1'));
+      expect(screen.getByTestId('round-leaderboard-1')).toBeTruthy();
+      fireEvent.press(screen.getByText('R2'));
+      expect(screen.getByTestId('submatch-leaderboard-r2')).toBeTruthy();
     });
 
     it('renders a Round header + format pill for the split alt-shot round', () => {
       render(<LeaderboardTab {...defaultProps} rounds={[altShotR2]} />);
-      // Positional numbering: it's the only round in the list, so it's "Round 1"
-      // regardless of its round_number/display_order value.
+      // Positional numbering: it's the only round in the list, so its chip is
+      // "R1" regardless of its round_number/display_order value.
+      fireEvent.press(screen.getByText('R1'));
       expect(screen.getByTestId('lb-header-1')).toBeTruthy();
       expect(screen.getByTestId('submatch-leaderboard-r2')).toBeTruthy();
     });
@@ -1461,8 +1495,11 @@ describe('LeaderboardTab', () => {
           rounds={[altShotR2, completedStrokeR1]}
         />
       );
+      // Alt-shot round (R2) is hidden on the individual view even when selected.
+      fireEvent.press(screen.getByText('R2'));
       expect(screen.queryByTestId('submatch-leaderboard-r2')).toBeNull();
-      // the non-alt-shot round still appears in the individual round list
+      // the non-alt-shot round (R1) still renders on the individual view
+      fireEvent.press(screen.getByText('R1'));
       expect(screen.getByTestId('round-leaderboard-1')).toBeTruthy();
     });
 
@@ -1476,6 +1513,7 @@ describe('LeaderboardTab', () => {
           rounds={[altShotR2, completedStrokeR1]}
         />
       );
+      fireEvent.press(screen.getByText('R2'));
       expect(screen.getByTestId('submatch-leaderboard-r2')).toBeTruthy();
     });
   });
@@ -1506,6 +1544,7 @@ describe('LeaderboardTab', () => {
       render(
         <LeaderboardTab {...defaultProps} teamMode="fixed" selectedView="team" onViewChange={() => {}} rounds={[matchPlayR2, completedStrokeR1]} />
       );
+      fireEvent.press(screen.getByText('R2'));
       expect(screen.getByTestId('submatch-leaderboard-r2')).toBeTruthy();
     });
 
@@ -1513,7 +1552,9 @@ describe('LeaderboardTab', () => {
       render(
         <LeaderboardTab {...defaultProps} teamMode="fixed" selectedView="individual" onViewChange={() => {}} rounds={[matchPlayR2, completedStrokeR1]} />
       );
+      fireEvent.press(screen.getByText('R2'));
       expect(screen.queryByTestId('submatch-leaderboard-r2')).toBeNull();
+      fireEvent.press(screen.getByText('R1'));
       expect(screen.getByTestId('round-leaderboard-1')).toBeTruthy();
     });
   });

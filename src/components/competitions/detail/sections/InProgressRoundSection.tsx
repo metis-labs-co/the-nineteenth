@@ -47,8 +47,6 @@ const CARD_GAP = spacing.sm;
 /** How much of the next card peeks into view, signaling "swipe for more". */
 const NEXT_CARD_PEEK = 32;
 
-/** Coral "live round" indicator dot — fixed accent in both themes. */
-const LIVE_DOT = '#e0795f';
 /** Most companion avatars shown before collapsing into the "with N" count. */
 const MAX_AVATARS = 3;
 
@@ -130,7 +128,7 @@ function RoundCard({
       ]}
     >
       <View style={styles.topRow}>
-        <View style={styles.liveDot} />
+        <View style={[styles.liveDot, { backgroundColor: colors.error }]} />
         <View style={styles.titleBlock}>
           <Text
             style={[styles.title, { color: colors.textPrimary }]}
@@ -381,7 +379,6 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: LIVE_DOT,
   },
   titleBlock: {
     flex: 1,

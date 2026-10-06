@@ -29,6 +29,7 @@ import { StatusBadge, type StatusVariant } from '@/components/common/StatusBadge
 import { Pill } from '@/components/common/Pill';
 import { getTeeColor } from '@/components/common/TeeSelector';
 import { RoundCoverPhotoButton, RoundPhotoBanner } from '@/components/activity';
+import { useSocialAccess } from '@/hooks/useSocialAccess';
 import { formatDateWithWeekday, formatTeeTime } from '@/utils/formatting';
 import { useSettingsStore } from '@/store/settingsStore';
 import type { RootStackParamList } from '@/navigation/types';
@@ -68,6 +69,7 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
   onUpgradePress,
 }: RoundDetailsTabProps) {
   const colors = useThemeColors();
+  const { isRestricted: isSocialRestricted } = useSocialAccess();
   const isDark = useIsDark();
   const courseIconBackground = isDark ? `${colors.primary}33` : colors.primaryLighter;
   const navigation = useNavigation<NavigationProp>();
@@ -252,11 +254,17 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
         disabled={!round.course}
         activeOpacity={0.7}
       >
-        <RoundPhotoBanner roundId={round.id} rounded={false} onPress={handlePhotosPress} />
+        {/* Round photos are user-generated content, so they are hidden from
+            under-13 accounts. ViewRound is not one of the age-gated routes -
+            restricted users can and should still reach their own rounds - so
+            the gate has to be applied here rather than at the navigator. */}
+        {!isSocialRestricted && (
+          <RoundPhotoBanner roundId={round.id} rounded={false} onPress={handlePhotosPress} />
+        )}
         <View style={styles.headerTop}>
           <RoundCoverPhotoButton
             roundId={round.id}
-            canAdd={canAddPhotos}
+            canAdd={canAddPhotos && !isSocialRestricted}
             size={64}
             backgroundColor={courseIconBackground}
           />

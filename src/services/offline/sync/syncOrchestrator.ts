@@ -19,6 +19,9 @@ import {
   resetFailedSyncs,
   clearAllPendingSyncs,
   clearInvalidMockData,
+  getFailedSyncs,
+  discardPendingSync,
+  updatePendingSyncData,
 } from '../database';
 import { invalidateLeaderboardCache, invalidateScorecardCache } from '@/services/queryClient';
 import type { Scorecard, PendingSync } from '@/types';
@@ -136,9 +139,28 @@ export function getSyncState(): SyncState {
 }
 
 /**
+ * Options for a single drain of the sync queue.
+ */
+interface SyncAllOptions {
+  /**
+   * Adopt the server's revision and retry once when a write is rejected as
+   * stale.
+   *
+   * Only ever set for a drain the user explicitly asked for (the Retry
+   * button). At that point the scorer's local card is the authoritative one —
+   * the same reasoning the submit path uses. An automatic background drain
+   * must never make that call on the user's behalf, because the "conflicting"
+   * server state may be another device's legitimate scores.
+   */
+  adoptServerRevisionOnConflict?: boolean;
+}
+
+/**
  * Sync all pending changes to the server
  */
-export async function syncAll(): Promise<boolean> {
+export async function syncAll(options: SyncAllOptions = {}): Promise<boolean> {
+  const { adoptServerRevisionOnConflict = false } = options;
+
   if (getIsSyncing()) {
     syncLogger.debug('Already syncing, skipping');
     return false;
@@ -169,6 +191,51 @@ export async function syncAll(): Promise<boolean> {
     // falsely rejected as conflicts.
     const freshestRevisions = new Map<string, number>();
 
+    /**
+     * Write a server-supplied revision back onto the queued row.
+     *
+     * A rejected write leaves the row holding the very revision the server
+     * refused. Persisting the server's current revision is what makes a later
+     * retry winnable; without it the row reproduces the same conflict forever.
+     */
+    const refreshQueuedRevision = async (
+      sync: PendingSync,
+      error: ScorecardConflictError
+    ): Promise<boolean> => {
+      if (sync.type !== 'scorecard' || !sync.data || !Number.isFinite(error.serverRevision)) {
+        return false;
+      }
+      if ((sync.data.serverRevision ?? 0) === error.serverRevision) return false;
+
+      sync.data = { ...sync.data, serverRevision: error.serverRevision };
+      if (sync.id != null) {
+        await updatePendingSyncData(sync.id, sync.data);
+      }
+      return true;
+    };
+
+    /**
+     * Run one queued operation, optionally re-attempting once against the
+     * server's current revision when the user asked for this drain.
+     */
+    const attemptPendingSync = async (
+      sync: PendingSync
+    ): Promise<ScorecardSyncResult | void> => {
+      try {
+        return await processPendingSync(sync);
+      } catch (error) {
+        if (!adoptServerRevisionOnConflict) throw error;
+        if (!(error instanceof ScorecardConflictError)) throw error;
+        if (!(await refreshQueuedRevision(sync, error))) throw error;
+
+        syncLogger.warn('Retrying queued write against the server revision', {
+          id: sync.id,
+          serverRevision: error.serverRevision,
+        });
+        return await processPendingSync(sync);
+      }
+    };
+
     for (const sync of pendingSyncs) {
       try {
         syncLogger.debug('Processing pending sync', {
@@ -183,7 +250,7 @@ export async function syncAll(): Promise<boolean> {
             sync.data.serverRevision = freshest;
           }
         }
-        const result = await processPendingSync(sync);
+        const result = await attemptPendingSync(sync);
         const acknowledged = await removePendingSync(sync.id!, sync.revision ?? 1);
         if (!acknowledged) {
           syncLogger.info('A newer queued revision arrived during sync; leaving it pending', {
@@ -212,6 +279,9 @@ export async function syncAll(): Promise<boolean> {
         const errorMessage = error instanceof Error ? error.message : String(error);
 
         if (error instanceof ScorecardConflictError) {
+          // Park the server's current revision on the row before retaining it,
+          // so the next explicit retry starts from a winnable expectation.
+          await refreshQueuedRevision(sync, error);
           await markPendingSyncFailed(sync.id!, sync.revision ?? 1, errorMessage);
           failCount++;
           conflictCount++;
@@ -304,7 +374,15 @@ export async function syncAll(): Promise<boolean> {
           if (error instanceof ScorecardConflictError) {
             failCount++;
             conflictCount++;
-            await retainFallbackFailure(scorecard, errorMessage, true);
+            // Retain against the server's current revision, so the retained
+            // row is recoverable rather than permanently self-conflicting.
+            await retainFallbackFailure(
+              Number.isFinite(error.serverRevision)
+                ? { ...scorecard, serverRevision: error.serverRevision }
+                : scorecard,
+              errorMessage,
+              true
+            );
           } else if (isRlsError) {
             syncLogger.error('RLS POLICY ERROR: Scorecard cannot be synced - round may have been deleted', undefined, {
               id: scorecard.id.substring(0, 20) + '...',
@@ -355,11 +433,13 @@ export async function syncAll(): Promise<boolean> {
       return false;
     }
 
+    // This drain succeeded. Any rows still retained are dormant failures from
+    // earlier sessions — they are reported through `failedCount`, which each
+    // surface scopes for itself. Publishing a device-wide message here would
+    // paint an error banner over unrelated rounds indefinitely.
     updateState({
       status: currentState.failedCount > 0 ? 'error' : 'idle',
-      error: currentState.failedCount > 0
-        ? `${currentState.failedCount} score change${currentState.failedCount === 1 ? '' : 's'} not uploaded`
-        : null,
+      error: null,
       lastSyncAt: new Date(),
     });
 
@@ -474,7 +554,13 @@ export async function manualSync(): Promise<boolean> {
   return syncAll();
 }
 
-/** Retry entries retained after exhausting automatic attempts. */
+/**
+ * Retry entries retained after exhausting automatic attempts.
+ *
+ * An explicit user retry is treated as a decision that the device's own copy
+ * should win, so stale-revision rejections are re-attempted against the
+ * server's current revision (see `SyncAllOptions`).
+ */
 export async function retryFailedSyncs(): Promise<boolean> {
   if (!getIsOnline()) {
     updateState({ status: 'offline', error: 'No network connection' });
@@ -483,7 +569,33 @@ export async function retryFailedSyncs(): Promise<boolean> {
 
   await resetFailedSyncs();
   await updateSyncCounts();
-  return syncAll();
+  return syncAll({ adoptServerRevisionOnConflict: true });
+}
+
+/**
+ * List operations retained after their automatic retries were exhausted.
+ *
+ * Retained failures are excluded from every normal drain, so this is the only
+ * way to see what is stuck and why.
+ */
+export async function listFailedSyncs(): Promise<PendingSync[]> {
+  return getFailedSyncs();
+}
+
+/**
+ * Abandon a single retained failure.
+ *
+ * Some failures can never succeed — the round was deleted, or the user's
+ * access to it was revoked — and would otherwise be retained for the life of
+ * the install with no way to clear them short of wiping the whole queue.
+ */
+export async function discardFailedSync(id: number): Promise<boolean> {
+  const discarded = await discardPendingSync(id);
+  await updateSyncCounts();
+  if (currentState.failedCount === 0 && currentState.status === 'error') {
+    updateState({ status: getIsOnline() ? 'idle' : 'offline', error: null });
+  }
+  return discarded;
 }
 
 /**

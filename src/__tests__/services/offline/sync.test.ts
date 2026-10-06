@@ -20,6 +20,8 @@ import {
   clearSyncQueue,
   subscribeSyncState,
   subscribeScorecardSynced,
+  discardFailedSync,
+  listFailedSyncs,
 } from '@/services/offline/sync';
 import * as database from '@/services/offline/database';
 import { supabase } from '@/services/supabase/client';
@@ -47,6 +49,9 @@ jest.mock('@/services/offline/database', () => ({
   resetFailedSyncs: jest.fn(),
   clearInvalidMockData: jest.fn(),
   clearAllPendingSyncs: jest.fn(),
+  getFailedSyncs: jest.fn(),
+  discardPendingSync: jest.fn(),
+  updatePendingSyncData: jest.fn(),
 }));
 
 // Mock query client invalidation
@@ -130,6 +135,9 @@ beforeEach(() => {
   (database.incrementSyncRetryCount as jest.Mock).mockResolvedValue(undefined);
   (database.markPendingSyncFailed as jest.Mock).mockResolvedValue(true);
   (database.resetFailedSyncs as jest.Mock).mockResolvedValue(0);
+  (database.getFailedSyncs as jest.Mock).mockResolvedValue([]);
+  (database.discardPendingSync as jest.Mock).mockResolvedValue(true);
+  (database.updatePendingSyncData as jest.Mock).mockResolvedValue(true);
 });
 
 // ============================================================================
@@ -1069,5 +1077,148 @@ describe('Scorecard optimistic concurrency', () => {
 
     await expect(syncScorecard(createTestScorecard({ serverRevision: 7 })))
       .rejects.toBeInstanceOf(ScorecardConflictError);
+  });
+});
+
+// ============================================================================
+// RETAINED FAILURE RECOVERY
+// ============================================================================
+
+/**
+ * A queued write rejected for a stale revision used to be parked with the same
+ * stale revision it was rejected for, so every later retry reproduced the
+ * identical conflict — an unclearable failure that raised the sync banner on
+ * every scorecard for the life of the install.
+ */
+describe('Retained failure recovery', () => {
+  beforeEach(() => {
+    initSyncService();
+  });
+
+  const conflictResponse = (serverRevision: number) => ({
+    data: [{
+      applied: false,
+      conflict: true,
+      server_revision: serverRevision,
+      server_status: 'in-progress',
+      server_scores: {},
+    }],
+    error: null,
+  });
+
+  const appliedResponse = (serverRevision: number) => ({
+    data: [{
+      applied: true,
+      conflict: false,
+      server_revision: serverRevision,
+      server_status: 'completed',
+      server_scores: {},
+    }],
+    error: null,
+  });
+
+  it('writes the fresh server revision back to the queued row on conflict', async () => {
+    const pendingSync = createPendingSync({
+      id: 55,
+      data: createTestScorecard({ serverRevision: 2 }),
+    });
+    (database.getPendingSyncs as jest.Mock).mockResolvedValue([pendingSync]);
+    (supabase.rpc as jest.Mock).mockResolvedValueOnce(conflictResponse(9));
+
+    await syncAll();
+
+    expect(database.updatePendingSyncData).toHaveBeenCalledWith(
+      55,
+      expect.objectContaining({ serverRevision: 9 })
+    );
+    expect(database.markPendingSyncFailed).toHaveBeenCalledWith(55, 1, expect.any(String));
+  });
+
+  it('does not overwrite the server during an automatic background drain', async () => {
+    const pendingSync = createPendingSync({
+      id: 56,
+      data: createTestScorecard({ serverRevision: 2 }),
+    });
+    (database.getPendingSyncs as jest.Mock).mockResolvedValue([pendingSync]);
+    (supabase.rpc as jest.Mock).mockResolvedValueOnce(conflictResponse(9));
+
+    await syncAll();
+
+    // One attempt only — the local card never silently replaces the server's.
+    expect(supabase.rpc).toHaveBeenCalledTimes(1);
+    expect(database.removePendingSync).not.toHaveBeenCalled();
+  });
+
+  it('adopts the server revision and retries once when the user taps Retry', async () => {
+    const pendingSync = createPendingSync({
+      id: 57,
+      data: createTestScorecard({ serverRevision: 2 }),
+    });
+    (database.getPendingSyncs as jest.Mock).mockResolvedValue([pendingSync]);
+    (database.resetFailedSyncs as jest.Mock).mockResolvedValue(1);
+    (supabase.rpc as jest.Mock)
+      .mockResolvedValueOnce(conflictResponse(9))
+      .mockResolvedValueOnce(appliedResponse(10));
+
+    const result = await retryFailedSyncs();
+
+    expect(result).toBe(true);
+    expect(supabase.rpc).toHaveBeenNthCalledWith(
+      2,
+      'write_scorecard_snapshot',
+      expect.objectContaining({ p_expected_revision: 9 })
+    );
+    expect(database.removePendingSync).toHaveBeenCalledWith(57, 1);
+    expect(database.markPendingSyncFailed).not.toHaveBeenCalled();
+  });
+
+  it('retains the failure when the adopted retry also conflicts', async () => {
+    const pendingSync = createPendingSync({
+      id: 58,
+      data: createTestScorecard({ serverRevision: 2 }),
+    });
+    (database.getPendingSyncs as jest.Mock).mockResolvedValue([pendingSync]);
+    (database.resetFailedSyncs as jest.Mock).mockResolvedValue(1);
+    (supabase.rpc as jest.Mock)
+      .mockResolvedValueOnce(conflictResponse(9))
+      .mockResolvedValueOnce(conflictResponse(11));
+
+    await retryFailedSyncs();
+
+    expect(database.markPendingSyncFailed).toHaveBeenCalledWith(58, 1, expect.any(String));
+    expect(database.updatePendingSyncData).toHaveBeenLastCalledWith(
+      58,
+      expect.objectContaining({ serverRevision: 11 })
+    );
+  });
+
+  it('does not raise a global error message for dormant failures after a clean drain', async () => {
+    (database.getPendingSyncs as jest.Mock).mockResolvedValue([]);
+    (database.getFailedSyncCount as jest.Mock).mockResolvedValue(3);
+
+    await syncAll();
+
+    const state = getSyncState();
+    expect(state.failedCount).toBe(3);
+    // The count drives round-scoped messaging; a stale global string would
+    // paint a red banner on unrelated rounds forever.
+    expect(state.error).toBeNull();
+  });
+
+  it('discards a retained failure and refreshes the counts', async () => {
+    (database.getFailedSyncCount as jest.Mock).mockResolvedValue(0);
+
+    const discarded = await discardFailedSync(42);
+
+    expect(discarded).toBe(true);
+    expect(database.discardPendingSync).toHaveBeenCalledWith(42);
+    expect(getSyncState().failedCount).toBe(0);
+  });
+
+  it('lists retained failures for troubleshooting', async () => {
+    const failure = createPendingSync({ id: 12, status: 'failed', lastError: 'boom' });
+    (database.getFailedSyncs as jest.Mock).mockResolvedValue([failure]);
+
+    await expect(listFailedSyncs()).resolves.toEqual([failure]);
   });
 });

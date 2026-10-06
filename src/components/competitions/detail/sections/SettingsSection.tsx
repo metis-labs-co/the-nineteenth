@@ -29,6 +29,7 @@ import {
   EditDatesSheet,
   EditCompetitionRulesSheet,
   EditScoringRulesModeSheet,
+  EditVisibilitySheet,
   PointsConfigSheet,
   detectActivePreset,
 } from './sheets';
@@ -42,6 +43,7 @@ type OpenSheet =
   | 'rules-mode'
   | 'general-rules'
   | 'points-config'
+  | 'visibility'
   | null;
 
 // =====================================================
@@ -99,6 +101,24 @@ function SettingRow({ icon, label, onPress, locked = false, accessibilityLabel, 
   }
 
   return <View style={styles.row}>{content}</View>;
+}
+
+function SettingsGroupCard({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  const colors = useThemeColors();
+  return (
+    <View style={styles.group}>
+      <SectionHeader title={title} />
+      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        {children}
+      </View>
+    </View>
+  );
 }
 
 // =====================================================
@@ -163,10 +183,7 @@ export function SettingsSection({
 
   return (
     <View style={styles.section}>
-      <SectionHeader title="Competition Details" icon="cog-outline" primaryIcon={false} />
-
-      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        {/* Type */}
+      <SettingsGroupCard title="Competition">
         <SettingRow
           icon="tag-outline"
           label="Type"
@@ -180,20 +197,6 @@ export function SettingsSection({
           />
         </SettingRow>
 
-        {/* Handicap System */}
-        <View style={[styles.divider, { backgroundColor: colors.border }]} />
-        <SettingRow
-          icon="golf"
-          label="Handicap"
-          onPress={canEditStructure ? () => setOpenSheet('handicap') : undefined}
-          locked={canEdit && structureLocked}
-        >
-          <Text style={[styles.value, { color: colors.textPrimary }]}>
-            {handicapSystemLabels[competition.handicap_system]}
-          </Text>
-        </SettingRow>
-
-        {/* Format (team mode) */}
         <View style={[styles.divider, { backgroundColor: colors.border }]} />
         <SettingRow
           icon="account-group-outline"
@@ -255,10 +258,32 @@ export function SettingsSection({
             </SettingRow>
           </>
         )}
+      </SettingsGroupCard>
 
-        {/* Scoring Rules Mode (Phase 6). Always visible to organisers so
-            the choice is explicit up-front. Per-round option is tier-gated
-            inside the sheet itself. */}
+      <SettingsGroupCard title="Visibility">
+        <SettingRow
+          icon="eye-outline"
+          label="Visibility"
+          onPress={canEdit ? () => setOpenSheet('visibility') : undefined}
+        >
+          <Text style={[styles.value, { color: colors.textPrimary }]}>
+            {competition.visibility.charAt(0).toUpperCase() + competition.visibility.slice(1)}
+          </Text>
+        </SettingRow>
+      </SettingsGroupCard>
+
+      <SettingsGroupCard title="Scoring & handicaps">
+        <SettingRow
+          icon="golf"
+          label="Handicap"
+          onPress={canEditStructure ? () => setOpenSheet('handicap') : undefined}
+          locked={canEdit && structureLocked}
+        >
+          <Text style={[styles.value, { color: colors.textPrimary }]}>
+            {handicapSystemLabels[competition.handicap_system]}
+          </Text>
+        </SettingRow>
+
         <View style={[styles.divider, { backgroundColor: colors.border }]} />
         <SettingRow
           icon="scale-balance"
@@ -308,8 +333,7 @@ export function SettingsSection({
             </SettingRow>
           </>
         )}
-
-      </View>
+      </SettingsGroupCard>
 
       {canEdit && structureLocked && (
         <Text style={[styles.lockedFootnote, { color: colors.textSecondary }]}>
@@ -380,6 +404,14 @@ export function SettingsSection({
           isOrganizer={isOrganizer}
         />
       )}
+      {openSheet === 'visibility' && (
+        <EditVisibilitySheet
+          visible
+          onDismiss={handleClose}
+          competitionId={competition.id}
+          currentVisibility={competition.visibility}
+        />
+      )}
     </View>
   );
 }
@@ -390,7 +422,10 @@ export function SettingsSection({
 
 const styles = StyleSheet.create({
   section: {
-    marginTop: spacing.md,
+    gap: spacing.lg,
+  },
+  group: {
+    gap: spacing.sm,
   },
   card: {
     borderRadius: borderRadius.lg,

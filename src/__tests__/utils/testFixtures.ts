@@ -178,6 +178,7 @@ export function createTestCompetition(overrides: Partial<Competition> = {}): Com
     ...overrides,
     round_reminders_enabled: overrides.round_reminders_enabled ?? true,
     results_summary_enabled: overrides.results_summary_enabled ?? true,
+    allow_guests: overrides.allow_guests ?? true,
   };
 }
 

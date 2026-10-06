@@ -31,7 +31,7 @@ extraction (e.g. a hero component) is allowed;** no new data hooks, no navigatio
 - **Zero colour literals** in screens/components — `useThemeColors()` only; static tokens imported.
   Grep the diff for `#`, `rgb(`, `rgba(`, `var(--`.
 - **Preserve the tab MECHANISM, not today's labels/sets.** Keep working: the conditional-availability
-  logic, the status-driven reorder (`promoteLeaderboard`), the knockout Bracket branch, and the
+  logic, the knockout Bracket branch, and the
   screen-level `ScorecardsRealtimeSubscription` mounts. **But** the tab labels and role-specific sets
   are redesign changes — do them deliberately in **Task 1B**, not "unchanged".
 - **No scoring/standings math** in components (`CLAUDE.md` guardrails; scoring screens are out of scope).
@@ -110,7 +110,9 @@ truth over SPEC's stated sets):**
   Teams/Stats/Breakdown/config** for competitors. Role-gate this reduced set (new); competitors must not
   see organiser-only tabs/actions.
 - **Knockout:** `Bracket` replaces Standings (mutually exclusive); keep Players (per SPEC).
-- **Preserve:** `promoteLeaderboard` reorder, the availability flags above, and realtime subs.
+- **Preserve:** the availability flags above and realtime subscriptions. The mock's locked organiser
+  order keeps Standings/Results third in every status; do not retain the legacy
+  `promoteLeaderboard` reorder.
 
 **activeTab reconciliation (correctness — has tests):** `activeTab` initialises to `initialTab ?? 'details'`
 (`index.tsx:74`), and an effect sets it from `initialTab`. Once the set is role/status-gated, a stale
@@ -184,7 +186,7 @@ light+dark vs the mock and get sign-off. Commit `feat(design): <tab> tab (1A.N)`
 ## Self-review checklist (run before calling 1A done)
 
 - [ ] Every mock tab across all three surfaces/states renders and matches (screenshots signed off).
-- [ ] Tab MECHANISM intact (conditional availability, status reorder, knockout branch, realtime subs);
+- [ ] Tab MECHANISM intact (conditional availability, locked mock order, knockout branch, realtime subs);
       tab labels + role-specific sets match Task 1B's matrix (Standings/Results flip; competitor reduction).
 - [ ] Grep-clean for colour literals outside `colors.ts`/`theme.ts`. `pnpm lint` + `pnpm verify:gate` pass.
 - [ ] Tabs are pills everywhere (no underline crept in). No scoring math added to any component.

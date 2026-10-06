@@ -15,7 +15,24 @@
 
 import { calculateHandicapData } from '@/services/offline/sync/scorecardSync';
 import type { Scorecard } from '@/types';
-import type { TeeBox } from '@/types/database/base';
+import type { Hole, TeeBox } from '@/types/database/base';
+
+/** Flat par-72 course: 18 × par 4, stroke indexes 1..18 in hole order. */
+const PAR_72_HOLES: Hole[] = Array.from({ length: 18 }, (_, i) => ({
+  number: (i + 1) as Hole['number'],
+  par: 4 as Hole['par'],
+  strokeIndex: i + 1,
+}));
+
+/** Level-par card except one blow-up hole, for the net-double-bogey cap tests. */
+function parCardWithBlowUp(blowUpHole: number, blowUpStrokes: number) {
+  const scores: Record<number, { strokes: number }> = {};
+  for (const hole of PAR_72_HOLES) {
+    scores[hole.number] =
+      hole.number === blowUpHole ? { strokes: blowUpStrokes } : { strokes: hole.par };
+  }
+  return scores;
+}
 
 const TEE: TeeBox = {
   name: 'Members',
@@ -80,6 +97,52 @@ describe('calculateHandicapData — WHS differential guard', () => {
     const result = calculateHandicapData(
       makeScorecard({ totalGross: 64, syncGameType: 'scramble' }),
     );
+    expect(result.handicapDifferential).toBeNull();
+  });
+});
+
+describe('calculateHandicapData — WHS Adjusted Gross Score (net double bogey cap)', () => {
+  // A scratch player on this tee has a NEGATIVE daily handicap
+  // (((0 × 122/113) + (71 − 72)) × 0.93 × 0.9986 ≈ −0.93 → −1), so
+  // getStrokesReceived returns 0 on every hole and each cap is par + 2 = 6.
+  const scratchCard = (scores: Record<number, { strokes: number }>, totalGross: number) =>
+    makeScorecard({
+      playerHandicap: 0,
+      totalGross,
+      scores: scores as Scorecard['scores'],
+      syncHoles: PAR_72_HOLES,
+      coursePar: 72,
+    });
+
+  it('caps a blow-up hole at net double bogey before computing the differential', () => {
+    // 17 pars + a 12 on the 5th. Raw gross 80; adjusted gross 74 (the 12 → 6).
+    const result = calculateHandicapData(scratchCard(parCardWithBlowUp(5, 12), 80));
+
+    // BEFORE this change the differential was computed on the RAW gross:
+    //   (113 / 122) × (80 − 71) = 8.3
+    // It is now computed on the ADJUSTED gross:
+    //   (113 / 122) × (74 − 71) = 2.8
+    expect(result.handicapDifferential).toBeCloseTo(2.8, 1);
+  });
+
+  it('leaves a card with no hole worse than net double bogey unchanged', () => {
+    // 17 pars + a single double bogey (6) — already at the cap, nothing to trim.
+    const result = calculateHandicapData(scratchCard(parCardWithBlowUp(5, 6), 74));
+    expect(result.handicapDifferential).toBeCloseTo(2.8, 1);
+  });
+
+  it('falls back to raw gross when hole data is unavailable', () => {
+    // Cards synced without syncHoles cannot be capped; they must keep working
+    // exactly as before rather than silently producing a wrong differential.
+    const result = calculateHandicapData(
+      makeScorecard({ playerHandicap: 0, totalGross: 80, syncHoles: undefined }),
+    );
+    // (113 / 122) × (80 − 71) = 8.3 — the pre-change value.
+    expect(result.handicapDifferential).toBeCloseTo(8.3, 1);
+  });
+
+  it('still returns null for a zero-gross card even with hole data present', () => {
+    const result = calculateHandicapData(scratchCard({}, 0));
     expect(result.handicapDifferential).toBeNull();
   });
 });

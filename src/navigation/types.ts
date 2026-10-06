@@ -187,6 +187,7 @@ export type RootStackParamList = {
   Friends: { fromProfile?: boolean } | undefined;
 
   // Activity Feed
+  Activity: undefined; // Global activity feed (formerly the Activity tab)
   RoundActivity: { roundId: string }; // Likes/comments/photos for a single round
   RoundPhotos: { roundId: string; canAdd?: boolean }; // Shared photo album for a single round (canAdd defaults true)
 
@@ -251,6 +252,7 @@ export type RootStackParamList = {
 
   // Privacy & Data
   PrivacyData: undefined;
+  BlockedUsers: undefined;
 
   // Country / Region
   CountryRegion: undefined;
@@ -272,7 +274,7 @@ export type RootStackParamList = {
 export type TabParamList = {
   HomeTab: undefined;
   CompeteTab: undefined;
-  ActivityTab: undefined;
+  RoundsTab: undefined;
   CoursesTab: undefined;
   ProfileTab: undefined;
 };

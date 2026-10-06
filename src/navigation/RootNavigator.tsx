@@ -19,10 +19,13 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { RootStackParamList } from './types';
 import { useAuth } from '@/hooks/useAuth';
 import { useHasSeenWelcome } from '@/hooks/useHasSeenWelcome';
+import { useSocialAccess } from '@/hooks/useSocialAccess';
 import { useThemeColors } from '@/context/ThemeContext';
 import { NotificationProvider } from '@/context/NotificationContext';
 import { useBiometricLock } from '@/hooks/useBiometricLock';
 import { BiometricLockScreen, BiometricEnrollPrompt } from '@/components/biometric';
+import { AgeCheckPrompt } from '@/components/age';
+import BlockedUsersScreen from '@/screens/profile/BlockedUsersScreen';
 import { supabase } from '@/services/supabase/client';
 import { activeRoundSession } from '@/services/activeRoundSession';
 import { pushDiagnostic } from '@/services/diagnostics';
@@ -94,7 +97,7 @@ import PlayerDetailScreen from '@/screens/social/PlayerDetailScreen';
 import CompareStatsScreen from '@/screens/social/CompareStatsScreen';
 
 // Activity Feed Screens
-import { RoundActivityScreen, RoundPhotosScreen } from '@/screens/activity';
+import { ActivityScreen, RoundActivityScreen, RoundPhotosScreen } from '@/screens/activity';
 
 // Course & Club Screens
 import ClubScreen from '@/screens/courses/ClubScreen';
@@ -133,6 +136,7 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
   const { isAuthenticated, isInitializing, isLoading, isPlayerError, player, user, refreshProfile } = useAuth();
   const colors = useThemeColors();
   const { hasSeenWelcome } = useHasSeenWelcome();
+  const { isRestricted } = useSocialAccess();
   const { isLocked, isAuthenticating: isBioAuthenticating, unlock, error: bioError, biometricType } = useBiometricLock(isAuthenticated);
 
   const handleSignOut = useCallback(() => {
@@ -754,6 +758,13 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
                 headerShown: false,
               }}
             />
+            {/* Registered unconditionally - reviewing and undoing blocks is not
+                a social surface, so a restricted user must still reach it. */}
+            <Stack.Screen
+              name="BlockedUsers"
+              component={BlockedUsersScreen}
+              options={{ title: 'Blocked players', headerShown: false }}
+            />
 
             <Stack.Screen
               name="CountryRegion"
@@ -792,23 +803,41 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
               }}
             />
 
-            {/* Activity Feed Screens */}
-            <Stack.Screen
-              name="RoundActivity"
-              component={RoundActivityScreen}
-              options={{
-                title: 'Round',
-                headerShown: false,
-              }}
-            />
-            <Stack.Screen
-              name="RoundPhotos"
-              component={RoundPhotosScreen}
-              options={{
-                title: 'Round Photos',
-                headerShown: false,
-              }}
-            />
+            {/* Activity Feed Screens — hidden from under-13 accounts.
+                Gated on isRestricted, NOT !socialEnabled: the profile is still
+                loading on every cold start, and unregistering these routes then
+                would break the deep link of a tapped push notification, which is
+                the most common way users reach RoundActivity. Registering while
+                the status is unknown is safe because the screens' content is
+                wrapped in AgeLock. */}
+            {!isRestricted && (
+              <>
+                <Stack.Screen
+                  name="Activity"
+                  component={ActivityScreen}
+                  options={{
+                    title: 'Activity',
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="RoundActivity"
+                  component={RoundActivityScreen}
+                  options={{
+                    title: 'Round',
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="RoundPhotos"
+                  component={RoundPhotosScreen}
+                  options={{
+                    title: 'Round Photos',
+                    headerShown: false,
+                  }}
+                />
+              </>
+            )}
 
             {/* Club & Course Screens */}
             <Stack.Screen
@@ -869,14 +898,16 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
               }}
             />
 
-            <Stack.Screen
-              name="AchievementLeaderboard"
-              component={AchievementLeaderboardScreen}
-              options={{
-                title: 'Achievement Leaders',
-                headerShown: false,
-              }}
-            />
+            {!isRestricted && (
+              <Stack.Screen
+                name="AchievementLeaderboard"
+                component={AchievementLeaderboardScreen}
+                options={{
+                  title: 'Achievement Leaders',
+                  headerShown: false,
+                }}
+              />
+            )}
 
             {/* Game Results (Side Games) */}
             <Stack.Screen
@@ -967,6 +998,7 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
         {/* Post-login one-time prompt to enable biometric unlock. Self-gates
             on availability and per-user "seen" flag — safe to always render. */}
         <BiometricEnrollPrompt />
+        <AgeCheckPrompt />
       </NotificationProvider>
     </NavigationContainer>
   );

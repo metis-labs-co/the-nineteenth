@@ -96,6 +96,31 @@ export interface HoleScore {
   bunkerShots?: number;
   /** Hazard incidents on this hole (multi-select, one entry per type) */
   hazards?: HazardEntry[];
+  /**
+   * Player started the hole but picked up without holing out.
+   *
+   * Historically a pickup was expressed only by storing `strokes >=
+   * PICKUP_SCORE` (see `constants/scoring`), which cannot be told apart from a
+   * genuine score of 10. This flag is authoritative when present; the sentinel
+   * remains the fallback for legacy cards — see `isHolePickedUp`.
+   *
+   * Maps to GA CONNECT's `pickedUp`, which takes a Maximum Score (net double
+   * bogey) for handicapping.
+   */
+  pickedUp?: boolean;
+  /**
+   * Player never attempted the hole at all (e.g. a committee-approved early
+   * finish), as distinct from starting it and picking up.
+   *
+   * Maps to GA CONNECT's `didNotAttempt`. GA substitutes a statistical
+   * "Expected Score" for such holes, so they are submitted with no gross value
+   * and score zero points locally.
+   *
+   * IMPORTANT: still write `strokes: 0` alongside this flag. `strokes` is a
+   * required key and `isSingleBallScore` narrows on `'strokes' in score`, so a
+   * flag-only object would fail the type guard that ~54 modules rely on.
+   */
+  didNotAttempt?: boolean;
 }
 
 /**

@@ -91,6 +91,10 @@ You agree not to submit content that:
 - Is spam or commercial advertising
 - Contains malware or malicious code
 
+You can report objectionable content from within the app, and block any other
+user. We remove reported content that breaches these Terms, and eject users who
+post it, within 24 hours of a report being received.
+
 ---
 
 ## 6. Competitions and Scoring

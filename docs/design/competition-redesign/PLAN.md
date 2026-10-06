@@ -192,7 +192,7 @@ A review found seven issues in this plan + `SPEC.md`, all verified against the c
     → `PHASE-1A-PLAN.md` Task 1B.
 17. **Tab labels/topology ARE part of the redesign — don't "preserve exactly".** Today's label is
     `Leaderboard`; the mock needs status-driven **Standings/Results**. Knockout's `Bracket` replaces
-    Standings (mutually exclusive). Preserve the availability MECHANISM (reorder, realtime, conditional
+    Standings (mutually exclusive). Preserve the availability MECHANISM (realtime, conditional
     tabs), not the labels/sets. → `PHASE-1A-PLAN.md` Task 1B + reworded constraints.
 18. **Tie-break can't be relocated — no such field exists.** Removed from 1B.1; reclassified as a
     net-new spec item (field + values + editor + scoring integration). → `PHASE-1-PLAN.md` decision #2 +
@@ -246,6 +246,23 @@ A review found seven issues in this plan + `SPEC.md`, all verified against the c
     touch it only if a confirmed consumer needs it. Adding **non-optional** booleans requires updating
     Competition **fixtures/factories** or the suite breaks. **Applies plan-wide** to the field additions in
     `PHASE-1B2` / `PHASE-1B3` / `PHASE-1B4`.
+
+### Round 7 (2026-07-28) — corrections to the Multiple-organisers plan
+
+30. **`competitions` RLS must split by operation** — settings edits UPDATE `competitions`
+    (`useUpdateCompetitionField`), so owner-only `FOR ALL` blocks co-organiser parity. Split: SELECT+UPDATE
+    operational, DELETE owner-only, + a `BEFORE UPDATE` guard trigger so only the owner can change
+    `organizer_id`/`deleted_at` (RLS can't restrict columns). → `PHASE-1B5` A2.
+31. **Round delete/reorder are operational, not owner-only** — `soft_delete_round`/`reorder` are ordinary
+    round management (competition rounds authorise on `organizer_id` today); route through the operational
+    helper, keep the standalone `user_id` path. Only whole-**competition** delete stays owner-only. → A3.
+32. **Notification triggers need a per-trigger recipient/actor matrix, not a blanket owner∪co-org.**
+    Organiser-alerts (player_joined) add co-orgs as recipients; participant broadcasts (new_round,
+    status_change, round_complete) keep their audience but must exclude the *acting* organiser (owner or
+    co-org); player_added is unchanged; scorecard_submitted trigger is dropped. Flag the actor-attribution
+    limitation (triggers assume the owner is the actor). → B4.
+33. **`competition_organizers.added_by` must be `ON DELETE SET NULL`** (nullable), not cascade — else
+    deleting the adder wipes their assignments. Only `competition_id`/`player_id` cascade. → representation + B1.
 
 ---
 
@@ -400,16 +417,23 @@ the canonical components. Method:
 
 ## Definition of done
 
-- [ ] **Phase 0:** solid-light neutral palette retuned to the mock's green-tinted values; solid dark
+> **Status (2026-07-29):** Phase 0 + 1A core + Visibility/Guests/Notifications are done and committed to
+> local `main` (see `README.md` → "Current status" for the commit map). Outstanding: 1A per-tab passes,
+> **1B.5 Organisers** and **1B.6 Tie-break** (plan/docs only), Phase 2 sweep. Not pushed; migrations
+> unapplied to prod (`20260728000000` needs client coordination).
+
+- [x] **Phase 0:** solid-light neutral palette retuned to the mock's green-tinted values; solid dark
       adapted; translucent branches untouched; text-token spillover flagged; palette changelog signed
-      off in solid light + dark.
-- [ ] **Phase 1:** all three surfaces × three states × full tab sets built via existing components on
+      off in solid light + dark. *(`e613a5e4`)*
+- [~] **Phase 1:** all three surfaces × three states × full tab sets built via existing components on
       the retuned palette; every tab label resolves to a rendered component (Standings/Results →
-      `LeaderboardTab` confirmed); fidelity signed off vs mock.
-- [ ] Settings screen **extended** (not recreated), existing edit/delete flows reused; Visibility
-      control built per the #15 decision (3-state, not a lossy boolean); spec-blocked sections
-      (guests/notifications/organisers) stubbed or omitted per #3; Dates/Scoring/Handicap relocation
-      flagged, not duplicated. (Screen is pushed — `SystemModalTheme` only on any bottom sheets.)
+      `LeaderboardTab` confirmed); fidelity signed off vs mock. *(tab model + hero done — `cac407ee`,
+      `aeb65ae8`; per-tab visual passes + 1A review fixes outstanding.)*
+- [~] Settings screen **extended** (not recreated), existing edit/delete flows reused; Visibility
+      control built per the #15 decision (3-state, not a lossy boolean). *(Visibility ✅ `e897428b`;
+      Guests ✅ `4e7ad007`; Notifications ✅ `647ea61f`; **Organisers ⛔** and **Tie-break ⛔** still
+      plan/docs only.)* Dates/Scoring/Handicap relocation flagged, not duplicated. (Screen is pushed —
+      `SystemModalTheme` only on any bottom sheets.)
 - [ ] **Phase 2:** inventory checklist produced; each area swept, fidelity-reviewed, merged as its own
       PR; bespoke tab bars / legacy accent cards / hardcoded colours migrated.
 - [ ] No forked components; no scoring math moved; scoring screens untouched.
