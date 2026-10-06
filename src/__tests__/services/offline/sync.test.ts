@@ -52,6 +52,8 @@ jest.mock('@/services/offline/database', () => ({
   getFailedSyncs: jest.fn(),
   discardPendingSync: jest.fn(),
   updatePendingSyncData: jest.fn(),
+  raisePendingSyncServerRevision: jest.fn(),
+  recordScorecardServerRevision: jest.fn(),
 }));
 
 // Mock query client invalidation
@@ -138,6 +140,8 @@ beforeEach(() => {
   (database.getFailedSyncs as jest.Mock).mockResolvedValue([]);
   (database.discardPendingSync as jest.Mock).mockResolvedValue(true);
   (database.updatePendingSyncData as jest.Mock).mockResolvedValue(true);
+  (database.raisePendingSyncServerRevision as jest.Mock).mockResolvedValue(true);
+  (database.recordScorecardServerRevision as jest.Mock).mockResolvedValue(undefined);
 });
 
 // ============================================================================
@@ -509,6 +513,54 @@ describe('Sync Operations', () => {
       expect(writeCalls).toHaveLength(2);
       expect(writeCalls[0][1].p_expected_revision).toBe(1);
       expect(writeCalls[1][1].p_expected_revision).toBe(2);
+    });
+
+    describe('when a newer edit arrives during the upload', () => {
+      // The write lands at revision 1, but a newer tap replaced the queued row
+      // mid-upload, so removePendingSync reports it unacknowledged. That newer
+      // edit was snapshotted before revision 1 existed; if the confirmed
+      // revision is dropped, its upload is rejected as a conflict with this
+      // device's own write ("changed on another device").
+      const arrangeSupersededUpload = () => {
+        const scorecard = createTestScorecard({ status: 'in-progress' });
+        (database.getPendingSyncs as jest.Mock).mockResolvedValue([
+          createPendingSync({ id: 7, data: scorecard, revision: 4 }),
+        ]);
+        (database.removePendingSync as jest.Mock).mockResolvedValue(false);
+        (supabase.rpc as jest.Mock).mockResolvedValue(successRpc(1));
+        return scorecard;
+      };
+
+      it('tells subscribers the revision the server confirmed', async () => {
+        const listener = jest.fn();
+        const unsubscribe = subscribeScorecardSynced(listener);
+        const scorecard = arrangeSupersededUpload();
+
+        await syncAll();
+
+        expect(listener).toHaveBeenCalledWith({
+          scorecardId: scorecard.id,
+          serverRevision: 1,
+        });
+        unsubscribe();
+      });
+
+      it('fast-forwards the newer queued edit to the confirmed revision', async () => {
+        arrangeSupersededUpload();
+
+        await syncAll();
+
+        expect(database.raisePendingSyncServerRevision).toHaveBeenCalledWith(7, 1);
+      });
+
+      it('records the confirmed revision locally without marking the scorecard synced', async () => {
+        const scorecard = arrangeSupersededUpload();
+
+        await syncAll();
+
+        expect(database.recordScorecardServerRevision).toHaveBeenCalledWith(scorecard.id, 1);
+        expect(database.markScorecardAsSynced).not.toHaveBeenCalled();
+      });
     });
   });
 

@@ -263,6 +263,27 @@ export async function markScorecardAsSynced(
 }
 
 /**
+ * Persist a server-confirmed revision without marking the scorecard synced.
+ *
+ * For a write the server accepted while a newer local edit was still queued:
+ * the scorecard stays unsynced, but resumes from the confirmed revision.
+ * Never lowers the revision.
+ */
+export async function recordScorecardServerRevision(
+  scorecardId: string,
+  serverRevision: number
+): Promise<void> {
+  const database = await getDb();
+  await database.runAsync(
+    `UPDATE ${TABLE_NAMES.SCORECARDS}
+        SET server_revision = ?
+      WHERE id = ?
+        AND COALESCE(server_revision, 0) < ?`,
+    [serverRevision, scorecardId, serverRevision]
+  );
+}
+
+/**
  * Get unsynced scorecards (excludes standalone rounds which are local-only)
  */
 export async function getUnsyncedScorecards(): Promise<Scorecard[]> {

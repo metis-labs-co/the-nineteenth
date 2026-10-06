@@ -268,6 +268,30 @@ export async function updatePendingSyncData(id: number, data: unknown): Promise<
   return result.changes > 0;
 }
 
+/**
+ * Raise a queued scorecard edit's expected server revision.
+ *
+ * Used when an earlier upload of the same scorecard was confirmed while this
+ * newer edit sat in the queue: the edit was snapshotted before that revision
+ * existed, so without this it is rejected as conflicting with this device's
+ * own write. Never lowers the revision.
+ */
+export async function raisePendingSyncServerRevision(
+  id: number,
+  serverRevision: number
+): Promise<boolean> {
+  const database = await getDb();
+  const result = await database.runAsync(
+    `UPDATE ${TABLE_NAMES.PENDING_SYNCS}
+        SET data = json_set(data, '$.serverRevision', ?)
+      WHERE id = ?
+        AND type = 'scorecard'
+        AND COALESCE(json_extract(data, '$.serverRevision'), 0) < ?`,
+    [serverRevision, id, serverRevision]
+  );
+  return result.changes > 0;
+}
+
 export async function getQueuedEntityKeys(): Promise<Set<string>> {
   const database = await getDb();
   const rows = await database.getAllAsync<{ entity_key: string }>(

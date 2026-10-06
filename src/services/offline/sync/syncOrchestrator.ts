@@ -10,6 +10,7 @@ import {
   removePendingSync,
   incrementSyncRetryCount,
   markScorecardAsSynced,
+  recordScorecardServerRevision,
   getUnsyncedScorecards,
   addPendingSync,
   getPendingSyncCount,
@@ -22,6 +23,7 @@ import {
   getFailedSyncs,
   discardPendingSync,
   updatePendingSyncData,
+  raisePendingSyncServerRevision,
 } from '../database';
 import { invalidateLeaderboardCache, invalidateScorecardCache } from '@/services/queryClient';
 import type { Scorecard, PendingSync } from '@/types';
@@ -257,6 +259,15 @@ export async function syncAll(options: SyncAllOptions = {}): Promise<boolean> {
             id: sync.id,
             revision: sync.revision,
           });
+          // The server still accepted this write. The newer edit queued behind
+          // it was snapshotted before that revision existed, so carry the
+          // confirmed revision forward or its upload self-conflicts. Notify
+          // first so any edit queued from here on already carries it.
+          if (sync.type === 'scorecard' && sync.data?.id && result?.serverRevision !== undefined) {
+            notifyScorecardSynced(sync.data.id, result.serverRevision);
+            await raisePendingSyncServerRevision(sync.id!, result.serverRevision);
+            await recordScorecardServerRevision(sync.data.id, result.serverRevision);
+          }
           continue;
         }
         successCount++;
