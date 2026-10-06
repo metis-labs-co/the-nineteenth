@@ -644,6 +644,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
         existingPlayerIds={players.map((p) => p.player_id)}
         maxPlayers={tierLimits?.maxPlayersPerCompetition ?? undefined}
         currentPlayerCount={players.length}
+        allowGuests={competition.allow_guests}
       />
 
       {/* Round Limit Upgrade Prompt */}

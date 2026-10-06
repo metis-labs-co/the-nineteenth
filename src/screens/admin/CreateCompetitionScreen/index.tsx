@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { StyleSheet, View, TouchableOpacity } from 'react-native';
 import { LoadingSpinner, ConfirmationDialog, FullScreenWizard } from '@/components/common';
 import type { UseWizardReturn, WizardStepConfig } from '@/components/common';
-import { Text, Snackbar, Icon } from 'react-native-paper';
+import { Text, Icon } from 'react-native-paper';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
@@ -78,10 +78,6 @@ export default function CreateCompetitionScreen() {
   const {
     handleSubmit: submitForm,
     isSubmitting,
-    toastVisible,
-    setToastVisible,
-    toastMessage,
-    toastInviteCode,
   } = useCompetitionFormSubmit({
     showAlert,
     setShowUpgradePrompt,
@@ -281,18 +277,8 @@ export default function CreateCompetitionScreen() {
         </View>
       </FullScreenWizard>
 
-      {/* Toast/Snackbar */}
-      <Snackbar
-        visible={toastVisible}
-        onDismiss={() => setToastVisible(false)}
-        duration={3000}
-        action={{
-          label: 'OK',
-          onPress: () => setToastVisible(false),
-        }}
-      >
-        {`${toastMessage}${toastInviteCode ? ` Invite code: ${toastInviteCode}` : ''}`}
-      </Snackbar>
+      {/* Success feedback is shown via the global top-anchored toast
+          (see useCompetitionFormSubmit), which survives navigation. */}
 
       {/* Upgrade Prompt Modal (shown on permission errors) */}
       {showUpgradePrompt && upgradePromptConfig && (
