@@ -749,6 +749,50 @@ describe('Auth Guards', () => {
       // Onboarding should no longer be visible
       expect(screen.queryByTestId('onboarding-screen')).toBeNull();
     });
+
+    it('does NOT route to onboarding when the player fetch fails — shows retry instead', async () => {
+      // Regression: a transient player-profile fetch failure (network/RLS) after
+      // retries leaves player null but is NOT a missing account. Previously the
+      // gate misread `!player` as "no account" and dropped the real, signed-in
+      // user into onboarding (where they could overwrite their handicap).
+      mockUseAuth.mockReturnValue({
+        isAuthenticated: true,
+        isInitializing: false,
+        isLoading: false,
+        isPlayerError: true, // fetch errored
+        player: null,
+        refreshProfile: jest.fn(),
+      });
+
+      renderRootNavigator();
+
+      // Shows the retry surface, NOT onboarding and NOT the main app.
+      await waitFor(() => {
+        expect(screen.getByTestId('profile-load-error')).toBeTruthy();
+      });
+      expect(screen.queryByTestId('onboarding-screen')).toBeNull();
+      expect(screen.queryByTestId('main-tabs')).toBeNull();
+    });
+
+    it('still shows onboarding for a genuinely new user (fetch succeeded, no player row)', async () => {
+      // maybeSingle() returned no row AND no error → isPlayerError false, player
+      // null → this really is a new user who should onboard.
+      mockUseAuth.mockReturnValue({
+        isAuthenticated: true,
+        isInitializing: false,
+        isLoading: false,
+        isPlayerError: false,
+        player: null,
+        refreshProfile: jest.fn(),
+      });
+
+      renderRootNavigator();
+
+      await waitFor(() => {
+        expect(screen.getByTestId('onboarding-screen')).toBeTruthy();
+      });
+      expect(screen.queryByTestId('profile-load-error')).toBeNull();
+    });
   });
 
   describe('session management', () => {

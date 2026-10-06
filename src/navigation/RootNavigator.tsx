@@ -10,6 +10,9 @@
 import React, { useCallback, useEffect, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { LoadingSpinner } from '@/components/common';
+// Import ErrorState directly (not via the barrel): the barrel exports it late,
+// and RootNavigator's module graph can otherwise resolve it to undefined.
+import { ErrorState } from '@/components/common/ErrorState';
 import { NavigationContainer, Theme } from '@react-navigation/native';
 import { navigationRef, navigate } from './navigationRef';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -130,7 +133,7 @@ interface RootNavigatorProps {
 }
 
 export default function RootNavigator({ theme }: RootNavigatorProps) {
-  const { isAuthenticated, isInitializing, isLoading, player, user } = useAuth();
+  const { isAuthenticated, isInitializing, isLoading, isPlayerError, player, user, refreshProfile } = useAuth();
   const colors = useThemeColors();
   const { hasSeenWelcome } = useHasSeenWelcome();
   const { isRestricted } = useSocialAccess();
@@ -141,10 +144,15 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
   }, []);
 
   // Check if onboarding is needed:
-  // 1. Player record doesn't exist (trigger failed to create it)
+  // 1. Player record doesn't exist (trigger failed to create it, OR genuinely
+  //    a brand-new user whose profile query SUCCEEDED and returned no row)
   // 2. Player exists but hasn't completed onboarding (handicap_updated_at is null)
-  // Only check after loading completes (isLoading is handled above)
-  const needsOnboarding = isAuthenticated && (!player || player.handicap_updated_at === null);
+  // Only check after loading completes (isLoading is handled above). Crucially,
+  // never treat a FAILED player fetch (isPlayerError) as "no account" — that is
+  // handled by its own error/retry branch below, so a transient cold-start blip
+  // can't drop a real user into onboarding (and let them overwrite their handicap).
+  const needsOnboarding =
+    isAuthenticated && !isPlayerError && (!player || player.handicap_updated_at === null);
 
   // Resume the score-entry screen on cold start if a session was persisted.
   // Runs once per app launch — only for the matching signed-in user, and only
@@ -280,6 +288,27 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
         error={bioError}
         biometricType={biometricType}
       />
+    );
+  }
+
+  // Player profile failed to load (transient network / RLS error after retries),
+  // not a missing account. Show a retry rather than falling through to Onboarding
+  // — routing a real, signed-in user into onboarding here would let them overwrite
+  // their existing handicap. Retrying refetches the profile query.
+  if (isAuthenticated && isPlayerError && !player) {
+    return (
+      <View
+        testID="profile-load-error"
+        style={[styles.loadingContainer, { backgroundColor: colors.background }]}
+      >
+        <ErrorState
+          title="Couldn't load your profile"
+          error="Check your connection and try again."
+          onRetry={() => {
+            refreshProfile();
+          }}
+        />
+      </View>
     );
   }
 
