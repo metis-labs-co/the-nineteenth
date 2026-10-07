@@ -2235,10 +2235,17 @@ describe('ScorecardStore', () => {
 
       // ── Phone A: its own store instance. Scores holes 1–9 for everyone and uploads each card.
       let phoneA!: typeof useScorecardStore;
+      let dbA!: { saveScorecard: jest.Mock };
+      let syncA!: { queueScorecardSync: jest.Mock };
       jest.isolateModules(() => {
         phoneA = require('@/store/scorecardStore').useScorecardStore;
+        dbA = jest.requireMock('@/services/offline/database');
+        syncA = jest.requireMock('@/services/offline/sync');
       });
       expect(phoneA).not.toBe(useScorecardStore); // two independent stores
+      // ...that share one set of mocks, so the no-writes checks below cover both phones.
+      expect(dbA.saveScorecard).toBe(saveScorecard);
+      expect(syncA.queueScorecardSync).toBe(queueScorecardSync);
       jest.setSystemTime(new Date(at(0)));
       await init(phoneA);
       const resolverA = mockConflictResolver!; // A registered last
@@ -2288,6 +2295,7 @@ describe('ScorecardStore', () => {
 
       // ── Both phones converge; A is told; nothing loops.
       for (const pl of players) {
+        expect(Object.keys(phoneA.getState().groupScorecards.get(pl.id)!.scores)).toHaveLength(testHoles.length);
         expect(phoneA.getState().groupScorecards.get(pl.id)!.scores).toEqual(getStore().groupScorecards.get(pl.id)!.scores);
       }
       expect(phoneA.getState().submittedElsewhere).toBe(true);
