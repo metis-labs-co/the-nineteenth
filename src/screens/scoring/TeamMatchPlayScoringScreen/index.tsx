@@ -14,6 +14,7 @@
  * - Submit match result button when complete
  */
 
+import { deriveScoringMode } from '@/utils/scoringMode';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
@@ -202,7 +203,11 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
         false,
         [],
         selectedTeeBox ?? null,
-        handicapSource
+        handicapSource,
+        new Map(),
+        'full',
+        1,
+        deriveScoringMode(roundData)
       );
     })();
 

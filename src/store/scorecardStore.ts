@@ -39,6 +39,7 @@ import { persistScorecardUpdate } from './scorecardPersistence';
 import * as multiBall from './multiBallSlice';
 import * as scoreUpdate from './scoreUpdateSlice';
 import * as initSlice from './initializeRoundSlice';
+import type { ScoringMode } from '@/utils/scoringMode';
 
 interface ScorecardState {
   // Current round data
@@ -54,6 +55,7 @@ interface ScorecardState {
   /** Display offset for hole numbers (1 = standard 1..18). See
    *  displayHoleNumber() in src/utils/holeTransformers.ts. */
   startHole: number;
+  scoringMode: ScoringMode;
 
   // Multi-ball scoring (solo rounds only)
   ballCount: BallCount;
@@ -88,7 +90,8 @@ interface ScorecardState {
     handicapSource?: HandicapSource,
     playerTeeMap?: Map<string, TeeBox>,
     nineType?: NineType,
-    startHole?: number
+    startHole?: number,
+    scoringMode?: ScoringMode
   ) => Promise<void>;
   setAllowedPlayers: (playerIds: string[]) => void;
   setSelectedTeeData: (teeData: TeeBox | null) => void;
@@ -193,6 +196,7 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
     playerTeeMap: new Map(),
     nineType: 'full' as NineType,
     startHole: 1,
+    scoringMode: 'standard' as ScoringMode,
     ballCount: 1,
     isMultiBall: false,
     groupScorecards: new Map(),
@@ -208,8 +212,8 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
     // Initialization (delegated to initializeRoundSlice)
     // The failure recount runs after the slice resolves: it is scoped to
     // `currentRoundId`, which the slice only sets once the round has loaded.
-    initializeRound: async (roundId, players, holes, gameType, isStandalone, allowedPlayerIds, selectedTeeData, handicapSource, playerTeeMap, nineType, startHole) => {
-      await initSlice.initializeRound(set, initSyncListener, roundId, players, holes, gameType, isStandalone, allowedPlayerIds, selectedTeeData, handicapSource, playerTeeMap, nineType, startHole);
+    initializeRound: async (roundId, players, holes, gameType, isStandalone, allowedPlayerIds, selectedTeeData, handicapSource, playerTeeMap, nineType, startHole, scoringMode) => {
+      await initSlice.initializeRound(set, initSyncListener, roundId, players, holes, gameType, isStandalone, allowedPlayerIds, selectedTeeData, handicapSource, playerTeeMap, nineType, startHole, scoringMode);
       await refreshRoundFailedSyncCount();
     },
 
@@ -511,6 +515,7 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
         playerTeeMap: new Map(),
         nineType: 'full' as NineType,
         startHole: 1,
+        scoringMode: 'standard' as ScoringMode,
         ballCount: 1,
         isMultiBall: false,
         groupScorecards: new Map(),

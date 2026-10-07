@@ -138,7 +138,7 @@ jest.mock('@/services/offline/sync', () => {
 // (nine_type, game_type, etc.) and bails out early unless nine_type is known,
 // so the mocked `rounds` row must supply it.
 jest.mock('@/services/supabase/client', () => {
-  const roundsResult = {
+  const defaultRoundsResult = {
     data: {
       game_type: 'stableford',
       handicap_source: 'profile',
@@ -148,6 +148,8 @@ jest.mock('@/services/supabase/client', () => {
     },
     error: null,
   };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test mock state
+  let roundsResult: any = defaultRoundsResult;
   // Mutable result for the `players` table lookup (live handicap refresh on
   // resume). Tests set this via __setPlayersResult. A `__reject` flag makes the
   // terminal `.in()` reject, simulating an offline/network failure.
@@ -189,14 +191,19 @@ jest.mock('@/services/supabase/client', () => {
     __resetPlayersResult: () => {
       playersResult = { data: null, error: null };
     },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
+    __setRoundsResult: (r: any) => {
+      roundsResult = r ?? defaultRoundsResult;
+    },
   };
 });
 
 // Test-only handles into the supabase mock above (typed loosely via requireMock
 // so they don't need to exist on the real module's exports).
-const { __setPlayersResult, __resetPlayersResult } = jest.requireMock(
+const { __setPlayersResult, __resetPlayersResult, __setRoundsResult } = jest.requireMock(
   '@/services/supabase/client'
 ) as {
+  __setRoundsResult: (r: unknown) => void;
   __setPlayersResult: (r: unknown) => void;
   __resetPlayersResult: () => void;
 };
@@ -225,6 +232,7 @@ describe('ScorecardStore', () => {
   const testRoundId = '123e4567-e89b-42d3-a456-426614174000';
 
   beforeEach(() => {
+    __setRoundsResult(null);
     // Reset the store state
     getStore().resetRound();
 
@@ -478,6 +486,23 @@ describe('ScorecardStore', () => {
     });
   });
 
+  describe('scoringMode', () => {
+    const initSocial = () =>
+      getStore().initializeRound(testRoundId, testPlayers, testHoles, 'stroke', false, [], null, 'none', new Map(), 'full', 1, 'social');
+
+    it('defaults to standard and is set by initializeRound', async () => {
+      expect(getStore().scoringMode).toBe('standard');
+      await initSocial();
+      expect(getStore().scoringMode).toBe('social');
+    });
+
+    it('is cleared by resetRound', async () => {
+      await initSocial();
+      getStore().resetRound();
+      expect(getStore().scoringMode).toBe('standard');
+    });
+  });
+
   describe('loadFromOffline', () => {
     // Helper function to create valid mock scorecards - use actual testPlayers at test time
     const createMockScorecards = (
@@ -498,6 +523,29 @@ describe('ScorecardStore', () => {
         updatedAt: new Date(),
       }));
     };
+
+    it('derives scoringMode from the round row on resume', async () => {
+      __setRoundsResult({
+        data: {
+          game_type: 'stroke',
+          handicap_source: 'none',
+          nine_type: 'full',
+          selected_tee: null,
+          course_id: null,
+          competition_id: null,
+          scoring_pairs_required: false,
+        },
+        error: null,
+      });
+      (getScorecardsByRound as jest.Mock)
+        .mockReset()
+        .mockResolvedValue(createMockScorecards(testPlayers, testRoundId));
+      (getHoles as jest.Mock).mockReset().mockResolvedValue(testHoles);
+
+      await getStore().loadFromOffline(testRoundId);
+
+      expect(getStore().scoringMode).toBe('social');
+    });
 
     // Regression: a round opened on the device long ago freezes each player's
     // handicap into SQLite (ScorecardDAO.player_handicap). On resume, the cached

@@ -11,6 +11,7 @@
  * - Returns match-specific data (player1, player2, holes, course info)
  */
 
+import { deriveScoringMode } from '@/utils/scoringMode';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { supabase } from '@/services/supabase/client';
@@ -295,7 +296,9 @@ export function useMatchPlayData({
       roundData?.selected_tee ?? null,
       (roundData?.handicap_source as HandicapSource | undefined) ?? 'profile',
       new Map(),
-      roundNineType
+      roundNineType,
+      1,
+      deriveScoringMode(roundData)
     );
   }, [
     roundId,
