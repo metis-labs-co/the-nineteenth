@@ -19,7 +19,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useActiveSkinsGameForRound, useSkinsSummary } from '@/hooks/useSkins';
+import { useActiveSkinsGameForRound, useSkinsHoleCounts, useSkinsSummary } from '@/hooks/useSkins';
 import { supabase } from '@/services/supabase/client';
 import type {
   SkinsParticipant,
@@ -67,9 +67,12 @@ export const SkinsIndicator = React.memo(function SkinsIndicator({
   // Check if skins game is active for this round
   const { data: skinsGame, isLoading: isGameLoading } = useActiveSkinsGameForRound(roundId);
 
+  // Holes the round's skins are priced (planned) and played over
+  const skinsHoleCounts = useSkinsHoleCounts(roundId);
+
   // Get summary data for the popover
   // Refetch every 3 seconds while popover is open to keep running totals updated
-  const { data: summary, isLoading: isSummaryLoading, refetch: refetchSummary } = useSkinsSummary(skinsGame?.id);
+  const { data: summary, isLoading: isSummaryLoading, refetch: refetchSummary } = useSkinsSummary(skinsGame?.id, skinsHoleCounts);
 
   // Fetch round data to check team format (fallback when is_team_skins not set)
   const { data: roundData } = useQuery({
@@ -256,6 +259,7 @@ export const SkinsIndicator = React.memo(function SkinsIndicator({
         lastWinner={lastWinner}
         participantTotals={participantTotals}
         isTeamSkins={isTeamSkins}
+        totalHoles={skinsHoleCounts.holesPlayed}
       />
     </>
   );

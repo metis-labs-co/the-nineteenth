@@ -10,8 +10,14 @@
  */
 
 import { useMemo, useEffect, useRef } from 'react';
-import { useSkinsGamesByRound, useSkinsPayouts, useSkinsResults, useFinalizeSkinsGame } from '@/hooks/useSkins';
-import { calculateHoleValue, calculateTotalPot } from '@/utils/skins';
+import {
+  useSkinsGamesByRound,
+  useSkinsPayouts,
+  useSkinsResults,
+  useFinalizeSkinsGame,
+  useSkinsHoleCounts,
+} from '@/hooks/useSkins';
+import { calculateHoleValue, calculatePlayedPot, calculateSettledPot } from '@/utils/skins';
 import type { RoundStatus } from '@/types/database/enums';
 
 export interface UseSkinsGameStateParams {
@@ -22,6 +28,9 @@ export interface UseSkinsGameStateParams {
 export function useSkinsGameState({ roundId, roundStatus }: UseSkinsGameStateParams) {
   // Fetch skins games for this round
   const { data: skinsGames, isLoading: isLoadingGames } = useSkinsGamesByRound(roundId);
+
+  // Holes the round's skins are priced (planned) and played over
+  const { plannedHoles, holesPlayed } = useSkinsHoleCounts(roundId);
 
   // Get the active or completed skins game (there should only be one per round)
   const skinsGame = useMemo(() => {
@@ -89,7 +98,9 @@ export function useSkinsGameState({ roundId, roundStatus }: UseSkinsGameStatePar
     refetchPayouts,
   ]);
 
-  // Calculate display values
+  // Calculate display values. Holes are priced on the planned count; a
+  // settled game shows what was actually staked (its stored buy-ins),
+  // otherwise the pot for the holes played.
   const displayValues = useMemo(() => {
     if (!skinsGame) {
       return {
@@ -101,12 +112,13 @@ export function useSkinsGameState({ roundId, roundStatus }: UseSkinsGameStatePar
     }
 
     return {
-      perHoleValue: calculateHoleValue(skinsGame.pot_type, skinsGame.pot_value),
-      totalPot: calculateTotalPot(skinsGame.pot_type, skinsGame.pot_value),
+      perHoleValue: calculateHoleValue(skinsGame.pot_type, skinsGame.pot_value, plannedHoles),
+      totalPot:
+        calculateSettledPot(skinsGame, payouts) ?? calculatePlayedPot(skinsGame, { plannedHoles, holesPlayed }),
       scoringTypeLabel: skinsGame.scoring_type === 'gross' ? 'Gross' : 'Net',
       potTypeLabel: skinsGame.pot_type === 'per_hole' ? 'Per Hole' : 'Total Pot',
     };
-  }, [skinsGame]);
+  }, [skinsGame, payouts, plannedHoles, holesPlayed]);
 
   // Sort payouts by winnings (descending)
   const sortedPayouts = useMemo(() => {

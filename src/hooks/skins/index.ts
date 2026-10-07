@@ -46,6 +46,8 @@ export {
   useSkinsResults,
   useSkinsPayouts,
   useSkinsSummary,
+  useSkinsHoleCounts,
+  buildSkinsSummary,
 } from './queries';
 
 // Re-export mutation hooks

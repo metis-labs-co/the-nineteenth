@@ -26,6 +26,7 @@ import type { SkinsGame, SkinsGameSummary, SkinsResultWithWinner } from '@/types
 jest.mock('@/hooks/useSkins', () => ({
   useActiveSkinsGameForRound: jest.fn(),
   useSkinsSummary: jest.fn(),
+  useSkinsHoleCounts: jest.fn(),
 }));
 
 // Mock react-query useQuery for round-team-format query
@@ -117,6 +118,7 @@ function mockHooks(options: {
   hasSummary?: boolean;
   isSummaryLoading?: boolean;
   carryoverHoles?: number;
+  holeCounts?: { plannedHoles: number; holesPlayed: number };
 } = {}) {
   const {
     hasGame = true,
@@ -124,6 +126,7 @@ function mockHooks(options: {
     hasSummary = true,
     isSummaryLoading = false,
     carryoverHoles = 1,
+    holeCounts = { plannedHoles: 18, holesPlayed: 18 },
   } = options;
 
   // Modify summary to have specified carryover holes at the end
@@ -153,6 +156,8 @@ function mockHooks(options: {
     isLoading: isSummaryLoading,
     refetch: jest.fn(),
   });
+
+  (skinsHooks.useSkinsHoleCounts as jest.Mock).mockReturnValue(holeCounts);
 }
 
 // ============================================================================
@@ -585,7 +590,10 @@ describe('SkinsIndicator', () => {
         />
       );
 
-      expect(skinsHooks.useSkinsSummary).toHaveBeenCalledWith('game-1');
+      expect(skinsHooks.useSkinsSummary).toHaveBeenCalledWith('game-1', {
+        plannedHoles: 18,
+        holesPlayed: 18,
+      });
     });
 
     it('calls useSkinsSummary with undefined when no game', () => {
@@ -598,7 +606,33 @@ describe('SkinsIndicator', () => {
         />
       );
 
-      expect(skinsHooks.useSkinsSummary).toHaveBeenCalledWith(undefined);
+      expect(skinsHooks.useSkinsSummary).toHaveBeenCalledWith(undefined, {
+        plannedHoles: 18,
+        holesPlayed: 18,
+      });
+    });
+
+    it("prices the summary and progress on the round's hole counts", async () => {
+      mockHooks({ hasGame: true, holeCounts: { plannedHoles: 9, holesPlayed: 9 } });
+
+      render(
+        <SkinsIndicator
+          roundId="round-1"
+          testID="skins-indicator"
+        />
+      );
+
+      expect(skinsHooks.useSkinsHoleCounts).toHaveBeenCalledWith('round-1');
+      expect(skinsHooks.useSkinsSummary).toHaveBeenCalledWith('game-1', {
+        plannedHoles: 9,
+        holesPlayed: 9,
+      });
+
+      fireEvent.press(screen.getByTestId('skins-indicator'));
+
+      await waitFor(() => {
+        expect(screen.getByText('5/9 holes')).toBeTruthy();
+      });
     });
   });
 });

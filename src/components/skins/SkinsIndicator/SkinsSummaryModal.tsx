@@ -17,6 +17,7 @@ import {
 import { Text, Icon, ActivityIndicator, Divider } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, borderRadius, typography, shadows, skinsColor } from '@/constants/theme';
+import { HOLES_PER_ROUND } from '@/constants/scoring';
 import type { ParticipantTotal, LastWinnerInfo } from './utils';
 
 // ============================================================================
@@ -49,6 +50,8 @@ export interface SkinsSummaryModalProps {
   participantTotals: ParticipantTotal[];
   /** Whether this is a team skins game */
   isTeamSkins: boolean;
+  /** Holes the game is played over (the "x/N holes" progress); defaults to 18 */
+  totalHoles?: number;
 }
 
 // ============================================================================
@@ -64,6 +67,7 @@ export const SkinsSummaryModal = React.memo(function SkinsSummaryModal({
   lastWinner,
   participantTotals,
   isTeamSkins,
+  totalHoles = HOLES_PER_ROUND,
 }: SkinsSummaryModalProps) {
   const colors = useThemeColors();
 
@@ -124,7 +128,7 @@ export const SkinsSummaryModal = React.memo(function SkinsSummaryModal({
                   Progress
                 </Text>
                 <Text style={[styles.popoverValue, { color: colors.textPrimary }]}>
-                  {summary.holes_completed}/18 holes
+                  {`${summary.holes_completed}/${totalHoles} holes`}
                 </Text>
               </View>
 

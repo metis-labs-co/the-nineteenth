@@ -22,6 +22,7 @@ export const skinsKeys = {
   results: (gameId: string) => [...skinsKeys.all, 'results', gameId] as const,
   payouts: (gameId: string) => [...skinsKeys.all, 'payouts', gameId] as const,
   summary: (gameId: string) => [...skinsKeys.all, 'summary', gameId] as const,
+  holeCounts: (roundId: string) => [...skinsKeys.all, 'hole-counts', roundId] as const,
   canUseSkins: (userId: string) => [...skinsKeys.all, 'can-use', userId] as const,
   // Statistics & Leaderboard keys
   statistics: (playerId: string) => [...skinsKeys.all, 'stats', playerId] as const,

@@ -18,10 +18,14 @@ import { fetchPlayersByIds, fetchPlayerListByIds } from '@/services/api/players'
 import { skinsKeys } from '@/hooks/queryKeys';
 import { CACHE_TIMES, GC_TIMES } from '@/constants/cacheConfig';
 import {
-  calculateTotalPot,
   calculateHoleValue,
   calculateCurrentCarryover,
+  calculatePlayedPot,
+  calculateSettledPot,
+  DEFAULT_SKINS_HOLE_COUNTS,
+  type SkinsHoleCounts,
 } from '@/utils/skins';
+import { fetchSkinsHoleCounts } from '@/services/skins/roundHoleCounts';
 import { createError } from '@/services/errors';
 import type {
   SkinsGame,
@@ -446,43 +450,73 @@ export function useSkinsPayouts(gameId: string | undefined) {
 }
 
 /**
+ * Hole counts a round's skins are priced (planned) and settled (played) on,
+ * read through fetchSkinsHoleCounts. The 18-hole default while loading or
+ * without a round.
+ */
+export function useSkinsHoleCounts(roundId: string | undefined): SkinsHoleCounts {
+  const { data } = useQuery({
+    queryKey: skinsKeys.holeCounts(roundId ?? ''),
+    queryFn: () => fetchSkinsHoleCounts(roundId as string),
+    enabled: !!roundId,
+    staleTime: CACHE_TIMES.SHORT,
+    gcTime: GC_TIMES.SHORT,
+  });
+  return data ?? DEFAULT_SKINS_HOLE_COUNTS;
+}
+
+/**
+ * Build a skins game summary. Each hole is priced on the planned holes; the
+ * pot is what was actually staked once the game is settled (sum of the
+ * stored buy-ins), otherwise the pot for the holes played.
+ */
+export function buildSkinsSummary(
+  game: SkinsGameWithParticipants | SkinsGameWithTeamParticipants,
+  results: SkinsResultWithWinner[] | SkinsResultWithTeamWinner[],
+  payouts: SkinsPayoutWithPlayer[],
+  holeCounts: SkinsHoleCounts = DEFAULT_SKINS_HOLE_COUNTS
+): SkinsGameSummary {
+  return {
+    game: game as SkinsGameWithParticipants,
+    results: results as SkinsResultWithWinner[],
+    payouts,
+    current_carryover: calculateCurrentCarryover(results as SkinsResult[]),
+    holes_completed: results.length,
+    total_pot: calculateSettledPot(game, payouts) ?? calculatePlayedPot(game, holeCounts),
+    per_hole_value: calculateHoleValue(game.pot_type, game.pot_value, holeCounts.plannedHoles),
+  };
+}
+
+/**
  * Query hook to fetch complete skins game summary
  *
  * Combines game, results, and payouts with calculated metrics.
  *
  * @param gameId - Skins game UUID
+ * @param holeCounts - Holes planned (prices each hole) and played (sizes the
+ *   pot); defaults to a full 18 played as planned
  * @returns Query result with SkinsGameSummary
  */
-export function useSkinsSummary(gameId: string | undefined) {
+export function useSkinsSummary(
+  gameId: string | undefined,
+  holeCounts: SkinsHoleCounts = DEFAULT_SKINS_HOLE_COUNTS
+) {
   const gameQuery = useSkinsGame(gameId);
   const resultsQuery = useSkinsResults(gameId);
   const payoutsQuery = useSkinsPayouts(gameId);
 
   // Extract data from dependent queries
   const game = gameQuery.data;
+  const { plannedHoles, holesPlayed } = holeCounts;
 
   // Compute summary directly using useMemo - this reacts to changes in dependent data
   const summary = useMemo((): SkinsGameSummary | null => {
     if (!game) return null;
-
-    const results = resultsQuery.data ?? [];
-    const payouts = payoutsQuery.data ?? [];
-
-    const totalPot = calculateTotalPot(game.pot_type, game.pot_value);
-    const perHoleValue = calculateHoleValue(game.pot_type, game.pot_value);
-    const currentCarryover = calculateCurrentCarryover(results as SkinsResult[]);
-    const holesCompleted = results.length;
-
-    return {
-      game: game as SkinsGameWithParticipants,
-      results: results as SkinsResultWithWinner[],
-      payouts: payouts as SkinsPayoutWithPlayer[],
-      current_carryover: currentCarryover,
-      holes_completed: holesCompleted,
-      total_pot: totalPot,
-      per_hole_value: perHoleValue,
-    };
-  }, [game, resultsQuery.data, payoutsQuery.data]);
+    return buildSkinsSummary(game, resultsQuery.data ?? [], payoutsQuery.data ?? [], {
+      plannedHoles,
+      holesPlayed,
+    });
+  }, [game, resultsQuery.data, payoutsQuery.data, plannedHoles, holesPlayed]);
 
   // Return a query-like object for backwards compatibility
   return {
