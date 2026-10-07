@@ -1,4 +1,4 @@
-# Social Round Multi-Scorer Implementation Plan
+# Social Round Multi-Scorer Implementation Plan (rev. 2)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -6,48 +6,64 @@
 
 **Architecture:**
 - Every hole score carries an `editedAt` timestamp, stamped by the store.
-- One pure `mergeScorecardScores(local, server)` decides each hole: the newer edit wins.
-- The merge runs in four places, only when the store's `scoringMode === 'social'`:
-  1. When an upload is rejected as a revision conflict. The store registers a conflict resolver with the sync layer.
-  2. On realtime scorecard changes.
-  3. When a round is opened (hydrate).
-  4. Before submit.
-- Totals are always recalculated by the store's canonical `calculatePlayerTotals`. There is no server change.
+- One pure `mergeScorecardScores(local, server)` decides each hole: the newer edit wins, and the same edit is never treated as a change.
+- A second pure function, `applyRemoteScorecard(local, row)`, adds the rules about revisions and final (submitted) cards.
+- The store applies remote rows only when `scoringMode === 'social'`. It receives them from four sources:
+  1. upload conflicts, through a conflict resolver the store registers with the sync layer;
+  2. realtime changes;
+  3. `pullServerScorecards()`, used when a round opens and before submit.
+- Totals always come from the canonical `calculatePlayerTotals`. There is no server change.
 
 **Tech Stack:** Expo/React Native, TypeScript, Zustand, expo-sqlite, Supabase (Postgres RPC and Realtime), Jest.
 
 **Spec:** `docs/superpowers/specs/2026-10-07-social-round-multi-scorer-design.md`. Read it first.
 
-**Worktree:** `/Users/samkay/Documents/MetisCo/Dev/the-nineteenth-social-multi-scorer`, branch `feature/social-round-multi-scorer`. Run every command from there. Dependencies are already installed; if not, run `pnpm install --frozen-lockfile`. **Never symlink `node_modules`.**
+**Worktree:** `/Users/samkay/Documents/MetisCo/Dev/the-nineteenth-social-multi-scorer`, branch `feature/social-round-multi-scorer`. Run every command from there. If dependencies are missing, run `pnpm install --frozen-lockfile`. **Never symlink `node_modules`.**
+
+**Open product question (doesn't block Tasks 0–3):** the Course screen's "Start Social Round" leaves `handicap_source` NULL, which means profile. So those rounds are **handicap** rounds under the definition and stay `'standard'`. If the owner decides they should be social, the only change is `deriveScoringMode` and its tests in Task 4. Confirm with the owner before Task 4.
 
 ## Global Constraints
 
 - **Definition of a social round:** `competition_id IS NULL` AND `handicap_source = 'none'` AND `scoring_pairs_required = false`. Anything unknown means `'standard'`.
-- **Standard rounds behave exactly as today.** These are handicap, competition and scoring-pairs rounds. Every behaviour change is gated on `scoringMode === 'social'`.
-- **Never adopt a server revision without merging that server's holes into the same local card first.**
-- **`score_entries` stays single-writer.** The batched `syncScoreEntries` is its only writer (commit 5d21c6fa). Do not add `saveScoreEntry` calls anywhere.
-- **Scoring math lives only in `calculatePlayerTotals`** (`src/store/utils/scorecardCalculations.ts`). The merge never computes totals.
+- **Standard rounds behave exactly as today.** These are handicap, competition and scoring-pairs rounds. Every behaviour change is gated on `scoringMode === 'social'`. The one exception is the shared upload whitelist in Task 2: uploading more hole fields is harmless.
+- **Never adopt a server revision without merging that server's holes into the same local card first.** An older row never lowers `serverRevision`.
+- **No upload loops.** After applying a remote row, a card with nothing newer locally is recorded as synced at the server revision, so neither the sync queue nor the fallback pass re-uploads it.
+- **`score_entries` stays single-writer.** The batched `syncScoreEntries` is its only writer (commit 5d21c6fa). Don't add `saveScoreEntry` calls anywhere.
+- **Scoring math lives only in `calculatePlayerTotals`** (`src/store/utils/scorecardCalculations.ts`).
 - **No Supabase migrations.** The local SQLite migration for `edited_at` is allowed.
 - **Scoring guardrails (CLAUDE.md):** run the impact analysis before editing the store slices, and write characterization tests before changing behaviour.
 - **Commits:** end every message with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
 - **Imports:** `@/services/offline/sync` resolves to the shim **file** `src/services/offline/sync.ts`. A new sync export must be added there **and** in `src/services/offline/sync/index.ts`.
+- **Store test fixtures** (`src/__tests__/store/scorecardStore.test.ts`):
+  - Names: `testRoundId`, `testPlayers` and `testHoles` (from `create18Holes()`).
+  - `testPlayers[0].handicap` is 18. Hole 1 is par 4, stroke index 7.
+  - Database helpers are **named imports** (`saveScorecard`, `saveHoleScore`, `markScorecardAsSynced`, …). There is no `database.` object.
+  - `getStore()` is `useScorecardStore.getState()`.
 - **Known failure:** `src/__tests__/services/sync/syncUtils.test.ts` already fails 4 tests on main (a daylight-saving date bug). Ignore it, but name it in reports.
 
 ## Deliberate deviations from the spec (agreed when planning)
 
-1. **No local `scoring_mode` column (spec 5.2).** `loadFromOffline` already bails out when it can't fetch the round's metadata, and falls back to network init, which has the metadata. So the mode is always derivable from data the round fetches anyway. The plan derives it in both paths.
-2. **Multi-ball holes are not stamped or merged.** `scoresForDb` uploads single-ball scores only (`scorecardSync.ts` ~:154), so multi-ball holes never arrive from the server. The merge keeps any hole that only one side has.
-3. **The gate skip is done through an option on `checkSubmissionReadiness`.** The service stays testable, and `useScoreSubmission` passes the option.
+1. **No local `scoring_mode` column.** `loadFromOffline` bails out without round metadata, and the network init it falls back to has the metadata. So the mode is always derivable from data the round fetches.
+2. **Multi-ball holes are not stamped or merged.** Single-ball scores only are uploaded (`scorecardSync.ts` ~:154), so multi-ball holes never arrive from the server.
+3. **The gate skip is an option on `checkSubmissionReadiness`.** The only social-relevant caller is `useScoreSubmission` (~:437). `useSubmissionReadiness` and `useMismatchResolutionFlow` are enabled only when scoring pairs are on, which never happens in a social round.
+4. **"Already submitted" is a return value, not an error.** `submitScorecards` returns `{ alreadySubmitted: boolean }`. When it's true, the server's final cards are adopted and the caller's normal success navigation (to the round summary) applies. None of the 7 callers needs new error handling.
+5. **One action, `pullServerScorecards()`, does merge-on-open and the pre-submit merge.** It's shared by `useRoundData`, `useMatchPlayData`, `TeamMatchPlayScoringScreen` and `submitScorecards`.
+6. **Stat edits trigger a live sync in social rounds.** `updatePlayerHoleScore` and `updateShotContributions` don't queue a sync today. In social mode they queue the same debounced upload as strokes, so stat edits are live and their `editedAt` reaches other phones promptly.
+
+## Accepted behaviour (state it; don't "fix" it)
+
+- **A hole merges as one unit, so two phones editing the same hole in quick succession can lose one edit.** For example, phone B edits putts on a stale copy shortly after phone A changed the strokes. B's later edit wins and A's strokes change is lost. This follows from last-edit-wins per hole (spec D2).
+- **"Last" is judged by each phone's clock.**
 
 ## Review Focus
 
-These are the conditions the spec implies that are most likely to bite. Each has a pinned test in the task named.
+These are the conditions most likely to bite. Each has a pinned test in the task named.
 
-1. **An echo of this phone's own upload arrives through realtime.** The merge must be a no-op, with no re-upload and no revision regression. *Pinned in Task 5.*
-2. **A realtime row with an older revision than the local card, arriving out of order.** It must never lower `serverRevision`. *Pinned in Task 5.*
-3. **A conflict for a scorecard whose round isn't the loaded round** (the user navigated away). It must keep today's retained-failure behaviour. *Pinned in Task 6.*
-4. **A server card already `completed` while this phone still has queued edits.** The queued row is dropped, with no banner and no retained failure. *Pinned in Task 6.*
-5. **Holes from 1.14.0 with no `editedAt`.** They lose to any stamped edit; when both are unstamped, the server wins. *Pinned in Task 3.*
+1. **An echo of this phone's own upload**, with Postgres-reordered keys and the upload whitelist missing local-only fields. It must be a no-op: no field lost, no store churn, no re-upload. *Task 3 and Task 5.*
+2. **Completed cards echoing between phones after a submit.** There must be no upload loop: synced is recorded, and nothing is queued or re-uploaded. *Task 5 and Task 11.*
+3. **This phone's own submit echoing back.** It must not raise "submitted on another phone". *Task 5 and Task 9.*
+4. **Retrying a submit after one that failed partway.** It must not report "already submitted", and it must not skip cards that never uploaded. *Task 9.*
+5. **A conflict whose server row is older than this phone's revision, or belongs to another round.** It must decline, keeping today's behaviour, with no futile retry. *Task 6.*
 
 ---
 
@@ -55,32 +71,29 @@ These are the conditions the spec implies that are most likely to bite. Each has
 
 | File | Responsibility |
 |---|---|
-| `src/utils/scoringMode.ts` (new) | `ScoringMode` type and `deriveScoringMode(round)`. The one place "social" is defined. |
+| `src/utils/scoringMode.ts` (new) | `ScoringMode` and `deriveScoringMode(round)`. The one place "social" is defined. |
 | `src/services/offline/sync/mergeScorecardScores.ts` (new) | Pure per-hole last-edit-wins merge. |
-| `src/services/offline/sync/syncOrchestrator.ts` | `setScorecardConflictResolver`, and calling it on conflicts in the queued and fallback paths. |
+| `src/store/remoteScorecardMerge.ts` (new) | Pure: apply a remote row to a local card (revision and final rules). |
+| `src/services/offline/sync/syncOrchestrator.ts` | `setScorecardConflictResolver`, used in the queued and fallback conflict paths. |
 | `src/services/offline/sync.ts`, `src/services/offline/sync/index.ts` | Re-export the resolver API. |
-| `src/services/offline/sync/scorecardSync.ts` | Upload `editedAt` in `scoresForDb`. |
-| `src/services/offline/schema/migrations.ts`, `src/services/offline/dao/HoleScoreDAO.ts` | Local `edited_at` column read and write. |
+| `src/services/offline/sync/scorecardSync.ts` | Upload `editedAt`, `scoredBy`, `pickedUp` and `didNotAttempt` in `scoresForDb`. |
+| `src/services/offline/schema/{migrations,tables}.ts`, `src/services/offline/types.ts`, `src/services/offline/dao/HoleScoreDAO.ts` | Local `edited_at` column. |
 | `src/types/database/base.ts` | `HoleScore.editedAt`. |
-| `src/store/scoreUpdateSlice.ts` | Stamp `editedAt` in `applyScoreUpdate`. |
+| `src/store/scoreUpdateSlice.ts` | Stamp `editedAt`; social-mode live sync for stat edits. |
 | `src/store/initializeRoundSlice.ts` | Thread `scoringMode`; derive it in `loadFromOffline`. |
-| `src/store/scorecardStore.ts` | `scoringMode`, `submittedElsewhere`, `mergeRemoteScorecard`, resolver registration, submit-time merge. |
-| `src/store/remoteScorecardMerge.ts` (new) | Pure helper: apply a remote row to a local card and return the next card plus flags. Keeps `scorecardStore.ts` from growing. |
+| `src/store/scorecardStore.ts` | `scoringMode`, `submittedElsewhere`, `mergeRemoteScorecard`, `pullServerScorecards`, resolver registration, social submit. |
 | `src/hooks/scorecard/useLiveScorecardMerge.ts` (new) | Realtime subscription that feeds `mergeRemoteScorecard`. |
-| `src/hooks/scorecard/useSubmittedElsewhereRedirect.ts` (new) | When another phone submits, show an alert and reset to ViewRound. |
-| `src/hooks/scorecard/useRoundData.ts`, `useRoundMetadata.ts` | Pass the mode to init; merge on open for social rounds. |
-| `src/types/supabase/roundQueries.ts` | `RoundMetadata.competitionId`. |
-| Start hooks: `useStartNewRound.ts`, `useStartSocialRound.ts`, `useStartScheduledRound.ts`, `useMatchPlayData.ts`, `TeamMatchPlayScoringScreen/index.tsx` | Pass the mode to `initializeRound`. |
-| `src/services/scoreMismatch/submission.ts`, `ReviewScorecardScreen/hooks/useScoreSubmission.ts` | Skip the multi-scorer gate for social rounds. |
-| Screens: `ScorecardEntryScreen`, `MatchPlayScoringScreen`, `TeamMatchPlayScoringScreen`, `ReviewScorecardScreen` | Mount the live merge and the redirect hooks. |
-| `src/__tests__/integration/socialMultiScorer.test.ts` (new) | Dead-battery scenario against a fake revision-enforcing server. |
+| `src/hooks/scorecard/useSubmittedElsewhereRedirect.ts` (new) | Alert and redirect when another phone submits. |
+| `src/hooks/scorecard/useRoundData.ts`, `useMatchPlayData.ts`, `useRoundMetadata.ts`; `src/types/supabase/roundQueries.ts` | Pass the mode to init; pull on open. |
+| Start hooks (`useStartNewRound`, `useStartScheduledRound`), `TeamMatchPlayScoringScreen` | Pass the mode; Team Match Play pulls on open. |
+| `src/services/scoreMismatch/submission.ts`, `ReviewScorecardScreen/hooks/useScoreSubmission.ts` | Skip the gate for social rounds. |
+| The 4 scoring screens | Mount the live merge and the redirect. |
+| `src/__tests__/mocks/stores/scorecardStore.mock.ts` | New fields in both the interface and the values. |
 | `docs/guides/OFFLINE_ARCHITECTURE.md`, `CLAUDE.md` | Documentation. |
 
 ---
 
 ### Task 0: Guardrail preflight (no code)
-
-**Files:** none changed.
 
 - [ ] **Step 1: Run the impact analysis.** Dispatch the `scoring-impact-analyst` agent on these files and paste its blast-radius summary into your task report:
   - `src/store/scoreUpdateSlice.ts`
@@ -90,6 +103,7 @@ These are the conditions the spec implies that are most likely to bite. Each has
   - `src/services/offline/sync/scorecardSync.ts`
   - `src/services/scoreMismatch/submission.ts`
   - `src/hooks/scorecard/useRoundData.ts`
+  - `src/hooks/scorecard/useMatchPlayData.ts`
 
   Ask it to name **unprotected** behaviours that the tasks below change.
 - [ ] **Step 2: Record the baseline.**
@@ -106,11 +120,9 @@ These are the conditions the spec implies that are most likely to bite. Each has
 - Modify: `src/__tests__/store/scorecardStore.test.ts`
 - Modify: `src/__tests__/services/offline/sync.test.ts`
 
-**Interfaces:** none.
+These tests must **pass on the unchanged code**.
 
-These tests must **pass on the unchanged code**. They exist so later tasks can't silently change standard-round behaviour.
-
-- [ ] **Step 1: Add store characterization tests.** Add them to `scorecardStore.test.ts`, inside the top-level describe and next to the existing `describe('initializeRound')` (~:261). Use the file's existing `testRoundId`, players and holes fixtures from the `beforeEach` at ~:226. Read that block first and reuse its variable names.
+- [ ] **Step 1: Add store characterization tests.** Add them next to `describe('initializeRound')` (~:261).
 
 ```ts
   describe('characterization: standard-round behaviour', () => {
@@ -124,23 +136,30 @@ These tests must **pass on the unchanged code**. They exist so later tasks can't
       expect(s.groupScorecards.size).toBe(0);
     });
 
-    it('setPlayerScore builds the hole from strokes, existing stats and scorer', async () => {
-      // Arrange a round with one player via the file's normal initializeRound helper/fixture.
-      await getStore().initializeRound(testRoundId, mockPlayers, mockHoles, 'stroke');
-      const playerId = mockPlayers[0].id;
+    it('setPlayerScore keeps existing putts and records the scorer', async () => {
+      await getStore().initializeRound(testRoundId, testPlayers, testHoles, 'stroke');
+      const playerId = testPlayers[0].id;
       await getStore().updatePlayerHoleScore(playerId, 1, { strokes: 4, putts: 2 });
       await getStore().setPlayerScore(playerId, 1, 5, 'scorer-1');
       const hole = getStore().groupScorecards.get(playerId)!.scores[1] as HoleScore;
-      expect(hole.strokes).toBe(5);
-      expect(hole.putts).toBe(2);
-      expect(hole.scoredBy).toBe('scorer-1');
+      expect(hole).toMatchObject({ strokes: 5, putts: 2, scoredBy: 'scorer-1' });
+    });
+
+    it('updatePlayerHoleScore does not queue a live sync today', async () => {
+      jest.useFakeTimers();
+      await getStore().initializeRound(testRoundId, testPlayers, testHoles, 'stroke');
+      (queueScorecardSync as jest.Mock).mockClear();
+      await getStore().updatePlayerHoleScore(testPlayers[0].id, 1, { putts: 2 });
+      jest.advanceTimersByTime(2500);
+      expect(queueScorecardSync).not.toHaveBeenCalled();
+      jest.useRealTimers();
     });
   });
 ```
 
-  If the fixture names differ (for example `players` or `holes`), rename to match the file. Don't create new fixtures.
+  If `queueScorecardSync` isn't already imported from the mocked `@/services/offline/sync` (check the imports at :31-36), add it to that import.
 
-- [ ] **Step 2: Add sync characterization tests.** Add them to `sync.test.ts`, inside the `describe` that defines `successRpc` (~:418), after the "when a newer edit arrives during the upload" block.
+- [ ] **Step 2: Add sync characterization tests.** In `sync.test.ts`, inside `describe('scorecard synced notifications')` (:406, where `successRpc` is defined), after the "when a newer edit arrives during the upload" block:
 
 ```ts
     describe('characterization: conflicts without a resolver', () => {
@@ -158,50 +177,51 @@ These tests must **pass on the unchanged code**. They exist so later tasks can't
       });
     });
 
-    it('uploads scores without an editedAt field today', async () => {
-      const scorecard = createTestScorecard({ status: 'in-progress', scores: { 1: { strokes: 4 } } });
+    it('uploads only the whitelisted hole fields today', async () => {
+      const scorecard = createTestScorecard({
+        status: 'in-progress',
+        scores: { 1: { strokes: 4, scoredBy: 'u1', pickedUp: true } },
+      });
       (database.getPendingSyncs as jest.Mock).mockResolvedValue([createPendingSync({ data: scorecard })]);
       (supabase.rpc as jest.Mock).mockResolvedValue(successRpc(1));
 
       await syncAll();
 
       const write = (supabase.rpc as jest.Mock).mock.calls.find(([fn]) => fn === 'write_scorecard_snapshot');
-      expect(write[1].p_snapshot.scores['1']).not.toHaveProperty('editedAt');
+      expect(write[1].p_snapshot.scores['1']).not.toHaveProperty('scoredBy');
+      expect(write[1].p_snapshot.scores['1']).not.toHaveProperty('pickedUp');
     });
 ```
 
-  Task 2 flips the last test, on purpose.
+  (`sync.test.ts` does use a `database` namespace import.) Task 2 flips the last test, on purpose.
 
 - [ ] **Step 3: Run them and check they pass.**
   ```bash
   pnpm test --testPathPattern='(store/scorecardStore|services/offline/sync.test)'
   ```
-  Expected: PASS. If one fails, the test is wrong, not the code. Fix the test to describe what the code currently does.
+  Expected: PASS. If a test fails, fix the test to describe what the code currently does.
 - [ ] **Step 4: Commit.**
   ```bash
-  git add src/__tests__/store/scorecardStore.test.ts src/__tests__/services/offline/sync.test.ts
-  git commit -m "test: characterize standard-round store and sync behaviour before social merge
+  git add src/__tests__ && git commit -m "test: characterize standard-round store and sync behaviour before social merge
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   ```
 
 ---
 
-### Task 2: Per-hole `editedAt` (stamp, persist, upload)
+### Task 2: Per-hole `editedAt` (stamp, persist, upload) and a fuller upload whitelist
 
 **Files:**
-- Modify: `src/types/database/base.ts` (`HoleScore`, ~:82)
-- Modify: `src/store/scoreUpdateSlice.ts` (`applyScoreUpdate` :35-71, and the four `persistScorecardUpdate` calls)
-- Modify: `src/services/offline/schema/migrations.ts` (append version 19)
-- Modify: `src/services/offline/schema/tables.ts` (add `edited_at TEXT` to `hole_scores` CREATE)
-- Modify: `src/services/offline/dao/HoleScoreDAO.ts` (`saveHoleScore`, `getHoleScores`)
-- Modify: `src/services/offline/sync/scorecardSync.ts` (`scoresForDb`, ~:137-168)
+- Modify: `src/types/database/base.ts` (`HoleScore` ~:82)
+- Modify: `src/store/scoreUpdateSlice.ts` (`applyScoreUpdate` :35-71, and the `persistScorecardUpdate` calls at ~:155/204/248/302)
+- Modify: `src/services/offline/schema/migrations.ts` (append v19), `src/services/offline/schema/tables.ts` (`hole_scores` CREATE ~:43-56), `src/services/offline/types.ts` (`HoleScoreRow` :39-52), `src/services/offline/dao/HoleScoreDAO.ts` (`saveHoleScore`, `getHoleScores`)
+- Modify: `src/services/offline/sync/scorecardSync.ts` (`scoresForDb` :137-168)
 - Test: `src/__tests__/store/scorecardStore.test.ts`, `src/__tests__/services/offline/sync.test.ts`
 
 **Interfaces:**
 - Produces: `HoleScore.editedAt?: string` (ISO 8601). Every store write through `applyScoreUpdate` sets it to `new Date().toISOString()`.
 
-- [ ] **Step 1: Write the failing store tests.** Add a `describe('editedAt stamping')` in `scorecardStore.test.ts`.
+- [ ] **Step 1: Write the failing store tests.**
 
 ```ts
   describe('editedAt stamping', () => {
@@ -211,8 +231,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
     });
     afterEach(() => jest.useRealTimers());
 
-    const holeOf = (playerId: string) =>
-      getStore().groupScorecards.get(playerId)!.scores[1] as HoleScore;
+    const holeOf = (playerId: string) => getStore().groupScorecards.get(playerId)!.scores[1] as HoleScore;
 
     it.each([
       ['setPlayerScore', (id: string) => getStore().setPlayerScore(id, 1, 4, 'me')],
@@ -220,117 +239,102 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
       ['updateShotContributions', (id: string) => getStore().updateShotContributions(id, 1, { teeShot: id })],
       ['updateLocalScore', (id: string) => getStore().updateLocalScore(testRoundId, id, 1, 5)],
     ])('%s stamps the hole with the edit time', async (_name, act) => {
-      await getStore().initializeRound(testRoundId, mockPlayers, mockHoles, 'stroke');
-      const id = mockPlayers[0].id;
+      await getStore().initializeRound(testRoundId, testPlayers, testHoles, 'stroke');
+      const id = testPlayers[0].id;
       await act(id);
       expect(holeOf(id).editedAt).toBe('2026-10-07T01:02:03.000Z');
     });
 
     it('persists the stamped hole to SQLite', async () => {
-      await getStore().initializeRound(testRoundId, mockPlayers, mockHoles, 'stroke');
-      const id = mockPlayers[0].id;
-      await getStore().setPlayerScore(id, 1, 4, 'me');
-      expect(database.saveHoleScore).toHaveBeenLastCalledWith(
+      await getStore().initializeRound(testRoundId, testPlayers, testHoles, 'stroke');
+      await getStore().setPlayerScore(testPlayers[0].id, 1, 4, 'me');
+      expect(saveHoleScore).toHaveBeenLastCalledWith(
         expect.any(String), 1, expect.objectContaining({ editedAt: '2026-10-07T01:02:03.000Z' }),
       );
     });
   });
 ```
 
-  `HoleShotContributions` keys: check `src/types/database/base.ts` for the real key names (for example `teeShot` or `drive`) and use a valid one. `database` is the file's existing mocked import of `@/services/offline/database`. If it's imported under another name, use that.
-
 - [ ] **Step 2: Run the tests and check they fail.**
   ```bash
   pnpm test --testPathPattern='store/scorecardStore' -t 'editedAt stamping'
   ```
-  Expected: FAIL, because `editedAt` is undefined.
+  Expected: FAIL (`editedAt` is undefined).
 
-- [ ] **Step 3: Implement the type and the stamping.**
-
-  In `src/types/database/base.ts`, inside `HoleScore`, after `scoredBy`:
-  ```ts
-  /**
-   * When this hole was last edited on the device that edited it (ISO 8601).
-   * Social rounds merge per hole on it: the later edit wins. Absent on holes
-   * written before 1.14.1, which then count as the oldest edit.
-   */
-  editedAt?: string;
-  ```
-
-  In `src/store/scoreUpdateSlice.ts`, `applyScoreUpdate`, replace the `updatedScorecard` construction:
-  ```ts
-  const stampedHoleScore: HoleScore = { ...holeScore, editedAt: new Date().toISOString() };
-  const updatedScorecard: Scorecard = {
-    ...scorecard,
-    scores: {
-      ...scorecard.scores,
-      [hole]: stampedHoleScore,
-    },
-    updatedAt: new Date(),
-  };
-  ```
-
-  Then, in each of the four callers (`setPlayerScore` :152, `updatePlayerHoleScore` :199, `updateShotContributions` :243, `updateLocalScore` :298), persist the **stamped** hole. Change the `holeScore:` entry of `persistScorecardUpdate`, using `hole` or `holeNumber` to match the function:
-  ```ts
-  holeScore: { scorecardId: scorecard.id, holeNumber: hole, score: updatedScorecard.scores[hole] as HoleScore },
-  ```
-
-- [ ] **Step 4: Run the tests and check they pass.**
-  ```bash
-  pnpm test --testPathPattern='store/scorecardStore'
-  ```
-  Expected: PASS, including Task 1's characterization tests.
-
-- [ ] **Step 5: Add local persistence of `edited_at`.**
-
-  `migrations.ts`, append to `MIGRATIONS`:
-  ```ts
-  {
-    version: 19,
-    name: 'add_hole_score_edited_at',
-    up: `ALTER TABLE hole_scores ADD COLUMN edited_at TEXT`,
-  },
-  ```
-
-  `tables.ts`, in the `hole_scores` CREATE, add `edited_at TEXT,` after `shot_contributions TEXT,`.
-
-  `HoleScoreDAO.ts`, `saveHoleScore`:
-  - Add `edited_at` to the column list of **both** INSERT statements, before `updated_at`, and add one `?` to each VALUES list.
-  - Values: the multi-ball branch passes `null`; the single-ball branch passes `score.editedAt ?? null`.
-
-  `getHoleScores`:
-  - Add `edited_at` to the row-type union and to the SELECT.
-  - In the single-ball object, add `editedAt: row.edited_at ?? undefined,` next to `scoredBy`.
-
-  Verify the SQL against real SQLite:
-  ```bash
-  sqlite3 :memory: "CREATE TABLE hole_scores (scorecard_id TEXT, hole_number INTEGER, shot_contributions TEXT); ALTER TABLE hole_scores ADD COLUMN edited_at TEXT; INSERT INTO hole_scores VALUES ('s',1,NULL,'2026-10-07T00:00:00.000Z'); SELECT edited_at FROM hole_scores;"
-  ```
-  Expected: `2026-10-07T00:00:00.000Z`.
-
-- [ ] **Step 6: Upload `editedAt`.**
-  - In `sync.test.ts`, rename the Task 1 test to `'uploads each hole with its editedAt'`. Change its scorecard scores to `{ 1: { strokes: 4, editedAt: '2026-10-07T00:00:00.000Z' } }` and its assertion to:
+- [ ] **Step 3: Implement.**
+  - In `base.ts`, inside `HoleScore`, after `scoredBy`:
     ```ts
-    expect(write[1].p_snapshot.scores['1'].editedAt).toBe('2026-10-07T00:00:00.000Z');
+    /**
+     * When this hole was last edited on the device that edited it (ISO 8601).
+     * Social rounds merge per hole on it: the later edit wins. Absent on holes
+     * written before 1.14.1, which then count as the oldest edit.
+     */
+    editedAt?: string;
     ```
-    Run it and check it fails.
-  - Then, in `scorecardSync.ts`:
-    - Add `editedAt?: string;` to the `scoresForDb` value type.
-    - In the object literal, after `penalties`, add:
-      ```ts
-      ...(score.editedAt && { editedAt: score.editedAt }),
-      ```
-    - Run the test and check it passes.
+  - In `scoreUpdateSlice.ts`, `applyScoreUpdate`, build the card from a stamped copy:
+    ```ts
+    const stampedHoleScore: HoleScore = { ...holeScore, editedAt: new Date().toISOString() };
+    const updatedScorecard: Scorecard = {
+      ...scorecard,
+      scores: { ...scorecard.scores, [hole]: stampedHoleScore },
+      updatedAt: new Date(),
+    };
+    ```
+  - In each of the four `persistScorecardUpdate` calls, persist the stamped hole. Use `hole` or `holeNumber` to match the function:
+    ```ts
+    holeScore: { scorecardId: scorecard.id, holeNumber: hole, score: updatedScorecard.scores[hole] as HoleScore },
+    ```
+  - Run the tests and check they pass.
 
-- [ ] **Step 7: Run the scoring subset and the type-check.**
+- [ ] **Step 4: Persist locally.**
+  - `migrations.ts`, append:
+    ```ts
+    { version: 19, name: 'add_hole_score_edited_at', up: `ALTER TABLE hole_scores ADD COLUMN edited_at TEXT` },
+    ```
+  - `tables.ts`: add `edited_at TEXT,` after `shot_contributions TEXT,`. It's safe to have it in both places, because `runMigration` swallows duplicate-column errors.
+  - `types.ts`, `HoleScoreRow`: add `edited_at: string | null;`.
+  - `HoleScoreDAO.ts`, `saveHoleScore`:
+    - In **both** INSERTs, add `edited_at` before `updated_at` and one more `?`.
+    - Values: `null` for multi-ball, and `score.editedAt ?? null` for single-ball.
+  - `getHoleScores`:
+    - Add `'edited_at'` to the `Pick<…>` union and to the SELECT.
+    - In the single-ball object, add `editedAt: row.edited_at ?? undefined,`.
+  - Verify against real SQLite:
+    ```bash
+    sqlite3 :memory: "CREATE TABLE hole_scores (scorecard_id TEXT, hole_number INTEGER, shot_contributions TEXT); ALTER TABLE hole_scores ADD COLUMN edited_at TEXT; INSERT INTO hole_scores VALUES ('s',1,NULL,'2026-10-07T00:00:00.000Z'); SELECT edited_at FROM hole_scores;"
+    ```
+    Expected: `2026-10-07T00:00:00.000Z`.
+
+- [ ] **Step 5: Widen the upload whitelist.** Other phones adopt the server's copy of a hole, so any field left off the upload is silently lost on those phones.
+  - In `sync.test.ts`, rename the Task 1 test to `'uploads editedAt, scoredBy and pickup flags'`.
+    - Its scores: `{ 1: { strokes: 4, scoredBy: 'u1', pickedUp: true, editedAt: '2026-10-07T00:00:00.000Z' }, 2: { strokes: 0, didNotAttempt: true } }`
+    - Expected:
+      ```ts
+      expect(write[1].p_snapshot.scores['1']).toMatchObject({ scoredBy: 'u1', pickedUp: true, editedAt: '2026-10-07T00:00:00.000Z' });
+      expect(write[1].p_snapshot.scores['2']).toMatchObject({ strokes: 0, didNotAttempt: true });
+      ```
+    - Run it and check it fails.
+  - In `scorecardSync.ts`, add `editedAt?: string; scoredBy?: string; pickedUp?: boolean; didNotAttempt?: boolean;` to the value type. After `penalties`:
+    ```ts
+    ...(score.editedAt && { editedAt: score.editedAt }),
+    ...(score.scoredBy && { scoredBy: score.scoredBy }),
+    ...(score.pickedUp && { pickedUp: true }),
+    ...(score.didNotAttempt && { didNotAttempt: true }),
+    ```
+  - Run it and check it passes.
+  - Then confirm nothing on the server side rejects extra keys:
+    ```bash
+    grep -n "scores" supabase/migrations/20260714000000_scorecard_optimistic_concurrency.sql
+    ```
+    The RPC stores `p_snapshot->'scores'` as is. Report that.
+
+- [ ] **Step 6: Run the checks.**
   ```bash
   pnpm type-check && pnpm test --testPathPattern='(golden|services/scoring|utils/(scoring|dailyHandicap|subMatches)|components/scorecard|store/scorecardStore|services/offline)'
   ```
-  Expected: PASS.
-- [ ] **Step 8: Commit.**
+- [ ] **Step 7: Commit.**
   ```bash
-  git add -A src/types/database/base.ts src/store/scoreUpdateSlice.ts src/services/offline src/__tests__
-  git commit -m "feat(scoring): stamp, persist and upload a per-hole editedAt
+  git add -A src && git commit -m "feat(scoring): per-hole editedAt (stamp, persist, upload); upload scoredBy and pickup flags
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   ```
@@ -348,19 +352,22 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   ```ts
   export interface ScorecardScoresMerge {
     scores: Record<number, HoleScore | MultiBallHoleScore>;
-    localChanged: boolean;
-    localAhead: boolean;
+    localChanged: boolean; // result differs from local on some hole
+    localAhead: boolean;   // some local single-ball hole beats or is missing on the server
   }
   export function mergeScorecardScores(
     local: Record<number, HoleScore | MultiBallHoleScore>,
     server: Record<number | string, HoleScore> | null | undefined,
   ): ScorecardScoresMerge;
   ```
-- Return values:
-  - `localChanged`: true when the result differs from `local` on any hole.
-  - `localAhead`: true when some local single-ball hole beats the server's version or is missing on the server, so the merged card must be uploaded.
 
-- [ ] **Step 1: Write the failing table-driven tests.**
+**Rules:**
+- A hole only one side has is kept.
+- **Same edit:** both sides have the same `editedAt`, or both are unstamped with equal strokes. The local copy is kept and nothing changes. The server copy can be missing local-only fields or have its JSON keys reordered.
+- Otherwise the later `editedAt` wins, with a missing time counting as oldest. If neither is stamped and the strokes differ, the server wins.
+- Holes are compared by **edit identity, never by `JSON.stringify`**.
+
+- [ ] **Step 1: Write the failing tests.**
 
 ```ts
 import { mergeScorecardScores } from '@/services/offline/sync/mergeScorecardScores';
@@ -380,17 +387,23 @@ describe('mergeScorecardScores', () => {
     ['server newer wins', { 1: h(4, T1) }, { 1: h(6, T2) }, { 1: 6 }, true, false],
     ['stamped beats unstamped (1.14.0) server', { 1: h(4, T1) }, { 1: h(6) }, { 1: 4 }, false, true],
     ['stamped server beats unstamped local', { 1: h(4) }, { 1: h(6, T1) }, { 1: 6 }, true, false],
-    ['both unstamped: server wins', { 1: h(4) }, { 1: h(6) }, { 1: 6 }, true, false],
-    ['tie: server wins', { 1: h(4, T1) }, { 1: h(6, T1) }, { 1: 6 }, true, false],
-    ['identical holes: nothing changes', { 1: h(4, T1) }, { 1: h(4, T1) }, { 1: 4 }, false, false],
+    ['both unstamped, strokes differ: server wins', { 1: h(4) }, { 1: h(6) }, { 1: 6 }, true, false],
+    ['both unstamped, strokes equal: same edit', { 1: h(4) }, { 1: h(4) }, { 1: 4 }, false, false],
+    ['same editedAt: same edit, nothing changes', { 1: h(4, T1) }, { 1: h(4, T1) }, { 1: 4 }, false, false],
   ])('%s', (_name, local, server, expected, changed, ahead) => {
     const result = mergeScorecardScores(local, server);
-    const strokes = Object.fromEntries(
-      Object.entries(result.scores).map(([k, v]) => [Number(k), (v as HoleScore).strokes]),
-    );
+    const strokes = Object.fromEntries(Object.entries(result.scores).map(([k, v]) => [Number(k), (v as HoleScore).strokes]));
     expect(strokes).toEqual(expected);
     expect(result.localChanged).toBe(changed);
     expect(result.localAhead).toBe(ahead);
+  });
+
+  it('an echo with reordered keys and missing local-only fields keeps the local hole intact', () => {
+    const local = { 1: h(10, T1, { scoredBy: 'me', pickedUp: true, putts: 3 }) };
+    const echo = { '1': { editedAt: T1, putts: 3, strokes: 10 } as HoleScore }; // jsonb order, no scoredBy/pickedUp
+    const result = mergeScorecardScores(local, echo);
+    expect(result.scores[1]).toBe(local[1]);
+    expect(result).toMatchObject({ localChanged: false, localAhead: false });
   });
 
   it('moves a hole as one unit (putts travel with strokes)', () => {
@@ -412,12 +425,7 @@ describe('mergeScorecardScores', () => {
 });
 ```
 
-- [ ] **Step 2: Run the tests and check they fail.**
-  ```bash
-  pnpm test --testPathPattern='mergeScorecardScores'
-  ```
-  Expected: FAIL (module not found).
-
+- [ ] **Step 2: Run the tests and check they fail** (module not found).
 - [ ] **Step 3: Implement.**
 
 ```ts
@@ -426,8 +434,11 @@ describe('mergeScorecardScores', () => {
  *
  * Pure: decides which side's version of each hole to keep and nothing else.
  * Totals are recomputed by the store (calculatePlayerTotals). A hole moves as
- * one unit. A missing editedAt (holes written before 1.14.1) is the oldest
- * possible edit; ties go to the server, the shared copy.
+ * one unit. Holes are compared by edit identity (editedAt, or strokes when
+ * neither side is stamped), never structurally: the server copy has its JSON
+ * keys reordered by Postgres and may lack local-only fields, so the same edit
+ * must keep the richer local hole. Missing editedAt (pre-1.14.1) is the oldest
+ * edit; two unstamped holes that differ resolve to the server's copy.
  */
 import type { HoleScore, MultiBallHoleScore } from '@/types';
 import { isSingleBallScore } from '@/types/database/base';
@@ -443,8 +454,8 @@ export interface ScorecardScoresMerge {
 const editTime = (score: HoleScore): number =>
   score.editedAt ? Date.parse(score.editedAt) || 0 : 0;
 
-const sameHole = (a: HoleScore, b: HoleScore): boolean =>
-  JSON.stringify(a) === JSON.stringify(b);
+const isSameEdit = (a: HoleScore, b: HoleScore): boolean =>
+  a.editedAt || b.editedAt ? a.editedAt === b.editedAt : a.strokes === b.strokes;
 
 export function mergeScorecardScores(
   local: Record<number, HoleScore | MultiBallHoleScore>,
@@ -467,7 +478,7 @@ export function mergeScorecardScores(
       continue;
     }
     if (!isSingleBallScore(localHole)) continue; // multi-ball never syncs
-    if (sameHole(localHole, serverHole)) continue;
+    if (isSameEdit(localHole, serverHole)) continue;
 
     if (editTime(localHole) > editTime(serverHole)) {
       localAhead = true;
@@ -478,20 +489,14 @@ export function mergeScorecardScores(
   }
 
   for (const [key, localHole] of Object.entries(local)) {
-    if (!serverHoles.has(Number(key)) && localHole && isSingleBallScore(localHole)) {
-      localAhead = true;
-    }
+    if (!serverHoles.has(Number(key)) && localHole && isSingleBallScore(localHole)) localAhead = true;
   }
 
   return { scores, localChanged, localAhead };
 }
 ```
 
-- [ ] **Step 4: Run the tests and check they pass.**
-  ```bash
-  pnpm test --testPathPattern='mergeScorecardScores'
-  ```
-  Expected: PASS (12 tests).
+- [ ] **Step 4: Run the tests and check they pass** (14 tests).
 - [ ] **Step 5: Commit.**
   ```bash
   git add src/services/offline/sync/mergeScorecardScores.ts src/__tests__/services/offline/mergeScorecardScores.test.ts
@@ -504,20 +509,23 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 ### Task 4: Scoring mode (derive, store, thread through every init path)
 
+**Confirm the open product question in the header with the owner before starting.**
+
 **Files:**
-- Create: `src/utils/scoringMode.ts`
-- Test: `src/__tests__/utils/scoringMode.test.ts`
+- Create: `src/utils/scoringMode.ts`; Test: `src/__tests__/utils/scoringMode.test.ts`
 - Modify:
-  - `src/store/scorecardStore.ts` (state, interface `initializeRound`, wrapper :211-214, initial state, `resetRound`)
-  - `src/store/initializeRoundSlice.ts` (`initializeRound` signature and `set`, `loadFromOffline` select :373 and `set` :465)
-  - `src/types/supabase/roundQueries.ts` (`RoundMetadata`)
-  - `src/hooks/scorecard/useRoundMetadata.ts` (:189)
+  - `src/store/scorecardStore.ts`
+  - `src/store/initializeRoundSlice.ts`
+  - `src/types/supabase/roundQueries.ts`
+  - `src/hooks/scorecard/useRoundMetadata.ts` (~:189)
   - `src/hooks/scorecard/useRoundData.ts` (:374)
   - `src/screens/rounds/RoundListScreen/hooks/useStartNewRound.ts` (:310)
   - `src/screens/rounds/ScheduledRoundScreen/hooks/useStartScheduledRound.ts` (:268)
   - `src/hooks/scorecard/useMatchPlayData.ts` (:288)
   - `src/screens/scoring/TeamMatchPlayScoringScreen/index.tsx` (:197)
-  - `src/__tests__/mocks/stores/scorecardStore.mock.ts` (add `scoringMode: 'standard'`, `submittedElsewhere: false`, `mergeRemoteScorecard: jest.fn()`)
+  - `src/screens/courses/CourseDetailScreen/hooks/useStartSocialRound.ts` (comment only)
+  - `src/__tests__/mocks/stores/scorecardStore.mock.ts`
+  - `src/__tests__/store/scorecardStore.test.ts` (Supabase mock: make the rounds row overridable)
 
 **Interfaces:**
 - Produces:
@@ -529,8 +537,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
     scoring_pairs_required?: boolean | null;
   } | null | undefined): ScoringMode;
   ```
-- Store: `scoringMode: ScoringMode`, defaulting to `'standard'`. `initializeRound(..., startHole?, scoringMode?: ScoringMode)` is the new trailing parameter.
-- `useStartSocialRound` passes nothing. Its rounds have `handicap_source = NULL`, which means profile, so they are **standard** by definition. See the handoff note.
+- Store: `scoringMode: ScoringMode`, defaulting to `'standard'`. `initializeRound(..., startHole?, scoringMode?)` is the new trailing parameter.
 
 - [ ] **Step 1: Write the failing helper tests.**
 
@@ -554,15 +561,14 @@ describe('deriveScoringMode', () => {
 });
 ```
 
-- [ ] **Step 2: Run the tests and check they fail.** Expected: module not found.
-- [ ] **Step 3: Implement.**
+- [ ] **Step 2: Run the tests and check they fail. Then implement.**
 
 ```ts
 /**
  * Scoring mode for a round. 'social' rounds let anyone score anyone, with a
  * per-hole last-edit-wins merge (docs/superpowers/specs/2026-10-07-social-round-multi-scorer-design.md).
- * Everything else — handicap, competition and scoring-pairs rounds — is
- * 'standard' and behaves as before. Anything unknown is 'standard'.
+ * Handicap, competition and scoring-pairs rounds are 'standard' and behave as
+ * before. Anything unknown is 'standard'.
  */
 export type ScoringMode = 'social' | 'standard';
 
@@ -583,82 +589,69 @@ export function deriveScoringMode(
 
   Run the tests and check they pass.
 
+- [ ] **Step 3: Make the store test's rounds row overridable.** In `scorecardStore.test.ts`'s `jest.mock('@/services/supabase/client')` (~:140):
+  - Change `const roundsResult = {...}` to `let roundsResult: any = {...}`, with an eslint-disable comment like the neighbouring ones.
+  - Add `__setRoundsResult: (r: any) => { roundsResult = r; }` to the returned object.
+  - Destructure it next to `__setPlayersResult` (~:194).
+  - In the file's top-level `beforeEach`, reset it to the original value. Keep a copy of the original object as `defaultRoundsResult` inside the factory and have `__setRoundsResult(null)` restore it.
+
 - [ ] **Step 4: Write the failing store tests.**
 
 ```ts
   describe('scoringMode', () => {
+    const initSocial = () =>
+      getStore().initializeRound(testRoundId, testPlayers, testHoles, 'stroke', false, [], null, 'none', new Map(), 'full', 1, 'social');
+
     it('defaults to standard and is set by initializeRound', async () => {
       expect(getStore().scoringMode).toBe('standard');
-      await getStore().initializeRound(testRoundId, mockPlayers, mockHoles, 'stroke', false, [], null, 'none', new Map(), 'full', 1, 'social');
+      await initSocial();
       expect(getStore().scoringMode).toBe('social');
     });
 
     it('is cleared by resetRound', async () => {
-      await getStore().initializeRound(testRoundId, mockPlayers, mockHoles, 'stroke', false, [], null, 'none', new Map(), 'full', 1, 'social');
+      await initSocial();
       getStore().resetRound();
       expect(getStore().scoringMode).toBe('standard');
     });
   });
 ```
 
-  Also add a `loadFromOffline` case in the existing `describe('loadFromOffline')`. Use the existing supabase `rounds` mock row (~:140) and add `competition_id: null, handicap_source: 'none', scoring_pairs_required: false` to it for this one test. Copy how neighbouring tests override the mock. Assert `getStore().scoringMode === 'social'` after a successful load.
+  Also add a test inside `describe('loadFromOffline')`:
+  - Call `__setRoundsResult({ data: { game_type: 'stroke', handicap_source: 'none', nine_type: 'full', selected_tee: null, course_id: null, competition_id: null, scoring_pairs_required: false }, error: null })`.
+  - Arrange cached scorecards the way the neighbouring successful-load test does.
+  - Assert `getStore().scoringMode === 'social'`.
 
-- [ ] **Step 5: Run the tests and check they fail.**
-- [ ] **Step 6: Implement in the store and init slice.**
+- [ ] **Step 5: Run the tests and check they fail. Then implement.**
   - `scorecardStore.ts`:
     - `import type { ScoringMode } from '@/utils/scoringMode';`
-    - Add `scoringMode: ScoringMode;` to `ScorecardState`, next to `allowedPlayerIds`.
+    - Add `scoringMode: ScoringMode;` to `ScorecardState`.
     - Add `startHole?: number, scoringMode?: ScoringMode` to the `initializeRound` interface.
-    - Initial state: `scoringMode: 'standard'`.
-    - In `resetRound`'s `set`: `scoringMode: 'standard'`.
-    - Wrapper:
-      ```ts
-      initializeRound: async (roundId, players, holes, gameType, isStandalone, allowedPlayerIds, selectedTeeData, handicapSource, playerTeeMap, nineType, startHole, scoringMode) => {
-        await initSlice.initializeRound(set, initSyncListener, roundId, players, holes, gameType, isStandalone, allowedPlayerIds, selectedTeeData, handicapSource, playerTeeMap, nineType, startHole, scoringMode);
-        await refreshRoundFailedSyncCount();
-      },
-      ```
+    - Initial state and `resetRound`: `scoringMode: 'standard'`.
+    - The wrapper (:211) passes `scoringMode` through as the last argument.
   - `initializeRoundSlice.ts`:
-    - In `initializeRound`, add the trailing parameter `scoringMode: ScoringMode = 'standard',` and include `scoringMode` in the success `set({...})`.
-    - In `loadFromOffline`:
-      - Change the metadata select to `'game_type, handicap_source, nine_type, selected_tee, course_id, competition_id, scoring_pairs_required'`.
-      - Declare `let scoringMode: ScoringMode = 'standard';` next to `gameType`.
-      - Inside `if (roundData)`, add `scoringMode = deriveScoringMode(roundData);`.
-      - Add `scoringMode` to the final `set({...})`.
+    - `initializeRound` gets the trailing parameter `scoringMode: ScoringMode = 'standard',`, and `scoringMode` goes in its success `set`.
+    - In `loadFromOffline`, the select (:373) becomes `'game_type, handicap_source, nine_type, selected_tee, course_id, competition_id, scoring_pairs_required'`.
+    - Add `let scoringMode: ScoringMode = 'standard';`, set it with `scoringMode = deriveScoringMode(roundData);` inside `if (roundData)`, and add it to the final `set`.
 
-- [ ] **Step 7: Thread the mode through the callers.**
-  - `roundQueries.ts`: add `competitionId: string | null;` to `RoundMetadata`. In `useRoundMetadata.ts` (:189), add `competitionId: roundData.competition_id ?? null,`.
-  - `useRoundData.ts` (:374). Import `deriveScoringMode` and add a trailing argument after `courseHook.startHole ?? 1,`:
+- [ ] **Step 6: Thread the mode through the callers.**
+  - `roundQueries.ts`: add `competitionId: string | null;` to `RoundMetadata`. In `useRoundMetadata.ts`, add `competitionId: roundData.competition_id ?? null,`. Check that `ROUND_METADATA_SELECT` includes `competition_id`; it does at :121.
+  - `useRoundData.ts` (:374), after `courseHook.startHole ?? 1,`:
     ```ts
-    deriveScoringMode(
-      metadata.data
-        ? { competition_id: metadata.data.competitionId, handicap_source: metadata.data.handicapSource, scoring_pairs_required: metadata.data.scoringPairsRequired }
-        : null,
-    ),
+    deriveScoringMode(metadata.data
+      ? { competition_id: metadata.data.competitionId, handicap_source: metadata.data.handicapSource, scoring_pairs_required: metadata.data.scoringPairsRequired }
+      : null),
     ```
-  - `useStartNewRound.ts` (:310). This hook inserts the round with `competition_id` null, `scoring_pairs_required: scoringPairsConfig?.enabled ?? false` and `handicap_source: handicapSource` (:175-182). Pass `1` as `startHole`, followed by:
-    ```ts
-    deriveScoringMode({ competition_id: null, handicap_source: handicapSource ?? null, scoring_pairs_required: scoringPairsConfig?.enabled ?? false })
-    ```
-    Check the variable names in scope at :310 and use them.
-  - `useStartScheduledRound.ts` (:268): same as above, using its `round` row where possible:
-    ```ts
-    deriveScoringMode({ competition_id: round.competition_id ?? null, handicap_source: handicapSource ?? round.handicap_source ?? null, scoring_pairs_required: round.scoring_pairs_required ?? false })
-    ```
-    Pass `1` for `startHole` if that argument is currently omitted.
-  - `useMatchPlayData.ts` (:288) and `TeamMatchPlayScoringScreen/index.tsx` (:197). `roundData` comes from `useRoundDetails`, which selects `*`. Fill the missing trailing args with their defaults: `new Map()`, `'full'` or the existing `roundNineType`, and `1`. Then pass `deriveScoringMode(roundData)`.
-  - `useStartSocialRound.ts`: no change. Leave a one-line comment at :153:
-    ```ts
-    // handicap_source is left NULL (profile) → a handicap round → 'standard' scoring mode.
-    ```
-  - Update `src/__tests__/mocks/stores/scorecardStore.mock.ts` as listed under Files.
-
-- [ ] **Step 8: Run the checks.**
+  - `useStartNewRound.ts` (:310): append `, 1, deriveScoringMode({ competition_id: null, handicap_source: handicapSource ?? null, scoring_pairs_required: scoringPairsConfig?.enabled ?? false })`. Read :160-185 to confirm those variable names are in scope.
+  - `useStartScheduledRound.ts` (:268): append `, 1, deriveScoringMode({ competition_id: round.competition_id ?? null, handicap_source: handicapSource ?? round.handicap_source ?? null, scoring_pairs_required: round.scoring_pairs_required ?? false })`. Confirm the `round` row fields at :90-170.
+  - `useMatchPlayData.ts` (:288): append `, 1, deriveScoringMode(roundData)`. `roundData` comes from `useRoundDetails`, which selects `*`.
+  - `TeamMatchPlayScoringScreen` (:197): fill the missing args with `new Map(), 'full', 1,` then `deriveScoringMode(roundData)`. Use the nine type the screen knows, if it has one in scope (grep `nineType` in the file).
+  - `useStartSocialRound.ts` (:153): add the comment `// handicap_source is left NULL (profile) → a handicap round → 'standard' scoring mode.`
+  - `scorecardStore.mock.ts`: add `scoringMode: ScoringMode; submittedElsewhere: boolean; mergeRemoteScorecard; pullServerScorecards` to the `MockScorecardState` **interface**. Add the values `'standard'`, `false`, `jest.fn(() => Promise.resolve())` and `jest.fn(() => Promise.resolve())`.
+- [ ] **Step 7: Run the checks.**
   ```bash
   pnpm type-check && pnpm test --testPathPattern='(store/scorecardStore|utils/scoringMode|hooks/scorecard|integration)'
   ```
-  Expected: PASS.
-- [ ] **Step 9: Commit.**
+- [ ] **Step 8: Commit.**
   ```bash
   git add -A src && git commit -m "feat(scoring): derive and thread a social/standard scoring mode
 
@@ -667,39 +660,42 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 ---
 
-### Task 5: `mergeRemoteScorecard` store action
+### Task 5: Applying remote rows (`mergeRemoteScorecard`, `pullServerScorecards`, social stat sync)
 
 **Files:**
-- Create: `src/store/remoteScorecardMerge.ts`
-- Modify: `src/store/scorecardStore.ts`
-- Test: `src/__tests__/store/remoteScorecardMerge.test.ts`, `src/__tests__/store/scorecardStore.test.ts`
+- Create: `src/store/remoteScorecardMerge.ts`; Test: `src/__tests__/store/remoteScorecardMerge.test.ts`
+- Modify: `src/store/scorecardStore.ts`, `src/store/scoreUpdateSlice.ts`
+- Modify (test mock): `src/__tests__/store/scorecardStore.test.ts`. Extend `makeChain` with `is: jest.fn(() => Promise.resolve(result))`, add a `scorecards` table branch backed by a mutable `scorecardsResult`, and add `__setScorecardsResult` with a reset in `beforeEach`.
+- Test: `src/__tests__/store/scorecardStore.test.ts`
 
 **Interfaces:**
-- Consumes: `mergeScorecardScores` (Task 3), `calculatePlayerTotals`, `ScoringMode` (Task 4).
-- Produces:
+- Produces (`remoteScorecardMerge.ts`):
   ```ts
-  // remoteScorecardMerge.ts
-  export interface RemoteScorecardRow {
-    player_id: string;
-    scores: Record<string, HoleScore> | null;
-    revision: number;
-    status: string;
-  }
+  export interface RemoteScorecardRow { player_id: string; scores: Record<string, HoleScore> | null; revision: number; status: string; }
   export interface RemoteMergeResult {
-    scorecard: Scorecard;    // next local card (totals NOT yet recomputed)
-    changed: boolean;        // store/SQLite must be updated
-    needsUpload: boolean;    // queue the debounced upload
-    final: boolean;          // server card is completed/confirmed (adopted wholesale)
+    scorecard: Scorecard;  // next local card (totals NOT recomputed)
+    changed: boolean;      // store/SQLite must be updated
+    needsUpload: boolean;  // local holes are ahead: queue the debounced upload
+    becameFinal: boolean;  // a non-final local card is now final from the server
   }
+  export const isFinalStatus: (status: string | undefined) => boolean;
   export function applyRemoteScorecard(local: Scorecard, remote: RemoteScorecardRow): RemoteMergeResult;
   ```
 - Store:
   ```ts
   mergeRemoteScorecard: (row: RemoteScorecardRow) => Promise<void>;
-  submittedElsewhere: boolean; // true once every group card is final via a remote merge
+  pullServerScorecards: () => Promise<RemoteScorecardRow[]>;  // fetch + apply every card of currentRoundId; returns the rows
+  submittedElsewhere: boolean;  // a remote row turned the last open group card final
   ```
 
-- [ ] **Step 1: Write the failing pure tests** (`remoteScorecardMerge.test.ts`).
+**Rules** (all pinned below):
+- An older row (`revision <` local) never lowers anything and is a no-op, unless it's final and the local card isn't. A final row always wins.
+- If the local card is already final **and** `local.serverRevision >= remote.revision`, it's a no-op. That's the echo of this phone's own submit.
+- A final row adopts the server card wholesale.
+- After applying a row, if nothing local is ahead, the card is recorded as synced at that revision with `markScorecardAsSynced`. Otherwise the debounced upload is queued.
+- Rows from realtime (`mergeRemoteScorecard`) are ignored while this phone is submitting, because submit does its own pull. `submittedElsewhere` is never set while submitting.
+
+- [ ] **Step 1: Write the failing pure tests.**
 
 ```ts
 import { applyRemoteScorecard } from '@/store/remoteScorecardMerge';
@@ -711,48 +707,59 @@ const card = (over: Partial<Scorecard> = {}): Scorecard => ({
   id: 'sc-1', roundId: 'r-1', playerId: 'p-1', scores: {}, totalGross: 0, totalNet: 0,
   status: 'in-progress', createdAt: new Date(0), updatedAt: new Date(0), serverRevision: 3, ...over,
 });
+const row = (over: object) => ({ player_id: 'p-1', scores: {}, revision: 5, status: 'in-progress', ...over });
 
 describe('applyRemoteScorecard', () => {
   it('merges newer server holes and adopts the server revision', () => {
-    const r = applyRemoteScorecard(card({ scores: { 1: { strokes: 4, editedAt: T1 } } }),
-      { player_id: 'p-1', scores: { '1': { strokes: 6, editedAt: T2 } }, revision: 5, status: 'in-progress' });
+    const r = applyRemoteScorecard(card({ scores: { 1: { strokes: 4, editedAt: T1 } } }), row({ scores: { '1': { strokes: 6, editedAt: T2 } } }));
     expect(r.scorecard.scores[1]).toEqual({ strokes: 6, editedAt: T2 });
     expect(r.scorecard.serverRevision).toBe(5);
-    expect(r).toMatchObject({ changed: true, needsUpload: false, final: false });
+    expect(r).toMatchObject({ changed: true, needsUpload: false, becameFinal: false });
   });
 
-  it('is a no-op for an echo of this phone\'s own upload', () => {
-    const local = card({ scores: { 1: { strokes: 4, editedAt: T1 } }, serverRevision: 5 });
-    const r = applyRemoteScorecard(local, { player_id: 'p-1', scores: { '1': { strokes: 4, editedAt: T1 } }, revision: 5, status: 'in-progress' });
-    expect(r).toMatchObject({ changed: false, needsUpload: false, final: false });
+  it("is a no-op for an echo of this phone's own upload", () => {
+    const local = card({ scores: { 1: { strokes: 4, editedAt: T1, scoredBy: 'me' } }, serverRevision: 5 });
+    const r = applyRemoteScorecard(local, row({ scores: { '1': { editedAt: T1, strokes: 4 } } }));
+    expect(r).toMatchObject({ changed: false, needsUpload: false, becameFinal: false });
+    expect(r.scorecard).toBe(local);
   });
 
   it('never lowers the revision for an out-of-order older row', () => {
     const local = card({ scores: { 1: { strokes: 4, editedAt: T2 } }, serverRevision: 7 });
-    const r = applyRemoteScorecard(local, { player_id: 'p-1', scores: { '1': { strokes: 6, editedAt: T1 } }, revision: 5, status: 'in-progress' });
-    expect(r.scorecard.serverRevision).toBe(7);
+    const r = applyRemoteScorecard(local, row({ scores: { '1': { strokes: 6, editedAt: T1 } }, revision: 5 }));
+    expect(r.scorecard).toBe(local);
     expect(r.changed).toBe(false);
   });
 
   it('flags an upload when local holes are ahead', () => {
-    const r = applyRemoteScorecard(card({ scores: { 2: { strokes: 5, editedAt: T2 } } }),
-      { player_id: 'p-1', scores: { '1': { strokes: 6, editedAt: T1 } }, revision: 5, status: 'in-progress' });
+    const r = applyRemoteScorecard(card({ scores: { 2: { strokes: 5, editedAt: T2 } } }), row({ scores: { '1': { strokes: 6, editedAt: T1 } } }));
     expect(r).toMatchObject({ changed: true, needsUpload: true });
   });
 
   it('adopts a completed server card wholesale', () => {
-    const r = applyRemoteScorecard(card({ scores: { 1: { strokes: 3, editedAt: T2 } } }),
-      { player_id: 'p-1', scores: { '1': { strokes: 6, editedAt: T1 } }, revision: 9, status: 'completed' });
+    const r = applyRemoteScorecard(card({ scores: { 1: { strokes: 3, editedAt: T2 } } }), row({ scores: { '1': { strokes: 6, editedAt: T1 } }, revision: 9, status: 'completed' }));
+    expect(r.scorecard).toMatchObject({ status: 'completed', serverRevision: 9 });
     expect(r.scorecard.scores[1]).toEqual({ strokes: 6, editedAt: T1 });
+    expect(r).toMatchObject({ changed: true, needsUpload: false, becameFinal: true });
+  });
+
+  it("is a no-op for the echo of this phone's own submit", () => {
+    const local = card({ status: 'completed', serverRevision: 9, scores: { 1: { strokes: 4, editedAt: T1 } } });
+    const r = applyRemoteScorecard(local, row({ status: 'completed', revision: 9, scores: { '1': { strokes: 4, editedAt: T1 } } }));
+    expect(r).toMatchObject({ changed: false, becameFinal: false });
+  });
+
+  it('merges into a locally-completed card that never reached the server (failed submit)', () => {
+    const local = card({ status: 'completed', serverRevision: 3, scores: { 1: { strokes: 4, editedAt: T1 } } });
+    const r = applyRemoteScorecard(local, row({ revision: 5, scores: { '2': { strokes: 5, editedAt: T2 } } }));
     expect(r.scorecard.status).toBe('completed');
-    expect(r.scorecard.serverRevision).toBe(9);
-    expect(r).toMatchObject({ changed: true, needsUpload: false, final: true });
+    expect(r.scorecard.scores[2]).toEqual({ strokes: 5, editedAt: T2 });
+    expect(r).toMatchObject({ changed: true, becameFinal: false });
   });
 });
 ```
 
-- [ ] **Step 2: Run the tests and check they fail.**
-- [ ] **Step 3: Implement** `src/store/remoteScorecardMerge.ts`.
+- [ ] **Step 2: Run the tests and check they fail. Then implement** `src/store/remoteScorecardMerge.ts`.
 
 ```ts
 /**
@@ -760,7 +767,9 @@ describe('applyRemoteScorecard', () => {
  * Pure. The caller recomputes totals (calculatePlayerTotals) and persists.
  *
  * Revision rule: the server revision is adopted only together with that
- * server's holes; an older row never lowers it.
+ * server's holes, and an older row never lowers it. A final (submitted) row
+ * wins over anything local; the echo of a card this phone already holds as
+ * final at that revision is a no-op.
  */
 import type { HoleScore, Scorecard } from '@/types';
 import { mergeScorecardScores } from '@/services/offline/sync/mergeScorecardScores';
@@ -776,15 +785,21 @@ export interface RemoteMergeResult {
   scorecard: Scorecard;
   changed: boolean;
   needsUpload: boolean;
-  final: boolean;
+  becameFinal: boolean;
 }
 
-const FINAL_STATUSES = new Set(['completed', 'confirmed']);
+export const isFinalStatus = (status: string | undefined): boolean =>
+  status === 'completed' || status === 'confirmed';
+
+const unchanged = (local: Scorecard): RemoteMergeResult =>
+  ({ scorecard: local, changed: false, needsUpload: false, becameFinal: false });
 
 export function applyRemoteScorecard(local: Scorecard, remote: RemoteScorecardRow): RemoteMergeResult {
   const localRevision = local.serverRevision ?? 0;
+  const localFinal = isFinalStatus(local.status);
 
-  if (FINAL_STATUSES.has(remote.status)) {
+  if (isFinalStatus(remote.status)) {
+    if (localFinal && localRevision >= remote.revision) return unchanged(local);
     const scores: Scorecard['scores'] = {};
     for (const [key, hole] of Object.entries(remote.scores ?? {})) {
       if (hole && hole.strokes != null) scores[Number(key)] = hole;
@@ -799,128 +814,215 @@ export function applyRemoteScorecard(local: Scorecard, remote: RemoteScorecardRo
       },
       changed: true,
       needsUpload: false,
-      final: true,
+      becameFinal: !localFinal,
     };
   }
 
-  if (remote.revision < localRevision) {
-    return { scorecard: local, changed: false, needsUpload: false, final: false };
-  }
+  if (remote.revision < localRevision) return unchanged(local);
 
   const merge = mergeScorecardScores(local.scores, remote.scores);
-  const revisionMoved = remote.revision > localRevision;
-  if (!merge.localChanged && !revisionMoved) {
-    return { scorecard: local, changed: false, needsUpload: merge.localAhead, final: false };
+  if (!merge.localChanged && remote.revision === localRevision) {
+    return { ...unchanged(local), needsUpload: merge.localAhead };
   }
   return {
     scorecard: { ...local, scores: merge.scores, serverRevision: remote.revision, updatedAt: new Date() },
     changed: true,
     needsUpload: merge.localAhead,
-    final: false,
+    becameFinal: false,
   };
 }
 ```
 
-  Note: in the echo test, `revision === localRevision` and the holes are equal, so the result is unchanged. Run the pure tests and check they pass.
+  Run the tests and check they pass.
 
-- [ ] **Step 4: Write the failing store tests** (in `scorecardStore.test.ts`).
+- [ ] **Step 3: Write the failing store tests** (`scorecardStore.test.ts`).
 
 ```ts
-  describe('mergeRemoteScorecard', () => {
+  describe('applying remote rows (social)', () => {
     const T2 = '2099-01-01T00:00:00.000Z';
-    const init = (mode: 'social' | 'standard') =>
-      getStore().initializeRound(testRoundId, mockPlayers, mockHoles, 'stroke', false, [], null, 'none', new Map(), 'full', 1, mode);
+    const init = (mode: 'social' | 'standard' = 'social') =>
+      getStore().initializeRound(testRoundId, testPlayers, testHoles, 'stroke', false, [], null, 'none', new Map(), 'full', 1, mode);
 
-    it('merges a remote row into the card and recomputes totals canonically (pickup = NDB)', async () => {
-      await init('social');
-      const p = mockPlayers[0].id;
-      const hole1 = mockHoles[0]; // par/strokeIndex from the fixture
-      await getStore().mergeRemoteScorecard({ player_id: p, scores: { [String(hole1.number)]: { strokes: 10, editedAt: T2 } }, revision: 2, status: 'in-progress' });
+    beforeEach(() => jest.useFakeTimers());
+    afterEach(() => jest.useRealTimers());
+
+    it('merges a row and recomputes totals canonically (pickup = net double bogey)', async () => {
+      await init();
+      const p = testPlayers[0].id;
+      await getStore().mergeRemoteScorecard({ player_id: p, scores: { '1': { strokes: 10, editedAt: T2 } }, revision: 2, status: 'in-progress' });
       const sc = getStore().groupScorecards.get(p)!;
       expect(sc.serverRevision).toBe(2);
-      // handicapSource 'none' → 0 strokes received → pickup counts as par + 2
-      expect(sc.totalGross).toBe(hole1.par + 2);
-      expect(database.saveScorecard).toHaveBeenCalled();
+      // handicapSource 'none' → base handicap 0 → 0 strokes; hole 1 is par 4 → pickup = 4 + 2 = 6
+      expect(sc.totalGross).toBe(6);
     });
 
-    it('does nothing in a standard round', async () => {
-      await init('standard');
-      const p = mockPlayers[0].id;
+    it('records the card as synced and queues nothing when nothing local is ahead', async () => {
+      await init();
+      const p = testPlayers[0].id;
+      (queueScorecardSync as jest.Mock).mockClear();
       await getStore().mergeRemoteScorecard({ player_id: p, scores: { '1': { strokes: 4, editedAt: T2 } }, revision: 2, status: 'in-progress' });
-      expect(getStore().groupScorecards.get(p)!.scores[1]).toBeUndefined();
+      jest.advanceTimersByTime(2500);
+      expect(markScorecardAsSynced).toHaveBeenCalledWith(getStore().groupScorecards.get(p)!.id, 2);
+      expect(queueScorecardSync).not.toHaveBeenCalled();
     });
 
-    it('sets submittedElsewhere once every group card is final', async () => {
-      await init('social');
-      for (const player of mockPlayers) {
+    it('queues an upload when local holes are ahead', async () => {
+      await init();
+      const p = testPlayers[0].id;
+      await getStore().setPlayerScore(p, 2, 5, 'me');
+      (queueScorecardSync as jest.Mock).mockClear();
+      await getStore().mergeRemoteScorecard({ player_id: p, scores: { '1': { strokes: 4, editedAt: T2 } }, revision: 2, status: 'in-progress' });
+      jest.advanceTimersByTime(2500);
+      expect(queueScorecardSync).toHaveBeenCalled();
+    });
+
+    it('a completed echo arriving twice causes no upload loop', async () => {
+      await init();
+      const p = testPlayers[0].id;
+      const final = { player_id: p, scores: { '1': { strokes: 4, editedAt: T2 } }, revision: 7, status: 'completed' };
+      await getStore().mergeRemoteScorecard(final);
+      (saveScorecard as jest.Mock).mockClear();
+      (queueScorecardSync as jest.Mock).mockClear();
+      await getStore().mergeRemoteScorecard(final);
+      jest.advanceTimersByTime(2500);
+      expect(saveScorecard).not.toHaveBeenCalled();
+      expect(queueScorecardSync).not.toHaveBeenCalled();
+    });
+
+    it('sets submittedElsewhere once every group card became final remotely', async () => {
+      await init();
+      for (const player of testPlayers) {
         await getStore().mergeRemoteScorecard({ player_id: player.id, scores: {}, revision: 3, status: 'completed' });
       }
       expect(getStore().submittedElsewhere).toBe(true);
     });
+
+    it('does nothing in a standard round', async () => {
+      await init('standard');
+      const p = testPlayers[0].id;
+      await getStore().mergeRemoteScorecard({ player_id: p, scores: { '1': { strokes: 4, editedAt: T2 } }, revision: 2, status: 'in-progress' });
+      expect(getStore().groupScorecards.get(p)!.scores[1]).toBeUndefined();
+    });
+
+    it('pullServerScorecards applies every server card of the round', async () => {
+      await init();
+      __setScorecardsResult({ data: testPlayers.map((pl) => ({ player_id: pl.id, scores: { '1': { strokes: 4, editedAt: T2 } }, revision: 2, status: 'in-progress' })), error: null });
+      await getStore().pullServerScorecards();
+      for (const pl of testPlayers) expect((getStore().groupScorecards.get(pl.id)!.scores[1] as HoleScore).strokes).toBe(4);
+    });
+
+    it('stat edits queue a live upload in a social round only', async () => {
+      await init();
+      (queueScorecardSync as jest.Mock).mockClear();
+      await getStore().updatePlayerHoleScore(testPlayers[0].id, 1, { putts: 2 });
+      jest.advanceTimersByTime(2500);
+      expect(queueScorecardSync).toHaveBeenCalled();
+    });
   });
 ```
 
-  `calculatePlayerTotals` with `handicapSource: 'none'` uses a raw handicap of 0. If the fixture's player handicap leaks through, read `calculatePlayerTotals` (:30-62) and adjust the expected value **by hand derivation**, documented in a comment. Do not import the calculator into the test.
+  Task 1's characterization "updatePlayerHoleScore does not queue a live sync today" must still pass, because it uses a standard round.
 
-- [ ] **Step 5: Run the tests and check they fail.**
-- [ ] **Step 6: Implement in `scorecardStore.ts`.**
+- [ ] **Step 4: Run the tests and check they fail. Then implement in `scorecardStore.ts`.**
   - Imports:
     ```ts
-    import { applyRemoteScorecard, type RemoteScorecardRow } from './remoteScorecardMerge';
+    import { supabase } from '@/services/supabase/client';
+    import { applyRemoteScorecard, isFinalStatus, type RemoteScorecardRow } from './remoteScorecardMerge';
     import { debouncedQueueScorecardSync } from './scorecardSyncDebounce';
     ```
-  - Add `submittedElsewhere: boolean;` and `mergeRemoteScorecard: (row: RemoteScorecardRow) => Promise<void>;` to `ScorecardState`.
+  - Add to `ScorecardState`: `submittedElsewhere: boolean;`, `mergeRemoteScorecard: (row: RemoteScorecardRow) => Promise<void>;`, `pullServerScorecards: () => Promise<RemoteScorecardRow[]>;`.
   - Initial state and `resetRound`: `submittedElsewhere: false`.
-  - Inside the `create` callback, before `return {`, add a helper so Task 6 can reuse it:
-    ```ts
-    /** Apply a remote row to the loaded social round. Returns the next card, or null. */
-    const applyRemoteToStore = async (row: RemoteScorecardRow): Promise<Scorecard | null> => {
-      const state = get();
-      if (state.scoringMode !== 'social') return null;
-      const local = state.groupScorecards.get(row.player_id);
-      if (!local) return null;
+  - Inside the `create` callback, **above `initSyncListener`**:
 
-      const result = applyRemoteScorecard(local, row);
-      if (!result.changed) return local;
+```ts
+  /** True while this phone runs submitScorecards; remote rows are ignored meanwhile (submit pulls itself). */
+  let submitting = false;
 
-      const playerTee = state.playerTeeMap.get(row.player_id) ?? state.selectedTeeData;
-      const totals = calculatePlayerTotals(result.scorecard, state.holes, state.gameType, {
-        selectedTee: playerTee,
-        handicapSource: state.handicapSource,
-      });
-      const next: Scorecard = {
-        ...result.scorecard,
-        totalGross: totals.gross,
-        totalNet: totals.net,
-        total_par_score: totals.parScore,
-      };
+  /** Apply a remote row to the loaded social round. Returns the resulting card, or null if not applicable. */
+  const applyRemoteToStore = async (row: RemoteScorecardRow): Promise<Scorecard | null> => {
+    const state = get();
+    if (state.scoringMode !== 'social') return null;
+    const local = state.groupScorecards.get(row.player_id);
+    if (!local) return null;
 
-      const cards = new Map(get().groupScorecards);
-      cards.set(row.player_id, next);
-      const allFinal = [...cards.values()].every((c) => c.status === 'completed' || c.status === 'confirmed');
-      set({ groupScorecards: cards, ...(result.final && allFinal ? { submittedElsewhere: true } : {}) });
-
-      await persistScorecardUpdate({ scorecard: { scorecardId: next.id, scorecard: next }, context: 'mergeRemoteScorecard' });
-      if (result.needsUpload && !next.isStandalone) {
-        debouncedQueueScorecardSync(next.id, () => get().groupScorecards.get(row.player_id));
+    const result = applyRemoteScorecard(local, row);
+    if (!result.changed) {
+      if (result.needsUpload && !local.isStandalone) {
+        debouncedQueueScorecardSync(local.id, () => get().groupScorecards.get(row.player_id));
       }
-      return next;
-    };
-    ```
-  - Action:
-    ```ts
+      return local;
+    }
+
+    const playerTee = state.playerTeeMap.get(row.player_id) ?? state.selectedTeeData;
+    const totals = calculatePlayerTotals(result.scorecard, state.holes, state.gameType, {
+      selectedTee: playerTee,
+      handicapSource: state.handicapSource,
+    });
+    const next: Scorecard = { ...result.scorecard, totalGross: totals.gross, totalNet: totals.net, total_par_score: totals.parScore };
+
+    const cards = new Map(get().groupScorecards);
+    cards.set(row.player_id, next);
+    const allFinal = [...cards.values()].every((c) => isFinalStatus(c.status));
+    // Never while this phone submits: its own pull/echoes are not "another phone".
+    set({ groupScorecards: cards, ...(result.becameFinal && allFinal && !submitting ? { submittedElsewhere: true } : {}) });
+
+    await persistScorecardUpdate({ scorecard: { scorecardId: next.id, scorecard: next }, context: 'applyRemoteScorecard' });
+    if (result.needsUpload && !next.isStandalone) {
+      debouncedQueueScorecardSync(next.id, () => get().groupScorecards.get(row.player_id));
+    } else if (next.serverRevision != null) {
+      // Nothing local is ahead: record it as synced so neither the queue nor
+      // the completed-card fallback re-uploads it (that would loop between phones).
+      await markScorecardAsSynced(next.id, next.serverRevision);
+    }
+    return next;
+  };
+
+  /** Fetch every server card of the current round. */
+  const fetchServerScorecards = async (roundId: string): Promise<RemoteScorecardRow[]> => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- generated types workaround
+    const { data, error } = await (supabase.from('scorecards') as any)
+      .select('player_id, scores, revision, status')
+      .eq('round_id', roundId)
+      .is('deleted_at', null);
+    if (error) throw new Error(`Could not fetch the latest scorecards: ${error.message}`);
+    return (data ?? []) as RemoteScorecardRow[];
+  };
+```
+
+  - Actions:
+
+```ts
     mergeRemoteScorecard: async (row) => {
+      if (submitting) return;
       await applyRemoteToStore(row);
     },
-    ```
 
-- [ ] **Step 7: Run the tests and check they pass.**
+    pullServerScorecards: async () => {
+      const { currentRoundId, scoringMode } = get();
+      if (!currentRoundId || scoringMode !== 'social') return [];
+      const rows = await fetchServerScorecards(currentRoundId);
+      for (const row of rows) await applyRemoteToStore(row);
+      return rows;
+    },
+```
+
+  - In `scoreUpdateSlice.ts`:
+    - Add `scoringMode: ScoringMode;` to its local `StoreState` (import the type).
+    - In `updatePlayerHoleScore` and `updateShotContributions`, after `persistScorecardUpdate`, add:
+      ```ts
+      if (get().scoringMode === 'social' && get().currentRoundId && !scorecard.isStandalone) {
+        debouncedQueueScorecardSync(scorecard.id, () => get().groupScorecards.get(playerId));
+      }
+      ```
+    - `updateShotContributions` doesn't currently destructure `currentRoundId`; read it from `get()` as shown.
+
+- [ ] **Step 5: Run the tests and check they pass.**
   ```bash
   pnpm test --testPathPattern='store/(scorecardStore|remoteScorecardMerge)'
   ```
-- [ ] **Step 8: Commit.**
+- [ ] **Step 6: Commit.**
   ```bash
-  git add -A src && git commit -m "feat(scoring): merge remote scorecard rows into social rounds
+  git add -A src && git commit -m "feat(scoring): apply remote scorecard rows in social rounds without upload loops
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   ```
@@ -931,7 +1033,8 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 **Files:**
 - Modify: `src/services/offline/sync/syncOrchestrator.ts`, `src/services/offline/sync/index.ts`, `src/services/offline/sync.ts`, `src/store/scorecardStore.ts`
-- Modify (test mock): `src/__tests__/store/scorecardStore.test.ts` (its `jest.mock('@/services/offline/sync')` factory, ~:99): add `setScorecardConflictResolver: jest.fn((r) => { mockConflictResolver = r; })` and a top-level `let mockConflictResolver: ((...a: unknown[]) => unknown) | null = null;`
+- Modify (test mock): in `scorecardStore.test.ts`'s `jest.mock('@/services/offline/sync')` (~:99), add `setScorecardConflictResolver: jest.fn((r) => { mockConflictResolver = r; })`, plus a top-level `let mockConflictResolver: ((...a: any[]) => Promise<unknown>) | null = null;`.
+  - The store registers once per module (`initSyncListener` is guarded), so **don't** reset `mockConflictResolver` in `beforeEach`.
 - Test: `src/__tests__/services/offline/sync.test.ts`, `src/__tests__/store/scorecardStore.test.ts`
 
 **Interfaces:**
@@ -939,17 +1042,13 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   ```ts
   export type ScorecardConflictResolution =
     | { kind: 'retry'; scorecard: Scorecard }  // merged snapshot at the server revision
-    | { kind: 'final' }                         // server card is completed: drop the queued write
+    | { kind: 'final' }                         // server card is final: drop the queued write
     | null;                                     // not handled: keep today's behaviour
-  export type ScorecardConflictResolver = (
-    queued: Scorecard,
-    conflict: ScorecardConflictError,
-  ) => Promise<ScorecardConflictResolution>;
+  export type ScorecardConflictResolver = (queued: Scorecard, conflict: ScorecardConflictError) => Promise<ScorecardConflictResolution>;
   export function setScorecardConflictResolver(resolver: ScorecardConflictResolver | null): void;
   ```
-- Consumes: `applyRemoteToStore` (Task 5).
 
-- [ ] **Step 1: Write the failing sync tests.** Add them to `sync.test.ts` in the `successRpc` describe. Import `setScorecardConflictResolver` from the orchestrator module path that the file already imports `syncAll` from. Add `afterEach(() => setScorecardConflictResolver(null));`.
+- [ ] **Step 1: Write the failing sync tests** (in `describe('scorecard synced notifications')`). Import `setScorecardConflictResolver` the same way the file imports `syncAll`. Add `afterEach(() => setScorecardConflictResolver(null));`.
 
 ```ts
     describe('conflict resolver', () => {
@@ -962,8 +1061,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
         const scorecard = createTestScorecard({ status: 'in-progress' });
         (database.getPendingSyncs as jest.Mock).mockResolvedValue([createPendingSync({ id: 4, data: scorecard })]);
         (supabase.rpc as jest.Mock).mockResolvedValueOnce(conflictRpc()).mockResolvedValue(successRpc(7));
-        const merged = { ...scorecard, serverRevision: 6 };
-        setScorecardConflictResolver(jest.fn().mockResolvedValue({ kind: 'retry', scorecard: merged }));
+        setScorecardConflictResolver(jest.fn().mockResolvedValue({ kind: 'retry', scorecard: { ...scorecard, serverRevision: 6 } }));
 
         await syncAll();
 
@@ -985,7 +1083,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
         expect(database.markPendingSyncFailed).not.toHaveBeenCalled();
       });
 
-      it('keeps today\'s behaviour when the resolver declines', async () => {
+      it("keeps today's behaviour when the resolver declines", async () => {
         (database.getPendingSyncs as jest.Mock).mockResolvedValue([createPendingSync({ id: 6 })]);
         (supabase.rpc as jest.Mock).mockResolvedValue(conflictRpc());
         setScorecardConflictResolver(jest.fn().mockResolvedValue(null));
@@ -995,7 +1093,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
         expect(database.markPendingSyncFailed).toHaveBeenCalledWith(6, 1, expect.any(String));
       });
 
-      it('resolves fallback-path conflicts too', async () => {
+      it('resolves fallback-path conflicts and records the retried write as synced', async () => {
         const scorecard = createTestScorecard();
         (database.getUnsyncedScorecards as jest.Mock).mockResolvedValue([scorecard]);
         (supabase.rpc as jest.Mock).mockResolvedValueOnce(conflictRpc()).mockResolvedValue(successRpc(7));
@@ -1005,146 +1103,146 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
         expect(database.markScorecardAsSynced).toHaveBeenCalledWith(scorecard.id, 7);
       });
+
+      it('marks a fallback card synced when the server copy is final', async () => {
+        const scorecard = createTestScorecard();
+        (database.getUnsyncedScorecards as jest.Mock).mockResolvedValue([scorecard]);
+        (supabase.rpc as jest.Mock).mockResolvedValue(conflictRpc('completed'));
+        setScorecardConflictResolver(jest.fn().mockResolvedValue({ kind: 'final' }));
+
+        await syncAll();
+
+        expect(database.markScorecardAsSynced).toHaveBeenCalledWith(scorecard.id, 6);
+      });
     });
 ```
 
-  Check `discardPendingSync`'s real signature in `SyncQueueDAO.ts` (`discardPendingSync(id)`, or `(id, revision)`) and match it in both the test and the implementation.
-
-- [ ] **Step 2: Run the tests and check they fail.**
-- [ ] **Step 3: Implement in `syncOrchestrator.ts`.**
+- [ ] **Step 2: Run the tests and check they fail. Then implement in `syncOrchestrator.ts`.**
   - Near `subscribeScorecardSynced` (~:68), add the types from Interfaces and:
-    ```ts
-    let conflictResolver: ScorecardConflictResolver | null = null;
 
-    /** Register who may merge a scorecard revision conflict (the store, for social rounds). */
-    export function setScorecardConflictResolver(resolver: ScorecardConflictResolver | null): void {
-      conflictResolver = resolver;
-    }
+```ts
+let conflictResolver: ScorecardConflictResolver | null = null;
 
-    async function resolveConflict(
-      scorecard: Scorecard,
-      error: ScorecardConflictError,
-    ): Promise<ScorecardConflictResolution> {
-      if (!conflictResolver) return null;
-      try {
-        return await conflictResolver(scorecard, error);
-      } catch (resolverError) {
-        syncLogger.warn('Scorecard conflict resolver failed', {
-          error: resolverError instanceof Error ? resolverError.message : String(resolverError),
-        });
-        return null;
-      }
-    }
-    ```
-  - In `syncAll`'s `attemptPendingSync`, replace the body with this version. It tries the resolver first, then the existing explicit-retry path:
-    ```ts
-    try {
-      return await processPendingSync(sync);
-    } catch (error) {
-      if (!(error instanceof ScorecardConflictError) || sync.type !== 'scorecard' || !sync.data) throw error;
+/** Register who may merge a scorecard revision conflict (the store, for social rounds). */
+export function setScorecardConflictResolver(resolver: ScorecardConflictResolver | null): void {
+  conflictResolver = resolver;
+}
 
-      const resolution = await resolveConflict(sync.data, error);
-      if (resolution?.kind === 'final') throw new FinalScorecardError();
-      if (resolution?.kind === 'retry') {
-        sync.data = resolution.scorecard;
-        if (sync.id != null) await updatePendingSyncData(sync.id, sync.data);
-        return await processPendingSync(sync);
-      }
+async function resolveConflict(scorecard: Scorecard, error: ScorecardConflictError): Promise<ScorecardConflictResolution> {
+  if (!conflictResolver) return null;
+  try {
+    return await conflictResolver(scorecard, error);
+  } catch (resolverError) {
+    syncLogger.warn('Scorecard conflict resolver failed', {
+      error: resolverError instanceof Error ? resolverError.message : String(resolverError),
+    });
+    return null;
+  }
+}
 
-      if (!adoptServerRevisionOnConflict) throw error;
-      if (!(await refreshQueuedRevision(sync, error))) throw error;
-      syncLogger.warn('Retrying queued write against the server revision', {
-        id: sync.id,
-        serverRevision: error.serverRevision,
-      });
-      return await processPendingSync(sync);
-    }
-    ```
-  - Define at module level:
-    ```ts
-    /** The server copy is final (submitted): this queued edit is obsolete. */
-    class FinalScorecardError extends Error {
-      constructor() {
-        super('Scorecard already submitted on another device');
-        this.name = 'FinalScorecardError';
-      }
-    }
-    ```
-  - In the queued loop's `catch`, before the `ScorecardConflictError` branch:
+/** The server copy is final (submitted): this queued edit is obsolete. */
+class FinalScorecardError extends Error {
+  constructor() {
+    super('Scorecard already submitted on another device');
+    this.name = 'FinalScorecardError';
+  }
+}
+```
+
+  - `attemptPendingSync` body: the resolver goes first, then the existing explicit-retry path, unchanged:
+
+```ts
+try {
+  return await processPendingSync(sync);
+} catch (error) {
+  if (!(error instanceof ScorecardConflictError) || sync.type !== 'scorecard' || !sync.data) throw error;
+
+  const resolution = await resolveConflict(sync.data, error);
+  if (resolution?.kind === 'final') throw new FinalScorecardError();
+  if (resolution?.kind === 'retry') {
+    sync.data = resolution.scorecard;
+    if (sync.id != null) await updatePendingSyncData(sync.id, sync.data);
+    return await processPendingSync(sync);
+  }
+
+  if (!adoptServerRevisionOnConflict) throw error;
+  if (!(await refreshQueuedRevision(sync, error))) throw error;
+  syncLogger.warn('Retrying queued write against the server revision', { id: sync.id, serverRevision: error.serverRevision });
+  return await processPendingSync(sync);
+}
+```
+
+  - In the queued loop's `catch`, **before** the `ScorecardConflictError` branch:
     ```ts
     if (error instanceof FinalScorecardError) {
       await discardPendingSync(sync.id!);
       continue;
     }
     ```
-  - In the fallback loop (~:355), wrap `syncScorecard(scorecard)`:
-    ```ts
-    let result;
-    try {
-      result = await syncScorecard(scorecard);
-    } catch (error) {
-      if (!(error instanceof ScorecardConflictError)) throw error;
-      const resolution = await resolveConflict(scorecard, error);
-      if (resolution?.kind === 'final') {
-        await markScorecardAsSynced(scorecard.id, error.serverRevision);
-        continue;
-      }
-      if (resolution?.kind !== 'retry') throw error;
-      result = await syncScorecard(resolution.scorecard);
-    }
-    ```
-    The existing `catch` below still handles anything rethrown.
-  - Export `setScorecardConflictResolver` and the two types from `sync/index.ts` (orchestrator export block) and from the `sync.ts` shim.
+  - In the fallback loop (~:355), replace `const result = await syncScorecard(scorecard);` with:
 
-- [ ] **Step 4: Run the sync tests and check they pass.**
-  ```bash
-  pnpm test --testPathPattern='services/offline'
-  ```
-  Expected: PASS, including Task 1's no-resolver characterization.
+```ts
+let result;
+try {
+  result = await syncScorecard(scorecard);
+} catch (error) {
+  if (!(error instanceof ScorecardConflictError)) throw error;
+  const resolution = await resolveConflict(scorecard, error);
+  if (resolution?.kind === 'final') {
+    await markScorecardAsSynced(scorecard.id, error.serverRevision);
+    continue;
+  }
+  if (resolution?.kind !== 'retry') throw error;
+  result = await syncScorecard(resolution.scorecard);
+}
+```
 
-- [ ] **Step 5: Write the failing store resolver tests** (`scorecardStore.test.ts`).
+  - Export `setScorecardConflictResolver`, `ScorecardConflictResolution` and `ScorecardConflictResolver` from `sync/index.ts` (orchestrator block) **and** from the `sync.ts` shim.
+  - Run the tests and check they pass, including Task 1's no-resolver characterization.
+
+- [ ] **Step 3: Write the failing store resolver tests.**
 
 ```ts
   describe('conflict resolver (store side)', () => {
-    const conflict = (status: string, scores: Record<string, unknown>) =>
-      new (jest.requireMock('@/services/offline/sync').ScorecardConflictError)({ server_revision: 6, server_status: status, server_scores: scores });
-
-    it('registers a resolver when the sync listener starts', async () => {
-      await getStore().initializeRound(testRoundId, mockPlayers, mockHoles, 'stroke', false, [], null, 'none', new Map(), 'full', 1, 'social');
-      expect(mockConflictResolver).toEqual(expect.any(Function));
-    });
+    const ConflictError = () => jest.requireMock('@/services/offline/sync').ScorecardConflictError;
+    const conflict = (status: string, scores: Record<string, unknown>, revision = 6) =>
+      new (ConflictError())({ server_revision: revision, server_status: status, server_scores: scores });
+    const init = (mode: 'social' | 'standard' = 'social') =>
+      getStore().initializeRound(testRoundId, testPlayers, testHoles, 'stroke', false, [], null, 'none', new Map(), 'full', 1, mode);
 
     it('returns a merged retry snapshot for the loaded social round', async () => {
-      await getStore().initializeRound(testRoundId, mockPlayers, mockHoles, 'stroke', false, [], null, 'none', new Map(), 'full', 1, 'social');
-      const queued = getStore().groupScorecards.get(mockPlayers[0].id)!;
+      await init();
+      const queued = getStore().groupScorecards.get(testPlayers[0].id)!;
       const res = await mockConflictResolver!(queued, conflict('in-progress', { '2': { strokes: 5, editedAt: '2099-01-01T00:00:00.000Z' } }));
       expect(res).toMatchObject({ kind: 'retry' });
       expect((res as { scorecard: Scorecard }).scorecard.serverRevision).toBe(6);
-      expect(getStore().groupScorecards.get(mockPlayers[0].id)!.scores[2]).toBeDefined();
+      expect(getStore().groupScorecards.get(testPlayers[0].id)!.scores[2]).toBeDefined();
     });
 
     it('returns final for a completed server card', async () => {
-      await getStore().initializeRound(testRoundId, mockPlayers, mockHoles, 'stroke', false, [], null, 'none', new Map(), 'full', 1, 'social');
-      const queued = getStore().groupScorecards.get(mockPlayers[0].id)!;
+      await init();
+      const queued = getStore().groupScorecards.get(testPlayers[0].id)!;
       expect(await mockConflictResolver!(queued, conflict('completed', {}))).toEqual({ kind: 'final' });
     });
 
-    it('declines a scorecard from another round, or a standard round', async () => {
-      await getStore().initializeRound(testRoundId, mockPlayers, mockHoles, 'stroke', false, [], null, 'none', new Map(), 'full', 1, 'standard');
-      const queued = getStore().groupScorecards.get(mockPlayers[0].id)!;
+    it('declines a standard round, another round, or an older server row', async () => {
+      await init('standard');
+      const queued = getStore().groupScorecards.get(testPlayers[0].id)!;
       expect(await mockConflictResolver!(queued, conflict('in-progress', {}))).toBeNull();
-      expect(await mockConflictResolver!({ ...queued, roundId: 'other' }, conflict('in-progress', {}))).toBeNull();
+      await init('social');
+      const q2 = getStore().groupScorecards.get(testPlayers[0].id)!;
+      expect(await mockConflictResolver!({ ...q2, roundId: 'other' }, conflict('in-progress', {}))).toBeNull();
+      useScorecardStore.setState({ groupScorecards: new Map([[testPlayers[0].id, { ...q2, serverRevision: 9 }]]) });
+      expect(await mockConflictResolver!(q2, conflict('in-progress', {}, 6))).toBeNull();
     });
   });
 ```
 
-- [ ] **Step 6: Run the tests and check they fail.**
-- [ ] **Step 7: Implement in `scorecardStore.ts`.**
-  - Import `setScorecardConflictResolver` from `@/services/offline/sync`.
-  - In `initSyncListener`, after `subscribeScorecardSynced(...)`:
-    ```ts
-    // Social rounds merge revision conflicts per hole instead of retaining
-    // them as failures. Standard rounds (and other rounds) decline → unchanged.
+- [ ] **Step 4: Run the tests and check they fail. Then implement.** In `scorecardStore.ts` `initSyncListener`, after `subscribeScorecardSynced(...)`:
+
+```ts
+    // Social rounds merge revision conflicts per hole instead of retaining them
+    // as failures. Anything else declines → today's behaviour.
     setScorecardConflictResolver(async (queued, conflict) => {
       const state = get();
       if (state.scoringMode !== 'social' || queued.roundId !== state.currentRoundId) return null;
@@ -1155,17 +1253,19 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
         status: conflict.serverStatus ?? 'in-progress',
       });
       if (!next) return null;
-      if (next.status === 'completed' || next.status === 'confirmed') return { kind: 'final' };
-      return { kind: 'retry', scorecard: { ...queued, ...next } };
+      if (isFinalStatus(next.status) && isFinalStatus(conflict.serverStatus ?? undefined)) return { kind: 'final' };
+      // An older server row left the card untouched: retrying would conflict again.
+      if (next.serverRevision !== conflict.serverRevision) return null;
+      return { kind: 'retry', scorecard: { ...queued, scores: next.scores, totalGross: next.totalGross, totalNet: next.totalNet, total_par_score: next.total_par_score, serverRevision: next.serverRevision } };
     });
-    ```
-    Ordering: `applyRemoteToStore` is defined before `initSyncListener` runs, so place the helper above `initSyncListener` in the file.
+```
 
-- [ ] **Step 8: Run the tests and check they pass.**
+  Import `setScorecardConflictResolver` from `@/services/offline/sync`. The retry snapshot keeps the queued card's sync metadata (`status`, `syncHoles` and so on) and takes the merged scores and totals.
+- [ ] **Step 5: Run the checks.**
   ```bash
   pnpm type-check && pnpm test --testPathPattern='(store/scorecardStore|services/offline)'
   ```
-- [ ] **Step 9: Commit.**
+- [ ] **Step 6: Commit.**
   ```bash
   git add -A src && git commit -m "feat(sync): merge social-round revision conflicts instead of retaining failures
 
@@ -1174,23 +1274,16 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 ---
 
-### Task 7: Live merge hook, mounted on the scoring screens
+### Task 7: Live merge hook on the four scoring screens
 
 **Files:**
-- Create: `src/hooks/scorecard/useLiveScorecardMerge.ts`
-- Test: `src/__tests__/hooks/scorecard/useLiveScorecardMerge.test.tsx`
-- Modify:
-  - `src/hooks/scorecard/index.ts` (export)
-  - `src/screens/scoring/ScorecardEntryScreen/index.tsx`
-  - `src/screens/scoring/MatchPlayScoringScreen/index.tsx`
-  - `src/screens/scoring/TeamMatchPlayScoringScreen/index.tsx`
-  - `src/screens/scoring/ReviewScorecardScreen/index.tsx`
+- Create: `src/hooks/scorecard/useLiveScorecardMerge.ts`; Test: `src/__tests__/hooks/scorecard/useLiveScorecardMerge.test.tsx`
+- Modify: `src/hooks/scorecard/index.ts`; `src/screens/scoring/{ScorecardEntryScreen,MatchPlayScoringScreen,TeamMatchPlayScoringScreen,ReviewScorecardScreen}/index.tsx`
 
 **Interfaces:**
-- Produces: `useLiveScorecardMerge(roundId: string | undefined): void`. It reads `scoringMode` from the store itself and subscribes only when the mode is `'social'`.
-- Consumes: the store's `mergeRemoteScorecard` (Task 5).
+- Produces: `useLiveScorecardMerge(roundId: string | undefined): void`. It subscribes only when `scoringMode === 'social'`, and uses a channel name distinct from `useScorecardsRealtime`'s.
 
-- [ ] **Step 1: Write the failing hook test.** Follow the mocking style of an existing realtime test. Search with `grep -rln "channel(" src/__tests__ src/hooks | grep test`, and if none exists, mock as shown.
+- [ ] **Step 1: Write the failing test.** No existing test mocks `supabase.channel`, so mock it here. `renderHook` from `@testing-library/react-native` is the project convention.
 
 ```tsx
 import { renderHook } from '@testing-library/react-native';
@@ -1198,17 +1291,15 @@ import { useLiveScorecardMerge } from '@/hooks/scorecard/useLiveScorecardMerge';
 import { useScorecardStore } from '@/store/scorecardStore';
 
 let mockHandler: ((payload: { new: unknown }) => void) | null = null;
-const mockRemoveChannel = jest.fn();
 jest.mock('@/services/supabase/client', () => ({
   supabase: {
-    channel: jest.fn(() => ({
-      on: jest.fn(function (this: unknown, _e: unknown, _f: unknown, handler: (p: { new: unknown }) => void) {
-        mockHandler = handler;
-        return this;
-      }),
-      subscribe: jest.fn(function (this: unknown) { return this; }),
-    })),
-    removeChannel: (...a: unknown[]) => mockRemoveChannel(...a),
+    channel: jest.fn(() => {
+      const ch: Record<string, unknown> = {};
+      ch.on = jest.fn((_e: unknown, _f: unknown, handler: (p: { new: unknown }) => void) => { mockHandler = handler; return ch; });
+      ch.subscribe = jest.fn(() => ch);
+      return ch;
+    }),
+    removeChannel: jest.fn(),
   },
 }));
 
@@ -1223,8 +1314,15 @@ describe('useLiveScorecardMerge', () => {
   it('feeds realtime rows into the store in a social round', () => {
     useScorecardStore.setState({ scoringMode: 'social' } as never);
     renderHook(() => useLiveScorecardMerge('r-1'));
-    mockHandler!({ new: { player_id: 'p', scores: {}, revision: 2, status: 'in-progress' } });
+    mockHandler!({ new: { player_id: 'p', scores: {}, revision: 2, status: 'in-progress', round_id: 'r-1' } });
     expect(merge).toHaveBeenCalledWith({ player_id: 'p', scores: {}, revision: 2, status: 'in-progress' });
+  });
+
+  it('ignores malformed rows', () => {
+    useScorecardStore.setState({ scoringMode: 'social' } as never);
+    renderHook(() => useLiveScorecardMerge('r-1'));
+    mockHandler!({ new: { player_id: 'p' } });
+    expect(merge).not.toHaveBeenCalled();
   });
 
   it('does not subscribe in a standard round', () => {
@@ -1235,8 +1333,7 @@ describe('useLiveScorecardMerge', () => {
 });
 ```
 
-- [ ] **Step 2: Run the test and check it fails.**
-- [ ] **Step 3: Implement.**
+- [ ] **Step 2: Run the test and check it fails. Then implement.**
 
 ```ts
 /**
@@ -1244,7 +1341,7 @@ describe('useLiveScorecardMerge', () => {
  *
  * Subscribes to scorecard changes for the round and merges each row into the
  * scorecard store (last edit wins per hole). A no-op outside social rounds.
- * Uses its own channel name so it can coexist with useScorecardsRealtime.
+ * Uses its own channel name so it coexists with useScorecardsRealtime.
  */
 import { useEffect } from 'react';
 import { supabase } from '@/services/supabase/client';
@@ -1256,7 +1353,6 @@ export function useLiveScorecardMerge(roundId: string | undefined): void {
 
   useEffect(() => {
     if (!roundId || !isSocial) return;
-
     const channel = supabase
       .channel(`scorecards-merge:round:${roundId}`)
       .on(
@@ -1275,7 +1371,6 @@ export function useLiveScorecardMerge(roundId: string | undefined): void {
         },
       )
       .subscribe();
-
     return () => {
       supabase.removeChannel(channel);
     };
@@ -1285,14 +1380,14 @@ export function useLiveScorecardMerge(roundId: string | undefined): void {
 
   Export it from `src/hooks/scorecard/index.ts`. Run the test and check it passes.
 
-- [ ] **Step 4: Mount the hook.** In each of the four screens, add `useLiveScorecardMerge(roundId);` next to the existing store or round hooks. The `roundId` variables are at: ScorecardEntryScreen :74, MatchPlayScoringScreen :50, TeamMatchPlayScoringScreen :53, ReviewScorecardScreen :97. Import from `@/hooks/scorecard`.
-- [ ] **Step 5: Run the checks.**
+- [ ] **Step 3: Mount the hook.** Add `useLiveScorecardMerge(roundId);` near the top of each screen, before any early return:
+  - ScorecardEntryScreen: `roundId` at :74, first early return at :667.
+  - MatchPlayScoringScreen: :50, first early return at :629.
+  - TeamMatchPlayScoringScreen: :53, first early return at :695.
+  - ReviewScorecardScreen: :97, first early return at :357. It already imports from `@/hooks/scorecard` at :26.
+- [ ] **Step 4: Run the checks and commit.**
   ```bash
   pnpm type-check && pnpm test --testPathPattern='(hooks/scorecard|screens/scoring)'
-  ```
-  Screen tests that mock `@/hooks/scorecard` may need `useLiveScorecardMerge: jest.fn()` added to their mock factory. Add it where a test fails with "is not a function".
-- [ ] **Step 6: Commit.**
-  ```bash
   git add -A src && git commit -m "feat(scoring): live per-hole merge on social-round scoring screens
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
@@ -1300,190 +1395,225 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 ---
 
-### Task 8: Merge on open (hydrate)
+### Task 8: Merge on open (stroke, match play, team match play)
 
 **Files:**
-- Modify: `src/hooks/scorecard/useRoundData.ts` (hydrate effect, ~:560-660)
-- Test: `src/__tests__/store/scorecardStore.test.ts`. The merge logic is already covered by Task 5, and there's no `useRoundData` test harness, so the hook change stays a thin branch.
+- Modify: `src/hooks/scorecard/useRoundData.ts` (hydrate ~:560-656), `src/hooks/scorecard/useMatchPlayData.ts` (hydrate ~:336-415), `src/screens/scoring/TeamMatchPlayScoringScreen/index.tsx` (init effect ~:190-205)
 
-**Interfaces:** Consumes `mergeRemoteScorecard` (Task 5).
+**Interfaces:** Consumes `pullServerScorecards` (Task 5), which is already tested there. These hook changes are thin branches; there's no harness for these hooks.
 
-- [ ] **Step 1: Make the change.**
-  - Add `revision` to the select, if it isn't already present (it is).
-  - Inside the `for (const remote of remoteScorecards)` loop, before the `localHasScores` check, add:
-    ```ts
-    // Social rounds: merge every server card per hole (last edit wins), even
-    // when this phone already has scores — that is how a phone that was off
-    // picks up holes entered elsewhere.
-    if (useScorecardStore.getState().scoringMode === 'social') {
-      await useScorecardStore.getState().mergeRemoteScorecard({
-        player_id: remote.player_id,
-        scores: (remote.scores ?? null) as Record<string, HoleScore> | null,
-        revision: remote.revision,
-        status: remote.status,
-      });
-      continue;
-    }
-    ```
-  - `mergeRemoteScorecard` sets the store itself, so the loop's `merged` flag only covers the standard path. That's fine.
-- [ ] **Step 2: Run the checks.**
-  ```bash
-  pnpm type-check && pnpm test --testPathPattern='(hooks/scorecard|store/scorecardStore)'
+- [ ] **Step 1: `useRoundData` hydrate.** At the top of the `try` in `hydrateFromSupabase`, before the fetch:
+  ```ts
+  // Social rounds merge every server card per hole (last edit wins), even when
+  // this phone already has scores — that is how a phone that was off picks up
+  // holes entered elsewhere.
+  if (useScorecardStore.getState().scoringMode === 'social') {
+    await useScorecardStore.getState().pullServerScorecards();
+    return;
+  }
   ```
-  Expected: PASS.
-- [ ] **Step 3: Commit.**
+- [ ] **Step 2: `useMatchPlayData` hydrate.** Add the same block at the top of its `try`. Its standard path, which only fetches completed cards, stays unchanged.
+- [ ] **Step 3: `TeamMatchPlayScoringScreen`.** It has no hydrate. In its init IIFE, after `loadFromOffline` succeeds or `initializeRound` completes, and only if `!cancelled`:
+  ```ts
+  if (useScorecardStore.getState().scoringMode === 'social') {
+    await useScorecardStore.getState().pullServerScorecards().catch(() => undefined);
+  }
+  ```
+  Restructure the `if (cancelled || loaded) return;` so the pull runs on both the loaded and the initialized paths.
+- [ ] **Step 4: Run the checks and commit.**
   ```bash
-  git add src/hooks/scorecard/useRoundData.ts && git commit -m "feat(scoring): merge server cards on open for social rounds
+  pnpm type-check && pnpm test --testPathPattern='(hooks/scorecard|store/scorecardStore|screens/scoring)'
+  git add -A src && git commit -m "feat(scoring): merge server cards on open for social rounds (stroke, match play, team match play)
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   ```
 
 ---
 
-### Task 9: Submit (pre-submit merge, conflict merge, gate skip)
+### Task 9: Submit (pull first, merge conflicts, skip the gate, handle "already submitted")
 
 **Files:**
-- Modify: `src/store/scorecardStore.ts` (`submitScorecards`), `src/services/scoreMismatch/submission.ts`, `src/screens/scoring/ReviewScorecardScreen/hooks/useScoreSubmission.ts` (~:437)
+- Modify: `src/store/scorecardStore.ts` (`submitScorecards` :371-499 and the interface), `src/services/scoreMismatch/submission.ts` (:35-49), `src/screens/scoring/ReviewScorecardScreen/hooks/useScoreSubmission.ts` (~:437, and the main submit ~:593)
 - Test: `src/__tests__/store/scorecardStore.test.ts`, `src/__tests__/services/scoreMismatch/scoreMismatchService.test.ts`
 
 **Interfaces:**
 - Produces:
   - `checkSubmissionReadiness(roundId, userId, scoringPairsEnabled, holeCount?, groupPlayerIds?, options?: { socialRound?: boolean })`
-  - `submitScorecards` throws `RoundAlreadySubmittedError` (exported from `scorecardStore.ts`) when every card turned out final on the server.
+  - `submitScorecards(options?) => Promise<{ alreadySubmitted: boolean }>`. It used to return `Promise<void>`. Callers that `await` and ignore the result compile unchanged.
 
-- [ ] **Step 1: Write the failing gate test** (`scoreMismatchService.test.ts`, next to the multi-scorer readiness tests ~:1081). Reuse that block's setup, where two scorers have entered disagreeing values:
-
-```ts
-    it('skips the multi-scorer gate for social rounds', async () => {
-      // same arrangement as the neighbouring "blocks on unresolved mismatches" test
-      const readiness = await checkSubmissionReadiness(ROUND_ID, PLAYER_A_ID, false, 18, undefined, { socialRound: true });
-      expect(readiness).toEqual({ canSubmit: true });
-    });
-```
-
-- [ ] **Step 2: Run the test and check it fails. Then implement.** In `submission.ts`, `checkSubmissionReadiness`:
+- [ ] **Step 1: Gate (TDD).** In `scoreMismatchService.test.ts` (multi-scorer block ~:1079; `ROUND_ID` and `PLAYER_A_ID` are at :42-43), reuse the setup of the neighbouring "blocks on unresolved mismatches" test:
+  ```ts
+  it('skips the multi-scorer gate for social rounds', async () => {
+    const readiness = await checkSubmissionReadiness(ROUND_ID, PLAYER_A_ID, false, 18, undefined, { socialRound: true });
+    expect(readiness).toEqual({ canSubmit: true });
+  });
+  ```
+  Run it and check it fails. Then:
   - Add the parameter `options: { socialRound?: boolean } = {}`.
-  - After the validation `throw`, add:
+  - After the validation throw:
     ```ts
     // Social rounds: anyone may score, last edit wins — no multi-scorer gate.
-    // Scoring pairs never apply to a social round (see deriveScoringMode).
     if (options.socialRound && !scoringPairsEnabled) return { canSubmit: true };
     ```
-  - In `useScoreSubmission.ts` at the `checkSubmissionReadiness(` call, add a sixth argument:
-    ```ts
-    { socialRound: useScorecardStore.getState().scoringMode === 'social' }
-    ```
-    Import the store if it isn't already imported.
-  - Run the test and check it passes.
+  - In `useScoreSubmission.ts` at the `checkSubmissionReadiness(` call, pass a sixth argument: `{ socialRound: useScorecardStore.getState().scoringMode === 'social' }`.
+  - Run it and check it passes.
 
-- [ ] **Step 3: Write the failing store submit tests.**
+- [ ] **Step 2: Write the failing store submit tests.**
 
 ```ts
   describe('submitScorecards (social)', () => {
-    const init = () => getStore().initializeRound(testRoundId, mockPlayers, mockHoles, 'stroke', false, [], null, 'none', new Map(), 'full', 1, 'social');
+    const T2 = '2099-01-01T00:00:00.000Z';
+    const init = () => getStore().initializeRound(testRoundId, testPlayers, testHoles, 'stroke', false, [], null, 'none', new Map(), 'full', 1, 'social');
 
-    it('merges the server cards before submitting', async () => {
+    it('pulls and merges the server cards before submitting', async () => {
       await init();
-      const p = mockPlayers[0].id;
-      mockServerScorecards([{ player_id: p, scores: { '1': { strokes: 4, editedAt: '2099-01-01T00:00:00.000Z' } }, revision: 2, status: 'in-progress' }]);
-      await getStore().submitScorecards();
+      const p = testPlayers[0].id;
+      __setScorecardsResult({ data: [{ player_id: p, scores: { '1': { strokes: 4, editedAt: T2 } }, revision: 2, status: 'in-progress' }], error: null });
+      const result = await getStore().submitScorecards();
       const sent = (syncScorecard as jest.Mock).mock.calls.find(([sc]) => sc.playerId === p)[0];
       expect(sent.scores[1].strokes).toBe(4);
       expect(sent.serverRevision).toBe(2);
+      expect(result).toEqual({ alreadySubmitted: false });
     });
 
-    it('throws RoundAlreadySubmittedError when every card is already final', async () => {
+    it('adopts the final cards and reports alreadySubmitted when the server cards are all final', async () => {
       await init();
-      mockServerScorecards(mockPlayers.map((pl) => ({ player_id: pl.id, scores: {}, revision: 3, status: 'completed' })));
-      await expect(getStore().submitScorecards()).rejects.toBeInstanceOf(RoundAlreadySubmittedError);
+      __setScorecardsResult({ data: testPlayers.map((pl) => ({ player_id: pl.id, scores: {}, revision: 3, status: 'completed' })), error: null });
+      const result = await getStore().submitScorecards();
+      expect(result).toEqual({ alreadySubmitted: true });
       expect(syncScorecard).not.toHaveBeenCalled();
+      expect(getStore().submittedElsewhere).toBe(false); // the caller's success navigation handles it
+    });
+
+    it('a retry after a failed submit still submits (local completed ≠ server final)', async () => {
+      await init();
+      (syncScorecard as jest.Mock).mockRejectedValueOnce(new Error('network'));
+      await expect(getStore().submitScorecards()).rejects.toThrow();
+      __setScorecardsResult({ data: [], error: null });
+      (syncScorecard as jest.Mock).mockClear();
+      await expect(getStore().submitScorecards()).resolves.toEqual({ alreadySubmitted: false });
+      expect(syncScorecard).toHaveBeenCalled();
+    });
+
+    it("ignores its own completed echoes while submitting (no 'submitted elsewhere')", async () => {
+      await init();
+      (syncScorecard as jest.Mock).mockImplementation(async (sc: Scorecard) => {
+        await getStore().mergeRemoteScorecard({ player_id: sc.playerId, scores: {}, revision: 5, status: 'completed' });
+        return { serverRevision: 5 };
+      });
+      await getStore().submitScorecards();
+      expect(getStore().submittedElsewhere).toBe(false);
+    });
+
+    it('a conflict during submit keeps the merged scores in the store', async () => {
+      await init();
+      const p = testPlayers[0].id;
+      await getStore().setPlayerScore(p, 1, 4, 'me');
+      const ConflictError = jest.requireMock('@/services/offline/sync').ScorecardConflictError;
+      (syncScorecard as jest.Mock)
+        .mockRejectedValueOnce(new ConflictError({ server_revision: 6, server_status: 'in-progress', server_scores: { '2': { strokes: 5, editedAt: T2 } } }))
+        .mockResolvedValue({ serverRevision: 7 });
+      await getStore().submitScorecards({ playerIds: [p] });
+      const sc = getStore().groupScorecards.get(p)!;
+      expect(sc.scores[2]).toEqual({ strokes: 5, editedAt: T2 });
+      expect(sc.serverRevision).toBe(7);
     });
   });
 ```
 
-  `mockServerScorecards(rows)` is a test helper you add near the supabase mock. It makes `supabase.from('scorecards').select(...).eq(...).is(...)` resolve `{ data: rows, error: null }`. Extend the existing `jest.mock('@/services/supabase/client')` factory (~:140) with a `scorecards` branch backed by a mutable `let mockScorecardRows = []`. Read the factory first and follow its chaining style.
+  Also confirm the existing standard-round `describe('submitScorecards')` tests (~:1027) still pass unchanged.
 
-- [ ] **Step 4: Run the tests and check they fail. Then implement in `submitScorecards`.**
-  - Export the error from `scorecardStore.ts`:
-    ```ts
-    /** Another phone submitted this social round first; its cards are final. */
-    export class RoundAlreadySubmittedError extends Error {
-      constructor() {
-        super('This round was already submitted');
-        this.name = 'RoundAlreadySubmittedError';
-      }
-    }
-    ```
-  - Add a helper above `return {`:
-    ```ts
-    /** Social rounds: pull every server card and merge it in before submitting. */
-    const mergeServerCardsBeforeSubmit = async (roundId: string): Promise<void> => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- generated types workaround
-      const { data, error } = await (supabase.from('scorecards') as any)
-        .select('player_id, scores, revision, status')
-        .eq('round_id', roundId)
-        .is('deleted_at', null);
-      if (error) throw new Error(`Could not fetch the latest scorecards: ${error.message}`);
-      for (const row of (data ?? []) as RemoteScorecardRow[]) {
-        await applyRemoteToStore(row);
-      }
-    };
-    ```
-    Import `supabase` from `@/services/supabase/client` if the store doesn't already.
-  - At the start of `submitScorecards`, after the `!currentRoundId` throw:
-    ```ts
-    if (get().scoringMode === 'social' && getIsOnline()) {
-      await mergeServerCardsBeforeSubmit(currentRoundId);
-      const cards = [...get().groupScorecards.values()];
-      if (cards.length > 0 && cards.every((c) => c.status === 'completed' || c.status === 'confirmed')) {
-        throw new RoundAlreadySubmittedError();
-      }
-    }
-    ```
-  - Then change the destructure so that `groupScorecards` is read **after** this block. Move `const { groupScorecards, ... } = get();` below it.
-  - In the loop, skip cards that are already final:
-    ```ts
-    if (scorecard.status === 'completed' || scorecard.status === 'confirmed') continue;
-    ```
-  - In the existing conflict `catch` (the local-wins retry), make the social path merge first:
-    ```ts
-    if (get().scoringMode === 'social') {
-      const next = await applyRemoteToStore({
-        player_id: playerId,
-        scores: error.serverScores as Record<string, HoleScore>,
-        revision: error.serverRevision,
-        status: error.serverStatus ?? 'in-progress',
-      });
-      if (next && (next.status === 'completed' || next.status === 'confirmed')) {
-        newScorecards.set(playerId, next);
-        successCount++;
-        continue;
-      }
-      result = await syncScorecard({ ...updatedScorecard, scores: next?.scores ?? updatedScorecard.scores, serverRevision: error.serverRevision });
-    } else {
-      // existing local-wins retry, unchanged
-    }
-    ```
-    This `continue` sits inside the per-player `try`, which is inside the `for`. Check that it compiles and skips to the next player.
-  - Run the tests and check they pass.
+- [ ] **Step 3: Run the tests and check they fail. Then implement `submitScorecards`.**
+  - Change the interface return type to `Promise<{ alreadySubmitted: boolean }>`.
+  - Restructure the action:
 
-- [ ] **Step 5: Surface the error in the UI.** In `useScoreSubmission.ts`, where `submitScorecards` is awaited (:593, :814, :958), catch `RoundAlreadySubmittedError`:
-  ```ts
-  if (error instanceof RoundAlreadySubmittedError) {
-    showAlert('Already submitted', 'This round was already submitted on another phone.');
-    navigation.reset(buildPostSubmitResetState(roundId, competitionId));
-    return;
-  }
+```ts
+    submitScorecards: async (options) => {
+      const initial = get();
+      if (!initial.currentRoundId) {
+        storeLogger.error('Cannot submit - no round ID set');
+        throw new Error('No round ID set');
+      }
+      const currentRoundId = initial.currentRoundId;
+      const social = initial.scoringMode === 'social';
+      const scopeIds = options?.playerIds;
+      const targetIds = scopeIds && scopeIds.length > 0 ? new Set(scopeIds) : null;
+      const inScope = (playerId: string) => !targetIds || targetIds.has(playerId);
+
+      submitting = true; // before the pull: our own pull/echoes must not raise "submitted elsewhere"
+      try {
+        // Social rounds: pull everyone's latest edits first. Cards the SERVER
+        // already holds as final were submitted by another phone — adopt them.
+        const serverFinalIds = new Set<string>();
+        if (social && getIsOnline()) {
+          const rows = await get().pullServerScorecards();
+          for (const row of rows) if (isFinalStatus(row.status)) serverFinalIds.add(row.player_id);
+          const scoped = [...get().groupScorecards.keys()].filter(inScope);
+          if (scoped.length > 0 && scoped.every((id) => serverFinalIds.has(id))) {
+            return { alreadySubmitted: true };
+          }
+        }
+
+        const { groupScorecards, selectedTeeData, holes, gameType, nineType } = get();
+        // … existing body from "storeLogger.info('Submitting scorecards'" through the
+        //    end of the loop and the final set/logging, with the changes below …
+        return { alreadySubmitted: false };
+      } finally {
+        submitting = false;
+      }
+    },
+```
+
+  - Changes inside the existing loop:
+    - Skip cards the server already holds as final. Social only, so standard rounds are unaffected:
+      ```ts
+      if (!inScope(playerId) || serverFinalIds.has(playerId)) continue;
+      ```
+      This replaces the existing `targetIds` check.
+    - In the conflict `catch`, keep the standard branch as the `else`:
+
+```ts
+              if (social) {
+                const next = await applyRemoteToStore({
+                  player_id: playerId,
+                  scores: error.serverScores as Record<string, HoleScore>,
+                  revision: error.serverRevision,
+                  status: error.serverStatus ?? 'in-progress',
+                });
+                const merged = next ?? scorecard;
+                if (isFinalStatus(error.serverStatus ?? undefined)) {
+                  newScorecards.set(playerId, merged); // another phone submitted it first
+                  successCount++;
+                  continue;
+                }
+                updatedScorecard.scores = merged.scores;
+                updatedScorecard.totalGross = merged.totalGross;
+                updatedScorecard.totalNet = merged.totalNet;
+                updatedScorecard.total_par_score = merged.total_par_score;
+                result = await syncScorecard({ ...updatedScorecard, serverRevision: error.serverRevision });
+              } else {
+                // existing local-wins retry, unchanged
+              }
+```
+
+    - `updatedScorecard` is declared `const` but is an object, so mutating its fields is fine. The existing lines after the retry (`updatedScorecard.serverRevision = result.serverRevision; newScorecards.set(playerId, updatedScorecard)`) then store the **merged** card.
+    - The `continue` sits inside the per-player `try` inside the `for`; check that it compiles.
+  - Leave the existing `if (errorCount > 0) throw …` in place, inside the `try`. The `finally` still clears `submitting`.
+
+- [ ] **Step 4: Run the tests and check they pass.**
+  ```bash
+  pnpm test --testPathPattern='(store/scorecardStore|services/scoreMismatch)'
   ```
-  Use the hook's existing alert helper; look for `Alert.alert` or `showAlert` in the file and match it. Do the same in `ScorecardEntryScreen/hooks/useScorecardSubmission.ts:77`, using that file's navigation and alert conventions.
-
-- [ ] **Step 6: Run the checks.**
+- [ ] **Step 5: Tell the user once (ReviewScorecard only).** In `useScoreSubmission.ts` at the main submit (~:593), capture the result:
+  ```ts
+  const { alreadySubmitted } = await submitScorecards({ playerIds: submitScopeIds });
+  ```
+  If it's true, show the hook's existing success or info feedback with the text "This round was already submitted on another phone". Find how the hook reports success (toast or `Alert`) and reuse it, then continue to the normal success navigation.
+  - The other 6 callers need no change. They `await` and then navigate as on success, which is correct.
+- [ ] **Step 6: Run the checks and commit.**
   ```bash
   pnpm type-check && pnpm test --testPathPattern='(store/scorecardStore|services/scoreMismatch|screens/scoring)'
-  ```
-- [ ] **Step 7: Commit.**
-  ```bash
-  git add -A src && git commit -m "feat(scoring): social submit merges first, skips the multi-scorer gate, adopts a prior submit
+  git add -A src && git commit -m "feat(scoring): social submit pulls first, merges conflicts, skips the gate, adopts a prior submit
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   ```
@@ -1493,13 +1623,12 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ### Task 10: "Submitted on another phone" redirect
 
 **Files:**
-- Create: `src/hooks/scorecard/useSubmittedElsewhereRedirect.ts`
-- Test: `src/__tests__/hooks/scorecard/useSubmittedElsewhereRedirect.test.tsx`
-- Modify: the same 4 screens as Task 7, and `src/hooks/scorecard/index.ts`
+- Create: `src/hooks/scorecard/useSubmittedElsewhereRedirect.ts`; Test: `src/__tests__/hooks/scorecard/useSubmittedElsewhereRedirect.test.tsx`
+- Modify: the 4 screens; `src/hooks/scorecard/index.ts`
 
 **Interfaces:**
 - Produces: `useSubmittedElsewhereRedirect(roundId: string | undefined, competitionId?: string | null): void`.
-- Consumes: `submittedElsewhere` (Task 5), `buildPostSubmitResetState` (`src/navigation/postSubmitNavigation.ts`).
+- Consumes: `submittedElsewhere` (Task 5), and `buildPostSubmitResetState(roundId, competitionId?)` (`src/navigation/postSubmitNavigation.ts:28`), which treats `'standalone'` and null as non-competition.
 
 - [ ] **Step 1: Write the failing test.**
 
@@ -1521,6 +1650,7 @@ describe('useSubmittedElsewhereRedirect', () => {
   it('alerts once and resets to ViewRound when another phone submits', () => {
     useScorecardStore.setState({ submittedElsewhere: false } as never);
     renderHook(() => useSubmittedElsewhereRedirect('r-1', null));
+    act(() => { useScorecardStore.setState({ submittedElsewhere: true } as never); });
     act(() => { useScorecardStore.setState({ submittedElsewhere: true } as never); });
     expect(Alert.alert).toHaveBeenCalledTimes(1);
     expect(mockReset).toHaveBeenCalledWith(expect.objectContaining({
@@ -1565,7 +1695,11 @@ export function useSubmittedElsewhereRedirect(roundId: string | undefined, compe
 
   Export it, run the test and check it passes.
 
-- [ ] **Step 3: Mount the hook.** In the 4 screens, next to `useLiveScorecardMerge(roundId)`, add `useSubmittedElsewhereRedirect(roundId, competitionId)`. TeamMatchPlay derives `competitionId` at :86; use `null` where no competitionId is in scope.
+- [ ] **Step 3: Mount the hook.** Add `useSubmittedElsewhereRedirect(roundId, competitionId ?? null)` before any early return:
+  - ScorecardEntryScreen: `competitionId` at :74.
+  - MatchPlayScoringScreen: :50. It may be undefined, and the helper handles that.
+  - TeamMatchPlayScoringScreen: **after** `competitionId` is derived at :86, still before the first early return at :695.
+  - ReviewScorecardScreen: use its route or store `competitionId`. Grep the file; pass `null` if none is in scope.
 - [ ] **Step 4: Run the checks and commit.**
   ```bash
   pnpm type-check && pnpm test --testPathPattern='(hooks/scorecard|screens/scoring)'
@@ -1576,85 +1710,81 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 ---
 
-### Task 11: End-to-end dead-battery scenario
+### Task 11: Dead-battery scenario through the real store
 
 **Files:**
-- Create: `src/__tests__/integration/socialMultiScorer.test.ts`
+- Modify: `src/__tests__/store/scorecardStore.test.ts` (a new describe at the end)
 
-**Interfaces:** Consumes `mergeScorecardScores` (Task 3) and `applyRemoteScorecard` (Task 5). The test exercises the pure layers against a fake server with real revision and status rules, which keeps it deterministic. The store and sync wiring are covered by Tasks 5, 6 and 9.
+This exercises the **real** store: `pullServerScorecards`, `setPlayerScore`, `submitScorecards`, the registered conflict resolver and `mergeRemoteScorecard`. It runs against a fake server that sits behind the mocked `syncScorecard` and Supabase `scorecards` select, and enforces the RPC's revision and final rules.
 
-- [ ] **Step 1: Write the scenario test.**
+- [ ] **Step 1: Write the scenario.**
 
 ```ts
-import { applyRemoteScorecard, type RemoteScorecardRow } from '@/store/remoteScorecardMerge';
-import type { HoleScore, Scorecard } from '@/types';
+  describe('scenario: phone A dies after 9 holes, phone B finishes and submits (social)', () => {
+    const at = (m: number) => new Date(Date.UTC(2026, 9, 7, 1, m)).toISOString();
 
-/** Minimal write_scorecard_snapshot: revision-checked, completed is final. */
-class FakeServer {
-  row: RemoteScorecardRow = { player_id: 'sam', scores: {}, revision: 0, status: 'in-progress' };
-  write(expected: number, scores: Record<number, HoleScore>, status: string) {
-    const stale = expected !== this.row.revision;
-    const overFinal = this.row.status === 'completed' && status !== 'completed';
-    if (stale || overFinal) return { applied: false as const, server: { ...this.row } };
-    this.row = { ...this.row, scores: Object.fromEntries(Object.entries(scores).map(([k, v]) => [k, v])), revision: this.row.revision + 1, status };
-    return { applied: true as const, revision: this.row.revision };
-  }
-}
+    it('ends with one final card per player, loses no hole, and does not loop', async () => {
+      const [sam, friend] = testPlayers;
+      // Server state after A uploaded holes 1–9 for both players before dying.
+      const server = new Map<string, { scores: Record<string, HoleScore>; revision: number; status: string }>();
+      for (const pl of [sam, friend]) {
+        const scores: Record<string, HoleScore> = {};
+        for (let h = 1; h <= 9; h++) scores[String(h)] = { strokes: 4, editedAt: at(h), scoredBy: sam.id };
+        server.set(pl.id, { scores, revision: 9, status: 'in-progress' });
+      }
+      const rows = () => [...server].map(([player_id, r]) => ({ player_id, ...r }));
+      const ConflictError = jest.requireMock('@/services/offline/sync').ScorecardConflictError;
+      (syncScorecard as jest.Mock).mockImplementation(async (sc: Scorecard) => {
+        const row = server.get(sc.playerId)!;
+        if ((sc.serverRevision ?? 0) !== row.revision || (row.status === 'completed' && sc.status !== 'completed')) {
+          throw new ConflictError({ server_revision: row.revision, server_status: row.status, server_scores: row.scores });
+        }
+        server.set(sc.playerId, { scores: sc.scores as Record<string, HoleScore>, revision: row.revision + 1, status: sc.status });
+        return { serverRevision: row.revision + 1 };
+      });
 
-const at = (minute: number) => new Date(Date.UTC(2026, 9, 7, 1, minute)).toISOString();
-const phone = (): Scorecard => ({ id: 'sc', roundId: 'r', playerId: 'sam', scores: {}, totalGross: 0, totalNet: 0, status: 'in-progress', createdAt: new Date(0), updatedAt: new Date(0), serverRevision: 0 });
+      // Phone B (this store) opens the round, pulls, scores 10–18 for both, submits.
+      await getStore().initializeRound(testRoundId, [sam, friend], testHoles, 'stroke', false, [], null, 'none', new Map(), 'full', 1, 'social');
+      __setScorecardsResult({ data: rows(), error: null });
+      await getStore().pullServerScorecards();
+      for (let h = 10; h <= 18; h++) {
+        await getStore().setPlayerScore(sam.id, h, 3, friend.id);
+        await getStore().setPlayerScore(friend.id, h, 3, friend.id);
+      }
+      __setScorecardsResult({ data: rows(), error: null });
+      await expect(getStore().submitScorecards()).resolves.toEqual({ alreadySubmitted: false });
 
-/** Upload with the app's rule: on conflict merge (social) and retry once. */
-function upload(server: FakeServer, card: Scorecard, status = card.status): Scorecard {
-  const first = server.write(card.serverRevision ?? 0, card.scores as Record<number, HoleScore>, status);
-  if (first.applied) return { ...card, status, serverRevision: first.revision };
-  const merged = applyRemoteScorecard(card, first.server);
-  if (merged.final) return merged.scorecard;
-  const retry = server.write(merged.scorecard.serverRevision ?? 0, merged.scorecard.scores as Record<number, HoleScore>, status);
-  if (!retry.applied) throw new Error('retry conflicted');
-  return { ...merged.scorecard, status, serverRevision: retry.revision };
-}
+      for (const pl of [sam, friend]) {
+        expect(server.get(pl.id)!.status).toBe('completed');
+        expect(Object.keys(server.get(pl.id)!.scores)).toHaveLength(18);
+      }
 
-describe('social round: phone dies after 9, friend finishes and submits', () => {
-  it('ends with one complete card on both phones and loses no hole', () => {
-    const server = new FakeServer();
-    let a = phone();
-    for (let hole = 1; hole <= 9; hole++) {
-      a = { ...a, scores: { ...a.scores, [hole]: { strokes: 4, editedAt: at(hole) } } };
-      a = upload(server, a);
-    }
-    // A's last edit (hole 9 changed to 5) never uploads: battery dies.
-    const aOffline: Scorecard = { ...a, scores: { ...a.scores, 9: { strokes: 5, editedAt: at(9.5) } } };
+      // Phone A comes back: its stale queued write conflicts; the resolver on a
+      // social store declares the server copy final, so the write is dropped.
+      const stale = { ...getStore().groupScorecards.get(sam.id)!, status: 'in-progress' as const, serverRevision: 9 };
+      const final = server.get(sam.id)!;
+      expect(await mockConflictResolver!(stale, new ConflictError({ server_revision: final.revision, server_status: 'completed', server_scores: final.scores }))).toEqual({ kind: 'final' });
 
-    // B opens the round: merge on open.
-    let b = applyRemoteScorecard(phone(), server.row).scorecard;
-    for (let hole = 10; hole <= 18; hole++) {
-      b = { ...b, scores: { ...b.scores, [hole]: { strokes: 3, editedAt: at(20 + hole) } } };
-      b = upload(server, b);
-    }
-    b = upload(server, b, 'completed'); // B submits
-
-    // A comes back with its stale copy and tries to upload.
-    const aFinal = upload(server, aOffline);
-
-    expect(server.row.status).toBe('completed');
-    expect(Object.keys(server.row.scores ?? {})).toHaveLength(18);
-    expect(aFinal.status).toBe('completed');
-    expect(aFinal.scores).toEqual(b.scores);
-    // Submitting is final: A's unsent hole-9 change is discarded.
-    expect((server.row.scores!['9'] as HoleScore).strokes).toBe(4);
+      // Completed echoes arriving afterwards cause no further writes (no loop).
+      (saveScorecard as jest.Mock).mockClear();
+      (queueScorecardSync as jest.Mock).mockClear();
+      for (const r of rows()) await getStore().mergeRemoteScorecard(r);
+      expect(saveScorecard).not.toHaveBeenCalled();
+      expect(queueScorecardSync).not.toHaveBeenCalled();
+    });
   });
-});
 ```
+
+  The `scores` written to the fake server use numeric keys. `mergeScorecardScores` and `applyRemoteScorecard` accept either, so the rows work as given. If the store's `testHoles` has fewer than 18 holes, adjust the loop bounds to `testHoles.length`.
 
 - [ ] **Step 2: Run it.**
   ```bash
-  pnpm test --testPathPattern='integration/socialMultiScorer'
+  pnpm test --testPathPattern='store/scorecardStore' -t 'scenario'
   ```
-  Expected: PASS. If it fails, fix the **production** code in Tasks 3 or 5, not this test, unless the test itself contradicts the spec.
+  Expected: PASS. If it fails, fix the production code from Tasks 3, 5, 6 or 9, unless the test contradicts the spec.
 - [ ] **Step 3: Commit.**
   ```bash
-  git add src/__tests__/integration/socialMultiScorer.test.ts && git commit -m "test: dead-battery social round scenario against a revision-enforcing fake server
+  git add src/__tests__/store/scorecardStore.test.ts && git commit -m "test: dead-battery social round scenario through the real store
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   ```
@@ -1663,19 +1793,17 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 ### Task 12: Docs and final verification
 
-**Files:**
-- Modify: `docs/guides/OFFLINE_ARCHITECTURE.md`, `CLAUDE.md` ("Scoring changes (guardrails)" step 5)
-
-- [ ] **Step 1: Update `OFFLINE_ARCHITECTURE.md`.** Add a section "Scorecard revisions and social-round merging" covering:
+- [ ] **Step 1: Update `docs/guides/OFFLINE_ARCHITECTURE.md`.** Add a section "Scorecard revisions and social-round merging" covering:
   - **The write path:** `write_scorecard_snapshot`, with `p_expected_revision` and its conflict and status rules.
   - **Conflicts in standard rounds:** retained as failed rows, recovered at submit, by Retry, or from Developer → Retained Uploads.
-  - **Superseded uploads:** a newer edit landing mid-upload keeps the confirmed revision (commit 9609f1ee).
+  - **Superseded uploads:** a newer edit landing mid-upload keeps the confirmed revision (9609f1ee).
   - **Social rounds:**
     - each hole carries `editedAt`;
-    - the merge rule, including the revision-adoption rule;
-    - the four merge points;
+    - the merge and same-edit rules, and the revision-adoption rule;
+    - "mark synced after merge" (no loops);
+    - the merge points: conflict resolver, realtime, pull on open and before submit;
     - completed cards are final.
-- [ ] **Step 2: Update `CLAUDE.md`.** Extend the scoring-subset command in guardrail step 5 to:
+- [ ] **Step 2: Update `CLAUDE.md`.** In "Scoring changes (guardrails)" step 5, extend the scoring-subset command to:
   ```
   pnpm test --testPathPattern='(golden|services/scoring|utils/(scoring|dailyHandicap|subMatches)|components/scorecard|store/scorecardStore|services/offline|services/scoreMismatch)'
   ```
@@ -1686,7 +1814,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   pnpm test --silent 2>&1 | grep -E "^FAIL|^Tests:" | sort -u
   pnpm verify:gate
   ```
-  Expected: everything passes except the known `syncUtils.test.ts` (4 tests). Report that suite by name.
+  Expected: everything passes except the known `syncUtils.test.ts` (4 tests). Report it by name.
 - [ ] **Step 4: Commit.**
   ```bash
   git add docs/guides/OFFLINE_ARCHITECTURE.md CLAUDE.md && git commit -m "docs: document revision-checked sync and social-round merging
