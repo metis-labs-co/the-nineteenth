@@ -23,7 +23,7 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { useSocialAccess } from '@/hooks/useSocialAccess';
 import { useAuth, useConfirmationDialog } from '@/hooks';
 import { usePendingMismatches, useResolveMismatch, usePartnerStatus } from '@/hooks/useScoreMismatch';
-import { useRoundScoringPairs, useScorecardsRealtime, useLiveScorecardMerge } from '@/hooks/scorecard';
+import { useRoundScoringPairs, useScorecardsRealtime, useLiveScorecardMerge, useSubmittedElsewhereRedirect } from '@/hooks/scorecard';
 import { useDeleteShot, useSetShotClub } from '@/hooks/shots';
 import { useBag } from '@/hooks/queries/useBag';
 import { StatsTab } from '@/screens/rounds/ViewRoundScreen/tabs/StatsTab';
@@ -96,6 +96,7 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
   // Get round ID from route params or store
   const roundId = route.params?.roundId || currentRoundId;
   useLiveScorecardMerge(roundId);
+  useSubmittedElsewhereRedirect(roundId, route.params?.competitionId ?? null);
 
   // Realtime: refresh scorecard / competition leaderboard queries the moment
   // a co-scorer submits a partner's scorecard, so the in-screen leaderboards

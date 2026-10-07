@@ -33,7 +33,7 @@ import { useCompetitionInfo } from '@/hooks/competitions';
 import { useAuth } from '@/hooks/useAuth';
 import { calculatePlayingHandicap } from '@/hooks/usePlayingHandicap';
 import { useProcessSkinsIfNeeded, useOnlineStatus } from '@/hooks';
-import { useOfflineSync, useLiveScorecardMerge, pullOnOpenIfSocial } from '@/hooks/scorecard';
+import { useOfflineSync, useLiveScorecardMerge, useSubmittedElsewhereRedirect, pullOnOpenIfSocial } from '@/hooks/scorecard';
 import { teamMatchPlayLogger } from '@/utils/debugLogger';
 import type { RootStackScreenProps } from '@/navigation/types';
 import type { Player, TeeBox } from '@/types';
@@ -86,6 +86,7 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
 
   // Fetch teams for the round
   const competitionId = roundData?.competition_id ?? undefined;
+  useSubmittedElsewhereRedirect(roundId, competitionId ?? null);
   const isTeamRound = roundData?.team_format !== null && roundData?.team_format !== undefined;
   const {
     teams: teamsData,
