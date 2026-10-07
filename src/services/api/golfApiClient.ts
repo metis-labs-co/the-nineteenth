@@ -1,11 +1,13 @@
 /**
  * GolfAPI.io HTTP Client
  *
- * HTTP client for interacting with the GolfAPI.io REST API v2.3.
- * Base URL: https://www.golfapi.io/api/v2.3
+ * Client for the GolfAPI.io REST API v2.3. Requests are NOT sent to GolfAPI
+ * directly: they go through the `golfapi-proxy` Supabase edge function, which
+ * attaches the API key server-side (Supabase secret `GOLFAPI_IO_KEY`) and
+ * only allows the endpoints this client uses. No API key ships in the app.
  *
  * Features:
- * - Bearer token authentication
+ * - Authenticated via the user's Supabase session (supabase.functions.invoke)
  * - Configurable timeout
  * - Error handling with custom error classes
  * - Rate limit detection (429 responses)
@@ -17,6 +19,7 @@
  * Updated January 2026 for GolfAPI.io v2.3 integration
  */
 
+import { supabase } from '@/services/supabase/client';
 import type {
   GolfApiSearchParams,
   GolfApiClubResponse,
@@ -27,10 +30,7 @@ import type {
   GolfApiRateLimitError,
   GolfApiClientConfig,
 } from './golfApiTypes';
-import {
-  GOLFAPI_BASE_URL,
-  DEFAULT_COUNTRY,
-} from './golfApiTypes';
+import { DEFAULT_COUNTRY } from './golfApiTypes';
 import {
   GolfApiClientError,
   RateLimitError,
@@ -67,26 +67,24 @@ const GOLFAPI_COUNTRY_MAP: Record<string, string> = {
 
 const DEFAULT_TIMEOUT = 20000; // 20 seconds
 
-/**
- * Get configuration from environment variables
- */
-function getConfig(): GolfApiClientConfig {
-  const baseUrl =
-    process.env.EXPO_PUBLIC_GOLFAPI_IO_URL || GOLFAPI_BASE_URL;
-  const apiKey = process.env.EXPO_PUBLIC_GOLFAPI_IO_KEY;
+/** Supabase edge function that proxies GolfAPI.io requests */
+export const GOLFAPI_PROXY_FUNCTION = 'golfapi-proxy';
 
-  if (!apiKey) {
-    throw new Error(
-      'EXPO_PUBLIC_GOLFAPI_IO_KEY environment variable is not set'
-    );
-  }
+/** Minimal shape of the supabase-js Functions errors we inspect */
+interface FunctionsInvokeError {
+  name?: string;
+  message?: string;
+  context?: unknown;
+}
 
-  return {
-    baseUrl,
-    apiKey,
-    timeout: DEFAULT_TIMEOUT,
-    debug: __DEV__,
-  };
+/** Duck-typed check for a fetch Response (FunctionsHttpError.context) */
+function isResponseLike(value: unknown): value is Response {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as Response).status === 'number' &&
+    typeof (value as Response).headers?.get === 'function'
+  );
 }
 
 // =====================================================
@@ -98,7 +96,6 @@ function getConfig(): GolfApiClientConfig {
  */
 class GolfApiClient {
   private config: GolfApiClientConfig;
-  private isConfigured: boolean = false;
 
   /** Last known API requests remaining */
   private _apiRequestsLeft: number | null = null;
@@ -107,12 +104,9 @@ class GolfApiClient {
   private _lastRequestTime: Date | null = null;
 
   constructor() {
-    // Defer configuration to first use
     this.config = {
-      baseUrl: GOLFAPI_BASE_URL,
-      apiKey: '',
       timeout: DEFAULT_TIMEOUT,
-      debug: false,
+      debug: __DEV__,
     };
   }
 
@@ -131,43 +125,14 @@ class GolfApiClient {
   }
 
   /**
-   * Ensure client is configured before making requests
-   */
-  private ensureConfigured(): void {
-    if (!this.isConfigured) {
-      try {
-        this.config = getConfig();
-        this.isConfigured = true;
-      } catch (error) {
-        // In development, allow operation without API key
-        if (__DEV__) {
-          console.warn(
-            '[GolfAPI] API not configured:',
-            (error as Error).message
-          );
-          console.warn('[GolfAPI] Running in mock mode');
-        } else {
-          throw error;
-        }
-      }
-    }
-  }
-
-  /**
-   * Check if API is configured and available
+   * Check if API is configured and available.
+   *
+   * The key now lives server-side in the `golfapi-proxy` edge function, so the
+   * client is always "configured"; a missing server secret surfaces as a
+   * GolfApiClientError (503 PROXY_NOT_CONFIGURED) on the first request.
    */
   public isAvailable(): boolean {
-    try {
-      this.ensureConfigured();
-      const available = Boolean(this.config.apiKey && this.config.baseUrl);
-      if (!available) {
-        console.error(`[GolfAPI] isAvailable=false: apiKey=${this.config.apiKey ? 'SET' : 'MISSING'}, baseUrl=${this.config.baseUrl || 'MISSING'}`);
-      }
-      return available;
-    } catch (error) {
-      console.error('[GolfAPI] isAvailable=false: configuration error:', (error as Error).message);
-      return false;
-    }
+    return true;
   }
 
   /**
@@ -180,39 +145,30 @@ class GolfApiClient {
   }
 
   /**
-   * Build URL with query parameters
+   * Drop empty query params and stringify the rest (mirrors the old URL builder)
    */
-  private buildUrl(
-    endpoint: string,
+  private cleanParams(
     params?: Record<string, unknown>
-  ): string {
-    // Ensure baseUrl ends without slash and endpoint starts without slash
-    const baseUrl = (this.config.baseUrl ?? '').replace(/\/$/, '');
-    const cleanEndpoint = endpoint.replace(/^\//, '');
-    const fullUrl = `${baseUrl}/${cleanEndpoint}`;
-
-    const url = new URL(fullUrl);
-
-    if (params) {
-      Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined && value !== null && value !== '') {
-          url.searchParams.append(key, String(value));
-        }
-      });
-    }
-
-    return url.toString();
+  ): Record<string, string> | undefined {
+    if (!params) return undefined;
+    const cleaned: Record<string, string> = {};
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        cleaned[key] = String(value);
+      }
+    });
+    return cleaned;
   }
 
   /**
-   * Parse error response
+   * Parse error response body
    */
   private async parseErrorResponse(response: Response): Promise<GolfApiError> {
     try {
       const data = await response.json();
       return {
         code: data.code || `HTTP_${response.status}`,
-        message: data.message || response.statusText,
+        message: data.message || data.error || response.statusText,
         status: response.status,
         details: data.details,
       };
@@ -251,100 +207,110 @@ class GolfApiClient {
   }
 
   /**
-   * Make authenticated HTTP request
+   * Convert a non-2xx proxy/GolfAPI response into the matching client error
+   */
+  private async errorFromResponse(
+    response: Response,
+    endpoint: string,
+    resourceInfo?: { type: 'club' | 'course' | 'coordinates' | 'unknown'; id?: string }
+  ): Promise<Error> {
+    // Handle authentication errors (401, 403)
+    if (response.status === 401 || response.status === 403) {
+      const error = await this.parseErrorResponse(response);
+      console.error(`[GolfAPI] AUTH ERROR ${response.status}: ${error.message}`);
+      return new AuthenticationError(response.status as 401 | 403, error.message);
+    }
+
+    // Handle not found (404)
+    if (response.status === 404) {
+      console.error(`[GolfAPI] NOT FOUND: ${endpoint}`);
+      return new NotFoundError(
+        resourceInfo?.type || 'unknown',
+        resourceInfo?.id,
+        `Resource not found: ${endpoint}`
+      );
+    }
+
+    // Handle rate limiting (429)
+    if (response.status === 429) {
+      const retryAfter = parseInt(
+        response.headers.get('Retry-After') || '60',
+        10
+      );
+      const rateLimitError: GolfApiRateLimitError = {
+        code: 'RATE_LIMIT_EXCEEDED',
+        message: 'API rate limit exceeded. Please try again later.',
+        status: 429,
+        retryAfter,
+        remaining: 0,
+        limit: parseInt(
+          response.headers.get('X-RateLimit-Limit') || '100',
+          10
+        ),
+      };
+      this._apiRequestsLeft = 0;
+      console.error(`[GolfAPI] RATE LIMITED: retry after ${retryAfter}s`);
+      return new RateLimitError(rateLimitError);
+    }
+
+    // Handle other errors (incl. proxy 400 / 503 / 502 / 504)
+    const error = await this.parseErrorResponse(response);
+    console.error(`[GolfAPI] ERROR ${response.status}: ${error.message}`);
+    return new GolfApiClientError(error);
+  }
+
+  /**
+   * Make an authenticated GET request via the golfapi-proxy edge function
    */
   private async request<T>(
-    method: 'GET' | 'POST',
     endpoint: string,
     params?: Record<string, unknown>,
     resourceInfo?: { type: 'club' | 'course' | 'coordinates' | 'unknown'; id?: string }
   ): Promise<T> {
-    this.ensureConfigured();
+    const path = `/${endpoint.replace(/^\//, '')}`;
+    const query = this.cleanParams(params);
+    const timeout = this.config.timeout || DEFAULT_TIMEOUT;
 
-    // Check if API is configured
-    if (!this.config.apiKey) {
-      throw new Error(
-        'GolfAPI.io is not configured. Please set EXPO_PUBLIC_GOLFAPI_IO_KEY'
-      );
-    }
-
-    const url = this.buildUrl(endpoint, method === 'GET' ? params : undefined);
-
-    console.log(`[GolfAPI] ${method} ${url}`);
-    this.log(`Params:`, params);
+    console.log(`[GolfAPI] GET ${path} (via ${GOLFAPI_PROXY_FUNCTION})`);
+    this.log(`Params:`, query);
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(
-      () => controller.abort(),
-      this.config.timeout || DEFAULT_TIMEOUT
-    );
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
 
     try {
-      const response = await fetch(url, {
-        method,
-        headers: {
-          Authorization: `Bearer ${this.config.apiKey}`,
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
-        body: method === 'POST' ? JSON.stringify(params) : undefined,
-        signal: controller.signal,
-      });
+      const { data, error } = await supabase.functions.invoke(
+        GOLFAPI_PROXY_FUNCTION,
+        {
+          method: 'POST',
+          body: { path, params: query },
+          signal: controller.signal,
+        }
+      );
 
       clearTimeout(timeoutId);
 
-      console.log(`[GolfAPI] Response: ${response.status} ${response.statusText}`);
+      if (error) {
+        const fnError = error as FunctionsInvokeError;
 
-      // Handle authentication errors (401, 403)
-      if (response.status === 401 || response.status === 403) {
-        const error = await this.parseErrorResponse(response);
-        console.error(`[GolfAPI] AUTH ERROR ${response.status}: ${error.message}. API key may be expired or invalid.`);
-        throw new AuthenticationError(
-          response.status as 401 | 403,
-          error.message
+        // Non-2xx from the proxy (proxy error or passed-through GolfAPI status)
+        if (isResponseLike(fnError.context)) {
+          console.log(`[GolfAPI] Response: ${fnError.context.status} ${fnError.context.statusText ?? ''}`);
+          throw await this.errorFromResponse(fnError.context, endpoint, resourceInfo);
+        }
+
+        // Aborted by our timeout (FunctionsFetchError wrapping an AbortError)
+        const cause = fnError.context as { name?: string } | undefined;
+        if (cause?.name === 'AbortError' || controller.signal.aborted) {
+          throw new NetworkError(`Request timed out after ${timeout}ms`);
+        }
+
+        // Fetch / relay failure
+        throw new NetworkError(
+          'Network request failed. Please check your connection.',
+          error instanceof Error ? error : undefined
         );
       }
 
-      // Handle not found (404)
-      if (response.status === 404) {
-        console.error(`[GolfAPI] NOT FOUND: ${endpoint}`);
-        throw new NotFoundError(
-          resourceInfo?.type || 'unknown',
-          resourceInfo?.id,
-          `Resource not found: ${endpoint}`
-        );
-      }
-
-      // Handle rate limiting (429)
-      if (response.status === 429) {
-        const retryAfter = parseInt(
-          response.headers.get('Retry-After') || '60',
-          10
-        );
-        const rateLimitError: GolfApiRateLimitError = {
-          code: 'RATE_LIMIT_EXCEEDED',
-          message: 'API rate limit exceeded. Please try again later.',
-          status: 429,
-          retryAfter,
-          remaining: 0,
-          limit: parseInt(
-            response.headers.get('X-RateLimit-Limit') || '100',
-            10
-          ),
-        };
-        this._apiRequestsLeft = 0;
-        console.error(`[GolfAPI] RATE LIMITED: retry after ${retryAfter}s`);
-        throw new RateLimitError(rateLimitError);
-      }
-
-      // Handle other errors
-      if (!response.ok) {
-        const error = await this.parseErrorResponse(response);
-        console.error(`[GolfAPI] ERROR ${response.status}: ${error.message}`);
-        throw new GolfApiClientError(error);
-      }
-
-      const data = await response.json();
       this.log(`Response:`, data);
 
       // Update quota tracking
@@ -359,17 +325,15 @@ class GolfApiClient {
         error instanceof GolfApiClientError ||
         error instanceof RateLimitError ||
         error instanceof NotFoundError ||
-        error instanceof AuthenticationError
+        error instanceof AuthenticationError ||
+        error instanceof NetworkError
       ) {
         throw error;
       }
 
       // Handle abort (timeout)
       if (error instanceof Error && error.name === 'AbortError') {
-        throw new NetworkError(
-          `Request timed out after ${this.config.timeout}ms`,
-          error
-        );
+        throw new NetworkError(`Request timed out after ${timeout}ms`, error);
       }
 
       // Handle network errors
@@ -439,7 +403,6 @@ class GolfApiClient {
     // Use GET /clubs endpoint (v2.3)
     // Response format: { apiRequestsLeft, numClubs, numAllClubs, clubs: [...] }
     const response = await this.request<{ clubs: GolfApiClubSearchResult[] }>(
-      'GET',
       '/clubs',
       searchParams,
       { type: 'club' }
@@ -462,7 +425,6 @@ class GolfApiClient {
     }
 
     return this.request<GolfApiClubResponse>(
-      'GET',
       `/clubs/${clubId}`,
       undefined,
       { type: 'club', id: clubId }
@@ -484,7 +446,6 @@ class GolfApiClient {
     }
 
     return this.request<GolfApiCourseResponse>(
-      'GET',
       `/courses/${courseId}`,
       undefined,
       { type: 'course', id: courseId }
@@ -506,7 +467,6 @@ class GolfApiClient {
     }
 
     return this.request<GolfApiCoordinatesResponse>(
-      'GET',
       `/coordinates/${courseId}`,
       undefined,
       { type: 'coordinates', id: courseId }

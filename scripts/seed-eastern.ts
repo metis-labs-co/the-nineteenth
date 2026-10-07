@@ -32,8 +32,8 @@ config({ path: resolve(__dirname, '..', '.env') });
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL_PROD!;
 const SUPABASE_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2bnhmaHV2b2N4eWlsaGxlbmthIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MDc5NzMyNywiZXhwIjoyMDg2MzczMzI3fQ.ueDZlsAM5neoBzWwXtoJy97nWn51ERaviCsa-W2GCf0';
-const GOLFAPI_URL = process.env.EXPO_PUBLIC_GOLFAPI_IO_URL || 'https://www.golfapi.io/api/v2.3';
-const GOLFAPI_KEY = process.env.EXPO_PUBLIC_GOLFAPI_IO_KEY!;
+const GOLFAPI_URL = process.env.GOLFAPI_IO_URL || 'https://www.golfapi.io/api/v2.3';
+const GOLFAPI_KEY = process.env.GOLFAPI_IO_KEY!;
 
 const CLUB_API_ID = '141519519758903234';
 const ID_SUFFIX = '1769153723593685';

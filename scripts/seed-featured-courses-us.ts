@@ -9,7 +9,7 @@
  *
  * Prerequisites:
  *   - .env must have EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY
- *   - .env must have EXPO_PUBLIC_GOLFAPI_IO_KEY, EXPO_PUBLIC_GOLFAPI_IO_URL
+ *   - .env must have GOLFAPI_IO_KEY, GOLFAPI_IO_URL
  *   - The 20260225000000_add_featured_clubs.sql migration must be applied
  *
  * Idempotent: safe to re-run. Uses upsert on golfapi_club_id.
@@ -24,15 +24,15 @@ config({ path: resolve(__dirname, '..', '.env') });
 
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL!;
 const SUPABASE_KEY = process.env.SUPABASE_SECRET_KEY || process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
-const GOLFAPI_URL = process.env.EXPO_PUBLIC_GOLFAPI_IO_URL || 'https://www.golfapi.io/api/v2.3';
-const GOLFAPI_KEY = process.env.EXPO_PUBLIC_GOLFAPI_IO_KEY!;
+const GOLFAPI_URL = process.env.GOLFAPI_IO_URL || 'https://www.golfapi.io/api/v2.3';
+const GOLFAPI_KEY = process.env.GOLFAPI_IO_KEY!;
 
 if (!SUPABASE_URL || !SUPABASE_KEY) {
   console.error('Missing Supabase credentials in .env');
   process.exit(1);
 }
 if (!GOLFAPI_KEY) {
-  console.error('Missing EXPO_PUBLIC_GOLFAPI_IO_KEY in .env');
+  console.error('Missing GOLFAPI_IO_KEY in .env');
   process.exit(1);
 }
 
