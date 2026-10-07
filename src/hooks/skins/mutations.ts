@@ -13,12 +13,11 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
-import { fetchPlayerListByIds } from '@/services/api/players';
+import { finalizeSkinsGame } from '@/services/skins/finalizeSkinsGame';
 import { skinsKeys } from '@/hooks/queryKeys';
 import {
   calculateHoleValue,
   calculateCurrentCarryover,
-  calculateFinalPayoutsWithCarryover,
   processHoleResult,
   processTeamHoleResult,
 } from '@/utils/skins';
@@ -413,78 +412,11 @@ export function useFinalizeSkinsGame() {
   const { showMultipleToasts } = useAchievementToast();
 
   return useMutation({
-    mutationFn: async ({ gameId }: { gameId: string }): Promise<SkinsGame> => {
-      const { data: rawGame, error: gameError } = await supabase
-        .from('skins_games')
-        .select('*')
-        .eq('id', gameId)
-        .single();
-
-      const game = rawGame as unknown as SkinsGameRow | null;
-
-      if (gameError || !game) {
-        throw createError('Skins game not found', 'NOT_FOUND');
-      }
-
-      const { data: rawResults, error: resultsError } = await supabase
-        .from('skins_results')
-        .select('*')
-        .eq('skins_game_id', gameId)
-        .order('hole_number', { ascending: true });
-
-      if (resultsError) {
-        throw createError(`Failed to fetch results: ${resultsError.message}`, 'DATABASE');
-      }
-
-      const results = (rawResults ?? []) as unknown as SkinsResultRow[];
-
-      const participants = await fetchPlayerListByIds(game.participant_ids);
-
-      const payoutResult = calculateFinalPayoutsWithCarryover(
-        game as SkinsGame,
-        results as unknown as SkinsResult[],
-        participants
-      );
-
-      await supabase.from('skins_payouts').delete().eq('skins_game_id', gameId);
-
-      const payoutInserts = payoutResult.payouts.map((p) => ({
-        skins_game_id: gameId,
-        player_id: p.player_id,
-        buy_in: p.buy_in,
-        total_winnings: p.total_winnings,
-        net_result: p.net_result,
-        holes_won: p.holes_won,
-        holes_tied: p.holes_tied,
-        holes_lost: p.holes_lost,
-      }));
-
-      if (payoutInserts.length > 0) {
-        const { error: insertError } = await supabase
-          .from('skins_payouts')
-          .insert(payoutInserts as never);
-
-        if (insertError) {
-          throw createError(`Failed to insert payouts: ${insertError.message}`, 'DATABASE');
-        }
-      }
-
-      const { data: updatedGame, error: updateError } = await supabase
-        .from('skins_games')
-        .update({
-          status: 'completed',
-          completed_at: new Date().toISOString(),
-        } as never)
-        .eq('id', gameId)
-        .select()
-        .single();
-
-      if (updateError) {
-        throw createError(`Failed to update game status: ${updateError.message}`, 'DATABASE');
-      }
-
-      return updatedGame as unknown as SkinsGame;
-    },
+    // Settlement lives in the non-hook service (the queued "finalise round"
+    // sync item runs it without React). No hole-count override: the service
+    // reads the round's counts, so every caller, including the ViewRound
+    // auto-finalise, settles 9-hole and ended-early rounds correctly.
+    mutationFn: ({ gameId }: { gameId: string }): Promise<SkinsGame> => finalizeSkinsGame(gameId),
 
     onSuccess: async (data) => {
       queryClient.invalidateQueries({ queryKey: skinsKeys.game(data.id) });

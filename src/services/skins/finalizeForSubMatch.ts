@@ -11,15 +11,14 @@
  */
 
 import { supabase } from '@/services/supabase/client';
-import { fetchPlayerListByIds } from '@/services/api/players';
 import {
   calculateFinalPayoutsWithCarryover,
 } from '@/utils/skins';
 import type {
   SkinsGame,
   SkinsResult,
-  SkinsParticipant,
 } from '@/types/database/skins.types';
+import { fetchSkinsHoleCounts } from './roundHoleCounts';
 
 export interface FinalizeForSubMatchResult {
   finalized: boolean;
@@ -71,11 +70,13 @@ export async function finalizeSkinsForSubMatch(
 
     const results = (rawResults ?? []) as unknown as SkinsResult[];
 
-    const participants: SkinsParticipant[] = await fetchPlayerListByIds(
-      game.participant_ids
-    );
+    // The calculator needs only ids; a players read swallows errors and
+    // would settle a failed read on an empty list.
+    const participants = game.participant_ids.map((id) => ({ id }));
 
-    const payoutResult = calculateFinalPayoutsWithCarryover(game, results, participants);
+    // Same pricing rule as every settlement path; competition rounds read 'full'.
+    const holeCounts = await fetchSkinsHoleCounts(game.round_id);
+    const payoutResult = calculateFinalPayoutsWithCarryover(game, results, participants, holeCounts);
 
     await supabase.from('skins_payouts').delete().eq('skins_game_id', game.id);
 
