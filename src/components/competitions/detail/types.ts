@@ -76,7 +76,6 @@ export interface CompetitionPlayer {
   player: {
     id: string;
     name: string;
-    email: string | null;
     handicap: number | null;
     photo_url: string | null;
   } | null;

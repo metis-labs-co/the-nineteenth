@@ -19,6 +19,7 @@ import type { CompetitionPlayerQueryRow } from './types';
 import { createError } from '@/services/errors';
 import { getCompetitionTeams, getTeamWithMembers } from './teamQueries';
 import { createTeam, deleteTeam, updateTeamMembers } from './teamMutations';
+import { PUBLIC_PLAYER_COLUMNS } from '@/services/api/playerColumns';
 
 const logger = createModuleLogger('TeamService');
 
@@ -69,7 +70,7 @@ export async function autoGenerateTeams(
     .select(
       `
       player_id,
-      player:players (*)
+      player:players(${PUBLIC_PLAYER_COLUMNS})
     `
     )
     .eq('competition_id', competitionId)

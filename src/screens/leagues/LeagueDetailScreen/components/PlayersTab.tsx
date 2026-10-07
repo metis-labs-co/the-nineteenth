@@ -105,7 +105,6 @@ export default React.memo(function PlayersTab({
                   photo_url: lp.player?.photo_url ?? null,
                 }}
                 variant="list-item"
-                showEmail={false}
                 showHandicap={false}
                 badge={badge}
               />

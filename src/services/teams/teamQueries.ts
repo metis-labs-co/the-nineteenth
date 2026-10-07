@@ -11,6 +11,7 @@ import type { TeamWithMembers } from '@/types/database.types';
 import { createModuleLogger } from '@/utils/debugLogger';
 import { createError } from '@/services/errors';
 import type { TeamQueryRow, TeamMemberQueryRow } from './types';
+import { PUBLIC_PLAYER_COLUMNS } from '@/services/api/playerColumns';
 
 const logger = createModuleLogger('TeamService');
 
@@ -50,7 +51,7 @@ export async function getCompetitionTeams(
         team_id,
         player_id,
         joined_at,
-        player:players (*)
+        player:players(${PUBLIC_PLAYER_COLUMNS})
       )
     `
     )
@@ -106,7 +107,7 @@ export async function getTeamWithMembers(
         team_id,
         player_id,
         joined_at,
-        player:players (*)
+        player:players(${PUBLIC_PLAYER_COLUMNS})
       )
     `
     )

@@ -12,6 +12,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import { CACHE_TIMES } from '@/constants/cacheConfig';
 import { authKeys } from '../queryKeys';
+import { fetchMyPlayer } from './utils';
 import type { Session } from '@supabase/supabase-js';
 import type { Player } from '@/types/database.types';
 
@@ -29,17 +30,10 @@ import type { Player } from '@/types/database.types';
  * users into onboarding on a single cold-start blip.
  */
 export async function fetchPlayerProfile(userId: string): Promise<Player | null> {
-  const { data, error } = await supabase
-    .from('players')
-    .select('*')
-    .eq('id', userId)
-    .maybeSingle();
-
-  if (error) {
-    throw error;
-  }
-
-  return (data as Player | null) ?? null;
+  // Own row only: private columns are readable solely via get_my_player
+  const player = await fetchMyPlayer();
+  if (player && player.id !== userId) return null;
+  return player;
 }
 
 /**

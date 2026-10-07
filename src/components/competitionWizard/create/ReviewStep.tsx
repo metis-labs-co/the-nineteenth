@@ -226,8 +226,9 @@ export default function ReviewStep({
                   <View style={styles.playerInfo}>
                     <Text style={[styles.playerName, { color: colors.textPrimary }]}>{player.name}</Text>
                     <Text style={[styles.playerDetails, { color: colors.textSecondary }]}>
-                      {player.email || 'No email'}
-                      {player.handicap && ` • HC: ${player.handicap}`}
+                      {player.handicap !== '' && player.handicap != null
+                        ? `HC: ${player.handicap}`
+                        : 'No handicap'}
                     </Text>
                   </View>
                 </View>

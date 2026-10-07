@@ -186,8 +186,7 @@ export default function LinkPlaceholderScreen({ navigation }: Props) {
     return friends.filter(
       (friend) =>
         !friend.is_placeholder &&
-        (friend.name.toLowerCase().includes(query) ||
-          (friend.email && friend.email.toLowerCase().includes(query)))
+        friend.name.toLowerCase().includes(query)
     );
   }, [friends, searchQuery]);
 
@@ -389,7 +388,7 @@ export default function LinkPlaceholderScreen({ navigation }: Props) {
         <SearchBar
           value={searchQuery}
           onChangeText={setSearchQuery}
-          placeholder="Search friends by name or email..."
+          placeholder="Search friends by name..."
           accessibilityLabel="Search friends to link to"
         />
 
@@ -421,11 +420,6 @@ export default function LinkPlaceholderScreen({ navigation }: Props) {
                     <Text style={[styles.searchResultName, { color: colors.textPrimary }]} numberOfLines={1}>
                       {item.name}
                     </Text>
-                    {item.email && (
-                      <Text style={[styles.searchResultEmail, { color: colors.textSecondary }]} numberOfLines={1}>
-                        {item.email}
-                      </Text>
-                    )}
                     {item.handicap !== null && item.handicap !== undefined && (
                       <Text style={[styles.searchResultHandicap, { color: colors.primary }]}>
                         HC: {item.handicap}
@@ -583,10 +577,6 @@ const styles = StyleSheet.create({
   },
   searchResultName: {
     ...typography.bodyBold,
-  },
-  searchResultEmail: {
-    ...typography.caption,
-    marginTop: 2,
   },
   searchResultHandicap: {
     ...typography.caption,

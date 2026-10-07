@@ -172,13 +172,11 @@ export const PlayersTab = React.memo(function PlayersTab({
                     player={{
                       id: player.id,
                       name: player.name,
-                      email: player.email,
                       handicap: player.handicap,
                       photo_url: player.photo_url,
                     }}
                     badge={badge}
                     variant="card"
-                    showEmail={false}
                     rightAction={
                       <View style={styles.rightActionRow}>
                         {statusBadge}
@@ -197,7 +195,6 @@ export const PlayersTab = React.memo(function PlayersTab({
                   player={{
                     id: player.id,
                     name: player.name,
-                    email: player.email,
                     handicap: player.handicap,
                     photo_url: player.photo_url,
                   }}

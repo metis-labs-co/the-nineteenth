@@ -355,9 +355,6 @@ export default function PlayerDetailScreen({ navigation, route }: Props) {
             <ProfileBadge badge={equipped?.badge ?? null} size={18} />
           </View>
           <ProfileTitle title={equipped?.title ?? null} />
-          {showsFullProfile && (
-            <Text style={[styles.playerEmail, { color: colors.textSecondary }]}>{player.email}</Text>
-          )}
           {player.handicap !== null && player.handicap !== undefined && (
             <View style={[styles.handicapBadge, { backgroundColor: colors.primaryLighter }]}>
               <Text style={[styles.handicapText, { color: colors.primaryDark }]}>
@@ -797,10 +794,6 @@ const styles = StyleSheet.create({
   playerName: {
     ...typography.h2,
     textAlign: 'center',
-  },
-  playerEmail: {
-    ...typography.small,
-    marginBottom: spacing.md,
   },
   handicapBadge: {
     paddingHorizontal: spacing.lg,

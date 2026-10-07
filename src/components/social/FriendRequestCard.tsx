@@ -87,9 +87,6 @@ export const FriendRequestCard = React.memo(function FriendRequestCard({
           <Text style={[styles.name, { color: colors.textPrimary }]} numberOfLines={1}>
             {request.requester.name}
           </Text>
-          <Text style={[styles.email, { color: colors.textSecondary }]} numberOfLines={1}>
-            {request.requester.email}
-          </Text>
         </View>
       </View>
       <View style={styles.actions}>
@@ -144,9 +141,6 @@ const styles = StyleSheet.create({
   },
   name: {
     ...typography.bodyBold,
-  },
-  email: {
-    ...typography.caption,
   },
   actions: {
     flexDirection: 'row',

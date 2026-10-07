@@ -25,6 +25,7 @@ import type {
   Player,
   FriendshipStatus,
 } from '@/types/database.types';
+import { PUBLIC_PLAYER_COLUMNS } from '@/services/api/playerColumns';
 
 /** Shape of a friendship query result with joined player data */
 type FriendshipQueryResult = {
@@ -117,8 +118,8 @@ export function useFriends() {
           status,
           created_at,
           updated_at,
-          requester:players!friendships_requester_id_fkey(*),
-          addressee:players!friendships_addressee_id_fkey(*)
+          requester:players!friendships_requester_id_fkey(${PUBLIC_PLAYER_COLUMNS}),
+          addressee:players!friendships_addressee_id_fkey(${PUBLIC_PLAYER_COLUMNS})
         `)
         .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`)
         .eq('status', 'accepted');
@@ -160,8 +161,8 @@ export function useFriendsWithPendingSent() {
           status,
           created_at,
           updated_at,
-          requester:players!friendships_requester_id_fkey(*),
-          addressee:players!friendships_addressee_id_fkey(*)
+          requester:players!friendships_requester_id_fkey(${PUBLIC_PLAYER_COLUMNS}),
+          addressee:players!friendships_addressee_id_fkey(${PUBLIC_PLAYER_COLUMNS})
         `)
         .or(
           `and(status.eq.accepted,or(requester_id.eq.${user.id},addressee_id.eq.${user.id})),` +
@@ -201,7 +202,7 @@ export function useFriendRequests() {
         .select(`
           id,
           created_at,
-          requester:players!friendships_requester_id_fkey(*)
+          requester:players!friendships_requester_id_fkey(${PUBLIC_PLAYER_COLUMNS})
         `)
         .eq('addressee_id', user.id)
         .eq('status', 'pending');
@@ -249,7 +250,7 @@ export function useSentFriendRequests() {
         .select(`
           id,
           created_at,
-          addressee:players!friendships_addressee_id_fkey(*)
+          addressee:players!friendships_addressee_id_fkey(${PUBLIC_PLAYER_COLUMNS})
         `)
         .eq('requester_id', user.id)
         .eq('status', 'pending');
@@ -391,7 +392,7 @@ export function useFriendStats(friendId: string) {
 
       const { data: friendProfile } = await supabase
         .from('players')
-        .select('*')
+        .select(PUBLIC_PLAYER_COLUMNS)
         .eq('id', friendId)
         .single();
 

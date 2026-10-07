@@ -468,11 +468,11 @@ describe('AddPlayersBottomSheet', () => {
       expect(screen.queryByText('Alice Brown')).toBeNull();
     });
 
-    it('displays friend email when available', () => {
+    it('does not display friend emails', () => {
       render(<AddPlayersBottomSheet {...defaultProps} />);
 
-      expect(screen.getByText('john@example.com')).toBeTruthy();
-      expect(screen.getByText('jane@example.com')).toBeTruthy();
+      expect(screen.queryByText('john@example.com')).toBeNull();
+      expect(screen.queryByText('jane@example.com')).toBeNull();
     });
 
     it('displays friend handicap', () => {

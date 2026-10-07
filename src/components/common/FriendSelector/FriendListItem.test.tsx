@@ -192,9 +192,9 @@ describe('FriendListItem', () => {
       expect(nameElements.length).toBeGreaterThanOrEqual(1);
     });
 
-    it('renders friend email when provided', () => {
+    it('never renders the friend\'s email (email is private)', () => {
       render(<FriendListItem {...defaultProps} />);
-      expect(screen.getByText('john@example.com')).toBeTruthy();
+      expect(screen.queryByText('john@example.com')).toBeNull();
     });
 
     it('does not render email when null', () => {
@@ -488,16 +488,6 @@ describe('FriendListItem', () => {
         'A Very Long Name That Should Be Truncated In The UI'
       );
       expect(nameElements.length).toBeGreaterThanOrEqual(1);
-    });
-
-    it('handles friend with long email', () => {
-      const friendWithLongEmail = createMockFriend({
-        email: 'a.very.long.email.address@some-long-domain-name.example.com',
-      });
-      render(<FriendListItem {...defaultProps} friend={friendWithLongEmail} />);
-      expect(
-        screen.getByText('a.very.long.email.address@some-long-domain-name.example.com')
-      ).toBeTruthy();
     });
 
     it('handles friend with special characters in name', () => {

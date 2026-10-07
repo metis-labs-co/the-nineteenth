@@ -11,15 +11,14 @@
 
 import { fetchPlayerProfile } from '@/hooks/auth/useAuthUser';
 
-// Mock the Supabase client's players query chain.
+// Mock the Supabase client's get_my_player RPC (own row incl. private columns).
 const mockMaybeSingle = jest.fn();
+const mockRpc = jest.fn((_fn: string) => ({
+  maybeSingle: () => mockMaybeSingle(),
+}));
 jest.mock('@/services/supabase/client', () => ({
   supabase: {
-    from: jest.fn(() => ({
-      select: jest.fn().mockReturnThis(),
-      eq: jest.fn().mockReturnThis(),
-      maybeSingle: () => mockMaybeSingle(),
-    })),
+    rpc: (fn: string) => mockRpc(fn),
   },
 }));
 
@@ -31,6 +30,13 @@ describe('fetchPlayerProfile', () => {
     mockMaybeSingle.mockResolvedValue({ data: player, error: null });
 
     await expect(fetchPlayerProfile('u1')).resolves.toEqual(player);
+    expect(mockRpc).toHaveBeenCalledWith('get_my_player');
+  });
+
+  it('returns null if the RPC row belongs to a different user', async () => {
+    mockMaybeSingle.mockResolvedValue({ data: { id: 'someone-else' }, error: null });
+
+    await expect(fetchPlayerProfile('u1')).resolves.toBeNull();
   });
 
   it('returns null when the row genuinely does not exist (no row, no error)', async () => {

@@ -28,7 +28,6 @@ const meta: Meta<typeof PlayerCard> = {
       control: { type: 'select' },
       options: ['card', 'list-item'],
     },
-    showEmail: { control: 'boolean' },
     showHandicap: { control: 'boolean' },
     navigateToProfile: { control: 'boolean' },
     handicapColor: { control: 'color' },
@@ -109,7 +108,6 @@ const wrapperStyles = StyleSheet.create({
 const createPlayer = (overrides: Partial<PlayerCardData> = {}): PlayerCardData => ({
   id: 'player-1',
   name: 'John Smith',
-  email: 'john.smith@example.com',
   handicap: 12,
   photo_url: null,
   ...overrides,
@@ -124,14 +122,14 @@ const createBadge = (overrides: Partial<BadgeConfig> = {}): BadgeConfig => ({
 // Sample players
 const samplePlayers: PlayerCardData[] = [
   createPlayer({ id: '1', name: 'John Smith', handicap: 12 }),
-  createPlayer({ id: '2', name: 'Sarah Johnson', email: 'sarah@email.com', handicap: 18 }),
+  createPlayer({ id: '2', name: 'Sarah Johnson', handicap: 18 }),
   createPlayer({
     id: '3',
     name: 'Mike Wilson',
     handicap: 5,
     photo_url: 'https://randomuser.me/api/portraits/men/32.jpg',
   }),
-  createPlayer({ id: '4', name: 'Emma Davis', handicap: 22, email: 'emma@golf.com' }),
+  createPlayer({ id: '4', name: 'Emma Davis', handicap: 22 }),
   createPlayer({
     id: '5',
     name: 'Tom Brown',
@@ -192,7 +190,7 @@ export const WithoutEmail: Story = {
     <StoryWrapper>
       <Section title="Without Email">
         <CardWrapper>
-          <PlayerCard player={createPlayer()} showEmail={false} />
+          <PlayerCard player={createPlayer()} />
         </CardWrapper>
       </Section>
     </StoryWrapper>
@@ -216,7 +214,7 @@ export const NameOnly: Story = {
     <StoryWrapper>
       <Section title="Name Only Display">
         <CardWrapper>
-          <PlayerCard player={createPlayer()} showEmail={false} showHandicap={false} />
+          <PlayerCard player={createPlayer()} showHandicap={false} />
         </CardWrapper>
       </Section>
     </StoryWrapper>
@@ -563,7 +561,6 @@ export const CompetitionPlayerList: Story = {
             player={samplePlayers[0]}
             variant="list-item"
             badge={createBadge({ label: 'You' })}
-            showEmail={false}
           />
           <PlayerCard
             player={samplePlayers[1]}
@@ -572,22 +569,18 @@ export const CompetitionPlayerList: Story = {
               label: 'Organiser',
               backgroundColor: '#DBEAFE',
             })}
-            showEmail={false}
           />
           <PlayerCard
             player={samplePlayers[2]}
             variant="list-item"
-            showEmail={false}
           />
           <PlayerCard
             player={samplePlayers[3]}
             variant="list-item"
-            showEmail={false}
           />
           <PlayerCard
             player={samplePlayers[4]}
             variant="list-item"
-            showEmail={false}
           />
         </ListWrapper>
       </Section>
@@ -620,21 +613,21 @@ export const SearchResults: Story = {
       <Section title="Search Results (Add Friends)">
         <ListWrapper>
           <PlayerCard
-            player={createPlayer({ name: 'John Smith', email: 'john@email.com' })}
+            player={createPlayer({ name: 'John Smith' })}
             variant="list-item"
             rightAction={<AddButton />}
             navigateToProfile={false}
             showHandicap={false}
           />
           <PlayerCard
-            player={createPlayer({ name: 'Johnny Appleseed', email: 'johnny@email.com' })}
+            player={createPlayer({ name: 'Johnny Appleseed' })}
             variant="list-item"
             rightAction={<AddButton />}
             navigateToProfile={false}
             showHandicap={false}
           />
           <PlayerCard
-            player={createPlayer({ name: 'John Doe', email: 'jdoe@email.com' })}
+            player={createPlayer({ name: 'John Doe' })}
             variant="list-item"
             rightAction={<AddButton />}
             navigateToProfile={false}
@@ -679,7 +672,6 @@ export const LeaderboardPlayers: Story = {
               backgroundColor: '#FEF3C7',
             })}
             handicapColor="#22C55E"
-            showEmail={false}
           />
           <PlayerCard
             player={createPlayer({ name: 'Sarah Johnson', handicap: 18 })}
@@ -688,7 +680,6 @@ export const LeaderboardPlayers: Story = {
               label: '2nd',
               backgroundColor: '#E5E7EB',
             })}
-            showEmail={false}
           />
           <PlayerCard
             player={createPlayer({ name: 'John Smith', handicap: 12 })}
@@ -697,12 +688,10 @@ export const LeaderboardPlayers: Story = {
               label: '3rd',
               backgroundColor: '#FED7AA',
             })}
-            showEmail={false}
           />
           <PlayerCard
             player={createPlayer({ name: 'Emma Davis', handicap: 22 })}
             variant="list-item"
-            showEmail={false}
           />
         </ListWrapper>
       </Section>
@@ -719,22 +708,18 @@ export const PairingGroup: Story = {
             player={createPlayer({ name: 'John Smith (You)', handicap: 12 })}
             variant="list-item"
             badge={createBadge({ label: 'You' })}
-            showEmail={false}
           />
           <PlayerCard
             player={createPlayer({ name: 'Mike Wilson', handicap: 5 })}
             variant="list-item"
-            showEmail={false}
           />
           <PlayerCard
             player={createPlayer({ name: 'Sarah Johnson', handicap: 18 })}
             variant="list-item"
-            showEmail={false}
           />
           <PlayerCard
             player={createPlayer({ name: 'Tom Brown', handicap: 8 })}
             variant="list-item"
-            showEmail={false}
           />
         </ListWrapper>
       </Section>
@@ -754,22 +739,6 @@ export const LongName: Story = {
           <PlayerCard
             player={createPlayer({
               name: 'Alexander Benjamin Christopher Davidson Emmanuel Franklin',
-            })}
-          />
-        </CardWrapper>
-      </Section>
-    </StoryWrapper>
-  ),
-};
-
-export const LongEmail: Story = {
-  render: () => (
-    <StoryWrapper>
-      <Section title="Long Email">
-        <CardWrapper>
-          <PlayerCard
-            player={createPlayer({
-              email: 'very.long.email.address.that.goes.on.forever@example.com',
             })}
           />
         </CardWrapper>
@@ -823,7 +792,6 @@ export const FullFeatured: Story = {
             badge={createBadge({ label: 'You' })}
             rightAction={<ChevronAction />}
             variant="card"
-            showEmail={true}
             showHandicap={true}
             handicapColor="#22C55E"
           />
@@ -840,7 +808,6 @@ export const MinimalDisplay: Story = {
         <CardWrapper>
           <PlayerCard
             player={createPlayer()}
-            showEmail={false}
             showHandicap={false}
             navigateToProfile={false}
           />
@@ -868,7 +835,7 @@ export const CompleteShowcase: Story = {
             variant="list-item"
             rightAction={<ChevronAction />}
           />
-          <PlayerCard player={samplePlayers[2]} variant="list-item" showEmail={false} />
+          <PlayerCard player={samplePlayers[2]} variant="list-item" />
         </ListWrapper>
       </Section>
 

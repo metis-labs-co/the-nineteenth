@@ -34,6 +34,7 @@ import type {
   ScoringPairWithPlayers,
 } from '@/types/database.types';
 import type { ScoringPairCreateInput } from '@/types';
+import { PUBLIC_PLAYER_COLUMNS } from '@/services/api/playerColumns';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ScoringPairs'>;
 
@@ -85,7 +86,7 @@ async function fetchScoringPairsData(
     .from('competition_players')
     .select(`
       player_id,
-      players!player_id (*)
+      players!player_id(${PUBLIC_PLAYER_COLUMNS})
     `)
     .eq('competition_id', competitionId)
     .eq('status', 'accepted');
@@ -110,7 +111,7 @@ async function fetchScoringPairsData(
           team_id,
           player_id,
           joined_at,
-          players!player_id (*)
+          players!player_id(${PUBLIC_PLAYER_COLUMNS})
         )
       `)
       .eq('competition_id', competitionId)
@@ -155,8 +156,8 @@ async function fetchScoringPairsData(
     .from('scoring_pairs')
     .select(`
       *,
-      scorer:players!scoring_pairs_scorer_id_fkey (*),
-      player:players!scoring_pairs_player_id_fkey (*)
+      scorer:players!scoring_pairs_scorer_id_fkey(${PUBLIC_PLAYER_COLUMNS}),
+      player:players!scoring_pairs_player_id_fkey(${PUBLIC_PLAYER_COLUMNS})
     `)
     .eq('round_id', roundId);
 

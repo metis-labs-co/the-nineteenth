@@ -62,7 +62,7 @@ export interface PlayerSelectorProps<T extends SelectablePlayer = SelectablePlay
 
   /**
    * Enable search/filter functionality (default: true).
-   * When enabled, shows a search bar that filters players by name/email.
+   * When enabled, shows a search bar that filters players by name.
    */
   searchable?: boolean;
 
