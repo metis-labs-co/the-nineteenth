@@ -24,6 +24,8 @@ import {
   calculateFinalPayouts,
   calculateFinalPayoutsWithCarryover,
   calculateInProgressPayouts,
+  calculatePlayedPot,
+  calculateSettledPot,
   validateSkinsGame,
   validateHoleScores,
   calculateNetPositions,
@@ -1466,5 +1468,205 @@ describe('Skins Game Scenarios', () => {
       const p1Payout = result.payouts.find((p) => p.player_id === 'p1')!;
       expect(p1Payout.total_winnings).toBe(90);
     });
+  });
+});
+
+// ============================================================================
+// Settlement priced on the holes played (9-hole and ended-early rounds — I11)
+// ============================================================================
+
+describe('Skins pricing on the holes played', () => {
+  const fourPlayers = [{ id: 'p1' }, { id: 'p2' }, { id: 'p3' }, { id: 'p4' }];
+  const scores = createMockHoleScores([
+    { playerId: 'p1', gross: 4, net: 4, strokes_received: 0 },
+    { playerId: 'p2', gross: 4, net: 4, strokes_received: 0 },
+    { playerId: 'p3', gross: 4, net: 4, strokes_received: 0 },
+    { playerId: 'p4', gross: 4, net: 4, strokes_received: 0 },
+  ]);
+  const won = (hole: number, winner: string, payout: number) => ({
+    hole_number: hole,
+    winner_id: winner as string | null,
+    is_carryover: false,
+    payout_amount: payout,
+    carryover_to_next: 0,
+    hole_scores: scores,
+  });
+  const tied = (hole: number, carryover: number) => ({
+    hole_number: hole,
+    winner_id: null as string | null,
+    is_carryover: true,
+    payout_amount: 0,
+    carryover_to_next: carryover,
+    hole_scores: scores,
+  });
+  const netSum = (payouts: { net_result: number }[]) =>
+    payouts.reduce((sum, p) => sum + p.net_result, 0);
+
+  describe('calculatePlayedPot', () => {
+    it('is the whole planned pot for a round played as planned', () => {
+      expect(calculatePlayedPot(createMockGame(), { plannedHoles: 18, holesPlayed: 18 })).toBe(90); // $5 × 18
+      expect(calculatePlayedPot(createMockGame(), { plannedHoles: 9, holesPlayed: 9 })).toBe(45); // $5 × 9
+      expect(
+        calculatePlayedPot(createMockGame({ pot_type: 'total_pot', pot_value: 90 }), {
+          plannedHoles: 9,
+          holesPlayed: 9,
+        })
+      ).toBe(90);
+    });
+
+    it('shrinks in proportion to the holes played', () => {
+      expect(calculatePlayedPot(createMockGame(), { plannedHoles: 18, holesPlayed: 6 })).toBe(30); // 90 × 6/18
+      expect(
+        calculatePlayedPot(createMockGame({ pot_type: 'total_pot', pot_value: 90 }), {
+          plannedHoles: 9,
+          holesPlayed: 6,
+        })
+      ).toBe(60); // $10 a hole × 6
+    });
+
+    it('prices an ended-early pot on the rounded hole price actually paid out', () => {
+      // $25 / 9 = $2.78 a hole (rounded) × 3 = $8.34 — not $25 × 3/9 = $8.33
+      expect(
+        calculatePlayedPot(createMockGame({ pot_type: 'total_pot', pot_value: 25 }), {
+          plannedHoles: 9,
+          holesPlayed: 3,
+        })
+      ).toBe(8.34);
+    });
+  });
+
+  describe('calculateSettledPot', () => {
+    it('is the sum of the stored buy-ins of a completed game', () => {
+      expect(
+        calculateSettledPot({ status: 'completed' }, [{ buy_in: 22.5 }, { buy_in: 22.5 }])
+      ).toBe(45);
+      expect(
+        calculateSettledPot({ status: 'completed' }, [{ buy_in: 2.09 }, { buy_in: 2.09 }, { buy_in: 2.09 }])
+      ).toBe(6.27); // rounded to the cent
+    });
+
+    it('is null for a game that is not settled', () => {
+      expect(calculateSettledPot({ status: 'active' }, [{ buy_in: 22.5 }])).toBeNull();
+      expect(calculateSettledPot({ status: 'completed' }, [])).toBeNull();
+      expect(calculateSettledPot({ status: 'completed' }, undefined)).toBeNull();
+      expect(calculateSettledPot({ status: 'completed' }, null)).toBeNull();
+    });
+  });
+
+  it('defaults to the 18-hole pricing used today when no hole counts are given', () => {
+    const game = createMockGame({ pot_type: 'total_pot', pot_value: 100, participant_ids: ['p1', 'p2', 'p3'] });
+    const threePlayers = [{ id: 'p1' }, { id: 'p2' }, { id: 'p3' }];
+    const results = createMockResults([won(1, 'p1', 5.56)]);
+
+    expect(calculateFinalPayoutsWithCarryover(game, results, threePlayers)).toEqual(
+      calculateFinalPayoutsWithCarryover(game, results, threePlayers, { plannedHoles: 18, holesPlayed: 18 })
+    );
+    expect(calculateFinalPayouts(game, results, threePlayers)[0].buy_in).toBe(33.33); // $100 / 3
+    // per_hole $5, 4 players, full 18: $90 / 4
+    expect(calculateFinalPayouts(createMockGame(), [], fourPlayers)[0].buy_in).toBe(22.5);
+  });
+
+  it('per_hole, 4 players, ended after 6 of 18: buy-in covers 6 holes and nets to zero', () => {
+    const game = createMockGame(); // per_hole $5, p1–p4
+    // Winnings: p1 5+5=10, p2 5, p3 10 (hole 4's $5 carried into hole 5), p4 5 → $30 = 6 holes × $5
+    const results = createMockResults([
+      won(1, 'p1', 5),
+      won(2, 'p1', 5),
+      won(3, 'p2', 5),
+      tied(4, 5),
+      won(5, 'p3', 10),
+      won(6, 'p4', 5),
+    ]);
+
+    const payouts = calculateFinalPayouts(game, results, fourPlayers, { plannedHoles: 18, holesPlayed: 6 });
+
+    for (const payout of payouts) {
+      expect(payout.buy_in).toBe(7.5); // $5 × 18 × 6/18 / 4
+    }
+    expect(payouts.find((p) => p.player_id === 'p1')!.net_result).toBe(2.5); // 10 - 7.5
+    expect(payouts.find((p) => p.player_id === 'p2')!.net_result).toBe(-2.5); // 5 - 7.5
+    expect(payouts.find((p) => p.player_id === 'p3')!.net_result).toBe(2.5); // 10 - 7.5
+    expect(payouts.find((p) => p.player_id === 'p4')!.net_result).toBe(-2.5); // 5 - 7.5
+    expect(netSum(payouts)).toBeCloseTo(0, 2);
+  });
+
+  it('settles a 9-hole round zero-sum (it was priced as 18)', () => {
+    const game = createMockGame({ participant_ids: ['p1', 'p2'] });
+    const twoPlayers = [{ id: 'p1' }, { id: 'p2' }];
+    // p1 wins holes 1–5 ($25), p2 wins holes 6–9 ($20) → $45 = 9 × $5
+    const results = createMockResults(
+      Array.from({ length: 9 }, (_, i) => won(i + 1, i < 5 ? 'p1' : 'p2', 5))
+    );
+
+    const payouts = calculateFinalPayouts(game, results, twoPlayers, { plannedHoles: 9, holesPlayed: 9 });
+
+    expect(payouts.map((p) => p.buy_in)).toEqual([22.5, 22.5]); // $5 × 9 / 2
+    expect(payouts.map((p) => p.net_result)).toEqual([2.5, -2.5]); // 25 - 22.5, 20 - 22.5
+    expect(netSum(payouts)).toBeCloseTo(0, 2);
+  });
+
+  it('total_pot ended after 6 of 9 with holes priced at pot/9: nets to zero', () => {
+    const game = createMockGame({ pot_type: 'total_pot', pot_value: 90, participant_ids: ['p1', 'p2', 'p3'] });
+    const threePlayers = [{ id: 'p1' }, { id: 'p2' }, { id: 'p3' }];
+    // Hole value $10. Winnings: p1 10+10=20, p2 20+10=30, p3 10 → $60 = 6 × $10
+    const results = createMockResults([
+      won(1, 'p1', 10),
+      tied(2, 10),
+      won(3, 'p2', 20),
+      won(4, 'p3', 10),
+      won(5, 'p1', 10),
+      won(6, 'p2', 10),
+    ]);
+
+    const payouts = calculateFinalPayouts(game, results, threePlayers, { plannedHoles: 9, holesPlayed: 6 });
+
+    for (const payout of payouts) {
+      expect(payout.buy_in).toBe(20); // $90 × 6/9 / 3
+    }
+    expect(payouts.find((p) => p.player_id === 'p1')!.net_result).toBe(0); // 20 - 20
+    expect(payouts.find((p) => p.player_id === 'p2')!.net_result).toBe(10); // 30 - 20
+    expect(payouts.find((p) => p.player_id === 'p3')!.net_result).toBe(-10); // 10 - 20
+    expect(netSum(payouts)).toBeCloseTo(0, 2);
+  });
+
+  it('total_pot $25, front nine ended after 3, 4 players, all tied: nets to exactly zero', () => {
+    const game = createMockGame({ pot_type: 'total_pot', pot_value: 25 }); // p1–p4
+    // Hole value roundCurrency(25 / 9) = $2.78; every hole ties, so the
+    // carryover builds 2.78 → 5.56 → 8.34 and is split on the last hole played.
+    const results = createMockResults([tied(1, 2.78), tied(2, 5.56), tied(3, 8.34)]);
+
+    const payouts = calculateFinalPayouts(game, results, fourPlayers, { plannedHoles: 9, holesPlayed: 3 });
+
+    for (const payout of payouts) {
+      expect(payout.buy_in).toBe(2.09); // played pot 2.78 × 3 = 8.34; 8.34 / 4 = 2.085 → 2.09
+      expect(payout.total_winnings).toBe(2.09); // split 8.34 / 4 → 2.09
+      expect(payout.net_result).toBe(0);
+    }
+    expect(netSum(payouts)).toBe(0); // scaling the pot (25 × 3/9 = 8.33 → 2.08 buy-in) gave +1¢ each, Σ +4¢
+  });
+
+  it('splits a carryover left on the last hole played', () => {
+    const game = createMockGame();
+    // p1 wins holes 1–4 ($20); holes 5–6 tie, leaving $10 carried over the last played hole
+    const results = createMockResults([
+      won(1, 'p1', 5),
+      won(2, 'p1', 5),
+      won(3, 'p1', 5),
+      won(4, 'p1', 5),
+      tied(5, 5),
+      tied(6, 10),
+    ]);
+
+    const result = calculateFinalPayoutsWithCarryover(game, results, fourPlayers, {
+      plannedHoles: 18,
+      holesPlayed: 6,
+    });
+
+    expect(result.hole18CarryoverSplit).toBe(true);
+    expect(result.payouts.find((p) => p.player_id === 'p1')!.total_winnings).toBe(22.5); // 20 + 10/4
+    expect(result.payouts.find((p) => p.player_id === 'p2')!.total_winnings).toBe(2.5); // 10/4
+    expect(result.payouts.find((p) => p.player_id === 'p1')!.net_result).toBe(15); // 22.5 - 7.5
+    expect(result.payouts.find((p) => p.player_id === 'p2')!.net_result).toBe(-5); // 2.5 - 7.5
+    expect(netSum(result.payouts)).toBeCloseTo(0, 2); // 15 - 5 - 5 - 5
   });
 });

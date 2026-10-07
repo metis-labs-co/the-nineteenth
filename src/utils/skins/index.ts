@@ -12,6 +12,10 @@ export { formatCurrency, formatNetResult } from '../currency';
 // Pot calculation functions
 export { calculateHoleValue, calculateTotalPot, calculateBuyIn } from './pot';
 
+// Hole counts (holes priced on the plan, pot settled over the holes played)
+export type { SkinsHoleCounts } from './holeCounts';
+export { DEFAULT_SKINS_HOLE_COUNTS, getSkinsHoleCounts } from './holeCounts';
+
 // Score preparation functions
 export type { SkinsParticipantInfo, SkinsScorecardData } from './scores';
 export { prepareHoleScores } from './scores';
@@ -50,6 +54,8 @@ export {
   calculateFinalPayouts,
   calculateFinalPayoutsWithCarryover,
   calculateInProgressPayouts,
+  calculatePlayedPot,
+  calculateSettledPot,
   calculateTeamFinalPayouts,
 } from './payouts';
 

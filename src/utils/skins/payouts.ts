@@ -4,10 +4,11 @@
  * Functions for calculating final payouts for individual and team skins games.
  */
 
-import type { SkinsGame, SkinsResult } from '@/types/database';
+import type { SkinsGame, SkinsPayout, SkinsResult } from '@/types/database';
 import { roundCurrency } from '../currency';
-import { calculateBuyIn } from './pot';
+import { calculateBuyIn, calculateHoleValue, calculateTotalPot } from './pot';
 import { calculateCurrentCarryover, calculateHole18Split } from './processing';
+import { DEFAULT_SKINS_HOLE_COUNTS, type SkinsHoleCounts } from './holeCounts';
 
 /**
  * Minimal participant info for payout calculations
@@ -83,6 +84,8 @@ export interface FinalTeamPayoutResult {
  * @param game - The skins game configuration
  * @param results - All hole results
  * @param participants - List of participants
+ * @param holeCounts - Holes planned (prices the pot) and played (scales it);
+ *   defaults to a full 18 played as planned
  * @returns Array of calculated payouts for each participant
  *
  * @example
@@ -92,9 +95,10 @@ export interface FinalTeamPayoutResult {
 export function calculateFinalPayouts(
   game: Pick<SkinsGame, 'pot_type' | 'pot_value' | 'participant_ids'>,
   results: Pick<SkinsResult, 'hole_number' | 'winner_id' | 'is_carryover' | 'payout_amount' | 'carryover_to_next' | 'hole_scores'>[],
-  participants: PayoutParticipant[]
+  participants: PayoutParticipant[],
+  holeCounts?: SkinsHoleCounts
 ): CalculatedPayout[] {
-  const result = calculateFinalPayoutsWithCarryover(game, results, participants);
+  const result = calculateFinalPayoutsWithCarryover(game, results, participants, holeCounts);
   return result.payouts;
 }
 
@@ -165,12 +169,63 @@ function accumulateHoleOutcomes(
   return payoutMap;
 }
 
+/**
+ * The pot actually played for.
+ * - Played as planned: the planned pot, calculateTotalPot(type, value,
+ *   plannedHoles) — unchanged from today for a full 18.
+ * - Ended early: the rounded hole price the per-hole processing paid out
+ *   (calculateHoleValue over the planned holes) × holes played, so winnings
+ *   sum to this pot exactly. Scaling the pot instead (pot × played/planned)
+ *   drifts by a cent per hole on a total pot that doesn't divide evenly.
+ */
+export function calculatePlayedPot(
+  game: Pick<SkinsGame, 'pot_type' | 'pot_value'>,
+  holeCounts: SkinsHoleCounts
+): number {
+  const { plannedHoles, holesPlayed } = holeCounts;
+  if (holesPlayed >= plannedHoles) {
+    return calculateTotalPot(game.pot_type, game.pot_value, plannedHoles);
+  }
+  return roundCurrency(calculateHoleValue(game.pot_type, game.pot_value, plannedHoles) * holesPlayed);
+}
+
+/**
+ * What a SETTLED game actually staked: the sum of its stored buy-ins. Null
+ * when the game isn't completed or its payouts aren't written yet — callers
+ * then fall back to calculatePlayedPot / a settlement preview. The single
+ * "is this game settled?" rule for every skins display.
+ */
+export function calculateSettledPot(
+  game: Pick<SkinsGame, 'status'>,
+  payouts: Pick<SkinsPayout, 'buy_in'>[] | null | undefined
+): number | null {
+  if (game.status !== 'completed' || !payouts || payouts.length === 0) return null;
+  return roundCurrency(payouts.reduce((sum, p) => sum + p.buy_in, 0));
+}
+
+/**
+ * Each participant's buy-in: the played pot split evenly. For a round played
+ * as planned this is exactly calculateBuyIn over the planned holes, so a
+ * complete 18-hole game prices as before.
+ */
+function calculateSettlementBuyIn(
+  game: Pick<SkinsGame, 'pot_type' | 'pot_value'>,
+  participantCount: number,
+  holeCounts: SkinsHoleCounts
+): number {
+  return roundCurrency(calculatePlayedPot(game, holeCounts) / participantCount);
+}
+
 export function calculateFinalPayoutsWithCarryover(
   game: Pick<SkinsGame, 'pot_type' | 'pot_value' | 'participant_ids'>,
   results: Pick<SkinsResult, 'hole_number' | 'winner_id' | 'is_carryover' | 'payout_amount' | 'carryover_to_next' | 'hole_scores'>[],
-  participants: PayoutParticipant[]
+  participants: PayoutParticipant[],
+  holeCounts: SkinsHoleCounts = DEFAULT_SKINS_HOLE_COUNTS
 ): FinalPayoutResult {
-  const buyIn = calculateBuyIn(game.pot_type, game.pot_value, participants.length);
+  // The remaining carryover is the HIGHEST hole's (calculateCurrentCarryover).
+  // Results after the last played hole don't exist at settlement: the
+  // end_round_early RPC deletes them when the round is ended.
+  const buyIn = calculateSettlementBuyIn(game, participants.length, holeCounts);
   const payoutMap = accumulateHoleOutcomes(results, participants, buyIn);
 
   // Calculate remaining carryover (from hole 18 if it was tied)
