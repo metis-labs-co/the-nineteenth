@@ -70,7 +70,7 @@ const getHandicapSystemLabel = (system: string): string => {
     case 'honor':
       return 'Honour System';
     case 'whs':
-      return 'World Handicap System';
+      return 'Profile Handicaps';
     case 'gross-only':
       return 'Gross Only';
     default:

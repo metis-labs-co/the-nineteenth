@@ -83,7 +83,7 @@ export default function ReviewStep({
   const formatHandicapSystem = (system: string) => {
     const mapping: Record<string, string> = {
       honor: 'Honour System',
-      whs: 'WHS Verified',
+      whs: 'Profile Handicaps',
       'gross-only': 'Gross Scores Only',
     };
     return mapping[system] || system;

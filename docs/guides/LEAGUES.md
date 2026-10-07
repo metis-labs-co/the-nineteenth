@@ -2,7 +2,7 @@
 
 ## Overview
 
-**Leagues** allow players to compete across any golf course using WHS (World Handicap System) handicap differentials. Instead of everyone playing the same course, players can play wherever they want and tag their completed scorecards to the league. The leaderboard ranks players by their average of their best 8 handicap differentials from their last 20 tagged rounds -- mirroring how the WHS calculates handicap indexes.
+**Leagues** allow players to compete across any golf course using score differentials. Instead of everyone playing the same course, players can play wherever they want and tag their completed scorecards to the league. The leaderboard ranks players by their average of their best 8 score differentials from their last 20 tagged rounds.
 
 ### What is a League?
 
@@ -18,7 +18,7 @@ Leagues solve a key problem for social golf groups: players rarely play the same
 
 ### How Rankings Work
 
-The leaderboard uses the WHS handicap differential formula:
+The leaderboard uses this score differential formula:
 
 ```
 Handicap Differential = (113 / Slope Rating) x (Gross Score - Course Rating)
@@ -158,7 +158,7 @@ On first visit, a "Welcome to Leagues" modal explains the feature.
 +--------------------------------------------------------------+
 ```
 
-On first visit, a "How Rankings Work" modal explains WHS differentials and the best-8-of-20 system.
+On first visit, a "How Rankings Work" modal explains score differentials and the best-8-of-20 system.
 
 ### Tagging a Round
 
@@ -760,7 +760,7 @@ The app uses `ScreenWelcomeModal` components to introduce leagues:
 | Screen | Modal Title | Content |
 |--------|-------------|---------|
 | League List | "Welcome to Leagues" | Explains cross-course competition concept |
-| League Detail | "How Rankings Work" | Explains WHS differentials and best-8-of-20 |
+| League Detail | "How Rankings Work" | Explains score differentials and best-8-of-20 |
 
 These modals show only once per user (tracked via `screenInfoStore`).
 

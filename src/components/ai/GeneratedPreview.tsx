@@ -22,7 +22,7 @@ interface GeneratedPreviewProps {
 
 const HANDICAP_LABELS: Record<string, string> = {
   honor: 'Honour System',
-  whs: 'World Handicap System',
+  whs: 'Profile Handicaps',
   'gross-only': 'Gross Only',
 };
 

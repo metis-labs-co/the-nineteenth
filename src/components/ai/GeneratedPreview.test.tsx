@@ -248,7 +248,7 @@ describe('GeneratedPreview', () => {
     it('renders handicap system label for whs', () => {
       const competition = createTestCompetition({ handicapSystem: 'whs' });
       render(<GeneratedPreview {...defaultProps} competition={competition} />);
-      expect(screen.getByText('World Handicap System')).toBeTruthy();
+      expect(screen.getByText('Profile Handicaps')).toBeTruthy();
     });
 
     it('renders handicap system label for gross-only', () => {
