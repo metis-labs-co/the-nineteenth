@@ -13,3 +13,4 @@
 | I7 stableford/par off round daily handicap | `services/scoring/StablefordEngine.test.ts` | ⬜ verify |
 | I8 differential uses WHS adjusted gross (NDB cap) | `utils/adjustedGross.test.ts`, `services/offline/calculateHandicapData.test.ts` | ✅ |
 | I9 GA handicapping score uses uncapped Rule 21.1 table | `utils/handicappingScore.test.ts` | ✅ |
+| I10 no holes remaining ⇒ "N up"/"A/S", never "N&0" | `MatchPlayScoringScreen/utils/matchPlayCalculations.test.ts`, `TeamMatchPlayScoringScreen/utils/teamMatchPlayCalculations.test.ts` | ✅ |

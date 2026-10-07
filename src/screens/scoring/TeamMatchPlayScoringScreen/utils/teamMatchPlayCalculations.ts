@@ -39,7 +39,11 @@ export function determineTeamHoleWinner(
 }
 
 /**
- * Calculate team match status from hole results
+ * Calculate team match status from hole results.
+ *
+ * `totalHoles` is the planned hole count (9 or 18). Margins:
+ * - closed out with holes still to play → "N & M"
+ * - no holes left → "N up", or "All Square" when level — never "N & 0" (I10)
  */
 export function calculateTeamMatchStatus(
   holeResults: Record<number, TeamHoleResult>,
@@ -64,20 +68,22 @@ export function calculateTeamMatchStatus(
   const holesRemaining = totalHoles - holesPlayed;
   const absLead = Math.abs(team1Up);
 
-  // Check for early finish (dormie or beyond)
-  if (absLead > holesRemaining) {
-    const winner = team1Up > 0 ? 'team1' : 'team2';
-    const margin = `${absLead} & ${holesRemaining}`;
-    return { status: 'complete', winner, margin };
-  }
-
-  // Check if all holes played
-  if (holesRemaining === 0) {
+  // No holes left to play: the leader wins "N up", level is halved. Must run
+  // BEFORE the close-out check, which would otherwise report a last-hole
+  // win as "N & 0" (invariant I10).
+  if (holesRemaining <= 0) {
     if (team1Up === 0) {
       return { status: 'complete', winner: 'halved', margin: 'All Square' };
     }
     const winner = team1Up > 0 ? 'team1' : 'team2';
     return { status: 'complete', winner, margin: `${absLead} up` };
+  }
+
+  // Closed out early: the lead is bigger than the holes left to play.
+  if (absLead > holesRemaining) {
+    const winner = team1Up > 0 ? 'team1' : 'team2';
+    const margin = `${absLead} & ${holesRemaining}`;
+    return { status: 'complete', winner, margin };
   }
 
   // Match in progress

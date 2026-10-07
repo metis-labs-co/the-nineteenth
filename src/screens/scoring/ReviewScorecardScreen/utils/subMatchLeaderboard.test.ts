@@ -74,6 +74,15 @@ describe('computeMatchPlaySubMatch', () => {
     expect(r.leaderSide).toBe('a');
     expect(r.statusText).toBe('7&2');
   });
+
+  it('reports a match decided on the last hole as "N UP", never "N&0" (I10)', () => {
+    // Level through 8; Sam wins the 9th (4 v 5).
+    const getStrokes = (pid: string, h: number) => (h === 9 && pid === 'b1' ? 5 : 4);
+    const r = computeMatchPlaySubMatch(sides, NINE, getStrokes);
+    expect(r.isComplete).toBe(true);
+    expect(r.leaderSide).toBe('a');
+    expect(r.statusText).toBe('1 UP');
+  });
 });
 
 describe('computeNetSubMatch', () => {

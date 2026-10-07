@@ -9,7 +9,7 @@ import type { Scorecard } from '@/types/database/scorecard.types';
 import { isSingleBallScore } from '@/types/database/base';
 import type { HoleScore, MultiBallHoleScore } from '@/types/database/base';
 import type { RoundRulesOverride } from '@/types/database/roundRules.types';
-import { formatMatchMargin } from '@/utils/matchMargin';
+import { formatMatchMargin, compactMatchMargin } from '@/utils/matchMargin';
 
 /** A raw hole-score value as stored on a scorecard (single- or multi-ball). */
 export type RawHoleScore = HoleScore | MultiBallHoleScore;
@@ -104,14 +104,6 @@ function toMatchSide(players: SubMatchPlayer[], id: string): MatchTeam {
   };
 }
 
-/** Normalise the engine's margin string to the compact display form. */
-function normaliseMargin(margin: string): string {
-  if (margin === 'All Square') return 'A/S';
-  if (margin.includes('&')) return margin.replace(/\s+/g, ''); // '3 & 2' -> '3&2'
-  if (margin.toLowerCase().endsWith('up')) return `${margin.split(' ')[0]} UP`; // '2 up' -> '2 UP'
-  return margin;
-}
-
 export function computeMatchPlaySubMatch(
   sides: SubMatchSides,
   holes: Hole[],
@@ -130,7 +122,7 @@ export function computeMatchPlaySubMatch(
       return { statusText: 'A/S', leaderSide: null, isComplete: true, hasScores };
     }
     return {
-      statusText: normaliseMargin(status.margin),
+      statusText: compactMatchMargin(status.margin),
       leaderSide: status.winner === 'player1' ? 'a' : 'b',
       isComplete: true,
       hasScores,

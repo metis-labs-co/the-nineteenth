@@ -572,11 +572,11 @@ describe('Match Play Scorecard Integration', () => {
       expect(status.status).toBe('complete');
       if (status.status === 'complete') {
         expect(status.winner).toBe('player2');
-        expect(status.margin).toBe('1 & 0'); // Won on final hole
+        expect(status.margin).toBe('1 up'); // Went the distance (I10)
       }
 
       const statusText = getMatchStatusText(status, 'Tiger', 'Phil');
-      expect(statusText).toBe('Phil wins 1 & 0');
+      expect(statusText).toBe('Phil wins 1 up');
     });
   });
 });

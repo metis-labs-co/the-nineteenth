@@ -14,3 +14,15 @@ export function formatMatchMargin(
   if (halved) return 'A/S';
   return holesRemaining > 0 ? `${holesUp}&${holesRemaining}` : `${holesUp} UP`;
 }
+
+/**
+ * Convert a `calculateMatchStatus` / `calculateTeamMatchStatus` margin
+ * ("3 & 2", "2 up", "All Square") to the compact token above
+ * ("3&2", "2 UP", "A/S"). Anything else passes through unchanged.
+ */
+export function compactMatchMargin(margin: string): string {
+  if (margin === 'All Square') return 'A/S';
+  if (margin.includes('&')) return margin.replace(/\s+/g, '');
+  const up = /^(\d+)\s*up$/i.exec(margin.trim());
+  return up ? `${up[1]} UP` : margin;
+}

@@ -297,12 +297,11 @@ describe('calculateTeamMatchStatus', () => {
 
     const status = calculateTeamMatchStatus(results);
 
-    // Note: Implementation uses "X & 0" format for matches decided on hole 18
-    // because absLead (2) > holesRemaining (0) is true
+    // Decided on the 18th: no holes remain, so the margin is "N up" (I10).
     expect(status.status).toBe('complete');
     if (status.status === 'complete') {
       expect(status.winner).toBe('team1');
-      expect(status.margin).toBe('2 & 0');
+      expect(status.margin).toBe('2 up');
     }
   });
 
@@ -321,6 +320,64 @@ describe('calculateTeamMatchStatus', () => {
       expect(status.holesUp).toBe(0);
       expect(status.holesRemaining).toBe(16); // Only 2 holes counted
     }
+  });
+});
+
+// ============================================================================
+// I10 — no holes remaining ⇒ "N up" / "All Square", never "N & 0"
+// ============================================================================
+
+describe('calculateTeamMatchStatus — I10: no holes remaining', () => {
+  it('reports a match won on the last hole as "N up", never "N & 0"', () => {
+    const results = createMockHoleResults([
+      ...Array.from({ length: 16 }, (_, i) => ({ hole: i + 1, winner: 'halved' as const })),
+      { hole: 17, winner: 'team1' },
+      { hole: 18, winner: 'team1' },
+    ]);
+
+    expect(calculateTeamMatchStatus(results, 18)).toEqual({
+      status: 'complete',
+      winner: 'team1',
+      margin: '2 up',
+    });
+  });
+
+  it('finishes a back-9 match decided on the 18th as "1 up"', () => {
+    const results = createMockHoleResults([
+      ...Array.from({ length: 8 }, (_, i) => ({ hole: i + 10, winner: 'halved' as const })),
+      { hole: 18, winner: 'team2' },
+    ]);
+
+    expect(calculateTeamMatchStatus(results, 9)).toEqual({
+      status: 'complete',
+      winner: 'team2',
+      margin: '1 up',
+    });
+  });
+
+  it('halves a level match with no holes remaining (characterization)', () => {
+    const results = createMockHoleResults(
+      Array.from({ length: 9 }, (_, i) => ({ hole: i + 1, winner: 'halved' as const }))
+    );
+
+    expect(calculateTeamMatchStatus(results, 9)).toEqual({
+      status: 'complete',
+      winner: 'halved',
+      margin: 'All Square',
+    });
+  });
+
+  it('never reports a negative remaining when more holes are decided than planned', () => {
+    const results = createMockHoleResults([
+      ...Array.from({ length: 9 }, (_, i) => ({ hole: i + 1, winner: 'halved' as const })),
+      { hole: 10, winner: 'team1' },
+    ]);
+
+    expect(calculateTeamMatchStatus(results, 9)).toEqual({
+      status: 'complete',
+      winner: 'team1',
+      margin: '1 up',
+    });
   });
 });
 
@@ -883,11 +940,11 @@ describe('Team Match Play Scenarios', () => {
       const status = calculateTeamMatchStatus(results);
 
       // Team1: 9, Team2: 8, Halved: 1 = Team1 wins by 1
-      // Note: Implementation uses "1 & 0" format when decided on final hole
+      // Decided on the 18th: no holes remain, so the margin is "N up" (I10).
       expect(status.status).toBe('complete');
       if (status.status === 'complete') {
         expect(status.winner).toBe('team1');
-        expect(status.margin).toBe('1 & 0');
+        expect(status.margin).toBe('1 up');
       }
 
       const count = countHolesWon(results);

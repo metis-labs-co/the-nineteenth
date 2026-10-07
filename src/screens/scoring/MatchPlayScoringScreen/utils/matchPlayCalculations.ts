@@ -18,7 +18,11 @@ export function determineHoleWinner(
 }
 
 /**
- * Calculate match status from hole results
+ * Calculate match status from hole results.
+ *
+ * `totalHoles` is the planned hole count (9 or 18). Margins:
+ * - closed out with holes still to play → "N & M"
+ * - no holes left → "N up", or "All Square" when level — never "N & 0" (I10)
  */
 export function calculateMatchStatus(
   holeResults: Record<number, HoleResult>,
@@ -44,20 +48,23 @@ export function calculateMatchStatus(
   const holesRemaining = totalHoles - holesPlayed;
   const absLead = Math.abs(player1Up);
 
-  // Check for early finish (dormie or beyond)
-  if (absLead > holesRemaining) {
-    const winner = player1Up > 0 ? 'player1' : 'player2';
-    const margin = `${absLead} & ${holesRemaining}`;
-    return { status: 'complete', winner, margin };
-  }
-
-  // Check if all holes played
-  if (holesRemaining === 0) {
+  // No holes left to play: the match went the distance, so the leader wins
+  // "N up" and a level match is halved. This must run BEFORE the close-out
+  // check — with 0 remaining any lead is "> holesRemaining", which used to
+  // report a last-hole win as "N & 0" (invariant I10).
+  if (holesRemaining <= 0) {
     if (player1Up === 0) {
       return { status: 'complete', winner: 'halved', margin: 'All Square' };
     }
     const winner = player1Up > 0 ? 'player1' : 'player2';
     return { status: 'complete', winner, margin: `${absLead} up` };
+  }
+
+  // Closed out early: the lead is bigger than the holes left to play.
+  if (absLead > holesRemaining) {
+    const winner = player1Up > 0 ? 'player1' : 'player2';
+    const margin = `${absLead} & ${holesRemaining}`;
+    return { status: 'complete', winner, margin };
   }
 
   // Match in progress

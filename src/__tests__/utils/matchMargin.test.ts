@@ -1,4 +1,4 @@
-import { formatMatchMargin } from '@/utils/matchMargin';
+import { formatMatchMargin, compactMatchMargin } from '@/utils/matchMargin';
 
 describe('formatMatchMargin', () => {
   it('formats a dormie win as "X&Y"', () => {
@@ -12,5 +12,20 @@ describe('formatMatchMargin', () => {
   it('formats a halved match as "A/S"', () => {
     expect(formatMatchMargin(0, 0, true)).toBe('A/S');
     expect(formatMatchMargin(5, 3, true)).toBe('A/S');
+  });
+});
+
+describe('compactMatchMargin', () => {
+  it('compacts an engine close-out "N & M" to "N&M"', () => {
+    expect(compactMatchMargin('3 & 2')).toBe('3&2');
+  });
+  it('upper-cases an engine "N up" to "N UP"', () => {
+    expect(compactMatchMargin('2 up')).toBe('2 UP');
+  });
+  it('maps "All Square" to "A/S"', () => {
+    expect(compactMatchMargin('All Square')).toBe('A/S');
+  });
+  it('passes an unrecognised string through unchanged', () => {
+    expect(compactMatchMargin('DNF')).toBe('DNF');
   });
 });
