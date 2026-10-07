@@ -167,6 +167,7 @@ export async function initializeRound(
       nineType,
       startHole,
       scoringMode,
+      submittedElsewhereRoundId: null,
       isLoading: false,
       isInitialized: true,
     });
@@ -481,6 +482,7 @@ export async function loadFromOffline(
       nineType,
       startHole,
       scoringMode,
+      submittedElsewhereRoundId: null,
       isLoading: false,
       isInitialized: true,
     });

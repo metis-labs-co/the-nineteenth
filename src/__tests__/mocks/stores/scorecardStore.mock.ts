@@ -18,7 +18,7 @@ export interface MockScorecardState {
   roundId: string | null;
   competitionId: string | null;
   scoringMode: ScoringMode;
-  submittedElsewhere: boolean;
+  submittedElsewhereRoundId: string | null;
   mergeRemoteScorecard: (...args: any[]) => Promise<void>; // eslint-disable-line @typescript-eslint/no-explicit-any
   pullServerScorecards: (...args: any[]) => Promise<void>; // eslint-disable-line @typescript-eslint/no-explicit-any
   courseName: string | null;
@@ -75,7 +75,7 @@ export function createMockScorecardStore(
     roundId: 'round-1',
     competitionId: 'comp-1',
     scoringMode: 'standard',
-    submittedElsewhere: false,
+    submittedElsewhereRoundId: null,
     mergeRemoteScorecard: jest.fn(() => Promise.resolve()),
     pullServerScorecards: jest.fn(() => Promise.resolve()),
     courseName: 'Test Golf Course',

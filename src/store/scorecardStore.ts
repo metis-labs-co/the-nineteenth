@@ -60,8 +60,9 @@ interface ScorecardState {
    *  displayHoleNumber() in src/utils/holeTransformers.ts. */
   startHole: number;
   scoringMode: ScoringMode;
-  /** A remote row turned the last open group card final (another phone submitted). */
-  submittedElsewhere: boolean;
+  /** Round whose last open group card a remote row turned final (another phone
+   *  submitted). Round-scoped so it can never fire for a different round. */
+  submittedElsewhereRoundId: string | null;
 
   // Multi-ball scoring (solo rounds only)
   ballCount: BallCount;
@@ -201,7 +202,10 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
     cards.set(row.player_id, next);
     const allFinal = [...cards.values()].every((c) => isFinalStatus(c.status));
     // Never while this phone submits: its own pull/echoes are not "another phone".
-    set({ groupScorecards: cards, ...(result.becameFinal && allFinal && !submitting ? { submittedElsewhere: true } : {}) });
+    set({
+      groupScorecards: cards,
+      ...(result.becameFinal && allFinal && !submitting ? { submittedElsewhereRoundId: state.currentRoundId } : {}),
+    });
 
     // Nothing local is ahead → persist it as synced at the server revision in the
     // SAME write, so no sync pass (queue or completed-card fallback) can re-upload
@@ -304,7 +308,7 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
     nineType: 'full' as NineType,
     startHole: 1,
     scoringMode: 'standard' as ScoringMode,
-    submittedElsewhere: false,
+    submittedElsewhereRoundId: null,
     ballCount: 1,
     isMultiBall: false,
     groupScorecards: new Map(),
@@ -688,7 +692,7 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
         nineType: 'full' as NineType,
         startHole: 1,
         scoringMode: 'standard' as ScoringMode,
-        submittedElsewhere: false,
+        submittedElsewhereRoundId: null,
         ballCount: 1,
         isMultiBall: false,
         groupScorecards: new Map(),

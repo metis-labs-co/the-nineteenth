@@ -295,6 +295,13 @@ describe('ScorecardStore', () => {
       expect(s.allowedPlayerIds).toEqual([]);
       expect(s.failedSyncCount).toBe(0);
       expect(s.groupScorecards.size).toBe(0);
+      expect(s.submittedElsewhereRoundId).toBeNull();
+    });
+
+    it('initializeRound clears a submitted-elsewhere flag left by another round', async () => {
+      useScorecardStore.setState({ submittedElsewhereRoundId: 'other-round' });
+      await getStore().initializeRound(testRoundId, testPlayers, testHoles, 'stroke');
+      expect(getStore().submittedElsewhereRoundId).toBeNull();
     });
 
     it('setPlayerScore keeps existing putts and records the scorer', async () => {
@@ -597,12 +604,12 @@ describe('ScorecardStore', () => {
       expect(queueScorecardSync).not.toHaveBeenCalled();
     });
 
-    it('sets submittedElsewhere once every group card became final remotely', async () => {
+    it('records the round as submitted elsewhere once every group card became final remotely', async () => {
       await init();
       for (const player of testPlayers) {
         await getStore().mergeRemoteScorecard({ player_id: player.id, scores: {}, revision: 3, status: 'completed' });
       }
-      expect(getStore().submittedElsewhere).toBe(true);
+      expect(getStore().submittedElsewhereRoundId).toBe(testRoundId);
     });
 
     it('does nothing in a standard round', async () => {
@@ -658,7 +665,7 @@ describe('ScorecardStore', () => {
       expect(saveScorecard).not.toHaveBeenCalled();
       await getStore().mergeRemoteScorecard({ player_id: p, scores: { '1': { strokes: 4 } }, revision: 6, status: 'completed' }); // newer final
       expect(saveScorecard).toHaveBeenCalledTimes(1);
-      expect(getStore().submittedElsewhere).toBe(false); // was already final locally
+      expect(getStore().submittedElsewhereRoundId).toBeNull(); // was already final locally
     });
   });
 
@@ -738,6 +745,18 @@ describe('ScorecardStore', () => {
       await getStore().loadFromOffline(testRoundId);
 
       expect(getStore().scoringMode).toBe('social');
+    });
+
+    it('clears a submitted-elsewhere flag left by another round', async () => {
+      (getScorecardsByRound as jest.Mock)
+        .mockReset()
+        .mockResolvedValue(createMockScorecards(testPlayers, testRoundId));
+      (getHoles as jest.Mock).mockReset().mockResolvedValue(testHoles);
+      useScorecardStore.setState({ submittedElsewhereRoundId: 'other-round' });
+
+      await getStore().loadFromOffline(testRoundId);
+
+      expect(getStore().submittedElsewhereRoundId).toBeNull();
     });
 
     // Regression: a round opened on the device long ago freezes each player's
@@ -1533,7 +1552,7 @@ describe('ScorecardStore', () => {
       const result = await getStore().submitScorecards();
       expect(result).toEqual({ alreadySubmitted: true });
       expect(syncScorecard).not.toHaveBeenCalled();
-      expect(getStore().submittedElsewhere).toBe(false); // the caller's success navigation handles it
+      expect(getStore().submittedElsewhereRoundId).toBeNull(); // the caller's success navigation handles it
     });
 
     it('a retry after a failed submit still submits (local completed ≠ server final)', async () => {
@@ -1553,7 +1572,7 @@ describe('ScorecardStore', () => {
         return { serverRevision: 5 };
       });
       await getStore().submitScorecards();
-      expect(getStore().submittedElsewhere).toBe(false);
+      expect(getStore().submittedElsewhereRoundId).toBeNull();
     });
 
     it('submits even when the pre-submit pull fails (weak signal)', async () => {
@@ -2298,8 +2317,8 @@ describe('ScorecardStore', () => {
         expect(Object.keys(phoneA.getState().groupScorecards.get(pl.id)!.scores)).toHaveLength(testHoles.length);
         expect(phoneA.getState().groupScorecards.get(pl.id)!.scores).toEqual(getStore().groupScorecards.get(pl.id)!.scores);
       }
-      expect(phoneA.getState().submittedElsewhere).toBe(true);
-      expect(getStore().submittedElsewhere).toBe(false);
+      expect(phoneA.getState().submittedElsewhereRoundId).toBe(testRoundId);
+      expect(getStore().submittedElsewhereRoundId).toBeNull();
       (saveScorecard as jest.Mock).mockClear();
       (queueScorecardSync as jest.Mock).mockClear();
       for (const r of rows()) {
