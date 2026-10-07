@@ -75,11 +75,7 @@ export const PlayerSelector = memo(function PlayerSelector<T extends SelectableP
   const filteredPlayers = useMemo(() => {
     if (!searchable || !searchQuery.trim()) return players;
     const query = searchQuery.toLowerCase();
-    return players.filter(
-      (player) =>
-        player.name.toLowerCase().includes(query) ||
-        player.email?.toLowerCase().includes(query)
-    );
+    return players.filter((player) => player.name.toLowerCase().includes(query));
   }, [players, searchQuery, searchable]);
 
   // Get selected players objects

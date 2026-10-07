@@ -165,7 +165,6 @@ export async function fetchCompetitionDetails(competitionId: string): Promise<Co
       players!player_id (
         id,
         name,
-        email,
         handicap,
         photo_url
       )
@@ -195,7 +194,6 @@ export async function fetchCompetitionDetails(competitionId: string): Promise<Co
     players: {
       id: string;
       name: string;
-      email: string | null;
       handicap: number | null;
       photo_url: string | null;
     } | null;

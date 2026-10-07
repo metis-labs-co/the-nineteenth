@@ -22,6 +22,7 @@ import type {
   PlaceholderPlayerInput,
   LinkPlaceholderResult,
 } from '@/types/database.types';
+import { PUBLIC_PLAYER_COLUMNS } from '@/services/api/playerColumns';
 
 const logger = createModuleLogger('PlaceholderPlayers');
 
@@ -101,7 +102,7 @@ export function useCreatePlaceholderPlayer() {
       // Fetch the full player record
       const { data: player, error: fetchError } = await supabase
         .from('players')
-        .select('*')
+        .select(PUBLIC_PLAYER_COLUMNS)
         .eq('id', data)
         .single();
 
@@ -423,7 +424,7 @@ export function useUpdatePlaceholderPlayer() {
         .eq('is_placeholder', true)
         .eq('created_by', user.id)
         .is('linked_player_id', null)
-        .select()
+        .select(PUBLIC_PLAYER_COLUMNS)
         .single();
 
       if (error) {

@@ -414,10 +414,9 @@ describe('FriendSelector', () => {
       expect(screen.queryByTestId('friend-item-friend-3')).toBeNull();
     });
 
-    it('filters friends by email', () => {
+    it('does not search by email (email is private)', () => {
       render(<FriendSelector {...defaultProps} searchQuery="jane@" />);
-      expect(screen.getByTestId('friend-item-friend-2')).toBeTruthy();
-      expect(screen.queryByTestId('friend-item-friend-1')).toBeNull();
+      expect(screen.queryByTestId('friend-item-friend-2')).toBeNull();
     });
 
     it('search is case insensitive', () => {

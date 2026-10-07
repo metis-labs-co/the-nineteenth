@@ -27,6 +27,7 @@ import type {
   RoundRulesOverride,
 } from '@/types/database.types';
 import type { IndividualPointsRule } from '@/types/database/roundRules.types';
+import { PUBLIC_PLAYER_COLUMNS } from '@/services/api/playerColumns';
 
 // =====================================================
 // TYPES
@@ -354,8 +355,8 @@ export async function getRoundResults(roundId: string): Promise<RoundResultWithP
     .from('round_results')
     .select(`
       *,
-      player:players (*),
-      team:teams (*, team_members (team_id, player_id, joined_at, player:players (*)))
+      player:players(${PUBLIC_PLAYER_COLUMNS}),
+      team:teams (*, team_members (team_id, player_id, joined_at, player:players(${PUBLIC_PLAYER_COLUMNS})))
     `)
     .eq('round_id', roundId)
     .order('position', { ascending: true, nullsFirst: false });
@@ -392,8 +393,8 @@ export async function getCompetitionResults(competitionId: string): Promise<Comp
     .from('round_results')
     .select(`
       *,
-      player:players (*),
-      team:teams (*, team_members (team_id, player_id, joined_at, player:players (*)))
+      player:players(${PUBLIC_PLAYER_COLUMNS}),
+      team:teams (*, team_members (team_id, player_id, joined_at, player:players(${PUBLIC_PLAYER_COLUMNS})))
     `)
     .in('round_id', typedRounds.map((r) => r.id))
     .order('position', { ascending: true, nullsFirst: false });

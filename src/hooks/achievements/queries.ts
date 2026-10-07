@@ -317,6 +317,7 @@ export function useAchievementLeaderboard(
         total_points: number;
         achievements_earned: number;
         last_achievement_at: string | null;
+        is_anonymous?: boolean | null;
       }
 
       return ((data ?? []) as LeaderboardRow[]).map((row) => ({
@@ -327,6 +328,7 @@ export function useAchievementLeaderboard(
         total_points: row.total_points,
         achievements_earned: row.achievements_earned,
         last_achievement_at: row.last_achievement_at,
+        is_anonymous: row.is_anonymous ?? false,
       }));
     },
     enabled: !!user?.id && (scope !== 'competition' || !!competitionId),

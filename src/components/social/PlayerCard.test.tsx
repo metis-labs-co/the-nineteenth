@@ -106,7 +106,6 @@ jest.mock('@/components/common/GolferIcon', () => {
 const createPlayer = (overrides: Partial<PlayerCardData> = {}): PlayerCardData => ({
   id: 'player-1',
   name: 'John Smith',
-  email: 'john@example.com',
   handicap: 12,
   photo_url: null,
   ...overrides,
@@ -155,9 +154,11 @@ describe('PlayerCard', () => {
       expect(screen.getByText('John Smith')).toBeTruthy();
     });
 
-    it('renders player email when showEmail is true (default)', () => {
-      render(<PlayerCard {...defaultProps} />);
-      expect(screen.getByText('john@example.com')).toBeTruthy();
+    it('never renders an email address, even if one is passed in', () => {
+      // Other players' email is private; the card has no email slot at all.
+      const player = { ...createPlayer(), email: 'john@example.com' } as PlayerCardData;
+      render(<PlayerCard player={player} />);
+      expect(screen.queryByText('john@example.com')).toBeNull();
     });
 
     it('renders player handicap when showHandicap is true (default)', () => {
@@ -190,21 +191,7 @@ describe('PlayerCard', () => {
     it('displays full player information', () => {
       render(<PlayerCard {...defaultProps} />);
       expect(screen.getByText('John Smith')).toBeTruthy();
-      expect(screen.getByText('john@example.com')).toBeTruthy();
       expect(screen.getByText('HC: 12')).toBeTruthy();
-    });
-
-    it('handles player with null email', () => {
-      const player = createPlayer({ email: null });
-      render(<PlayerCard player={player} />);
-      expect(screen.getByText('John Smith')).toBeTruthy();
-      expect(screen.queryByText('john@example.com')).toBeNull();
-    });
-
-    it('handles player with undefined email', () => {
-      const player = createPlayer({ email: undefined });
-      render(<PlayerCard player={player} />);
-      expect(screen.getByText('John Smith')).toBeTruthy();
     });
 
     it('handles player with null handicap', () => {
@@ -250,28 +237,10 @@ describe('PlayerCard', () => {
   // ==========================================================================
 
   describe('Show/Hide Options', () => {
-    it('hides email when showEmail is false', () => {
-      render(<PlayerCard {...defaultProps} showEmail={false} />);
-      expect(screen.getByText('John Smith')).toBeTruthy();
-      expect(screen.queryByText('john@example.com')).toBeNull();
-    });
-
     it('hides handicap when showHandicap is false', () => {
       render(<PlayerCard {...defaultProps} showHandicap={false} />);
       expect(screen.getByText('John Smith')).toBeTruthy();
       expect(screen.queryByText(/HC:/)).toBeNull();
-    });
-
-    it('hides both email and handicap when both are false', () => {
-      render(<PlayerCard {...defaultProps} showEmail={false} showHandicap={false} />);
-      expect(screen.getByText('John Smith')).toBeTruthy();
-      expect(screen.queryByText('john@example.com')).toBeNull();
-      expect(screen.queryByText(/HC:/)).toBeNull();
-    });
-
-    it('shows email when showEmail is true explicitly', () => {
-      render(<PlayerCard {...defaultProps} showEmail={true} />);
-      expect(screen.getByText('john@example.com')).toBeTruthy();
     });
 
     it('shows handicap when showHandicap is true explicitly', () => {
@@ -463,7 +432,6 @@ describe('PlayerCard', () => {
         />
       );
       expect(screen.getByText('John Smith')).toBeTruthy();
-      expect(screen.getByText('john@example.com')).toBeTruthy();
       expect(screen.getByText('HC: 12')).toBeTruthy();
     });
 
@@ -542,16 +510,6 @@ describe('PlayerCard', () => {
       expect(screen.getByText('Alexander Benjamin Christopher Davidson Emmanuel')).toBeTruthy();
     });
 
-    it('handles player with very long email', () => {
-      const player = createPlayer({
-        email: 'very.long.email.address.that.goes.on.forever@example.com',
-      });
-      render(<PlayerCard player={player} />);
-      expect(
-        screen.getByText('very.long.email.address.that.goes.on.forever@example.com')
-      ).toBeTruthy();
-    });
-
     it('handles player with special characters in name', () => {
       const player = createPlayer({ name: "O'Brien-Smith" });
       render(<PlayerCard player={player} />);
@@ -596,7 +554,6 @@ describe('PlayerCard', () => {
     it('renders consistently with same props', () => {
       const props: PlayerCardProps = {
         player: createPlayer(),
-        showEmail: true,
         showHandicap: true,
       };
 
@@ -632,7 +589,6 @@ describe('PlayerCard', () => {
           player={createPlayer()}
           variant="list-item"
           showHandicap={true}
-          showEmail={false}
         />
       );
       expect(screen.getByText('John Smith')).toBeTruthy();
@@ -685,12 +641,10 @@ describe('PlayerCard', () => {
         <PlayerCard
           player={createPlayer()}
           variant="card"
-          showEmail={true}
           showHandicap={true}
         />
       );
       expect(screen.getByText('John Smith')).toBeTruthy();
-      expect(screen.getByText('john@example.com')).toBeTruthy();
       expect(screen.getByText('HC: 12')).toBeTruthy();
     });
 
@@ -701,12 +655,11 @@ describe('PlayerCard', () => {
           player={createPlayer()}
           variant="list-item"
           onPress={onSelect}
-          showEmail={true}
           showHandicap={false}
         />
       );
       expect(screen.getByText('John Smith')).toBeTruthy();
-      expect(screen.getByText('john@example.com')).toBeTruthy();
+      expect(screen.queryByText('john@example.com')).toBeNull();
     });
 
     it('renders player with profile photo', () => {
@@ -741,7 +694,6 @@ describe('PlayerCard', () => {
       render(
         <PlayerCard
           player={createPlayer()}
-          showEmail={false}
           showHandicap={false}
         />
       );
@@ -773,7 +725,6 @@ describe('PlayerCard', () => {
           badge={badge}
           rightAction={rightAction}
           variant="card"
-          showEmail={true}
           showHandicap={true}
           handicapColor="#22C55E"
           testID="full-card"

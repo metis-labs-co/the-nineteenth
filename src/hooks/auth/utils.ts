@@ -12,6 +12,43 @@ import type { Player } from '@/types/database.types';
 // (gender, handicap_index, handicap_index_updated_at, push_league_updates)
 type PlayerInsert = Omit<Player, 'created_at' | 'updated_at'>;
 
+/**
+ * Fetch the signed-in user's own full player row, including private columns
+ * (email, phone, country, age_*, push_*).
+ *
+ * Other users' rows are read with PUBLIC_PLAYER_COLUMNS only; private columns
+ * are reachable solely through the `get_my_player` RPC, which is scoped to
+ * auth.uid() on the server. See services/api/playerColumns.ts.
+ */
+export async function fetchMyPlayer(): Promise<Player | null> {
+  // get_my_player isn't in the generated types yet
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)('get_my_player').maybeSingle();
+  if (error) {
+    // Server without get_my_player yet (migration 20261008000000 not applied):
+    // the column lock can't be live either, so read the own row directly.
+    if (error.code === 'PGRST202' || error.code === '42883') {
+      return fetchMyPlayerDirect();
+    }
+    throw error;
+  }
+  return (data as Player | null) ?? null;
+}
+
+async function fetchMyPlayerDirect(): Promise<Player | null> {
+  const { data: auth } = await supabase.auth.getUser();
+  const userId = auth.user?.id;
+  if (!userId) return null;
+  const { data, error } = await supabase
+    .from('players')
+    // Own row only, and only on servers that predate the column lock
+    .select('*')
+    .eq('id', userId)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as Player | null) ?? null;
+}
+
 interface UserMetadata {
   name?: string;
   handicap?: number;
@@ -38,25 +75,24 @@ export async function ensurePlayerProfile(
   if (!userId) return null;
 
   // First, try to fetch existing profile
-  const { data: existingProfile, error: _fetchError } = await supabase
-    .from('players')
-    .select('*')
-    .eq('id', userId)
-    .single();
+  let existingProfile: Player | null = null;
+  try {
+    existingProfile = await fetchMyPlayer();
+  } catch {
+    existingProfile = null;
+  }
 
-  if (existingProfile) {
-    const existing = existingProfile as Player;
+  if (existingProfile && existingProfile.id === userId) {
+    const existing = existingProfile;
     // Backfill country once when missing — pre-2026-05 users and any social
     // signups predating the country capture have country=NULL until they
     // log in from a device with a detectable region.
     if (userMetadata?.country && !existing.country) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: updated } = await (supabase.from('players') as any)
+      const { error: updateError } = await (supabase.from('players') as any)
         .update({ country: userMetadata.country })
-        .eq('id', userId)
-        .select()
-        .single();
-      if (updated) return updated as Player;
+        .eq('id', userId);
+      if (!updateError) return { ...existing, country: userMetadata.country };
     }
     return existing;
   }
@@ -93,15 +129,23 @@ export async function ensurePlayerProfile(
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: newProfile, error: insertError } = await (supabase.from('players') as any)
-    .upsert(playerData, { onConflict: 'id' })
-    .select()
-    .single();
+  // Insert-if-missing (ON CONFLICT DO NOTHING). A DO UPDATE upsert that
+  // sets private columns (email, phone, country, ...) is rejected under the
+  // players column grants, and if the signup trigger created the row in the
+  // meantime its values win, same as reading the existing row above.
+  const { error: insertError } = await (supabase.from('players') as any)
+    .upsert(playerData, { onConflict: 'id', ignoreDuplicates: true });
 
   if (insertError) {
     console.error('[ensurePlayerProfile] Failed to create fallback player profile:', insertError);
     return null;
   }
 
-  return newProfile as Player;
+  // Re-read through the own-row RPC (private columns aren't selectable directly)
+  try {
+    return (await fetchMyPlayer()) ?? null;
+  } catch (fetchError) {
+    console.error('[ensurePlayerProfile] Failed to read created player profile:', fetchError);
+    return null;
+  }
 }

@@ -11,15 +11,20 @@
 
 import { fetchPlayerProfile } from '@/hooks/auth/useAuthUser';
 
-// Mock the Supabase client's players query chain.
+// Mock the Supabase client's get_my_player RPC (own row incl. private columns).
 const mockMaybeSingle = jest.fn();
+const mockRpc = jest.fn((_fn: string) => ({
+  maybeSingle: () => mockMaybeSingle(),
+}));
+const mockDirectMaybeSingle = jest.fn();
+const mockFrom = jest.fn((_table: string) => ({
+  select: () => ({ eq: () => ({ maybeSingle: () => mockDirectMaybeSingle() }) }),
+}));
 jest.mock('@/services/supabase/client', () => ({
   supabase: {
-    from: jest.fn(() => ({
-      select: jest.fn().mockReturnThis(),
-      eq: jest.fn().mockReturnThis(),
-      maybeSingle: () => mockMaybeSingle(),
-    })),
+    rpc: (fn: string) => mockRpc(fn),
+    from: (table: string) => mockFrom(table),
+    auth: { getUser: () => Promise.resolve({ data: { user: { id: 'u1' } } }) },
   },
 }));
 
@@ -31,6 +36,25 @@ describe('fetchPlayerProfile', () => {
     mockMaybeSingle.mockResolvedValue({ data: player, error: null });
 
     await expect(fetchPlayerProfile('u1')).resolves.toEqual(player);
+    expect(mockRpc).toHaveBeenCalledWith('get_my_player');
+  });
+
+  it('falls back to a direct own-row read when get_my_player is not deployed', async () => {
+    mockMaybeSingle.mockResolvedValue({
+      data: null,
+      error: { code: 'PGRST202', message: 'Could not find the function public.get_my_player' },
+    });
+    const player = { id: 'u1', handicap: 10 };
+    mockDirectMaybeSingle.mockResolvedValue({ data: player, error: null });
+
+    await expect(fetchPlayerProfile('u1')).resolves.toEqual(player);
+    expect(mockFrom).toHaveBeenCalledWith('players');
+  });
+
+  it('returns null if the RPC row belongs to a different user', async () => {
+    mockMaybeSingle.mockResolvedValue({ data: { id: 'someone-else' }, error: null });
+
+    await expect(fetchPlayerProfile('u1')).resolves.toBeNull();
   });
 
   it('returns null when the row genuinely does not exist (no row, no error)', async () => {

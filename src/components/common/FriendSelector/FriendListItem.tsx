@@ -1,7 +1,7 @@
 /**
  * FriendListItem - Friend card with selection capability
  *
- * Displays friend info (avatar, name, email, handicap) with a circular
+ * Displays friend info (avatar, name, handicap) with a circular
  * selection button. Consistent design across round and competition flows.
  */
 
@@ -96,18 +96,6 @@ export const FriendListItem = memo(function FriendListItem({
                 />
               )}
             </View>
-            {friend.email && (
-              <Text
-                style={[
-                  styles.email,
-                  { color: colors.textSecondary },
-                  isDisabled && { color: colors.textDisabled },
-                ]}
-                numberOfLines={1}
-              >
-                {friend.email}
-              </Text>
-            )}
             {(friend.handicap != null || friend.handicap_index != null) && (
               <Text
                 style={[
@@ -172,10 +160,6 @@ const styles = StyleSheet.create({
   name: {
     ...typography.bodyBold,
     flexShrink: 1,
-  },
-  email: {
-    ...typography.small,
-    marginTop: spacing.xs,
   },
   handicap: {
     ...typography.small,

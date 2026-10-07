@@ -104,25 +104,6 @@ exports[`FriendListItem Snapshots matches snapshot for default state 1`] = `
         </Text>
       </View>
       <Text
-        numberOfLines={1}
-        style={
-          [
-            {
-              "fontSize": 14,
-              "fontWeight": "400",
-              "lineHeight": 20,
-              "marginTop": 4,
-            },
-            {
-              "color": "#757575",
-            },
-            false,
-          ]
-        }
-      >
-        john@example.com
-      </Text>
-      <Text
         style={
           [
             {
@@ -273,27 +254,6 @@ exports[`FriendListItem Snapshots matches snapshot for disabled state 1`] = `
         </Text>
       </View>
       <Text
-        numberOfLines={1}
-        style={
-          [
-            {
-              "fontSize": 14,
-              "fontWeight": "400",
-              "lineHeight": 20,
-              "marginTop": 4,
-            },
-            {
-              "color": "#757575",
-            },
-            {
-              "color": "#9E9E9E",
-            },
-          ]
-        }
-      >
-        john@example.com
-      </Text>
-      <Text
         style={
           [
             {
@@ -443,25 +403,6 @@ exports[`FriendListItem Snapshots matches snapshot for selected state 1`] = `
           John Smith
         </Text>
       </View>
-      <Text
-        numberOfLines={1}
-        style={
-          [
-            {
-              "fontSize": 14,
-              "fontWeight": "400",
-              "lineHeight": 20,
-              "marginTop": 4,
-            },
-            {
-              "color": "#757575",
-            },
-            false,
-          ]
-        }
-      >
-        john@example.com
-      </Text>
       <Text
         style={
           [
@@ -620,25 +561,6 @@ exports[`FriendListItem Snapshots matches snapshot with pending badge 1`] = `
           </Text>
         </View>
       </View>
-      <Text
-        numberOfLines={1}
-        style={
-          [
-            {
-              "fontSize": 14,
-              "fontWeight": "400",
-              "lineHeight": 20,
-              "marginTop": 4,
-            },
-            {
-              "color": "#757575",
-            },
-            false,
-          ]
-        }
-      >
-        john@example.com
-      </Text>
       <Text
         style={
           [

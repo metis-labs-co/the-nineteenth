@@ -16,6 +16,7 @@ import { useWolfStatistics, useWolfGameHistory } from '@/hooks/wolf';
 import type { Round, Course, Scorecard, Player, Club, Pairing, Competition, Tee, TeeBox } from '@/types/database.types';
 import type { SkinsPlayerStatistics, SkinsGameHistoryEntry } from '@/hooks/skins';
 import type { WolfPlayerStatistics, WolfGameHistoryEntry } from '@/hooks/wolf';
+import { PUBLIC_PLAYER_COLUMNS } from '@/services/api/playerColumns';
 
 // =====================================================
 // TYPES - Round Details
@@ -134,7 +135,7 @@ async function fetchRoundScorecards(roundId: string): Promise<ScorecardWithPlaye
     .from('scorecards')
     .select(`
       *,
-      players!player_id (*)
+      players!player_id(${PUBLIC_PLAYER_COLUMNS})
     `)
     .eq('round_id', roundId)
     .order('total_points', { ascending: false });
@@ -227,7 +228,7 @@ async function fetchRoundPlayers(roundId: string): Promise<RoundPlayer[]> {
   // 3. Fetch player details
   const { data: playersData, error: playersError } = await supabase
     .from('players')
-    .select('*')
+    .select(PUBLIC_PLAYER_COLUMNS)
     .in('id', Array.from(playerIds));
 
   if (playersError) {

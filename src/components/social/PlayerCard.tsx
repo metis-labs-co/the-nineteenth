@@ -16,7 +16,6 @@ import { StatusBadge } from '@/components/common/StatusBadge';
 export interface PlayerCardData {
   id: string;
   name: string;
-  email?: string | null;
   handicap?: number | null; // WHS Handicap Index (profile)
   handicap_index?: number | null; // Social Handicap Index (calculated from app rounds)
   photo_url?: string | null;
@@ -50,10 +49,6 @@ export interface PlayerCardProps {
    * Optional right action component (e.g., remove button, chevron)
    */
   rightAction?: React.ReactNode;
-  /**
-   * Whether to show email (default: true)
-   */
-  showEmail?: boolean;
   /**
    * Whether to show handicap (default: true)
    */
@@ -97,7 +92,6 @@ export interface PlayerCardProps {
  *   player={{
  *     id: '1',
  *     name: 'John Smith',
- *     email: 'john@example.com',
  *     handicap: 12,
  *     photo_url: null,
  *   }}
@@ -117,7 +111,6 @@ export const PlayerCard = React.memo(function PlayerCard({
   onPress,
   badge,
   rightAction,
-  showEmail = true,
   showHandicap = true,
   handicapColor,
   testID,
@@ -169,14 +162,6 @@ export const PlayerCard = React.memo(function PlayerCard({
             />
           )}
         </View>
-        {showEmail && player.email && (
-          <Text
-            style={[styles.email, { color: colors.textSecondary }]}
-            numberOfLines={1}
-          >
-            {player.email}
-          </Text>
-        )}
         {showHandicap && (player.handicap != null || player.handicap_index != null) && (
           <View style={styles.handicapRow}>
             <Text style={[styles.handicap, { color: handicapColor || colors.textSecondary }]}>
@@ -256,10 +241,6 @@ const styles = StyleSheet.create({
   name: {
     ...typography.bodyBold,
     flex: 1,
-  },
-  email: {
-    ...typography.small,
-    marginTop: spacing.xs,
   },
   handicapRow: {
     flexDirection: 'row',

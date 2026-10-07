@@ -20,8 +20,10 @@ import type { BallCount } from '@/types/multiball.types';
 export interface SupabasePlayerData {
   id: string;
   name: string;
-  email: string | null;
-  phone: string | null;
+  /** Never selected for other players (private column); kept optional for callers */
+  email?: string | null;
+  /** Never selected for other players (private column); kept optional for callers */
+  phone?: string | null;
   handicap: number | null;
   handicap_index?: number | null; // Social Handicap Index (calculated from app rounds)
   gender?: PlayerGender | null; // For WHS Daily Handicap consistency factor
@@ -176,8 +178,6 @@ export const TEAMS_WITH_MEMBERS_SELECT = `
     players!player_id (
       id,
       name,
-      email,
-      phone,
       handicap,
       handicap_index,
       gender,
@@ -194,8 +194,6 @@ export const COMPETITION_PLAYERS_SELECT = `
   players!player_id (
     id,
     name,
-    email,
-    phone,
     handicap,
     handicap_index,
     gender
@@ -214,7 +212,7 @@ export function createDBPlayer(data: SupabasePlayerData): DBPlayer {
     id: data.id,
     name: data.name,
     email: data.email || '',
-    phone: data.phone,
+    phone: data.phone ?? null,
     handicap: data.handicap,
     gender: data.gender ?? null, // For WHS Daily Handicap consistency factor
     photo_url: data.photo_url ?? null,
