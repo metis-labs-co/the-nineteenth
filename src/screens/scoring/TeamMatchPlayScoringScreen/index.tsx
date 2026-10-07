@@ -15,7 +15,7 @@
  */
 
 import { deriveScoringMode } from '@/utils/scoringMode';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { LoadingSpinner, ConfirmationDialog } from '@/components/common';
@@ -33,7 +33,7 @@ import { useCompetitionInfo } from '@/hooks/competitions';
 import { useAuth } from '@/hooks/useAuth';
 import { calculatePlayingHandicap } from '@/hooks/usePlayingHandicap';
 import { useProcessSkinsIfNeeded, useOnlineStatus } from '@/hooks';
-import { useOfflineSync, useLiveScorecardMerge } from '@/hooks/scorecard';
+import { useOfflineSync, useLiveScorecardMerge, pullOnOpenIfSocial } from '@/hooks/scorecard';
 import { teamMatchPlayLogger } from '@/utils/debugLogger';
 import type { RootStackScreenProps } from '@/navigation/types';
 import type { Player, TeeBox } from '@/types';
@@ -47,7 +47,6 @@ import { DEFAULT_HOLES, MIN_SCORE, MAX_SCORE } from './constants';
 import { useTeamMatchPlayScores, useTeamMatchPlayState, useTeamMatchPlayNavigation } from './hooks';
 import type { MatchTeam } from './types';
 import { toMatchTeam } from './types';
-import { pullOnOpenIfSocial } from '@/hooks/scorecard/pullOnOpenIfSocial';
 
 type Props = RootStackScreenProps<'MatchPlayScoring'>;
 
@@ -195,27 +194,22 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
       }
 
       const loaded = await loadFromOffline(roundId);
-      if (cancelled) return;
+      if (cancelled || loaded) return;
 
-      if (!loaded) {
-        await initializeRound(
-          roundId,
-          players,
-          holes,
-          'match-play',
-          false,
-          [],
-          selectedTeeBox ?? null,
-          handicapSource,
-          new Map(),
-          'full',
-          1,
-          deriveScoringMode(roundData)
-        );
-      }
-
-      if (cancelled) return;
-      await pullOnOpenIfSocial();
+      await initializeRound(
+        roundId,
+        players,
+        holes,
+        'match-play',
+        false,
+        [],
+        selectedTeeBox ?? null,
+        handicapSource,
+        new Map(),
+        'full',
+        1,
+        deriveScoringMode(roundData)
+      );
     })();
 
     return () => {
@@ -234,6 +228,16 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
     loadFromOffline,
     resetRound,
   ]);
+
+  // Merge-on-open for social rounds: runs once per round, in its own effect so
+  // the init effect's cleanup (triggered by the store update that sets
+  // isInitialized) can never cancel it.
+  const pulledRoundRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isInitialized || currentRoundId !== roundId || pulledRoundRef.current === roundId) return;
+    pulledRoundRef.current = roundId;
+    void pullOnOpenIfSocial();
+  }, [isInitialized, currentRoundId, roundId]);
 
   // Determine handicap label for display
   const handicapLabel = selectedTeeBox ? 'DHC' : 'HC';
