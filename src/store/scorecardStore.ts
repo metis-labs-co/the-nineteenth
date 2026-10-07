@@ -30,6 +30,7 @@ import {
   syncScorecard,
   subscribeSyncState,
   subscribeScorecardSynced,
+  setScorecardConflictResolver,
   getIsOnline,
   ScorecardConflictError,
 } from '@/services/offline/sync';
@@ -255,6 +256,39 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
         set({ groupScorecards: next });
         return;
       }
+    });
+
+    // Social rounds merge revision conflicts per hole instead of retaining them
+    // as failures. Anything else declines → today's behaviour.
+    setScorecardConflictResolver(async (queued, conflict) => {
+      const state = get();
+      if (state.scoringMode !== 'social' || queued.roundId !== state.currentRoundId) return null;
+      const next = await applyRemoteToStore(
+        {
+          player_id: queued.playerId,
+          scores: conflict.serverScores as Record<string, HoleScore>,
+          revision: conflict.serverRevision,
+          status: conflict.serverStatus ?? 'in-progress',
+        },
+        { queueUpload: false } // the drain retries immediately
+      );
+      if (!next) return null;
+      if (isFinalStatus(next.status) && isFinalStatus(conflict.serverStatus ?? undefined)) {
+        return { kind: 'final' };
+      }
+      // An older server row left the card untouched: retrying would conflict again.
+      if (next.serverRevision !== conflict.serverRevision) return null;
+      return {
+        kind: 'retry',
+        scorecard: {
+          ...queued,
+          scores: next.scores,
+          totalGross: next.totalGross,
+          totalNet: next.totalNet,
+          total_par_score: next.total_par_score,
+          serverRevision: next.serverRevision,
+        },
+      };
     });
   };
 

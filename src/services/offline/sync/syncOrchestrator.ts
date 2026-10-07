@@ -78,6 +78,46 @@ function notifyScorecardSynced(scorecardId: string, serverRevision: number): voi
   scorecardSyncedListeners.forEach((listener) => listener({ scorecardId, serverRevision }));
 }
 
+export type ScorecardConflictResolution =
+  | { kind: 'retry'; scorecard: Scorecard } // merged snapshot at the server revision
+  | { kind: 'final' } // server card is final: drop the queued write
+  | null; // not handled: keep today's behaviour
+
+export type ScorecardConflictResolver = (
+  queued: Scorecard,
+  conflict: ScorecardConflictError
+) => Promise<ScorecardConflictResolution>;
+
+let conflictResolver: ScorecardConflictResolver | null = null;
+
+/** Register who may merge a scorecard revision conflict (the store, for social rounds). */
+export function setScorecardConflictResolver(resolver: ScorecardConflictResolver | null): void {
+  conflictResolver = resolver;
+}
+
+async function resolveConflict(
+  scorecard: Scorecard,
+  error: ScorecardConflictError
+): Promise<ScorecardConflictResolution> {
+  if (!conflictResolver) return null;
+  try {
+    return await conflictResolver(scorecard, error);
+  } catch (resolverError) {
+    syncLogger.warn('Scorecard conflict resolver failed', {
+      error: resolverError instanceof Error ? resolverError.message : String(resolverError),
+    });
+    return null;
+  }
+}
+
+/** The server copy is final (submitted): this queued edit is obsolete. */
+class FinalScorecardError extends Error {
+  constructor() {
+    super('Scorecard already submitted on another device');
+    this.name = 'FinalScorecardError';
+  }
+}
+
 /**
  * Update and notify listeners of state changes
  */
@@ -226,8 +266,22 @@ export async function syncAll(options: SyncAllOptions = {}): Promise<boolean> {
       try {
         return await processPendingSync(sync);
       } catch (error) {
+        if (!(error instanceof ScorecardConflictError) || sync.type !== 'scorecard' || !sync.data) {
+          throw error;
+        }
+
+        const resolution = await resolveConflict(sync.data, error);
+        if (resolution?.kind === 'final') throw new FinalScorecardError();
+        if (resolution?.kind === 'retry') {
+          // Retry in memory only. Never write the merged snapshot back into the queue
+          // row: a tap during the merge may already have queued a newer edit there,
+          // and an unconditional row update would overwrite it. If a newer edit did
+          // arrive, removePendingSync's revision check leaves it pending and the
+          // superseded-upload path (9609f1ee) carries the confirmed revision forward.
+          return await processPendingSync({ ...sync, data: resolution.scorecard });
+        }
+
         if (!adoptServerRevisionOnConflict) throw error;
-        if (!(error instanceof ScorecardConflictError)) throw error;
         if (!(await refreshQueuedRevision(sync, error))) throw error;
 
         syncLogger.warn('Retrying queued write against the server revision', {
@@ -288,6 +342,11 @@ export async function syncAll(options: SyncAllOptions = {}): Promise<boolean> {
         }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
+
+        if (error instanceof FinalScorecardError) {
+          await discardPendingSync(sync.id!);
+          continue;
+        }
 
         if (error instanceof ScorecardConflictError) {
           // Park the server's current revision on the row before retaining it,
@@ -367,7 +426,19 @@ export async function syncAll(options: SyncAllOptions = {}): Promise<boolean> {
       for (const scorecard of unsyncedScorecards) {
         try {
           syncLogger.debug('Syncing unsynced scorecard', logScorecardSummary(scorecard));
-          const result = await syncScorecard(scorecard);
+          let result;
+          try {
+            result = await syncScorecard(scorecard);
+          } catch (error) {
+            if (!(error instanceof ScorecardConflictError)) throw error;
+            const resolution = await resolveConflict(scorecard, error);
+            if (resolution?.kind === 'final') {
+              await markScorecardAsSynced(scorecard.id, error.serverRevision);
+              continue;
+            }
+            if (resolution?.kind !== 'retry') throw error;
+            result = await syncScorecard(resolution.scorecard);
+          }
           await markScorecardAsSynced(scorecard.id, result.serverRevision);
           notifyScorecardSynced(scorecard.id, result.serverRevision);
           successCount++;

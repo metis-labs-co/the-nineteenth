@@ -22,6 +22,7 @@ import {
   subscribeScorecardSynced,
   discardFailedSync,
   listFailedSyncs,
+  setScorecardConflictResolver,
 } from '@/services/offline/sync';
 import * as database from '@/services/offline/database';
 import { supabase } from '@/services/supabase/client';
@@ -560,6 +561,75 @@ describe('Sync Operations', () => {
 
         expect(database.recordScorecardServerRevision).toHaveBeenCalledWith(scorecard.id, 1);
         expect(database.markScorecardAsSynced).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('conflict resolver', () => {
+      afterEach(() => setScorecardConflictResolver(null));
+
+      const conflictRpc = (status = 'in-progress') => ({
+        data: [{ applied: false, conflict: true, server_revision: 6, server_status: status, server_scores: { '1': { strokes: 5 } } }],
+        error: null,
+      });
+
+      it('retries a resolved conflict once with the merged snapshot and keeps no failure', async () => {
+        const scorecard = createTestScorecard({ status: 'in-progress' });
+        (database.getPendingSyncs as jest.Mock).mockResolvedValue([createPendingSync({ id: 4, data: scorecard })]);
+        (supabase.rpc as jest.Mock).mockResolvedValueOnce(conflictRpc()).mockResolvedValue(successRpc(7));
+        setScorecardConflictResolver(jest.fn().mockResolvedValue({ kind: 'retry', scorecard: { ...scorecard, serverRevision: 6 } }));
+
+        await syncAll();
+
+        const writes = (supabase.rpc as jest.Mock).mock.calls.filter(([fn]) => fn === 'write_scorecard_snapshot');
+        expect(writes).toHaveLength(2);
+        expect(writes[1][1].p_expected_revision).toBe(6);
+        expect(database.markPendingSyncFailed).not.toHaveBeenCalled();
+        expect(database.removePendingSync).toHaveBeenCalledWith(4, 1);
+        // the merged snapshot is never written back over the queue row
+        expect(database.updatePendingSyncData).not.toHaveBeenCalled();
+      });
+
+      it('drops the queued write when the server card is final', async () => {
+        (database.getPendingSyncs as jest.Mock).mockResolvedValue([createPendingSync({ id: 5 })]);
+        (supabase.rpc as jest.Mock).mockResolvedValue(conflictRpc('completed'));
+        setScorecardConflictResolver(jest.fn().mockResolvedValue({ kind: 'final' }));
+
+        await syncAll();
+
+        expect(database.discardPendingSync).toHaveBeenCalledWith(5);
+        expect(database.markPendingSyncFailed).not.toHaveBeenCalled();
+      });
+
+      it("keeps today's behaviour when the resolver declines", async () => {
+        (database.getPendingSyncs as jest.Mock).mockResolvedValue([createPendingSync({ id: 6 })]);
+        (supabase.rpc as jest.Mock).mockResolvedValue(conflictRpc());
+        setScorecardConflictResolver(jest.fn().mockResolvedValue(null));
+
+        await syncAll();
+
+        expect(database.markPendingSyncFailed).toHaveBeenCalledWith(6, 1, expect.any(String));
+      });
+
+      it('resolves fallback-path conflicts and records the retried write as synced', async () => {
+        const scorecard = createTestScorecard();
+        (database.getUnsyncedScorecards as jest.Mock).mockResolvedValue([scorecard]);
+        (supabase.rpc as jest.Mock).mockResolvedValueOnce(conflictRpc()).mockResolvedValue(successRpc(7));
+        setScorecardConflictResolver(jest.fn().mockResolvedValue({ kind: 'retry', scorecard: { ...scorecard, serverRevision: 6 } }));
+
+        await syncAll();
+
+        expect(database.markScorecardAsSynced).toHaveBeenCalledWith(scorecard.id, 7);
+      });
+
+      it('marks a fallback card synced when the server copy is final', async () => {
+        const scorecard = createTestScorecard();
+        (database.getUnsyncedScorecards as jest.Mock).mockResolvedValue([scorecard]);
+        (supabase.rpc as jest.Mock).mockResolvedValue(conflictRpc('completed'));
+        setScorecardConflictResolver(jest.fn().mockResolvedValue({ kind: 'final' }));
+
+        await syncAll();
+
+        expect(database.markScorecardAsSynced).toHaveBeenCalledWith(scorecard.id, 6);
       });
     });
 

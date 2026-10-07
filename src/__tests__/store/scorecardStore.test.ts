@@ -95,6 +95,11 @@ let mockSyncStateListener:
     }) => void)
   | null = null;
 
+// Captured conflict resolver the store registers once per module (initSyncListener
+// is guarded), so it is deliberately not reset between tests.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let mockConflictResolver: ((...a: any[]) => Promise<unknown>) | null = null;
+
 // Mock the sync service
 jest.mock('@/services/offline/sync', () => {
   // Minimal stand-in matching the real class's shape; instanceof works
@@ -130,6 +135,9 @@ jest.mock('@/services/offline/sync', () => {
       return jest.fn();
     }),
     getIsOnline: jest.fn(() => true),
+    setScorecardConflictResolver: jest.fn((r) => {
+      mockConflictResolver = r;
+    }),
     ScorecardConflictError,
   };
 });
@@ -322,7 +330,7 @@ describe('ScorecardStore', () => {
       jest.useFakeTimers();
       await getStore().initializeRound(testRoundId, testPlayers, testHoles, 'stroke', false, [], null, 'none', new Map(), 'full', 1, 'social');
       (queueScorecardSync as jest.Mock).mockClear();
-      await getStore().updateShotContributions(testPlayers[0].id, 1, { player1: 1, player2: 0 });
+      await getStore().updateShotContributions(testPlayers[0].id, 1, { teeShot: testPlayers[0].id });
       jest.advanceTimersByTime(2500);
       expect(queueScorecardSync).toHaveBeenCalled();
       jest.useRealTimers();
@@ -651,6 +659,40 @@ describe('ScorecardStore', () => {
       await getStore().mergeRemoteScorecard({ player_id: p, scores: { '1': { strokes: 4 } }, revision: 6, status: 'completed' }); // newer final
       expect(saveScorecard).toHaveBeenCalledTimes(1);
       expect(getStore().submittedElsewhere).toBe(false); // was already final locally
+    });
+  });
+
+  describe('conflict resolver (store side)', () => {
+    const ConflictError = () => jest.requireMock('@/services/offline/sync').ScorecardConflictError;
+    const conflict = (status: string, scores: Record<string, unknown>, revision = 6) =>
+      new (ConflictError())({ server_revision: revision, server_status: status, server_scores: scores });
+    const init = (mode: 'social' | 'standard' = 'social') =>
+      getStore().initializeRound(testRoundId, testPlayers, testHoles, 'stroke', false, [], null, 'none', new Map(), 'full', 1, mode);
+
+    it('returns a merged retry snapshot for the loaded social round', async () => {
+      await init();
+      const queued = getStore().groupScorecards.get(testPlayers[0].id)!;
+      const res = await mockConflictResolver!(queued, conflict('in-progress', { '2': { strokes: 5, editedAt: '2099-01-01T00:00:00.000Z' } }));
+      expect(res).toMatchObject({ kind: 'retry' });
+      expect((res as { scorecard: Scorecard }).scorecard.serverRevision).toBe(6);
+      expect(getStore().groupScorecards.get(testPlayers[0].id)!.scores[2]).toBeDefined();
+    });
+
+    it('returns final for a completed server card', async () => {
+      await init();
+      const queued = getStore().groupScorecards.get(testPlayers[0].id)!;
+      expect(await mockConflictResolver!(queued, conflict('completed', {}))).toEqual({ kind: 'final' });
+    });
+
+    it('declines a standard round, another round, or an older server row', async () => {
+      await init('standard');
+      const queued = getStore().groupScorecards.get(testPlayers[0].id)!;
+      expect(await mockConflictResolver!(queued, conflict('in-progress', {}))).toBeNull();
+      await init('social');
+      const q2 = getStore().groupScorecards.get(testPlayers[0].id)!;
+      expect(await mockConflictResolver!({ ...q2, roundId: 'other' }, conflict('in-progress', {}))).toBeNull();
+      useScorecardStore.setState({ groupScorecards: new Map([[testPlayers[0].id, { ...q2, serverRevision: 9 }]]) });
+      expect(await mockConflictResolver!(q2, conflict('in-progress', {}, 6))).toBeNull();
     });
   });
 
