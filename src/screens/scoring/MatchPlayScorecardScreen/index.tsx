@@ -25,7 +25,7 @@ import { spacing, borderRadius, shadows, typography } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { useMatchPlayData } from '@/hooks/scorecard';
-import { useActiveSkinsGameForRound, useSkinsResults } from '@/hooks/useSkins';
+import { useActiveSkinsGameForRound, useSkinsHoleCounts, useSkinsResults } from '@/hooks/useSkins';
 import { useFinalizeSkinsForRound } from '@/hooks';
 import { calculatePlayingHandicap } from '@/hooks/usePlayingHandicap';
 import { isSingleBallScore } from '@/types/database/base';
@@ -69,6 +69,9 @@ export default function MatchPlayScorecardScreen({ navigation, route }: Props) {
 
   // Fetch skins results when skins game exists
   const { data: skinsResults, refetch: refetchSkinsResults } = useSkinsResults(skinsGame?.id);
+
+  // Skins are priced on the round's planned holes (read from the round, not the store)
+  const skinsHoleCounts = useSkinsHoleCounts(roundId);
 
   // Check if skins is enabled for this round
   const hasSkinsEnabled = !!skinsGame;
@@ -396,6 +399,7 @@ export default function MatchPlayScorecardScreen({ navigation, route }: Props) {
               potValue={skinsGame.pot_value}
               scoringType={skinsGame.scoring_type}
               parValues={parValues}
+              holeCounts={skinsHoleCounts}
             />
           ) : (
             <LoadingSpinner size="lg" message="Loading skins results..." />

@@ -6,7 +6,7 @@ import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { SkinsResultsCard } from '@/components/skins';
-import { useSkinsGamesByRound } from '@/hooks/skins';
+import { useSkinsGamesByRound, useSkinsHoleCounts } from '@/hooks/skins';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, borderRadius, typography } from '@/constants/theme';
 import type {
@@ -43,6 +43,8 @@ export function SkinsTab({
   parValues,
 }: SkinsTabProps) {
   const { data: allGames } = useSkinsGamesByRound(roundId);
+  // Holes priced on the plan, the header label on the holes played
+  const skinsHoleCounts = useSkinsHoleCounts(roundId);
 
   const subMatchActiveCount = useMemo(() => {
     if (!allGames) return 0;
@@ -63,6 +65,7 @@ export function SkinsTab({
         isTeamSkins={isTeamSkins}
         teams={teams}
         parValues={parValues}
+        holeCounts={skinsHoleCounts}
       />
     </View>
   );

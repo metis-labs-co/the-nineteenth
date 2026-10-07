@@ -11,6 +11,7 @@ import type {
   SkinsParticipant,
   SkinsTeamParticipant,
 } from '@/types/database';
+import type { SkinsHoleCounts } from '@/utils/skins/holeCounts';
 
 /** Accumulated totals for a participant (player or team) */
 export interface ParticipantTotal {
@@ -40,6 +41,8 @@ export interface SkinsResultsCardProps {
   isTeamSkins?: boolean;
   /** Team participants (for team skins) */
   teams?: SkinsTeamParticipant[];
+  /** Holes planned (prices each hole) and played (header label, last hole); defaults to 18/18 */
+  holeCounts?: SkinsHoleCounts;
   /** Test ID for testing */
   testID?: string;
 }

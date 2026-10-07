@@ -21,10 +21,7 @@ import { View, StyleSheet, FlatList, ListRenderItem } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, borderRadius, typography, shadows, skinsColor } from '@/constants/theme';
-import {
-  calculateHoleValue,
-  formatCurrency,
-} from '@/utils/skins';
+import { formatCurrency, DEFAULT_SKINS_HOLE_COUNTS } from '@/utils/skins';
 import type { SkinsResult } from '@/types/database';
 
 import { SkinsHoleRow } from './SkinsHoleRow';
@@ -40,6 +37,7 @@ export const SkinsResultsCard = React.memo(function SkinsResultsCard({
   participants,
   isTeamSkins: isTeamSkinsProp = false,
   teams,
+  holeCounts = DEFAULT_SKINS_HOLE_COUNTS,
   testID,
 }: SkinsResultsCardProps) {
   const colors = useThemeColors();
@@ -51,15 +49,11 @@ export const SkinsResultsCard = React.memo(function SkinsResultsCard({
     return results.some((r) => (r as SkinsResult).team_winner_id);
   }, [isTeamSkinsProp, results]);
 
-  const perHoleValueDisplay = useMemo(
-    () => calculateHoleValue(potType, potValue),
-    [potType, potValue]
-  );
-
-  const { rowData } = useSkinsResultRows({
+  const { rowData, perHoleValue: perHoleValueDisplay } = useSkinsResultRows({
     results,
     potType,
     potValue,
+    holeCounts,
     participants,
     isTeamSkins,
     teams,
@@ -258,7 +252,7 @@ export const SkinsResultsCard = React.memo(function SkinsResultsCard({
           </Text>
         </View>
         <Text style={[styles.configSummary, { color: colors.textSecondary }]}>
-          {formatCurrency(perHoleValueDisplay)}/hole | {scoringType === 'gross' ? 'Gross' : 'Net'} | 18 holes
+          {formatCurrency(perHoleValueDisplay)}/hole | {scoringType === 'gross' ? 'Gross' : 'Net'} | {`${holeCounts.holesPlayed} holes`}
         </Text>
       </View>
 

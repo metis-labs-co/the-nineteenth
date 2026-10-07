@@ -585,4 +585,88 @@ describe('SkinsResultsCard', () => {
       expect(screen.getAllByText(/Tied, \+\$\d+\.\d+ carried/).length).toBeGreaterThan(0);
     });
   });
+
+  describe('Hole counts', () => {
+    it('prices a 9-hole total pot per planned hole and labels the holes played', () => {
+      render(
+        <SkinsResultsCard
+          results={[]}
+          potType="total_pot"
+          potValue={90}
+          scoringType="gross"
+          holeCounts={{ plannedHoles: 9, holesPlayed: 9 }}
+        />
+      );
+
+      expect(screen.getByText('$10.00/hole | Gross | 9 holes')).toBeTruthy(); // $90 / 9
+    });
+
+    it('labels a round ended after 6 of 18 holes', () => {
+      render(
+        <SkinsResultsCard
+          results={[]}
+          potType="per_hole"
+          potValue={5}
+          scoringType="net"
+          holeCounts={{ plannedHoles: 18, holesPlayed: 6 }}
+        />
+      );
+
+      expect(screen.getByText('$5.00/hole | Net | 6 holes')).toBeTruthy();
+    });
+
+    it('shows the unsettled carryover when the last hole of a front nine is tied', () => {
+      const results: SkinsResultWithWinner[] = [];
+      for (let i = 1; i <= 8; i++) {
+        results.push(createWinnerResult(i, 'player-1', 'John', 5));
+      }
+      results.push(createCarryoverResult(9, 5));
+
+      render(
+        <SkinsResultsCard
+          results={results}
+          potType="per_hole"
+          potValue={5}
+          scoringType="gross"
+          holeCounts={{ plannedHoles: 9, holesPlayed: 9 }}
+        />
+      );
+
+      expect(screen.getByText(/\+ \$5\.00 unsettled/)).toBeTruthy();
+    });
+
+    it('shows the unsettled carryover when the last hole played before an early end is tied', () => {
+      const results: SkinsResultWithWinner[] = [];
+      for (let i = 1; i <= 5; i++) {
+        results.push(createWinnerResult(i, 'player-1', 'John', 5));
+      }
+      results.push(createCarryoverResult(6, 10));
+
+      render(
+        <SkinsResultsCard
+          results={results}
+          potType="per_hole"
+          potValue={5}
+          scoringType="gross"
+          holeCounts={{ plannedHoles: 18, holesPlayed: 6 }}
+        />
+      );
+
+      expect(screen.getByText(/\+ \$10\.00 unsettled/)).toBeTruthy();
+    });
+
+    it('does not call a mid-round carryover unsettled (unchanged)', () => {
+      const results: SkinsResultWithWinner[] = [];
+      for (let i = 1; i <= 5; i++) {
+        results.push(createWinnerResult(i, 'player-1', 'John', 5));
+      }
+      results.push(createCarryoverResult(6, 5));
+
+      render(
+        <SkinsResultsCard results={results} potType="per_hole" potValue={5} scoringType="gross" />
+      );
+
+      expect(screen.queryByText(/unsettled/)).toBeNull();
+    });
+  });
 });

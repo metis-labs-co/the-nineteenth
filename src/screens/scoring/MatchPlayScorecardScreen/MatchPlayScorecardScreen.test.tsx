@@ -69,6 +69,7 @@ jest.mock('@/components/scorecard', () => ({
 jest.mock('@/hooks/useSkins', () => ({
   useActiveSkinsGameForRound: jest.fn().mockReturnValue({ data: null, isLoading: false }),
   useSkinsResults: jest.fn().mockReturnValue({ data: null, refetch: jest.fn() }),
+  useSkinsHoleCounts: jest.fn().mockReturnValue({ plannedHoles: 18, holesPlayed: 18 }),
 }));
 
 // Mock useFinalizeSkinsForRound
@@ -461,6 +462,16 @@ describe('MatchPlayScorecardScreen', () => {
         player1Id: 'player-1',
         player2Id: 'player-2',
       });
+    });
+
+    it("reads the round's skins hole counts for the skins tab", () => {
+      setupSuccessfulMock();
+
+      render(
+        <MatchPlayScorecardScreen navigation={mockNavigation} route={mockRoute} />
+      );
+
+      expect(jest.requireMock('@/hooks/useSkins').useSkinsHoleCounts).toHaveBeenCalledWith('round-123');
     });
 
     it('uses getPlayerScore from scorecard store', () => {

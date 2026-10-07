@@ -11,10 +11,7 @@
  */
 
 import { useMemo } from 'react';
-import {
-  calculateHoleValue,
-  calculateTotalPot,
-} from '@/utils/skins';
+import { calculateHoleValue, DEFAULT_SKINS_HOLE_COUNTS, type SkinsHoleCounts } from '@/utils/skins';
 import type {
   SkinsResultWithWinner,
   SkinsResult,
@@ -28,6 +25,8 @@ interface UseSkinsResultRowsParams {
   results: SkinsResultWithWinner[];
   potType: SkinsPotType;
   potValue: number;
+  /** Holes planned (prices each hole) and played (finds the game's last hole) */
+  holeCounts?: SkinsHoleCounts;
   participants?: SkinsParticipant[];
   isTeamSkins: boolean;
   teams?: SkinsTeamParticipant[];
@@ -37,18 +36,17 @@ export function useSkinsResultRows({
   results,
   potType,
   potValue,
+  holeCounts = DEFAULT_SKINS_HOLE_COUNTS,
   participants,
   isTeamSkins,
   teams,
 }: UseSkinsResultRowsParams) {
-  // Calculate values
+  const { plannedHoles, holesPlayed } = holeCounts;
+
+  // Each hole is worth the pot spread over the planned holes
   const perHoleValue = useMemo(
-    () => calculateHoleValue(potType, potValue),
-    [potType, potValue]
-  );
-  const _totalPot = useMemo(
-    () => calculateTotalPot(potType, potValue),
-    [potType, potValue]
+    () => calculateHoleValue(potType, potValue, plannedHoles),
+    [potType, potValue, plannedHoles]
   );
 
   // Create a map of hole number -> result for quick lookup
@@ -73,14 +71,23 @@ export function useSkinsResultRows({
       }
     });
 
-    // Check for unsettled carryover (carryover remaining after hole 18)
-    const hole18Result = resultsMap.get(18);
-    if (hole18Result && hole18Result.is_carryover) {
-      carryover = hole18Result.carryover_to_next;
+    // Unsettled carryover: the game's last hole was tied. That is hole 18, or
+    // (for a 9-hole round or one ended early) the highest result once every
+    // played hole has one.
+    const lastResult = results.reduce<SkinsResultWithWinner | null>(
+      (last, r) => (!last || r.hole_number > last.hole_number ? r : last),
+      null
+    );
+    if (
+      lastResult &&
+      lastResult.is_carryover &&
+      (lastResult.hole_number === 18 || results.length >= holesPlayed)
+    ) {
+      carryover = lastResult.carryover_to_next;
     }
 
     return { front9Total: front, back9Total: back, unsettledCarryover: carryover };
-  }, [results, resultsMap]);
+  }, [results, holesPlayed]);
 
   // Calculate participant totals (players or teams)
   const participantTotals = useMemo<ParticipantTotal[]>(() => {
