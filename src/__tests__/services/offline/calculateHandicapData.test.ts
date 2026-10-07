@@ -158,22 +158,23 @@ describe('calculateHandicapData — 9-hole daily_handicap_used', () => {
   });
 
   it('front9, no dedicated 9-hole ratings, double-rounding case (HI 20 / 120 / 71)', () => {
-    // raw 18-hole DHC 18.80 → current: round(round(18.80) / 2) = round(9.5) = 10
+    // raw 18-hole DHC 18.80 → round(18.80 / 2) = 9 (was round(round(18.80) / 2) = 10)
     const result = calculateHandicapData(
       nineCard({
         playerHandicap: 20,
         teeData: { ...TEE, slopeRating: 120, courseRating: 71 },
       }),
     );
-    expect(result.dailyHandicapUsed).toBe(10);
+    expect(result.dailyHandicapUsed).toBe(9);
   });
 
-  it('front9 with dedicated 9-hole ratings: CURRENT behaviour uses the full index', () => {
-    // ((23 × 118/113) + (35.2 − 36)) × 0.93 × 0.9986 = 21.56 → 22
+  it('front9 with dedicated 9-hole ratings: uses half the index (GA / WHS 9-hole formula)', () => {
+    // ((23/2 × 118/113) + (35.2 − 36)) × 0.93 × 0.9986 = 10.41 → 10
+    // (was 22 when the full index was paired with 9-hole ratings)
     const result = calculateHandicapData(
       nineCard({ teeData: { ...TEE, slopeRatingFront9: 118, courseRatingFront9: 35.2 } }),
     );
-    expect(result.dailyHandicapUsed).toBe(22);
+    expect(result.dailyHandicapUsed).toBe(10);
     expect(result.courseRatingUsed).toBe(35.2);
     expect(result.slopeRatingUsed).toBe(118);
   });

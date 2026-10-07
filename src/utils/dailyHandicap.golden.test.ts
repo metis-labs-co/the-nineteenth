@@ -2,9 +2,10 @@
 //
 // Characterization ("golden value") test for INVARIANT I4 documented in
 // docs/guides/SCORING_ARCHITECTURE.md: a 9-hole daily handicap must be a
-// nine-scaled value, not an inflated ~18-hole one. This locks the value
-// CURRENTLY observed from calculateNineAwareDailyHandicap so a future change
-// to the halving-fallback path fails loudly.
+// nine-scaled value, not an inflated ~18-hole one. It follows the GA / WHS
+// 9-hole formula (half the index; without dedicated 9-hole ratings the result
+// is the UNROUNDED 18-hole daily handicap ÷ 2, rounded once) so a future change
+// to the fallback path fails loudly.
 //
 // Params below mirror the real call site in
 // src/hooks/player/playingHandicap.ts (calculatePlayingHandicap): a tee with
@@ -32,8 +33,9 @@ describe('INVARIANT I4: nine-aware daily handicap', () => {
     });
     expect(eighteen.dailyHandicap).toBe(19);
 
-    // Observed: nine-aware front9 result (no dedicated 9-hole ratings ->
-    // halving fallback of the reconstructed full 18-hole daily handicap).
+    // Nine-aware front9 result (no dedicated 9-hole ratings -> half the index,
+    // 18-hole slope, half the 18-hole CR): raw 18.956 / 2 = 9.478 -> 9.
+    // (Previously 10: round(19 / 2) double-rounded 9.5 up.)
     const nine = calculateNineAwareDailyHandicap({
       gaHandicap: 18,
       nineType: 'front9',
@@ -42,7 +44,7 @@ describe('INVARIANT I4: nine-aware daily handicap', () => {
       courseRating: TEE.courseRating,
       gender: 'male',
     });
-    expect(nine.dailyHandicap).toBe(10);
+    expect(nine.dailyHandicap).toBe(9);
 
     // Must be materially lower than the 18-hole value, never approaching it.
     expect(nine.dailyHandicap).toBeLessThan(eighteen.dailyHandicap);

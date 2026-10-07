@@ -544,15 +544,9 @@ describe('calculateNineAwareDailyHandicap', () => {
       expect(fixed.dailyHandicap).toBeLessThan(naiveBuggy.dailyHandicap);
     });
 
-    it('equals round(full 18-hole daily handicap / 2)', () => {
-      const fullDaily = calculateGADailyHandicap({
-        gaHandicap: 12,
-        slopeRating: 125,
-        courseRating: 72.4,
-        par: 72, // full 18-hole par (9-hole par 36 × 2)
-        gender: 'male',
-      });
-
+    it('rounds once: round(unrounded 18-hole daily handicap / 2), not round(round(DH) / 2)', () => {
+      // Raw 18-hole DH = ((12 × 125/113) + (72.4 − 72)) × 0.93 × 0.9986 = 12.70
+      // Single rounding: round(6.35) = 6. Double rounding gave round(13 / 2) = 7.
       const front9 = calculateNineAwareDailyHandicap({
         gaHandicap: 12,
         nineType: 'front9',
@@ -562,7 +556,25 @@ describe('calculateNineAwareDailyHandicap', () => {
         gender: 'male',
       });
 
-      expect(front9.dailyHandicap).toBe(Math.round(fullDaily.dailyHandicap / 2));
+      expect(front9.dailyHandicap).toBe(6);
+    });
+
+    it('equals Math.round(raw 18-hole daily handicap / 2) across a range of indexes', () => {
+      for (const hi of [0, 3.4, 8.3, 12, 18, 20, 27.6, 36, 54]) {
+        for (const gender of ['male', 'female'] as const) {
+          const raw18 =
+            ((hi * 125) / 113 + (72.4 - 72)) * 0.93 * (gender === 'female' ? 1.0483 : 0.9986);
+          const front9 = calculateNineAwareDailyHandicap({
+            gaHandicap: hi,
+            nineType: 'front9',
+            par: 36,
+            slopeRating: 125,
+            courseRating: 72.4,
+            gender,
+          });
+          expect(front9.dailyHandicap).toBe(Math.round(raw18 / 2));
+        }
+      }
     });
 
     it('applies the same halving fallback for a back9 round', () => {
@@ -601,7 +613,7 @@ describe('calculateNineAwareDailyHandicap', () => {
   });
 
   describe('9-hole round with dedicated 9-hole ratings', () => {
-    it('uses the front9 slope and course rating directly', () => {
+    it('uses the front9 slope and course rating with half the index', () => {
       const fixed = calculateNineAwareDailyHandicap({
         gaHandicap: 8.3,
         nineType: 'front9',
@@ -612,8 +624,9 @@ describe('calculateNineAwareDailyHandicap', () => {
         courseRatingFront9: 35.6,
         gender: 'male',
       });
+      // GA / WHS 9-hole formula uses HALF the handicap index.
       const expected = calculateGADailyHandicap({
-        gaHandicap: 8.3,
+        gaHandicap: 8.3 / 2,
         slopeRating: 122,
         courseRating: 35.6,
         par: 36,
@@ -634,8 +647,9 @@ describe('calculateNineAwareDailyHandicap', () => {
         courseRatingBack9: 35.9,
         gender: 'male',
       });
+      // GA / WHS 9-hole formula uses HALF the handicap index.
       const expected = calculateGADailyHandicap({
-        gaHandicap: 8.3,
+        gaHandicap: 8.3 / 2,
         slopeRating: 133,
         courseRating: 35.9,
         par: 36,
