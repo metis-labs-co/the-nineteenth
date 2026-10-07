@@ -67,7 +67,7 @@ describe('HandicapHomeSection', () => {
       />,
     );
     expect(getByText('12.4')).toBeTruthy();
-    expect(queryByText('Track your index — upgrade to unlock')).toBeNull();
+    expect(queryByText('Your in-app handicap — upgrade to unlock')).toBeNull();
   });
 
   it('renders the full card when unlocked even if previously dismissed', () => {
@@ -92,7 +92,7 @@ describe('HandicapHomeSection', () => {
         onUpgradePress={jest.fn()}
       />,
     );
-    expect(getByText('Track your index — upgrade to unlock')).toBeTruthy();
+    expect(getByText('Your in-app handicap — upgrade to unlock')).toBeTruthy();
     expect(getByText('Social')).toBeTruthy();
     expect(queryByText('12.4')).toBeNull();
   });
@@ -119,8 +119,8 @@ describe('HandicapHomeSection', () => {
         onUpgradePress={jest.fn()}
       />,
     );
-    fireEvent.press(getByLabelText('Hide handicap index'));
+    fireEvent.press(getByLabelText('Hide Social Handicap'));
     expect(useHomeUiStore.getState().handicapUpsellDismissed).toBe(true);
-    expect(queryByText('Track your index — upgrade to unlock')).toBeNull();
+    expect(queryByText('Your in-app handicap — upgrade to unlock')).toBeNull();
   });
 });

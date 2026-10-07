@@ -79,9 +79,9 @@ Scores below are our own estimates.
 
 | # | Requirement | Status | Current state | Action |
 |---|---|---|---|---|
-| D1 | No unauthorised use of WHS in Australia (9B(i)(c)) | ❌ | The app calculates differentials and an index using WHS method (`src/services/handicap`, leagues). WHS wording has been removed from copy, but the calculation remains. | Decide: present it as an app-specific "Nineteenth index" that is clearly not WHS/GA, or turn it off for AU users. Needs a GA conversation. |
+| D1 | No unauthorised use of WHS in Australia (9B(i)(c)) | 🟡 | Decision (2026-10-07): keep it as an app-specific **Social Handicap**. Renamed from "Social Handicap Index" everywhere, with a shared disclaimer (`src/constants/handicap.ts`): unique to The Nineteenth, not an official golf handicap. The calculation still uses the WHS method (`src/services/handicap`, leagues). | Confirm with GA at intake that a clearly-labelled app-only figure is acceptable. |
 | D2 | GA Handicap display only inside club environs, in the listed scenarios only (9B(ii) a–f) | ➖ | No GA Handicaps held yet. | When GA comps are built, gate every display on comp type plus approved club, and limit it to the listed scenarios (live leaderboard, results, entry list, team event). |
-| D3 | No handicap records or histories (9B(ii)(g)) | ❌ (for GA data) | Social tier sells "handicap history". | Never show history for GA-sourced handicaps; link to golf.com.au instead. Keep app-index history clearly separate (depends on D1). |
+| D3 | No handicap records or histories (9B(ii)(g)) | 🟡 (for GA data) | The Social tier history is now labelled "Social Handicap history" and applies only to the app figure. | Never show history for GA-sourced handicaps; link to golf.com.au instead. Keep app-index history clearly separate (depends on D1). |
 | D4 | Non-approved entities may show the Daily Handicap only (Note iii) | ➖ | — | Social comps must never show a GA Handicap. |
 | D5 | Rank stroke comps on **net versus par** (9A(i)) | 🟡 | Live boards OK for single-tee play. Stored results / finalise rank on net, which is wrong for mixed tees or genders. | Switch ranking to net-vs-par everywhere (scoring guardrails apply). Stableford and Par comparisons are already direct (9A ii–iii). |
 
@@ -207,3 +207,4 @@ These are not GA-specific, but GA assessment category 5 will find them.
 | 2026-10-07 | GolfAPI.io key moved to the `golfapi-proxy` edge function; deployed to staging and prod (X3 partial). | a8ffb817 |
 | 2026-10-07 | Privacy policy corrected, breach runbook added, export-data completed, account-deletion fix migration written (E5 partial; not deployed). | c1a86ef5 |
 | 2026-10-07 | 9-hole Daily Handicap matches BRS Appendix B (H2). | c1a86ef5 |
+| 2026-10-07 | App index renamed to "Social Handicap", with a not-official disclaimer in app, store, privacy and marketing copy (D1, D3 partial). | feat/social-handicap-label |

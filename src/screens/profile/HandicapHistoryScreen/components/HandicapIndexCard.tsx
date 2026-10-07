@@ -1,5 +1,5 @@
 /**
- * HandicapIndexCard - Displays the player's Social Handicap Index
+ * HandicapIndexCard - Displays the player's Social Handicap
  *
  * Shows the calculated index prominently with supporting stats
  * about how it was calculated (rounds used, best X count).
@@ -11,6 +11,7 @@ import { Text } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, borderRadius, shadows, typography } from '@/constants/theme';
 import { formatHandicapIndex } from '@/utils/displayHelpers';
+import { SOCIAL_HANDICAP_NAME, SOCIAL_HANDICAP_DISCLAIMER } from '@/constants/handicap';
 
 interface HandicapIndexCardProps {
   handicapIndex: number | null;
@@ -29,7 +30,7 @@ export function HandicapIndexCard({
     <View style={[styles.container, { backgroundColor: colors.surface }, shadows.md]}>
       {/* Label */}
       <Text style={[styles.label, { color: colors.textSecondary }]}>
-        Social Handicap Index
+        {SOCIAL_HANDICAP_NAME}
       </Text>
 
       {/* Main Index Display */}
@@ -73,6 +74,11 @@ export function HandicapIndexCard({
           Complete more rounds to improve accuracy
         </Text>
       )}
+
+      {/* Not-official disclaimer (GA CONNECT BRS 9B) */}
+      <Text style={[styles.disclaimer, { color: colors.textSecondary }]}>
+        {SOCIAL_HANDICAP_DISCLAIMER}
+      </Text>
     </View>
   );
 }
@@ -123,6 +129,11 @@ const styles = StyleSheet.create({
   hint: {
     ...typography.caption,
     marginTop: spacing.sm,
+    textAlign: 'center',
+  },
+  disclaimer: {
+    ...typography.caption,
+    marginTop: spacing.md,
     textAlign: 'center',
   },
 });

@@ -662,7 +662,7 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
               name="HandicapHistory"
               component={HandicapHistoryScreen}
               options={{
-                title: 'Handicap History',
+                title: 'Social Handicap',
                 headerShown: false,
               }}
             />

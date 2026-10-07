@@ -26,6 +26,7 @@ import { BALL_COUNT_OPTIONS } from '@/types/multiball.types';
 import type { SelectedCourse } from '../types';
 import { getTeeColor } from '../types';
 import { GAME_TYPE_DESCRIPTIONS } from '@/constants/gameTypeDescriptions';
+import { SOCIAL_HANDICAP_NAME } from '@/constants/handicap';
 
 interface YourSetupStepProps {
   selectedCourse: SelectedCourse | null;
@@ -153,7 +154,7 @@ export const YourSetupStep = memo(function YourSetupStep({
     },
     {
       value: 'calculated',
-      label: 'Social Index',
+      label: SOCIAL_HANDICAP_NAME,
       description: socialIndex != null
         ? `Social: ${formatHC(socialIndex)}  ·  DHC: ${dailyHC.calculated ?? 'N/A'}  ·  HC: ${gaHandicap != null ? formatHC(gaHandicap) : 'N/A'}`
         : 'No rounds recorded yet',

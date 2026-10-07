@@ -26,7 +26,7 @@ describe('HandicapHomeCard', () => {
     const { getByText } = render(
       <HandicapHomeCard summary={makeSummary()} onPress={jest.fn()} />,
     );
-    expect(getByText('Social Handicap Index')).toBeTruthy();
+    expect(getByText('Social Handicap')).toBeTruthy();
     expect(getByText('12.4')).toBeTruthy();
     expect(getByText('Best 8 of 20')).toBeTruthy();
   });
@@ -36,7 +36,7 @@ describe('HandicapHomeCard', () => {
       <HandicapHomeCard summary={null} onPress={jest.fn()} />,
     );
     expect(getByText('—')).toBeTruthy();
-    expect(getByText('Play rounds to establish your index')).toBeTruthy();
+    expect(getByText('Play rounds to establish your Social Handicap')).toBeTruthy();
   });
 
   it('renders the empty prompt when there are zero rounds', () => {
@@ -47,7 +47,7 @@ describe('HandicapHomeCard', () => {
       />,
     );
     expect(getByText('—')).toBeTruthy();
-    expect(getByText('Play rounds to establish your index')).toBeTruthy();
+    expect(getByText('Play rounds to establish your Social Handicap')).toBeTruthy();
   });
 
   it('calls onPress when tapped', () => {

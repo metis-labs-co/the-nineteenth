@@ -12,6 +12,10 @@ import { spacing, borderRadius, shadows, typography, layout } from '@/constants/
 import { formatHandicapIndex } from '@/utils/displayHelpers';
 import { HandicapTrendChart } from '@/screens/profile/HandicapHistoryScreen/components/HandicapTrendChart';
 import type { HandicapSummary } from '@/types/handicap.types';
+import {
+  SOCIAL_HANDICAP_NAME,
+  SOCIAL_HANDICAP_SHORT_DISCLAIMER,
+} from '@/constants/handicap';
 
 // Available width for the compact chart inside this card:
 // screen width minus home body padding (layout.screenPadding × 2) and card padding (spacing.lg × 2).
@@ -38,21 +42,21 @@ export function HandicapHomeCard({ summary, onPress, testID }: HandicapHomeCardP
       accessibilityRole="button"
       accessibilityLabel={
         hasData
-          ? `Social Handicap Index ${formatHandicapIndex(summary!.handicapIndex)}, view history`
-          : 'Social Handicap Index not yet established, view history'
+          ? `${SOCIAL_HANDICAP_NAME} ${formatHandicapIndex(summary!.handicapIndex)}, ${SOCIAL_HANDICAP_SHORT_DISCLAIMER} View history`
+          : `${SOCIAL_HANDICAP_NAME} not yet established, view history`
       }
       style={[styles.container, { backgroundColor: colors.surface }, shadows.md]}
     >
       <View style={styles.headerRow}>
         <View style={styles.headerText}>
           <Text style={[styles.label, { color: colors.textSecondary }]}>
-            Social Handicap Index
+            {SOCIAL_HANDICAP_NAME}
           </Text>
           <Text style={[styles.indexValue, { color: colors.textPrimary }]}>
             {hasData ? formatHandicapIndex(summary!.handicapIndex) : '—'}
           </Text>
           <Text style={[styles.description, { color: colors.textSecondary }]}>
-            Your social handicap, based on your completed rounds in The Nineteenth.
+            Based on your completed rounds. {SOCIAL_HANDICAP_SHORT_DISCLAIMER}
           </Text>
           {hasData ? (
             <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
@@ -60,7 +64,7 @@ export function HandicapHomeCard({ summary, onPress, testID }: HandicapHomeCardP
             </Text>
           ) : (
             <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-              Play rounds to establish your index
+              Play rounds to establish your Social Handicap
             </Text>
           )}
         </View>

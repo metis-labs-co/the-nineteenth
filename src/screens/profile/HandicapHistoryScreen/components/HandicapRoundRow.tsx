@@ -49,7 +49,7 @@ export function HandicapRoundRow({
     if (!onUncombine) return;
     Alert.alert(
       'Unlink combined round?',
-      'This restores both 9-hole rounds as separate scorecards. They will no longer count toward your handicap index.',
+      'This restores both 9-hole rounds as separate scorecards. They will no longer count toward your Social Handicap.',
       [
         { text: 'Cancel', style: 'cancel' },
         {

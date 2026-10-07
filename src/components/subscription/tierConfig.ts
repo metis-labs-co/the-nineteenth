@@ -66,7 +66,7 @@ export const TIER_CONFIGS: Record<PaywallTier, TierConfig> = {
       'Compare stats with friends',
       'Score distribution analytics',
       'Detailed statistics (par type, putting, short game)',
-      'Handicap history',
+      'Social Handicap history',
       'Achievement leaderboard',
       'AI competition creation',
       'Guest player management',

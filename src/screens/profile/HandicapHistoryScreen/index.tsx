@@ -1,7 +1,7 @@
 /**
  * HandicapHistoryScreen - Display player's handicap history and index
  *
- * Shows the calculated Social Handicap Index and the last 20 rounds
+ * Shows the calculated Social Handicap and the last 20 rounds
  * with their differentials. Qualifying rounds (best X of 20) are
  * highlighted with a checkmark and colored border.
  */
@@ -160,7 +160,7 @@ export default function HandicapHistoryScreen({ navigation }: Props) {
   if (isLoading) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <PageHeader title="Handicap History" showBack onBack={handleGoBack} />
+        <PageHeader title="Social Handicap" showBack onBack={handleGoBack} />
         <LoadingSpinner size="lg" />
       </View>
     );
@@ -170,11 +170,11 @@ export default function HandicapHistoryScreen({ navigation }: Props) {
   if (isError) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <PageHeader title="Handicap History" showBack onBack={handleGoBack} />
+        <PageHeader title="Social Handicap" showBack onBack={handleGoBack} />
         <ErrorState
-          error={error instanceof Error ? error.message : 'Failed to load handicap history'}
+          error={error instanceof Error ? error.message : 'Failed to load your Social Handicap'}
           onRetry={handleRefresh}
-          title="Failed to load handicap history"
+          title="Failed to load your Social Handicap"
         />
       </View>
     );
@@ -187,7 +187,7 @@ export default function HandicapHistoryScreen({ navigation }: Props) {
   ) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <PageHeader title="Handicap History" showBack onBack={handleGoBack} />
+        <PageHeader title="Social Handicap" showBack onBack={handleGoBack} />
         <EmptyHandicapState />
       </View>
     );
@@ -196,19 +196,19 @@ export default function HandicapHistoryScreen({ navigation }: Props) {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <PageHeader
-        title="Handicap History"
+        title="Social Handicap"
         showBack
         onBack={handleGoBack}
         rightActions={[
           {
             icon: 'refresh',
             onPress: handleRefresh,
-            accessibilityLabel: 'Refresh handicap history',
+            accessibilityLabel: 'Refresh Social Handicap',
           },
         ]}
       />
 
-      {/* Current Social Handicap Index — available on all tiers. The index is
+      {/* Current Social Handicap — available on all tiers. The index is
           calculated from app rounds regardless of subscription; only the deeper
           round-by-round history, trend chart and combinable pairs are gated. */}
       <View style={styles.indexCardWrapper}>

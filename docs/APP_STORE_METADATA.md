@@ -47,7 +47,7 @@ FLEXIBLE SCORING FORMATS
 
 SMART PLAYER MANAGEMENT
 • Add players manually or invite them via a unique code
-• Use players' own handicaps, plus an unofficial Social Handicap Index calculated from rounds played in the app
+• Use players' own handicaps, plus a Social Handicap calculated from rounds played in the app (unique to The Nineteenth, not an official golf handicap)
 • Organise players into groups with automatic pairing suggestions
 • Designate scoring pairs for competitive rounds
 

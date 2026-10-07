@@ -11,8 +11,8 @@ describe('HandicapUpsellRow', () => {
         onDismiss={jest.fn()}
       />,
     );
-    expect(getByText('Social Handicap Index')).toBeTruthy();
-    expect(getByText('Track your index — upgrade to unlock')).toBeTruthy();
+    expect(getByText('Social Handicap')).toBeTruthy();
+    expect(getByText('Your in-app handicap — upgrade to unlock')).toBeTruthy();
     expect(getByText('Social')).toBeTruthy();
   });
 
@@ -47,7 +47,7 @@ describe('HandicapUpsellRow', () => {
         onDismiss={onDismiss}
       />,
     );
-    fireEvent.press(getByLabelText('Hide handicap index'));
+    fireEvent.press(getByLabelText('Hide Social Handicap'));
     expect(onDismiss).toHaveBeenCalledTimes(1);
     expect(onUpgradePress).not.toHaveBeenCalled();
   });
