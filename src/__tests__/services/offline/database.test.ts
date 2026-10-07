@@ -24,6 +24,7 @@ import {
   incrementSyncRetryCount,
   getPendingSyncCount,
   getFailedSyncCountForRound,
+  resetFailedSyncsForRound,
   getFailedSyncs,
   discardPendingSync,
   updatePendingSyncData,
@@ -912,6 +913,30 @@ describe('Pending Sync Operations', () => {
 
       expect(result).toBe(0);
       expect(mockGetFirstAsync).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('resetFailedSyncsForRound()', () => {
+    it('should re-queue only failed scorecard rows of the given round', async () => {
+      mockRunAsync.mockResolvedValueOnce({ lastInsertRowId: 0, changes: 2 });
+
+      const result = await resetFailedSyncsForRound('round-abc');
+
+      expect(result).toBe(2);
+      const [sql, params] = mockRunAsync.mock.calls[mockRunAsync.mock.calls.length - 1];
+      expect(sql).toContain("SET status = 'pending', retry_count = 0, last_error = NULL");
+      expect(sql).toContain("status = 'failed'");
+      expect(sql).toContain('entity_key LIKE');
+      expect(params).toEqual(['scorecard:round-abc:%']);
+    });
+
+    it('should do nothing when no round id is given', async () => {
+      mockRunAsync.mockClear();
+
+      const result = await resetFailedSyncsForRound('');
+
+      expect(result).toBe(0);
+      expect(mockRunAsync).not.toHaveBeenCalled();
     });
   });
 
