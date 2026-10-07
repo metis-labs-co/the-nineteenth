@@ -283,6 +283,55 @@ describe('recalculateScorecardDifferential', () => {
     });
   });
 
+  describe('9-hole daily_handicap_used', () => {
+    // Front nine of the mock course: pars 5,4,3 × 3 = 36. Tee 125 / 72.5 (men),
+    // 130 / 74.5 (women).
+    const nineRound = (selectedTee: Record<string, unknown> = {}) => ({
+      ...mockRound,
+      nine_type: 'front9',
+      selected_tee: { ...mockRound.selected_tee, ...selectedTee },
+    });
+
+    it('no 9-hole ratings, double-rounding case (HI 12, male)', async () => {
+      setupMocks({
+        round: nineRound(),
+        scorecard: { ...mockScorecard, total_gross: 45, ga_handicap_used: 12 },
+      });
+
+      const result = await recalculateScorecardDifferential(SCORECARD_ID);
+
+      // raw 18-hole DH 12.79 → CURRENT: round(round(12.79) / 2) = round(6.5) = 7
+      expect(result.dailyHandicapUsed).toBe(7);
+    });
+
+    it('no 9-hole ratings, female uses women ratings (HI 12)', async () => {
+      setupMocks({
+        round: nineRound(),
+        scorecard: { ...mockScorecard, total_gross: 45, ga_handicap_used: 12 },
+        player: { ...mockPlayer, gender: 'female' },
+      });
+
+      const result = await recalculateScorecardDifferential(SCORECARD_ID);
+
+      // raw 18-hole DH (130 / 74.5, CF 1.0483) 15.90 → 8 either way
+      expect(result.dailyHandicapUsed).toBe(8);
+    });
+
+    it('dedicated 9-hole ratings (HI 18.5, 122 / 35.8): CURRENT uses the full index', async () => {
+      setupMocks({
+        round: nineRound({ slopeRatingFront9: 122, courseRatingFront9: 35.8 }),
+        scorecard: { ...mockScorecard, total_gross: 45 },
+      });
+
+      const result = await recalculateScorecardDifferential(SCORECARD_ID);
+
+      // ((18.5 × 122/113) + (35.8 − 36)) × 0.93 × 0.9986 = 18.36 → 18
+      expect(result.dailyHandicapUsed).toBe(18);
+      expect(result.courseRatingUsed).toBe(35.8);
+      expect(result.slopeRatingUsed).toBe(122);
+    });
+  });
+
   describe('error cases', () => {
     it('throws when scorecard not found', async () => {
       setupMocks({ scorecard: null, scorecardError: { message: 'not found' } });
