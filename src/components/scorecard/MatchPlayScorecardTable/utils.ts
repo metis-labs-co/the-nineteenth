@@ -43,6 +43,12 @@ export function calculateAllData(
   let back9P2 = 0;
   let back9Played = 0;
 
+  // Dormie / close-out are judged against the holes this table was given —
+  // the round's planned, nine-filtered list (9 for front9/back9) — never a
+  // hard-coded 18. An empty list keeps 18, so it never reads as a finished,
+  // halved match.
+  const plannedHoleCount = holes.length || 18;
+
   // Iterate the round's actual holes — back-9 / combo rounds carry numbers
   // 10..18 (or 10..27), so a 1..18 counter would skip them entirely.
   for (const hole of holes) {
@@ -96,7 +102,7 @@ export function calculateAllData(
     };
 
     // Calculate running status up to this hole
-    runningStatus[holeNum] = calculateMatchStatus(holeResults);
+    runningStatus[holeNum] = calculateMatchStatus(holeResults, plannedHoleCount);
 
     // Accumulate totals (gross).
     // Count the hole as played if either player has a non-pickup score.
@@ -138,7 +144,7 @@ export function calculateAllData(
       player2: front9P2 + back9P2,
       holesPlayed: front9Played + back9Played,
     },
-    finalStatus: calculateMatchStatus(holeResults),
+    finalStatus: calculateMatchStatus(holeResults, plannedHoleCount),
   };
 }
 

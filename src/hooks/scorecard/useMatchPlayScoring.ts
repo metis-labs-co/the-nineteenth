@@ -169,8 +169,15 @@ export function useMatchPlayScoring({
     return results;
   }, [player1Id, player2Id, player1Handicap, player2Handicap, holes, groupScorecards]);
 
-  // Calculate match status from hole results
-  const matchStatus = useMemo(() => calculateMatchStatus(holeResults), [holeResults]);
+  // Calculate match status against the round's planned holes — the store's
+  // nine-filtered list (9 for front9/back9). Defaulting to 18 meant a 9-hole
+  // match could never reach "complete". An empty list (not loaded yet) keeps
+  // 18, so it never reads as a finished, halved match.
+  const plannedHoleCount = holes.length || 18;
+  const matchStatus = useMemo(
+    () => calculateMatchStatus(holeResults, plannedHoleCount),
+    [holeResults, plannedHoleCount]
+  );
   const isMatchComplete = matchStatus.status === 'complete';
   const matchStatusText = useMemo(
     () => getMatchStatusText(matchStatus, player1Name, player2Name),

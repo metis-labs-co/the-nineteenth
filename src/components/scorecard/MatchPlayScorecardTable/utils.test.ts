@@ -23,3 +23,34 @@ describe('calculateAllData — difference-method allocation', () => {
     expect(data.holeResults[1].winner).toBe('halved');
   });
 });
+
+describe('calculateAllData — planned hole count', () => {
+  const nine = (first: number): Hole[] =>
+    Array.from({ length: 9 }, (_, i) => ({ number: first + i, par: 4, strokeIndex: i + 1 }) as Hole);
+
+  /** p1 cards 3 on `wonHoles` and 4 elsewhere; p2 cards 4 on every scored hole. */
+  const scoresFor = (scored: number[], wonHoles: number[]) =>
+    (playerId: string, holeNumber: number): number | undefined => {
+      if (!scored.includes(holeNumber)) return undefined;
+      if (playerId === 'p1') return wonHoles.includes(holeNumber) ? 3 : 4;
+      return 4;
+    };
+
+  it('finishes a front-9 match on the 9th hole: "1 up"', () => {
+    const holes = nine(1);
+    const data = calculateAllData(holes, 'p1', 'p2', scoresFor(holes.map((h) => h.number), [9]));
+    expect(data.finalStatus).toEqual({ status: 'complete', winner: 'player1', margin: '1 up' });
+    expect(data.runningStatus[8]).toEqual({ status: 'in_progress', leader: null, holesUp: 0, holesRemaining: 1 });
+  });
+
+  it('closes out a back-9 match against 9 planned holes: "5 & 4"', () => {
+    const scored = [10, 11, 12, 13, 14];
+    const data = calculateAllData(nine(10), 'p1', 'p2', scoresFor(scored, scored));
+    expect(data.finalStatus).toEqual({ status: 'complete', winner: 'player1', margin: '5 & 4' });
+  });
+
+  it('keeps 18 for an empty hole list, never a finished halved match (characterization)', () => {
+    const data = calculateAllData([], 'p1', 'p2', () => undefined);
+    expect(data.finalStatus).toEqual({ status: 'in_progress', leader: null, holesUp: 0, holesRemaining: 18 });
+  });
+});

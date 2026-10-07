@@ -93,6 +93,22 @@ const defaultParams = {
   currentHole: 1,
 };
 
+/** Scores for `holes`: player 1 cards 3 on `wonHoles` and 4 elsewhere; player 2 cards 4. */
+function scoresFor(
+  holes: Hole[],
+  wonHoles: number[]
+): Record<string, Record<number, { strokes: number }>> {
+  const scores: Record<string, Record<number, { strokes: number }>> = {
+    'player-1': {},
+    'player-2': {},
+  };
+  for (const h of holes) {
+    scores['player-1'][h.number] = { strokes: wonHoles.includes(h.number) ? 3 : 4 };
+    scores['player-2'][h.number] = { strokes: 4 };
+  }
+  return scores;
+}
+
 // ============================================================================
 // TESTS
 // ============================================================================
@@ -517,6 +533,68 @@ describe('useMatchPlayScoring', () => {
       // 9 up with 4 to play = complete
       expect(result.current.matchStatus.status).toBe('complete');
       expect(result.current.isMatchComplete).toBe(true);
+    });
+  });
+
+  describe('planned hole count (9-hole rounds)', () => {
+    const frontNine = defaultHoles.filter((h) => h.number <= 9);
+    const backNine = defaultHoles.filter((h) => h.number >= 10);
+    const evenHandicaps = { ...defaultParams, player2Handicap: defaultParams.player1Handicap };
+
+    it('completes a front-9 match once all 9 holes are decided (2 up)', () => {
+      setupStoreMock(scoresFor(frontNine, [8, 9]), frontNine);
+
+      const { result } = renderHook(() => useMatchPlayScoring(evenHandicaps));
+
+      expect(result.current.isMatchComplete).toBe(true);
+      expect(result.current.matchStatus).toEqual({ status: 'complete', winner: 'player1', margin: '2 up' });
+      expect(result.current.matchStatusText).toBe('John Smith wins 2 up');
+    });
+
+    it('completes a back-9 match (holes 10-18) the same way', () => {
+      setupStoreMock(scoresFor(backNine, [17, 18]), backNine);
+
+      const { result } = renderHook(() => useMatchPlayScoring(evenHandicaps));
+
+      expect(result.current.isMatchComplete).toBe(true);
+      expect(result.current.matchStatus).toEqual({ status: 'complete', winner: 'player1', margin: '2 up' });
+    });
+
+    it('closes out a 9-hole match early against 9 planned holes (5 & 4)', () => {
+      const firstFive = frontNine.filter((h) => h.number <= 5);
+      setupStoreMock(scoresFor(firstFive, [1, 2, 3, 4, 5]), frontNine);
+
+      const { result } = renderHook(() => useMatchPlayScoring(evenHandicaps));
+
+      expect(result.current.matchStatus).toEqual({ status: 'complete', winner: 'player1', margin: '5 & 4' });
+    });
+
+    it('still reads an 18-hole match against 18 (characterization)', () => {
+      setupStoreMock(scoresFor(frontNine, [8, 9]), defaultHoles);
+
+      const { result } = renderHook(() => useMatchPlayScoring(evenHandicaps));
+
+      expect(result.current.isMatchComplete).toBe(false);
+      expect(result.current.matchStatus).toEqual({
+        status: 'in_progress',
+        leader: 'player1',
+        holesUp: 2,
+        holesRemaining: 9,
+      });
+    });
+
+    it('never reads an empty hole list as a finished, halved match (characterization)', () => {
+      setupStoreMock({}, []);
+
+      const { result } = renderHook(() => useMatchPlayScoring(evenHandicaps));
+
+      expect(result.current.isMatchComplete).toBe(false);
+      expect(result.current.matchStatus).toEqual({
+        status: 'in_progress',
+        leader: null,
+        holesUp: 0,
+        holesRemaining: 18,
+      });
     });
   });
 
