@@ -27,6 +27,7 @@ import { useCheckAchievements } from '@/hooks/achievements/useCheckAchievements'
 import { useAchievementToast } from '@/context/AchievementToastContext';
 import { createError } from '@/services/errors';
 import { backfillSkinsResults } from './backfillSkins';
+import { fetchSkinsHoleCounts } from '@/services/skins/roundHoleCounts';
 import type { ProcessSkinsHoleInput, ProcessTeamSkinsHoleInput } from './types';
 import type {
   SkinsGame,
@@ -178,7 +179,10 @@ export function useProcessSkinsHole() {
       const existingResults = (rawExistingResults ?? []) as unknown as SkinsResultRow[];
 
       const currentCarryover = calculateCurrentCarryover(existingResults as unknown as SkinsResult[]);
-      const baseHoleValue = calculateHoleValue(game.pot_type, game.pot_value);
+      // Price the hole on the round's planned holes (9 for a front/back nine)
+      // so a 9-hole total pot isn't spread over 18.
+      const { plannedHoles } = await fetchSkinsHoleCounts(game.round_id);
+      const baseHoleValue = calculateHoleValue(game.pot_type, game.pot_value, plannedHoles);
 
       const resultData = processHoleResult(
         holeNumber,
@@ -302,7 +306,9 @@ export function useProcessTeamSkinsHole() {
       const existingResults = (rawExistingResults ?? []) as unknown as SkinsResultRow[];
 
       const currentCarryover = calculateCurrentCarryover(existingResults as unknown as SkinsResult[]);
-      const baseHoleValue = calculateHoleValue(game.pot_type, game.pot_value);
+      // Price the hole on the round's planned holes (9 for a front/back nine).
+      const { plannedHoles } = await fetchSkinsHoleCounts(game.round_id);
+      const baseHoleValue = calculateHoleValue(game.pot_type, game.pot_value, plannedHoles);
 
       const resultData = processTeamHoleResult(
         holeNumber,
