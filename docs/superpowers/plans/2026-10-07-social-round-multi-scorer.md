@@ -679,13 +679,6 @@ git commit -m "feat(scoring): pure remote scorecard row rules (revision, final, 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
-### Task 5b (follows 5a): Store applies remote rows (`mergeRemoteScorecard`, `pullServerScorecards`, synced in one write)
-
-**Files:**
-- Modify: `src/store/scorecardStore.ts`, `src/store/scorecardPersistence.ts` (`PersistOptions.scorecard.syncedAtRevision`), `src/services/offline/dao/ScorecardDAO.ts` (`saveScorecard` options)
-- Modify (test mock): `src/__tests__/store/scorecardStore.test.ts`. Extend `makeChain` with `is: jest.fn(() => Promise.resolve(result))`, add a `scorecards` table branch backed by a mutable `scorecardsResult`, and add `__setScorecardsResult` with a reset in `beforeEach`.
-- Test: `src/__tests__/store/scorecardStore.test.ts`
-
 **Interfaces:**
 - Produces (`remoteScorecardMerge.ts`):
   ```ts
@@ -852,6 +845,17 @@ export function applyRemoteScorecard(local: Scorecard, remote: RemoteScorecardRo
 ```
 
   Run the tests and check they pass.
+
+---
+
+### Task 5b (follows 5a): Store applies remote rows (`mergeRemoteScorecard`, `pullServerScorecards`, synced in one write)
+
+**Files:**
+- Modify: `src/store/scorecardStore.ts`, `src/store/scorecardPersistence.ts` (`PersistOptions.scorecard.syncedAtRevision`), `src/services/offline/dao/ScorecardDAO.ts` (`saveScorecard` options)
+- Modify (test mock): `src/__tests__/store/scorecardStore.test.ts`. Extend `makeChain` with `is: jest.fn(() => Promise.resolve(result))`, add a `scorecards` table branch backed by a mutable `scorecardsResult`, and add `__setScorecardsResult` with a reset in `beforeEach`.
+- Test: `src/__tests__/store/scorecardStore.test.ts`
+
+The **Interfaces** and **Rules** for this task are in Task 5a above, which covers both.
 
 - [ ] **Step 3: Write the failing store tests** (`scorecardStore.test.ts`).
 
