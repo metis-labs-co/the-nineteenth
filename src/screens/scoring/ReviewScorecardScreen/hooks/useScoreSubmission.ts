@@ -125,7 +125,7 @@ interface UseScoreSubmissionParams {
   scorecardCount: number;
   validateScores: () => IncompleteHole[];
   setShowIncompleteModal: (show: boolean) => void;
-  submitScorecards: (options?: { bypassed?: boolean; playerIds?: string[] }) => Promise<void>;
+  submitScorecards: (options?: { bypassed?: boolean; playerIds?: string[] }) => Promise<{ alreadySubmitted: boolean }>;
   resetRound: () => void;
   navigation: NativeStackNavigationProp<RootStackParamList, 'ReviewScorecard'>;
   // Scoring pairs mismatch detection
@@ -440,6 +440,7 @@ export function useScoreSubmission({
           scoringPairsEnabled,
           holeCount,
           groupPlayerIds,
+          { socialRound: useScorecardStore.getState().scoringMode === 'social' },
         );
 
         if (!readiness.canSubmit) {
@@ -590,8 +591,8 @@ export function useScoreSubmission({
           isOnline,
         });
         const submitScopeIds = getGroupScopeIds();
-        await submitScorecards({ playerIds: submitScopeIds });
-        submitLogger.info('submitScorecards completed successfully');
+        const { alreadySubmitted } = await submitScorecards({ playerIds: submitScopeIds });
+        submitLogger.info('submitScorecards completed successfully', { alreadySubmitted });
 
         if (roundId && isOnline) {
           try {
@@ -712,7 +713,9 @@ export function useScoreSubmission({
 
           showDialog({
             title: 'Success',
-            message: 'All scores have been submitted successfully!',
+            message: alreadySubmitted
+              ? 'This round was already submitted on another phone'
+              : 'All scores have been submitted successfully!',
             confirmLabel: 'View Round',
             cancelLabel: '',
             icon: 'check-circle-outline',

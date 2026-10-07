@@ -1507,6 +1507,94 @@ describe('ScorecardStore', () => {
     });
   });
 
+  describe('submitScorecards (social)', () => {
+    const T2 = '2099-01-01T00:00:00.000Z';
+    const init = () => getStore().initializeRound(testRoundId, testPlayers, testHoles, 'stroke', false, [], null, 'none', new Map(), 'full', 1, 'social');
+
+    // clearAllMocks keeps implementations; don't leak a test's syncScorecard stub.
+    afterEach(() => {
+      (syncScorecard as jest.Mock).mockImplementation(() => Promise.resolve({ serverRevision: 1 }));
+    });
+
+    it('pulls and merges the server cards before submitting', async () => {
+      await init();
+      const p = testPlayers[0].id;
+      __setScorecardsResult({ data: [{ player_id: p, scores: { '1': { strokes: 4, editedAt: T2 } }, revision: 2, status: 'in-progress' }], error: null });
+      const result = await getStore().submitScorecards();
+      const sent = (syncScorecard as jest.Mock).mock.calls.find(([sc]) => sc.playerId === p)[0];
+      expect(sent.scores[1].strokes).toBe(4);
+      expect(sent.serverRevision).toBe(2);
+      expect(result).toEqual({ alreadySubmitted: false });
+    });
+
+    it('adopts the final cards and reports alreadySubmitted when the server cards are all final', async () => {
+      await init();
+      __setScorecardsResult({ data: testPlayers.map((pl) => ({ player_id: pl.id, scores: {}, revision: 3, status: 'completed' })), error: null });
+      const result = await getStore().submitScorecards();
+      expect(result).toEqual({ alreadySubmitted: true });
+      expect(syncScorecard).not.toHaveBeenCalled();
+      expect(getStore().submittedElsewhere).toBe(false); // the caller's success navigation handles it
+    });
+
+    it('a retry after a failed submit still submits (local completed ≠ server final)', async () => {
+      await init();
+      (syncScorecard as jest.Mock).mockRejectedValueOnce(new Error('network'));
+      await expect(getStore().submitScorecards()).rejects.toThrow();
+      __setScorecardsResult({ data: [], error: null });
+      (syncScorecard as jest.Mock).mockClear();
+      await expect(getStore().submitScorecards()).resolves.toEqual({ alreadySubmitted: false });
+      expect(syncScorecard).toHaveBeenCalled();
+    });
+
+    it("ignores its own completed echoes while submitting (no 'submitted elsewhere')", async () => {
+      await init();
+      (syncScorecard as jest.Mock).mockImplementation(async (sc: Scorecard) => {
+        await getStore().mergeRemoteScorecard({ player_id: sc.playerId, scores: {}, revision: 5, status: 'completed' });
+        return { serverRevision: 5 };
+      });
+      await getStore().submitScorecards();
+      expect(getStore().submittedElsewhere).toBe(false);
+    });
+
+    it('submits even when the pre-submit pull fails (weak signal)', async () => {
+      await init();
+      const { supabase } = jest.requireMock('@/services/supabase/client');
+      (supabase.from as jest.Mock).mockImplementationOnce(() => { throw new Error('network'); });
+      await expect(getStore().submitScorecards()).resolves.toEqual({ alreadySubmitted: false });
+      expect(syncScorecard).toHaveBeenCalled();
+    });
+
+    it('a conflict during submit keeps the merged scores in the store', async () => {
+      await init();
+      const p = testPlayers[0].id;
+      await getStore().setPlayerScore(p, 1, 4, 'me');
+      const ConflictError = jest.requireMock('@/services/offline/sync').ScorecardConflictError;
+      (syncScorecard as jest.Mock)
+        .mockRejectedValueOnce(new ConflictError({ server_revision: 6, server_status: 'in-progress', server_scores: { '2': { strokes: 5, editedAt: T2 } } }))
+        .mockResolvedValue({ serverRevision: 7 });
+      await getStore().submitScorecards({ playerIds: [p] });
+      const sc = getStore().groupScorecards.get(p)!;
+      expect(sc.scores[2]).toEqual({ strokes: 5, editedAt: T2 });
+      expect(sc.serverRevision).toBe(7);
+    });
+
+    it('a conflict during submit leaves the merged card saved locally as completed', async () => {
+      await init();
+      const p = testPlayers[0].id;
+      await getStore().setPlayerScore(p, 1, 4, 'me');
+      const ConflictError = jest.requireMock('@/services/offline/sync').ScorecardConflictError;
+      (syncScorecard as jest.Mock)
+        .mockRejectedValueOnce(new ConflictError({ server_revision: 6, server_status: 'in-progress', server_scores: { '2': { strokes: 5, editedAt: T2 } } }))
+        .mockResolvedValue({ serverRevision: 7 });
+      await getStore().submitScorecards({ playerIds: [p] });
+      const id = getStore().groupScorecards.get(p)!.id;
+      const saves = (saveScorecard as jest.Mock).mock.calls.filter(([c]) => c.id === id);
+      const lastSaved = saves[saves.length - 1][0] as Scorecard;
+      expect(lastSaved.status).toBe('completed');
+      expect(lastSaved.scores[2]).toEqual({ strokes: 5, editedAt: T2 });
+    });
+  });
+
   // ==========================================================================
   // LIVE SYNC REVISION PROPAGATION
   // ==========================================================================
