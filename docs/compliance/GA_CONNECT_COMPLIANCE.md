@@ -174,7 +174,7 @@ These are not GA-specific, but GA assessment category 5 will find them.
 
 | # | Item | Severity | Status |
 |---|---|---|---|
-| X1 | `players` table readable by every signed-in user (email, phone, handicap) | High | ❌ Open |
+| X1 | `players` table readable by every signed-in user (email, phone, handicap) | High | 🟡 `feat/player-privacy`: app reads only public columns; leaking RPCs closed (20261008000000). Column lock held in `supabase/migrations_pending/` until the force-update release. |
 | X2 | Course and tee tables writable by any signed-in user | High | ❌ Open |
 | X3 | GolfAPI key in git history and old app builds | High | 🟡 Proxy live. Rotate after the force-update minimum version is raised. |
 | X4 | Account deletion broken for all users | High | 🟡 Migration `20261007000000_fix_account_deletion.sql` written, not deployed. |
@@ -208,3 +208,4 @@ These are not GA-specific, but GA assessment category 5 will find them.
 | 2026-10-07 | Privacy policy corrected, breach runbook added, export-data completed, account-deletion fix migration written (E5 partial; not deployed). | c1a86ef5 |
 | 2026-10-07 | 9-hole Daily Handicap matches BRS Appendix B (H2). | c1a86ef5 |
 | 2026-10-07 | App index renamed to "Social Handicap", with a not-official disclaimer in app, store, privacy and marketing copy (D1, D3 partial). | feat/social-handicap-label |
+| 2026-10-08 | Player privacy: other players' email/phone/age no longer shown or fetched; global achievement board anonymises non-friends; email-leaking RPCs closed; column lock prepared (X1 partial). | feat/player-privacy |
