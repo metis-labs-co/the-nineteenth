@@ -1575,6 +1575,29 @@ describe('ScorecardStore', () => {
       expect(getStore().submittedElsewhereRoundId).toBeNull();
     });
 
+    it('the pre/post-submit pulls schedule no debounced upload when local is ahead', async () => {
+      jest.useFakeTimers();
+      try {
+        await init();
+        const p = testPlayers[0].id;
+        await getStore().setPlayerScore(p, 2, 5, 'me'); // local ahead of the server row below
+        jest.advanceTimersByTime(5000); // flush the live-edit debounce
+        (queueScorecardSync as jest.Mock).mockClear();
+        __setScorecardsResult({ data: [{ player_id: p, scores: { '1': { strokes: 4, editedAt: T2 } }, revision: 2, status: 'in-progress' }], error: null });
+        // A slow upload that then fails: any debounce the pull scheduled fires
+        // mid-submit, while the store still holds the in-progress card.
+        (syncScorecard as jest.Mock).mockImplementationOnce(async () => {
+          jest.advanceTimersByTime(5000);
+          throw new Error('network');
+        });
+        await expect(getStore().submitScorecards()).rejects.toThrow();
+        jest.advanceTimersByTime(5000);
+        expect(queueScorecardSync).not.toHaveBeenCalled();
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
     it('submits even when the pre-submit pull fails (weak signal)', async () => {
       await init();
       const { supabase } = jest.requireMock('@/services/supabase/client');

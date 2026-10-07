@@ -121,7 +121,10 @@ interface ScorecardState {
   /** Social rounds: apply one server scorecard row (realtime) to the local card. */
   mergeRemoteScorecard: (row: RemoteScorecardRow) => Promise<void>;
   /** Social rounds: fetch + apply every server card of currentRoundId; returns the rows. */
-  pullServerScorecards: () => Promise<RemoteScorecardRow[]>;
+  /** Pull and merge every server card of the loaded social round. `queueUpload:
+   *  false` stops cards with local holes ahead from scheduling a debounced upload
+   *  (submit uploads them itself). */
+  pullServerScorecards: (opts?: { queueUpload?: boolean }) => Promise<RemoteScorecardRow[]>;
 
   // Multi-ball scoring functions
   setMultiBallConfig: (ballCount: BallCount) => void;
@@ -508,7 +511,9 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
           // connection must not block a submit that standard rounds would allow.
           let rows: RemoteScorecardRow[] = [];
           try {
-            rows = await get().pullServerScorecards();
+            // No debounced upload: this submit sends every in-scope card itself,
+            // and a timer firing mid-submit would queue a stale in-progress copy.
+            rows = await get().pullServerScorecards({ queueUpload: false });
           } catch (pullError) {
             storeLogger.warn('Pre-submit pull failed; submitting without it', {
               error: pullError instanceof Error ? pullError.message : String(pullError),
@@ -673,7 +678,9 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
         // Realtime rows are ignored while submitting; pick up anything that
         // arrived meanwhile (e.g. out-of-scope players). Still `submitting`, so
         // this can't raise "submitted elsewhere".
-        if (social && getIsOnline()) await get().pullServerScorecards().catch(() => undefined);
+        if (social && getIsOnline()) {
+          await get().pullServerScorecards({ queueUpload: false }).catch(() => undefined);
+        }
         return { alreadySubmitted: false };
       } finally {
         submitting = false;
@@ -710,11 +717,11 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
       await applyRemoteToStore(row);
     },
 
-    pullServerScorecards: async () => {
+    pullServerScorecards: async (opts) => {
       const { currentRoundId, scoringMode } = get();
       if (!currentRoundId || scoringMode !== 'social') return [];
       const rows = await fetchServerScorecards(currentRoundId);
-      for (const row of rows) await applyRemoteToStore(row);
+      for (const row of rows) await applyRemoteToStore(row, opts);
       return rows;
     },
 
