@@ -21,6 +21,7 @@ import { getDisplayName } from '@/utils/displayHelpers';
 import { filterHolesByNineType } from '@/utils/holeTransformers';
 import { useRoundDetails, useRoundPlayers } from '@/hooks/useRoundDetails';
 import { useRoundCourse } from './useRoundCourse';
+import { pullOnOpenIfSocial } from './pullOnOpenIfSocial';
 import type { Player, Scorecard, Hole, TeeBox } from '@/types';
 import type { HandicapSource } from '@/types/database';
 import type { NineType } from '@/types/database/enums';
@@ -343,6 +344,8 @@ export function useMatchPlayData({
       hydratedRoundRef.current = roundId;
 
       try {
+        if (await pullOnOpenIfSocial()) return;
+
         interface RemoteScorecard {
           player_id: string;
           scores: Record<string, { strokes?: number }> | null;

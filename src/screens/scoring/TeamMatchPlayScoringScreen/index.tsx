@@ -47,6 +47,7 @@ import { DEFAULT_HOLES, MIN_SCORE, MAX_SCORE } from './constants';
 import { useTeamMatchPlayScores, useTeamMatchPlayState, useTeamMatchPlayNavigation } from './hooks';
 import type { MatchTeam } from './types';
 import { toMatchTeam } from './types';
+import { pullOnOpenIfSocial } from '@/hooks/scorecard/pullOnOpenIfSocial';
 
 type Props = RootStackScreenProps<'MatchPlayScoring'>;
 
@@ -194,22 +195,27 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
       }
 
       const loaded = await loadFromOffline(roundId);
-      if (cancelled || loaded) return;
+      if (cancelled) return;
 
-      await initializeRound(
-        roundId,
-        players,
-        holes,
-        'match-play',
-        false,
-        [],
-        selectedTeeBox ?? null,
-        handicapSource,
-        new Map(),
-        'full',
-        1,
-        deriveScoringMode(roundData)
-      );
+      if (!loaded) {
+        await initializeRound(
+          roundId,
+          players,
+          holes,
+          'match-play',
+          false,
+          [],
+          selectedTeeBox ?? null,
+          handicapSource,
+          new Map(),
+          'full',
+          1,
+          deriveScoringMode(roundData)
+        );
+      }
+
+      if (cancelled) return;
+      await pullOnOpenIfSocial();
     })();
 
     return () => {

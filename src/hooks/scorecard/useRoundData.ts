@@ -29,6 +29,7 @@ import { useRoundPlayers } from './useRoundPlayers';
 import { useRoundCourse } from './useRoundCourse';
 import { useRoundTeams } from './useRoundTeams';
 import { useRoundScoringPairs } from './useRoundScoringPairs';
+import { pullOnOpenIfSocial } from './pullOnOpenIfSocial';
 import type { TeeBox } from '@/types';
 
 interface RoundDataState {
@@ -577,6 +578,8 @@ export function useRoundData({
       hydratedRoundRef.current = roundId;
 
       try {
+        if (await pullOnOpenIfSocial()) return;
+
         // Fetch scorecards from Supabase for this round
         interface RemoteScorecard {
           player_id: string;

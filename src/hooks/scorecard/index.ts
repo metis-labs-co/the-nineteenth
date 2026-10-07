@@ -19,3 +19,4 @@ export * from './useBuildAsYouPlay';
 export * from './useGroupFilter';
 export * from './useActiveSubMatch';
 export * from './useLiveScorecardMerge';
+export * from './pullOnOpenIfSocial';
