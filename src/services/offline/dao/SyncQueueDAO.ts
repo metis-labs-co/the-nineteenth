@@ -259,12 +259,24 @@ export async function discardPendingSync(id: number): Promise<boolean> {
  * rejection. Without it the row keeps the stale revision that caused the
  * conflict and every later retry is rejected for the same reason, forever.
  */
-export async function updatePendingSyncData(id: number, data: unknown): Promise<boolean> {
+export async function updatePendingSyncData(
+  id: number,
+  data: unknown,
+  expectedRevision?: number
+): Promise<boolean> {
   const database = await getDb();
-  const result = await database.runAsync(
-    `UPDATE ${TABLE_NAMES.PENDING_SYNCS} SET data = ? WHERE id = ?`,
-    [JSON.stringify(data), id]
-  );
+  // With expectedRevision, a row superseded by a newer coalesced edit is left
+  // untouched, so a stale snapshot can never overwrite that newer edit.
+  const result =
+    expectedRevision === undefined
+      ? await database.runAsync(`UPDATE ${TABLE_NAMES.PENDING_SYNCS} SET data = ? WHERE id = ?`, [
+          JSON.stringify(data),
+          id,
+        ])
+      : await database.runAsync(
+          `UPDATE ${TABLE_NAMES.PENDING_SYNCS} SET data = ? WHERE id = ? AND revision = ?`,
+          [JSON.stringify(data), id, expectedRevision]
+        );
   return result.changes > 0;
 }
 

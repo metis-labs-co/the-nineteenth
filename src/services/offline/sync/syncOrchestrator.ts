@@ -251,7 +251,9 @@ export async function syncAll(options: SyncAllOptions = {}): Promise<boolean> {
 
       sync.data = { ...sync.data, serverRevision: error.serverRevision };
       if (sync.id != null) {
-        await updatePendingSyncData(sync.id, sync.data);
+        // Revision-guarded: if a newer edit was coalesced into this row meanwhile,
+        // leave it alone rather than overwrite it with this stale snapshot.
+        await updatePendingSyncData(sync.id, sync.data, sync.revision ?? 1);
       }
       return true;
     };

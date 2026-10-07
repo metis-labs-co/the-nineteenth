@@ -983,6 +983,18 @@ describe('Pending Sync Operations', () => {
         [JSON.stringify({ id: 'sc-1', serverRevision: 9 }), 7]
       );
     });
+
+    it('only overwrites the row at the expected revision when one is given', async () => {
+      mockRunAsync.mockResolvedValueOnce({ changes: 0 });
+
+      const updated = await updatePendingSyncData(7, { id: 'sc-1', serverRevision: 9 }, 3);
+
+      expect(updated).toBe(false);
+      expect(mockRunAsync).toHaveBeenCalledWith(
+        expect.stringContaining('WHERE id = ? AND revision = ?'),
+        [JSON.stringify({ id: 'sc-1', serverRevision: 9 }), 7, 3]
+      );
+    });
   });
 });
 

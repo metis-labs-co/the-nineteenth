@@ -589,6 +589,22 @@ describe('Sync Operations', () => {
         expect(database.updatePendingSyncData).not.toHaveBeenCalled();
       });
 
+      it('parks a second conflict only on the unsuperseded row revision', async () => {
+        const scorecard = createTestScorecard({ status: 'in-progress', serverRevision: 2 });
+        (database.getPendingSyncs as jest.Mock).mockResolvedValue([createPendingSync({ id: 9, revision: 3, data: scorecard })]);
+        (supabase.rpc as jest.Mock)
+          .mockResolvedValueOnce(conflictRpc())
+          .mockResolvedValueOnce({ ...conflictRpc(), data: [{ ...conflictRpc().data[0], server_revision: 8 }] });
+        setScorecardConflictResolver(jest.fn().mockResolvedValue({ kind: 'retry', scorecard: { ...scorecard, serverRevision: 6 } }));
+
+        await syncAll();
+
+        // A tap coalesced into the row during the merge bumps its revision; the
+        // revision guard makes the park a no-op so that newer edit is kept.
+        expect(database.updatePendingSyncData).toHaveBeenCalledWith(9, expect.objectContaining({ serverRevision: 8 }), 3);
+        expect(database.markPendingSyncFailed).toHaveBeenCalledWith(9, 3, expect.any(String));
+      });
+
       it('drops the queued write when the server card is final', async () => {
         (database.getPendingSyncs as jest.Mock).mockResolvedValue([createPendingSync({ id: 5 })]);
         (supabase.rpc as jest.Mock).mockResolvedValue(conflictRpc('completed'));
@@ -1284,7 +1300,8 @@ describe('Retained failure recovery', () => {
 
     expect(database.updatePendingSyncData).toHaveBeenCalledWith(
       55,
-      expect.objectContaining({ serverRevision: 9 })
+      expect.objectContaining({ serverRevision: 9 }),
+      1
     );
     expect(database.markPendingSyncFailed).toHaveBeenCalledWith(55, 1, expect.any(String));
   });
@@ -1343,7 +1360,8 @@ describe('Retained failure recovery', () => {
     expect(database.markPendingSyncFailed).toHaveBeenCalledWith(58, 1, expect.any(String));
     expect(database.updatePendingSyncData).toHaveBeenLastCalledWith(
       58,
-      expect.objectContaining({ serverRevision: 11 })
+      expect.objectContaining({ serverRevision: 11 }),
+      1
     );
   });
 
