@@ -578,10 +578,13 @@ describe('Sync Operations', () => {
       });
     });
 
-    it('uploads only the whitelisted hole fields today', async () => {
+    it('uploads editedAt, scoredBy and pickup flags', async () => {
       const scorecard = createTestScorecard({
         status: 'in-progress',
-        scores: { 1: { strokes: 4, scoredBy: 'u1', pickedUp: true } },
+        scores: {
+          1: { strokes: 4, scoredBy: 'u1', pickedUp: true, editedAt: '2026-10-07T00:00:00.000Z' },
+          2: { strokes: 0, didNotAttempt: true },
+        },
       });
       (database.getPendingSyncs as jest.Mock).mockResolvedValue([createPendingSync({ data: scorecard })]);
       (supabase.rpc as jest.Mock).mockResolvedValue(successRpc(1));
@@ -589,8 +592,8 @@ describe('Sync Operations', () => {
       await syncAll();
 
       const write = (supabase.rpc as jest.Mock).mock.calls.find(([fn]) => fn === 'write_scorecard_snapshot');
-      expect(write[1].p_snapshot.scores['1']).not.toHaveProperty('scoredBy');
-      expect(write[1].p_snapshot.scores['1']).not.toHaveProperty('pickedUp');
+      expect(write[1].p_snapshot.scores['1']).toMatchObject({ scoredBy: 'u1', pickedUp: true, editedAt: '2026-10-07T00:00:00.000Z' });
+      expect(write[1].p_snapshot.scores['2']).toMatchObject({ strokes: 0, didNotAttempt: true });
     });
   });
 

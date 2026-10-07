@@ -127,6 +127,7 @@ export const MIGRATIONS: Migration[] = [
     name: 'add_scorecard_server_revision',
     up: `ALTER TABLE scorecards ADD COLUMN server_revision INTEGER`,
   },
+  { version: 19, name: 'add_hole_score_edited_at', up: `ALTER TABLE hole_scores ADD COLUMN edited_at TEXT` },
 ];
 
 /**

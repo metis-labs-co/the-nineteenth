@@ -45,11 +45,12 @@ function applyScoreUpdate(
   set: SetFn,
   state: Pick<StoreState, 'selectedTeeData' | 'playerTeeMap' | 'handicapSource' | 'nineType'>,
 ): Scorecard {
+  const stampedHoleScore: HoleScore = { ...holeScore, editedAt: new Date().toISOString() };
   const updatedScorecard: Scorecard = {
     ...scorecard,
     scores: {
       ...scorecard.scores,
-      [hole]: holeScore,
+      [hole]: stampedHoleScore,
     },
     updatedAt: new Date(),
   };
@@ -155,7 +156,7 @@ export async function setPlayerScore(
   // now the single writer, batching all of this player's entries into one
   // upsert ~2s after the last tap.
   await persistScorecardUpdate({
-    holeScore: { scorecardId: scorecard.id, holeNumber: hole, score: holeScore },
+    holeScore: { scorecardId: scorecard.id, holeNumber: hole, score: updatedScorecard.scores[hole] as HoleScore },
     scorecard: { scorecardId: scorecard.id, scorecard: updatedScorecard },
     context: 'setPlayerScore',
   });
@@ -203,7 +204,7 @@ export async function updatePlayerHoleScore(
   });
 
   await persistScorecardUpdate({
-    holeScore: { scorecardId: scorecard.id, holeNumber: hole, score: holeScore },
+    holeScore: { scorecardId: scorecard.id, holeNumber: hole, score: updatedScorecard.scores[hole] as HoleScore },
     scorecard: { scorecardId: scorecard.id, scorecard: updatedScorecard },
     context: 'updatePlayerHoleScore',
   });
@@ -248,7 +249,7 @@ export async function updateShotContributions(
   });
 
   const saved = await persistScorecardUpdate({
-    holeScore: { scorecardId: scorecard.id, holeNumber: hole, score: holeScore },
+    holeScore: { scorecardId: scorecard.id, holeNumber: hole, score: updatedScorecard.scores[hole] as HoleScore },
     scorecard: { scorecardId: scorecard.id, scorecard: updatedScorecard },
     context: 'updateShotContributions',
   });
@@ -304,7 +305,7 @@ export async function updateLocalScore(
   });
 
   const saved = await persistScorecardUpdate({
-    holeScore: { scorecardId: scorecard.id, holeNumber, score: holeScore },
+    holeScore: { scorecardId: scorecard.id, holeNumber, score: updatedScorecard.scores[holeNumber] as HoleScore },
     scorecard: { scorecardId: scorecard.id, scorecard: updatedScorecard },
     context: 'updateLocalScore',
   });

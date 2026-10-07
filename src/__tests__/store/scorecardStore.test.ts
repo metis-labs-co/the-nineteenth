@@ -1842,4 +1842,33 @@ describe('ScorecardStore', () => {
       expect(scores[0].strokes).toBe(0); // Default empty score
     });
   });
+  describe('editedAt stamping', () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2026-10-07T01:02:03.000Z'));
+    });
+    afterEach(() => jest.useRealTimers());
+
+    const holeOf = (playerId: string) => getStore().groupScorecards.get(playerId)!.scores[1] as HoleScore;
+
+    it.each([
+      ['setPlayerScore', (id: string) => getStore().setPlayerScore(id, 1, 4, 'me')],
+      ['updatePlayerHoleScore', (id: string) => getStore().updatePlayerHoleScore(id, 1, { putts: 2 })],
+      ['updateShotContributions', (id: string) => getStore().updateShotContributions(id, 1, { teeShot: id })],
+      ['updateLocalScore', (id: string) => getStore().updateLocalScore(testRoundId, id, 1, 5)],
+    ])('%s stamps the hole with the edit time', async (_name, act) => {
+      await getStore().initializeRound(testRoundId, testPlayers, testHoles, 'stroke');
+      const id = testPlayers[0].id;
+      await act(id);
+      expect(holeOf(id).editedAt).toBe('2026-10-07T01:02:03.000Z');
+    });
+
+    it('persists the stamped hole to SQLite', async () => {
+      await getStore().initializeRound(testRoundId, testPlayers, testHoles, 'stroke');
+      await getStore().setPlayerScore(testPlayers[0].id, 1, 4, 'me');
+      expect(saveHoleScore).toHaveBeenLastCalledWith(
+        expect.any(String), 1, expect.objectContaining({ editedAt: '2026-10-07T01:02:03.000Z' }),
+      );
+    });
+  });
 });
