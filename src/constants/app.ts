@@ -88,7 +88,7 @@ export const FAQ_DATA: FAQItem[] = [
     id: '8',
     question: 'What are leagues?',
     answer:
-      'Leagues let you run cross-course competitions using the World Handicap System (WHS) handicap differential. Tag any round you play to a league and the leaderboard updates automatically. Open the Leagues tab to create one, join via invite code, or browse public leagues. Premium tier unlocks Ladder and Eclectic league formats.',
+      'Leagues let you run cross-course competitions ranked by score differentials. Tag any round you play to a league and the leaderboard updates automatically. Open the Leagues tab to create one, join via invite code, or browse public leagues. Premium tier unlocks Ladder and Eclectic league formats.',
     category: 'getting-started',
   },
   {

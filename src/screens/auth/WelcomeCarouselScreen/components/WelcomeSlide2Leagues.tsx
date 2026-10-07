@@ -21,7 +21,7 @@ export function WelcomeSlide2Leagues() {
         </View>
       }
       headline="Play leagues, anywhere"
-      body="Join international leagues at any course. Fair, cross-course leaderboards powered by WHS handicap differentials."
+      body="Join international leagues at any course. Fair, cross-course leaderboards powered by score differentials."
     />
   );
 }

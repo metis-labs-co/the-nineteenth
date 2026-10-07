@@ -47,7 +47,7 @@ FLEXIBLE SCORING FORMATS
 
 SMART PLAYER MANAGEMENT
 • Add players manually or invite them via a unique code
-• Track handicaps and update them automatically
+• Use players' own handicaps, plus an unofficial Social Handicap Index calculated from rounds played in the app
 • Organise players into groups with automatic pairing suggestions
 • Designate scoring pairs for competitive rounds
 
@@ -77,7 +77,7 @@ BUILT FOR SOCIAL GOLF
 • Perfect for work golf days, social groups, or club events
 
 DESIGNED IN AUSTRALIA
-Built by golfers, for golfers. The Nineteenth uses Australian date formats, supports the World Handicap System (WHS), and understands the unique needs of Australian social golf.
+Built by golfers, for golfers. The Nineteenth uses Australian date formats and understands the unique needs of Australian social golf.
 
 Whether you're organising a one-off corporate golf day or running a year-long competition with your regular group, The Nineteenth makes it easy to keep score, track standings, and crown a champion.
 

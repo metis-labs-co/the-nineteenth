@@ -91,7 +91,7 @@ export const competitionTypeDescriptions: Record<CompetitionType, string> = {
 
 export const handicapSystemLabels: Record<HandicapSystem, string> = {
   'honor': 'Social',
-  whs: 'WHS',
+  whs: 'Profile',
   'gross-only': 'Gross',
 };
 

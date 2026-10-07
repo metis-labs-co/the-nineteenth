@@ -80,14 +80,14 @@ export function HandicapInfoSheet({ visible, onClose }: HandicapInfoSheetProps) 
           icon="card-account-details"
           title="Handicap"
           abbreviation="HC"
-          description="Your handicap as entered in your profile. This is the handicap you set manually and represents your verified playing ability."
+          description="Your handicap as entered in your profile. This is the handicap you set manually — it isn't checked or verified by The Nineteenth."
         />
 
         <InfoSection
           icon="calculator"
           title="Social Handicap Index"
           abbreviation="Social"
-          description="Automatically calculated from your last 20 rounds played in The Nineteenth. Uses the World Handicap System (WHS) formula to determine your playing ability based on your scores in the app."
+          description="An unofficial index calculated from your last 20 rounds played in The Nineteenth. It isn't your official golf handicap."
           formula="Average of best 8 differentials × 0.96"
         />
 
@@ -96,7 +96,7 @@ export function HandicapInfoSheet({ visible, onClose }: HandicapInfoSheetProps) 
           title="Daily Handicap"
           abbreviation="DHC"
           description="The number of strokes you receive for a specific round. This is calculated using your profile or Social handicap combined with the course and slope ratings of the tees you're playing. A harder course gives you more strokes."
-          formula="(HC × Slope ÷ 113) + (CR - Par) × 0.93"
+          formula="((HC × Slope ÷ 113) + (CR − Par)) × 0.93 × consistency factor"
         />
 
         <View style={[styles.tipContainer, { backgroundColor: colors.infoLight }]}>

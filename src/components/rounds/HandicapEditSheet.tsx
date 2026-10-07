@@ -160,7 +160,7 @@ export function HandicapEditSheet({
                     {`${playerName}'s Handicap`}
                   </Text>
                   <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                    WHS Handicap Index (-5–54)
+                    Handicap (-5 to 54)
                   </Text>
                 </View>
 

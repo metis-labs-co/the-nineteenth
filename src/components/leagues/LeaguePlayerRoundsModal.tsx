@@ -185,7 +185,7 @@ export function LeaguePlayerRoundsModal({
         <View style={[styles.infoCard, { backgroundColor: colors.gray100 }]}>
           <Icon source="information-outline" size={16} color={colors.textSecondary} />
           <Text style={[styles.infoText, { color: colors.textSecondary }]}>
-            League rankings use the best 8 handicap differentials from the last 20 tagged rounds. Lower average differential = higher ranking.
+            League rankings use the best 8 score differentials from the last 20 tagged rounds. Lower average differential = higher ranking.
           </Text>
         </View>
       </ScrollView>

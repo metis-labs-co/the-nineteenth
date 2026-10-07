@@ -22,7 +22,7 @@ export const SCREEN_WELCOME_CONTENT: Record<WelcomeScreenId, ScreenWelcomeConten
     items: [
       { icon: 'plus-circle-outline', text: 'Create or join leagues with invite codes' },
       { icon: 'golf', text: 'Play rounds at any course worldwide' },
-      { icon: 'sort-ascending', text: 'Standings based on WHS handicap differentials' },
+      { icon: 'sort-ascending', text: 'Standings based on score differentials' },
       { icon: 'account-group-outline', text: 'Invite friends and track everyone\'s progress' },
     ],
     buttonLabel: 'Got it',
@@ -69,9 +69,9 @@ export const SCREEN_WELCOME_CONTENT: Record<WelcomeScreenId, ScreenWelcomeConten
   leagueDetail: {
     icon: 'podium',
     title: 'How Rankings Work',
-    description: 'Leagues use the World Handicap System to rank players fairly across any course.',
+    description: 'Leagues use score differentials to rank players fairly across any course.',
     items: [
-      { icon: 'sort-ascending', text: 'Ranked by your average of your best 8 handicap differentials from your last 20 tagged rounds' },
+      { icon: 'sort-ascending', text: 'Ranked by your average of your best 8 score differentials from your last 20 tagged rounds' },
       { icon: 'chart-line', text: 'A differential measures how you played relative to course difficulty — lower is better' },
       { icon: 'check-circle-outline', text: 'Only completed 18-hole rounds with a calculated differential can be tagged' },
       { icon: 'arrow-up-bold-outline', text: 'Tag more rounds — only your best performances count towards your ranking' },
