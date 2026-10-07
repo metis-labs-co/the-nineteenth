@@ -260,7 +260,7 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
     },
 
     setPlayerTee: async (playerId, tee) => {
-      const { groupScorecards, playerTeeMap, holes, gameType, handicapSource } = get();
+      const { groupScorecards, playerTeeMap, holes, gameType, handicapSource, nineType } = get();
       const scorecard = groupScorecards.get(playerId);
       if (!scorecard) {
         storeLogger.warn('setPlayerTee: no scorecard for player', {
@@ -275,6 +275,7 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
       const totals = calculatePlayerTotals(scorecard, holes, gameType, {
         selectedTee: tee,
         handicapSource,
+        nineType,
       });
       const updatedScorecard: Scorecard = {
         ...scorecard,
@@ -324,13 +325,14 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
     },
 
     getPlayerTotals: (playerId) => {
-      const { groupScorecards, holes, gameType, playerTeeMap, selectedTeeData, handicapSource } = get();
+      const { groupScorecards, holes, gameType, playerTeeMap, selectedTeeData, handicapSource, nineType } = get();
       const scorecard = groupScorecards.get(playerId);
       if (!scorecard) return { gross: 0, net: 0, points: 0, parScore: 0 };
       const playerTee = playerTeeMap.get(playerId) ?? selectedTeeData;
       return calculatePlayerTotals(scorecard, holes, gameType, {
         selectedTee: playerTee,
         handicapSource,
+        nineType,
       });
     },
 

@@ -146,3 +146,36 @@ describe('calculateHandicapData — WHS Adjusted Gross Score (net double bogey c
     expect(result.handicapDifferential).toBeNull();
   });
 });
+
+describe('calculateHandicapData — 9-hole daily_handicap_used', () => {
+  const nineCard = (overrides: Partial<Scorecard> = {}) =>
+    makeScorecard({ coursePar: 36, totalGross: 45, syncNineType: 'front9', ...overrides });
+
+  it('front9, no dedicated 9-hole ratings: halving fallback', () => {
+    // HI 23, slope 122, CR 71: raw 18-hole DHC 22.13
+    const result = calculateHandicapData(nineCard());
+    expect(result.dailyHandicapUsed).toBe(11);
+  });
+
+  it('front9, no dedicated 9-hole ratings, double-rounding case (HI 20 / 120 / 71)', () => {
+    // raw 18-hole DHC 18.80 → round(18.80 / 2) = 9 (was round(round(18.80) / 2) = 10)
+    const result = calculateHandicapData(
+      nineCard({
+        playerHandicap: 20,
+        teeData: { ...TEE, slopeRating: 120, courseRating: 71 },
+      }),
+    );
+    expect(result.dailyHandicapUsed).toBe(9);
+  });
+
+  it('front9 with dedicated 9-hole ratings: uses half the index (GA / WHS 9-hole formula)', () => {
+    // ((23/2 × 118/113) + (35.2 − 36)) × 0.93 × 0.9986 = 10.41 → 10
+    // (was 22 when the full index was paired with 9-hole ratings)
+    const result = calculateHandicapData(
+      nineCard({ teeData: { ...TEE, slopeRatingFront9: 118, courseRatingFront9: 35.2 } }),
+    );
+    expect(result.dailyHandicapUsed).toBe(10);
+    expect(result.courseRatingUsed).toBe(35.2);
+    expect(result.slopeRatingUsed).toBe(118);
+  });
+});
