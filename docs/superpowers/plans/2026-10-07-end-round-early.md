@@ -23,7 +23,7 @@
 
 **Tech Stack:** Expo SDK 54 / React Native / TypeScript, Zustand, React Query, Expo SQLite (offline DAOs), Supabase (Postgres + RLS + RPC + triggers), Jest (`jest-expo`), pnpm.
 
-**Spec:** `docs/superpowers/specs/2026-10-07-end-round-early-design.md`. Read the whole thing. **Revision 3 (R12–R21) overrides everything before it, and Revision 2 (R1–R11) overrides the original sections.**
+**Spec:** `docs/superpowers/specs/2026-10-07-end-round-early-design.md`. Read the whole thing. **Revision 3 (R12–R21) and the R22 decisions override everything before them, and Revision 2 (R1–R11) overrides the original sections.**
 
 ## Global Constraints
 
@@ -35,7 +35,8 @@
   - scoring pairs are off;
   - the device scores **every** player: the store's `allowedPlayerIds` is empty **or** contains every `currentPlayers` id (`ScorecardEntryScreen` always fills it);
   - at least 1 hole is complete for every player;
-  - not every planned hole is complete.
+  - not every planned hole is complete;
+  - no card on the device is submitted yet (`completed` / `confirmed`). The server also refuses a round that isn't `in-progress`.
 - **N** = the number of leading holes, in hole order from the round's first hole, on which every player has `strokes > 0`. A pickup (`strokes === PICKUP_SCORE`, 10) counts as scored. Scores on later holes are removed.
 - **No Resume. No 9-of-18 conversion** (R12). An 18-hole round ended after 9 sets `holes_played = 9`, like any other N.
 - **Handicap: only full scorecards count** (R21). The rules:
@@ -48,7 +49,7 @@
 - **Net:** an ended-early card's `total_net` = Σ(gross − strokes received) over the holes played. `daily_handicap_used` stays the planned round's daily handicap. Complete cards are unchanged.
 - **Skins:**
   - Hole values are priced on the planned hole count.
-  - Settlement buy-in = `calculateTotalPot(type, value, planned) × holesPlayed / planned / participants`.
+  - Settlement buy-in = `calculatePlayedPot(game, holeCounts) / participants`. For a complete round the played pot is `calculateTotalPot(type, value, planned)`; for an ended-early round it is the rounded per-hole price × holes played, so winnings sum to it exactly.
   - Individual skins are zero-sum to within cent rounding.
   - Completed games are displayed from stored `skins_payouts`.
 - **Wolf:** decisions after N are trimmed by the RPC, and the display reads "of N holes". Do **not** wire Wolf finalisation.
@@ -56,9 +57,11 @@
 - **Copy** (exact strings):
   - "End round early": the sheet title and the ⋮ button's `accessibilityLabel`.
   - "End round after hole {lastHoleNumber}?"
-  - "Ended after {N} of {M}": the label and the banner, where M = `getHoleCount(nineType)`.
+  - "Ended after {N} of {M}": the label and the banner, where M = `getHoleCount(nineType)`. As a pill it uses `variant="info"`.
   - "Finish": the banner action on scoring screens.
-  - "This round won't count towards your handicap index."
+  - "This round won't count towards your handicap index." (practice rounds: `handicap_source === 'none'`)
+  - "This is a handicap round. Ending it early makes it a practice round, and it won't count towards your handicap index." replaces the line above when the round's `handicap_source !== 'none'` (R22).
+  - "Practice Round": every title of an ended-early round (round card, ViewRound header, round-settings name placeholder), and it counts as Practice in My Stats (R22).
   - "This round was already ended after {N} holes on another device."
 - **UI rules (CLAUDE.md):**
   - colours come from `useThemeColors()`; static tokens are imported from `@/constants/theme`;
@@ -72,8 +75,9 @@
   3. lock unprotected behaviour with a characterization test **before** changing it.
 - **Test subset.** Run after every task:
   ```bash
-  pnpm test --testPathPattern='(golden|parity|services/scoring|utils/(scoring|dailyHandicap|subMatches|scorecardCalculations|holeTransformers|adjustedGross|matchMargin|matchPlayResult|handicapEligibility|roundShape|endRoundEarly)|components/scorecard|store/|services/offline|services/handicap|services/rounds|integration/(scoringFlow|matchPlayScorecard)|hooks/scorecard|MatchPlayScoringScreen|MatchPlayScorecardScreen|TeamMatchPlayScoringScreen|ReviewScorecardScreen|SubMatchLeaderboardTab|subMatchLeaderboard|skins|wolf)'
+  pnpm test --testPathPattern='(golden|parity|services/scoring|utils/(scoring|dailyHandicap|subMatches|scorecardCalculations|holeTransformers|adjustedGross|matchMargin|matchPlayResult|handicapEligibility|roundShape|endRoundEarly|roundLeaderboardFormatters)|components/(scorecard|leaderboard|activity/ActivityRoundCard|rounds/(RoundListCard|ViewRound)|statistics/RecentRoundRow)|store/|services/(offline|handicap|rounds|scoreMismatch|api/(league|partnership))|integration/(scoringFlow|matchPlayScorecard)|hooks/(scorecard|rounds|home/useInProgressRounds|playerStatistics|scoreMismatch|useAppSyncService)|screens/(rounds/(RoundListScreen|ViewRoundScreen)|scoring/(PlayerScorecardScreen|QuickScoreEntryScreen)|leagues/__tests__/useLeagueQuickAddRound)|watch/__tests__/scoreWrite|MatchPlayScoringScreen|MatchPlayScorecardScreen|TeamMatchPlayScoringScreen|ReviewScorecardScreen|SubMatchLeaderboardTab|subMatchLeaderboard|[Ss]kins|[Ww]olf)'
   ```
+  It matches every test file this plan creates or edits (including `components/leaderboard/MatchPlayLeaderboard` and `utils/roundLeaderboardFormatters`).
   Expected: all green, apart from pre-existing failures recorded in Task 0. Then run `pnpm type-check`. Run `pnpm verify:gate` at the end of each Part.
 - **Snippets are intent; tests are the contract.** Line numbers are from planning time. If a quoted "Current" snippet doesn't match exactly, apply the same change to the code as it stands. Never re-introduce code an earlier task removed.
 - **Git:**
@@ -86,12 +90,13 @@
 
 These are the input classes most likely to bite a real user that the spec implies but no other test covers. Each line names the task whose tests pin it.
 
-1. **Ending offline, then a relaunch before submitting.** The app is killed with no signal. On relaunch:
-   - the round reopens still ended after N, with the removed scores still gone and the tee/daily handicap intact;
+1. **Ending offline, then relaunching online before the queued `end_early` drains.** The round is ended with no signal and the app is killed; it is relaunched with a signal, so the round row loads but the server's `holes_played` is still NULL. (A true offline cold start, with no `rounds` row, is out of scope: R15.) On relaunch:
+   - the round reopens still ended after N (from the SQLite cards' `holes_played`), with the removed scores still gone and the tee/daily handicap intact;
+   - the round-shape guards leave the pending local end alone (server NULL), and fresh hydration doesn't pull holes after N back in;
    - the scoring screens show the "Ended after N of M · Finish" banner and don't accept scores after N;
-   - the queued `end_early` item reaches the server once online.
+   - the queued `end_early` item drains before any `'finalize'` and reaches the server.
 
-   **Test owners:** B3c (init from SQLite cards with `holes_played`, no server `holes_played` yet), B6d (scoring screen closed state), B6b (queued item).
+   **Test owners:** B3c-1 (init from SQLite cards with `holes_played`, server still NULL; net kept, tee kept), B3c-2 (guards and hydrate filters), B6d-1 / B6d-2 (closed scoring screens), B6b-2 (queued item runs first, and `'network'` stays pending), B6b-1 (finalise waits while it is queued).
 2. **Back-9 round ended after 6.**
    - Played holes are 10–15 everywhere.
    - The RPC trims rows for holes > 15, not > 6.
@@ -103,36 +108,38 @@ These are the input classes most likely to bite a real user that the spec implie
    - B adopts N = 6: its scores after 6 are removed and it shows "already ended … on another device".
    - Submit readiness checks holes 1–6 only, so mismatches on those holes are still caught.
 
-   **Test owners:** B1a (RPC conflict), B6c (hook adopts the server N), B8 (readiness limited to played holes).
+   **Test owners:** B1a (RPC conflict), B6c (hook adopts the server N), B8 (readiness limited to played holes). Run the QA case on stroke play or Stableford: singles match play submits from MatchPlayScorecard, which never runs the readiness check.
 4. **Pickup on the boundary hole.** A pickup on hole N counts as complete, so N includes it. A pickup alone on hole N+1 is removed. **Test owner:** B2 (`planEndRoundEarly`).
 5. **A co-player on an old app version opens Home after the round was ended early.** The card's differential stays NULL, and existing part-filled Quick Score cards stop counting. **Test owners:** A7 and B1a (trigger verification scripts), A3 (index/history belt).
 
 ## Interface Contract
 
-Every task uses exactly these names and types. A task that **produces** an item creates it; tasks that **consume** it import it as written.
+Every task uses exactly these names and types. A task that **produces** an item creates it; tasks that **consume** it import it as written. The producing task is in brackets. This section is the single source of truth: it reflects the final task text, and each task's own **Interfaces** block repeats the parts it touches. Appendix A holds the reasoning behind them.
 
 ### Pure utilities
 
 ```ts
-// src/utils/holeTransformers.ts  (B2) — beside filterHolesByNineType
+// src/utils/holeTransformers.ts  [B2] — beside filterHolesByNineType
 /** filterHolesByNineType, then — when holesPlayed is a positive integer — sort by hole number and keep the
- *  first `holesPlayed`. null/undefined/<=0 ⇒ identical to filterHolesByNineType (no sort). */
+ *  first `holesPlayed`. null/undefined/<=0/non-integer ⇒ identical to filterHolesByNineType (no sort). */
 export function filterPlayableHoles(holes: Hole[], nineType: NineType, holesPlayed?: number | null): Hole[];
 
-// src/utils/roundShape.ts  (B2, new)
+// src/utils/roundShape.ts  [B2, new]
 export interface RoundShape { nineType: NineType; holesPlayed: number | null }
-/** Server wins when it has holes_played; else the local value (SQLite cards). nineType: server → local → 'full'. */
+/** Server holes_played wins when it is a positive integer; else the local value (SQLite cards). A non-positive or
+ *  non-integer value on either side = not set. nineType: server → local → 'full'. */
 export function resolveRoundShape(
   server: { nine_type?: NineType | null; holes_played?: number | null } | null | undefined,
   local?: { nineType?: NineType | null; holesPlayed?: number | null } | null,
 ): RoundShape;
 export function firstHoleNumber(nineType: NineType): number;                          // back9 ⇒ 10, else 1
 export function lastPlayedHoleNumber(nineType: NineType, holesPlayed: number): number; // firstHoleNumber + N − 1
+/** false for a hole BEFORE the round's first hole (hole 5 of a back 9): callers also check the hole is planned. */
 export function isHoleAfterEarlyEnd(nineType: NineType, holesPlayed: number | null | undefined, holeNumber: number): boolean;
 export function isEndedEarly(round: { holes_played?: number | null } | null | undefined): boolean;
 export function formatEndedEarlyLabel(holesPlayed: number, nineType: NineType): string;   // "Ended after 6 of 9"
 
-// src/utils/endRoundEarly.ts  (B2, new; B6a adds describeEndRoundEarlyResult)
+// src/utils/endRoundEarly.ts  [B2, new; B6a-1 appends the result text]
 export interface EndRoundEarlyRemovedScore { playerId: string; playerName: string; holeNumber: number }
 export interface EndRoundEarlyPlan {
   holesPlayed: number;       // N
@@ -140,7 +147,7 @@ export interface EndRoundEarlyPlan {
   nineType: NineType;
   lastHoleNumber: number;    // lastPlayedHoleNumber(nineType, N)
   removedScores: EndRoundEarlyRemovedScore[];
-}
+}                            // no convertToFront9 (R12)
 export function isHoleScored(score: HoleScore | MultiBallHoleScore | null | undefined): boolean; // strokes > 0 (any ball)
 /** null when no hole is complete for every player, or when every planned hole is complete. */
 export function planEndRoundEarly(input: {
@@ -149,390 +156,419 @@ export function planEndRoundEarly(input: {
   players: { id: string; name: string }[];
   scorecards: Map<string, { scores: Scorecard['scores'] }>;
 }): EndRoundEarlyPlan | null;
+export type EndEarlyMatchContext =
+  | { kind: 'singles'; holeResults: Record<number, HoleResult>; names: [string, string] }
+  | { kind: 'team'; holeResults: Record<number, TeamHoleResult>; names: [string, string] };
+export interface EndRoundEarlyStatsRow { playerName: string; totalNet: number; totalStableford: number; totalParScore: number }
+export type EndRoundEarlyResultInput =
+  | (EndEarlyMatchContext & { playedHoleNumbers: number[]; plannedHoles: number; holesPlayed: number })
+  | { kind: 'stableford' | 'stroke' | 'par'; stats: EndRoundEarlyStatsRow[] };
+export function describeEndRoundEarlyResult(input: EndRoundEarlyResultInput): string | null; // [B6a-1] uses compactMatchMargin
 
-// src/utils/handicapEligibility.ts  (A3, new)
+// src/utils/handicapEligibility.ts  [A3-1, new]
 /** Planned holes come from getHoleRange(nineType) — NEVER from a hole list.
  *  scores null/undefined/{} (no per-hole data) ⇒ true (legacy gross-only card).
  *  Otherwise true iff every hole in the range has strokes > 0 (number or {strokes}; multi-ball: any ball). */
 export function isCompleteForHandicap(scores: Record<string | number, unknown> | null | undefined, nineType: NineType): boolean;
 
-// src/utils/matchPlayResult.ts  (A1b produces; B5a adds holesPlayed + resolveEndedAfter)
+// src/utils/matchMargin.ts  [A1a-1]
+export function compactMatchMargin(margin: string): string;   // '5 & 4' → '5&4', '2 up' → '2 UP', 'All Square' → 'A/S'
+
+// src/utils/matchPlayResult.ts  [A1b; B5a-1 adds holesPlayed + resolveEndedAfter]
+export interface ScorecardForMatchPlay {
+  player_id: string; scores: Record<string, HoleScore | MultiBallHoleScore> | null;
+  daily_handicap_used: number | null; player: { id: string; name: string } | null;
+}
 export interface StandaloneMatchResult { winnerId: string | null; winnerName: string; margin: string }
 export function computeStandaloneMatchResult(
   p1: ScorecardForMatchPlay, p2: ScorecardForMatchPlay, holes: Hole[], holesPlayed?: number | null,
 ): StandaloneMatchResult | null;
-// src/utils/matchMargin.ts  (A1a-1 adds)
-export function compactMatchMargin(margin: string): string;   // '5 & 4' → '5&4', '2 up' → '2 UP', 'All Square' → 'A/S'
+export function standaloneMatchHoles(courseHoles: Hole[], nineType: string | null | undefined): Hole[]; // unknown ⇒ 'full'
+export function resolveEndedAfter(plannedHoles: number, holesPlayed?: number | null): number | null;   // [B5a-1]
 
-// src/utils/skins/holeCounts.ts  (A5a, new)
+// src/utils/skins/holeCounts.ts  [A5a-1, new; pure — no Supabase import]
 export interface SkinsHoleCounts { plannedHoles: number; holesPlayed: number }
 export const DEFAULT_SKINS_HOLE_COUNTS: SkinsHoleCounts;      // { plannedHoles: 18, holesPlayed: 18 }
 export function getSkinsHoleCounts(round: { nine_type?: NineType | null; holes_played?: number | null } | null | undefined): SkinsHoleCounts;
-export async function fetchSkinsHoleCounts(roundId: string): Promise<SkinsHoleCounts>; // reads rounds.nine_type (+ holes_played once B1a exists — A5a selects only nine_type; B1b adds holes_played)
+// src/services/skins/roundHoleCounts.ts  [A5a-2, new] — NOT in utils/skins
+/** .maybeSingle(): a row hidden by RLS ⇒ the 18-hole default; a read error throws.
+ *  Selects 'nine_type' in Part A; B1b changes it to 'nine_type, holes_played'. */
+export async function fetchSkinsHoleCounts(roundId: string): Promise<SkinsHoleCounts>;
 ```
 
-### Match status (A1a fixes ordering, A2a threads totalHoles, B5a adds holesPlayed)
+### Match status and match views
 
 ```ts
 export function calculateMatchStatus(holeResults: Record<number, HoleResult>, totalHoles: number = 18, holesPlayed?: number | null): MatchStatus;
 export function calculateTeamMatchStatus(holeResults: Record<number, TeamHoleResult>, totalHoles: number = 18, holesPlayed?: number | null): TeamMatchStatus;
+// B5a-2: table and sub-match utils take PLANNED holes and an optional trailing holesPlayed (default null)
+calculateAllData(holes, p1Id, p2Id, getPlayerScore, p1Hcp = 0, p2Hcp = 0, holesPlayed: number | null = null);
+calculateTeamMatchData(holes, team1, team2, getPlayerScore, holesPlayed: number | null = null);
+computeMatchPlaySubMatch(sides, holes, getStrokes, holesPlayed: number | null = null);
 ```
 
-- `totalHoles` is always the **planned** count.
-- The engines' existing local `holesPlayed` counter is renamed `decidedHoles` (B5a).
-- With `holesPlayed`, the engine walks the holes in order. The first close-out against the planned holes stands. Otherwise the final lead after `holesPlayed` decided holes wins (`'N up'` / `'All Square'`).
+- **A1a-1:** with 0 holes remaining the engines return `'N up'` / `'All Square'`, never `'N & 0'` (I10, every match). **A1a-2** normalises legacy stored `'N & 0'` rows at display time (`formatMatchPlayData`) and adds `MatchPlayLeaderboardProps.totalHoles?: number` (default 18) and the required `TeamMatchPlayScoreView` prop `totalHoles`.
+- **A2a:** `useMatchPlayScoring` judges status against the store's planned `holes.length || 18`; `useTeamMatchPlayState({ …, totalHoles })` (required); `resolveMatchHoles(courseHoles, nineType): { holes; firstHoleNumber; lastHoleNumber }` and `const roundNineType: NineType = roundData?.nine_type ?? 'full'` in `TeamMatchPlayScoringScreen`.
+- **B5a-1** renames the engines' local counter `holesPlayed` to `decidedHoles` (also in `computeStandaloneMatchResult`). With `holesPlayed`, a close-out against the **planned** holes reached by hole N stands; otherwise, once N holes are decided, the final lead wins (`'N up'` / `'All Square'`). A `holesPlayed` that isn't a positive integer below the planned count means "played as planned".
+- **B5b:** `holesPlayed?: number | null` on `useTeamMatchPlayState`, `TeamMatchPlayScoreView`, `MatchPlayScorecardTableProps`, `TeamMatchPlayScorecardTableProps` and `SubMatchLeaderboardTab`. `TeamMatchPlayScoringScreen` reads the store through a separate selector, `storeHolesPlayed`. `totalHoles` and every `holes` list passed to match views stay the **planned** holes; the views slice to the played holes themselves.
 
-### Handicap (A3, A7)
+### Handicap (A3, A3b, A4, A7)
 
 ```ts
-// src/services/handicap/recalculateScorecardDifferential.ts
-export interface RecalculationResult { /* existing fields */ handicapDifferential: number | null }
+// src/services/handicap/recalculateScorecardDifferential.ts  [A3-1]
+export interface RecalculationResult {
+  handicapDifferential: number | null; dailyHandicapUsed: number | null;
+  courseRatingUsed: number; slopeRatingUsed: number; gaHandicapUsed: number | null;
+}
 // Incomplete card: writes handicap_differential = null, still updates daily_handicap_used / total_points,
 // returns handicapDifferential: null. Never throws for this.
+// src/hooks/player/handicapHistory.ts  [A3-3]
+export async function fetchHandicapHistory(playerId: string): Promise<HandicapSummary>;   // newly exported
+// src/hooks/scorecard/useQuickScoreSubmit.ts  [A4b]
+export interface QuickScoreSubmitInput { /* existing fields */ nineType: NineType }        // newly exported
 ```
 
-- **Index belt (A3):** `updatePlayerHandicapIndex` and `fetchHandicapHistory` select `scores` and skip cards where `!isCompleteForHandicap(scores, round.nine_type ?? 'full')`.
-- **B10c** adds the `holes_played` belts:
-  - the index, history and recalc-candidate queries use `.is('rounds.holes_played', null)`;
-  - `recalculateScorecardDifferential` (an ended-early round counts as incomplete);
-  - `combineHandicapRounds.validateAndBuildContext` and `loadCombinedAndPairs`.
-- **A3b** is a SQLite local migration that keeps the sync metadata on `scorecards` (`sync_nine_type TEXT`, `sync_holes TEXT` JSON, `sync_game_type TEXT`). `ScorecardDAO` round-trips `syncNineType` / `syncHoles` / `syncGameType`, so the fallback sync path no longer judges a front-9 card as `'full'`.
-- **A7** is the migration `supabase/migrations/20261007000100_full_scorecards_only_handicap.sql`:
-  - **`scorecard_is_complete_for_handicap(p_scores JSONB, p_nine_type TEXT) RETURNS BOOLEAN`**, `IMMUTABLE`. It mirrors `isCompleteForHandicap`: `{}`/null ⇒ true; otherwise every hole in 1–18 / 1–9 / 10–18 has strokes > 0 (single-ball `{"n":{"strokes":k}}`, or a number, or multi-ball `balls[]`).
-  - **Trigger `scorecards_full_card_differential`** (`BEFORE INSERT OR UPDATE`): `NEW.handicap_differential := NULL` when the round's `nine_type` makes the card incomplete.
-  - **Trigger `handicap_combined_rounds_full_cards`** (`BEFORE INSERT`): raises when either card is incomplete.
-  - **One-off `UPDATE`:** nulls existing incomplete cards' differentials.
-  - **Report script:** `supabase/scripts/full_scorecards_only_report.sql`.
-  - **Verification script:** `supabase/tests/full_scorecards_only_handicap.verify.sql` (`BEGIN … ROLLBACK`).
-- **B1a** extends both triggers: a round with `holes_played IS NOT NULL` also forces NULL / raises.
+- **Index belt [A3-2]:** `updatePlayerHandicapIndex` selects `scores`, fetches `.limit(BELT_FETCH_LIMIT)` (60), skips cards where `!isCompleteForHandicap(scores, round.nine_type ?? 'full')`, and keeps the 20 most recent qualifying cards (`WHS_RECENT_ROUNDS`). When nothing qualifies, both reads succeeded and the fetch returned fewer than 60 rows, the private `clearHandicapIndex(playerId)` writes `handicap_index = NULL` only on a row that still holds one (`.not('handicap_index','is',null).select('id')`) and invalidates caches only when a row changed. `tagRoundToLeague` throws `'This round is not eligible for a handicap differential'` when the recalc withholds it.
+- **History belt [A3-3]:** the main and refresh queries select `scores` (the refresh query also gains `game_type, team_format`), over-fetch 60 and keep 20 after the belt. Recalculation candidates select `'id, scores, rounds!inner(nine_type)'` and keep `.limit(20)`.
+- **Combine [A4a]:** `previewCombinedDifferential` / `combineHandicapRounds` throw `'Both nines must be fully scored to combine'`; `fetchCombinableNinePairs` pairs only complete nines.
+- **Quick Score [A4b]:** the gate reads `nineType`, never `holes`; the caller keeps passing `holes: allHoles`.
+- **League Quick Add [A4c]:** alerts `('Incomplete Round', 'Enter a score for all 18 holes to add this round to a league.')` and `('Course Not Eligible', 'League rounds need an 18-hole course. Please select a different course.')`.
+- **SQLite sync metadata [A3b]:** ONE local migration, **version 19** (`add_scorecard_sync_metadata`), adds `scorecards.sync_nine_type TEXT`, `sync_game_type TEXT`, `sync_holes TEXT` (JSON `Hole[]`) in one `up`. `ScorecardDAO` round-trips `syncNineType` / `syncGameType` / `syncHoles`; the `saveScorecard` INSERT ends `…, server_revision, sync_nine_type, sync_game_type, sync_holes)` (23 values).
+- **B10c** adds the `holes_played` belts: `.is('rounds.holes_played', null)` (with `holes_played` inside `rounds!inner(...)`) on the index, history and candidate queries; `recalculateScorecardDifferential` treats an ended-early round as incomplete; `combineHandicapRounds` / `previewCombinedDifferential` reject it with A4a's message; `fetchCombinableNinePairs` never offers it.
+
+**A7** — `supabase/migrations/20261007000100_full_scorecards_only_handicap.sql` (all in `public`; every definer, trigger and data-fix function sets `search_path = public, pg_temp`):
+- `scorecard_is_complete_for_handicap(p_scores JSONB, p_nine_type TEXT) RETURNS BOOLEAN`, `IMMUTABLE`: mirrors `isCompleteForHandicap` (`NULL` / JSON null / non-object / `{}` ⇒ true; otherwise every hole of 1–18 / 1–9 / 10–18 has strokes > 0 as a number, `{"strokes": n}` or any ball of `{"balls": [...]}`; string strokes don't count). Helper `scorecard_hole_has_strokes(p_hole JSONB)`, `IMMUTABLE`.
+- `scorecard_eligible_for_differential(p_round_id UUID, p_scores JSONB) RETURNS BOOLEAN`, `STABLE`, EXECUTE revoked from app roles: **the single extension point** both triggers call.
+- Trigger `scorecards_full_card_differential` (`BEFORE INSERT OR UPDATE` on `scorecards`): `NEW.handicap_differential := NULL` when the helper says no. Trigger `handicap_combined_rounds_full_cards` (`BEFORE INSERT`): raises `'Both nines must be fully scored to combine'`, `ERRCODE 22023`. Each calls the same-named function.
+- `handicap_full_card_projected_index(p_player_id UUID) RETURNS NUMERIC` (server mirror of `updatePlayerHandicapIndex`; NULL when nothing qualifies) and `handicap_full_card_data_fix() RETURNS TABLE (cards_nulled INT, players_recomputed INT)`, both EXECUTE-revoked. The migration runs the data fix once; it nulls incomplete cards' differentials and recomputes `players.handicap_index`.
+- Audit tables `handicap_full_card_fix_audit` (one row per nulled card, with the R22 breakdown columns) and `handicap_full_card_fix_player_audit` (old/new index per player); RLS on, no policies, no app access. The commented UNDO block restores from them.
+- Scripts: report `supabase/scripts/full_scorecards_only_report.sql`; verification `supabase/tests/full_scorecards_only_handicap.verify.sql` (`BEGIN … ROLLBACK`).
 
 ### Skins (A5)
 
 ```ts
-// src/utils/skins/payouts.ts — holeCounts default DEFAULT_SKINS_HOLE_COUNTS ⇒ identical output to today
-export function calculateFinalPayoutsWithCarryover(game, results, participants, holeCounts?: SkinsHoleCounts): FinalPayoutResult;
-export function calculateFinalPayouts(game, results, participants, holeCounts?: SkinsHoleCounts): FinalPayoutResult;
+// src/utils/skins/payouts.ts  [A5a-1] — holeCounts default DEFAULT_SKINS_HOLE_COUNTS ⇒ identical output to today
 export function calculatePlayedPot(game, holeCounts: SkinsHoleCounts): number;
-// src/services/skins/finalizeSkinsGame.ts  (A5b, new — extracted non-hook mutationFn)
-export async function finalizeSkinsGame(gameId: string, holeCounts?: SkinsHoleCounts): Promise<SkinsGame>; // default: fetchSkinsHoleCounts(round)
-export async function finalizeActiveSkinsForRound(roundId: string): Promise<{ finalized: boolean; game?: SkinsGame; error?: unknown }>;
-export async function awardSkinsAchievements(game: SkinsGame): Promise<void>;
+//   complete round: calculateTotalPot(type, value, planned); ended early: roundCurrency(calculateHoleValue(type, value, planned) × holesPlayed)
+export function calculateFinalPayouts(game, results, participants, holeCounts?: SkinsHoleCounts): FinalPayoutResult;
+export function calculateFinalPayoutsWithCarryover(game, results, participants, holeCounts?: SkinsHoleCounts): FinalPayoutResult;
+export function calculateInProgressPayouts(game, results, participants, holeCounts?: SkinsHoleCounts); // [A5d-1] was totalHoles?
+/** Σ stored buy_in when the game is completed and has payouts, else null. The one reader of a settled pot. */
+export function calculateSettledPot(game: Pick<SkinsGame, 'status'>, payouts: Pick<SkinsPayout, 'buy_in'>[] | null | undefined): number | null;
+// src/utils/skins/payouts.ts  [A5d-2]
+export function resolveSkinsNetResults(game, results, storedPayouts, holeCounts?): SkinsNetResult[];
+
+// src/services/skins/finalizeSkinsGame.ts  [A5b-1 / A5b-2, non-hook]
+export async function finalizeSkinsGame(gameId: string): Promise<SkinsGame>;   // NO holeCounts param; counts from fetchSkinsHoleCounts; throws on failure
+export interface FinalizeActiveSkinsResult { finalized: boolean; game?: SkinsGame; error?: unknown } // error = the raw caught value
+export async function finalizeActiveSkinsForRound(roundId: string): Promise<FinalizeActiveSkinsResult>; // never throws
+export interface SkinsAchievementContext { playerId: string; checkAndAward: …; showMultipleToasts: … }
+export async function awardSkinsAchievements(game: Pick<SkinsGame, 'id' | 'pot_value'>, ctx: SkinsAchievementContext): Promise<void>; // never throws
+
+// src/hooks/skins  [A5c-1]
+skinsKeys.holeCounts(roundId) = ['skins', 'hole-counts', roundId];
+export function useSkinsHoleCounts(roundId: string | undefined): SkinsHoleCounts;  // from @/hooks/skins and @/hooks/useSkins; default while loading
+export function buildSkinsSummary(game, results, payouts, holeCounts?);
+export function useSkinsSummary(gameId, holeCounts?);
 ```
 
-Every settlement path uses `fetchSkinsHoleCounts`, including `useSkinsGameState`'s auto-finalise. Completed games are displayed from stored `skins_payouts` (A5c).
+- **Props:** `SkinsResultsCardProps.holeCounts?` / `UseSkinsResultRowsParams.holeCounts?` [A5c-2]; `SkinsTabContentProps.holeCounts` and `SkinsCurrentStandingsCardProps.holeCounts` **replace** `totalHoles` [A5d-1]; `PayoutsTabContentProps.holeCounts?` [A5d-2]; `SkinsSummaryModalProps.totalHoles?` [A5c-1].
+- **Settlement:** every path (`useFinalizeSkinsGame`, the `useSkinsGameState` auto-finalise, `finalizeActiveSkinsForRound`, `finalizeSkinsForSubMatch`) reads `fetchSkinsHoleCounts` and takes participants from `game.participant_ids`. Completed games are displayed from stored `skins_payouts`.
+- **Finish-screen counts:** Review builds `skinsHoleCounts` from `roundDetails` with `getSkinsHoleCounts` [A5d-1]; MatchPlayScorecard uses `useSkinsHoleCounts(roundId)` [A5c-2]. On both, B8-2 lets the store's `holesPlayed` stand in until the server row has `holes_played`.
 
 ### Round finalisation and sync (A6; B6b adds `'end_early'`)
 
 ```ts
-// src/services/rounds/finalizeRoundStatus.ts — returns boolean; false (no throw) on 0-row RLS refusal; THROWS on any read error
+// src/services/rounds/finalizeRoundStatus.ts  [A6a-1]
+/** true when the round is completed (now or already). false on PGRST116 (missing round) or an RLS 0-row refusal.
+ *  THROWS on any other read error. */
 export async function finalizeRoundStatus(roundId: string): Promise<boolean>;
-// src/services/rounds/finalizeSubmittedRound.ts  (A6a, new)
-export async function finalizeSubmittedRound(roundId: string): Promise<{ completed: boolean; skinsGame: SkinsGame | null }>;
-export async function queueRoundFinalize(roundId: string): Promise<void>;
-export class RoundNotReadyError extends Error {}
-// PendingSync round item data:
+
+// src/services/rounds/finalizeSubmittedRound.ts  [A6a-2]
 export type RoundSyncData =
   | { id: string; action: 'finalize' }
-  | { id: string; action: 'end_early'; holesPlayed: number };   // (B6b)
-// src/services/offline/dao/SyncQueueDAO.ts (A6a)
-export async function hasUnsyncedScorecardsForRound(roundId: string): Promise<boolean>; // queued/pending card rows only
-// src/services/offline/sync/drain.ts  (A6b, new — no static import of syncOrchestrator)
-export function requestSyncDrain(reason: string): void;   // no-op offline; debounced
-// src/services/offline/sync/syncOrchestrator.ts (A6b)
-export function ensureSyncServiceStarted(): void;         // idempotent; app root calls it after initDatabase
-// src/hooks/rounds/useFinalizeSubmittedRound.ts  (A6c, new)
+  | { id: string; action: 'end_early'; holesPlayed: number };   // [B6b-1]
+export interface FinalizeSubmittedRoundResult {
+  completed: boolean; skinsGame: SkinsGame | null; statusError: unknown; skinsError: unknown;   // errors null when fine
+}
+/** status → results → skins. Marks the round in flight, then runs the private runFinalizeSteps(roundId).
+ *  Never rejects, except B6b-1's guard (first statement of runFinalizeSteps): RoundNotReadyError while an
+ *  'end_early' item for the round is queued (pending or retained). The in-flight mark is released in `finally`.
+ *  Invalidates roundKeys.all, the leaderboards, competitionKeys.all and ['home'] on every run (skinsKeys.all when settled). */
+export async function finalizeSubmittedRound(roundId: string): Promise<FinalizeSubmittedRoundResult>;
+export function isRoundFinalizeInFlight(roundId: string): boolean;
+export function roundFinalizeEntityKey(roundId: string): string;            // `round:${id}:finalize`
+export async function queueRoundFinalize(roundId: string, options?: { requestDrain?: boolean }): Promise<void>; // drain default true [A6b-1]
+export async function removeQueuedRoundFinalize(roundId: string): Promise<boolean>;
+export class RoundNotReadyError extends Error {}
+
+// src/services/offline/dao/SyncQueueDAO.ts  [A6a-2]
+export async function hasUnsyncedScorecardsForRound(roundId: string): Promise<boolean>; // pending card rows + submitted SQLite cards with no queue row; NOT retained failed rows
+export async function removePendingSyncByEntityKey(entityKey: string): Promise<boolean>;
+
+// src/services/offline/sync/drain.ts  [A6b-1, new — imports only networkState, never the orchestrator]
+export function requestSyncDrain(reason: string): void;   // debounced (SYNC_DRAIN_DEBOUNCE_MS = 500); no-op offline / before start
+export function registerSyncDrainHandler(handler: () => Promise<unknown>): void;
+export function __resetSyncDrainForTests(): void;
+// src/services/offline/sync/networkState.ts  [A6b-1]
+export function setSyncAuthUser(userId: string | null): void;  // starts null; syncAll resolves false at once while null
+export function getSyncAuthUserId(): string | null;
+// src/services/offline/sync/syncOrchestrator.ts  [A6b-1]
+export function ensureSyncServiceStarted(): void;          // idempotent; starts listeners + the drain handler only
+export function __resetSyncServiceForTests(): void;
+// src/hooks/useAppSyncService.ts  [A6b-2] — mounted in App.tsx AppContent; sets the sync user, drains on sign-in and foreground
+export function useAppSyncService(): void;
+
+// src/hooks/rounds/useFinalizeSubmittedRound.ts  [A6c, new; NOT in the @/hooks/rounds barrel]
+/** Online: writes the round:<id>:finalize row FIRST (no drain), skips its own attempt while
+ *  isRoundFinalizeInFlight, then runs finalizeSubmittedRound in try/catch. Keeps the row (and requests a drain)
+ *  on any throw, statusError, skinsError, or when the round isn't complete and this device has unsynced or
+ *  retained-failed cards for it; otherwise removes it. Offline: queues. Rejects only if queueing fails. */
 export async function finalizeOrQueueRound(roundId: string): Promise<{ completed: boolean; queued: boolean; skinsGame: SkinsGame | null }>;
+/** Never rejects; awards skins achievements for a game settled online. */
 export function useFinalizeSubmittedRound(): (roundId: string) => Promise<{ completed: boolean; queued: boolean }>;
+
+// src/screens/scoring/MatchPlayScoringScreen/utils/subMatchResult.ts  [A6d-1]
+export function buildSinglesSubMatchResult(subMatches, player1Id, player2Id, matchStatus, holeResults): SinglesSubMatchResult | null;
 ```
 
-- **Drain order:**
-  1. card uploads (queue);
-  2. the SQLite fallback uploads;
-  3. `round` items, with `'end_early'` before `'finalize'` for the same round.
-- **A `round` item checks `hasUnsyncedScorecardsForRound` first.** If true, it throws `RoundNotReadyError`: no retry is spent and the item stays queued. If the round's only unconfirmed cards are retained `failed` rows, the round item is marked failed too.
-- **`finalizeSubmittedRound` invalidates `roundKeys.all`.**
+- **Import rule:** `finalizeSubmittedRound.ts`, `applyEndRoundEarly.ts` and the sync modules import `requestSyncDrain` from `@/services/offline/sync/drain` directly, never from the `@/services/offline/sync` barrel (it re-exports the orchestrator: a cycle).
+- **`syncOrchestrator.ts` internals (module-private) [A6a-3]:** `processRoundSyncs` (round items run after the card uploads and the SQLite fallback uploads); `orderRoundSyncs` (every non-`'finalize'` action first, stable); `processRoundSync` (a switch on `data.action`; B6b-2 adds `case 'end_early'`); `processRoundFinalize`; `class RoundSyncPermanentError` (retained `failed` at once, no retries). B6b-2 adds `RoundSyncDeferredError` (stays pending, no retry spent).
+- **`processRoundFinalize`, in order:** (1) wait (`RoundNotReadyError`, no retry spent) while `isRoundFinalizeInFlight` or `hasUnsyncedScorecardsForRound`; (2) `RoundSyncPermanentError` when the round has retained-failed card rows (`getFailedSyncCountForRound > 0`); (3) [B6b-2] `RoundSyncPermanentError` when the round's `end_early` row is retained failed; (4) `finalizeSubmittedRound`, throwing `statusError`, then `skinsError`, into the normal retry path.
+- **Entity keys:** `round:<id>:finalize` and `round:<id>:end_early` (`roundEndEarlyEntityKey`).
+- **A6d-2** deletes `useFinalizeSkinsForRound`, `useRoundFinalization` and `useSubmitScorecards`.
+- **`getDb()`** [A6b-2] resolves only after tables and migrations have run.
 
 ### Database (B1a)
 
-Migration `supabase/migrations/20261007000200_end_round_early.sql`:
+`supabase/migrations/20261007000200_end_round_early.sql` [B1a-1]; verification `supabase/tests/end_round_early_verify.sql` [B1a-2]:
 
-- **Column:** `rounds.holes_played SMALLINT NULL CHECK (holes_played IS NULL OR (competition_id IS NULL AND holes_played > 0 AND holes_played < CASE nine_type WHEN 'full' THEN 18 ELSE 9 END))`.
-- **Function:** `end_round_early(p_round_id UUID, p_holes_played INT) RETURNS VOID`, `SECURITY DEFINER`, `SET search_path = public`, `REVOKE … FROM PUBLIC`, `GRANT EXECUTE … TO authenticated`. Error codes:
-  - `P0002`: the round doesn't exist or is deleted;
-  - `42501`: not standalone, or the caller isn't the owner or an **accepted** participant (`is_accepted_round_participant`);
-  - `22023`: N is outside 1…planned−1, **or** `holes_played` is already set to a different N, **or** the round is `completed` with a different/NULL `holes_played`.
-- **Idempotent:** the same N again is a no-op success.
-- **Effects:**
-  - sets `holes_played = N`;
-  - deletes the round's `skins_results`, `wolf_hole_decisions`, `score_entries`, `score_mismatches` and `shot_log` with `hole_number > last` (last = (back9 ? 9 : 0) + N);
-  - sets `handicap_differential = NULL` on the round's scorecards.
-- **Triggers:** extends A7's two triggers with the `holes_played` condition.
-- **Activity feed:** `get_activity_feed` / `get_round_feed_card` are **dropped and recreated** from `20260905000150_ugc_moderation_feed.sql`, with `holes_played INT` and `nine_type TEXT` added. COMMENTs and grants are re-added.
-- **Apply:** `psql "$DB_URL" -v ON_ERROR_STOP=1 --single-transaction -f …`.
+- **Column:** `rounds.holes_played SMALLINT NULL`, `CONSTRAINT rounds_holes_played_check CHECK (holes_played IS NULL OR (competition_id IS NULL AND holes_played > 0 AND holes_played < CASE nine_type WHEN 'full' THEN 18 ELSE 9 END))`.
+- **RPC:** `end_round_early(p_round_id UUID, p_holes_played INT) RETURNS VOID`, `SECURITY DEFINER`, `SET search_path = public, pg_temp`, `REVOKE … FROM PUBLIC`, `GRANT EXECUTE … TO authenticated`. Checks in order:
+  - not authenticated → `42501`; missing or soft-deleted round → `P0002`; competition round → `42501`; caller not the owner or an **accepted** participant → `42501`;
+  - N outside 1…planned−1 → `22023` HINT `invalid_holes_played`;
+  - already ended: same N → no-op success (whatever the status, nothing re-run); different N → `22023` HINT `round_already_ended`, `DETAIL` = the server's N;
+  - status not `in-progress`: `completed` → `22023` HINT `round_completed`; anything else (`upcoming`) → `22023` HINT `round_not_in_progress`.
+- **Effects:** sets `holes_played = N`; deletes the round's `skins_results`, `wolf_hole_decisions`, `score_entries`, `score_mismatches` and `shot_log` rows with `hole_number > last` (last = (back9 ? 9 : 0) + N); strips the same hole keys from the round's `scorecards.scores` **without** bumping `revision` or recomputing totals (totals arrive with the ending device's snapshot); nulls the round's handicap differentials.
+- **Guard trigger:** `guard_rounds_holes_played()` + `BEFORE UPDATE` trigger `trigger_guard_rounds_holes_played` on `rounds` raises `42501` when `holes_played` changes unless the transaction-local `app.ending_round` is `'on'` (only the RPC sets it), and when `nine_type` changes on a round whose `holes_played` is set.
+- **Handicap:** `CREATE OR REPLACE`s only A7's `scorecard_eligible_for_differential`, adding `holes_played IS NULL`. A7's trigger functions and triggers are untouched. **Never re-apply A7's migration after this one** (it would drop the clause); if A7 is re-applied, re-apply this one straight after (it is idempotent).
+- **Feed:** `get_activity_feed` / `get_round_feed_card` are dropped and recreated from `20260905000150_ugc_moderation_feed.sql` with `holes_played INT, nine_type TEXT` appended; COMMENTs and grants re-added.
+- **Apply:** `psql "$DB_URL" -v ON_ERROR_STOP=1 --single-transaction -f …`, after A7, and before any app build that includes B1b.
 
-TS (B1b):
-- `Round.holes_played?: number | null`;
-- `SupabaseRoundData.holes_played` and `ROUND_METADATA_SELECT`;
-- `RoundMetadata.holesPlayed: number | null`;
-- `ActivityFeedCard.holes_played?` / `nine_type?`;
-- the typed `end_round_early` RPC (`p_round_id`, `p_holes_played`);
-- `fetchSkinsHoleCounts` also selects `holes_played`.
+**TS [B1b]:** `Round.holes_played?: number | null`; `SupabaseRoundData.holes_played?` and `ROUND_METADATA_SELECT` includes it; `RoundMetadata.holesPlayed: number | null` (server value only); `ActivityFeedCard.holes_played?: number | null; nine_type?: NineType | null`; `Database['public']['Functions']['end_round_early']` with `Args { p_round_id: string; p_holes_played: number }`, `Returns: undefined` (documents the shape: `createClient<Database>` resolves `rpc()` to `never`, so every call is cast); `fetchSkinsHoleCounts` selects `'nine_type, holes_played'`.
 
 ### Local state and store (B3)
 
 ```ts
-// SQLite local migration (B3a): scorecards.holes_played INTEGER NULL.
+// SQLite local migration [B3a]: version 20, 'add_scorecard_holes_played': scorecards.holes_played INTEGER NULL,
+// appended LAST in the saveScorecard INSERT (24 values).
 // src/types/index.ts — Scorecard (camel)
-holesPlayed?: number | null;          // set on every card of the round when it is ended; persisted; read by sync for net
-// src/services/offline/dao/HoleScoreDAO.ts (+ re-export from src/services/offline/database.ts)
-export async function deleteHoleScoresForCards(entries: { scorecardId: string; holeNumbers: number[] }[]): Promise<void>; // ONE transaction
+holesPlayed?: number | null;          // stamped on every card of the round when it is ended; persisted; read by sync for net
+// src/services/offline/dao/HoleScoreDAO.ts (+ re-export from src/services/offline/database.ts)  [B3a]
+export async function deleteHoleScoresForCards(entries: { scorecardId: string; holeNumbers: number[] }[]): Promise<void>; // ONE transaction; no-op when empty
 
 // src/store/scorecardStore.ts (logic in src/store/endRoundEarlySlice.ts)
-holesPlayed: number | null;           // reset to null by resetRound
-/** Idempotent. Removes every score after lastPlayedHoleNumber(nineType, n) on every card (one SQLite transaction,
- *  BEFORE any state change), stamps holesPlayed = n and teeData = the player's tee on every card, recomputes totals,
- *  persists, sets store holesPlayed = n, schedules snapshot syncs. Throws (changing nothing) if the device doesn't
- *  score every player or the delete fails. Used by confirm, conflict adoption and init reconcile. */
-endRoundEarly: (n: number) => Promise<void>;
+holesPlayed: number | null;           // [B3b-1] null after both init placeholders and resetRound
 getPlayedHoles: () => Hole[];         // filterPlayableHoles(holes, nineType, holesPlayed)
-// src/store/scoreUpdateSlice.ts
-// applyScoreUpdate returns Scorecard | null — null (no-op) when the hole is after the early end OR not in `holes`.
-// multiBallSlice setters apply the same guard.
+/** [B3b-2] Idempotent. Validates (1 ≤ n < holes.length; scoresEveryPlayer), deletes every score after
+ *  lastPlayedHoleNumber(nineType, n) from SQLite in ONE call BEFORE any state change, then — unless the store's
+ *  currentRoundId changed meanwhile (EndRoundEarlyRoundChangedError, no state change) — keeps only played-hole keys,
+ *  stamps holesPlayed = n and teeData = the player's tee on every card, recomputes totals over the PLANNED holes,
+ *  sets store holesPlayed = n, clamps currentHole, persists and schedules snapshot syncs. Throws (changing nothing)
+ *  on a refusal or a failed delete. */
+endRoundEarly: (n: number) => Promise<void>;
+
+// src/store/endRoundEarlySlice.ts
+export function endRoundEarly(get, set, n: number, options?: { reconcile?: boolean }): Promise<void>; // reconcile [B3c-1] skips the scores-every-player check; store action has no options
+export function scoresEveryPlayer(state: {
+  allowedPlayerIds: readonly string[]; currentPlayers: readonly { id: string }[]; groupScorecards: ReadonlyMap<string, unknown>;
+}): boolean;                          // [B3b-2] empty allowedPlayerIds ⇒ true; else must cover every player and every card
+export class EndRoundEarlyRoundChangedError extends Error { readonly roundId: string }   // [B3b-2]
+export function needsEndRoundEarlyReconcile(state): boolean;                               // [B3c-1]
+export function reconcileEndedEarly(get, set): Promise<void>;                              // [B3c-1] logs, never fails the load
+
+// src/store/scoreUpdateSlice.ts  [B3b-3]
+// applyScoreUpdate returns Scorecard | null — null (no persist, no sync) when the hole is after the early end
+// OR not in `holes`, on every round. setMultiBallScore / updateMultiBallStats apply the same guard.
 ```
 
-- **Init (B3c):** `initializeRound` and `loadFromOffline` resolve the shape with `resolveRoundShape(serverRow, { nineType, holesPlayed: max(cards' holesPlayed) })`. When `holesPlayed` is set and any card holds a score after N, they call `endRoundEarly(N)` (reconcile). `initializeRound` takes an optional `holesPlayed` param.
-- **Guards:** the `useRoundData` / `useMatchPlayData` mismatch guards compare `holesPlayed` as well as `nineType`.
-- **Watch:** it gets `getPlayedHoles()`, and a write the guard drops reports failure.
+- **`submitScorecards`** [B3b-1] stamps `holesPlayed` only on an ended round (`...(holesPlayed != null && { holesPlayed })`); `coursePar` / `syncHoles` stay the planned holes.
+- **Init [B3c-1]:** `initializeRound(…, nineType?, startHole?, holesPlayed?: number | null)` (12th parameter) reads `getScorecardsByRound` before overwriting. Both init paths resolve `resolveRoundShape(serverRow, { nineType, holesPlayed: max(cards' holesPlayed) })` and reconcile (`endRoundEarly(N, { reconcile: true })`) when a card holds a score after N **or** a card's marker isn't N. Reconcile syncs only cards that lost scores.
+- **Guards [B3c-2]:** the `useRoundData` / `useMatchPlayData` mismatch guards compare `resolvedHolesPlayed !== (storeHolesPlayed ?? null)` as well as `nineType` (a pending local end with the server still NULL is left alone); both `hydrateFromSupabase` merges skip keys where `isHoleAfterEarlyEnd(...)`; `TeamMatchPlayScoringScreen` resets once per `(round, holes_played)` when the server's value differs and passes it to `initializeRound`.
+- **Watch [B3b-3]:** the snapshot carries `filterPlayableHoles(...)` (memoised); a write the guard drops acks `'error'`.
 
 ### Net totals (B4)
 
 ```ts
-// src/utils/scorecardCalculations.ts
+// src/utils/scorecardCalculations.ts  [B4-1] — callers pass PLANNED, nine-filtered holes; the played slice is the first N of that list
 export function calculatePlayerStats(players, holes, selectedTee?, handicapSource = 'profile', options?: { holesPlayed?: number | null }): PlayerStats[];
 export function calculateNetOverHolesPlayed(scores, playedHoles: Hole[], dailyHandicap: number): number;
-// src/services/scoreMismatch/resolution.ts — recomputeScorecardTotals(scores, holes, gameType, dhc, options?: { holesPlayed?: number | null; nineType?: NineType | null })
+// src/services/scoreMismatch/resolution.ts  [B4-2]
+recomputeScorecardTotals(scores, holes, gameType, dhc, options?: { holesPlayed?: number | null; nineType?: NineType | null }); // no options ⇒ unchanged
+applyResolvedScoreToScorecard(...): Promise<boolean>;   // false = hole not played, nothing written
 ```
 
-### End-early client and UI (B6, B7)
+The sync net reads `scorecard.holesPlayed`; `calculateHandicapData` nulls the differential when it is set [B4-1].
+
+### End-early client and UI (B6)
 
 ```ts
-// src/services/rounds/applyEndRoundEarly.ts  (B6b, new)
+// src/services/rounds/applyEndRoundEarly.ts  [B6b-1, new]
 export type EndRoundEarlyErrorCode = 'conflict' | 'not_found' | 'forbidden' | 'invalid' | 'network';
-export class EndRoundEarlyError extends Error { code: EndRoundEarlyErrorCode; serverHolesPlayed?: number | null }
-export async function applyEndRoundEarly(roundId: string, holesPlayed: number): Promise<void>; // maps 22023/P0002/42501; network ⇒ 'network'
-export async function queueRoundEndEarly(roundId: string, holesPlayed: number): Promise<void>;
-export async function fetchRoundHolesPlayed(roundId: string): Promise<number | null>;
+export class EndRoundEarlyError extends Error {
+  readonly code: EndRoundEarlyErrorCode; readonly serverHolesPlayed?: number | null;   // conflict only; undefined = unknown
+  constructor(code: EndRoundEarlyErrorCode, message: string, options?: { serverHolesPlayed?: number | null });
+}
+export const END_ROUND_EARLY_TIMEOUT_MS = 8000;   // abort signal + timer race ⇒ 'network'
+/** Called inline as (supabase.rpc as any)('end_round_early', args) with args typed from B1b's entry. Maps:
+ *  22023 + round_already_ended ⇒ 'conflict' (serverHolesPlayed = Number(details), else fetchRoundHolesPlayed, undefined
+ *  if that fails); any other 22023 (invalid_holes_played / round_completed / round_not_in_progress / none), 22P02,
+ *  23514 and bad arguments ⇒ 'invalid'; 42501 ⇒ 'forbidden'; P0002 ⇒ 'not_found'; anything else ⇒ 'network'. */
+export async function applyEndRoundEarly(roundId: string, holesPlayed: number): Promise<void>;
+export async function queueRoundEndEarly(roundId: string, holesPlayed: number): Promise<void>; // own entity key, then requestSyncDrain
+export async function fetchRoundHolesPlayed(roundId: string): Promise<number | null>;          // throws on a read error
+export function roundEndEarlyEntityKey(roundId: string): string;                               // `round:${id}:end_early`
+export async function hasQueuedRoundEndEarly(roundId: string): Promise<boolean>;               // pending or retained row
 
-// src/components/scorecard/RoundHeader.tsx — new optional props
+// src/components/scorecard/RoundHeader.tsx — new optional props  [B6a-2]
 canEndRoundEarly?: boolean;
 onEndRoundEarlyPress?: () => void;   // ⋮ HeaderIconButton, accessibilityLabel "End round early"
 
-// src/components/scorecard/EndRoundEarlySheet/index.tsx  (B6a)
+// src/components/scorecard/EndRoundEarlySheet/index.tsx  [B6a-2]
 export interface EndRoundEarlySheetProps {
   visible: boolean; plan: EndRoundEarlyPlan | null; resultPreview: string | null;
-  startHole?: number; loading?: boolean; onConfirm: () => void; onCancel: () => void;
-}
-// src/utils/endRoundEarly.ts (B6a)
-export function describeEndRoundEarlyResult(input: /* see B6a */): string | null; // uses compactMatchMargin
+  startHole?: number; loading?: boolean;
+  handicapRound?: boolean;   // R22: the handicap-round line replaces the generic one
+  onConfirm: () => void; onCancel: () => void;
+}                            // shows displayHoleNumber(plan.lastHoleNumber, startHole); BottomSheet (no SystemModalTheme needed)
 
-// src/hooks/scorecard/useEndRoundEarly.ts  (B6c)
+// src/hooks/scorecard/useEndRoundEarly.ts  [B6c-1]
 export function useEndRoundEarly(args: {
   roundId: string; isStandalone: boolean; gameType: GameType; teamFormat?: TeamFormat | null;
   scoringPairsEnabled: boolean; getMatchContext?: () => EndEarlyMatchContext | null;
   onEnded: (holesPlayed: number) => void;      // screen navigates to its finish screen
 }): { canEndRoundEarly: boolean; isEnded: boolean; open: () => void; sheetProps: EndRoundEarlySheetProps };
 
-// src/components/scorecard/EndedEarlyBanner.tsx  (B6d-1 creates; B7a-2 reuses)
-export interface EndedEarlyBannerProps { holesPlayed: number; nineType: NineType; onFinish?: () => void }
+// src/components/scorecard/EndedEarlyBanner.tsx  [B6d-1 creates + barrel export; B7a-2 imports it by direct path]
+export interface EndedEarlyBannerProps { holesPlayed: number; nineType: NineType; onFinish?: () => void } // one Text label; "Finish" only with onFinish
+// src/hooks/scorecard/usePlayedHoleRange.ts  [B6d-1]
+export function usePlayedHoleRange(args: { roundId: string; holes: Hole[]; currentHole: number; setCurrentHole: (hole: number) => void }):
+  { isEnded: boolean; holesPlayed: number | null; nineType: NineType; navigableHoles: Hole[]; firstHoleNumber: number; lastHoleNumber: number };
 ```
 
-## Contract amendments (from drafting — these override the Interface Contract above)
+- **Queue item [B6b-2]:** `'end_early'` runs before `'finalize'` and never waits for cards. Success or same-N ⇒ removed. `'conflict'` ⇒ removed, and the server N is adopted into the open round (`currentRoundId === id`, via a lazy `require` of the store) or by the next load's reconcile. `'not_found'` ⇒ removed. `'forbidden'` / `'invalid'` / malformed ⇒ `RoundSyncPermanentError` (retained, and the round's `'finalize'` fails with it so Retry revives both). `'network'` ⇒ `RoundSyncDeferredError` (pending, no retry spent). Applied or adopted ends invalidate `skinsKeys.holeCounts(id)` and `roundKeys.detail(id)`.
+- **`useEndRoundEarly` [B6c-1]:** offered when `isStandalone`, scoring pairs are off, the store holds this round and it isn't ended, the store's `scoresEveryPlayer` holds, no local card is `completed` / `confirmed` ("in progress", decided offline), and `planEndRoundEarly` ≠ null. `sheetProps.handicapRound` = store `handicapSource !== 'none'`. Confirm: `checkIsOnline()` → online RPC, then the local `endRoundEarly(n)`, then `onEnded(n)`; offline or `'network'` ⇒ local end, then `queueRoundEndEarly`; `'conflict'` ⇒ adopt the server N (else re-read; error toast if still unknown); `'not_found'` ⇒ local end, no queue; `'forbidden'` / `'invalid'` ⇒ error toast, no change. A local end that throws (including `EndRoundEarlyRoundChangedError`) ⇒ error toast, no queue, no `onEnded`. Round-shape queries are invalidated only after the local end. Cancel is ignored while a confirm is in flight (≤ 8 s).
+- **Navigation on `onEnded`:** ScorecardEntry and TeamMatchPlay ⇒ `ReviewScorecard`; singles MatchPlayScoring ⇒ `MatchPlayScorecard`. While ended, the footers' submit goes to that finish screen [B6d-2].
 
-Where these differ from the Interface Contract above, **these win**. The owning task is in brackets.
+### Finish screens, displays, stats (B7–B10)
+
+- **Finish screens:** `ScorecardTableProps` / `ScorecardTabContentProps` gain `nineType?` (default `'full'`) and `holesPlayed?` [B7a-1]; `useScoreReview()` also returns `playedHoles`, `holesPlayed`, `nineType`, and `validateScores` checks the played holes [B7a-2]; Review's `holeCount` is the played count and Review declares `playedHoleNumbers` [B7b]; `checkSubmissionReadiness(roundId, userId, scoringPairsEnabled, holeCount = 18, groupPlayerIds?, playedHoleNumbers?: number[])` and `UseScoreSubmissionParams.playedHoleNumbers?: number[]` [B8-1]; PlayerScorecard hides its footer when ended [B8-2].
+- **Round list [B9a]:** `buildRoundListMeta(round): { courseHoles, plannedHoles, statsHoles, selectedTee, handicapSource, holesPlayed }`; `RoundListCardData.totalHoles` is the planned count and gains `holesPlayed?`; the card shows the "Ended after N of M" pill (`testID="round-card-ended-early"`).
+- **ViewRound [B9b–B9d]:** `getViewRoundHoles(round): { plannedHoles; playedHoles; holesPlayed }`; `holesPlayed?` on `RoundScorecardTab`, `StatsTab`, `MatchTab`; `RoundSubMatchLeaderboard` passes nine-filtered planned holes and `holesPlayed`; `usePlayerScorecard(...).holes` is the played holes.
+- **Wolf [B9e]:** `filterDecisionsThroughHole(decisions, lastHoleNumber)`, `buildWolfGameSummary(game, decisions, payouts, lastHoleNumber?)`, `useWolfSummary(gameId, options?: { lastHoleNumber?: number | null })`, `buildWolfResultRows(decisionsMap, holeNumbers?)`, `WolfResultsCard.holeNumbers?`, `WolfTab.holeNumbers?`, `WolfTabContent.holeNumbers?`.
+- **Nine-type sheet [B9g]:** `canEditNineType` is false once `holes_played` is set; `EditNineTypeSheetProps.holesPlayed?` (the server also refuses the change).
+- **Stats [B10a, B9f]:** ended-early rounds are kept out of per-round aggregates and trends, listed in recent rounds with `recentRoundEndedEarlyLabel(...)` / `RecentRoundRow.endedEarlyLabel?`, and classified as **Practice** everywhere (stats, Rounds-list filters, round-list card, ViewRound header, round-settings title).
+- **Achievements and leagues [B10b]:** `buildRoundAchievementEventData(params)` omits `hole_count`, `gross_score` and `net_score` when `endedEarly`; `readRoundAchievementStore(playerId)`; `getPartnershipEligibleCards(playerIds)` in `src/services/api/partnershipLeagues.ts` excludes ended-early rounds.
+- **Docs [B11]:** invariants I10–I12, `DATABASE_SCHEMA.md` (the A7 and B1a objects), `SKINS_GAME.md`, and the `OFFLINE_ARCHITECTURE.md` "End round early (offline)" section, including the `end_early` queue semantics.
 
 ## Needs Sam
-Nothing blocks the plan. Two decisions were made during integration; please check them:
-- **A3-2 clears a stale index.** When no qualifying differential remains, `updatePlayerHandicapIndex` writes `handicap_index = NULL`, but only on a row that still holds one. The column is purely computed (only this service writes it, signup inserts NULL, migration `20260629000000` already NULLs it). When it is NULL, the playing handicap falls back to the profile handicap (`scorecardCalculations.ts:113`) and the UI shows "—".
-- **B10b-1 omits `hole_count` for an ended-early round** (refines R11). An 18-hole round ended after 9 no longer advances `NINE_HOLE_SPECIALIST` or `18_HOLES_OF_GLORY`.
 
-## Run order (split task IDs replace the Task Index rows)
-A1a-1, A1a-2, A1b, A2a-1, A2a-2, A3-1, A3-2, A3-3, A3b, A4a, A4b, A4c, A7, A5a-1, A5a-2, A5b-1, A5b-2, A5c-1, A5c-2, A5d-1, A5d-2, A6a-1, A6a-2, A6a-3, A6b-1, A6b-2, A6c, A6d-1, A6d-2 ·
-B1a-1, B1a-2, B1b, B2, B3a, B3b-1, B3b-2, B3b-3, B3c-1, B3c-2, B4-1, B4-2, B5a-1, B5a-2, B5b-1, B5b-2, B6a-1, B6a-2, B6b-1, B6b-2, B6c-1, B6c-2, B6d-1, B6d-2, B7a-1, B7a-2, B7b, B8-1, B8-2, B9a-1, B9a-2, B9b-1, B9b-2, B9c, B9d, B9e-1, B9e-2, B9g, B10a-1, B10a-2, B9f-1, B9f-2, B10b-1, B10b-2, B10c-1, B10c-2, B11. **B10a runs before B9f** (B9f consumes B10a's fixtures and locals).
+Nothing blocks the plan. Please check these decisions:
+- **A6d-2's stuck-round runner (Step 5, item 8)** finalises approved stuck social rounds through `finalizeSubmittedRound` with a throwaway jest runner and the service-role key. It was written without a live run. If it can't reach the database, the fallback is a plain `UPDATE rounds SET status = 'completed'` plus hand-settling the rounds with an active skins game, and that needs your explicit OK.
+- **Force-update for Part A is optional** (A6d-2 Step 5, item 7). Part A has no server dependency on the new client; raising `app_version_config.minimum_version` only stops old clients creating new stuck rounds.
+- **A3-2 clears a stale index.** When no qualifying differential remains, `updatePlayerHandicapIndex` writes `handicap_index = NULL` (only on a row that still holds one). The playing handicap then falls back to the profile handicap and the UI shows "—".
+- **B10b-1 omits `hole_count` for an ended-early round** (refines R11): an 18-hole round ended after 9 advances neither `NINE_HOLE_SPECIALIST` nor `18_HOLES_OF_GLORY`.
 
-## Match play
-- **A1a-1 produces `compactMatchMargin`**, not B5a. It also replaces `subMatchLeaderboard`'s private `normaliseMargin`.
-- **A1b adds** `standaloneMatchHoles(courseHoles, nineType): Hole[]` in `utils/matchPlayResult.ts`. B9a replaces its use in `useRoundList` with `plannedHoles`.
-- **B5a-1 renames the local counter to `decidedHoles`** in `calculateMatchStatus`, `calculateTeamMatchStatus` and `computeStandaloneMatchResult`, and adds the private walks `calculateEndedEarly(Team)MatchStatus`.
-- **New props:** `MatchPlayLeaderboard.totalHoles` [A1a-2] and `SubMatchLeaderboardTab.holesPlayed?: number | null` [B5b-2].
-- **`TeamMatchPlayScoringScreen` names:** `roundNineType` and `resolveMatchHoles(...)` → `{ holes, firstHoleNumber, lastHoleNumber }` [A2a-2]; `storeHolesPlayed` [B5b-1].
+## Changes since the spec
 
-## Handicap
-- **`fetchHandicapHistory` is exported** [A3-3]. Its candidate query selects `'id, scores, rounds!inner(nine_type)'`.
-- **`QuickScoreSubmitInput` is exported**, with `nineType: NineType` [A4b].
-- **Private `clearHandicapIndex(playerId)`** [A3-2] writes NULL with `.not('handicap_index','is',null).select('id')`. It invalidates caches only when a row changed, and is skipped when the combined-rounds read failed.
-- **A7 also creates:**
-  - `scorecard_hole_has_strokes(JSONB)` (IMMUTABLE);
-  - the audit table `handicap_full_card_fix_audit` (RLS on, no app access);
-  - **`scorecard_eligible_for_differential(p_round_id UUID, p_scores JSONB) RETURNS BOOLEAN`** (STABLE; EXECUTE revoked from app roles). Both trigger functions call it; it is the single extension point.
-- **The combine trigger** raises `22023` with `'Both nines must be fully scored to combine'`.
-- **B1a-1 replaces only `scorecard_eligible_for_differential`** (adds `holes_played IS NULL`). It does not redefine the trigger functions or the triggers.
-- **Verification scripts:** `supabase/tests/full_scorecards_only_handicap.verify.sql` [A7] and `supabase/tests/end_round_early_verify.sql` [B1a-2].
-- **SQLite local migrations:** A3b takes 19–21 (`sync_nine_type`, `sync_game_type`, `sync_holes`). B3a takes **22** (`scorecards.holes_played`, appended last in the INSERT).
+Nothing here overrides the Interface Contract above: it is already folded in. This list only records where the plan departs from, or adds to, the spec (Revisions 2–3 and R22), so a reviewer can check each one.
 
-## Skins
-- **`fetchSkinsHoleCounts` lives in `src/services/skins/roundHoleCounts.ts`**, not in `utils/skins/holeCounts.ts` (which stays pure).
-  - It uses `.maybeSingle()`: a row hidden by RLS gives the 18-hole default, and an error throws.
-  - B1b changes its select to `'nine_type, holes_played'`.
-- **New hook and key** [A5c-1]: `useSkinsHoleCounts(roundId)` from `@/hooks/skins` / `@/hooks/useSkins`, and `skinsKeys.holeCounts(id)` = `['skins','hole-counts',id]`.
-- **`awardSkinsAchievements(game: Pick<SkinsGame,'id'|'pot_value'>, ctx: SkinsAchievementContext)`**, with `ctx = { playerId, checkAndAward, showMultipleToasts }` [A5b-2]. A6c calls it as `awardSkinsAchievements(skinsGame, { … })`.
-- **`finalizeActiveSkinsForRound(roundId)`** has no override and never throws; its `error` is the raw value.
-- **`SkinsTabContent`'s `totalHoles` becomes `holeCounts`** [A5d-1].
-- **Hole counts on the finish screens:** Review builds `skinsHoleCounts` from `roundDetails` [A5d-1]; MatchPlayScorecard uses `useSkinsHoleCounts` [A5c-2]. On both, B8-2 lets the store's `holesPlayed` stand in until the server has `holes_played`.
-
-## Finalisation and sync
-- **`finalizeSubmittedRound` returns `{ completed, skinsGame, statusError }`.** Its only rejection is B6b-1's guard: `RoundNotReadyError` while an `'end_early'` item is queued.
-- **`RoundSyncData` is exported from `finalizeSubmittedRound.ts`**; B6b-1 widens it.
-- **`finalizeRoundStatus`** returns `false` on `PGRST116` (missing round) and throws on other read errors.
-- **Entity keys:** `round:<id>:finalize` and `round:<id>:end_early` (`roundEndEarlyEntityKey`).
-- **`syncOrchestrator.ts` internals (module-private) [A6a-3]:**
-  - `processRoundSyncs`;
-  - `processRoundSync`: a switch on `data.action`; B6b-2 adds `case 'end_early'`;
-  - `orderRoundSyncs`: non-finalize actions first, stable sort;
-  - `processRoundFinalize`: holds the card wait, so it applies to finalize only;
-  - `RoundSyncPermanentError`: retained `failed` at once, no retries.
-- **`drain.ts`** uses `registerSyncDrainHandler`.
-  - Test-only exports: `__resetSyncDrainForTests` and `__resetSyncServiceForTests`.
-  - Import `requestSyncDrain` from `@/services/offline/sync/drain`, never from the barrel.
-- **`useAppSyncService`** (app root) [A6b-2] drains on sign-in and on foreground.
-- **`finalizeOrQueueRound` queues a `'finalize'` item** [A6c] when any of these holds:
-  - the device is offline;
-  - there is a `statusError`;
-  - `finalizeSubmittedRound` throws;
-  - the round isn't complete and this device has unsynced or retained-failed cards for it.
-- **`useFinalizeSubmittedRound`** lives at `@/hooks/rounds/useFinalizeSubmittedRound` and is not in the barrel.
-- **A6d-2 deletes** `useFinalizeSkinsForRound`, `useRoundFinalization` and `useSubmitScorecards`.
-
-## End-early RPC and client
-- **RPC errors** [B1a-1]:
-  - `42501`: unauthenticated, a competition round, or not the owner / an accepted participant;
-  - `P0002`: missing or deleted round;
-  - `22023` with HINT `invalid_holes_played`, `round_already_ended` (`DETAIL` = the server's N) or `round_completed`. The same N again returns at once, without re-trimming.
-- **`applyEndRoundEarly` maps those errors** [B6b-1]:
-  - `22023` + `round_already_ended` → `'conflict'`, with `serverHolesPlayed` = `Number(details)`, else `fetchRoundHolesPlayed` (`undefined` if that read fails);
-  - other `22023`, `22P02`, `23514` and bad arguments → `'invalid'`;
-  - `42501` → `'forbidden'`; `P0002` → `'not_found'`; anything else → `'network'`. The error is built as `EndRoundEarlyError(code, message, { serverHolesPlayed? })`. There is one extra export, `hasQueuedRoundEndEarly(roundId)`.
-- **Queue item** [B6b-2]: `conflict` / `not_found` are removed; `forbidden` / `invalid` / malformed throw `RoundSyncPermanentError`; `network` retries normally. The item never waits for cards.
-- **`useEndRoundEarly`** [B6c-1]:
-  - checks `checkIsOnline()` at confirm;
-  - on a conflict, adopts `serverHolesPlayed` (else re-reads it);
-  - after an RPC success or an adopted conflict, invalidates `skinsKeys.holeCounts(id)` and `roundKeys.detail(id)` through the `queryClient` singleton.
-- **B6a types** in `utils/endRoundEarly.ts`: `EndEarlyMatchContext`, `EndRoundEarlyStatsRow` and `EndRoundEarlyResultInput`. The sheet shows `displayHoleNumber(plan.lastHoleNumber, startHole)`.
-- **`EndedEarlyBanner`** is produced by B6d-1, not B7a, and is exported from the barrel. B7a-2 imports it by direct path.
-- **`usePlayedHoleRange({ roundId, holes, currentHole, setCurrentHole })`** [B6d-1] returns `{ isEnded, holesPlayed, nineType, navigableHoles, firstHoleNumber, lastHoleNumber }`.
-
-## Store and local state
-- **`endRoundEarlySlice.endRoundEarly(get, set, n, { reconcile? })`.** In reconcile mode it skips the "scores every player" check.
-- **New exports:** `needsEndRoundEarlyReconcile(state)` and `reconcileEndedEarly(get, set)` [B3c-1].
-- **`applyScoreUpdate`** returns `null` for any hole not in `holes`, on every round.
-- **On the Watch, a dropped write reports `'error'`.**
-- **`submitScorecards`** stamps `holesPlayed` only when the round is ended.
-- **`initializeRound`** takes `holesPlayed` as its 12th parameter, and reads `getScorecardsByRound` before overwriting.
-
-## Net, finish screens, displays, stats
-- **Net and scoring:**
-  - `applyResolvedScoreToScorecard` returns `Promise<boolean>` [B4-2];
-  - `recomputeScorecardTotals` slices with `filterPlayableHoles(holes, nine_type, holes_played)` and normalises snake-case holes.
-- **Finish screens:**
-  - `ScorecardTableProps` and `ScorecardTabContentProps` gain `nineType?` and `holesPlayed?` [B7a-1];
-  - `useScoreReview()` also returns `playedHoles`, `holesPlayed` and `nineType`;
-  - B7a-2 adds `nineType` to the MatchPlayScorecard store destructure;
-  - Review's `holeCount` is the played count, and B7b adds `playedHoleNumbers`;
-  - `checkSubmissionReadiness` gains `playedHoleNumbers?` as a 6th parameter [B8-1].
-- **Round list and ViewRound:**
-  - `buildRoundListMeta` returns `{ courseHoles, plannedHoles, statsHoles, … }`;
-  - `RoundListCardData.totalHoles` is the planned count, plus a new `holesPlayed`;
-  - `getViewRoundHoles(round)` [B9b-2].
-- **Wolf** [B9e-1]:
-  - `WolfResultsCard.holeNumbers?`;
-  - `buildWolfResultRows` and `filterDecisionsThroughHole`;
-  - `useWolfSummary(gameId, { lastHoleNumber? })` and `buildWolfGameSummary(…, lastHoleNumber?)`.
-- **Nine-type sheet:** `EditNineTypeSheet.holesPlayed?`; B9g owns the `canEditNineType` lock.
-- **Leagues and achievements:**
-  - `getPartnershipEligibleCards(playerIds)` [B10b-2];
-  - `buildRoundAchievementEventData` omits `hole_count`, `gross_score` and `net_score` when `endedEarly` [B10b-1].
-- **Stats:** ended-early rounds count as Practice [B9f-2].
-- **Docs:** B11 owns `DATABASE_SCHEMA.md` (the A7/B1a objects) and the `OFFLINE_ARCHITECTURE.md` "End round early (offline)" section, including the `end_early` queue semantics.
+- **Task splits.** Large tasks run as `-1`/`-2`/`-3` parts (Task Index). B10a runs before B9f.
+- **`compactMatchMargin` comes from A1a-1**, not B5a, and replaces `subMatchLeaderboard`'s private `normaliseMargin`. Legacy stored "N & 0" margins are normalised at display time, not backfilled.
+- **Match engines:** the local decided-hole counter is renamed `decidedHoles` (B5a-1). `standaloneMatchHoles`, `resolveMatchHoles` and `resolveEndedAfter` are new helpers.
+- **Handicap index:** A3-2/A3-3 over-fetch 60 rows and keep 20 after the belts; A3-2 clears a stale index to NULL. A7 also recomputes `players.handicap_index` server-side and keeps audit tables for the report and UNDO.
+- **Server eligibility helper:** A7's two triggers call one function, `scorecard_eligible_for_differential`; B1a-1 replaces only that function to add `holes_played IS NULL`. Never re-apply A7's migration after B1a's.
+- **RPC hardening (B1a-1):** a new `round_not_in_progress` hint for an `upcoming` round; the RPC strips hole keys after N from `scorecards.scores` without bumping `revision`; a guard trigger makes `holes_played` RPC-only and locks `nine_type` once it is set.
+- **SQLite:** one local migration for the sync metadata (19, A3b) and one for the end marker (20, B3a).
+- **Skins:** `finalizeSkinsGame(gameId)` takes no hole-count override; the played pot is the rounded hole price × holes played; `calculateSettledPot` reads a settled game's pot; `fetchSkinsHoleCounts` lives in `services/skins/roundHoleCounts.ts`.
+- **Finalisation:** `finalizeSubmittedRound` returns `statusError` and `skinsError` instead of throwing, marks the round in flight, and its only rejection is B6b-1's queued-end guard. The online path writes its `'finalize'` row before trying. No drain runs while signed out, and `getDb` waits for the schema.
+- **Queue semantics for `'end_early'`:** `'network'` stays pending without spending retries; a retained end fails the round's `'finalize'` with it, so Retry revives both.
+- **Who can end:** also requires that no local card is submitted yet.
+- **Store:** `endRoundEarly` re-checks the round after the SQLite delete (`EndRoundEarlyRoundChangedError`); reconcile also runs when a card's marker differs from the resolved N; `applyScoreUpdate` refuses holes not in the planned list on every round.
+- **Achievements:** an ended-early round omits `hole_count` (refines R11), as well as gross and net.
+- **Readiness:** limited to played hole numbers (`playedHoleNumbers`), not just a smaller hole count.
+- **Not done here (Follow-ups / Appendix B):** a nine-aware live daily handicap; combined pairs built from a part-filled nine (R22: left as is); setting `nine_type` for competition rounds on 9-hole courses; the Home carousel's "hole N+1" for an ended, unsubmitted round.
 
 ## Task Index (run in this order)
 
-Each task is red → green → commit, and is reviewable on its own. Large tasks are split into `-1`/`-2`/`-3` parts that run back to back. **Part A** can merge first (`pnpm verify:gate` at the end of A6d-2).
+Each task is red → green → commit, and is reviewable on its own. Large tasks are split into `-1`/`-2`/`-3` parts that run back to back. **Part A** can merge first (`pnpm verify:gate` at the end of A6d-2, then A6d-2's Part A rollout + QA). **B10a runs before B9f** (B9f consumes B10a's fixtures and locals).
 
 | # | Task | What it delivers |
 |---|------|------------------|
-| 0 | Worktree setup | `pnpm install`, baseline |
-| A1a-1 | Margin I10: engines | A match decided with 0 holes left reads "N up" / All Square, never "N & 0"; `compactMatchMargin` |
+| 0 | Worktree setup | `pnpm install`, merge local `main`, baseline |
+| A1a-1 | Margin I10: engines | A match decided with 0 holes left reads "N up" / All Square, never "N & 0"; `compactMatchMargin` (replaces `subMatchLeaderboard`'s private `normaliseMargin`) |
 | A1a-2 | Margin I10: displays | Team score view; legacy "N & 0" rows normalised at display time; `MatchPlayLeaderboard` `totalHoles` |
 | A1b | Round-list pill util | `computeStandaloneMatchResult` extracted, with canonical margins; `standaloneMatchHoles` (nine-filtered) |
 | A2a-1 | 9-hole matches: singles | The singles hook and scorecard-table utils complete 9-hole matches |
-| A2a-2 | 9-hole matches: team | The team state hook and `TeamMatchPlayScoringScreen` use the round's nine (holes, plus `nineType` on init) |
+| A2a-2 | 9-hole matches: team | `useTeamMatchPlayState` `totalHoles`; `resolveMatchHoles`; `TeamMatchPlayScoringScreen` uses the round's nine (holes, plus `nineType` on init) |
 | A3-1 | Handicap gate: core | `isCompleteForHandicap`; sync and recalc write a null differential for incomplete cards (recalc no longer throws) |
-| A3-2 | Handicap gate: index | League tag order; the `updatePlayerHandicapIndex` belt (existing partial cards stop counting) |
-| A3-3 | Handicap gate: history | The `fetchHandicapHistory` belt (main, refresh and candidate queries) |
-| A3b | SQLite sync metadata | The fallback sync keeps `syncNineType`/`syncHoles`/`syncGameType` (local migrations 19–21) |
+| A3-2 | Handicap gate: index | League tag order; the `updatePlayerHandicapIndex` belt (over-fetch 60, keep 20); a stale index is cleared to NULL |
+| A3-3 | Handicap gate: history | `fetchHandicapHistory` exported; belt on the main, refresh and candidate queries |
+| A3b | SQLite sync metadata | The fallback sync keeps `syncNineType`/`syncHoles`/`syncGameType` (one local migration, 19) |
 | A4a | Gate: combine | Incomplete nines can't be combined or offered as pairs |
-| A4b | Gate: Quick Score | Gated differential (submit + preview) |
+| A4b | Gate: Quick Score | Gated differential (submit + preview); `QuickScoreSubmitInput.nineType` |
 | A4c | Gate: League Quick Add | Partial cards blocked at review; courses with fewer than 18 holes rejected |
-| A7 | Server guard + data fix | Completeness triggers on `scorecards` / `handicap_combined_rounds`; existing partial differentials nulled; audit, report and verify scripts |
-| A5a-1 | Skins settlement on holes played | `SkinsHoleCounts`, `calculatePlayedPot`, zero-sum settlement |
-| A5a-2 | Skins hole values | Holes priced on the planned count; every settlement path reads `fetchSkinsHoleCounts` |
-| A5b-1 | Skins settlement service | `finalizeSkinsGame` / `finalizeActiveSkinsForRound` (non-hook) |
-| A5b-2 | Skins achievements helper | `awardSkinsAchievements` |
+| A7 | Server guard + data fix | Completeness triggers via `scorecard_eligible_for_differential`; existing partial differentials nulled and indexes recomputed; audit tables, report and verify scripts |
+| A5a-1 | Skins settlement on holes played | `SkinsHoleCounts`, `calculatePlayedPot`, `calculateSettledPot`, zero-sum settlement |
+| A5a-2 | Skins hole values | Holes priced on the planned count; `fetchSkinsHoleCounts` (`services/skins/roundHoleCounts.ts`) |
+| A5b-1 | Skins settlement service | `finalizeSkinsGame(gameId)` (no hole-count override) / `finalizeActiveSkinsForRound` (non-hook, never throws) |
+| A5b-2 | Skins achievements helper | `awardSkinsAchievements(game, ctx)` |
 | A5c-1 | Skins display: hook + summary | `useSkinsHoleCounts`, summary, indicator, settings card |
 | A5c-2 | Skins results card | The results card uses the round's hole counts |
 | A5d-1 | Live skins standings | In-progress standings and the unsettled carryover use hole counts |
-| A5d-2 | Skins payouts tabs | Completed games show the stored settlement |
-| A6a-1 | `finalizeRoundStatus` | Returns a boolean; throws on read errors |
-| A6a-2 | Finalise service | `finalizeSubmittedRound`, `queueRoundFinalize`, `hasUnsyncedScorecardsForRound` |
-| A6a-3 | Round items in the queue | Round items run after every upload; wait and fail rules; per-action entity keys |
-| A6b-1 | Sync start + drain | `ensureSyncServiceStarted`, `requestSyncDrain` |
-| A6b-2 | App-wide sync | The app root owns the sync service and database init; `useOfflineSync` stops tearing it down; `OFFLINE_ARCHITECTURE.md` |
-| A6c | Shared submit step + Review | `finalizeOrQueueRound` / `useFinalizeSubmittedRound`; Review's submit paths |
-| A6d-1 | Other submit paths | MatchPlayScorecard, MatchPlayScoring and PlayerScorecard submit through the shared step |
-| A6d-2 | Dead hooks | Dead finalisation hooks deleted; `pnpm verify:gate` |
-| B1a-1 | Migration | `holes_played`, hardened `end_round_early`, trigger extension, feed RPCs |
-| B1a-2 | Migration verify script | `end_round_early` verification (`BEGIN … ROLLBACK`) |
-| B1b | Types | `holes_played` in the TS types, metadata, activity card, typed RPC and `fetchSkinsHoleCounts` |
+| A5d-2 | Skins payouts tabs | Completed games show the stored settlement (`resolveSkinsNetResults`) |
+| A6a-1 | `finalizeRoundStatus` | Returns a boolean; throws on read errors; tests moved to the service |
+| A6a-2 | Finalise service + DAO | `finalizeSubmittedRound` (`skinsError`, in-flight mark), `queueRoundFinalize`, `removeQueuedRoundFinalize`, `hasUnsyncedScorecardsForRound`, `removePendingSyncByEntityKey` |
+| A6a-3 | Round items in the queue | Round items run after every upload; wait / fail / retry rules; per-action entity keys; B6b's extension point |
+| A6b-1 | Sync start + drain | `ensureSyncServiceStarted`, `requestSyncDrain` (`drain.ts`); `syncAll` gated on a signed-in user |
+| A6b-2 | App-wide sync | `useAppSyncService` in `App.tsx`; `useOfflineSync` stops tearing down; `getDb` awaits init; `OFFLINE_ARCHITECTURE.md` |
+| A6c | Shared submit step + Review | `finalizeOrQueueRound` (durable item first) / `useFinalizeSubmittedRound`; Review's submit paths |
+| A6d-1 | Other submit paths | MatchPlayScorecard, MatchPlayScoring (+ split singles sub-match result) and PlayerScorecard submit through the shared step |
+| A6d-2 | Dead hooks + Part A rollout | Dead finalisation hooks deleted; `pnpm verify:gate`; Part A rollout + on-device QA (A7 dry run, Sam's go/no-go, apply, build, stuck rounds, watch) |
+| B1a-1 | Migration | `holes_played`, hardened `end_round_early` (strips score keys, `round_not_in_progress`), guard trigger, eligibility helper, feed RPCs |
+| B1a-2 | Migration verify script | `end_round_early_verify.sql` (`BEGIN … ROLLBACK`) |
+| B1b | Types | `holes_played` in the TS types, metadata, activity card, typed RPC entry and `fetchSkinsHoleCounts` |
 | B2 | Pure utils | `filterPlayableHoles`, `roundShape.ts`, `endRoundEarly.ts` |
-| B3a | SQLite end marker | `scorecards.holes_played` (local migration 22), `Scorecard.holesPlayed`, `deleteHoleScoresForCards` |
+| B3a | SQLite end marker | `scorecards.holes_played` (local migration 20), `Scorecard.holesPlayed`, `deleteHoleScoresForCards` |
 | B3b-1 | Store state | `holesPlayed`, `getPlayedHoles`; submit carries it |
-| B3b-2 | Store `endRoundEarly(n)` | Atomic removal, tee/marker stamping, totals, syncs |
+| B3b-2 | Store `endRoundEarly(n)` | Atomic removal, tee/marker stamping, totals, syncs; `scoresEveryPlayer`, `EndRoundEarlyRoundChangedError` |
 | B3b-3 | Closed holes | Setters reject holes after N (or holes not planned); the Watch gets played holes and failed acks |
 | B3c-1 | Init + reconcile | Both init paths resolve the shape from the server row plus SQLite cards, then reconcile (Review Focus #1) |
-| B3c-2 | Guards + team screen | The `useRoundData` / `useMatchPlayData` guards compare `holesPlayed`; the team screen passes it |
-| B4-1 | Net over holes played: calc + sync | Per-hole net in `calculatePlayerStats` and the sync snapshot |
+| B3c-2 | Guards + team screen | The `useRoundData` / `useMatchPlayData` guards compare `holesPlayed`; hydrate filters; the team screen resets and passes it |
+| B4-1 | Net over holes played: calc + sync | Per-hole net in `calculatePlayerStats` and the sync snapshot; ended-early differential belt |
 | B4-2 | Net over holes played: resolution | Mismatch resolution and `recomputeScorecardTotals` |
 | B5a-1 | Ended-early match: engines + pill | `holesPlayed` in the engines (local renamed `decidedHoles`) and the pill; `resolveEndedAfter` |
 | B5a-2 | Ended-early match: table utils | Scorecard-table and sub-match utils |
 | B5b-1 | Match wiring: scoring screens | Hooks, score view, `TeamMatchPlayScoreView` |
-| B5b-2 | Match wiring: finish screens | Review tabs, MatchPlayScorecard |
+| B5b-2 | Match wiring: finish screens | Review tabs, MatchPlayScorecard, `SubMatchLeaderboardTab.holesPlayed` |
 | B6a-1 | Result text | `describeEndRoundEarlyResult` |
-| B6a-2 | ⋮ action + sheet | `RoundHeader` action, `EndRoundEarlySheet` |
-| B6b-1 | End-early RPC client | `applyEndRoundEarly`, `queueRoundEndEarly`, the finalise guard |
-| B6b-2 | `'end_early'` queue item | The sync-queue branch, which runs before `'finalize'` |
-| B6c-1 | `useEndRoundEarly` | Who can end, preview, confirm flow (online RPC, offline queue, conflict adoption) |
+| B6a-2 | ⋮ action + sheet | `RoundHeader` action, `EndRoundEarlySheet` (with the R22 `handicapRound` line) |
+| B6b-1 | End-early RPC client | `applyEndRoundEarly` (8 s timeout), `queueRoundEndEarly`, the finalise guard in `runFinalizeSteps` |
+| B6b-2 | `'end_early'` queue item | The sync-queue branch: runs before `'finalize'`; network stays pending; a retained end fails the finalize too |
+| B6c-1 | `useEndRoundEarly` | Who can end, preview, confirm flow (online RPC, offline queue, conflict adoption), R22 warning |
 | B6c-2 | Wire the hook | Into the three scoring screens |
-| B6d-1 | Ended-round building blocks | `EndedEarlyBanner`, `usePlayedHoleRange`, submit guard |
+| B6d-1 | Ended-round building blocks | `EndedEarlyBanner`, `usePlayedHoleRange` |
 | B6d-2 | Scoring screens closed | Banner with Finish; navigation clamped; Submit routed to the finish screen |
 | B7a-1 | Scorecard renders played holes | `ScorecardTable` and the Review scorecard tab |
 | B7a-2 | Review validation + banner | Review validates played holes; banner on the finish screens |
 | B7b | Finish screens per tab | Played vs planned holes per tab; shot log; MatchPlayScorecard completeness |
-| B8-1 | Readiness on played holes | `checkSubmissionReadiness(..., playedHoleNumbers?)` |
+| B8-1 | Readiness on played holes | `checkSubmissionReadiness(..., playedHoleNumbers?)`; `useScoreSubmission` param |
 | B8-2 | Skins preview + PlayerScorecard | Skins preview on the holes played; PlayerScorecard footer hidden when ended |
 | B9a-1 | Round list data | Planned and stats holes per round, `holes_played` |
 | B9a-2 | Round card pill | "Ended after N of M" |
 | B9b-1 | ViewRound tab props | `holesPlayed` props on the tabs |
-| B9b-2 | ViewRound wiring | Planned vs played holes |
-| B9c | ViewRound team board + label | `RoundSubMatchLeaderboard`; details label |
+| B9b-2 | ViewRound wiring | `getViewRoundHoles`: planned vs played holes |
+| B9c | ViewRound team board + label | `RoundSubMatchLeaderboard` on nine-filtered planned holes; details label |
 | B9d | Player scorecard + feed card | Read-only scorecard and activity card |
 | B9e-1 | Wolf utils | Summary cut and result rows over the played holes |
 | B9e-2 | Wolf screens | ViewRound and Review Wolf tabs |
@@ -540,12 +576,12 @@ Each task is red → green → commit, and is reviewable on its own. Large tasks
 | B10a-1 | Stats: player | Kept out of per-round aggregates |
 | B10a-2 | Stats: course | The same rules for course statistics |
 | B9f-1 | Recent-rounds label | "Ended after N of M" in the stats lists; kept out of trends |
-| B9f-2 | Practice, not Handicap | Ended-early rounds count as Practice rounds |
-| B10b-1 | Achievements + leagues | gross/net and hole count omitted for ended-early rounds; league eligibility |
-| B10b-2 | Partnership tagging | Ended-early rounds excluded |
+| B9f-2 | Practice, not Handicap | Ended-early rounds are Practice in stats, Rounds-list filters, round card, ViewRound header and round-settings title |
+| B10b-1 | Achievements + leagues | gross/net and hole count omitted for ended-early rounds (`readRoundAchievementStore`); league eligibility |
+| B10b-2 | Partnership tagging | `getPartnershipEligibleCards`; ended-early rounds excluded |
 | B10c-1 | Handicap belts: queries | `holes_played` belts in the index, history and candidate queries |
 | B10c-2 | Handicap belts: recalc, combine, pairs | `holes_played` belts in recalculation, combining and pairs |
-| B11 | Docs + verification | Invariants I10–I12, docs, full suite, Part A + B QA lists, rollout + report |
+| B11 | Docs + verification | Invariants I10–I12, docs, full suite, Part B QA list and rollout (Part A's are in A6d-2) |
 
 ## Scoring guardrail notes (from planning-time `scoring-impact-analyst` runs)
 
@@ -583,7 +619,14 @@ pnpm install
 ```
 Expected: completes without errors.
 
-- [ ] **Step 2: Record the baseline**
+- [ ] **Step 2: Sync the worktree with local `main`**
+
+```bash
+git merge main
+```
+Expected: a fast-forward or a clean merge (this branch holds only the spec and plan docs). Resolve any conflict before continuing, then run `pnpm install` again if `pnpm-lock.yaml` changed.
+
+- [ ] **Step 3: Record the baseline**
 
 ```bash
 pnpm type-check && pnpm test --testPathPattern='<TEST_SUBSET from Global Constraints>' 2>&1 | tail -20
@@ -1183,7 +1226,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Modify: `docs/guides/SCORING_ARCHITECTURE.md:59` (inventory row) and the I10 blast-radius row A1a-1 added (consumer list)
 - Modify: `src/utils/roundLeaderboardFormatters.ts:215-245` (normalise a legacy `final_margin`)
 - Modify: `src/components/leaderboard/MatchPlayLeaderboard.tsx:44-46, 56-61, 99-111, 132` (optional `totalHoles` prop)
-- Modify: `src/screens/scoring/ReviewScorecardScreen/components/MatchPlayLeaderboardTab.tsx:210-215` (pass `totalHoles={holes.length}`)
+- Modify: `src/screens/scoring/ReviewScorecardScreen/components/MatchPlayLeaderboardTab.tsx:19, 80, 210-215` (compact finished margin via `compactMatchMargin`; pass `totalHoles={holes.length}`)
 - Test: `src/components/scorecard/TeamMatchPlayScoreView.test.tsx:61-75` (+ new describe after line 234)
 - Test: `src/__tests__/utils/roundLeaderboardFormatters.test.ts` (new)
 - Test: `src/components/leaderboard/MatchPlayLeaderboard.test.tsx` (new)
@@ -1196,6 +1239,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - `formatMatchPlayData` returns `holesUpDown: 'N up'` for a stored `final_margin` of `'N & 0'` / `'N&0'` (rows finalised before I10 — they are not backfilled).
   - `MatchPlayLeaderboardProps.totalHoles?: number` (default 18, today's behaviour). Feeds `isMatchComplete` and `formatMatchStatusText`.
   - `MatchPlayLeaderboardTab` passes the **planned** `holes.length`. B7 must keep passing planned holes to this tab.
+  - `MatchPlayLeaderboardTab`'s `buildTeamEntry` stores a finished match's margin as `compactMatchMargin(status.margin)` (`'2 UP'`, `'3&2'`), so Review reads "Won 2 UP" like the other match surfaces.
   - `src/screens/scoring/ReviewScorecardScreen/components/MatchPlayLeaderboardTab.test.tsx` with `mockStoreState`, `mockTeams`, `mockLeaderboardProps`, `holesFrom(n)` and `renderTab(holes)` helpers (B5b-2 appends one case).
 
 - [ ] **Step 0: Guardrail pre-check**
@@ -1203,6 +1247,8 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 Run the `scoring-impact-analyst` agent on `src/components/scorecard/TeamMatchPlayScoreView.tsx` (under `components/scorecard/**`). Expected: its only caller is `ScorecardScoreContent`, whose `teamMatchPlayResults` map is never populated today (`useTeamScoring.ts:140` `_setTeamMatchPlayResults` is unused), so this change has no user-visible effect yet. It is done so the card can't drift from the engine (it re-implemented the status against a hard-coded 18 and reported "N&0"); the card becomes presentational (CLAUDE.md rule 4). Follow-up: populate `teamMatchPlayResults`. Existing `TeamMatchPlayScoreView.test.tsx` `Match Status` cases are its characterization tests and must stay green with `totalHoles: 18`.
 
 The other files are display-only (no scoring math). `formatMatchPlayData` feeds `useRoundLeaderboard` (competition round leaderboards); `MatchPlayLeaderboard` is rendered by `RoundLeaderboard`, ViewRound `MatchTab` and the Review `MatchPlayLeaderboardTab`. Only the Review tab passes `totalHoles` here; the other two keep the default 18 (their entries come from `round_results`, which carry a final `matchResult`, so the in-progress text is rarely shown — B9b owns ViewRound).
+
+**Known one-commit gap, closed by A2a-1.** Until A2a-1 lands, `calculateTeamMatchData` still judges status against a default 18, so a finished 9-hole team match reaches the tab as in progress (`matchResult` undefined). With `totalHoles={9}` now passed, `formatMatchStatusText` sees 0 holes remaining and shows "All Square" for a won 9-hole match on the Review team tab. A2a-1 (next match task in the run order) passes the planned count to `calculateTeamMatchData`, so the match arrives complete and reads "Won N UP". Don't ship between A1a-2 and A2a-1.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -1498,6 +1544,41 @@ describe('MatchPlayLeaderboardTab', () => {
     );
     expect(props.entries[0].scoreData.matchResult).toBeUndefined();
   });
+
+  it('shows a match won on the last hole in the compact token: "2 UP"', () => {
+    // 18 holes: halve 1-16 (4 v 4), Reds win 17-18 (4 v 5). Engine margin '2 up'.
+    mockStoreState = {
+      getPlayerScore: (playerId, holeNumber) =>
+        holeNumber >= 17 ? { strokes: playerId === 'a1' ? 4 : 5 } : { strokes: 4 },
+    };
+
+    renderTab(holesFrom(18));
+
+    const props = lastLeaderboardProps();
+    expect(props.entries[0].scoreData).toEqual(
+      expect.objectContaining({ matchResult: 'win', holesUpDown: '2 UP' })
+    );
+    expect(props.entries[1].scoreData).toEqual(
+      expect.objectContaining({ matchResult: 'loss', holesUpDown: '2 UP' })
+    );
+  });
+
+  it('shows a close-out in the compact token: "3&2"', () => {
+    // 18 holes: Reds win 1-3 (4 v 5), halve 4-16, 17-18 unplayed. Engine margin '3 & 2'.
+    mockStoreState = {
+      getPlayerScore: (playerId, holeNumber) => {
+        if (holeNumber > 16) return undefined;
+        if (holeNumber <= 3) return { strokes: playerId === 'a1' ? 4 : 5 };
+        return { strokes: 4 };
+      },
+    };
+
+    renderTab(holesFrom(18));
+
+    expect(lastLeaderboardProps().entries[0].scoreData).toEqual(
+      expect.objectContaining({ matchResult: 'win', holesUpDown: '3&2' })
+    );
+  });
 });
 ```
 
@@ -1509,7 +1590,7 @@ Expected: FAIL:
 - **`TeamMatchPlayScoreView`:** `Unable to find an element with text: Team Alpha wins 2 UP` (renders `Team Alpha wins 2&0`), `…Team Beta wins 1 UP` (renders `Team Beta 1 UP`), `…Team Alpha 2 UP (Dormie)` (renders `Team Alpha 2 UP`). The existing `Match Status` cases still pass with `totalHoles: 18`.
 - **Formatter:** `Expected '2 up', received '2 & 0'` (and `'1&0'`, `'10 & 0'`). The characterization cases pass.
 - **`MatchPlayLeaderboard`:** `Unable to find an element with text: 2 UP with 4 to play` (renders `2 UP with 13 to play`). The default case passes.
-- **Tab:** `expect(props.totalHoles).toBe(9)` receives `undefined`.
+- **Tab:** `expect(props.totalHoles).toBe(9)` receives `undefined`; the two compact-token cases receive the raw engine margin (`holesUpDown: '2 up'`, `'3 & 2'`).
 
 - [ ] **Step 3: Implement**
 
@@ -1833,7 +1914,23 @@ export const MatchPlayLeaderboard = React.memo(function MatchPlayLeaderboard({
 
 - **That memo's deps (line 132).** Replace `  }, [entries]);` (the closing line of `processedMatches`) with `  }, [entries, totalHoles]);`.
 
-`src/screens/scoring/ReviewScorecardScreen/components/MatchPlayLeaderboardTab.tsx:210-215`. Replace
+`src/screens/scoring/ReviewScorecardScreen/components/MatchPlayLeaderboardTab.tsx`:
+
+- **Imports (line 19).** After `import { calculateTeamMatchData } from '@/components/scorecard/TeamMatchPlayScorecardTable/utils';` add:
+
+```tsx
+import { compactMatchMargin } from '@/utils/matchMargin';
+```
+
+- **Line 80 (`buildTeamEntry`, finished non-halved match).** Replace `      holesUpDown = status.margin;` with:
+
+```tsx
+      // Same compact token as the other match surfaces ('2 UP', '3&2'), so
+      // the card reads "Won 2 UP", not "Won 2 up" / "Won 3 & 2".
+      holesUpDown = compactMatchMargin(status.margin);
+```
+
+- **Lines 210-215 (213-218 after the two edits above).** Replace
 
 ```tsx
         <MatchPlayLeaderboard
@@ -1893,7 +1990,10 @@ round_results rows finalised before I10 stored a last-hole team win as
 \"N & 0\"; formatMatchPlayData now shows them as \"N up\" (rows are not
 backfilled). MatchPlayLeaderboard takes the planned hole count, so the
 Review tab's 9-hole team match reads \"with 4 to play\" instead of
-\"with 13 to play\".
+\"with 13 to play\" (a finished 9-hole match reads correctly once the
+next commit passes the planned count to calculateTeamMatchData). The
+Review tab also shows a finished margin in the compact token
+(\"Won 2 UP\", \"Won 3&2\") like the other match surfaces.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
@@ -2520,8 +2620,8 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 **Interfaces:**
 - Consumes: `calculateMatchStatus` (A1a-1 ordering).
 - Produces:
-  - `useMatchPlayScoring` judges status against the store's planned `holes.length` (B5b-1 adds `holesPlayed`).
-  - Both table utils declare `const plannedHoleCount = holes.length;` before their hole loop and pass it to both `calculateMatchStatus` calls. B5a extends exactly this block.
+  - `useMatchPlayScoring` judges status against the store's planned `holes.length || 18` (an empty list keeps 18, so it never reads as a finished halved match; B5b-1 adds `holesPlayed`).
+  - Both table utils declare `const plannedHoleCount = holes.length || 18;` before their hole loop and pass it to both `calculateMatchStatus` calls. B5a extends exactly this block.
   - `useMatchPlayScoring.test.ts` gains a module-level `scoresFor(holes, wonHoles)` helper (B5b-1 reuses it).
 
 Callers checked (all pass planned, nine-filtered holes, so nothing else changes):
@@ -2609,6 +2709,20 @@ Then insert after the closing `});` of `describe('match status calculations'` (l
         holesRemaining: 9,
       });
     });
+
+    it('never reads an empty hole list as a finished, halved match (characterization)', () => {
+      setupStoreMock({}, []);
+
+      const { result } = renderHook(() => useMatchPlayScoring(evenHandicaps));
+
+      expect(result.current.isMatchComplete).toBe(false);
+      expect(result.current.matchStatus).toEqual({
+        status: 'in_progress',
+        leader: null,
+        holesUp: 0,
+        holesRemaining: 18,
+      });
+    });
   });
 ```
 
@@ -2639,6 +2753,11 @@ describe('calculateAllData — planned hole count', () => {
     const scored = [10, 11, 12, 13, 14];
     const data = calculateAllData(nine(10), 'p1', 'p2', scoresFor(scored, scored));
     expect(data.finalStatus).toEqual({ status: 'complete', winner: 'player1', margin: '5 & 4' });
+  });
+
+  it('keeps 18 for an empty hole list, never a finished halved match (characterization)', () => {
+    const data = calculateAllData([], 'p1', 'p2', () => undefined);
+    expect(data.finalStatus).toEqual({ status: 'in_progress', leader: null, holesUp: 0, holesRemaining: 18 });
   });
 });
 ```
@@ -2682,6 +2801,11 @@ describe('calculateTeamMatchData — planned hole count', () => {
     expect(data.finalStatus).toEqual({ status: 'complete', winner: 'player1', margin: '5 & 4' });
     expect(data.runningStatus[13]).toEqual({ status: 'in_progress', leader: 'player1', holesUp: 4, holesRemaining: 5 });
   });
+
+  it('keeps 18 for an empty hole list, never a finished halved match (characterization)', () => {
+    const data = calculateTeamMatchData([], reds, blues, () => undefined);
+    expect(data.finalStatus).toEqual({ status: 'in_progress', leader: null, holesUp: 0, holesRemaining: 18 });
+  });
 });
 ```
 
@@ -2695,7 +2819,7 @@ Expected: FAIL, for these reasons:
 - **The 5 & 4 hook case:** in_progress, with `holesRemaining` 13.
 - **The table-util cases:** `finalStatus` is in_progress (9 / 13 remaining).
 
-The 18-hole characterization case passes.
+The 18-hole and empty-list characterization cases pass (today every call defaults to 18).
 
 - [ ] **Step 3: Implement**
 
@@ -2711,8 +2835,9 @@ with:
 ```ts
   // Calculate match status against the round's planned holes — the store's
   // nine-filtered list (9 for front9/back9). Defaulting to 18 meant a 9-hole
-  // match could never reach "complete".
-  const plannedHoleCount = holes.length;
+  // match could never reach "complete". An empty list (not loaded yet) keeps
+  // 18, so it never reads as a finished, halved match.
+  const plannedHoleCount = holes.length || 18;
   const matchStatus = useMemo(
     () => calculateMatchStatus(holeResults, plannedHoleCount),
     [holeResults, plannedHoleCount]
@@ -2735,8 +2860,9 @@ with
 ```ts
   // Dormie / close-out are judged against the holes this table was given —
   // the round's planned, nine-filtered list (9 for front9/back9) — never a
-  // hard-coded 18.
-  const plannedHoleCount = holes.length;
+  // hard-coded 18. An empty list keeps 18, so it never reads as a finished,
+  // halved match.
+  const plannedHoleCount = holes.length || 18;
 
   // Iterate the round's actual holes — back-9 / combo rounds carry numbers
   // 10..18 (or 10..27), so a 1..18 counter would skip them entirely.
@@ -2761,8 +2887,9 @@ with
 ```ts
   // Dormie / close-out are judged against the holes this table was given —
   // the round's planned, nine-filtered list (9 for front9/back9) — never a
-  // hard-coded 18.
-  const plannedHoleCount = holes.length;
+  // hard-coded 18. An empty list keeps 18, so it never reads as a finished,
+  // halved match.
+  const plannedHoleCount = holes.length || 18;
 
   // Iterate the round's actual holes — back-9 / combo rounds carry numbers
   // 10..18 (or 10..27), so a 1..18 counter would skip them entirely.
@@ -3266,9 +3393,11 @@ with
 
 ```tsx
     getPlayerScoreValue,
-    totalHoles: holes.length,
+    totalHoles: holes.length || 18,
     onSubmitSuccess: () => navigation.goBack(),
 ```
+
+  `|| 18`: a course whose `holes` is `[]` resolves to an empty list; `totalHoles: 0` would make the engine read the match as finished and halved (0 holes remaining, level).
 
 - **Lines 390-391 (`useTeamMatchPlayNavigation` args).** Replace
 
@@ -4095,7 +4224,10 @@ Behaviour changes to note:
 - in-progress live syncs now write a null differential;
 - competition rounds stored as nine_type 'full' on a 9-hole course lose
   their differential (they were entering the index as 18-hole rounds);
-- courses whose holes are not numbered 1-18 never qualify.
+- courses whose holes are not numbered 1-18 never qualify;
+- cards that legitimately stop early also lose their differential: a
+  match-play card closed out with the remaining holes left blank, or a
+  card whose later holes were wiped. Only a fully scored card counts.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
@@ -4108,9 +4240,9 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Modify: `src/services/api/leagues/mutations.ts:197-220` (the 18-hole check runs before the recalc; refuse a null recalculated differential)
 - Modify: `src/services/handicap/updatePlayerHandicapIndex.ts`:
   - `:15-16`: imports.
-  - `:42-56`: select `scores`; type `scores` and `rounds.nine_type`.
-  - `:86-92` and `:126-131`: clear a stale index when no qualifying round remains (new `clearHandicapIndex`).
-  - `:100-106`: skip incomplete cards.
+  - `:42-56`: select `scores`; type `scores` and `rounds.nine_type`; fetch 60 rows (`BELT_FETCH_LIMIT`), not 20.
+  - `:86-92` and `:126-131`: clear a stale index when no qualifying round remains (new `clearHandicapIndex`), but never after a full over-fetch.
+  - `:95-113`: skip incomplete cards, then keep the 20 most recent qualifying cards.
 - Create: `src/__tests__/services/api/leagueMutations.test.ts`
 - Create: `src/__tests__/services/handicap/updatePlayerHandicapIndex.test.ts`
 
@@ -4119,7 +4251,8 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Produces:
   - `tagRoundToLeague` throws `'This round is not eligible for a handicap differential'` when the recalc withholds the differential.
   - Index belt (contract): `updatePlayerHandicapIndex` selects `scores` and skips cards where `!isCompleteForHandicap(scores, round.nine_type ?? 'full')`.
-  - **Stale index (R21):** when no qualifying differential remains (no rows, or every row skipped by a belt) and both queries succeeded, `updatePlayerHandicapIndex` writes `handicap_index = NULL, handicap_index_updated_at = now()` — only on a row that still holds an index (`.not('handicap_index', 'is', null)`), and invalidates the player caches only when a row changed. `players.handicap_index` is purely computed (`20260125000001_handicap_differentials.sql:51`: "Calculated Social Handicap Index"; only this service writes it; signup inserts NULL), and `20260629000000_exclude_shared_ball_handicap.sql:116` already sets it NULL "when no eligible rows remain". NULL is the state a new player starts in.
+  - **Over-fetch:** the belts run after the query, so the query fetches `BELT_FETCH_LIMIT = 60` rows and the service keeps the 20 most recent qualifying cards (`WHS_RECENT_ROUNDS = 20`) after the belts. Otherwise 20 recent part-filled cards would empty the window and the clear below would wipe a valid index. Both constants are module-private.
+  - **Stale index (R21):** when no qualifying differential remains (no rows, or every row skipped by a belt) and both queries succeeded, `updatePlayerHandicapIndex` writes `handicap_index = NULL, handicap_index_updated_at = now()` — only when the fetch returned fewer than 60 rows (so no older qualifying card can sit beyond it), only on a row that still holds an index (`.not('handicap_index', 'is', null)`), and invalidates the player caches only when a row changed. `players.handicap_index` is purely computed (`20260125000001_handicap_differentials.sql:51`: "Calculated Social Handicap Index"; only this service writes it; signup inserts NULL), and `20260629000000_exclude_shared_ball_handicap.sql:116` already sets it NULL "when no eligible rows remain". NULL is the state a new player starts in.
 
 - [ ] **Step 1: Write the `tagRoundToLeague` tests (characterization + gate)**
 
@@ -4382,12 +4515,20 @@ Expected: PASS (5 tests)
 const mockUpdates: Record<string, unknown>[] = [];
 const mockUpdateFilters: unknown[][][] = [];
 const mockSelects: Record<string, string[]> = {};
+const mockLimits: Record<string, number[]> = {};
 let mockScorecardRows: unknown[] = [];
 
-/** Chainable + thenable stub: filters pass through; awaiting resolves the table's rows. */
+/**
+ * Chainable + thenable stub: filters pass through; awaiting resolves the
+ * table's rows (newest first, as the real query orders them), cut to .limit(n)
+ * like the database would.
+ */
 function mockQuery(table: string) {
-  const result =
-    table === 'scorecards' ? { data: mockScorecardRows, error: null } : { data: [], error: null };
+  let limit: number | undefined;
+  const rows = (): unknown[] => {
+    const all = table === 'scorecards' ? mockScorecardRows : [];
+    return limit === undefined ? all : all.slice(0, limit);
+  };
   const chain: Record<string, unknown> = {};
   const passthrough = () => chain;
   chain.select = (columns: string) => {
@@ -4399,7 +4540,11 @@ function mockQuery(table: string) {
   chain.not = passthrough;
   chain.is = passthrough;
   chain.order = passthrough;
-  chain.limit = passthrough;
+  chain.limit = (n: number) => {
+    mockLimits[table] = [...(mockLimits[table] ?? []), n];
+    limit = n;
+    return chain;
+  };
   chain.update = (values: Record<string, unknown>) => {
     mockUpdates.push(values);
     const filters: unknown[][] = [];
@@ -4421,7 +4566,7 @@ function mockQuery(table: string) {
     return updateChain;
   };
   chain.then = (resolve: (value: unknown) => unknown, reject?: (reason: unknown) => unknown) =>
-    Promise.resolve(result).then(resolve, reject);
+    Promise.resolve({ data: rows(), error: null }).then(resolve, reject);
   return chain;
 }
 
@@ -4459,11 +4604,28 @@ const COMPLETE = cardRow(10.0, '2026-09-03T08:00:00Z', range(1, 18));
 const LEGACY = cardRow(12.0, '2026-09-01T08:00:00Z', null);
 const PARTIAL = cardRow(-38.4, '2026-09-05T08:00:00Z', range(1, 6));
 
+/** `count` cards, newest first, starting `startDaysAgo` days before 30 Sep 2026. */
+function cardsNewestFirst(
+  count: number,
+  differential: number,
+  holeNumbers: number[] | null,
+  startDaysAgo: number,
+) {
+  return Array.from({ length: count }, (_, i) =>
+    cardRow(
+      differential,
+      new Date(Date.UTC(2026, 8, 30 - startDaysAgo - i, 8)).toISOString(),
+      holeNumbers,
+    ),
+  );
+}
+
 describe('updatePlayerHandicapIndex — full scorecards only', () => {
   beforeEach(() => {
     mockUpdates.length = 0;
     mockUpdateFilters.length = 0;
     for (const key of Object.keys(mockSelects)) delete mockSelects[key];
+    for (const key of Object.keys(mockLimits)) delete mockLimits[key];
   });
 
   it('indexes complete and legacy cards (I12 lock)', async () => {
@@ -4519,6 +4681,32 @@ describe('updatePlayerHandicapIndex — full scorecards only', () => {
       { handicap_index: null, handicap_index_updated_at: expect.any(String) },
     ]);
   });
+
+  it('over-fetches so recent part-filled cards cannot crowd complete ones out of the window', async () => {
+    // Newest first: 5 part-filled, then 15 complete at 20.0, then 5 older complete at 0.0.
+    mockScorecardRows = [
+      ...cardsNewestFirst(5, -38.4, range(1, 6), 0),
+      ...cardsNewestFirst(15, 20.0, range(1, 18), 5),
+      ...cardsNewestFirst(5, 0.0, range(1, 18), 20),
+    ];
+
+    await updatePlayerHandicapIndex('player-1');
+
+    expect(mockLimits.scorecards).toEqual([60]);
+    // 20 qualifying cards → best 8: 5 × 0.0 + 3 × 20.0 = 60 / 8 = 7.5 × 0.96 = 7.2.
+    // With .limit(20) the fetch stops at the 15 × 20.0 cards: best 5 of 15 → 19.2.
+    expect(mockUpdates).toEqual([expect.objectContaining({ handicap_index: 7.2 })]);
+  });
+
+  it('keeps the stored index when the whole over-fetch is part-filled', async () => {
+    // 60 part-filled rows: older qualifying cards may lie beyond the fetch,
+    // so nothing proves the index stale — do not wipe it.
+    mockScorecardRows = cardsNewestFirst(60, -38.4, range(1, 6), 0);
+
+    await updatePlayerHandicapIndex('player-1');
+
+    expect(mockUpdates).toEqual([]);
+  });
 });
 ```
 
@@ -4527,12 +4715,14 @@ describe('updatePlayerHandicapIndex — full scorecards only', () => {
 Run: `pnpm test src/__tests__/services/handicap/updatePlayerHandicapIndex.test.ts -t 'I12 lock'`
 Expected: PASS (1 test).
 
-Run: `pnpm test src/__tests__/services/handicap/updatePlayerHandicapIndex.test.ts -t 'requests|skips|clears'`
-Expected: FAIL (4 tests):
+Run: `pnpm test src/__tests__/services/handicap/updatePlayerHandicapIndex.test.ts -t 'requests|skips|clears|over-fetch'`
+Expected: FAIL (6 tests):
 - `Expected substring: "scores"`;
 - the part-filled card gives `handicap_index: -36.9` instead of `9.6`;
 - the all-incomplete case writes `[{ handicap_index: -36.9, … }]` instead of the clear;
-- the no-rounds case writes `[]` (today's early return) instead of the clear.
+- the no-rounds case writes `[]` (today's early return) instead of the clear;
+- the crowded window: `mockLimits.scorecards` is `[20]`, not `[60]`;
+- the all-part-filled over-fetch writes `[{ handicap_index: -36.9, … }]` (20 rows reach the index unbelted) instead of nothing.
 
 - [ ] **Step 7: Belt in `updatePlayerHandicapIndex`**
 
@@ -4576,7 +4766,7 @@ with:
       .is('rounds.deleted_at', null)
       .eq('rounds.nine_type', 'full')
       .order('submitted_at', { ascending: false })
-      .limit(20) as unknown as {
+      .limit(BELT_FETCH_LIMIT) as unknown as {
         data: {
           handicap_differential: number | null;
           submitted_at: string | null;
@@ -4598,9 +4788,29 @@ Also add, after line 16 (`import { syncLogger } from '@/utils/debugLogger';`):
 import type { NineType } from '@/types/database/enums';
 ```
 
-Replace lines 100-106:
+Add the two constants directly below the imports (above the `clearHandicapIndex` function this step adds further down):
 
 ```ts
+/** WHS uses the 20 most recent qualifying rounds. */
+const WHS_RECENT_ROUNDS = 20;
+
+/**
+ * Rows fetched before the client belts (shared-ball, completeness) run.
+ * The belts filter after the query, so fetching only 20 would let recent
+ * part-filled cards crowd complete ones out of the window — and an empty
+ * window would clear a valid index.
+ */
+const BELT_FETCH_LIMIT = 60;
+```
+
+Replace lines 95-113 (the start of Step 2, through the closing `}` of `if (haveScorecards)`):
+
+```ts
+    // Step 2: Merge 18-hole + combined differentials by effective date and
+    // keep the 20 most recent for the WHS calculation.
+    type DiffEntry = { differential: number; date: string };
+    const entries: DiffEntry[] = [];
+    if (haveScorecards) {
       for (const sc of scorecards!) {
         // Defense-in-depth: never let a shared-ball team round (scramble,
         // alt-shot) influence the index even if a stale differential survived
@@ -4608,11 +4818,24 @@ Replace lines 100-106:
         // at sync time; this is a backstop.
         if (isSharedBallRound(sc.rounds ?? {})) continue;
         if (sc.handicap_differential != null) {
+          entries.push({
+            differential: sc.handicap_differential,
+            date: sc.submitted_at ?? '',
+          });
+        }
+      }
+    }
 ```
 
 with:
 
 ```ts
+    // Step 2: Merge 18-hole + combined differentials by effective date and
+    // keep the 20 most recent for the WHS calculation.
+    type DiffEntry = { differential: number; date: string };
+    const entries: DiffEntry[] = [];
+    if (haveScorecards) {
+      const cardEntries: DiffEntry[] = [];
       for (const sc of scorecards!) {
         // Defense-in-depth: never let a shared-ball team round (scramble,
         // alt-shot) influence the index even if a stale differential survived
@@ -4624,7 +4847,18 @@ with:
         // server trigger) is skipped. Legacy cards without hole data count.
         if (!isCompleteForHandicap(sc.scores, sc.rounds?.nine_type ?? 'full')) continue;
         if (sc.handicap_differential != null) {
+          cardEntries.push({
+            differential: sc.handicap_differential,
+            date: sc.submitted_at ?? '',
+          });
+        }
+      }
+      // The fetch is newest first: keep the 20 most recent qualifying cards.
+      entries.push(...cardEntries.slice(0, WHS_RECENT_ROUNDS));
+    }
 ```
+
+Also change `entries.slice(0, 20)` (line 123) to `entries.slice(0, WHS_RECENT_ROUNDS)`.
 
 **Clear a stale index.** Add this function after the imports, directly above the JSDoc that starts `/**\n * Recalculate and update a player's handicap index` (which documents `updatePlayerHandicapIndex`):
 
@@ -4717,7 +4951,11 @@ Replacement:
       syncLogger.debug('Could not calculate handicap index (no valid differentials)', {
         playerId: playerId.substring(0, 8) + '...',
       });
-      if (!combinedError) await clearHandicapIndex(playerId);
+      // A full over-fetch that held nothing qualifying may hide older
+      // qualifying cards beyond it: keep the stored index rather than wipe a
+      // valid one. Only an exhaustive fetch proves nothing qualifies.
+      const fetchWasExhaustive = (scorecards?.length ?? 0) < BELT_FETCH_LIMIT;
+      if (!combinedError && fetchWasExhaustive) await clearHandicapIndex(playerId);
       return;
     }
 ```
@@ -4725,7 +4963,7 @@ Replacement:
 - [ ] **Step 8: Run test to verify it passes**
 
 Run: `pnpm test src/__tests__/services/handicap/updatePlayerHandicapIndex.test.ts`
-Expected: PASS (5 tests)
+Expected: PASS (7 tests)
 
 - [ ] **Step 9: Run the scoring subset + type-check**
 
@@ -4741,9 +4979,11 @@ git commit -m "fix(handicap): only full scorecards feed the handicap index
 
 updatePlayerHandicapIndex selects scores and skips cards that are not
 complete for their nine type, so existing part-filled Quick Score cards
-stop counting even before the server data fix. When no qualifying round
-remains it clears the stored index (NULL, as for a new player) instead of
-leaving a stale one. tagRoundToLeague checks
+stop counting even before the server data fix. It fetches 60 rows and keeps
+the 20 most recent qualifying cards after the belts, so recent part-filled
+cards cannot crowd complete ones out of the window. When an exhaustive
+fetch leaves no qualifying round it clears the stored index (NULL, as for a
+new player) instead of leaving a stale one. tagRoundToLeague checks
 the 18-hole rule before recalculating and never tags a null differential.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
@@ -4759,9 +4999,9 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - `:33-57`: types.
   - `:63-76`: candidates skip incomplete cards.
   - `:92`: export.
-  - `:97-112`: main select.
-  - `:155-168`: refresh select.
-  - `:193-203`: skip incomplete cards.
+  - `:97-112`, `:129`: main select; fetch 60 rows (`BELT_FETCH_LIMIT`).
+  - `:155-168`, `:185`: refresh select; fetch 60 rows.
+  - `:193-203`: skip incomplete cards, then keep the 20 most recent.
 - Create: `src/__tests__/services/handicap/fetchHandicapHistory.test.ts`
 
 **Interfaces:**
@@ -4769,6 +5009,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Produces:
   - `export async function fetchHandicapHistory(playerId: string): Promise<HandicapSummary>` (newly exported).
   - History belt (contract): the main **and** refresh queries select `scores`, and cards where `!isCompleteForHandicap(scores, round.nine_type ?? 'full')` are skipped. Recalculation candidates (`findScorecardsNeedingRecalculation`) select `'id, scores, rounds!inner(nine_type)'` and skip incomplete cards.
+  - **Over-fetch (same rule as A3-2):** the main and refresh queries use `.limit(BELT_FETCH_LIMIT)` (60), and the 20 most recent rows that pass the filters are kept (`WHS_RECENT_ROUNDS`, 20). Both constants are module-private. The candidate query keeps `.limit(20)` (see Follow-ups).
 
 - [ ] **Step 1: Write the history-belt tests (characterization + gate)**
 
@@ -4788,12 +5029,15 @@ type QueryResult = { data: unknown; error: unknown };
 // then (only when a recalculation succeeded) the refresh query.
 const mockScorecardResults: QueryResult[] = [];
 const mockScorecardSelects: string[] = [];
+const mockScorecardLimits: number[] = [];
 
+/** Rows are queued newest first, as the real queries order them; .limit(n) cuts them like the DB. */
 function mockQuery(table: string) {
   const result =
     table === 'scorecards'
       ? mockScorecardResults.shift() ?? { data: [], error: null }
       : { data: [], error: null };
+  let limit: number | undefined;
   const chain: Record<string, unknown> = {};
   const passthrough = () => chain;
   chain.select = (columns: string) => {
@@ -4805,9 +5049,17 @@ function mockQuery(table: string) {
   chain.not = passthrough;
   chain.is = passthrough;
   chain.order = passthrough;
-  chain.limit = passthrough;
+  chain.limit = (n: number) => {
+    if (table === 'scorecards') mockScorecardLimits.push(n);
+    limit = n;
+    return chain;
+  };
   chain.then = (resolve: (value: unknown) => unknown, reject?: (reason: unknown) => unknown) =>
-    Promise.resolve(result).then(resolve, reject);
+    Promise.resolve(
+      Array.isArray(result.data) && limit !== undefined
+        ? { ...result, data: result.data.slice(0, limit) }
+        : result,
+    ).then(resolve, reject);
   return chain;
 }
 
@@ -4882,8 +5134,13 @@ const PARTIAL = historyRow('sc-partial', -38.4, '2026-09-05', range(1, 6));
 function queueScorecards(...results: unknown[][]) {
   mockScorecardResults.length = 0;
   mockScorecardSelects.length = 0;
+  mockScorecardLimits.length = 0;
   for (const rows of results) mockScorecardResults.push({ data: rows, error: null });
 }
+
+/** YYYY-MM-DD, `daysBefore` days before 30 Sep 2026. */
+const dayBefore30Sep = (daysBefore: number): string =>
+  new Date(Date.UTC(2026, 8, 30 - daysBefore)).toISOString().slice(0, 10);
 
 describe('fetchHandicapHistory — full scorecards only', () => {
   beforeEach(() => {
@@ -4947,6 +5204,25 @@ describe('fetchHandicapHistory — full scorecards only', () => {
     expect(mockRecalculate).toHaveBeenCalledTimes(1);
     expect(mockRecalculate).toHaveBeenCalledWith('cand-legacy-2');
   });
+
+  it('over-fetches so recent part-filled cards cannot crowd complete ones out of the history', async () => {
+    // Newest first: 5 part-filled, then 22 complete (the oldest 2 fall outside the 20).
+    const partials = Array.from({ length: 5 }, (_, i) =>
+      historyRow(`sc-p${i}`, -38.4, dayBefore30Sep(i), range(1, 6)),
+    );
+    const completes = Array.from({ length: 22 }, (_, i) =>
+      historyRow(`sc-c${i}`, 10.0, dayBefore30Sep(5 + i), range(1, 18)),
+    );
+    queueScorecards([...partials, ...completes], []);
+
+    const summary = await fetchHandicapHistory(PLAYER_ID);
+
+    expect(mockScorecardLimits[0]).toBe(60);
+    // With .limit(20) only 15 complete cards would be left after the belt.
+    expect(summary.rounds.map((r) => r.scorecardId)).toEqual(
+      Array.from({ length: 20 }, (_, i) => `sc-c${i}`),
+    );
+  });
 });
 ```
 
@@ -4976,12 +5252,13 @@ export async function fetchHandicapHistory(playerId: string): Promise<HandicapSu
 Run: `pnpm test src/__tests__/services/handicap/fetchHandicapHistory.test.ts -t 'I12 lock'`
 Expected: PASS (1 test).
 
-Run: `pnpm test src/__tests__/services/handicap/fetchHandicapHistory.test.ts -t 'requests|drops|never spends'`
-Expected: FAIL (4 tests):
+Run: `pnpm test src/__tests__/services/handicap/fetchHandicapHistory.test.ts -t 'requests|drops|never spends|over-fetches'`
+Expected: FAIL (5 tests):
 - `Expected substring: "scores"`;
 - the part-filled card is still listed: `["sc-partial", "sc-complete", "sc-legacy"]`;
 - the refresh select lacks `scores` / `game_type`;
-- `mockRecalculate` is called 2 times.
+- `mockRecalculate` is called 2 times;
+- the over-fetch test gets `Expected: 60, Received: 20`.
 
 - [ ] **Step 4: Apply the belt in `handicapHistory.ts`**
 
@@ -4991,6 +5268,22 @@ Add the imports after line 14 (`import { isSharedBallRound } from '@/utils/round
 import { isCompleteForHandicap } from '@/utils/handicapEligibility';
 import type { NineType } from '@/types/database/enums';
 ```
+
+Add the constants after the `attemptedRecalculations` declaration (line 25):
+
+```ts
+/** WHS uses the 20 most recent qualifying rounds. */
+const WHS_RECENT_ROUNDS = 20;
+
+/**
+ * Rows fetched before the client filters (shared-ball, completeness) run.
+ * They filter after the query, so fetching only 20 would let recent
+ * part-filled cards crowd complete ones out of the history.
+ */
+const BELT_FETCH_LIMIT = 60;
+```
+
+In the main query (line 129) **and** the refresh query (line 185), replace `.limit(20);` with `.limit(BELT_FETCH_LIMIT);`. Leave the candidate query's `.limit(20)` (line 70) as it is.
 
 Replace lines 33-57 (the `ScorecardWithRound` interface):
 
@@ -5215,15 +5508,18 @@ with:
   // before the backfill ran — those are never handicap eligible. Only full
   // scorecards count (I12, R21): a part-filled card that still carries a
   // stored differential is dropped from both the list and the index.
-  const validScorecards = (scorecards as unknown as ScorecardWithRound[]).filter(
-    (sc) =>
-      sc.handicap_differential !== null &&
-      sc.daily_handicap_used !== null &&
-      sc.course_rating_used !== null &&
-      sc.slope_rating_used !== null &&
-      !isSharedBallRound(sc.rounds ?? {}) &&
-      isCompleteForHandicap(sc.scores, sc.rounds?.nine_type ?? 'full')
-  );
+  const validScorecards = (scorecards as unknown as ScorecardWithRound[])
+    .filter(
+      (sc) =>
+        sc.handicap_differential !== null &&
+        sc.daily_handicap_used !== null &&
+        sc.course_rating_used !== null &&
+        sc.slope_rating_used !== null &&
+        !isSharedBallRound(sc.rounds ?? {}) &&
+        isCompleteForHandicap(sc.scores, sc.rounds?.nine_type ?? 'full')
+    )
+    // The fetch is newest first: keep the 20 most recent that pass.
+    .slice(0, WHS_RECENT_ROUNDS);
 ```
 
 (`as unknown as` because the typed client's inferred row type now includes `scores: Json`, which isn't assignable to `Record<string, unknown> | null` directly.)
@@ -5231,7 +5527,7 @@ with:
 - [ ] **Step 5: Run tests to verify they pass**
 
 Run: `pnpm test src/__tests__/services/handicap/fetchHandicapHistory.test.ts`
-Expected: PASS (5 tests)
+Expected: PASS (6 tests)
 
 - [ ] **Step 6: Run the scoring subset + type-check**
 
@@ -5245,7 +5541,9 @@ git add src/hooks/player/handicapHistory.ts src/__tests__/services/handicap/fetc
 git commit -m "fix(handicap): only full scorecards appear in handicap history
 
 fetchHandicapHistory (main and refresh queries) selects scores and skips
-cards that are not complete for their nine type. Recalculation candidates
+cards that are not complete for their nine type. Both queries fetch 60
+rows and keep the 20 most recent that pass, so recent part-filled cards
+cannot crowd complete ones out of the history. Recalculation candidates
 skip incomplete cards, and the refresh query now selects
 game_type/team_format so its shared-ball filter works after a
 recalculation. fetchHandicapHistory is exported for testing.
@@ -5258,7 +5556,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ### Task A3b: SQLite sync metadata for the fallback sync path
 
 **Files:**
-- Modify: `src/services/offline/schema/migrations.ts:125-130` (local migrations 19–21)
+- Modify: `src/services/offline/schema/migrations.ts:125-130` (local migration 19)
 - Modify: `src/services/offline/types.ts:29-34` (`ScorecardRow` gains three optional columns)
 - Modify: `src/services/offline/dao/ScorecardDAO.ts`:
   - `:7-8`: imports.
@@ -5269,9 +5567,9 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 **Interfaces:**
 - Consumes: `Scorecard.syncNineType` / `syncGameType` / `syncHoles` (`src/types/index.ts:410-415`), which `submitScorecards` stamps (`src/store/scorecardStore.ts:433-436`).
 - Produces:
-  - SQLite `scorecards.sync_nine_type TEXT`, `sync_game_type TEXT`, `sync_holes TEXT` (JSON `Hole[]`), all nullable, in local migrations 19–21.
+  - SQLite `scorecards.sync_nine_type TEXT`, `sync_game_type TEXT`, `sync_holes TEXT` (JSON `Hole[]`), all nullable, in **one** local migration, version 19 (`add_scorecard_sync_metadata`).
   - `ScorecardDAO` round-trips `syncNineType` / `syncGameType` / `syncHoles` (contract).
-  - **B3a** appends `holes_played` as migration 22, after `sync_holes` in the INSERT.
+  - **B3a** appends `holes_played` as migration **20**, after `sync_holes` in the INSERT.
 
 **Why.** There are two sync paths:
 - **The queued path** stores the whole `Scorecard` JSON in `pending_syncs`, so the stamps survive.
@@ -5309,6 +5607,10 @@ In `src/__tests__/services/offline/database.test.ts`, insert this block inside `
       const insertCall = mockRunAsync.mock.calls.find((call) =>
         call[0].includes('INSERT OR REPLACE INTO scorecards')
       );
+      // 20 existing columns + the 3 sync columns. (Without the length check
+      // this would pass today: the last 3 values are already
+      // player_gender / player_handicap_used / server_revision = null.)
+      expect(insertCall[1]).toHaveLength(23);
       expect(insertCall[1].slice(-3)).toEqual([null, null, null]);
     });
 
@@ -5416,11 +5718,12 @@ In `src/__tests__/services/offline/database.test.ts`, insert this block inside `
 
 Run: `pnpm test src/__tests__/services/offline/database.test.ts -t 'sync metadata round-trip'`
 Expected: FAIL (4 of 5):
-- the SQL lacks `sync_nine_type, sync_game_type, sync_holes`, and the last three values are `[null, null, null]` (player_gender, player_handicap_used, server_revision);
+- the persist test: the SQL lacks `sync_nine_type, sync_game_type, sync_holes`;
+- the "no metadata" test: `Expected length: 23, Received length: 20`;
 - the restore test gets `Expected: "front9", Received: undefined`;
 - the corrupt-row test gets `Expected: "full", Received: undefined`.
 
-The "no metadata" test passes today.
+The "rows written before the columns existed" test passes today (characterization).
 
 - [ ] **Step 3: Implement the SQLite columns**
 
@@ -5447,20 +5750,16 @@ Replacement:
   // path (getUnsyncedScorecards → syncScorecard) builds the same snapshot as
   // the queued path: nine-aware ratings / daily handicap, points, par score
   // and the handicap completeness gate (I12).
+  // One migration, three statements (execAsync runs them in order). The
+  // runner treats any error as "already applied", so the three columns must
+  // always be added together: never add just one of them elsewhere (e.g. to
+  // the CREATE TABLE in tables.ts) or the others would be skipped.
   {
     version: 19,
-    name: 'add_scorecard_sync_nine_type',
-    up: `ALTER TABLE scorecards ADD COLUMN sync_nine_type TEXT`,
-  },
-  {
-    version: 20,
-    name: 'add_scorecard_sync_game_type',
-    up: `ALTER TABLE scorecards ADD COLUMN sync_game_type TEXT`,
-  },
-  {
-    version: 21,
-    name: 'add_scorecard_sync_holes',
-    up: `ALTER TABLE scorecards ADD COLUMN sync_holes TEXT`,
+    name: 'add_scorecard_sync_metadata',
+    up: `ALTER TABLE scorecards ADD COLUMN sync_nine_type TEXT;
+         ALTER TABLE scorecards ADD COLUMN sync_game_type TEXT;
+         ALTER TABLE scorecards ADD COLUMN sync_holes TEXT;`,
   },
 ];
 ```
@@ -5484,7 +5783,7 @@ Replacement:
   course_par: number | null;
   player_gender: string | null;
   player_handicap_used: number | null;
-  // Sync metadata (migrations 19-21); absent on rows written before them
+  // Sync metadata (migration 19); absent on rows written before it
   sync_nine_type?: string | null;
   sync_game_type?: string | null;
   /** JSON-encoded Hole[] (the round's planned holes at submit) */
@@ -5641,7 +5940,7 @@ git add src/services/offline/schema/migrations.ts src/services/offline/types.ts 
 git commit -m "fix(offline): persist sync metadata so the fallback sync path keeps 9-hole context
 
 SQLite scorecards gain sync_nine_type, sync_game_type and sync_holes
-(local migrations 19-21). ScorecardDAO round-trips them, so a completed
+(one local migration, 19). ScorecardDAO round-trips them, so a completed
 card re-read by the fallback sync path is judged against its own nine
 (no lost differential for a complete front 9) and keeps its nine-aware
 ratings, points and par score.
@@ -6805,9 +7104,10 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
  * useLeagueQuickAddRound — league rounds need a complete 18 (I12).
  *
  * A partial card must be stopped at review, before handleConfirmSave creates
- * the round and scorecard (today it reached a misleading "missing rating"
- * error only after both rows were written), and the preview must not show a
- * differential for it. A course with fewer than 18 holes is rejected at
+ * the round and scorecard, and the preview must not show a differential for
+ * it. Today, with a rated tee, a part-filled card saves successfully: the
+ * preview shows about −39.3 (gross 29 against CR 72.5 / slope 125) and the
+ * league row is tagged with that differential. A course with fewer than 18 holes is rejected at
  * selection — it could never produce a complete league card.
  */
 import React from 'react';
@@ -7168,15 +7468,15 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 ---
 
-### Task A7: Server guard + data fix — only full scorecards count (R13, R21)
+### Task A7: Server guard + data fix — only full scorecards count (R13, R21, R22)
 
 **Files:**
-- Create: `supabase/migrations/20261007000100_full_scorecards_only_handicap.sql`
+- Create: `supabase/migrations/20261007000100_full_scorecards_only_handicap.sql` (ends with a commented UNDO block)
 - Create: `supabase/scripts/full_scorecards_only_report.sql`
 - Create: `supabase/tests/full_scorecards_only_handicap.verify.sql`
 
 **Interfaces:**
-- Consumes: the client predicate `isCompleteForHandicap` (A3-1), which the SQL mirrors rule for rule.
+- Consumes: the client predicate `isCompleteForHandicap` (A3-1), which the SQL mirrors rule for rule; the index rules of `updatePlayerHandicapIndex` as A3-2 leaves them (20 most recent qualifying 18-hole cards + 20 most recent combined rounds, merged, most recent 20, WHS best-X-of-N, × 0.96, cap 54, 1 decimal; NULL when nothing qualifies).
 - Produces (all in `public`):
   - `scorecard_is_complete_for_handicap(p_scores JSONB, p_nine_type TEXT) RETURNS BOOLEAN`, `IMMUTABLE` (contract). The rules:
     - `NULL`, a JSON `null`, a non-object or `{}` ⇒ `TRUE` (no per-hole data: legacy, or multi-ball, whose server `scores` is `{}`);
@@ -7184,10 +7484,14 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
     - accepted hole shapes: a JSON number, `{"strokes": n}`, or multi-ball `{"balls": [...]}` where any ball qualifies;
     - strokes stored as a string don't count (the same as the client).
   - `scorecard_hole_has_strokes(p_hole JSONB) RETURNS BOOLEAN`, `IMMUTABLE`: the per-hole helper.
-  - `scorecard_eligible_for_differential(p_round_id UUID, p_scores JSONB) RETURNS BOOLEAN`, `STABLE`. It is **the single extension point**: B1a `CREATE OR REPLACE`s it to add `rounds.holes_played IS NULL`.
+  - `scorecard_eligible_for_differential(p_round_id UUID, p_scores JSONB) RETURNS BOOLEAN`, `STABLE`, EXECUTE revoked from app roles. It is **the single extension point**: B1a `CREATE OR REPLACE`s it to add `rounds.holes_played IS NULL`.
   - Trigger `scorecards_full_card_differential` (`BEFORE INSERT OR UPDATE` on `scorecards`) calls function `scorecards_full_card_differential()`.
   - Trigger `handicap_combined_rounds_full_cards` (`BEFORE INSERT` on `handicap_combined_rounds`) calls function `handicap_combined_rounds_full_cards()`. It raises `'Both nines must be fully scored to combine'` with `ERRCODE 22023`, the same message as A4a's client check.
-  - Table `handicap_full_card_fix_audit` records the one-off data fix.
+  - `handicap_full_card_projected_index(p_player_id UUID) RETURNS NUMERIC`, `STABLE`, EXECUTE revoked from app roles: the server mirror of `updatePlayerHandicapIndex`. The data fix writes it; the report uses it to check for drift.
+  - `handicap_full_card_data_fix() RETURNS TABLE (cards_nulled INT, players_recomputed INT)`, EXECUTE revoked from app roles: the one-off data fix. The migration calls it once; re-running it is a no-op once the data is clean. The verification script calls it on seeded bad data.
+  - Table `handicap_full_card_fix_audit`: one row per nulled card (old differential plus the breakdown columns the report needs).
+  - Table `handicap_full_card_fix_player_audit`: one row per recomputed player (`old_handicap_index`, `new_handicap_index`). The UNDO block restores from both audit tables.
+  - Every `SECURITY DEFINER`, trigger and data-fix function sets `search_path = public, pg_temp`.
 
 **The server `scores` shape** (verified at planning):
 - `scorecardSync.ts:136-171` (`scoresForDb`) writes `{"<hole>": {"strokes": n, "putts": …, …}}` for single-ball holes only. String keys; `strokes` is a JSON number; a pickup is `strokes: 10`; did-not-attempt is `strokes: 0`.
@@ -7196,9 +7500,13 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Quick Score (`useQuickScoreSubmit`) upserts `{"<hole>": {"strokes": n}}`.
 - `scorecards.scores` is `JSONB NOT NULL DEFAULT '{}'` (`20250109000000_mvp_phase_1_schema.sql:176`).
 
+**Column types used by this task's SQL** (checked, because an enum compared with `''` fails):
+- `rounds.team_format` is the enum `team_format` (`20250122000000_teams_and_game_types.sql:27,158`). Always compare it as `r.team_format::TEXT`.
+- `rounds.game_type`, `rounds.nine_type` (`NOT NULL DEFAULT 'full'`), `scorecards.status` and `courses.holes` / `courses.num_holes` are TEXT / TEXT / TEXT / JSONB / INTEGER, so `COALESCE(…, '')` is safe on them.
+
 The `handicap_combined_rounds` schema is in `20260514000000_handicap_combined_rounds.sql`: `front_scorecard_id` / `back_scorecard_id` are FKs to `scorecards`, `course_id` is NOT NULL, and `combined_gross` must be > 0.
 
-**Old clients.** They recalculate a completed card's NULL differential when Home opens (`handicapHistory.ts:63-70, 139-143` → `recalculateScorecardDifferential` → `updatePlayerHandicapIndex`). The trigger nulls whatever they write for an incomplete card, and they then recompute the index without it.
+**Old clients.** They recalculate a completed card's NULL differential when Home opens (`handicapHistory.ts:63-70, 139-143` → `recalculateScorecardDifferential` → `updatePlayerHandicapIndex`). The trigger nulls whatever they write for an incomplete card. **Old clients never clear `players.handicap_index`** (their `updatePlayerHandicapIndex` returns early when nothing qualifies), and other players read that column (leaderboards, playing handicaps). So the data fix recomputes the index server-side for every affected player, as `20260629000000_exclude_shared_ball_handicap.sql:50-122` did, and sets it to NULL when nothing qualifies.
 
 - [ ] **Step 1: Write the verification script (red)**
 
@@ -7221,8 +7529,10 @@ BEGIN;
 INSERT INTO auth.users (id, email)
   VALUES ('fc000000-0000-0000-0000-000000000001', 'full-card-verify@example.com');
 
+-- handle_new_user (on auth.users) has usually created the row already.
 INSERT INTO players (id, name, email)
-  VALUES ('fc000000-0000-0000-0000-000000000001', 'Full Card Verify', 'full-card-verify@example.com');
+  VALUES ('fc000000-0000-0000-0000-000000000001', 'Full Card Verify', 'full-card-verify@example.com')
+ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO clubs (id, source, name)
   VALUES ('fc000000-0000-0000-0000-0000000000c1', 'manual', 'Verify Club');
@@ -7413,14 +7723,111 @@ BEGIN
   RAISE NOTICE 'Test 8 PASSED: no incomplete card carries a differential';
 END $$;
 
--- ---- Test 9: the audit table is not exposed to app users -------------
+-- ---- Test 9: the audit tables and fix functions are not exposed ------
 DO $$
 BEGIN
   ASSERT NOT has_table_privilege('authenticated', 'public.handicap_full_card_fix_audit', 'SELECT'),
-    'T9 FAILED: authenticated can read the audit table';
+    'T9 FAILED: authenticated can read the card audit table';
   ASSERT NOT has_table_privilege('anon', 'public.handicap_full_card_fix_audit', 'SELECT'),
-    'T9 FAILED: anon can read the audit table';
-  RAISE NOTICE 'Test 9 PASSED: audit table is private';
+    'T9 FAILED: anon can read the card audit table';
+  ASSERT NOT has_table_privilege('authenticated', 'public.handicap_full_card_fix_player_audit', 'SELECT'),
+    'T9 FAILED: authenticated can read the player audit table';
+  ASSERT NOT has_table_privilege('anon', 'public.handicap_full_card_fix_player_audit', 'SELECT'),
+    'T9 FAILED: anon can read the player audit table';
+  ASSERT NOT has_function_privilege('authenticated', 'public.handicap_full_card_data_fix()', 'EXECUTE'),
+    'T9 FAILED: authenticated can run the data fix';
+  ASSERT NOT has_function_privilege('authenticated', 'public.handicap_full_card_projected_index(uuid)', 'EXECUTE'),
+    'T9 FAILED: authenticated can call the index projection';
+  RAISE NOTICE 'Test 9 PASSED: audit tables and fix functions are private';
+END $$;
+
+-- ---- Test 10: the data fix nulls bad cards and recomputes the index --
+-- Two more players: P2 has a complete card (10.0) and a part-filled card
+-- (-38.4); P3 has only a part-filled card. Both carry the stale index an
+-- old client computed from the part-filled card (-38.4 × 0.96 = -36.9).
+INSERT INTO auth.users (id, email) VALUES
+  ('fc000000-0000-0000-0000-000000000002', 'full-card-verify-2@example.com'),
+  ('fc000000-0000-0000-0000-000000000003', 'full-card-verify-3@example.com');
+
+INSERT INTO players (id, name, email) VALUES
+  ('fc000000-0000-0000-0000-000000000002', 'Full Card Verify 2', 'full-card-verify-2@example.com'),
+  ('fc000000-0000-0000-0000-000000000003', 'Full Card Verify 3', 'full-card-verify-3@example.com')
+ON CONFLICT (id) DO NOTHING;
+
+UPDATE players SET handicap_index = -36.9
+ WHERE id IN ('fc000000-0000-0000-0000-000000000002', 'fc000000-0000-0000-0000-000000000003');
+
+INSERT INTO rounds (id, course_id, user_id, status, nine_type) VALUES
+  ('fc000000-0000-0000-0001-000000000010', 'fc000000-0000-0000-0000-0000000000c2', 'fc000000-0000-0000-0000-000000000002', 'completed', 'full'),
+  ('fc000000-0000-0000-0001-000000000011', 'fc000000-0000-0000-0000-0000000000c2', 'fc000000-0000-0000-0000-000000000002', 'completed', 'full'),
+  ('fc000000-0000-0000-0001-000000000012', 'fc000000-0000-0000-0000-0000000000c2', 'fc000000-0000-0000-0000-000000000003', 'completed', 'full');
+
+-- Seed the data as it exists before this migration: the guard is off.
+ALTER TABLE scorecards DISABLE TRIGGER scorecards_full_card_differential;
+
+INSERT INTO scorecards (id, round_id, player_id, status, scores, total_gross, handicap_differential, submitted_at) VALUES
+  ('fc000000-0000-0000-0002-000000000010', 'fc000000-0000-0000-0001-000000000010', 'fc000000-0000-0000-0000-000000000002', 'completed',
+   (SELECT jsonb_object_agg(n::TEXT, jsonb_build_object('strokes', 5)) FROM generate_series(1, 18) n), 90, 10.0, '2026-09-01T08:00:00Z'),
+  ('fc000000-0000-0000-0002-000000000011', 'fc000000-0000-0000-0001-000000000011', 'fc000000-0000-0000-0000-000000000002', 'completed',
+   (SELECT jsonb_object_agg(n::TEXT, jsonb_build_object('strokes', 5)) FROM generate_series(1, 6) n), 30, -38.4, '2026-09-05T08:00:00Z'),
+  ('fc000000-0000-0000-0002-000000000012', 'fc000000-0000-0000-0001-000000000012', 'fc000000-0000-0000-0000-000000000003', 'completed',
+   (SELECT jsonb_object_agg(n::TEXT, jsonb_build_object('strokes', 5)) FROM generate_series(1, 6) n), 30, -38.4, '2026-09-05T08:00:00Z');
+
+ALTER TABLE scorecards ENABLE TRIGGER scorecards_full_card_differential;
+
+DO $$
+DECLARE
+  fix RECORD;
+  idx2 NUMERIC; idx3 NUMERIC;
+  d10 NUMERIC; d11 NUMERIC; d12 NUMERIC;
+  old2 NUMERIC; new2 NUMERIC; old3 NUMERIC; new3 NUMERIC;
+  audited INT;
+BEGIN
+  SELECT * INTO fix FROM public.handicap_full_card_data_fix();
+  ASSERT fix.cards_nulled = 2, format('T10a FAILED: expected 2 cards nulled, got %s', fix.cards_nulled);
+  ASSERT fix.players_recomputed = 2, format('T10b FAILED: expected 2 players recomputed, got %s', fix.players_recomputed);
+
+  SELECT handicap_differential INTO d10 FROM scorecards WHERE id = 'fc000000-0000-0000-0002-000000000010';
+  SELECT handicap_differential INTO d11 FROM scorecards WHERE id = 'fc000000-0000-0000-0002-000000000011';
+  SELECT handicap_differential INTO d12 FROM scorecards WHERE id = 'fc000000-0000-0000-0002-000000000012';
+  ASSERT d10 = 10.0, 'T10c FAILED: the complete card keeps its differential';
+  ASSERT d11 IS NULL AND d12 IS NULL, 'T10d FAILED: part-filled cards must lose their differential';
+
+  SELECT handicap_index INTO idx2 FROM players WHERE id = 'fc000000-0000-0000-0000-000000000002';
+  SELECT handicap_index INTO idx3 FROM players WHERE id = 'fc000000-0000-0000-0000-000000000003';
+  -- P2: one qualifying round → best 1: 10.0 × 0.96 = 9.6
+  ASSERT idx2 = 9.6, format('T10e FAILED: P2 index should be recomputed to 9.6, got %s', idx2);
+  ASSERT idx3 IS NULL, format('T10f FAILED: P3 has nothing left that qualifies, index should be NULL, got %s', idx3);
+
+  SELECT old_handicap_index, new_handicap_index INTO old2, new2
+    FROM handicap_full_card_fix_player_audit WHERE player_id = 'fc000000-0000-0000-0000-000000000002';
+  SELECT old_handicap_index, new_handicap_index INTO old3, new3
+    FROM handicap_full_card_fix_player_audit WHERE player_id = 'fc000000-0000-0000-0000-000000000003';
+  ASSERT old2 = -36.9 AND new2 = 9.6, format('T10g FAILED: P2 audit should be -36.9 → 9.6, got % → %', old2, new2);
+  ASSERT old3 = -36.9 AND new3 IS NULL, format('T10h FAILED: P3 audit should be -36.9 → NULL, got % → %', old3, new3);
+
+  SELECT COUNT(*) INTO audited
+    FROM handicap_full_card_fix_audit
+   WHERE scorecard_id IN ('fc000000-0000-0000-0002-000000000011', 'fc000000-0000-0000-0002-000000000012')
+     AND old_differential = -38.4
+     AND NOT is_competition
+     AND course_hole_count = 18;
+  ASSERT audited = 2, format('T10i FAILED: both nulled cards must be audited with their breakdown columns, got %s', audited);
+
+  RAISE NOTICE 'Test 10 PASSED: data fix nulls bad cards, recomputes the index, clears it when nothing qualifies';
+END $$;
+
+-- ---- Test 11: re-running the data fix is a no-op ----------------------
+DO $$
+DECLARE fix RECORD; old2 NUMERIC;
+BEGIN
+  SELECT * INTO fix FROM public.handicap_full_card_data_fix();
+  ASSERT fix.cards_nulled = 0 AND fix.players_recomputed = 0,
+    format('T11a FAILED: a re-run should change nothing, got %s cards / %s players', fix.cards_nulled, fix.players_recomputed);
+  SELECT old_handicap_index INTO old2
+    FROM handicap_full_card_fix_player_audit WHERE player_id = 'fc000000-0000-0000-0000-000000000002';
+  ASSERT old2 = -36.9, 'T11b FAILED: a re-run must keep the first recorded old index';
+  RAISE NOTICE 'Test 11 PASSED: the data fix is idempotent';
 END $$;
 
 ROLLBACK;
@@ -7442,7 +7849,7 @@ Expected: FAIL at Test 1 — `ERROR: function public.scorecard_is_complete_for_h
 `supabase/migrations/20261007000100_full_scorecards_only_handicap.sql`:
 
 ```sql
--- Only full scorecards count toward the handicap (R13, R21)
+-- Only full scorecards count toward the handicap (R13, R21, R22)
 --
 -- "Only full scorecards should contribute to the social index/handicap.
 --  Part-filled quick score rounds should definitely not contribute." — Sam
@@ -7464,13 +7871,23 @@ Expected: FAIL at Test 1 — `ERROR: function public.scorecard_is_complete_for_h
 --      scorecards): handicap_differential := NULL for an incomplete card.
 --   4. Trigger handicap_combined_rounds_full_cards (BEFORE INSERT ON
 --      handicap_combined_rounds): rejects a pair with an incomplete nine.
---   5. One-off data fix: records (handicap_full_card_fix_audit) and then
---      nulls the differential of every existing incomplete card.
+--   5. handicap_full_card_projected_index(player) — server mirror of
+--      updatePlayerHandicapIndex (as precedent 20260629000000 did inline).
+--   6. One-off data fix, handicap_full_card_data_fix(): records every
+--      incomplete card that still carries a differential
+--      (handicap_full_card_fix_audit), nulls it, records each affected
+--      player's index (handicap_full_card_fix_player_audit) and recomputes
+--      players.handicap_index — NULL when nothing qualifies. This must be
+--      server-side: old clients never clear the index, and other players
+--      read it (leaderboards, playing handicaps).
 --
--- Deliberately NOT done here (R21):
---   * players.handicap_index is not recomputed in SQL. Every app version
---     recomputes it on the next Home / handicap-history load
---     (fetchHandicapHistory → updatePlayerHandicapIndex).
+-- R22: competition rounds, and social rounds created before nine_type
+-- existed, default to nine_type 'full'. A complete 9-hole card on a 9-hole
+-- course in such a round is judged incomplete and loses its differential
+-- (it rated a 9-hole score against 18-hole ratings). The rollout report
+-- lists these separately.
+--
+-- Deliberately NOT done here (R21, R22):
 --   * Existing handicap_combined_rounds / league_rounds rows built from an
 --     incomplete card are listed by supabase/scripts/full_scorecards_only_report.sql
 --     for review, not deleted.
@@ -7479,7 +7896,13 @@ Expected: FAIL at Test 1 — `ERROR: function public.scorecard_is_complete_for_h
 -- update_scorecards_updated_at (as in 20260629000000). No notification
 -- trigger fires — they only react to a status change.
 --
+-- Locks: CREATE TRIGGER takes a SHARE ROW EXCLUSIVE lock on scorecards and
+-- handicap_combined_rounds (app writes wait until COMMIT), and the data fix
+-- row-locks every card it nulls. Apply at a quiet time.
+--
 -- Apply: psql "$DB_URL" -v ON_ERROR_STOP=1 --single-transaction -f <this file>
+-- Dry run and report: see supabase/scripts/full_scorecards_only_report.sql.
+-- Undo: see the commented UNDO block at the end of this file.
 
 -- =====================================================
 -- 1. Completeness predicate (mirror of isCompleteForHandicap)
@@ -7568,7 +7991,7 @@ CREATE OR REPLACE FUNCTION public.scorecard_eligible_for_differential(
 RETURNS BOOLEAN
 LANGUAGE plpgsql
 STABLE
-SET search_path = public
+SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_nine_type TEXT;
@@ -7593,7 +8016,7 @@ CREATE OR REPLACE FUNCTION public.scorecards_full_card_differential()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, pg_temp
 AS $$
 BEGIN
   IF NEW.handicap_differential IS NOT NULL
@@ -7623,7 +8046,7 @@ CREATE OR REPLACE FUNCTION public.handicap_combined_rounds_full_cards()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_front_round UUID;
@@ -7663,7 +8086,87 @@ COMMENT ON FUNCTION public.handicap_combined_rounds_full_cards() IS
   'BEFORE INSERT on handicap_combined_rounds: rejects (22023) a pair when either source card is not eligible for a differential (scorecard_eligible_for_differential).';
 
 -- =====================================================
--- 5. One-off data fix (audited)
+-- 5. Projected index (server mirror of updatePlayerHandicapIndex)
+-- =====================================================
+
+-- Mirrors updatePlayerHandicapIndex + calculateHandicapIndex as A3-2 leaves
+-- them: the 20 most recent qualifying 18-hole differentials (completed /
+-- confirmed, round not deleted, nine_type 'full', not shared-ball, complete
+-- card) plus the 20 most recent combined rounds, merged by date, most recent
+-- 20, best-X-of-N (WHS table), x 0.96, capped at 54, 1 decimal. NULL when
+-- nothing qualifies. Card dates use COALESCE(submitted_at, round date), as
+-- 20260629000000 did. Keep in step with the TS.
+CREATE OR REPLACE FUNCTION public.handicap_full_card_projected_index(p_player_id UUID)
+RETURNS NUMERIC
+LANGUAGE sql
+STABLE
+SET search_path = public, pg_temp
+AS $$
+  WITH card_diffs AS (
+    SELECT s.handicap_differential AS differential,
+           COALESCE(s.submitted_at, r.date::TIMESTAMPTZ) AS effective_date
+      FROM scorecards s
+      JOIN rounds r ON r.id = s.round_id
+     WHERE s.player_id = p_player_id
+       AND s.status IN ('completed', 'confirmed')
+       AND s.handicap_differential IS NOT NULL
+       AND r.deleted_at IS NULL
+       AND r.nine_type = 'full'
+       -- rounds.team_format is an enum: compare it as TEXT.
+       AND NOT (COALESCE(r.game_type, '') IN ('scramble', 'alt-shot')
+                OR COALESCE(r.team_format::TEXT, '') IN ('scramble', 'alt-shot'))
+       AND scorecard_is_complete_for_handicap(s.scores, r.nine_type)
+     ORDER BY 2 DESC
+     LIMIT 20
+  ),
+  combined AS (
+    SELECT hcr.handicap_differential AS differential,
+           hcr.effective_date
+      FROM handicap_combined_rounds hcr
+     WHERE hcr.player_id = p_player_id
+     ORDER BY hcr.effective_date DESC
+     LIMIT 20
+  ),
+  recent20 AS (
+    SELECT m.differential
+      FROM (SELECT differential, effective_date FROM card_diffs
+            UNION ALL
+            SELECT differential, effective_date FROM combined) m
+     ORDER BY m.effective_date DESC
+     LIMIT 20
+  ),
+  qualifying AS (
+    SELECT CASE
+             WHEN COUNT(*) <= 5  THEN 1
+             WHEN COUNT(*) <= 8  THEN 2
+             WHEN COUNT(*) <= 11 THEN 3
+             WHEN COUNT(*) <= 14 THEN 4
+             WHEN COUNT(*) <= 16 THEN 5
+             WHEN COUNT(*) <= 18 THEN 6
+             WHEN COUNT(*)  = 19 THEN 7
+             ELSE 8
+           END AS count_to_use
+      FROM recent20
+  ),
+  best AS (
+    SELECT differential,
+           ROW_NUMBER() OVER (ORDER BY differential ASC) AS brn
+      FROM recent20
+  )
+  -- AVG over no rows is NULL, so a player with nothing qualifying gets NULL.
+  SELECT ROUND(LEAST(AVG(b.differential) * 0.96, 54.0)::NUMERIC, 1)
+    FROM best b
+    CROSS JOIN qualifying q
+   WHERE b.brn <= q.count_to_use;
+$$;
+
+REVOKE ALL ON FUNCTION public.handicap_full_card_projected_index(UUID) FROM PUBLIC, anon, authenticated;
+
+COMMENT ON FUNCTION public.handicap_full_card_projected_index(UUID) IS
+  'Server mirror of updatePlayerHandicapIndex (full scorecards only): the index the app would compute for this player; NULL when nothing qualifies. Used by handicap_full_card_data_fix and the rollout report.';
+
+-- =====================================================
+-- 6. One-off data fix (audited, re-runnable)
 -- =====================================================
 
 CREATE TABLE IF NOT EXISTS public.handicap_full_card_fix_audit (
@@ -7673,31 +8176,144 @@ CREATE TABLE IF NOT EXISTS public.handicap_full_card_fix_audit (
   nine_type TEXT NOT NULL,
   scorecard_status TEXT,
   old_differential NUMERIC(4,1) NOT NULL,
+  -- Breakdown columns for the rollout report (R22), captured at fix time.
+  is_competition BOOLEAN NOT NULL,
+  course_hole_count INTEGER,
+  game_type TEXT,
+  team_format TEXT,                        -- rounds.team_format::TEXT
+  round_created_at TIMESTAMPTZ,
   fixed_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 COMMENT ON TABLE public.handicap_full_card_fix_audit IS
-  'Scorecards whose handicap_differential was nulled by 20261007000100 because the card was incomplete for its nine type. Read by supabase/scripts/full_scorecards_only_report.sql. Not exposed to app users.';
+  'Scorecards whose handicap_differential was nulled by 20261007000100 because the card was incomplete for its nine type. Read by supabase/scripts/full_scorecards_only_report.sql and the UNDO block. Not exposed to app users.';
 
 ALTER TABLE public.handicap_full_card_fix_audit ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.handicap_full_card_fix_audit FROM anon, authenticated;
 
--- 5a. Record every incomplete card that still carries a differential.
-INSERT INTO public.handicap_full_card_fix_audit
-  (scorecard_id, player_id, round_id, nine_type, scorecard_status, old_differential)
-SELECT s.id, s.player_id, s.round_id, COALESCE(r.nine_type, 'full'), s.status, s.handicap_differential
-  FROM public.scorecards s
-  JOIN public.rounds r ON r.id = s.round_id
- WHERE s.handicap_differential IS NOT NULL
-   AND NOT public.scorecard_is_complete_for_handicap(s.scores, COALESCE(r.nine_type, 'full'))
-ON CONFLICT (scorecard_id) DO NOTHING;
+CREATE TABLE IF NOT EXISTS public.handicap_full_card_fix_player_audit (
+  player_id UUID PRIMARY KEY,              -- no FK: the audit outlives deleted players
+  old_handicap_index NUMERIC(4,1),         -- before the first fix run (kept on re-runs)
+  new_handicap_index NUMERIC(4,1),         -- after the latest fix run
+  recomputed_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 
--- 5b. Null them. (The BEFORE trigger above would null them anyway.)
-UPDATE public.scorecards s
-   SET handicap_differential = NULL
-  FROM public.handicap_full_card_fix_audit a
- WHERE a.scorecard_id = s.id
-   AND s.handicap_differential IS NOT NULL;
+COMMENT ON TABLE public.handicap_full_card_fix_player_audit IS
+  'players.handicap_index before/after 20261007000100 recomputed it for players who lost a differential. Read by the rollout report and the UNDO block. Not exposed to app users.';
+
+ALTER TABLE public.handicap_full_card_fix_player_audit ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.handicap_full_card_fix_player_audit FROM anon, authenticated;
+
+-- Records and nulls every incomplete card that still carries a differential,
+-- then recomputes the index of every player who lost one. Only players
+-- affected by THIS run are recomputed, so a re-run on clean data changes
+-- nothing. The first recorded old index is kept on re-runs.
+CREATE OR REPLACE FUNCTION public.handicap_full_card_data_fix()
+RETURNS TABLE (cards_nulled INT, players_recomputed INT)
+LANGUAGE plpgsql
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_cards INT;
+  v_players UUID[];
+  v_recomputed INT;
+BEGIN
+  -- a. Record every incomplete card that still carries a differential.
+  INSERT INTO handicap_full_card_fix_audit
+    (scorecard_id, player_id, round_id, nine_type, scorecard_status, old_differential,
+     is_competition, course_hole_count, game_type, team_format, round_created_at)
+  SELECT s.id, s.player_id, s.round_id, COALESCE(r.nine_type, 'full'), s.status, s.handicap_differential,
+         r.competition_id IS NOT NULL,
+         COALESCE(CASE WHEN jsonb_typeof(c.holes) = 'array' THEN jsonb_array_length(c.holes) END, c.num_holes),
+         r.game_type,
+         r.team_format::TEXT,
+         r.created_at
+    FROM scorecards s
+    JOIN rounds r ON r.id = s.round_id
+    LEFT JOIN courses c ON c.id = r.course_id
+   WHERE s.handicap_differential IS NOT NULL
+     AND NOT scorecard_is_complete_for_handicap(s.scores, COALESCE(r.nine_type, 'full'))
+  ON CONFLICT (scorecard_id) DO NOTHING;
+
+  -- b. Null them (the same predicate, so a card that has since become
+  --    complete is never touched).
+  WITH nulled AS (
+    UPDATE scorecards s
+       SET handicap_differential = NULL
+      FROM rounds r
+     WHERE r.id = s.round_id
+       AND s.handicap_differential IS NOT NULL
+       AND NOT scorecard_is_complete_for_handicap(s.scores, COALESCE(r.nine_type, 'full'))
+    RETURNING s.player_id
+  )
+  SELECT COUNT(*)::INT, COALESCE(array_agg(DISTINCT player_id), '{}')
+    INTO v_cards, v_players
+    FROM nulled;
+
+  -- c. Record each affected player's index before recomputing it.
+  INSERT INTO handicap_full_card_fix_player_audit (player_id, old_handicap_index)
+  SELECT p.id, p.handicap_index
+    FROM players p
+   WHERE p.id = ANY (v_players)
+  ON CONFLICT (player_id) DO NOTHING;
+
+  -- d. Recompute (NULL when nothing qualifies — old clients never clear it).
+  UPDATE players p
+     SET handicap_index = handicap_full_card_projected_index(p.id),
+         handicap_index_updated_at = now()
+   WHERE p.id = ANY (v_players);
+  GET DIAGNOSTICS v_recomputed = ROW_COUNT;
+
+  UPDATE handicap_full_card_fix_player_audit pa
+     SET new_handicap_index = p.handicap_index,
+         recomputed_at = now()
+    FROM players p
+   WHERE p.id = pa.player_id
+     AND pa.player_id = ANY (v_players);
+
+  RETURN QUERY SELECT v_cards, v_recomputed;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.handicap_full_card_data_fix() FROM PUBLIC, anon, authenticated;
+
+COMMENT ON FUNCTION public.handicap_full_card_data_fix() IS
+  'One-off R21 data fix: audits and nulls the differential of every incomplete card, then recomputes players.handicap_index (handicap_full_card_projected_index; NULL when nothing qualifies) for the players affected by this run. Re-runnable: a no-op on clean data.';
+
+-- Run it once. psql prints the counts.
+SELECT * FROM public.handicap_full_card_data_fix();
+
+-- =====================================================
+-- UNDO (manual — only on Sam's go; never part of a deploy)
+-- =====================================================
+-- Restores every nulled differential and every recomputed index from the
+-- audit tables. A differential is restored only where it is still NULL, so a
+-- card completed since keeps its new value. The guard trigger is disabled
+-- around the restore (it would null the restored values) and re-enabled
+-- afterwards; it then nulls them again on the card's next write. To remove
+-- the guard for good, also DROP both triggers. ALTER TABLE ... DISABLE
+-- TRIGGER takes an ACCESS EXCLUSIVE lock on scorecards: run at a quiet time.
+--
+-- psql "$DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
+-- BEGIN;
+-- SET LOCAL lock_timeout = '5s';
+-- ALTER TABLE public.scorecards DISABLE TRIGGER scorecards_full_card_differential;
+-- UPDATE public.scorecards s
+--    SET handicap_differential = a.old_differential
+--   FROM public.handicap_full_card_fix_audit a
+--  WHERE a.scorecard_id = s.id
+--    AND s.handicap_differential IS NULL;
+-- UPDATE public.players p
+--    SET handicap_index = pa.old_handicap_index,
+--        handicap_index_updated_at = now()
+--   FROM public.handicap_full_card_fix_player_audit pa
+--  WHERE pa.player_id = p.id;
+-- ALTER TABLE public.scorecards ENABLE TRIGGER scorecards_full_card_differential;
+-- -- Optional, to remove the guard entirely:
+-- -- DROP TRIGGER IF EXISTS scorecards_full_card_differential ON public.scorecards;
+-- -- DROP TRIGGER IF EXISTS handicap_combined_rounds_full_cards ON public.handicap_combined_rounds;
+-- COMMIT;
+-- SQL
 ```
 
 - [ ] **Step 4: Apply locally and run the verification script**
@@ -7709,11 +8325,11 @@ psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=
   -f supabase/tests/full_scorecards_only_handicap.verify.sql
 ```
 
-Expected: the migration applies without error, and the script prints `Test 1 PASSED` … `Test 9 PASSED`, then `ROLLBACK`.
+Expected: the migration applies without error and prints one `cards_nulled | players_recomputed` row. The script prints `Test 1 PASSED` … `Test 11 PASSED`, then `ROLLBACK`.
 
 If a fixture INSERT fails on a NOT NULL column added by a later migration (e.g. `auth.users`, `rounds`), add that column to the fixture. Don't weaken an assertion.
 
-Re-run the migration file a second time. Expected: no error, because everything is idempotent: `CREATE OR REPLACE`, `DROP TRIGGER IF EXISTS`, `CREATE TABLE IF NOT EXISTS` and `ON CONFLICT DO NOTHING`.
+Re-run the migration file a second time. Expected: no error, and the data fix prints `0 | 0`. Everything is idempotent: `CREATE OR REPLACE`, `DROP TRIGGER IF EXISTS`, `CREATE TABLE IF NOT EXISTS`, `ON CONFLICT DO NOTHING`, and the data fix only touches cards that are still incomplete with a differential.
 
 - [ ] **Step 5: Write the rollout report script**
 
@@ -7721,150 +8337,153 @@ Re-run the migration file a second time. Expected: no error, because everything 
 
 ```sql
 -- =====================================================
--- Full-scorecards-only handicap (R21) — rollout report
+-- Full-scorecards-only handicap (R21, R22) — rollout report
 -- =====================================================
--- Read-only. Requires 20261007000100_full_scorecards_only_handicap.sql.
+-- Read-only. It reads objects that 20261007000100_full_scorecards_only_handicap.sql
+-- creates (the audit tables and handicap_full_card_projected_index), so the
+-- "before" report is a DRY RUN: apply the migration inside a transaction,
+-- run this report, then ROLL BACK. Nothing is kept.
 --
--- DRY RUN before applying (see the impact, change nothing):
+-- DRY RUN (the "before" numbers):
+--   PGOPTIONS='-c default_transaction_read_only=off' \
 --   psql "$DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
 --   BEGIN;
+--   SET LOCAL lock_timeout = '5s';
 --   \i supabase/migrations/20261007000100_full_scorecards_only_handicap.sql
 --   \i supabase/scripts/full_scorecards_only_report.sql
 --   ROLLBACK;
 --   SQL
 --
--- AFTER applying (verify, then re-run days later to watch indexes settle):
+--   * PGOPTIONS: the prod pooler connection defaults to read-only
+--     transactions; the dry run must write (then roll back).
+--   * Locks: the dry run takes the same locks as the real migration
+--     (SHARE ROW EXCLUSIVE on scorecards and handicap_combined_rounds from
+--     CREATE TRIGGER, plus row locks on every card it nulls) until ROLLBACK.
+--     App writes to scorecards wait meanwhile. Run at a quiet time;
+--     lock_timeout makes it fail fast instead of queueing behind traffic.
+--   * Order: local → staging (or a prod snapshot restored locally) → prod.
+--     Then a go/no-go with Sam on sections 1-3 before applying for real.
+--
+-- AFTER applying (verify, then re-run days later to watch for drift):
 --   psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/scripts/full_scorecards_only_report.sql
 --
--- Section 3's "stored" index only changes once each player's app recomputes
--- it (next Home / handicap-history load), so a large delta right after the
--- migration is expected; it should shrink to ~0 as players open the app.
+-- Optional: -v nine_type_cutoff=YYYY-MM-DD — the date 20260330000001 (the
+-- nine_type column) reached this environment. Rounds created before it are
+-- "legacy" in section 1d. Defaults to the migration's date.
 -- =====================================================
 
-\echo '== 1. Cards whose differential the data fix removed (before → after) =='
+\if :{?nine_type_cutoff}
+\else
+  \set nine_type_cutoff '2026-03-30'
+\endif
+
+\echo '== 1. Cards whose differential the data fix removed (before = these, after = section 2) =='
 SELECT COUNT(*)                                                     AS cards_fixed,
        COUNT(DISTINCT player_id)                                    AS players_affected,
-       COUNT(*) FILTER (WHERE nine_type = 'full')                   AS eighteen_hole_cards,
-       COUNT(*) FILTER (WHERE nine_type <> 'full')                  AS nine_hole_cards,
+       COUNT(*) FILTER (WHERE nine_type = 'full')                   AS planned_eighteen,
+       COUNT(*) FILTER (WHERE nine_type <> 'full')                  AS planned_nine,
        COUNT(*) FILTER (WHERE scorecard_status IN ('completed', 'confirmed')) AS completed_cards,
-       MIN(old_differential)                                        AS lowest_removed_differential
+       MIN(old_differential)                                        AS lowest_removed_differential,
+       MAX(old_differential)                                        AS highest_removed_differential
   FROM public.handicap_full_card_fix_audit;
 
+\echo '== 1a. By round kind: competition vs standalone =='
+SELECT CASE WHEN is_competition THEN 'competition' ELSE 'standalone' END AS round_kind,
+       COUNT(*)                  AS cards,
+       COUNT(DISTINCT player_id) AS players
+  FROM public.handicap_full_card_fix_audit
+ GROUP BY 1
+ ORDER BY 1;
+
+\echo '== 1b. By planned nine and course hole count =='
+SELECT nine_type,
+       course_hole_count,
+       COUNT(*)                  AS cards,
+       COUNT(DISTINCT player_id) AS players
+  FROM public.handicap_full_card_fix_audit
+ GROUP BY 1, 2
+ ORDER BY 1, 2;
+
+\echo '== 1c. R22: 9-hole courses on nine_type = full rounds (listed separately) =='
+SELECT a.scorecard_id,
+       pl.name                   AS player,
+       co.name                   AS course,
+       a.course_hole_count,
+       CASE WHEN a.is_competition THEN 'competition' ELSE 'standalone' END AS round_kind,
+       (a.round_created_at < :'nine_type_cutoff'::TIMESTAMPTZ) AS legacy_round,
+       r.date                    AS round_date,
+       a.old_differential
+  FROM public.handicap_full_card_fix_audit a
+  LEFT JOIN public.players pl ON pl.id = a.player_id
+  LEFT JOIN public.rounds r ON r.id = a.round_id
+  LEFT JOIN public.courses co ON co.id = r.course_id
+ WHERE a.nine_type = 'full'
+   AND a.course_hole_count <= 9
+ ORDER BY a.is_competition DESC, r.date DESC NULLS LAST;
+
+\echo '== 1d. Legacy rounds (created before nine_type existed; cutoff:' :nine_type_cutoff ') =='
+SELECT (round_created_at < :'nine_type_cutoff'::TIMESTAMPTZ) AS legacy_round,
+       COUNT(*)                  AS cards,
+       COUNT(DISTINCT player_id) AS players
+  FROM public.handicap_full_card_fix_audit
+ GROUP BY 1
+ ORDER BY 1;
+
+\echo '== 1e. By game type / team format =='
+SELECT COALESCE(game_type, '(none)')   AS game_type,
+       COALESCE(team_format, '(none)') AS team_format,   -- stored as TEXT
+       COUNT(*)                  AS cards,
+       COUNT(DISTINCT player_id) AS players
+  FROM public.handicap_full_card_fix_audit
+ GROUP BY 1, 2
+ ORDER BY 3 DESC, 1, 2;
+
 \echo '== 2. Incomplete cards still carrying a differential (expected 0) =='
-SELECT COUNT(*)                  AS incomplete_cards_with_differential,
+SELECT COUNT(*)                    AS incomplete_cards_with_differential,
        COUNT(DISTINCT s.player_id) AS players
   FROM public.scorecards s
   JOIN public.rounds r ON r.id = s.round_id
  WHERE s.handicap_differential IS NOT NULL
    AND NOT public.scorecard_is_complete_for_handicap(s.scores, COALESCE(r.nine_type, 'full'));
 
--- Projected index for every affected player, mirroring
--- updatePlayerHandicapIndex + calculateHandicapIndex: the 20 most recent
--- eligible 18-hole differentials plus 20 most recent combined rounds, merged,
--- most recent 20, best-X-of-N (WHS table), × 0.96, capped at 54, 1 decimal.
-CREATE TEMP VIEW _full_card_index_projection AS
-WITH affected AS (
-  SELECT DISTINCT player_id FROM public.handicap_full_card_fix_audit
-),
-card_diffs AS (
-  SELECT s.player_id,
-         s.handicap_differential AS differential,
-         COALESCE(s.submitted_at, r.date::TIMESTAMPTZ) AS effective_date,
-         ROW_NUMBER() OVER (
-           PARTITION BY s.player_id
-           ORDER BY COALESCE(s.submitted_at, r.date::TIMESTAMPTZ) DESC
-         ) AS rn
-    FROM public.scorecards s
-    JOIN public.rounds r ON r.id = s.round_id
-   WHERE s.player_id IN (SELECT player_id FROM affected)
-     AND s.status IN ('completed', 'confirmed')
-     AND s.handicap_differential IS NOT NULL
-     AND r.deleted_at IS NULL
-     AND r.nine_type = 'full'
-     AND NOT (COALESCE(r.game_type, '') IN ('scramble', 'alt-shot')
-              OR COALESCE(r.team_format, '') IN ('scramble', 'alt-shot'))
-     AND public.scorecard_is_complete_for_handicap(s.scores, r.nine_type)
-),
-combined AS (
-  SELECT hcr.player_id,
-         hcr.handicap_differential AS differential,
-         hcr.effective_date,
-         ROW_NUMBER() OVER (PARTITION BY hcr.player_id ORDER BY hcr.effective_date DESC) AS rn
-    FROM public.handicap_combined_rounds hcr
-   WHERE hcr.player_id IN (SELECT player_id FROM affected)
-),
-merged AS (
-  SELECT player_id, differential, effective_date FROM card_diffs WHERE rn <= 20
-  UNION ALL
-  SELECT player_id, differential, effective_date FROM combined WHERE rn <= 20
-),
-recent20 AS (
-  SELECT player_id, differential
-    FROM (
-      SELECT player_id, differential,
-             ROW_NUMBER() OVER (PARTITION BY player_id ORDER BY effective_date DESC) AS rn
-        FROM merged
-    ) ranked
-   WHERE rn <= 20
-),
-counts AS (
-  SELECT player_id, COUNT(*) AS n FROM recent20 GROUP BY player_id
-),
-qualifying AS (
-  SELECT player_id,
-         CASE
-           WHEN n <= 5  THEN 1
-           WHEN n <= 8  THEN 2
-           WHEN n <= 11 THEN 3
-           WHEN n <= 14 THEN 4
-           WHEN n <= 16 THEN 5
-           WHEN n <= 18 THEN 6
-           WHEN n  = 19 THEN 7
-           ELSE 8
-         END AS count_to_use
-    FROM counts
-),
-best AS (
-  SELECT player_id, differential,
-         ROW_NUMBER() OVER (PARTITION BY player_id ORDER BY differential ASC) AS brn
-    FROM recent20
-),
-index_calc AS (
-  SELECT q.player_id,
-         ROUND(LEAST(AVG(b.differential) * 0.96, 54.0)::NUMERIC, 1) AS projected_index
-    FROM qualifying q
-    JOIN best b ON b.player_id = q.player_id AND b.brn <= q.count_to_use
-   GROUP BY q.player_id
-)
-SELECT p.id                     AS player_id,
-       p.name,
-       p.handicap_index         AS stored_index,
-       ic.projected_index,
-       ic.projected_index - p.handicap_index AS delta,
-       (SELECT COUNT(*) FROM public.handicap_full_card_fix_audit a WHERE a.player_id = p.id) AS cards_removed,
+\echo '== 3a. Recomputed players: index movement summary =='
+SELECT COUNT(*) AS players_recomputed,
+       COUNT(*) FILTER (WHERE old_handicap_index IS NOT NULL AND new_handicap_index IS NOT NULL
+                          AND ABS(new_handicap_index - old_handicap_index) > 2.0) AS players_moving_more_than_2,
+       COUNT(*) FILTER (WHERE old_handicap_index IS NOT NULL AND new_handicap_index IS NULL)
+                                                    AS players_index_cleared,
+       COUNT(*) FILTER (WHERE old_handicap_index IS NOT DISTINCT FROM new_handicap_index)
+                                                    AS players_unchanged
+  FROM public.handicap_full_card_fix_player_audit;
+
+\echo '== 3b. Recomputed players (largest movement first) =='
+SELECT pa.player_id,
+       pl.name,
+       pa.old_handicap_index,
+       pa.new_handicap_index,
+       pa.new_handicap_index - pa.old_handicap_index AS delta,
+       (SELECT COUNT(*) FROM public.handicap_full_card_fix_audit a WHERE a.player_id = pa.player_id) AS cards_removed,
        CASE
-         WHEN ic.projected_index IS NULL AND p.handicap_index IS NOT NULL
-           THEN 'projected NULL: app clears the index on next load (no qualifying rounds left)'
-         WHEN ABS(ic.projected_index - p.handicap_index) > 2.0
+         WHEN pa.old_handicap_index IS NOT NULL AND pa.new_handicap_index IS NULL
+           THEN 'cleared: no qualifying rounds left'
+         WHEN ABS(pa.new_handicap_index - pa.old_handicap_index) > 2.0
            THEN 'moves > 2.0'
          ELSE ''
-       END                      AS flag
-  FROM affected a
-  JOIN public.players p ON p.id = a.player_id
-  LEFT JOIN index_calc ic ON ic.player_id = a.player_id;
+       END AS flag
+  FROM public.handicap_full_card_fix_player_audit pa
+  LEFT JOIN public.players pl ON pl.id = pa.player_id
+ ORDER BY ABS(COALESCE(pa.new_handicap_index, 0) - COALESCE(pa.old_handicap_index, 0)) DESC, pl.name;
 
-\echo '== 3a. Affected players: index movement summary =='
-SELECT COUNT(*)                                        AS players_affected,
-       COUNT(*) FILTER (WHERE flag = 'moves > 2.0')    AS players_moving_more_than_2,
-       COUNT(*) FILTER (WHERE flag LIKE 'projected NULL%') AS players_left_without_rounds
-  FROM _full_card_index_projection;
+\echo '== 3c. Drift: stored index differs from the projection now (expected 0 right after; later rows come from new rounds) =='
+SELECT pa.player_id,
+       pl.name,
+       pl.handicap_index                                       AS stored_index,
+       public.handicap_full_card_projected_index(pa.player_id) AS projected_now
+  FROM public.handicap_full_card_fix_player_audit pa
+  JOIN public.players pl ON pl.id = pa.player_id
+ WHERE pl.handicap_index IS DISTINCT FROM public.handicap_full_card_projected_index(pa.player_id);
 
-\echo '== 3b. Affected players (largest movement first) =='
-SELECT *
-  FROM _full_card_index_projection
- ORDER BY ABS(COALESCE(projected_index, 0) - COALESCE(stored_index, 0)) DESC, name;
-
-\echo '== 4. Combined 18s built from an incomplete nine (review; not deleted) =='
+\echo '== 4. Combined 18s built from an incomplete nine (R22: left as is; review only) =='
 SELECT hcr.id                    AS combined_round_id,
        pl.name                   AS player,
        hcr.handicap_differential,
@@ -7897,8 +8516,6 @@ SELECT lr.id                     AS league_round_id,
   JOIN public.rounds r ON r.id = s.round_id
  WHERE NOT public.scorecard_is_complete_for_handicap(s.scores, COALESCE(r.nine_type, 'full'))
  ORDER BY lr.tagged_at DESC;
-
-DROP VIEW _full_card_index_projection;
 ```
 
 - [ ] **Step 6: Run the report locally (dry-run recipe)**
@@ -7906,15 +8523,25 @@ DROP VIEW _full_card_index_projection;
 ```bash
 psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 <<'SQL'
 BEGIN;
+SET LOCAL lock_timeout = '5s';
 \i supabase/migrations/20261007000100_full_scorecards_only_handicap.sql
 \i supabase/scripts/full_scorecards_only_report.sql
 ROLLBACK;
 SQL
 ```
 
-Expected: all five sections print without error. Section 2 shows `0`. On a fresh local DB the other sections may be empty.
+(Locally the database is writable, so `PGOPTIONS` isn't needed.)
 
-To exercise sections 1, 3 and 4, first insert a 6-hole card with a differential while the trigger is absent: run the dry run on a DB where `20261007000100` is not yet applied, after seeding one.
+Expected: every section (1, 1a–1e, 2, 3a–3c, 4, 5) prints without error. Section 2 and section 3c show `0` rows / `0`. On a fresh local DB the other sections may be empty.
+
+To exercise sections 1 and 3 with data, run the dry run on a DB where `20261007000100` is not yet applied, after seeding a completed 6-hole card with a differential for a player whose `handicap_index` is set.
+
+**Rollout (for Sam, after QA — not part of this task; never deploy from the plan):**
+1. Staging, or a prod snapshot restored locally: run the dry-run recipe from the report header. Check sections 1–3.
+2. Prod: run the same dry run at a quiet time (low scoring traffic), with `PGOPTIONS='-c default_transaction_read_only=off'` on the pooler connection. It holds locks on `scorecards` until `ROLLBACK`.
+3. **Go/no-go with Sam** on: the card count, section 1c (9-hole courses on "full" rounds, R22), the players moving by more than 2.0, and the players whose index is cleared.
+4. Apply with `psql -v ON_ERROR_STOP=1 --single-transaction -f …` (R20 rollout order), then run the report again without the dry-run wrapper. Re-run it a few days later and check section 3c.
+5. If it has to be reversed, use the UNDO block at the end of the migration.
 
 - [ ] **Step 7: Client suites still green**
 
@@ -7935,10 +8562,15 @@ incomplete card, and a BEFORE INSERT trigger on handicap_combined_rounds
 rejects pairs with an incomplete nine, so old app versions can no longer
 put part-filled cards into the index. Both delegate to
 scorecard_eligible_for_differential, which the end-round-early migration
-extends with holes_played. A one-off, audited data fix nulls existing
-incomplete cards' differentials; indexes are recomputed by each player's
-app on next load. Adds a rollout report (dry-run capable) and a
-BEGIN/ROLLBACK verification script. Not deployed.
+extends with holes_played.
+
+A one-off, audited, re-runnable data fix nulls existing incomplete cards'
+differentials and recomputes players.handicap_index server-side for the
+affected players (NULL when nothing qualifies), because old clients never
+clear the index and other players read it. Both audit tables back a
+commented UNDO block. 9-hole cards on nine_type 'full' rounds lose their
+differential (R22). Adds a rollout report (dry-run recipe, R22
+breakdowns) and a BEGIN/ROLLBACK verification script. Not deployed.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
@@ -7947,7 +8579,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 ### Task A5a-1: Skins hole counts and settlement over the holes played
 
-Hole values are priced on the round's **planned** holes. The settlement buy-in is `calculateTotalPot(type, value, planned) × holesPlayed / planned / participants`. Today a 9-hole game is priced and settled as 18: a $5 per-hole, 2-player game charges a $45 buy-in for a 9-hole pot of $45. Payouts are therefore never zero-sum.
+Hole values are priced on the round's **planned** holes. The settlement buy-in is `calculateTotalPot(type, value, planned) × holesPlayed / planned / participants` (R9). For a round ended early it is computed as `calculateHoleValue(type, value, planned) × holesPlayed / participants`, the same amount, but priced on the rounded hole value that was actually paid out. Winnings and buy-ins then cover the same pot, and individual skins stay zero-sum within cent rounding. A round played as planned keeps `calculateTotalPot`, so 18-hole games are byte-identical. Today a 9-hole game is priced and settled as 18: a $5 per-hole, 2-player game charges a $45 buy-in for a 9-hole pot of $45. Payouts are therefore never zero-sum.
 
 **Files:**
 - Create: `src/utils/skins/holeCounts.ts`
@@ -7957,10 +8589,11 @@ Hole values are priced on the round's **planned** holes. The settlement buy-in i
 - Modify: `src/__tests__/utils/skinsCalculations.test.ts:24-27` (import) and append a describe at the end of the file
 
 **Interfaces:**
-- Consumes: `getHoleCount`, `HOLES_PER_ROUND` (`@/constants/scoring`); `calculateTotalPot`, `calculateBuyIn` (`src/utils/skins/pot.ts`); `roundCurrency` (`src/utils/currency.ts`)
+- Consumes: `getHoleCount`, `HOLES_PER_ROUND` (`@/constants/scoring`); `calculateHoleValue`, `calculateTotalPot`, `calculateBuyIn` (`src/utils/skins/pot.ts`); `roundCurrency` (`src/utils/currency.ts`)
 - Produces:
   - `SkinsHoleCounts`, `DEFAULT_SKINS_HOLE_COUNTS` and `getSkinsHoleCounts(round)`, in `src/utils/skins/holeCounts.ts` (re-exported from `@/utils/skins`);
   - `calculatePlayedPot(game, holeCounts)`, `calculateFinalPayouts(game, results, participants, holeCounts?)` and `calculateFinalPayoutsWithCarryover(game, results, participants, holeCounts?)`, in `src/utils/skins/payouts.ts`;
+  - `calculateSettledPot(game: Pick<SkinsGame, 'status'>, payouts: Pick<SkinsPayout, 'buy_in'>[] | null | undefined): number | null`, in `src/utils/skins/payouts.ts` (re-exported from `@/utils/skins`). A5c-1 and A5d-2 consume it;
   - the module-internal `calculateSettlementBuyIn(game, participantCount, holeCounts)`, which A5d-1 reuses.
 
 - [ ] **Step 1: Write the failing test for the hole-count util**
@@ -8087,6 +8720,7 @@ Replace with:
   calculateFinalPayoutsWithCarryover,
   calculateInProgressPayouts,
   calculatePlayedPot,
+  calculateSettledPot,
   validateSkinsGame,
 ```
 
@@ -8143,7 +8777,35 @@ describe('Skins pricing on the holes played', () => {
           plannedHoles: 9,
           holesPlayed: 6,
         })
-      ).toBe(60); // 90 × 6/9
+      ).toBe(60); // $10 a hole × 6
+    });
+
+    it('prices an ended-early pot on the rounded hole price actually paid out', () => {
+      // $25 / 9 = $2.78 a hole (rounded) × 3 = $8.34 — not $25 × 3/9 = $8.33
+      expect(
+        calculatePlayedPot(createMockGame({ pot_type: 'total_pot', pot_value: 25 }), {
+          plannedHoles: 9,
+          holesPlayed: 3,
+        })
+      ).toBe(8.34);
+    });
+  });
+
+  describe('calculateSettledPot', () => {
+    it('is the sum of the stored buy-ins of a completed game', () => {
+      expect(
+        calculateSettledPot({ status: 'completed' }, [{ buy_in: 22.5 }, { buy_in: 22.5 }])
+      ).toBe(45);
+      expect(
+        calculateSettledPot({ status: 'completed' }, [{ buy_in: 2.09 }, { buy_in: 2.09 }, { buy_in: 2.09 }])
+      ).toBe(6.27); // rounded to the cent
+    });
+
+    it('is null for a game that is not settled', () => {
+      expect(calculateSettledPot({ status: 'active' }, [{ buy_in: 22.5 }])).toBeNull();
+      expect(calculateSettledPot({ status: 'completed' }, [])).toBeNull();
+      expect(calculateSettledPot({ status: 'completed' }, undefined)).toBeNull();
+      expect(calculateSettledPot({ status: 'completed' }, null)).toBeNull();
     });
   });
 
@@ -8223,6 +8885,22 @@ describe('Skins pricing on the holes played', () => {
     expect(netSum(payouts)).toBeCloseTo(0, 2);
   });
 
+  it('total_pot $25, front nine ended after 3, 4 players, all tied: nets to exactly zero', () => {
+    const game = createMockGame({ pot_type: 'total_pot', pot_value: 25 }); // p1–p4
+    // Hole value roundCurrency(25 / 9) = $2.78; every hole ties, so the
+    // carryover builds 2.78 → 5.56 → 8.34 and is split on the last hole played.
+    const results = createMockResults([tied(1, 2.78), tied(2, 5.56), tied(3, 8.34)]);
+
+    const payouts = calculateFinalPayouts(game, results, fourPlayers, { plannedHoles: 9, holesPlayed: 3 });
+
+    for (const payout of payouts) {
+      expect(payout.buy_in).toBe(2.09); // played pot 2.78 × 3 = 8.34; 8.34 / 4 = 2.085 → 2.09
+      expect(payout.total_winnings).toBe(2.09); // split 8.34 / 4 → 2.09
+      expect(payout.net_result).toBe(0);
+    }
+    expect(netSum(payouts)).toBe(0); // scaling the pot (25 × 3/9 = 8.33 → 2.08 buy-in) gave +1¢ each, Σ +4¢
+  });
+
   it('splits a carryover left on the last hole played', () => {
     const game = createMockGame();
     // p1 wins holes 1–4 ($20); holes 5–6 tie, leaving $10 carried over the last played hole
@@ -8253,7 +8931,7 @@ describe('Skins pricing on the holes played', () => {
 - [ ] **Step 6: Run test to verify it fails**
 
 Run: `pnpm test src/__tests__/utils/skinsCalculations.test.ts -t 'Skins pricing on the holes played'`
-Expected: FAIL — `calculatePlayedPot is not a function`; `per_hole, 4 players, ended after 6 of 18` reports `Expected: 7.5, Received: 22.5`; `settles a 9-hole round zero-sum` reports `Expected: [22.5, 22.5], Received: [45, 45]`.
+Expected: FAIL — `calculatePlayedPot is not a function`; `calculateSettledPot is not a function`; `per_hole, 4 players, ended after 6 of 18` reports `Expected: 7.5, Received: 22.5`; `settles a 9-hole round zero-sum` reports `Expected: [22.5, 22.5], Received: [45, 45]`; `total_pot $25, front nine ended after 3` reports `Expected: 2.09, Received: 6.25` (today's buy-in is the whole $25 / 4).
 
 - [ ] **Step 7: Implement `calculatePlayedPot` and the settlement param**
 
@@ -8269,12 +8947,14 @@ import { calculateCurrentCarryover, calculateHole18Split } from './processing';
 Replace with:
 
 ```ts
-import type { SkinsGame, SkinsResult } from '@/types/database';
+import type { SkinsGame, SkinsPayout, SkinsResult } from '@/types/database';
 import { roundCurrency } from '../currency';
-import { calculateBuyIn, calculateTotalPot } from './pot';
+import { calculateBuyIn, calculateHoleValue, calculateTotalPot } from './pot';
 import { calculateCurrentCarryover, calculateHole18Split } from './processing';
 import { DEFAULT_SKINS_HOLE_COUNTS, type SkinsHoleCounts } from './holeCounts';
 ```
+
+(`SkinsPayout` is exported from `@/types/database`, `src/types/database/index.ts:71`.)
 
 `calculateBuyIn` stays imported: `calculateTeamFinalPayouts` still uses it (unchanged; team skins settlement is a known gap).
 
@@ -8347,18 +9027,37 @@ Replace with:
 
 ```ts
 /**
- * The pot actually played for: the planned pot
- * (calculateTotalPot(type, value, plannedHoles)) scaled by holes played /
- * holes planned. Equals the planned pot for a round played as planned.
+ * The pot actually played for.
+ * - Played as planned: the planned pot, calculateTotalPot(type, value,
+ *   plannedHoles) — unchanged from today for a full 18.
+ * - Ended early: the rounded hole price the per-hole processing paid out
+ *   (calculateHoleValue over the planned holes) × holes played, so winnings
+ *   sum to this pot exactly. Scaling the pot instead (pot × played/planned)
+ *   drifts by a cent per hole on a total pot that doesn't divide evenly.
  */
 export function calculatePlayedPot(
   game: Pick<SkinsGame, 'pot_type' | 'pot_value'>,
   holeCounts: SkinsHoleCounts
 ): number {
   const { plannedHoles, holesPlayed } = holeCounts;
-  const plannedPot = calculateTotalPot(game.pot_type, game.pot_value, plannedHoles);
-  if (holesPlayed >= plannedHoles) return plannedPot;
-  return roundCurrency((plannedPot * holesPlayed) / plannedHoles);
+  if (holesPlayed >= plannedHoles) {
+    return calculateTotalPot(game.pot_type, game.pot_value, plannedHoles);
+  }
+  return roundCurrency(calculateHoleValue(game.pot_type, game.pot_value, plannedHoles) * holesPlayed);
+}
+
+/**
+ * What a SETTLED game actually staked: the sum of its stored buy-ins. Null
+ * when the game isn't completed or its payouts aren't written yet — callers
+ * then fall back to calculatePlayedPot / a settlement preview. The single
+ * "is this game settled?" rule for every skins display.
+ */
+export function calculateSettledPot(
+  game: Pick<SkinsGame, 'status'>,
+  payouts: Pick<SkinsPayout, 'buy_in'>[] | null | undefined
+): number | null {
+  if (game.status !== 'completed' || !payouts || payouts.length === 0) return null;
+  return roundCurrency(payouts.reduce((sum, p) => sum + p.buy_in, 0));
 }
 
 /**
@@ -8424,6 +9123,7 @@ export {
   calculateFinalPayoutsWithCarryover,
   calculateInProgressPayouts,
   calculatePlayedPot,
+  calculateSettledPot,
   calculateTeamFinalPayouts,
 } from './payouts';
 ```
@@ -8446,8 +9146,9 @@ git commit -m "fix(skins): settle skins over the holes played
 
 The settlement buy-in always priced an 18-hole pot, so a 9-hole game was
 never zero-sum. Payouts now take hole counts (planned / played) and price
-the buy-in as the planned pot x played / planned / participants. Complete
-18-hole games are unchanged.
+the buy-in on the pot for the holes played (the rounded hole price x holes
+played when a round ends early). Complete 18-hole games are unchanged.
+calculateSettledPot reads a settled game's pot from its stored buy-ins.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
@@ -8472,7 +9173,7 @@ The per-hole mutations fetch the round's counts themselves (`fetchSkinsHoleCount
 
 **Interfaces:**
 - Consumes: `getSkinsHoleCounts`, `SkinsHoleCounts` (A5a-1); `calculateHoleValue` (existing)
-- Produces: `fetchSkinsHoleCounts(roundId: string): Promise<SkinsHoleCounts>`, in `src/services/skins/roundHoleCounts.ts` (Contract notes 2 and 3).
+- Produces: `fetchSkinsHoleCounts(roundId: string): Promise<SkinsHoleCounts>`, in `src/services/skins/roundHoleCounts.ts`, not in `src/utils/skins/holeCounts.ts` (which stays pure, so `@/utils/skins` never imports the Supabase client). In Part A it selects only `nine_type`; Task B1b changes the select to `'nine_type, holes_played'`.
 
 - [ ] **Step 1: Write the failing round-lookup and per-hole pricing tests**
 
@@ -8831,7 +9532,11 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 The settlement moves out of `useFinalizeSkinsGame`'s `mutationFn` into `finalizeSkinsGame` (non-hook), so A6a's queued "finalise round" item can settle without React.
 
-`finalizeSkinsForSubMatch` gets `fetchSkinsHoleCounts` too, so every settlement path reads the round's counts (Contract note 7). `useFinalizeSkinsForRound` is **not** edited: A6d deletes it.
+`finalizeSkinsForSubMatch` gets `fetchSkinsHoleCounts` too, so every settlement path reads the round's counts: `useFinalizeSkinsGame` (and through it the `useSkinsGameState` auto-finalise and `useFinalizeSkinsForRound`), `finalizeActiveSkinsForRound` and `finalizeSkinsForSubMatch`. `useFinalizeSkinsForRound` is **not** edited: A6d deletes it.
+
+Both settlement paths size the buy-in on `game.participant_ids.map((id) => ({ id }))`. `calculateFinalPayoutsWithCarryover` only reads `participant.id` (`PayoutParticipant` is `{ id: string }`), and `fetchPlayerListByIds` logs and swallows read errors, so a failed `players` read used to settle on an empty list: a wrong divisor and no payout rows. The settlement no longer reads `players` at all.
+
+`finalizeSkinsGame` takes **no** hole-count override: there is no production caller for one, and every path must read `fetchSkinsHoleCounts`.
 
 **Files:**
 - Create: `src/services/skins/finalizeSkinsGame.ts`
@@ -8839,13 +9544,13 @@ The settlement moves out of `useFinalizeSkinsGame`'s `mutationFn` into `finalize
 - Create: `src/__tests__/hooks/skins/useFinalizeSkinsGame.test.tsx`
 - Create: `src/__tests__/services/skins/finalizeForSubMatch.test.ts`
 - Modify: `src/hooks/skins/mutations.ts:14-30` (imports, as A5a-2 leaves them), `:410-481` (`mutationFn`)
-- Modify: `src/services/skins/finalizeForSubMatch.ts:13-17` (imports), `:78` (hole counts)
+- Modify: `src/services/skins/finalizeForSubMatch.ts:13-22` (imports), `:74-78` (participants from the game, hole counts)
 
 **Interfaces:**
-- Consumes: `fetchSkinsHoleCounts` (A5a-2, `@/services/skins/roundHoleCounts`); `SkinsHoleCounts` and `calculateFinalPayoutsWithCarryover(..., holeCounts)` (A5a-1); `fetchActiveSkinsGame({ roundId })` (existing, `src/services/skins/activeGame.ts:50`)
+- Consumes: `fetchSkinsHoleCounts` (A5a-2, `@/services/skins/roundHoleCounts`); `calculateFinalPayoutsWithCarryover(..., holeCounts)` (A5a-1); `fetchActiveSkinsGame({ roundId })` (existing, `src/services/skins/activeGame.ts:50`)
 - Produces, in `src/services/skins/finalizeSkinsGame.ts`:
-  - `finalizeSkinsGame(gameId: string, holeCounts?: SkinsHoleCounts): Promise<SkinsGame>`. Default counts come from `fetchSkinsHoleCounts(game.round_id)`; it throws on any failure.
-  - `finalizeActiveSkinsForRound(roundId: string): Promise<FinalizeActiveSkinsResult>`, where `FinalizeActiveSkinsResult = { finalized: boolean; game?: SkinsGame; error?: unknown }`. It never throws.
+  - `finalizeSkinsGame(gameId: string): Promise<SkinsGame>`. **No `holeCounts` parameter** (the first draft's `holeCounts?` is dropped; the Interface Contract matches): counts always come from `fetchSkinsHoleCounts(game.round_id)`. Participants come from `game.participant_ids`. It throws on any failure.
+  - `finalizeActiveSkinsForRound(roundId: string): Promise<FinalizeActiveSkinsResult>`, where `FinalizeActiveSkinsResult = { finalized: boolean; game?: SkinsGame; error?: unknown }`. It never throws. **`error` is set whenever settlement failed** (the caught value itself, not a message); A6a's `finalizeSubmittedRound` reads it to make the queued `'finalize'` item retry. A retry is safe: only `active` games are looked up, so a settled game is never settled twice.
 
 - [ ] **Step 1: Write the failing service tests**
 
@@ -8868,6 +9573,8 @@ jest.mock('@/services/supabase/client', () => ({
   supabase: { from: (...args: unknown[]) => mockFrom(...args) },
 }));
 
+// The settlement must NOT size the buy-in on a players read: this helper logs
+// and swallows errors, so a failed read returned [] (wrong divisor, no rows).
 const mockFetchPlayerList = jest.fn();
 jest.mock('@/services/api/players', () => ({
   fetchPlayerListByIds: (...args: unknown[]) => mockFetchPlayerList(...args),
@@ -8962,15 +9669,12 @@ function wire({
 
 type InsertedPayout = { player_id: string; buy_in: number; net_result: number };
 
-const PLAYERS = [
-  { id: 'p1', name: 'Ann', handicap: 10 },
-  { id: 'p2', name: 'Bob', handicap: 12 },
-];
-
 describe('finalizeSkinsGame', () => {
   beforeEach(() => {
     mockFrom.mockReset();
-    mockFetchPlayerList.mockResolvedValue(PLAYERS);
+    mockFetchPlayerList.mockReset();
+    // What the swallowed-error players read returns; settlement must not use it.
+    mockFetchPlayerList.mockResolvedValue([]);
   });
 
   it('keeps the full-18 buy-in for a full round (pinned: unchanged from today)', async () => {
@@ -9000,16 +9704,17 @@ describe('finalizeSkinsGame', () => {
     expect(rows.reduce((sum, r) => sum + r.net_result, 0)).toBeCloseTo(0, 2);
   });
 
-  it('uses an explicit hole-count override without reading the round', async () => {
-    // Ann wins 4 ($20), Bob 2 ($10); pot $90 × 6/18 = $30 → $15 each
-    const tables = wire({ results: wonHoles(['p1', 'p1', 'p1', 'p1', 'p2', 'p2']) });
+  it("sizes the buy-in on the game's participant ids, never on a players read", async () => {
+    // Ann wins 1 ($5); buy-in $5 × 18 / 2 = $45 — two rows even though the
+    // players read would have come back empty
+    const tables = wire({ results: wonHoles(['p1']) });
 
-    await finalizeSkinsGame('g1', { plannedHoles: 18, holesPlayed: 6 });
+    await finalizeSkinsGame('g1');
 
-    expect(mockFrom).not.toHaveBeenCalledWith('rounds');
+    expect(mockFetchPlayerList).not.toHaveBeenCalled();
     const rows = tables.skins_payouts.insert.mock.calls[0][0] as InsertedPayout[];
-    expect(rows.map((r) => r.buy_in)).toEqual([15, 15]);
-    expect(rows.map((r) => r.net_result)).toEqual([5, -5]);
+    expect(rows.map((r) => r.player_id)).toEqual(['p1', 'p2']);
+    expect(rows.map((r) => r.buy_in)).toEqual([45, 45]);
   });
 
   it('replaces old payouts, marks the game completed and returns it', async () => {
@@ -9034,7 +9739,7 @@ describe('finalizeSkinsGame', () => {
 describe('finalizeActiveSkinsForRound', () => {
   beforeEach(() => {
     mockFrom.mockReset();
-    mockFetchPlayerList.mockResolvedValue(PLAYERS);
+    mockFetchPlayerList.mockReset();
     jest.spyOn(console, 'error').mockImplementation(() => {});
   });
   afterEach(() => {
@@ -9063,13 +9768,26 @@ describe('finalizeActiveSkinsForRound', () => {
     });
   });
 
-  it('never throws — a failed settlement comes back as the error', async () => {
+  it('never throws — a failed settlement comes back as the error (so a queued finalise can retry)', async () => {
     wire({ resultsError: { message: 'boom' } });
 
     const outcome = await finalizeActiveSkinsForRound('r1');
 
     expect(outcome.finalized).toBe(false);
+    expect(outcome.error).toBeInstanceOf(Error);
     expect((outcome.error as Error).message).toBe('Failed to fetch results: boom');
+  });
+
+  it('reports a failed hole-count read as the error, without settling', async () => {
+    const tables = wire({ results: wonHoles(['p1']) });
+    tables.rounds.maybeSingle.mockReset();
+    tables.rounds.maybeSingle.mockResolvedValue({ data: null, error: { message: 'timeout' } });
+
+    const outcome = await finalizeActiveSkinsForRound('r1');
+
+    expect(outcome.finalized).toBe(false);
+    expect((outcome.error as Error).message).toBe('Failed to load round for skins pricing: timeout');
+    expect(tables.skins_payouts.insert).not.toHaveBeenCalled();
   });
 });
 ```
@@ -9142,7 +9860,8 @@ Create `src/__tests__/services/skins/finalizeForSubMatch.test.ts`:
 /**
  * finalizeSkinsForSubMatch reads the round's hole counts like every other
  * settlement path. Sub-match rounds are competition rounds ('full'), so the
- * buy-in stays the 18-hole one.
+ * buy-in stays the 18-hole one. The buy-in is sized on the game's
+ * participant ids, never on a (error-swallowing) players read.
  */
 import { finalizeSkinsForSubMatch } from '@/services/skins/finalizeForSubMatch';
 
@@ -9150,11 +9869,10 @@ const mockFrom = jest.fn();
 jest.mock('@/services/supabase/client', () => ({
   supabase: { from: (...args: unknown[]) => mockFrom(...args) },
 }));
+// A failed players read comes back as [] — settlement must not depend on it.
+const mockFetchPlayerList = jest.fn().mockResolvedValue([]);
 jest.mock('@/services/api/players', () => ({
-  fetchPlayerListByIds: jest.fn().mockResolvedValue([
-    { id: 'p1', name: 'Ann', handicap: 10 },
-    { id: 'p2', name: 'Bob', handicap: 12 },
-  ]),
+  fetchPlayerListByIds: (...args: unknown[]) => mockFetchPlayerList(...args),
 }));
 jest.mock('@/services/errors', () => ({
   createError: (message: string) => new Error(message),
@@ -9198,7 +9916,9 @@ describe('finalizeSkinsForSubMatch', () => {
     await expect(finalizeSkinsForSubMatch('sm1')).resolves.toEqual({ finalized: true, gameId: 'g1' });
 
     expect(tables.rounds.eq).toHaveBeenCalledWith('id', 'r1');
-    const rows = tables.skins_payouts.insert.mock.calls[0][0] as { buy_in: number }[];
+    expect(mockFetchPlayerList).not.toHaveBeenCalled();
+    const rows = tables.skins_payouts.insert.mock.calls[0][0] as { player_id: string; buy_in: number }[];
+    expect(rows.map((r) => r.player_id)).toEqual(['p1', 'p2']);
     expect(rows.map((r) => r.buy_in)).toEqual([45, 45]); // $5 × 18 / 2
   });
 });
@@ -9231,26 +9951,20 @@ Create `src/services/skins/finalizeSkinsGame.ts`:
  */
 
 import { supabase } from '@/services/supabase/client';
-import { fetchPlayerListByIds } from '@/services/api/players';
 import { createError } from '@/services/errors';
 import { calculateFinalPayoutsWithCarryover } from '@/utils/skins';
-import type { SkinsHoleCounts } from '@/utils/skins/holeCounts';
 import { fetchActiveSkinsGame } from './activeGame';
 import { fetchSkinsHoleCounts } from './roundHoleCounts';
 import type { SkinsGame, SkinsResult } from '@/types/database/skins.types';
 
 /**
- * Settle one skins game.
+ * Settle one skins game. Hole counts are always read from the game's round
+ * (fetchSkinsHoleCounts); there is deliberately no override.
  *
  * @param gameId - Skins game to settle
- * @param holeCounts - Override the hole counts (tests / callers that already
- *   hold them). Omitted ⇒ read from the game's round.
  * @returns The game, now `completed`. Throws on any failure.
  */
-export async function finalizeSkinsGame(
-  gameId: string,
-  holeCounts?: SkinsHoleCounts
-): Promise<SkinsGame> {
+export async function finalizeSkinsGame(gameId: string): Promise<SkinsGame> {
   const { data: rawGame, error: gameError } = await supabase
     .from('skins_games')
     .select('*')
@@ -9275,10 +9989,13 @@ export async function finalizeSkinsGame(
 
   const results = (rawResults ?? []) as unknown as SkinsResult[];
 
-  const participants = await fetchPlayerListByIds(game.participant_ids);
-  const counts = holeCounts ?? (await fetchSkinsHoleCounts(game.round_id));
+  // The buy-in divisor is the game's own participant list. The calculator
+  // only needs ids, and a players read (fetchPlayerListByIds) swallows errors,
+  // so a failed read would have settled on an empty list.
+  const participants = game.participant_ids.map((id) => ({ id }));
+  const holeCounts = await fetchSkinsHoleCounts(game.round_id);
 
-  const payoutResult = calculateFinalPayoutsWithCarryover(game, results, participants, counts);
+  const payoutResult = calculateFinalPayoutsWithCarryover(game, results, participants, holeCounts);
 
   await supabase.from('skins_payouts').delete().eq('skins_game_id', gameId);
 
@@ -9324,7 +10041,12 @@ export interface FinalizeActiveSkinsResult {
   finalized: boolean;
   /** The settled game (status `completed`) when one was finalised. */
   game?: SkinsGame;
-  /** The caught failure, when settlement failed. */
+  /**
+   * The caught failure (the raw value), set whenever settlement failed. A
+   * caller that can retry (the queued 'finalize' round item) should treat it
+   * as retryable: only `active` games are looked up, so a retry never settles
+   * a game twice.
+   */
   error?: unknown;
 }
 
@@ -9487,7 +10209,7 @@ Replace with:
 
 - [ ] **Step 5: Give the sub-match settlement the round's hole counts**
 
-In `src/services/skins/finalizeForSubMatch.ts:13-17`, current:
+In `src/services/skins/finalizeForSubMatch.ts:13-22`, current:
 
 ```ts
 import { supabase } from '@/services/supabase/client';
@@ -9495,28 +10217,44 @@ import { fetchPlayerListByIds } from '@/services/api/players';
 import {
   calculateFinalPayoutsWithCarryover,
 } from '@/utils/skins';
+import type {
+  SkinsGame,
+  SkinsResult,
+  SkinsParticipant,
+} from '@/types/database/skins.types';
 ```
 
 Replace with:
 
 ```ts
 import { supabase } from '@/services/supabase/client';
-import { fetchPlayerListByIds } from '@/services/api/players';
 import {
   calculateFinalPayoutsWithCarryover,
 } from '@/utils/skins';
+import type {
+  SkinsGame,
+  SkinsResult,
+} from '@/types/database/skins.types';
 import { fetchSkinsHoleCounts } from './roundHoleCounts';
 ```
 
-In `src/services/skins/finalizeForSubMatch.ts:78`, current:
+In `src/services/skins/finalizeForSubMatch.ts:74-78`, current:
 
 ```ts
+    const participants: SkinsParticipant[] = await fetchPlayerListByIds(
+      game.participant_ids
+    );
+
     const payoutResult = calculateFinalPayoutsWithCarryover(game, results, participants);
 ```
 
 Replace with:
 
 ```ts
+    // The calculator needs only ids; a players read swallows errors and
+    // would settle a failed read on an empty list.
+    const participants = game.participant_ids.map((id) => ({ id }));
+
     // Same pricing rule as every settlement path; competition rounds read 'full'.
     const holeCounts = await fetchSkinsHoleCounts(game.round_id);
     const payoutResult = calculateFinalPayoutsWithCarryover(game, results, participants, holeCounts);
@@ -9532,7 +10270,7 @@ Expected: PASS
 - [ ] **Step 7: Run the test subset + type-check**
 
 Run: the TEST_SUBSET command from Global Constraints, then `pnpm type-check`
-Expected: green (apart from the Task 0 baseline). `pnpm type-check` also confirms `fetchPlayerListByIds` / `calculateFinalPayoutsWithCarryover` are no longer imported by `mutations.ts`.
+Expected: green (apart from the Task 0 baseline). Then `pnpm exec eslint src/hooks/skins/mutations.ts src/services/skins/finalizeSkinsGame.ts src/services/skins/finalizeForSubMatch.ts` reports no unused imports (`fetchPlayerListByIds` / `calculateFinalPayoutsWithCarryover` are gone from `mutations.ts`, `fetchPlayerListByIds` / `SkinsParticipant` from `finalizeForSubMatch.ts`).
 
 - [ ] **Step 8: Commit**
 
@@ -9543,7 +10281,9 @@ git commit -m "refactor(skins): extract skins settlement into a non-hook service
 finalizeSkinsGame / finalizeActiveSkinsForRound settle a game outside React
 (for the queued round finalisation) and price it on the round's hole counts.
 useFinalizeSkinsGame delegates to them. The sub-match settlement reads the
-round's hole counts too.
+round's hole counts too. Both size the buy-in on the game's participant ids
+instead of an error-swallowing players read, which could settle on an empty
+list.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
@@ -9552,7 +10292,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 ### Task A5b-2: Skins achievements helper
 
-`useFinalizeSkinsGame.onSuccess` fires the skins achievement events. A6c's submit hook settles through `finalizeActiveSkinsForRound` and never runs that `onSuccess`. So the events move into `awardSkinsAchievements` in the A5b-1 service, and both call it (Contract note 5).
+`useFinalizeSkinsGame.onSuccess` fires the skins achievement events. A6c's submit hook settles through `finalizeActiveSkinsForRound` and never runs that `onSuccess`. So the events move into `awardSkinsAchievements(game: Pick<SkinsGame, 'id' | 'pot_value'>, ctx: SkinsAchievementContext)` in the A5b-1 service, where `ctx = { playerId, checkAndAward, showMultipleToasts }` (a non-hook function can't read the player, achievements or toast context itself), and both call it.
 
 **Files:**
 - Modify: `src/services/skins/finalizeSkinsGame.ts` (as A5b-1 creates it: type imports; append `SkinsAchievementContext` and `awardSkinsAchievements`)
@@ -9920,7 +10660,7 @@ Shared skins displays get the round's hole counts:
 - Test (modify): `src/__tests__/components/skins/SkinsIndicator.test.tsx:26-29`, `:116-155`, `:588`, `:601`
 
 **Interfaces:**
-- Consumes: `SkinsHoleCounts`, `DEFAULT_SKINS_HOLE_COUNTS`, `calculatePlayedPot` (A5a-1, `@/utils/skins`); `fetchSkinsHoleCounts` (A5a-2); the `useFinalizeSkinsGame` delegation (A5b-1)
+- Consumes: `SkinsHoleCounts`, `DEFAULT_SKINS_HOLE_COUNTS`, `calculatePlayedPot`, `calculateSettledPot` (A5a-1, `@/utils/skins`); `fetchSkinsHoleCounts` (A5a-2); the `useFinalizeSkinsGame` delegation (A5b-1)
 - Produces:
   - `skinsKeys.holeCounts(roundId)`;
   - `useSkinsHoleCounts(roundId: string | undefined): SkinsHoleCounts`, exported from `@/hooks/skins` and `@/hooks/useSkins`;
@@ -10324,10 +11064,10 @@ import {
   calculateHoleValue,
   calculateCurrentCarryover,
   calculatePlayedPot,
+  calculateSettledPot,
   DEFAULT_SKINS_HOLE_COUNTS,
   type SkinsHoleCounts,
 } from '@/utils/skins';
-import { roundCurrency } from '@/utils/currency';
 import { fetchSkinsHoleCounts } from '@/services/skins/roundHoleCounts';
 ```
 
@@ -10404,18 +11144,13 @@ export function buildSkinsSummary(
   payouts: SkinsPayoutWithPlayer[],
   holeCounts: SkinsHoleCounts = DEFAULT_SKINS_HOLE_COUNTS
 ): SkinsGameSummary {
-  const settledPot =
-    game.status === 'completed' && payouts.length > 0
-      ? roundCurrency(payouts.reduce((sum, p) => sum + p.buy_in, 0))
-      : null;
-
   return {
     game: game as SkinsGameWithParticipants,
     results: results as SkinsResultWithWinner[],
     payouts,
     current_carryover: calculateCurrentCarryover(results as SkinsResult[]),
     holes_completed: results.length,
-    total_pot: settledPot ?? calculatePlayedPot(game, holeCounts),
+    total_pot: calculateSettledPot(game, payouts) ?? calculatePlayedPot(game, holeCounts),
     per_hole_value: calculateHoleValue(game.pot_type, game.pot_value, holeCounts.plannedHoles),
   };
 }
@@ -10645,8 +11380,7 @@ import {
   useFinalizeSkinsGame,
   useSkinsHoleCounts,
 } from '@/hooks/useSkins';
-import { calculateHoleValue, calculatePlayedPot } from '@/utils/skins';
-import { roundCurrency } from '@/utils/currency';
+import { calculateHoleValue, calculatePlayedPot, calculateSettledPot } from '@/utils/skins';
 ```
 
 At lines 22-24, current:
@@ -10707,14 +11441,10 @@ Replace with:
       };
     }
 
-    const settledPot =
-      skinsGame.status === 'completed' && payouts && payouts.length > 0
-        ? roundCurrency(payouts.reduce((sum, p) => sum + p.buy_in, 0))
-        : null;
-
     return {
       perHoleValue: calculateHoleValue(skinsGame.pot_type, skinsGame.pot_value, plannedHoles),
-      totalPot: settledPot ?? calculatePlayedPot(skinsGame, { plannedHoles, holesPlayed }),
+      totalPot:
+        calculateSettledPot(skinsGame, payouts) ?? calculatePlayedPot(skinsGame, { plannedHoles, holesPlayed }),
       scoringTypeLabel: skinsGame.scoring_type === 'gross' ? 'Gross' : 'Net',
       potTypeLabel: skinsGame.pot_type === 'per_hole' ? 'Per Hole' : 'Total Pot',
     };
@@ -11409,7 +12139,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - `calculateInProgressPayouts(game, results, participants, holeCounts?: SkinsHoleCounts)`. The 4th parameter was `totalHoles?: number`.
   - `SkinsCurrentStandingsCardProps.holeCounts` (replaces `totalHoles`).
   - `SkinsTabContentProps.holeCounts` (replaces `totalHoles`).
-  - The local `skinsHoleCounts` memo in Review, which A5d-2 reuses and B8 may extend (Contract note 9).
+  - The local `skinsHoleCounts` memo in Review, which A5d-2 reuses and B8-2 extends to substitute the store's `holesPlayed` while the server row has none.
 
 
 - [ ] **Step 1: Write the failing tests**
@@ -11590,6 +12320,8 @@ Expected: FAIL.
 - `skinsCalculations`: the object 4th argument is still read as `totalHoles`, so the pot is `5 × {…}` = `NaN`. The early-end case gets `Received: [NaN, NaN]`, and the updated 9-hole case gets `Expected: 22.5, Received: NaN`.
 - `SkinsCurrentStandingsCard`: the card ignores `holeCounts`, so `totalHoles` is `undefined` and the buy-in falls back to 18 holes. The 9-hole case finds no `Buy-in $22.50`, the progress case finds no `12 of 18 holes completed` (it renders "12 of  holes completed"), and the new case finds no `Buy-in $15.00`.
 - `SkinsTabContent`: `useSkinsSummary` was called with `('g1')` only, and the standings card is not rendered (`4 < undefined` is false).
+
+This already passes: `stops showing live standings once every played hole has a result`. Today `totalHoles` is `undefined` (the test passes `holeCounts`), so `6 < undefined` is false and the card is never rendered. It pins the new gate after the change.
 
 
 - [ ] **Step 3: Implement the in-progress buy-in**
@@ -12036,23 +12768,25 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ### Task A5d-2: Skins payouts tabs from stored settlements
 
 ViewRound `PayoutsTab` and Review `PayoutsTabContent` today re-derive every game's payouts at 18 holes. Now:
-- a **completed** game shows its stored `skins_payouts`;
-- an unsettled game previews the settlement (`calculateFinalPayouts`) on the round's hole counts.
+- a **completed** game shows its stored `skins_payouts` (`calculateSettledPot` decides "settled");
+- an unsettled game with played holes still to come shows the **live standings** (`calculateInProgressPayouts` on the round's hole counts). The pending carryover is not split, exactly as Review's Skins tab (`SkinsCurrentStandingsCard`) shows it, so the two tabs agree mid-round;
+- an unsettled game with a result on every played hole previews the settlement (`calculateFinalPayouts` on the round's hole counts, which splits a carryover left on the last hole).
 
 This fixes the drift on an already-settled 9-hole game ($5 per hole, 2 players, Ann wins 5 of 9). Every tab now shows the stored values.
 
 **Files:**
-- Modify: `src/utils/skins/payouts.ts` (new `resolveSkinsNetResults` after `calculateInProgressPayouts`; `SkinsPayout` type import)
+- Modify: `src/utils/skins/payouts.ts` (new `resolveSkinsNetResults` after `calculateInProgressPayouts`)
 - Modify: `src/utils/skins/index.ts` payouts export blocks (as A5a-1 leaves them)
 - Modify: `src/__tests__/utils/skinsCalculations.test.ts` (import; append a describe)
 - Modify: `src/screens/scoring/ReviewScorecardScreen/components/PayoutsTabContent.tsx:16`, `:28-42`, `:70-97`, `:113-122`
 - Modify: `src/screens/scoring/ReviewScorecardScreen/index.tsx:572-578`
 - Modify: `src/screens/rounds/ViewRoundScreen/tabs/PayoutsTab.tsx:18`, `:183-197`
 - Test (create): `src/screens/rounds/ViewRoundScreen/tabs/PayoutsTab.skins.test.tsx`
+- Test (create): `src/screens/scoring/ReviewScorecardScreen/components/PayoutsTabContent.skins.test.tsx`
 
 **Interfaces:**
-- Consumes: `calculateFinalPayouts(..., holeCounts)` (A5a-1); `useSkinsHoleCounts`, `useSkinsSummary(gameId, holeCounts)` (A5c-1); Review's `skinsHoleCounts` memo (A5d-1); `useSkinsPayouts` (existing)
-- Produces: `SkinsNetResult`, `resolveSkinsNetResults(game, results, storedPayouts, holeCounts?)` and `PayoutsTabContentProps.holeCounts?`.
+- Consumes: `calculateFinalPayouts(..., holeCounts)` and `calculateSettledPot` (A5a-1); `calculateInProgressPayouts(..., holeCounts)` (A5d-1); `useSkinsHoleCounts`, `useSkinsSummary(gameId, holeCounts)` (A5c-1); Review's `skinsHoleCounts` memo (A5d-1); `useSkinsPayouts` (existing)
+- Produces: `SkinsNetResult`, `resolveSkinsNetResults(game, results, storedPayouts, holeCounts?)` (`storedPayouts: Pick<SkinsPayout, 'player_id' | 'net_result' | 'buy_in'>[] | null | undefined`) and `PayoutsTabContentProps.holeCounts?`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -12076,6 +12810,14 @@ describe('resolveSkinsNetResults', () => {
     carryover_to_next: 0,
     hole_scores: scores,
   });
+  const tied = (hole: number, carryover: number) => ({
+    hole_number: hole,
+    winner_id: null as string | null,
+    is_carryover: true,
+    payout_amount: 0,
+    carryover_to_next: carryover,
+    hole_scores: scores,
+  });
   // Ann (p1) wins holes 1–5 ($25), Bob (p2) holes 6–9 ($20)
   const nineHoles = createMockResults(
     Array.from({ length: 9 }, (_, i) => won(i + 1, i < 5 ? 'p1' : 'p2', 5))
@@ -12085,8 +12827,8 @@ describe('resolveSkinsNetResults', () => {
   it('shows the stored payouts of a settled game', () => {
     // Settled before this fix at 18 holes: buy-in $45 → Ann -20, Bob -25
     const stored = [
-      { player_id: 'p1', net_result: -20 },
-      { player_id: 'p2', net_result: -25 },
+      { player_id: 'p1', buy_in: 45, net_result: -20 },
+      { player_id: 'p2', buy_in: 45, net_result: -25 },
     ];
 
     expect(
@@ -12100,7 +12842,7 @@ describe('resolveSkinsNetResults', () => {
     ]);
   });
 
-  it('previews an unsettled game on the hole counts', () => {
+  it('previews an unsettled game with every played hole in on the hole counts', () => {
     // $5 × 9 / 2 = $22.50 → Ann +2.50, Bob -2.50
     expect(
       resolveSkinsNetResults({ ...baseGame, status: 'active' }, nineHoles, undefined, {
@@ -12125,11 +12867,49 @@ describe('resolveSkinsNetResults', () => {
     ]);
   });
 
-  it('keeps the 18-hole preview without hole counts (unchanged)', () => {
-    // $5 × 18 / 2 = $45 → Ann 25 - 45, Bob 20 - 45
+  it('keeps the 18-hole buy-in without hole counts (unchanged values)', () => {
+    // 9 of 18 holes in, no carryover: $5 × 18 / 2 = $45 → Ann 25 - 45, Bob 20 - 45
     expect(resolveSkinsNetResults({ ...baseGame, status: 'active' }, nineHoles, undefined)).toEqual([
       { player_id: 'p1', net_result: -20 },
       { player_id: 'p2', net_result: -25 },
+    ]);
+  });
+
+  it('mid-round, leaves an open carryover unsplit, like the Skins tab live standings', () => {
+    // Ann wins hole 1 ($5); hole 2 ties, $5 carries into hole 3 (not played yet).
+    // Buy-in $5 × 18 / 2 = $45. Live standings: Ann 5 - 45, Bob 0 - 45.
+    // (Splitting the carryover would read Ann -37.50, Bob -42.50.)
+    const results = createMockResults([won(1, 'p1', 5), tied(2, 5)]);
+    const holeCounts = { plannedHoles: 18, holesPlayed: 18 };
+    const participants = [{ id: 'p1' }, { id: 'p2' }];
+
+    const netResults = resolveSkinsNetResults({ ...baseGame, status: 'active' }, results, undefined, holeCounts);
+
+    expect(netResults).toEqual([
+      { player_id: 'p1', net_result: -40 },
+      { player_id: 'p2', net_result: -45 },
+    ]);
+    expect(netResults).toEqual(
+      calculateInProgressPayouts(baseGame, results, participants, holeCounts).payouts.map((p) => ({
+        player_id: p.player_id,
+        net_result: p.net_result,
+      }))
+    );
+  });
+
+  it('splits a carryover left on the last hole played once every played hole is in', () => {
+    // Ended after 2 of 18: Ann wins hole 1 ($5), hole 2 ties ($5 left over).
+    // Buy-in $5 × 2 / 2 = $5; the $5 splits $2.50 each → Ann 7.50 - 5, Bob 2.50 - 5
+    const results = createMockResults([won(1, 'p1', 5), tied(2, 5)]);
+
+    expect(
+      resolveSkinsNetResults({ ...baseGame, status: 'active' }, results, undefined, {
+        plannedHoles: 18,
+        holesPlayed: 2,
+      })
+    ).toEqual([
+      { player_id: 'p1', net_result: 2.5 },
+      { player_id: 'p2', net_result: -2.5 },
     ]);
   });
 });
@@ -12254,8 +13034,8 @@ describe('PayoutsTab skins', () => {
       data:
         gameId === 'g1'
           ? [
-              { player_id: 'p1', net_result: 2.5 },
-              { player_id: 'p2', net_result: -2.5 },
+              { player_id: 'p1', buy_in: 45, net_result: 2.5 },
+              { player_id: 'p2', buy_in: 45, net_result: -2.5 },
             ]
           : undefined,
     }));
@@ -12269,12 +13049,110 @@ describe('PayoutsTab skins', () => {
 });
 ```
 
+Create `src/screens/scoring/ReviewScorecardScreen/components/PayoutsTabContent.skins.test.tsx`:
+
+```tsx
+/**
+ * Review PayoutsTabContent — a completed skins game shows its stored payouts,
+ * not payouts re-derived from the results.
+ */
+import React from 'react';
+import { render, screen } from '@/__tests__/utils/renderHelpers';
+import { PayoutsTabContent } from './PayoutsTabContent';
+
+const mockUseSkinsSummary = jest.fn();
+jest.mock('@/hooks/useSkins', () => ({
+  useSkinsSummary: (...args: unknown[]) => mockUseSkinsSummary(...args),
+}));
+jest.mock('@/hooks/wolf', () => ({
+  useWolfSummary: () => ({ data: undefined, isLoading: false, refetch: jest.fn() }),
+}));
+
+const scores = {
+  p1: { gross: 4, net: 4, strokes_received: 0 },
+  p2: { gross: 4, net: 4, strokes_received: 0 },
+};
+
+// per_hole $5, front nine: Ann (p1) wins holes 1–5 ($25), Bob (p2) holes 6–9 ($20).
+// Re-derived it would read -$20.00 / -$25.00 at 18 holes, or +$2.50 / -$2.50 at 9.
+const RESULTS = Array.from({ length: 9 }, (_, i) => ({
+  id: `res-${i + 1}`,
+  skins_game_id: 'g1',
+  hole_number: i + 1,
+  winner_id: i < 5 ? 'p1' : 'p2',
+  team_winner_id: null,
+  is_carryover: false,
+  hole_scores: scores,
+  hole_pot_value: 5,
+  carryover_to_next: 0,
+  payout_amount: 5,
+  calculated_at: '2026-10-07T01:00:00Z',
+  winner: null,
+}));
+
+// Stored settlement values that no re-derivation produces, so the test can only
+// pass if the stored rows are what renders.
+const STORED = [
+  { id: 'pay-1', skins_game_id: 'g1', player_id: 'p1', team_id: null, is_team_payout: false, buy_in: 22.5, total_winnings: 30, net_result: 7.5, holes_won: 5, holes_tied: 0, holes_lost: 4, calculated_at: '2026-10-07T03:00:00Z', player: { id: 'p1', name: 'Ann' } },
+  { id: 'pay-2', skins_game_id: 'g1', player_id: 'p2', team_id: null, is_team_payout: false, buy_in: 22.5, total_winnings: 15, net_result: -7.5, holes_won: 4, holes_tied: 0, holes_lost: 5, calculated_at: '2026-10-07T03:00:00Z', player: { id: 'p2', name: 'Bob' } },
+];
+
+describe('Review PayoutsTabContent skins', () => {
+  it('renders the stored payouts of a completed game', () => {
+    mockUseSkinsSummary.mockReturnValue({
+      data: {
+        game: {
+          id: 'g1',
+          round_id: 'r1',
+          status: 'completed',
+          pot_type: 'per_hole',
+          pot_value: 5,
+          scoring_type: 'gross',
+          is_team_skins: false,
+          participant_ids: ['p1', 'p2'],
+          participants: [
+            { id: 'p1', name: 'Ann', handicap: 10 },
+            { id: 'p2', name: 'Bob', handicap: 12 },
+          ],
+        },
+        results: RESULTS,
+        payouts: STORED,
+        current_carryover: 0,
+        holes_completed: 9,
+        total_pot: 45,
+        per_hole_value: 5,
+      },
+      isLoading: false,
+      refetch: jest.fn(),
+    });
+
+    render(
+      <PayoutsTabContent
+        mode="skins-only"
+        skinsGameId="g1"
+        holeCounts={{ plannedHoles: 9, holesPlayed: 9 }}
+        isRefreshing={false}
+        onRefresh={jest.fn()}
+        bottomInset={0}
+      />
+    );
+
+    expect(mockUseSkinsSummary).toHaveBeenCalledWith('g1', { plannedHoles: 9, holesPlayed: 9 });
+    expect(screen.getByText('+$7.50')).toBeTruthy(); // Ann, stored
+    expect(screen.getByText('-$7.50')).toBeTruthy(); // Bob, stored
+    expect(screen.queryByText('+$2.50')).toBeNull();
+    expect(screen.queryByText('-$20.00')).toBeNull();
+  });
+});
+```
+
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `pnpm test src/__tests__/utils/skinsCalculations.test.ts src/screens/rounds/ViewRoundScreen/tabs/PayoutsTab.skins.test.tsx`
+Run: `pnpm test src/__tests__/utils/skinsCalculations.test.ts src/screens/rounds/ViewRoundScreen/tabs/PayoutsTab.skins.test.tsx src/screens/scoring/ReviewScorecardScreen/components/PayoutsTabContent.skins.test.tsx`
 Expected: FAIL.
 - `skinsCalculations › resolveSkinsNetResults`: "resolveSkinsNetResults is not a function".
+- `PayoutsTabContent.skins`: `useSkinsSummary` was called with `('g1')` only; the tab re-derives at 18 holes and renders `-$20.00` / `-$25.00`, so "+$7.50" is not found.
 - `PayoutsTab.skins`: `mockUseSkinsHoleCounts` is never called, which also fails the "unchanged" case on that assertion; its money values (`-$25.00` / `-$35.00`) already match. The ended-early case can't find "+$5.00". The settled case can't find "+$2.50": it ignores the stored payouts, re-derives at 18 holes and renders `-$25.00` / `-$35.00`.
 
 - [ ] **Step 3: Implement the net-results util**
@@ -12290,42 +13168,41 @@ export interface SkinsNetResult {
 }
 
 /**
- * Net results for a payouts display. A settled game shows its stored
- * skins_payouts (what was actually settled); an unsettled game previews the
- * settlement on the round's hole counts.
+ * Net results for a payouts display.
+ * - Settled (calculateSettledPot non-null): the stored skins_payouts.
+ * - Unsettled, played holes still to come: the live standings
+ *   (calculateInProgressPayouts) — the pending carryover is NOT split, exactly
+ *   as Review's Skins tab shows it, so the two tabs agree mid-round.
+ * - Unsettled, every played hole in: the settlement preview
+ *   (calculateFinalPayouts), which splits a carryover left on the last hole.
  */
 export function resolveSkinsNetResults(
   game: Pick<SkinsGame, 'status' | 'pot_type' | 'pot_value' | 'participant_ids'>,
   results: Pick<SkinsResult, 'hole_number' | 'winner_id' | 'is_carryover' | 'payout_amount' | 'carryover_to_next' | 'hole_scores'>[],
-  storedPayouts: Pick<SkinsPayout, 'player_id' | 'net_result'>[] | null | undefined,
+  storedPayouts: Pick<SkinsPayout, 'player_id' | 'net_result' | 'buy_in'>[] | null | undefined,
   holeCounts: SkinsHoleCounts = DEFAULT_SKINS_HOLE_COUNTS
 ): SkinsNetResult[] {
-  if (game.status === 'completed' && storedPayouts && storedPayouts.length > 0) {
+  if (storedPayouts && calculateSettledPot(game, storedPayouts) !== null) {
     return storedPayouts
-      .filter((p): p is Pick<SkinsPayout, 'net_result'> & { player_id: string } => p.player_id !== null)
+      .filter(
+        (p): p is Pick<SkinsPayout, 'net_result' | 'buy_in'> & { player_id: string } => p.player_id !== null
+      )
       .map((p) => ({ player_id: p.player_id, net_result: p.net_result }));
   }
 
   const participants = game.participant_ids.map((id) => ({ id }));
-  return calculateFinalPayouts(game, results, participants, holeCounts).map((p) => ({
+  const stillPlaying = game.status !== 'completed' && results.length < holeCounts.holesPlayed;
+  const payouts = stillPlaying
+    ? calculateInProgressPayouts(game, results, participants, holeCounts).payouts
+    : calculateFinalPayouts(game, results, participants, holeCounts);
+  return payouts.map((p) => ({
     player_id: p.player_id,
     net_result: p.net_result,
   }));
 }
 ```
 
-In the imports at the top of `src/utils/skins/payouts.ts` (as A5a-1 leaves them), current:
-
-```ts
-import type { SkinsGame, SkinsResult } from '@/types/database';
-```
-
-Replace with:
-
-```ts
-import type { SkinsGame, SkinsResult } from '@/types/database';
-import type { SkinsPayout } from '@/types/database/skins.types';
-```
+`SkinsPayout` and `calculateSettledPot` are already in `payouts.ts` (A5a-1), and `calculateInProgressPayouts` takes `holeCounts` (A5d-1), so no import changes.
 
 In `src/utils/skins/index.ts`, the payout export blocks as A5a-1 leaves them, current:
 
@@ -12625,12 +13502,14 @@ Expected: green (apart from the Task 0 baseline)
 - [ ] **Step 8: Commit**
 
 ```bash
-git add src/utils/skins/payouts.ts src/utils/skins/index.ts src/__tests__/utils/skinsCalculations.test.ts src/screens/scoring/ReviewScorecardScreen/components/PayoutsTabContent.tsx src/screens/scoring/ReviewScorecardScreen/index.tsx src/screens/rounds/ViewRoundScreen/tabs/PayoutsTab.tsx src/screens/rounds/ViewRoundScreen/tabs/PayoutsTab.skins.test.tsx
+git add src/utils/skins/payouts.ts src/utils/skins/index.ts src/__tests__/utils/skinsCalculations.test.ts src/screens/scoring/ReviewScorecardScreen/components/PayoutsTabContent.tsx src/screens/scoring/ReviewScorecardScreen/index.tsx src/screens/rounds/ViewRoundScreen/tabs/PayoutsTab.tsx src/screens/rounds/ViewRoundScreen/tabs/PayoutsTab.skins.test.tsx src/screens/scoring/ReviewScorecardScreen/components/PayoutsTabContent.skins.test.tsx
 git commit -m "fix(skins): payouts tabs show stored settlements
 
 Settled skins games now show their stored payouts on the ViewRound and
 Review payouts tabs, instead of payouts re-derived at 18 holes. Unsettled
-games preview the settlement on the round's hole counts.
+games with holes still to play show the live standings (carryover unsplit,
+matching the Skins tab); once every played hole is in they preview the
+settlement on the round's hole counts.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
@@ -13223,13 +14102,13 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 ### Task A6a-2: `finalizeSubmittedRound`, `queueRoundFinalize` and `hasUnsyncedScorecardsForRound`
 
-This task adds the shared post-submit steps, `finalizeSubmittedRound` (status → results → skins; never rejects), and `queueRoundFinalize`, which writes them as a durable `round` sync item. It also adds the DAO check that the queue handler (A6a-3) runs before anything else. Callers switch over in A6c and A6d-1.
+This task adds the shared post-submit steps, `finalizeSubmittedRound` (status → results → skins; never rejects), and `queueRoundFinalize`, which writes them as a durable `round` sync item, plus `removeQueuedRoundFinalize` to drop that item by its entity key. It also adds the DAO check that the queue handler (A6a-3) runs before anything else, and a DAO delete by entity key. Callers switch over in A6c and A6d-1.
 
 **Files:**
 - Create: `src/services/rounds/finalizeSubmittedRound.ts`
 - Create: `src/__tests__/services/rounds/finalizeSubmittedRound.test.ts`
-- Modify: `src/services/offline/dao/SyncQueueDAO.ts` (add `hasUnsyncedScorecardsForRound` after `getFailedSyncCountForRound`, line 204)
-- Modify: `src/services/offline/database.ts:49` (re-export)
+- Modify: `src/services/offline/dao/SyncQueueDAO.ts` (add `removePendingSyncByEntityKey` after `removePendingSync`, line 115; add `hasUnsyncedScorecardsForRound` after `getFailedSyncCountForRound`, line 204)
+- Modify: `src/services/offline/database.ts:49` (re-exports)
 - Test: `src/__tests__/services/offline/database.test.ts` (import + new describe)
 
 **Interfaces:**
@@ -13238,14 +14117,18 @@ This task adds the shared post-submit steps, `finalizeSubmittedRound` (status �
   - `finalizeActiveSkinsForRound(roundId): Promise<{ finalized: boolean; game?: SkinsGame; error?: unknown }>` (A5b, `@/services/skins/finalizeSkinsGame`);
   - `refinalizeRoundResults` (existing; swallows its own errors);
   - `addPendingSync`;
-  - `roundKeys.all`, `skinsKeys.all`.
+  - `roundKeys.all`, `skinsKeys.all`, `competitionKeys.all` (`@/hooks/queryKeys`); `invalidateLeaderboardCache` (`@/services/queryClient`).
 - Produces:
   - `RoundSyncData`;
-  - `FinalizeSubmittedRoundResult { completed: boolean; skinsGame: SkinsGame | null; statusError: unknown }`;
-  - `finalizeSubmittedRound(roundId)` (never rejects);
-  - `queueRoundFinalize(roundId)` (entity key `round:<id>:finalize`);
+  - `FinalizeSubmittedRoundResult { completed: boolean; skinsGame: SkinsGame | null; statusError: unknown; skinsError: unknown }`;
+  - `finalizeSubmittedRound(roundId)` (never rejects; marks the round in flight while it runs);
+  - `isRoundFinalizeInFlight(roundId): boolean`;
+  - `roundFinalizeEntityKey(roundId)` = `round:<id>:finalize`;
+  - `queueRoundFinalize(roundId)` (A6b-1 adds `options?: { requestDrain?: boolean }`);
+  - `removeQueuedRoundFinalize(roundId): Promise<boolean>`;
   - `class RoundNotReadyError`;
-  - `hasUnsyncedScorecardsForRound(roundId): Promise<boolean>` (pending queue rows, plus submitted SQLite cards with no queue row; retained `failed` rows are not counted).
+  - `hasUnsyncedScorecardsForRound(roundId): Promise<boolean>` (pending queue rows, plus submitted SQLite cards with no queue row; retained `failed` rows are not counted);
+  - `removePendingSyncByEntityKey(entityKey): Promise<boolean>` (DAO; no revision guard).
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -13259,6 +14142,9 @@ Create `src/__tests__/services/rounds/finalizeSubmittedRound.test.ts`:
 import {
   finalizeSubmittedRound,
   queueRoundFinalize,
+  removeQueuedRoundFinalize,
+  isRoundFinalizeInFlight,
+  roundFinalizeEntityKey,
   RoundNotReadyError,
 } from '@/services/rounds/finalizeSubmittedRound';
 
@@ -13278,13 +14164,17 @@ jest.mock('@/services/skins/finalizeSkinsGame', () => ({
 }));
 
 const mockAddPendingSync = jest.fn();
+const mockRemoveByEntityKey = jest.fn();
 jest.mock('@/services/offline/database', () => ({
   addPendingSync: (...args: unknown[]) => mockAddPendingSync(...args),
+  removePendingSyncByEntityKey: (...args: unknown[]) => mockRemoveByEntityKey(...args),
 }));
 
 const mockInvalidateQueries = jest.fn();
+const mockInvalidateLeaderboardCache = jest.fn();
 jest.mock('@/services/queryClient', () => ({
   queryClient: { invalidateQueries: (...args: unknown[]) => mockInvalidateQueries(...args) },
+  invalidateLeaderboardCache: (...args: unknown[]) => mockInvalidateLeaderboardCache(...args),
 }));
 
 const ROUND_ID = '550e8400-e29b-41d4-a716-446655440000';
@@ -13311,6 +14201,7 @@ describe('finalizeSubmittedRound', () => {
       completed: true,
       skinsGame: null,
       statusError: null,
+      skinsError: null,
     });
 
     expect(mockFinalizeRoundStatus).toHaveBeenCalledWith(ROUND_ID);
@@ -13330,6 +14221,32 @@ describe('finalizeSubmittedRound', () => {
     expect(mockInvalidateQueries).not.toHaveBeenCalledWith({ queryKey: ['skins'] });
   });
 
+  it('refreshes the leaderboards, competitions and Home round lists', async () => {
+    await finalizeSubmittedRound(ROUND_ID);
+
+    expect(mockInvalidateLeaderboardCache).toHaveBeenCalledWith();
+    expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['competitions'] });
+    // Prefix of ['home', 'inProgressRounds', uid] and ['home', 'upcomingRounds', uid].
+    expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['home'] });
+  });
+
+  it('marks the round in flight only while it runs', async () => {
+    let release!: (value: boolean) => void;
+    mockFinalizeRoundStatus.mockReturnValue(
+      new Promise<boolean>((resolve) => {
+        release = resolve;
+      })
+    );
+
+    const running = finalizeSubmittedRound(ROUND_ID);
+    expect(isRoundFinalizeInFlight(ROUND_ID)).toBe(true);
+    expect(isRoundFinalizeInFlight('another-round')).toBe(false);
+
+    release(true);
+    await running;
+    expect(isRoundFinalizeInFlight(ROUND_ID)).toBe(false);
+  });
+
   it('still writes results and settles skins when the round is not complete yet', async () => {
     mockFinalizeRoundStatus.mockResolvedValue(false);
 
@@ -13337,6 +14254,7 @@ describe('finalizeSubmittedRound', () => {
       completed: false,
       skinsGame: null,
       statusError: null,
+      skinsError: null,
     });
     expect(mockRefinalize).toHaveBeenCalled();
     expect(mockFinalizeActiveSkins).toHaveBeenCalled();
@@ -13351,13 +14269,15 @@ describe('finalizeSubmittedRound', () => {
     expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['skins'] });
   });
 
-  it('does not fail the round over a skins error', async () => {
-    mockFinalizeActiveSkins.mockResolvedValue({ finalized: false, error: 'boom' });
+  it('reports a skins error for retry without failing the round', async () => {
+    const skinsFailure = new Error('payouts insert failed');
+    mockFinalizeActiveSkins.mockResolvedValue({ finalized: false, error: skinsFailure });
 
     await expect(finalizeSubmittedRound(ROUND_ID)).resolves.toEqual({
       completed: true,
       skinsGame: null,
       statusError: null,
+      skinsError: skinsFailure,
     });
   });
 
@@ -13370,6 +14290,7 @@ describe('finalizeSubmittedRound', () => {
       completed: false,
       skinsGame: SETTLED_GAME,
       statusError: failure,
+      skinsError: null,
     });
     expect(mockRefinalize).toHaveBeenCalled();
     expect(mockFinalizeActiveSkins).toHaveBeenCalled();
@@ -13410,6 +14331,16 @@ describe('queueRoundFinalize', () => {
   });
 });
 
+describe('removeQueuedRoundFinalize', () => {
+  it('removes the round finalisation by its entity key', async () => {
+    mockRemoveByEntityKey.mockResolvedValue(true);
+
+    await expect(removeQueuedRoundFinalize(ROUND_ID)).resolves.toBe(true);
+    expect(mockRemoveByEntityKey).toHaveBeenCalledWith(`round:${ROUND_ID}:finalize`);
+    expect(roundFinalizeEntityKey(ROUND_ID)).toBe(`round:${ROUND_ID}:finalize`);
+  });
+});
+
 describe('RoundNotReadyError', () => {
   it('is a named Error that identifies the round', () => {
     const error = new RoundNotReadyError(ROUND_ID);
@@ -13421,9 +14352,29 @@ describe('RoundNotReadyError', () => {
 });
 ```
 
-In `src/__tests__/services/offline/database.test.ts`, add `hasUnsyncedScorecardsForRound,` to the import list after `getFailedSyncCountForRound,` (line 26). Add this describe straight after the closing `});` of `describe('getFailedSyncCountForRound()', …)` (line 916):
+In `src/__tests__/services/offline/database.test.ts`, add `hasUnsyncedScorecardsForRound,` and `removePendingSyncByEntityKey,` to the import list after `getFailedSyncCountForRound,` (line 26). Add these two describes straight after the closing `});` of `describe('getFailedSyncCountForRound()', …)` (line 916):
 
 ```ts
+  describe('removePendingSyncByEntityKey()', () => {
+    it('deletes the row with that entity key, whatever its revision or status', async () => {
+      mockRunAsync.mockResolvedValueOnce({ lastInsertRowId: 0, changes: 1 });
+
+      await expect(removePendingSyncByEntityKey('round:round-abc:finalize')).resolves.toBe(true);
+
+      const [sql, params] = mockRunAsync.mock.calls[0];
+      expect(sql).toContain('DELETE FROM pending_syncs');
+      expect(sql).toContain('WHERE entity_key = ?');
+      expect(sql).not.toContain('revision');
+      expect(params).toEqual(['round:round-abc:finalize']);
+    });
+
+    it('is false when no row has that key', async () => {
+      mockRunAsync.mockResolvedValueOnce({ lastInsertRowId: 0, changes: 0 });
+
+      await expect(removePendingSyncByEntityKey('round:round-abc:finalize')).resolves.toBe(false);
+    });
+  });
+
   describe('hasUnsyncedScorecardsForRound()', () => {
     it('is true while a scorecard upload for the round is still pending in the queue', async () => {
       mockGetFirstAsync.mockResolvedValueOnce({ count: 1 });
@@ -13469,7 +14420,7 @@ In `src/__tests__/services/offline/database.test.ts`, add `hasUnsyncedScorecards
 Run: `pnpm test src/__tests__/services/rounds/finalizeSubmittedRound.test.ts src/__tests__/services/offline/database.test.ts`
 Expected: FAIL.
 - `finalizeSubmittedRound.test.ts`: "Cannot find module '@/services/rounds/finalizeSubmittedRound'".
-- `database.test.ts`: `hasUnsyncedScorecardsForRound is not a function`.
+- `database.test.ts`: `hasUnsyncedScorecardsForRound is not a function` and `removePendingSyncByEntityKey is not a function`.
 
 - [ ] **Step 3: Implement**
 
@@ -13491,19 +14442,23 @@ Expected: FAIL.
  *      as each group submits — as the inline submit always did;
  *   3. finalizeActiveSkinsForRound — settles the round's active skins game.
  *
- * Never rejects. A failed status read/write comes back as `statusError`, after
- * results and skins have still run, so the caller can retry it (the sync queue
- * spends a retry; the online path queues an item) and still use `skinsGame`.
- * Re-running is safe: the status write is idempotent and skins settlement
- * only picks up `active` games.
+ * Never rejects. A failed status read/write comes back as `statusError`, and a
+ * failed skins settlement as `skinsError`, after every step has still run, so
+ * the caller can retry (the sync queue spends a retry; the online path keeps
+ * its queued item) and still use `skinsGame`. Re-running is idempotent: the
+ * status write is a no-op on a completed round, results are delete-then-insert
+ * and skins settlement only picks up `active` games.
+ *
+ * While it runs, the round is "in flight" (isRoundFinalizeInFlight): the
+ * queued item for the same round waits instead of running the steps twice.
  */
 
 import { finalizeRoundStatus } from './finalizeRoundStatus';
 import { refinalizeRoundResults } from './refinalizeRoundResults';
 import { finalizeActiveSkinsForRound } from '@/services/skins/finalizeSkinsGame';
-import { addPendingSync } from '@/services/offline/database';
-import { queryClient } from '@/services/queryClient';
-import { roundKeys, skinsKeys } from '@/hooks/queryKeys';
+import { addPendingSync, removePendingSyncByEntityKey } from '@/services/offline/database';
+import { queryClient, invalidateLeaderboardCache } from '@/services/queryClient';
+import { roundKeys, skinsKeys, competitionKeys } from '@/hooks/queryKeys';
 import { submitLogger } from '@/utils/debugLogger';
 import type { SkinsGame } from '@/types/database/skins.types';
 
@@ -13517,12 +14472,28 @@ export interface FinalizeSubmittedRoundResult {
   skinsGame: SkinsGame | null;
   /** The status read/write error to retry, or null when it succeeded. */
   statusError: unknown;
+  /** The skins settlement error to retry, or null when it succeeded. */
+  skinsError: unknown;
+}
+
+/** Entity key of a round's queued finalisation (one row per round). */
+export function roundFinalizeEntityKey(roundId: string): string {
+  return `round:${roundId}:finalize`;
+}
+
+/** Rounds whose finalisation is running right now, from any caller. */
+const finalizeInFlight = new Set<string>();
+
+/** True while finalizeSubmittedRound is running for this round. */
+export function isRoundFinalizeInFlight(roundId: string): boolean {
+  return finalizeInFlight.has(roundId);
 }
 
 /**
  * Thrown by the sync queue's round handler while this device still holds
- * scorecards for the round that haven't uploaded: the item stays pending,
- * spends no retry and raises no error.
+ * scorecards for the round that haven't uploaded, or while the round's
+ * finalisation is already running (isRoundFinalizeInFlight): the item stays
+ * pending, spends no retry and raises no error.
  */
 export class RoundNotReadyError extends Error {
   constructor(roundId: string) {
@@ -13534,6 +14505,21 @@ export class RoundNotReadyError extends Error {
 const shortId = (roundId: string): string => roundId.substring(0, 8) + '...';
 
 export async function finalizeSubmittedRound(roundId: string): Promise<FinalizeSubmittedRoundResult> {
+  // Marked before the first await, so a drain that starts meanwhile waits.
+  finalizeInFlight.add(roundId);
+  try {
+    return await runFinalizeSteps(roundId);
+  } finally {
+    finalizeInFlight.delete(roundId);
+  }
+}
+
+/**
+ * The steps themselves. B6b-1's "end_early still queued" guard is the first
+ * statement here (not in finalizeSubmittedRound), so the in-flight mark is
+ * always taken and released around it.
+ */
+async function runFinalizeSteps(roundId: string): Promise<FinalizeSubmittedRoundResult> {
   let completed = false;
   let statusError: unknown = null;
   try {
@@ -13550,21 +14536,28 @@ export async function finalizeSubmittedRound(roundId: string): Promise<FinalizeS
   }
 
   const skins = await finalizeActiveSkinsForRound(roundId);
-  if (skins.error) {
-    submitLogger.warn('Skins finalization failed (non-blocking)', {
+  const skinsError: unknown = skins.error ?? null;
+  if (skinsError) {
+    submitLogger.warn('Skins finalization failed; it will be retried', {
       roundId: shortId(roundId),
-      error: String(skins.error),
+      error: String(skinsError),
     });
   }
 
   // roundKeys.all (['rounds']) prefixes every round query, including the
   // Rounds list (['rounds', userId], 5-minute staleTime) and round details.
   queryClient.invalidateQueries({ queryKey: roundKeys.all });
+  // Results were (re)written above whether or not the round completed, and the
+  // queue path has no screen to refresh them: leaderboards, the competition
+  // screens and Home's round lists (['home', 'inProgressRounds' | 'upcomingRounds', uid]).
+  invalidateLeaderboardCache();
+  queryClient.invalidateQueries({ queryKey: competitionKeys.all });
+  queryClient.invalidateQueries({ queryKey: ['home'] });
   if (skins.finalized) {
     queryClient.invalidateQueries({ queryKey: skinsKeys.all });
   }
 
-  return { completed, skinsGame: skins.game ?? null, statusError };
+  return { completed, skinsGame: skins.game ?? null, statusError, skinsError };
 }
 
 /**
@@ -13579,15 +14572,46 @@ export async function queueRoundFinalize(roundId: string): Promise<void> {
     type: 'round',
     action: 'update',
     data,
-    entityKey: `round:${roundId}:finalize`,
+    entityKey: roundFinalizeEntityKey(roundId),
     timestamp: new Date(),
     retryCount: 0,
   });
   submitLogger.info('Round finalisation queued for sync', { roundId: shortId(roundId) });
 }
+
+/**
+ * Drop the round's queued finalisation, once an online run has finished the
+ * job. By entity key, whatever its revision or status. True when a row went.
+ */
+export async function removeQueuedRoundFinalize(roundId: string): Promise<boolean> {
+  return removePendingSyncByEntityKey(roundFinalizeEntityKey(roundId));
+}
 ```
 
-**`src/services/offline/dao/SyncQueueDAO.ts`.** After the closing `}` of `getFailedSyncCountForRound` (line 204, after `  return result?.count ?? 0;`), insert:
+**`src/services/offline/dao/SyncQueueDAO.ts`.** After the closing `}` of `removePendingSync` (line 115, after `  return removed;`), insert:
+
+```ts
+
+/**
+ * Remove the row with this entity key, whatever its revision or status.
+ *
+ * For an item its own writer has made unnecessary (a round finalisation that
+ * an online run completed). Queue handlers use removePendingSync, whose
+ * revision guard keeps a row re-queued while it ran.
+ */
+export async function removePendingSyncByEntityKey(entityKey: string): Promise<boolean> {
+  const database = await getDb();
+  const result = await database.runAsync(
+    `DELETE FROM ${TABLE_NAMES.PENDING_SYNCS} WHERE entity_key = ?`,
+    [entityKey]
+  );
+  const removed = result.changes > 0;
+  dbLogger.debug('Removed pending sync by entity key', { entityKey, removed });
+  return removed;
+}
+```
+
+After the closing `}` of `getFailedSyncCountForRound` (line 204, after `  return result?.count ?? 0;`), insert:
 
 ```ts
 
@@ -13640,6 +14664,7 @@ Replace with:
 ```ts
   getFailedSyncCountForRound,
   hasUnsyncedScorecardsForRound,
+  removePendingSyncByEntityKey,
   getFailedSyncs,
 ```
 
@@ -13660,11 +14685,13 @@ git add src/services/rounds/finalizeSubmittedRound.ts src/__tests__/services/rou
 git commit -m "feat(rounds): finalizeSubmittedRound and a queued round finalisation item
 
 finalizeSubmittedRound runs status, results and skins in one place, then
-invalidates every round query. It never rejects: a failed status write
-comes back as statusError, along with the skins game it settled.
-queueRoundFinalize writes the same steps as a 'round' sync item keyed
-round:<id>:finalize. hasUnsyncedScorecardsForRound tells whether this device
-still has the round's cards pending upload (retained failures excluded).
+invalidates the round, leaderboard, competition and Home queries. It never
+rejects: a failed status write comes back as statusError and a failed skins
+settlement as skinsError, along with the skins game it settled. While it runs
+the round is marked in flight. queueRoundFinalize writes the same steps as a
+'round' sync item keyed round:<id>:finalize; removeQueuedRoundFinalize drops
+it by that key. hasUnsyncedScorecardsForRound tells whether this device still
+has the round's cards pending upload (retained failures excluded).
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
@@ -13679,18 +14706,19 @@ Queue semantics, from reading `syncOrchestrator.ts:163-469` and `SyncQueueDAO.ts
 - **Today:** `processPendingSync` throws "Unsupported sync type" for anything that isn't a scorecard.
 
 This task holds `round` items back until after the fallback block. It then runs each one with this order of checks:
-1. **Wait:** this device still has the round's cards pending → `RoundNotReadyError`. No server call, no retry spent.
+1. **Wait:** a submit screen is finalising the same round right now (`isRoundFinalizeInFlight`), or this device still has the round's cards pending → `RoundNotReadyError`. No server call, no retry spent.
 2. **Fail:** the only unconfirmed cards are retained failures → marked `failed` straight away, so Retry revives both.
-3. **Run:** otherwise `finalizeSubmittedRound`, with a `statusError` retried through the normal retry path.
+3. **B6b-2's step:** a marked comment where B6b-2 adds the `end_early` gate. A6a-3 adds no code there.
+4. **Run:** otherwise `finalizeSubmittedRound`. A `statusError`, then a `skinsError`, is thrown and retried through the normal retry path.
 
-`'finalize'` sorts after any other round action, which leaves room for B6b's `'end_early'` (Contract note 5).
+`'finalize'` sorts after any other round action, which leaves room for B6b's `'end_early'`: B6b-2 adds `case 'end_early'` to `processRoundSync`, and `orderRoundSyncs` already runs it before `'finalize'`.
 
 **Files:**
 - Modify: `src/services/offline/sync/syncOrchestrator.ts:8-27` (imports), `:182-184` (split out round items), `:421-426` (run round items last), after `:487` (round handlers)
 - Test: `src/__tests__/services/offline/sync.test.ts` (mocks + new describe)
 
 **Interfaces:**
-- Consumes: `finalizeSubmittedRound`, `RoundNotReadyError`, `hasUnsyncedScorecardsForRound` (A6a-2); `getFailedSyncCountForRound` (existing).
+- Consumes: `finalizeSubmittedRound`, `isRoundFinalizeInFlight`, `RoundNotReadyError`, `hasUnsyncedScorecardsForRound` (A6a-2); `getFailedSyncCountForRound` (existing).
 - Produces: sync handling of `{ type: 'round', data: { id, action: 'finalize' } }`, plus the module-private `processRoundSync` / `orderRoundSyncs` / `RoundSyncPermanentError` (B6b's extension point).
 
 - [ ] **Step 1: Write the failing tests**
@@ -13708,6 +14736,7 @@ In `src/__tests__/services/offline/sync.test.ts`:
 // stand-in the orchestrator both throws and catches.
 jest.mock('@/services/rounds/finalizeSubmittedRound', () => ({
   finalizeSubmittedRound: jest.fn(),
+  isRoundFinalizeInFlight: jest.fn(() => false),
   RoundNotReadyError: class RoundNotReadyError extends Error {},
 }));
 ```
@@ -13715,7 +14744,7 @@ jest.mock('@/services/rounds/finalizeSubmittedRound', () => ({
 - After `import { syncScorecard, ScorecardConflictError } from '@/services/offline/sync/scorecardSync';` (line 31), add:
 
 ```ts
-import { finalizeSubmittedRound } from '@/services/rounds/finalizeSubmittedRound';
+import { finalizeSubmittedRound, isRoundFinalizeInFlight } from '@/services/rounds/finalizeSubmittedRound';
 ```
 
 Append at the end of the file:
@@ -13754,7 +14783,9 @@ describe('Queued round finalisation', () => {
       completed: true,
       skinsGame: null,
       statusError: null,
+      skinsError: null,
     });
+    (isRoundFinalizeInFlight as jest.Mock).mockReturnValue(false);
     (database.hasUnsyncedScorecardsForRound as jest.Mock).mockResolvedValue(false);
     (database.getFailedSyncCountForRound as jest.Mock).mockResolvedValue(0);
   });
@@ -13784,12 +14815,26 @@ describe('Queued round finalisation', () => {
     expect(getSyncState().status).not.toBe('error');
   });
 
+  it('waits, without running the steps twice, while a submit screen is finalising the same round', async () => {
+    (database.getPendingSyncs as jest.Mock).mockResolvedValue([createRoundSync()]);
+    (isRoundFinalizeInFlight as jest.Mock).mockReturnValue(true);
+
+    await syncAll();
+
+    expect(isRoundFinalizeInFlight).toHaveBeenCalledWith(ROUND_ID);
+    expect(database.hasUnsyncedScorecardsForRound).not.toHaveBeenCalled();
+    expect(finalizeSubmittedRound).not.toHaveBeenCalled();
+    expect(database.removePendingSync).not.toHaveBeenCalled();
+    expect(database.incrementSyncRetryCount).not.toHaveBeenCalled();
+  });
+
   it('drops the item when the round is not complete and this device has nothing left to upload', async () => {
     (database.getPendingSyncs as jest.Mock).mockResolvedValue([createRoundSync()]);
     (finalizeSubmittedRound as jest.Mock).mockResolvedValue({
       completed: false,
       skinsGame: null,
       statusError: null,
+      skinsError: null,
     });
 
     await syncAll();
@@ -13815,11 +14860,27 @@ describe('Queued round finalisation', () => {
       completed: false,
       skinsGame: null,
       statusError: new Error('network down'),
+      skinsError: null,
     });
 
     await syncAll();
 
     expect(database.incrementSyncRetryCount).toHaveBeenCalledWith(7, 1, 'network down');
+    expect(database.removePendingSync).not.toHaveBeenCalled();
+  });
+
+  it('spends a retry when skins settlement failed after the round completed', async () => {
+    (database.getPendingSyncs as jest.Mock).mockResolvedValue([createRoundSync()]);
+    (finalizeSubmittedRound as jest.Mock).mockResolvedValue({
+      completed: true,
+      skinsGame: null,
+      statusError: null,
+      skinsError: new Error('payouts insert failed'),
+    });
+
+    await syncAll();
+
+    expect(database.incrementSyncRetryCount).toHaveBeenCalledWith(7, 1, 'payouts insert failed');
     expect(database.removePendingSync).not.toHaveBeenCalled();
   });
 
@@ -13829,6 +14890,7 @@ describe('Queued round finalisation', () => {
       completed: false,
       skinsGame: null,
       statusError: new Error('network down'),
+      skinsError: null,
     });
 
     await syncAll();
@@ -13884,7 +14946,7 @@ describe('Queued round finalisation', () => {
 - [ ] **Step 2: Run tests to verify they fail**
 
 Run: `pnpm test src/__tests__/services/offline/sync.test.ts -t 'Queued round finalisation'`
-Expected: FAIL. `finalizeSubmittedRound` is never called. `processPendingSync` throws "Unsupported sync type: round", so `incrementSyncRetryCount(7, 1, 'Unsupported sync type: round')` is called instead. The "waits" case fails on `hasUnsyncedScorecardsForRound` having 0 calls.
+Expected: FAIL. `finalizeSubmittedRound` is never called. `processPendingSync` throws "Unsupported sync type: round", so `incrementSyncRetryCount(7, 1, 'Unsupported sync type: round')` is called instead. The two "waits" cases fail on `hasUnsyncedScorecardsForRound` / `isRoundFinalizeInFlight` having 0 calls, and the skins case on `incrementSyncRetryCount` receiving `'Unsupported sync type: round'`.
 
 - [ ] **Step 3: Implement**
 
@@ -13906,7 +14968,11 @@ Replace with:
   hasUnsyncedScorecardsForRound,
   getFailedSyncCountForRound,
 } from '../database';
-import { finalizeSubmittedRound, RoundNotReadyError } from '@/services/rounds/finalizeSubmittedRound';
+import {
+  finalizeSubmittedRound,
+  isRoundFinalizeInFlight,
+  RoundNotReadyError,
+} from '@/services/rounds/finalizeSubmittedRound';
 ```
 
 (2) Split out round items. Current lines 182-184:
@@ -14058,13 +15124,20 @@ async function processRoundSync(sync: PendingSync): Promise<void> {
   }
 }
 
+/** Rethrow a non-Error failure value as an Error (so its message is recorded). */
+function asError(value: unknown): Error {
+  return value instanceof Error ? value : new Error(String(value));
+}
+
 /**
  * A queued "finalise round" (queueRoundFinalize): the same status → results
  * → skins steps an online submit runs (finalizeSubmittedRound).
  */
 async function processRoundFinalize(roundId: string): Promise<void> {
-  // 1. Before any server call: wait for this device's own uploads.
-  if (await hasUnsyncedScorecardsForRound(roundId)) {
+  // 1. Before any server call: wait while a submit screen is finalising this
+  //    round right now (its finalizeOrQueueRound keeps or removes this item
+  //    when it finishes), and while this device's own uploads are pending.
+  if (isRoundFinalizeInFlight(roundId) || (await hasUnsyncedScorecardsForRound(roundId))) {
     throw new RoundNotReadyError(roundId);
   }
 
@@ -14077,9 +15150,18 @@ async function processRoundFinalize(roundId: string): Promise<void> {
     );
   }
 
-  const { completed, statusError } = await finalizeSubmittedRound(roundId);
+  // Step 3 (B6b-2): end_early gate. A finalize item for a round whose
+  // 'end_early' item is retained as failed must not sit pending for ever
+  // behind it. B6b-2 owns that check and adds it here, before any server call.
+
+  // 4. Run the steps. A failed status write, then a failed skins settlement,
+  //    takes the normal retry path; re-running the steps is idempotent.
+  const { completed, statusError, skinsError } = await finalizeSubmittedRound(roundId);
   if (statusError) {
-    throw statusError instanceof Error ? statusError : new Error(String(statusError));
+    throw asError(statusError);
+  }
+  if (skinsError) {
+    throw asError(skinsError);
   }
 
   if (!completed) {
@@ -14109,10 +15191,11 @@ git add src/services/offline/sync/syncOrchestrator.ts src/__tests__/services/off
 git commit -m "feat(sync): run queued round finalisation after every scorecard upload
 
 'round' items now run after the queued uploads and the SQLite fallback. Before any
-server call a 'finalize' item waits, spending no retries, while this device
-still has the round's cards pending. It is retained as failed when the only
-unconfirmed cards are retained failures, so Retry revives both in order.
-Otherwise it runs finalizeSubmittedRound, and a failed status write takes the
+server call a 'finalize' item waits, spending no retries, while a submit screen
+is finalising the same round or this device still has the round's cards
+pending. It is retained as failed when the only unconfirmed cards are retained
+failures, so Retry revives both in order. Otherwise it runs
+finalizeSubmittedRound; a failed status write or skins settlement takes the
 normal retry path. Offline-submitted rounds now complete.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
@@ -14133,20 +15216,25 @@ There are also two smaller problems:
 This task:
 - starts the service once at the app root, after `initDatabase`;
 - stops `useOfflineSync` from tearing it down;
-- adds debounced `requestSyncDrain` triggers: signed-in start, foreground, and round items queued while online.
+- adds debounced `requestSyncDrain` triggers: signed-in start, foreground, and round items queued while online;
+- stops every drain while no user is signed in.
+
+The last point matters once the service runs app-wide, because it is then up while signed out. Three triggers call `syncAll` without going through the app root: the NetInfo online callback (`setOnOnlineCallback(syncAll)`, `syncOrchestrator.ts:107`), `queueScorecardSync` (`syncOrchestrator.ts:545`) and `manualSync` / `retryFailedSyncs`. A signed-out drain uploads as anon (RLS retains every card as `failed`), and a `'finalize'` item reads its round as missing (`PGRST116` → `finalizeRoundStatus` returns `false`), so the item is removed for good. So the gate goes in `syncAll` itself.
 
 A6b-1 builds the service side:
 - `requestSyncDrain`;
 - `ensureSyncServiceStarted`;
-- a drain request from `queueRoundFinalize`.
+- `setSyncAuthUser` and the `syncAll` gate;
+- a drain request from `queueRoundFinalize`, which callers can turn off.
 
 A6b-2 wires the app root and `useOfflineSync`.
 
 **Files:**
 - Create: `src/services/offline/sync/drain.ts`
 - Create: `src/__tests__/services/offline/syncDrain.test.ts`
-- Modify: `src/services/offline/sync/syncOrchestrator.ts:44-45` (import), `:100-121` (`initSyncService` registers the drain handler; add `ensureSyncServiceStarted` / `__resetSyncServiceForTests`)
-- Modify: `src/services/offline/sync/index.ts:32-34` (re-exports), `src/services/offline/sync.ts:33-34` (re-exports)
+- Modify: `src/services/offline/sync/networkState.ts:12-14` (signed-in user id + accessors)
+- Modify: `src/services/offline/sync/syncOrchestrator.ts:37-45` (imports), `:100-121` (`initSyncService` registers the drain handler; add `ensureSyncServiceStarted` / `__resetSyncServiceForTests`), `:163-170` (`syncAll` gate)
+- Modify: `src/services/offline/sync/index.ts:27, 32-34` (re-exports), `src/services/offline/sync.ts:25-26, 33-34` (re-exports)
 - Test: `src/__tests__/services/offline/sync.test.ts` (drain mock + new describe)
 - Modify: `src/services/rounds/finalizeSubmittedRound.ts` (`queueRoundFinalize` requests a drain)
 - Test: `src/__tests__/services/rounds/finalizeSubmittedRound.test.ts`
@@ -14159,9 +15247,11 @@ A6b-2 wires the app root and `useOfflineSync`.
   - `SYNC_DRAIN_DEBOUNCE_MS = 500`;
   - `__resetSyncDrainForTests()`;
   - `ensureSyncServiceStarted(): void`;
-  - `__resetSyncServiceForTests()`.
+  - `__resetSyncServiceForTests()`;
+  - `setSyncAuthUser(userId: string | null): void` and `getSyncAuthUserId(): string | null` (`networkState.ts`; starts `null`). `syncAll` resolves `false` at once while it is `null`;
+  - `queueRoundFinalize(roundId, options?: { requestDrain?: boolean })`: `requestDrain` defaults to `true`.
 
-  `ensureSyncServiceStarted` and `requestSyncDrain` are also re-exported from `@/services/offline/sync`.
+  `ensureSyncServiceStarted`, `requestSyncDrain` and `setSyncAuthUser` are also re-exported from `@/services/offline/sync`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -14268,6 +15358,29 @@ describe('requestSyncDrain', () => {
 ```
 
 In `src/__tests__/services/offline/sync.test.ts`:
+- After the `import * as database from '@/services/offline/database';` line, add:
+
+```ts
+import { setSyncAuthUser } from '@/services/offline/sync/networkState';
+```
+
+- In the top-level `beforeEach`, current:
+
+```ts
+beforeEach(() => {
+  jest.clearAllMocks();
+  _networkChangeHandler = null;
+```
+
+  Replace with (every existing drain test runs signed in):
+
+```ts
+beforeEach(() => {
+  jest.clearAllMocks();
+  _networkChangeHandler = null;
+  setSyncAuthUser('test-user-id');
+```
+
 - After the `jest.mock('@/services/rounds/finalizeSubmittedRound', …)` block A6a-3 added, add:
 
 ```ts
@@ -14322,6 +15435,82 @@ describe('App-wide sync service', () => {
     expect(database.getPendingSyncs).toHaveBeenCalled();
   });
 });
+
+// ============================================================================
+// NO DRAIN WITHOUT A SESSION
+// ============================================================================
+
+/**
+ * The service now runs while signed out. A signed-out drain would upload as
+ * anon (every card retained as failed) and read a queued round as missing
+ * (PGRST116 → "not complete"), dropping its finalize item. syncAll refuses to
+ * start until the app root records a signed-in user.
+ */
+describe('No drain without a session', () => {
+  const ROUND_ID = '550e8400-e29b-41d4-a716-446655440000';
+  const roundItem: PendingSync = {
+    id: 7,
+    type: 'round',
+    action: 'update',
+    data: { id: ROUND_ID, action: 'finalize' },
+    entityKey: `round:${ROUND_ID}:finalize`,
+    timestamp: new Date('2025-01-15T09:00:00Z'),
+    retryCount: 0,
+    revision: 1,
+  };
+
+  beforeEach(async () => {
+    initSyncService();
+    await flushPromises();
+    (database.getPendingSyncs as jest.Mock).mockResolvedValue([roundItem]);
+    setSyncAuthUser(null);
+  });
+
+  afterEach(() => {
+    setSyncAuthUser('test-user-id');
+  });
+
+  it('syncAll reads nothing and keeps the queued finalize item while signed out', async () => {
+    await expect(syncAll()).resolves.toBe(false);
+
+    expect(database.getPendingSyncs).not.toHaveBeenCalled();
+    expect(finalizeSubmittedRound).not.toHaveBeenCalled();
+    expect(database.removePendingSync).not.toHaveBeenCalled();
+    expect(database.markPendingSyncFailed).not.toHaveBeenCalled();
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it('the network-restored callback does not drain while signed out', async () => {
+    await _networkChangeHandler!({ isConnected: false, type: 'none', isInternetReachable: false });
+    await _networkChangeHandler!({ isConnected: true, type: 'wifi', isInternetReachable: true });
+    await flushPromises();
+
+    expect(database.getPendingSyncs).not.toHaveBeenCalled();
+  });
+
+  it('queueing a scorecard while signed out queues it without draining', async () => {
+    await queueScorecardSync(createTestScorecard());
+    await flushPromises();
+
+    expect(database.addPendingSync).toHaveBeenCalled();
+    expect(database.getPendingSyncs).not.toHaveBeenCalled();
+  });
+
+  it('drains again once a user is signed in', async () => {
+    setSyncAuthUser('user-2');
+    (finalizeSubmittedRound as jest.Mock).mockResolvedValue({
+      completed: true,
+      skinsGame: null,
+      statusError: null,
+      skinsError: null,
+    });
+
+    await syncAll();
+
+    expect(database.getPendingSyncs).toHaveBeenCalled();
+    expect(finalizeSubmittedRound).toHaveBeenCalledWith(ROUND_ID);
+  });
+});
 ```
 
 In `src/__tests__/services/rounds/finalizeSubmittedRound.test.ts`, after the `jest.mock('@/services/queryClient', …)` block, add:
@@ -14344,12 +15533,21 @@ and inside `describe('queueRoundFinalize', …)`, after the `'queues a round fin
     const [drain] = mockRequestSyncDrain.mock.invocationCallOrder;
     expect(queued).toBeLessThan(drain);
   });
+
+  it('can queue without asking for a drain (the online submit path writes it first)', async () => {
+    mockRequestSyncDrain.mockClear();
+
+    await queueRoundFinalize(ROUND_ID, { requestDrain: false });
+
+    expect(mockAddPendingSync).toHaveBeenCalled();
+    expect(mockRequestSyncDrain).not.toHaveBeenCalled();
+  });
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
 
 Run: `pnpm test src/__tests__/services/offline/syncDrain.test.ts src/__tests__/services/offline/sync.test.ts src/__tests__/services/rounds/finalizeSubmittedRound.test.ts`
-Expected: FAIL. All three files fail to load with "Cannot find module '@/services/offline/sync/drain'".
+Expected: FAIL. All three files fail to load with "Cannot find module '@/services/offline/sync/drain'". (Once `drain.ts` exists, `sync.test.ts` still fails: `setSyncAuthUser is not a function`, then the four "No drain without a session" cases, because `syncAll` reads the queue while signed out.)
 
 - [ ] **Step 3: Implement**
 
@@ -14438,9 +15636,49 @@ export function __resetSyncDrainForTests(): void {
 }
 ```
 
-**`src/services/offline/sync/syncOrchestrator.ts`.** Current lines 44-45 (end of the networkState import, then the scorecardSync import):
+**`src/services/offline/sync/networkState.ts:12-14`.** Current:
 
 ```ts
+// Module-level network state
+let isOnline = true;
+let isSyncing = false;
+```
+
+Replace with:
+
+```ts
+// Module-level network state
+let isOnline = true;
+let isSyncing = false;
+
+// The signed-in user the queue drains for; null while signed out (and until
+// the app root has seen the restored session). Set by useAppSyncService.
+let syncAuthUserId: string | null = null;
+
+/**
+ * Record who is signed in (null when signed out). syncAll does nothing while
+ * it is null: a signed-out drain uploads as anon (RLS retains every card as
+ * failed) and reads a queued round as missing, dropping its finalize item.
+ */
+export function setSyncAuthUser(userId: string | null): void {
+  syncAuthUserId = userId;
+}
+
+export function getSyncAuthUserId(): string | null {
+  return syncAuthUserId;
+}
+```
+
+**`src/services/offline/sync/syncOrchestrator.ts`.** Current lines 37-45 (the networkState import, then the scorecardSync import):
+
+```ts
+import {
+  getIsOnline,
+  getIsSyncing,
+  setIsSyncing,
+  setOnOnlineCallback,
+  setOnStatusChangeCallback,
+  initNetworkState,
 } from './networkState';
 import { processScorecardSync, syncScorecard, isValidUUID, ScorecardConflictError, type ScorecardSyncResult } from './scorecardSync';
 ```
@@ -14448,9 +15686,43 @@ import { processScorecardSync, syncScorecard, isValidUUID, ScorecardConflictErro
 Replace with:
 
 ```ts
+import {
+  getIsOnline,
+  getIsSyncing,
+  setIsSyncing,
+  setOnOnlineCallback,
+  setOnStatusChangeCallback,
+  initNetworkState,
+  getSyncAuthUserId,
 } from './networkState';
 import { processScorecardSync, syncScorecard, isValidUUID, ScorecardConflictError, type ScorecardSyncResult } from './scorecardSync';
 import { registerSyncDrainHandler } from './drain';
+```
+
+In `syncAll`, current (lines 163-166):
+
+```ts
+export async function syncAll(options: SyncAllOptions = {}): Promise<boolean> {
+  const { adoptServerRevisionOnConflict = false } = options;
+
+  if (getIsSyncing()) {
+```
+
+Replace with:
+
+```ts
+export async function syncAll(options: SyncAllOptions = {}): Promise<boolean> {
+  const { adoptServerRevisionOnConflict = false } = options;
+
+  // No drain while signed out, whatever triggered it (network callback,
+  // queueScorecardSync, a drain request, Retry). useAppSyncService records
+  // the user and requests a drain on sign-in.
+  if (!getSyncAuthUserId()) {
+    syncLogger.debug('No signed-in user, skipping sync');
+    return false;
+  }
+
+  if (getIsSyncing()) {
 ```
 
 Current lines 100-121:
@@ -14532,6 +15804,18 @@ export function __resetSyncServiceForTests(): void {
 }
 ```
 
+**`src/services/offline/sync/index.ts:27`.** Current:
+
+```ts
+export { getIsOnline, getIsSyncing } from './networkState';
+```
+
+Replace with:
+
+```ts
+export { getIsOnline, getIsSyncing, setSyncAuthUser } from './networkState';
+```
+
 **`src/services/offline/sync/index.ts:32-45`.** Current:
 
 ```ts
@@ -14550,6 +15834,21 @@ export { requestSyncDrain } from './drain';
 export {
   initSyncService,
   ensureSyncServiceStarted,
+```
+
+**`src/services/offline/sync.ts:25-26`.** Current:
+
+```ts
+  getIsOnline,
+  getIsSyncing,
+```
+
+Replace with:
+
+```ts
+  getIsOnline,
+  getIsSyncing,
+  setSyncAuthUser,
 ```
 
 **`src/services/offline/sync.ts:33-34`.** Current:
@@ -14579,6 +15878,21 @@ import { requestSyncDrain } from '@/services/offline/sync/drain';
 In `queueRoundFinalize`, current:
 
 ```ts
+export async function queueRoundFinalize(roundId: string): Promise<void> {
+```
+
+Replace with:
+
+```ts
+export async function queueRoundFinalize(
+  roundId: string,
+  { requestDrain = true }: { requestDrain?: boolean } = {}
+): Promise<void> {
+```
+
+and current:
+
+```ts
   submitLogger.info('Round finalisation queued for sync', { roundId: shortId(roundId) });
 }
 ```
@@ -14588,8 +15902,10 @@ Replace with:
 ```ts
   submitLogger.info('Round finalisation queued for sync', { roundId: shortId(roundId) });
   // Online (e.g. the network came back between submit and finalise), drain
-  // now rather than on the next trigger. A no-op offline.
-  requestSyncDrain('round-finalize-queued');
+  // now rather than on the next trigger. A no-op offline. The online submit
+  // path turns this off: it writes the item before its own attempt and asks
+  // for a drain only if the item is still needed afterwards.
+  if (requestDrain) requestSyncDrain('round-finalize-queued');
 }
 ```
 
@@ -14606,15 +15922,18 @@ Expected: green (apart from the Task 0 baseline)
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/services/offline/sync/drain.ts src/__tests__/services/offline/syncDrain.test.ts src/services/offline/sync/syncOrchestrator.ts src/services/offline/sync/index.ts src/services/offline/sync.ts src/__tests__/services/offline/sync.test.ts src/services/rounds/finalizeSubmittedRound.ts src/__tests__/services/rounds/finalizeSubmittedRound.test.ts
-git commit -m "feat(sync): start-once sync service and debounced drain requests
+git add src/services/offline/sync/drain.ts src/__tests__/services/offline/syncDrain.test.ts src/services/offline/sync/networkState.ts src/services/offline/sync/syncOrchestrator.ts src/services/offline/sync/index.ts src/services/offline/sync.ts src/__tests__/services/offline/sync.test.ts src/services/rounds/finalizeSubmittedRound.ts src/__tests__/services/rounds/finalizeSubmittedRound.test.ts
+git commit -m "feat(sync): start-once sync service, debounced drains, no drain signed out
 
 ensureSyncServiceStarted starts the sync service once and never tears it
 down. requestSyncDrain is debounced and coalesced. It is a no-op offline or
 before the service starts, waits for a running drain, and never imports the
 orchestrator: initSyncService registers syncAll as its handler.
-queueRoundFinalize requests a drain, so an item queued while online runs
-straight away.
+syncAll now returns at once while no user is recorded (setSyncAuthUser), so
+the network callback, queueScorecardSync and Retry can't drain signed out
+and drop a queued finalize item on a PGRST116 read.
+queueRoundFinalize requests a drain unless told not to, so an item queued
+while online runs straight away.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
@@ -14629,13 +15948,50 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Create: `src/hooks/useAppSyncService.ts`
 - Create: `src/__tests__/hooks/useAppSyncService.test.tsx`
 - Modify: `App.tsx:42, 175-177`
+- Modify: `src/services/offline/DatabaseManager.ts:55-63` (`getDb` awaits the memoised init)
+- Test: `src/__tests__/services/offline/database.test.ts` (new describe after `Database Initialization`)
 - Modify: `docs/guides/OFFLINE_ARCHITECTURE.md:622-656` ("App Initialization" → real behaviour, plus a new "Sync Queue Items" section), `:781` (date)
 
 **Interfaces:**
-- Consumes: `ensureSyncServiceStarted`, `requestSyncDrain` (A6b-1, via `@/services/offline/sync`); `initDatabase`; `useAuth`.
-- Produces: `useAppSyncService(): void`, mounted in `App.tsx` `AppContent`.
+- Consumes: `ensureSyncServiceStarted`, `requestSyncDrain`, `setSyncAuthUser` (A6b-1, via `@/services/offline/sync`); `initDatabase`; `useAuth`.
+- Produces:
+  - `useAppSyncService(): void`, mounted in `App.tsx` `AppContent`;
+  - `getDb()` resolves only after tables and migrations have run (it awaits the memoised `initDatabase()`).
+
+`DatabaseManager.doInitialize` assigns `db` as soon as `openDatabaseAsync` resolves (`DatabaseManager.ts:35`), before the tables and migrations run, and `getDb` (`:57-62`) returns `db` whenever it is set. A DAO call made during a cold-start init could then query a table or column that isn't there yet. The app-wide service makes that likelier: `ensureSyncServiceStarted` → `updateSyncCounts`, the drain and `useOfflineSync` all hit the DAO around app start.
 
 - [ ] **Step 1: Write the failing tests**
+
+In `src/__tests__/services/offline/database.test.ts` (`initDatabase` and `getPendingSyncCount` are already imported), after the closing `});` of `describe('Database Initialization', …)` (line 216), add:
+
+```ts
+describe('getDb during initialisation', () => {
+  // doInitialize assigns `db` as soon as the file opens, before the tables and
+  // migrations run. A DAO call in that window must wait for the schema.
+  it('waits for tables and migrations before running a query', async () => {
+    let releaseSchema!: () => void;
+    mockExecAsync.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          releaseSchema = resolve;
+        })
+    );
+    mockGetFirstAsync.mockResolvedValue({ count: 3 });
+
+    const init = initDatabase();
+    // Let openDatabaseAsync resolve: `db` is assigned, the first CREATE TABLE is pending.
+    await new Promise((resolve) => setImmediate(resolve));
+
+    const count = getPendingSyncCount();
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(mockGetFirstAsync).not.toHaveBeenCalled();
+
+    releaseSchema();
+    await init;
+    await expect(count).resolves.toBe(3);
+  });
+});
+```
 
 In `src/__tests__/hooks/scorecard/useOfflineSync.test.tsx`:
 
@@ -14739,13 +16095,14 @@ Create `src/__tests__/hooks/useAppSyncService.test.tsx`:
 import { renderHook, waitFor, act } from '@testing-library/react-native';
 import { AppState } from 'react-native';
 import { useAppSyncService } from '@/hooks/useAppSyncService';
-import { ensureSyncServiceStarted, requestSyncDrain } from '@/services/offline/sync';
+import { ensureSyncServiceStarted, requestSyncDrain, setSyncAuthUser } from '@/services/offline/sync';
 import { initDatabase } from '@/services/offline/database';
 import { useAuth } from '@/hooks/useAuth';
 
 jest.mock('@/services/offline/sync', () => ({
   ensureSyncServiceStarted: jest.fn(),
   requestSyncDrain: jest.fn(),
+  setSyncAuthUser: jest.fn(),
 }));
 
 jest.mock('@/services/offline/database', () => ({
@@ -14795,6 +16152,32 @@ describe('useAppSyncService', () => {
     });
     expect(requestSyncDrain).not.toHaveBeenCalled();
     expect(AppState.addEventListener).not.toHaveBeenCalled();
+    // syncAll's own gate: no drain from any other trigger either.
+    expect(setSyncAuthUser).toHaveBeenLastCalledWith(null);
+  });
+
+  it('records the signed-in user for syncAll before asking for the first drain', async () => {
+    renderHook(() => useAppSyncService());
+
+    await waitFor(() => {
+      expect(requestSyncDrain).toHaveBeenCalledWith('app-start');
+    });
+    expect(setSyncAuthUser).toHaveBeenCalledWith('user-1');
+    const [recorded] = (setSyncAuthUser as jest.Mock).mock.invocationCallOrder;
+    const [drained] = (requestSyncDrain as jest.Mock).mock.invocationCallOrder;
+    expect(recorded).toBeLessThan(drained);
+  });
+
+  it('clears the user on sign-out, so nothing drains for the next session until it signs in', async () => {
+    const { rerender } = renderHook(() => useAppSyncService());
+    await waitFor(() => {
+      expect(setSyncAuthUser).toHaveBeenCalledWith('user-1');
+    });
+
+    (useAuth as jest.Mock).mockReturnValue({ user: null });
+    rerender({});
+
+    expect(setSyncAuthUser).toHaveBeenLastCalledWith(null);
   });
 
   it('drains when the app returns to the foreground', async () => {
@@ -14840,9 +16223,10 @@ describe('useAppSyncService', () => {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `pnpm test src/__tests__/hooks/scorecard/useOfflineSync.test.tsx src/__tests__/hooks/useAppSyncService.test.tsx`
+Run: `pnpm test src/__tests__/hooks/scorecard/useOfflineSync.test.tsx src/__tests__/hooks/useAppSyncService.test.tsx src/__tests__/services/offline/database.test.ts`
 Expected: FAIL.
 - `useAppSyncService.test.tsx`: "Cannot find module '@/hooks/useAppSyncService'".
+- `database.test.ts`, "getDb during initialisation": `expect(mockGetFirstAsync).not.toHaveBeenCalled()` fails with 1 call (today `getDb` hands out `db` before the schema exists).
 - `useOfflineSync.test.tsx`:
   - "makes sure the app-wide sync service is running" fails: `ensureSyncServiceStarted` has 0 calls, and `initSyncService` was called;
   - "drops its own sync-state subscription" fails with `syncUnsubscribe` called 0 times. The subscription returned from inside `init` is discarded today.
@@ -15013,29 +16397,38 @@ Replace with:
  *
  * Runs the offline sync service for the app's lifetime. Mounted once, at the
  * app root (App.tsx → AppContent):
- *  1. opens the SQLite database, then starts the sync service
+ *  1. records the signed-in user for the sync queue (setSyncAuthUser) on every
+ *     change. syncAll does nothing while it is null, whatever triggers it (the
+ *     network callback, queueScorecardSync, a drain request, Retry);
+ *  2. opens the SQLite database, then starts the sync service
  *     (ensureSyncServiceStarted — network listener + drain handler). Nothing
  *     tears it down, so queued uploads and round finalisations keep draining
  *     after the scoring screens unmount;
- *  2. once a user is signed in, requests a drain (whatever earlier sessions
+ *  3. once a user is signed in, requests a drain (whatever earlier sessions
  *     left queued), and another each time the app returns to the foreground.
  *
- * Drains wait for a signed-in user: on a cold start the Supabase session is
- * restored asynchronously, and a write sent before it would be refused by RLS
- * and retained as failed.
+ * On a cold start the Supabase session is restored asynchronously; until
+ * useAuth has it, the user is null and nothing drains. A drain sent before
+ * would upload as anon (refused by RLS, retained as failed) and read queued
+ * rounds as missing.
  */
 
 import { useEffect, useState } from 'react';
 import { AppState } from 'react-native';
 import { useAuth } from '@/hooks/useAuth';
 import { initDatabase } from '@/services/offline/database';
-import { ensureSyncServiceStarted, requestSyncDrain } from '@/services/offline/sync';
+import { ensureSyncServiceStarted, requestSyncDrain, setSyncAuthUser } from '@/services/offline/sync';
 import { syncLogger } from '@/utils/debugLogger';
 
 export function useAppSyncService(): void {
   const { user } = useAuth();
   const userId = user?.id ?? null;
   const [isStarted, setIsStarted] = useState(false);
+
+  // First, so the user is recorded before the drain effect below asks for a drain.
+  useEffect(() => {
+    setSyncAuthUser(userId);
+  }, [userId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -15061,6 +16454,36 @@ export function useAppSyncService(): void {
     });
     return () => subscription.remove();
   }, [isStarted, userId]);
+}
+```
+
+**`src/services/offline/DatabaseManager.ts:55-63`.** Current:
+
+```ts
+/**
+ * Get database instance (initialize if needed)
+ */
+export async function getDb(): Promise<DatabaseInstance> {
+  if (!db) {
+    await initDatabase();
+  }
+  return db!;
+}
+```
+
+Replace with:
+
+```ts
+/**
+ * Get database instance (initialize if needed)
+ *
+ * Always awaits the memoised initialisation: doInitialize assigns `db` as soon
+ * as the file opens, before tables and migrations run, so `db` being set does
+ * not mean the schema is ready. Once init has resolved this is one microtask.
+ */
+export async function getDb(): Promise<DatabaseInstance> {
+  await initDatabase();
+  return db!;
 }
 ```
 
@@ -15145,11 +16568,14 @@ with:
 The offline layer starts once, at the app root, and stays up for the app's lifetime.
 
 `useAppSyncService()` (`src/hooks/useAppSyncService.ts`) is mounted in `App.tsx` (`AppContent`). It:
-1. opens the SQLite database (`initDatabase`);
-2. starts the sync service with `ensureSyncServiceStarted()` (idempotent). This installs the NetInfo listener, loads the queue counts and registers the drain handler;
-3. once a user is signed in, requests a drain, and requests another every time the app returns to the foreground.
+1. records the signed-in user for the queue (`setSyncAuthUser(user?.id ?? null)`) on every auth change;
+2. opens the SQLite database (`initDatabase`);
+3. starts the sync service with `ensureSyncServiceStarted()` (idempotent). This installs the NetInfo listener, loads the queue counts and registers the drain handler;
+4. once a user is signed in, requests a drain, and requests another every time the app returns to the foreground.
 
-Drains wait for a signed-in user. On a cold start the Supabase session is restored asynchronously, and a write sent before that is refused by RLS and retained as failed.
+**No drain runs without a signed-in user.** `syncAll` returns `false` at once while the recorded user is `null`, whatever triggered it: the network callback, `queueScorecardSync`, a drain request, Sync or Retry. The service is up while signed out, and a signed-out drain would upload as anon (RLS retains every card as `failed`) and read a queued round as missing (`PGRST116`), dropping its `'finalize'` item. On a cold start the user stays `null` until the Supabase session has been restored.
+
+`getDb()` always awaits the memoised `initDatabase()`, so a DAO call made during start-up waits for the tables and migrations.
 
 **Nothing tears the service down.** `useOfflineSync` (the scoring screens) calls `ensureSyncServiceStarted()` only as a fallback and subscribes to the sync state. On unmount it drops just its own subscription.
 
@@ -15160,13 +16586,15 @@ Before this, the network listener lived only while a scoring screen was mounted:
 
 ### When the queue drains
 
+Every trigger ends in `syncAll()`, which does nothing while signed out.
+
 | Trigger | How |
 |---|---|
 | App start, once signed in | `useAppSyncService` → `requestSyncDrain('app-start')` |
 | App returns to the foreground (signed in) | `useAppSyncService` → `requestSyncDrain('foreground')` |
 | Network comes back | `networkState` → `syncAll()` |
 | A scorecard is queued while online | `queueScorecardSync` → `syncAll()` |
-| A round item is queued while online | `queueRoundFinalize` → `requestSyncDrain('round-finalize-queued')` |
+| A round item is queued while online | `queueRoundFinalize` → `requestSyncDrain('round-finalize-queued')` (the online submit path asks only if its item is still needed after its own attempt) |
 | The user taps Sync / Retry | `manualSync()` / `retryFailedSyncs()` |
 
 `requestSyncDrain(reason)` (`src/services/offline/sync/drain.ts`):
@@ -15203,11 +16631,11 @@ A `'finalize'` item runs the same steps an online submit runs (`finalizeSubmitte
 
 | Situation | Outcome |
 |---|---|
-| A card for the round is still `pending` in the queue, or unsynced in SQLite with no queue row (`hasUnsyncedScorecardsForRound`) | **Wait.** It stays `pending`, spends no retry and raises no error. It runs again on the next drain. |
+| A submit screen is finalising the same round right now (`isRoundFinalizeInFlight`), or a card for the round is still `pending` in the queue, or unsynced in SQLite with no queue row (`hasUnsyncedScorecardsForRound`) | **Wait.** It stays `pending`, spends no retry and raises no error. It runs again on the next drain. |
 | The round's only unconfirmed cards are retained `failed` rows | **Failed.** The round item is marked `failed` too. Retry (`retryFailedSyncs`) revives both, and the card uploads first. |
 | Steps ran and the round is `completed` | **Done.** The item is removed. |
 | Steps ran and the round is not complete (another device's cards are outstanding) | **Done.** The item is removed. The device that submits the last card completes the round. |
-| The status read or write failed | **Retry.** Normal retry count; retained as `failed` after 3. |
+| The status read or write failed, or skins settlement failed | **Retry.** Normal retry count; retained as `failed` after 3. Re-running the steps is idempotent. |
 ````
 
 At line 781, current:
@@ -15235,17 +16663,19 @@ Expected: green (apart from the Task 0 baseline)
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/hooks/scorecard/useOfflineSync.ts src/__tests__/hooks/scorecard/useOfflineSync.test.tsx src/hooks/useAppSyncService.ts src/__tests__/hooks/useAppSyncService.test.tsx App.tsx docs/guides/OFFLINE_ARCHITECTURE.md
+git add src/hooks/scorecard/useOfflineSync.ts src/__tests__/hooks/scorecard/useOfflineSync.test.tsx src/hooks/useAppSyncService.ts src/__tests__/hooks/useAppSyncService.test.tsx App.tsx src/services/offline/DatabaseManager.ts src/__tests__/services/offline/database.test.ts docs/guides/OFFLINE_ARCHITECTURE.md
 git commit -m "feat(sync): run the sync service app-wide from the app root
 
 useOfflineSync started the sync service, and its cleanup removed the NetInfo
 listener whenever a scoring screen unmounted. Every submit tore it down, so
 queued items waited for the next scoring session and getIsOnline went stale.
-useAppSyncService now opens SQLite and starts the service once in App.tsx,
-then drains on a signed-in start and on every return to the foreground.
-useOfflineSync only ensures the service is running and drops its own (until
-now leaked) state subscription. OFFLINE_ARCHITECTURE.md documents the drain
-triggers and the round-item semantics.
+useAppSyncService now records the signed-in user for syncAll's gate, opens
+SQLite and starts the service once in App.tsx, then drains on a signed-in
+start and on every return to the foreground. useOfflineSync only ensures the
+service is running and drops its own (until now leaked) state subscription.
+getDb awaits the memoised init, so a DAO call during start-up no longer runs
+before the tables and migrations. OFFLINE_ARCHITECTURE.md documents the drain
+triggers, the signed-out gate and the round-item semantics.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
@@ -15255,8 +16685,9 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ### Task A6c: Shared submit step (`finalizeOrQueueRound` / `useFinalizeSubmittedRound`) and the Review submit paths
 
 Every submit screen runs one step after `submitScorecards`:
-- **Online:** finalise now. If that fails, or the round isn't complete while this device still has unconfirmed cards for it, queue a `'finalize'` item. This covers `getIsOnline()` flipping between `submitScorecards` and the finalise step.
+- **Online:** first write the `'finalize'` item (durable, no drain request), then finalise now. Remove the item only when the round completed with no status or skins error, or when the round is waiting only on other devices' cards. Otherwise keep it and request a drain: when finalising throws or fails, or the round isn't complete while this device still has unconfirmed cards for it (`getIsOnline()` can flip between `submitScorecards` and the finalise step). An app kill during the online attempt leaves the item behind.
 - **Offline:** queue it.
+- **No double run:** `finalizeSubmittedRound` marks the round in flight, and the queue's `processRoundFinalize` waits while it is (A6a-3). If a drain is already finalising the round, this step leaves it to the queue.
 
 The hook also fires the skins achievements for a game it settled online. They used to fire from `useFinalizeSkinsGame`'s `onSuccess`, which the service path bypasses.
 
@@ -15271,13 +16702,13 @@ This task wires Review's two submit paths (`handleSubmit`, `handleBypassSubmit`)
 
 **Interfaces:**
 - Consumes:
-  - `finalizeSubmittedRound`, `queueRoundFinalize` (A6a-2, A6b-1);
+  - `finalizeSubmittedRound`, `queueRoundFinalize(roundId, { requestDrain })`, `removeQueuedRoundFinalize`, `isRoundFinalizeInFlight`, `FinalizeSubmittedRoundResult` (A6a-2, A6b-1);
   - `hasUnsyncedScorecardsForRound`, `getFailedSyncCountForRound` (`@/services/offline/database`);
-  - `getIsOnline` (`@/services/offline/sync/networkState`);
-  - `awardSkinsAchievements(game, { playerId, checkAndAward, showMultipleToasts })` (A5b-2, `SkinsAchievementContext`; Contract note 10);
+  - `getIsOnline` (`@/services/offline/sync/networkState`); `requestSyncDrain` (`@/services/offline/sync/drain`, by path);
+  - `awardSkinsAchievements(game, { playerId, checkAndAward, showMultipleToasts })` (A5b-2, `@/services/skins/finalizeSkinsGame`; `ctx: SkinsAchievementContext`; never throws);
   - `useAuth`, `useCheckAchievements`, `useAchievementToast` (existing).
 - Produces:
-  - `finalizeOrQueueRound(roundId): Promise<{ completed: boolean; queued: boolean; skinsGame: SkinsGame | null }>` (rejects only if queueing fails);
+  - `finalizeOrQueueRound(roundId): Promise<{ completed: boolean; queued: boolean; skinsGame: SkinsGame | null }>` (rejects only if queueing fails). `queued` is true when the `'finalize'` item is left in the queue;
   - `useFinalizeSubmittedRound(): (roundId: string) => Promise<{ completed: boolean; queued: boolean }>` (never rejects).
 
   A6d-1 and B8 consume them.
@@ -15301,9 +16732,13 @@ import {
 
 const mockFinalizeSubmittedRound = jest.fn();
 const mockQueueRoundFinalize = jest.fn();
+const mockRemoveQueuedRoundFinalize = jest.fn();
+const mockIsRoundFinalizeInFlight = jest.fn();
 jest.mock('@/services/rounds/finalizeSubmittedRound', () => ({
   finalizeSubmittedRound: (...args: unknown[]) => mockFinalizeSubmittedRound(...args),
   queueRoundFinalize: (...args: unknown[]) => mockQueueRoundFinalize(...args),
+  removeQueuedRoundFinalize: (...args: unknown[]) => mockRemoveQueuedRoundFinalize(...args),
+  isRoundFinalizeInFlight: (...args: unknown[]) => mockIsRoundFinalizeInFlight(...args),
 }));
 
 const mockHasUnsynced = jest.fn();
@@ -15316,6 +16751,11 @@ jest.mock('@/services/offline/database', () => ({
 const mockGetIsOnline = jest.fn();
 jest.mock('@/services/offline/sync/networkState', () => ({
   getIsOnline: () => mockGetIsOnline(),
+}));
+
+const mockRequestSyncDrain = jest.fn();
+jest.mock('@/services/offline/sync/drain', () => ({
+  requestSyncDrain: (...args: unknown[]) => mockRequestSyncDrain(...args),
 }));
 
 const mockAwardSkinsAchievements = jest.fn();
@@ -15337,31 +16777,55 @@ jest.mock('@/context/AchievementToastContext', () => ({
 
 const ROUND_ID = '550e8400-e29b-41d4-a716-446655440000';
 const SKINS_GAME = { id: 'g1', pot_value: 5, status: 'completed' };
+const DONE = { completed: true, skinsGame: null, statusError: null, skinsError: null };
+const NOT_COMPLETE = { completed: false, skinsGame: null, statusError: null, skinsError: null };
 
 beforeEach(() => {
   mockAchievementsReady.value = true;
   mockGetIsOnline.mockReturnValue(true);
-  mockFinalizeSubmittedRound.mockResolvedValue({ completed: true, skinsGame: null, statusError: null });
+  mockFinalizeSubmittedRound.mockResolvedValue(DONE);
   mockQueueRoundFinalize.mockResolvedValue(undefined);
+  mockRemoveQueuedRoundFinalize.mockResolvedValue(true);
+  mockIsRoundFinalizeInFlight.mockReturnValue(false);
   mockHasUnsynced.mockResolvedValue(false);
   mockFailedCount.mockResolvedValue(0);
   mockAwardSkinsAchievements.mockResolvedValue(undefined);
 });
 
 describe('finalizeOrQueueRound', () => {
-  it('finalises straight away when online and the round completes', async () => {
+  it('writes the item first (no drain), finalises online, then removes the item once the round completes', async () => {
     await expect(finalizeOrQueueRound(ROUND_ID)).resolves.toEqual({
       completed: true,
       queued: false,
       skinsGame: null,
     });
+
+    expect(mockQueueRoundFinalize).toHaveBeenCalledWith(ROUND_ID, { requestDrain: false });
     expect(mockFinalizeSubmittedRound).toHaveBeenCalledWith(ROUND_ID);
-    expect(mockQueueRoundFinalize).not.toHaveBeenCalled();
+    expect(mockRemoveQueuedRoundFinalize).toHaveBeenCalledWith(ROUND_ID);
+    const [queued] = mockQueueRoundFinalize.mock.invocationCallOrder;
+    const [finalized] = mockFinalizeSubmittedRound.mock.invocationCallOrder;
+    const [removed] = mockRemoveQueuedRoundFinalize.mock.invocationCallOrder;
+    expect(queued).toBeLessThan(finalized);
+    expect(finalized).toBeLessThan(removed);
+    expect(mockRequestSyncDrain).not.toHaveBeenCalled();
     expect(mockHasUnsynced).not.toHaveBeenCalled();
   });
 
-  it('queues when the round is not complete and this device still has its cards to upload', async () => {
-    mockFinalizeSubmittedRound.mockResolvedValue({ completed: false, skinsGame: null, statusError: null });
+  it('leaves a durable item behind when the app dies mid-finalise', async () => {
+    // The online attempt never returns (the process is killed during it).
+    mockFinalizeSubmittedRound.mockReturnValue(new Promise(() => {}));
+
+    void finalizeOrQueueRound(ROUND_ID);
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(mockQueueRoundFinalize).toHaveBeenCalledWith(ROUND_ID, { requestDrain: false });
+    expect(mockFinalizeSubmittedRound).toHaveBeenCalled();
+    expect(mockRemoveQueuedRoundFinalize).not.toHaveBeenCalled();
+  });
+
+  it('keeps the item when the round is not complete and this device still has its cards to upload', async () => {
+    mockFinalizeSubmittedRound.mockResolvedValue(NOT_COMPLETE);
     mockHasUnsynced.mockResolvedValue(true);
 
     await expect(finalizeOrQueueRound(ROUND_ID)).resolves.toEqual({
@@ -15370,35 +16834,48 @@ describe('finalizeOrQueueRound', () => {
       skinsGame: null,
     });
     expect(mockHasUnsynced).toHaveBeenCalledWith(ROUND_ID);
-    expect(mockQueueRoundFinalize).toHaveBeenCalledWith(ROUND_ID);
+    expect(mockRemoveQueuedRoundFinalize).not.toHaveBeenCalled();
+    expect(mockRequestSyncDrain).toHaveBeenCalledWith('round-finalize-queued');
   });
 
-  it('queues when the round is not complete and one of its cards is a retained failure', async () => {
-    mockFinalizeSubmittedRound.mockResolvedValue({ completed: false, skinsGame: null, statusError: null });
+  it('keeps the item when the round is not complete and one of its cards is a retained failure', async () => {
+    mockFinalizeSubmittedRound.mockResolvedValue(NOT_COMPLETE);
     mockFailedCount.mockResolvedValue(1);
 
     await expect(finalizeOrQueueRound(ROUND_ID)).resolves.toEqual(
       expect.objectContaining({ queued: true })
     );
-    expect(mockQueueRoundFinalize).toHaveBeenCalledWith(ROUND_ID);
+    expect(mockRemoveQueuedRoundFinalize).not.toHaveBeenCalled();
   });
 
-  it('does not queue when the round is waiting only on other devices', async () => {
-    mockFinalizeSubmittedRound.mockResolvedValue({ completed: false, skinsGame: null, statusError: null });
+  it('removes the item when the round is waiting only on other devices', async () => {
+    mockFinalizeSubmittedRound.mockResolvedValue(NOT_COMPLETE);
 
     await expect(finalizeOrQueueRound(ROUND_ID)).resolves.toEqual({
       completed: false,
       queued: false,
       skinsGame: null,
     });
-    expect(mockQueueRoundFinalize).not.toHaveBeenCalled();
+    expect(mockRemoveQueuedRoundFinalize).toHaveBeenCalledWith(ROUND_ID);
+    expect(mockRequestSyncDrain).not.toHaveBeenCalled();
   });
 
-  it('queues a retry when the status write fails, keeping the settled skins game', async () => {
+  it('still reports a completed round when removing its item fails (the leftover item is harmless)', async () => {
+    mockRemoveQueuedRoundFinalize.mockRejectedValue(new Error('disk full'));
+
+    await expect(finalizeOrQueueRound(ROUND_ID)).resolves.toEqual({
+      completed: true,
+      queued: true,
+      skinsGame: null,
+    });
+  });
+
+  it('keeps the item for a retry when the status write fails, returning the settled skins game', async () => {
     mockFinalizeSubmittedRound.mockResolvedValue({
       completed: false,
       skinsGame: SKINS_GAME,
       statusError: new Error('network down'),
+      skinsError: null,
     });
 
     await expect(finalizeOrQueueRound(ROUND_ID)).resolves.toEqual({
@@ -15406,10 +16883,22 @@ describe('finalizeOrQueueRound', () => {
       queued: true,
       skinsGame: SKINS_GAME,
     });
-    expect(mockQueueRoundFinalize).toHaveBeenCalledWith(ROUND_ID);
+    expect(mockRemoveQueuedRoundFinalize).not.toHaveBeenCalled();
+    expect(mockRequestSyncDrain).toHaveBeenCalledWith('round-finalize-queued');
   });
 
-  it('queues a retry when finalisation throws (e.g. an early end still queued, B6b)', async () => {
+  it('keeps the item for a retry when skins settlement fails after the round completed', async () => {
+    mockFinalizeSubmittedRound.mockResolvedValue({ ...DONE, skinsError: new Error('payouts insert failed') });
+
+    await expect(finalizeOrQueueRound(ROUND_ID)).resolves.toEqual({
+      completed: true,
+      queued: true,
+      skinsGame: null,
+    });
+    expect(mockRemoveQueuedRoundFinalize).not.toHaveBeenCalled();
+  });
+
+  it('keeps the item when finalisation throws (e.g. an early end still queued, B6b)', async () => {
     mockFinalizeSubmittedRound.mockRejectedValue(new Error('waiting for queued end_early'));
 
     await expect(finalizeOrQueueRound(ROUND_ID)).resolves.toEqual({
@@ -15417,11 +16906,24 @@ describe('finalizeOrQueueRound', () => {
       queued: true,
       skinsGame: null,
     });
-    expect(mockQueueRoundFinalize).toHaveBeenCalledWith(ROUND_ID);
+    expect(mockRemoveQueuedRoundFinalize).not.toHaveBeenCalled();
     expect(mockHasUnsynced).not.toHaveBeenCalled();
+    expect(mockRequestSyncDrain).toHaveBeenCalledWith('round-finalize-queued');
   });
 
-  it('queues without touching the server when offline', async () => {
+  it('leaves the round to the queue when a drain is already finalising it', async () => {
+    mockIsRoundFinalizeInFlight.mockReturnValue(true);
+
+    await expect(finalizeOrQueueRound(ROUND_ID)).resolves.toEqual({
+      completed: false,
+      queued: true,
+      skinsGame: null,
+    });
+    expect(mockFinalizeSubmittedRound).not.toHaveBeenCalled();
+    expect(mockRemoveQueuedRoundFinalize).not.toHaveBeenCalled();
+  });
+
+  it('queues (asking for a drain) without touching the server when offline', async () => {
     mockGetIsOnline.mockReturnValue(false);
 
     await expect(finalizeOrQueueRound(ROUND_ID)).resolves.toEqual({
@@ -15431,13 +16933,14 @@ describe('finalizeOrQueueRound', () => {
     });
     expect(mockFinalizeSubmittedRound).not.toHaveBeenCalled();
     expect(mockQueueRoundFinalize).toHaveBeenCalledTimes(1);
+    expect(mockQueueRoundFinalize).toHaveBeenCalledWith(ROUND_ID);
   });
 
   it('rejects when the queue write itself fails', async () => {
-    mockGetIsOnline.mockReturnValue(false);
     mockQueueRoundFinalize.mockRejectedValue(new Error('disk full'));
 
     await expect(finalizeOrQueueRound(ROUND_ID)).rejects.toThrow('disk full');
+    expect(mockFinalizeSubmittedRound).not.toHaveBeenCalled();
   });
 });
 
@@ -15658,7 +17161,7 @@ describe('useScoreSubmission — round finalisation', () => {
 
 Run: `pnpm test src/__tests__/hooks/rounds/useFinalizeSubmittedRound.test.tsx src/screens/scoring/ReviewScorecardScreen/hooks/useScoreSubmission.test.tsx`
 Expected: FAIL.
-- `useFinalizeSubmittedRound.test.tsx`: "Cannot find module '@/hooks/rounds/useFinalizeSubmittedRound'".
+- `useFinalizeSubmittedRound.test.tsx`: "Cannot find module '@/hooks/rounds/useFinalizeSubmittedRound'". (With an empty hook file, the `finalizeOrQueueRound` cases fail with "finalizeOrQueueRound is not a function".)
 - `useScoreSubmission.test.tsx`: the same "Cannot find module" error, from the `jest.mock` of that path.
 - If the hook file is created empty first, all three `useScoreSubmission` cases fail with `expect(jest.fn()).toHaveBeenCalledWith('round-1')` and 0 calls. The current code calls the mocked `updateRoundStatus`, or nothing offline.
 
@@ -15671,12 +17174,16 @@ Expected: FAIL.
  * finalizeOrQueueRound / useFinalizeSubmittedRound
  *
  * The step every submit screen runs after `submitScorecards`:
- *  - online: finalise the round now (finalizeSubmittedRound — status →
- *    results → skins). Queue a 'finalize' sync item instead when that fails
- *    (a statusError, or a throw — B6b's queued-end_early guard),
- *    or when the round isn't complete and this device still has unconfirmed
- *    cards for it (getIsOnline() can flip between submitScorecards and this
- *    step, leaving the cards queued — the server can't see them yet);
+ *  - online: write the 'finalize' sync item FIRST (durable; no drain request,
+ *    which would race this attempt), then finalise the round now
+ *    (finalizeSubmittedRound — status → results → skins). Remove the item only
+ *    when the round completed with no status or skins error, or when it is
+ *    waiting only on other devices. Keep it (and ask for a drain) when the
+ *    attempt throws (B6b's queued-end_early guard) or reports an error, or
+ *    when the round isn't complete and this device still has unconfirmed cards
+ *    for it (getIsOnline() can flip between submitScorecards and this step,
+ *    leaving the cards queued — the server can't see them yet). If the app is
+ *    killed mid-attempt, the item is already on disk;
  *  - offline: queue it. The sync queue runs it once the cards upload.
  *
  * The hook also fires the current user's skins achievements for a game it
@@ -15689,61 +17196,95 @@ import { useAuth } from '@/hooks/useAuth';
 import { useCheckAchievements } from '@/hooks/achievements/useCheckAchievements';
 import { useAchievementToast } from '@/context/AchievementToastContext';
 import { awardSkinsAchievements } from '@/services/skins/finalizeSkinsGame';
-import { finalizeSubmittedRound, queueRoundFinalize } from '@/services/rounds/finalizeSubmittedRound';
+import {
+  finalizeSubmittedRound,
+  queueRoundFinalize,
+  removeQueuedRoundFinalize,
+  isRoundFinalizeInFlight,
+  type FinalizeSubmittedRoundResult,
+} from '@/services/rounds/finalizeSubmittedRound';
 import { hasUnsyncedScorecardsForRound, getFailedSyncCountForRound } from '@/services/offline/database';
 import { getIsOnline } from '@/services/offline/sync/networkState';
+// By path, not via '@/services/offline/sync' (that barrel re-exports the orchestrator).
+import { requestSyncDrain } from '@/services/offline/sync/drain';
 import { submitLogger } from '@/utils/debugLogger';
 import type { SkinsGame } from '@/types/database/skins.types';
 
 export interface FinalizeOrQueueResult {
   /** True when the round is `completed` on the server — set now or already. */
   completed: boolean;
-  /** True when a 'finalize' sync item was queued to finish the job. */
+  /** True when the 'finalize' sync item is left queued to finish the job. */
   queued: boolean;
   /** The skins game settled by this call, or null. */
   skinsGame: SkinsGame | null;
 }
 
+const shortId = (roundId: string): string => roundId.substring(0, 8) + '...';
+
+/** The item stays queued; let the queue pick it up now if it can. */
+function leaveQueued(roundId: string, reason: string): void {
+  submitLogger.info('Round finalisation left to the sync queue', { roundId: shortId(roundId), reason });
+  requestSyncDrain('round-finalize-queued');
+}
+
 /** Rejects only when queueing fails (or the local queue can't be read). */
 export async function finalizeOrQueueRound(roundId: string): Promise<FinalizeOrQueueResult> {
   if (!getIsOnline()) {
+    // Requests a drain too: a no-op offline.
     await queueRoundFinalize(roundId);
     return { completed: false, queued: true, skinsGame: null };
   }
 
-  let result: Awaited<ReturnType<typeof finalizeSubmittedRound>>;
+  // Durable first, so an app kill during the attempt below still leaves the
+  // item. No drain request: it would race this attempt.
+  await queueRoundFinalize(roundId, { requestDrain: false });
+
+  // A drain is already running this round's steps: leave the item to it.
+  if (isRoundFinalizeInFlight(roundId)) {
+    leaveQueued(roundId, 'already running in the sync queue');
+    return { completed: false, queued: true, skinsGame: null };
+  }
+
+  let result: FinalizeSubmittedRoundResult;
   try {
     result = await finalizeSubmittedRound(roundId);
   } catch (error) {
     // finalizeSubmittedRound only rejects with RoundNotReadyError while an
-    // 'end_early' item for the round is still queued (B6b). Any failure to
-    // finish online leaves a durable 'finalize' item behind; the drain runs
-    // the end_early item first.
-    submitLogger.info('Round finalisation deferred; queueing it for the sync queue', {
-      roundId: roundId.substring(0, 8) + '...',
-      reason: error instanceof Error ? error.message : String(error),
-    });
-    await queueRoundFinalize(roundId);
+    // 'end_early' item for the round is still queued (B6b). The drain runs
+    // the end_early item first, then this one.
+    leaveQueued(roundId, error instanceof Error ? error.message : String(error));
     return { completed: false, queued: true, skinsGame: null };
   }
-  const { completed, skinsGame, statusError } = result;
+  const { completed, skinsGame, statusError, skinsError } = result;
 
-  const mustQueue =
+  const keepItem =
     statusError != null ||
+    skinsError != null ||
     (!completed &&
       ((await hasUnsyncedScorecardsForRound(roundId)) ||
         (await getFailedSyncCountForRound(roundId)) > 0));
 
-  if (!mustQueue) {
-    return { completed, queued: false, skinsGame };
+  if (keepItem) {
+    leaveQueued(
+      roundId,
+      statusError != null ? 'status write failed' : skinsError != null ? 'skins settlement failed' : 'cards still uploading'
+    );
+    return { completed, queued: true, skinsGame };
   }
 
-  submitLogger.info('Round not finalised online; queueing it for the sync queue', {
-    roundId: roundId.substring(0, 8) + '...',
-    statusFailed: statusError != null,
-  });
-  await queueRoundFinalize(roundId);
-  return { completed: false, queued: true, skinsGame };
+  // Done online, or waiting only on other devices (whichever submits the last
+  // card completes the round): the item has nothing left to do.
+  try {
+    await removeQueuedRoundFinalize(roundId);
+  } catch (error) {
+    // Harmless: the leftover item re-runs the idempotent steps on a drain.
+    submitLogger.warn('Could not remove the queued round finalisation', {
+      roundId: shortId(roundId),
+      error: String(error),
+    });
+    return { completed, queued: true, skinsGame };
+  }
+  return { completed, queued: false, skinsGame };
 }
 
 export function useFinalizeSubmittedRound(): (
@@ -16009,7 +17550,10 @@ Replace with:
 
 Every submit screen calls `useFinalizeSubmittedRound()` (`src/hooks/rounds/useFinalizeSubmittedRound.ts`) after `submitScorecards`:
 - **Offline:** it queues a `'finalize'` item.
-- **Online:** it runs `finalizeSubmittedRound` straight away, and queues an item only when that fails, or when the round isn't complete while this device still has unconfirmed (pending or retained) cards for it. A skins game settled online fires the user's skins achievements; a game settled later by the queue doesn't.
+- **Online:** it writes the `'finalize'` item first, without a drain request, then runs `finalizeSubmittedRound` straight away. It removes the item (by entity key) only when the round completed with no status or skins error, or when the round is waiting only on other devices. Otherwise the item stays and a drain is requested: when the attempt throws or reports an error, or when the round isn't complete while this device still has unconfirmed (pending or retained) cards for it. An app kill mid-finalise leaves the item behind.
+- **No double run:** while `finalizeSubmittedRound` runs, the round is in flight and the queued item waits.
+
+A skins game settled online fires the user's skins achievements; a game settled later by the queue doesn't.
 ```
 
 - [ ] **Step 4: Run tests to verify they pass**
@@ -16029,11 +17573,12 @@ git add src/hooks/rounds/useFinalizeSubmittedRound.ts src/__tests__/hooks/rounds
 git commit -m "feat(scoring): Review submit finalises or queues the round through one step
 
 useFinalizeSubmittedRound replaces the inline status/results/skins calls on
-both Review submit paths. Online it finalises now. It queues a 'finalize'
-sync item when that fails, or when the round isn't complete and this device
-still has unconfirmed cards (the network can flip between submit and
-finalise). Offline it always queues, so offline-submitted rounds finally
-complete.
+both Review submit paths. Online it writes a 'finalize' sync item first, then
+finalises now, and removes the item only once the round completed cleanly or
+waits only on other devices. It keeps the item when finalising fails (status
+or skins) or the round isn't complete while this device still has
+unconfirmed cards, so an app kill mid-finalise still leaves it queued.
+Offline it always queues, so offline-submitted rounds finally complete.
 
 Behaviour changes:
 - skins settlement and skins achievements are now awaited before the success
@@ -16050,26 +17595,33 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 These three screens write `rounds.status='completed'` directly and skip results:
 - **`MatchPlayScorecardScreen.performSubmit`**: online only; settles skins through `useFinalizeSkinsForRound`.
-- **`MatchPlayScoringScreen.handleConfirmSubmit`**: online only; no skins.
+- **`MatchPlayScoringScreen.handleConfirmSubmit`**: online only; no skins; writes no sub-match result.
 - **`PlayerScorecardScreen.performSubmit`**: runs even offline. It completes the round after submitting a **single** player's card, and settles skins.
 
 All three switch to `useFinalizeSubmittedRound`. Online, the round now completes only once every card is terminal, and results are written. Offline, it is queued.
 
+**Split singles competition rounds.** `finalizeRoundStatus` completes a split round only once every `sub_matches` row is terminal. Only `TeamMatchPlayScoringScreen` (`index.tsx:333-354`, `handlePersistSubMatchResult` → `useUpdateSubMatchResult`), ViewRound and the organiser's force-finalise write sub-match status. `MatchPlayScoringScreen` scores a split 1v1 round's sub-match (it resolves the user's own one with `resolveSubMatchForUser`), but writes nothing to it. Once its direct status write is gone, a split singles competition round would never complete. So `handleConfirmSubmit` now mirrors the team screen: before finalising, it writes the user's sub-match as `completed`, with the result from the singles engine (`useMatchPlayScoring`'s `matchStatus` and `holeResults`). It never overwrites an organiser's `manual_result`. A new pure helper, `buildSinglesSubMatchResult`, picks the sub-match and maps the engine's winner to `a-wins` / `b-wins` / `halved`. `useUpdateSubMatchResult`'s `onSuccess` (awaited by `mutateAsync`) also refinalises results and the round status; the shared step then runs them again, which is idempotent.
+
+The write needs the network, as on the team screen. Offline, it is skipped (and a failure is logged, not shown): the scorecards are already submitted, and the round completes once someone records that sub-match online (see Follow-ups).
+
 **Files:**
 - Modify: `src/screens/scoring/MatchPlayScorecardScreen/index.tsx:29, 34, 122-123, 173-194, 216-241` (find by text; A5c may shift lines)
 - Test: `src/screens/scoring/MatchPlayScorecardScreen/MatchPlayScorecardScreen.test.tsx:14, 74-77`, plus a new describe at the end
-- Modify: `src/screens/scoring/MatchPlayScoringScreen/index.tsx:35, 53-58, 386-423`
+- Modify: `src/screens/scoring/MatchPlayScoringScreen/index.tsx:31, 35, 44, 53-58, 172, 386-423`
+- Create: `src/screens/scoring/MatchPlayScoringScreen/utils/subMatchResult.ts`
+- Create: `src/screens/scoring/MatchPlayScoringScreen/utils/subMatchResult.test.ts`
 - Modify: `src/screens/scoring/PlayerScorecardScreen/index.tsx:31, 78-79, 114-133, 147-159, 186`
 - Create: `src/screens/scoring/PlayerScorecardScreen/PlayerScorecardScreen.test.tsx`
 
-`MatchPlayScoringScreen` has no screen test, and its dependency graph is very large. Its change is the same swap to the shared step, so it is covered by:
+`MatchPlayScoringScreen` has no screen test, and its dependency graph is very large. Its change is the swap to the shared step plus one call to a pure helper, so it is covered by:
 - `pnpm type-check`;
+- the `buildSinglesSubMatchResult` unit tests (which sub-match, which side won, the hole lead, manual results);
 - the A6c `finalizeOrQueueRound` / `useFinalizeSubmittedRound` tests;
-- the Part A on-device QA item "singles match play submit".
+- the Part A on-device QA items "singles match play submit" and "split singles competition round completes" (A6d-2).
 
 **Interfaces:**
-- Consumes: `useFinalizeSubmittedRound()` (A6c)
-- Produces: none new.
+- Consumes: `useFinalizeSubmittedRound()` (A6c); `useUpdateSubMatchResult(roundId)` (existing, `@/hooks/rounds`).
+- Produces: `buildSinglesSubMatchResult(subMatches, player1Id, player2Id, matchStatus, holeResults): SinglesSubMatchResult | null`, with `SinglesSubMatchResult = { subMatchId: string; result: 'a-wins' | 'b-wins' | 'halved'; finalDifferential: number }` (`src/screens/scoring/MatchPlayScoringScreen/utils/subMatchResult.ts`; not added to `./utils/index.ts`).
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -16150,6 +17702,100 @@ Replace with the following. `getPlayerScore` returns `{ strokes: 4 }`, not `unde
       expect(mockFinalizeRound).toHaveBeenCalledWith('round-123');
       expect(supabase.from).not.toHaveBeenCalledWith('rounds');
     });
+  });
+});
+```
+
+Create `src/screens/scoring/MatchPlayScoringScreen/utils/subMatchResult.test.ts`:
+
+```ts
+/**
+ * buildSinglesSubMatchResult — the sub-match write MatchPlayScoringScreen
+ * makes on submit for a split singles round, so the round can complete.
+ *
+ * @see src/screens/scoring/MatchPlayScoringScreen/utils/subMatchResult.ts
+ */
+import { buildSinglesSubMatchResult } from './subMatchResult';
+import type { HoleResult, MatchStatus } from '../types';
+
+type SubMatchRow = { id: string; team_a_player_ids: string[]; team_b_player_ids: string[]; manual_result: boolean };
+
+function subMatch(id: string, a: string, b: string, manual = false): SubMatchRow {
+  return { id, team_a_player_ids: [a], team_b_player_ids: [b], manual_result: manual };
+}
+
+const SUB_MATCHES = [subMatch('sm-1', 'ann', 'bob'), subMatch('sm-2', 'cat', 'dan')];
+
+/** Holes won by each player, in order: 'p1' / 'p2' / 'h' (halved). */
+function holes(results: ('p1' | 'p2' | 'h')[]): Record<number, HoleResult> {
+  const out: Record<number, HoleResult> = {};
+  results.forEach((r, i) => {
+    out[i + 1] = {
+      player1Score: 4,
+      player2Score: 4,
+      player1PickedUp: false,
+      player2PickedUp: false,
+      winner: r === 'p1' ? 'player1' : r === 'p2' ? 'player2' : 'halved',
+    };
+  });
+  return out;
+}
+
+const P1_WINS_3_AND_2: MatchStatus = { status: 'complete', winner: 'player1', margin: '3 & 2' };
+
+describe('buildSinglesSubMatchResult', () => {
+  it("records a win for team A when player 1 is on team A, with the hole lead", () => {
+    const result = buildSinglesSubMatchResult(
+      SUB_MATCHES,
+      'cat',
+      'dan',
+      P1_WINS_3_AND_2,
+      holes(['p1', 'p1', 'h', 'p2', 'p1', 'p1'])
+    );
+
+    expect(result).toEqual({ subMatchId: 'sm-2', result: 'a-wins', finalDifferential: 3 });
+  });
+
+  it('records a win for team B when player 1 is on team B', () => {
+    const result = buildSinglesSubMatchResult(
+      SUB_MATCHES,
+      'bob',
+      'ann',
+      P1_WINS_3_AND_2,
+      holes(['p1', 'p1', 'p1'])
+    );
+
+    expect(result).toEqual({ subMatchId: 'sm-1', result: 'b-wins', finalDifferential: 3 });
+  });
+
+  it('records a halved match with no differential', () => {
+    const result = buildSinglesSubMatchResult(
+      SUB_MATCHES,
+      'ann',
+      'bob',
+      { status: 'complete', winner: 'halved', margin: 'All Square' },
+      holes(['p1', 'p2'])
+    );
+
+    expect(result).toEqual({ subMatchId: 'sm-1', result: 'halved', finalDifferential: 0 });
+  });
+
+  it('writes nothing while the match is still in progress', () => {
+    const inProgress: MatchStatus = { status: 'in_progress', leader: 'player1', holesUp: 1, holesRemaining: 5 };
+
+    expect(buildSinglesSubMatchResult(SUB_MATCHES, 'ann', 'bob', inProgress, holes(['p1']))).toBeNull();
+  });
+
+  it("never overwrites an organiser's manual result", () => {
+    const manual = [subMatch('sm-1', 'ann', 'bob', true)];
+
+    expect(buildSinglesSubMatchResult(manual, 'ann', 'bob', P1_WINS_3_AND_2, holes(['p1']))).toBeNull();
+  });
+
+  it('writes nothing for a round without a matching sub-match (not split, or another pairing)', () => {
+    expect(buildSinglesSubMatchResult(undefined, 'ann', 'bob', P1_WINS_3_AND_2, holes(['p1']))).toBeNull();
+    expect(buildSinglesSubMatchResult([], 'ann', 'bob', P1_WINS_3_AND_2, holes(['p1']))).toBeNull();
+    expect(buildSinglesSubMatchResult(SUB_MATCHES, 'ann', 'dan', P1_WINS_3_AND_2, holes(['p1']))).toBeNull();
   });
 });
 ```
@@ -16295,14 +17941,79 @@ describe('PlayerScorecardScreen submit', () => {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `pnpm test src/screens/scoring/MatchPlayScorecardScreen/MatchPlayScorecardScreen.test.tsx src/screens/scoring/PlayerScorecardScreen/PlayerScorecardScreen.test.tsx -t 'shared submit step'`
-Expected: FAIL in both files:
+Run: `pnpm test src/screens/scoring/MatchPlayScorecardScreen/MatchPlayScorecardScreen.test.tsx src/screens/scoring/PlayerScorecardScreen/PlayerScorecardScreen.test.tsx -t 'shared submit step'`, then `pnpm test src/screens/scoring/MatchPlayScoringScreen/utils/subMatchResult.test.ts`
+Expected: FAIL:
 - `expect(jest.fn()).toHaveBeenCalledWith('round-123')`, with 0 calls;
-- `expect(jest.fn()).toHaveBeenCalledWith('round-1')`, with 0 calls.
+- `expect(jest.fn()).toHaveBeenCalledWith('round-1')`, with 0 calls;
+- `subMatchResult.test.ts`: "Cannot find module './subMatchResult'".
 
 Both screens still call `supabase.from('rounds').update(...)`. PlayerScorecard does it through `await import('@/services/supabase/client')`, which the `jest.mock` covers.
 
 - [ ] **Step 3: Implement the screens**
+
+**Create `src/screens/scoring/MatchPlayScoringScreen/utils/subMatchResult.ts`:**
+
+```ts
+/**
+ * buildSinglesSubMatchResult
+ *
+ * The sub-match row MatchPlayScoringScreen writes on submit for a split
+ * singles round (one `sub_matches` row per 1v1 match). finalizeRoundStatus
+ * completes a split round only once every sub-match is terminal, so without
+ * this write a split singles competition round never completes. Mirrors
+ * TeamMatchPlayScoringScreen's handlePersistSubMatchResult:
+ *  - only once the match is decided (`matchStatus.status === 'complete'`);
+ *  - never over an organiser's manual result;
+ *  - `finalDifferential` is the hole lead at close (0 when halved).
+ * Returns null when there is nothing to write (not a split round, no
+ * sub-match pairs these two players, match not finished, manual result).
+ */
+import type { SubMatch } from '@/types/database';
+import type { HoleResult, MatchStatus } from '../types';
+
+export interface SinglesSubMatchResult {
+  subMatchId: string;
+  result: 'a-wins' | 'b-wins' | 'halved';
+  finalDifferential: number;
+}
+
+type SubMatchSides = Pick<SubMatch, 'id' | 'team_a_player_ids' | 'team_b_player_ids' | 'manual_result'>;
+
+export function buildSinglesSubMatchResult(
+  subMatches: SubMatchSides[] | undefined,
+  player1Id: string,
+  player2Id: string,
+  matchStatus: MatchStatus,
+  holeResults: Record<number, HoleResult>
+): SinglesSubMatchResult | null {
+  if (matchStatus.status !== 'complete') return null;
+
+  const subMatch = subMatches?.find(
+    (sm) =>
+      (sm.team_a_player_ids.includes(player1Id) && sm.team_b_player_ids.includes(player2Id)) ||
+      (sm.team_a_player_ids.includes(player2Id) && sm.team_b_player_ids.includes(player1Id))
+  );
+  if (!subMatch || subMatch.manual_result) return null;
+
+  if (matchStatus.winner === 'halved') {
+    return { subMatchId: subMatch.id, result: 'halved', finalDifferential: 0 };
+  }
+
+  let player1Lead = 0;
+  for (const hole of Object.values(holeResults)) {
+    if (hole?.winner === 'player1') player1Lead++;
+    else if (hole?.winner === 'player2') player1Lead--;
+  }
+
+  const player1IsTeamA = subMatch.team_a_player_ids.includes(player1Id);
+  const teamAWon = (matchStatus.winner === 'player1') === player1IsTeamA;
+  return {
+    subMatchId: subMatch.id,
+    result: teamAWon ? 'a-wins' : 'b-wins',
+    finalDifferential: Math.abs(player1Lead),
+  };
+}
+```
 
 **`src/screens/scoring/MatchPlayScorecardScreen/index.tsx`.** Line 29, current:
 
@@ -16425,7 +18136,19 @@ Replace with:
 
 `isOnline` stays in the deps: the `scoringLogger.info('SUBMIT: Starting …', { isOnline })` line above still reads it.
 
-**`src/screens/scoring/MatchPlayScoringScreen/index.tsx`.** Line 35, current:
+**`src/screens/scoring/MatchPlayScoringScreen/index.tsx`.** Line 31, current:
+
+```tsx
+import { useRoundDetails, useSubMatches } from '@/hooks/rounds';
+```
+
+Replace with:
+
+```tsx
+import { useRoundDetails, useSubMatches, useUpdateSubMatchResult } from '@/hooks/rounds';
+```
+
+Line 35, current:
 
 ```tsx
 import { supabase } from '@/services/supabase/client';
@@ -16435,6 +18158,19 @@ Replace with:
 
 ```tsx
 import { useFinalizeSubmittedRound } from '@/hooks/rounds/useFinalizeSubmittedRound';
+```
+
+Line 44, current:
+
+```tsx
+import type { HoleResult } from './types';
+```
+
+Replace with:
+
+```tsx
+import type { HoleResult } from './types';
+import { buildSinglesSubMatchResult } from './utils/subMatchResult';
 ```
 
 Lines 53-58, current:
@@ -16456,9 +18192,23 @@ Replace with:
   const deleteRoundMutation = useDeleteRound();
   // Finalise the round (status → results → skins), or queue it when offline
   const finalizeRound = useFinalizeSubmittedRound();
+  // Split singles rounds: record this match's result on its sub-match
+  const { mutateAsync: updateSubMatchResult } = useUpdateSubMatchResult(roundId);
 
-  // Online status for the header's sync indicator
+  // Online status (header sync indicator; the sub-match result write)
   const isOnline = useOnlineStatus();
+```
+
+Line 172 (in the `useMatchPlayScoring` destructure), current:
+
+```tsx
+    matchStatus: _matchStatus,
+```
+
+Replace with:
+
+```tsx
+    matchStatus,
 ```
 
 Lines 386-423, current:
@@ -16514,9 +18264,36 @@ Replace with:
       // Submit scorecards via the store (handles sync and persistence)
       await submitScorecards();
 
-      // Complete the round once every card is terminal (results + skins), or
-      // queue that for the next sync when offline. Never throws. A split
-      // round's first sub-match no longer completes the whole round.
+      // Split singles (competition) round: record this match on its
+      // sub-match first, as TeamMatchPlayScoringScreen does. The round only
+      // completes once every sub-match is terminal (finalizeRoundStatus).
+      const subMatchResult = buildSinglesSubMatchResult(
+        subMatches,
+        player1.id,
+        player2.id,
+        matchStatus,
+        holeResults
+      );
+      if (subMatchResult && isOnline) {
+        try {
+          await updateSubMatchResult({
+            subMatchId: subMatchResult.subMatchId,
+            status: 'completed',
+            result: subMatchResult.result,
+            finalDifferential: subMatchResult.finalDifferential,
+          });
+        } catch (subMatchError) {
+          // The cards are submitted; the round completes once this sub-match
+          // is recorded (ViewRound, or the organiser).
+          matchPlayLogger.error('Failed to record the sub-match result', subMatchError, {
+            subMatchId: subMatchResult.subMatchId.substring(0, 8) + '...',
+          });
+        }
+      }
+
+      // Complete the round once every card (and, for a split round, every
+      // sub-match) is terminal — results + skins — or queue that for the next
+      // sync when offline. Never throws.
       if (roundId) {
         const finalized = await finalizeRound(roundId);
         matchPlayLogger.info('Round finalisation', {
@@ -16535,7 +18312,20 @@ Replace with:
     } finally {
       setIsSubmitting(false);
     }
-  }, [navigation, roundId, submitScorecards, finalizeRound, showAlert]);
+  }, [
+    navigation,
+    roundId,
+    submitScorecards,
+    subMatches,
+    player1.id,
+    player2.id,
+    matchStatus,
+    holeResults,
+    isOnline,
+    updateSubMatchResult,
+    finalizeRound,
+    showAlert,
+  ]);
 ```
 
 **`src/screens/scoring/PlayerScorecardScreen/index.tsx`.** Line 31, current:
@@ -16634,8 +18424,8 @@ Replace with:
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `pnpm test src/screens/scoring/MatchPlayScorecardScreen/MatchPlayScorecardScreen.test.tsx src/screens/scoring/PlayerScorecardScreen`
-Expected: PASS. This covers the new screen test and the existing `ScorecardTable` / `usePlayerScorecard` tests.
+Run: `pnpm test src/screens/scoring/MatchPlayScorecardScreen/MatchPlayScorecardScreen.test.tsx src/screens/scoring/PlayerScorecardScreen src/screens/scoring/MatchPlayScoringScreen/utils`
+Expected: PASS. This covers the new screen test, the six `buildSinglesSubMatchResult` cases, the existing `matchPlayCalculations` tests and the existing `ScorecardTable` / `usePlayerScorecard` tests.
 
 - [ ] **Step 5: Run the scoring subset + type-check**
 
@@ -16645,7 +18435,7 @@ Expected: green (apart from the Task 0 baseline)
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/screens/scoring/MatchPlayScorecardScreen/index.tsx src/screens/scoring/MatchPlayScorecardScreen/MatchPlayScorecardScreen.test.tsx src/screens/scoring/MatchPlayScoringScreen/index.tsx src/screens/scoring/PlayerScorecardScreen/index.tsx src/screens/scoring/PlayerScorecardScreen/PlayerScorecardScreen.test.tsx
+git add src/screens/scoring/MatchPlayScorecardScreen/index.tsx src/screens/scoring/MatchPlayScorecardScreen/MatchPlayScorecardScreen.test.tsx src/screens/scoring/MatchPlayScoringScreen/index.tsx src/screens/scoring/MatchPlayScoringScreen/utils/subMatchResult.ts src/screens/scoring/MatchPlayScoringScreen/utils/subMatchResult.test.ts src/screens/scoring/PlayerScorecardScreen/index.tsx src/screens/scoring/PlayerScorecardScreen/PlayerScorecardScreen.test.tsx
 git commit -m "fix(scoring): match-play and player-scorecard submits finalise through the shared step
 
 MatchPlayScorecard, MatchPlayScoring and PlayerScorecard wrote
@@ -16655,11 +18445,16 @@ use useFinalizeSubmittedRound: the round completes only when every card is
 terminal, results are written and skins settled, and offline the step is
 queued.
 
+MatchPlayScoring also records the user's sub-match on a split singles round
+(completed, result from the singles engine, never over a manual result), as
+TeamMatchPlayScoring does, so the round completes once every sub-match is in.
+
 Behaviour changes:
 - PlayerScorecard's single-card submit on a multi-player round no longer
   completes the round;
-- split singles competition rounds on MatchPlayScoring no longer complete on
-  the first sub-match;
+- split singles competition rounds on MatchPlayScoring now write their
+  sub-match result and complete when the last sub-match is in (the first
+  submit used to flip the whole round to completed);
 - MatchPlayScoring submits now settle skins.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
@@ -16667,7 +18462,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 ---
 
-### Task A6d-2: Delete the dead finalisation hooks (end of Part A)
+### Task A6d-2: Delete the dead finalisation hooks; Part A rollout + QA (end of Part A)
 
 After A6c and A6d-1, three hooks have no production importer:
 - `useFinalizeSkinsForRound`;
@@ -16675,6 +18470,8 @@ After A6c and A6d-1, three hooks have no production importer:
 - `useSubmitScorecards`: it never had a production importer; only its own test file imports it.
 
 This task deletes them and their barrel exports, and fixes the comments and docs that name them. No behaviour changes, so there is no failing test. `pnpm type-check` and the grep below prove nothing still imports them.
+
+Part A ships alone. Step 5 is its rollout and on-device QA: the A7 migration, the build, the stuck-rounds fix and the watch. It runs once Part A has merged, before any Part B task merges. B11 covers only Part B.
 
 **Files:**
 - Delete: `src/hooks/skins/useFinalizeSkinsForRound.ts`; modify `src/hooks/skins/index.ts:16, 77`, `src/hooks/skins/utilities.ts:9, 19`, `src/services/skins/finalizeForSubMatch.ts:5-7` (comment)
@@ -16869,12 +18666,129 @@ SKINS_GAME.md now point at finalizeSubmittedRound / finalizeActiveSkinsForRound.
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
+- [ ] **Step 5: Part A rollout + QA (after Part A merges; no code)**
+
+Part A ships on its own, in the next store release, before any Part B task merges. B11 covers only Part B. Record each item's outcome in the outstanding-work note as you go.
+
+Database access: staging uses the session pooler (`aws-1-ap-southeast-1.pooler.supabase.com`, port 5432). Prod uses the same pooler with `user=postgres.bvnxfhuvocxyilhlenka`; its session is read-only by default, so prefix each **write** command with `PGOPTIONS='-c default_transaction_read_only=off'`. The Supabase CLI in this repo is linked to **prod**: never `supabase db push`. `schema_migrations` is unreliable (migrations are hand-applied), so check objects, not history.
+
+1. [ ] **A7 dry-run "before" report (staging or a prod snapshot first, then prod).** The report reads A7's audit table, so it can only be produced by applying A7 inside a transaction that is rolled back. Run it at a quiet time (the migration's one-off `UPDATE` takes row locks on `scorecards` until the `ROLLBACK`). The prod pooler session is read-only by default, hence `PGOPTIONS` (harmless on staging):
+   ```bash
+   PGOPTIONS='-c default_transaction_read_only=off' psql "$DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
+   BEGIN;
+   \i supabase/migrations/20261007000100_full_scorecards_only_handicap.sql
+   \i supabase/scripts/full_scorecards_only_report.sql
+   ROLLBACK;
+   SQL
+   ```
+   Keep the output: the affected cards and players (9-hole cards on `nine_type = 'full'` rounds listed separately, per R22), the players whose index moves by more than 2.0, and the combined rows built from an incomplete card (listed only; R22 leaves them as they are).
+2. [ ] **Sam: go / no-go.** Show Sam the dry-run report. Don't apply anything (staging or prod) without his go-ahead.
+3. [ ] **Apply A7 to staging**, in one transaction:
+   ```bash
+   psql "$STAGING_DB_URL" -v ON_ERROR_STOP=1 --single-transaction -f supabase/migrations/20261007000100_full_scorecards_only_handicap.sql
+   psql "$STAGING_DB_URL" -v ON_ERROR_STOP=1 -f supabase/tests/full_scorecards_only_handicap.verify.sql
+   psql "$STAGING_DB_URL" -v ON_ERROR_STOP=1 -f supabase/scripts/full_scorecards_only_report.sql
+   ```
+   The verify script is `BEGIN … ROLLBACK` and must pass. The **after** report must show zero incomplete cards with a differential.
+4. [ ] **Staging build + Part A on-device QA** (iOS and Android, a staging build of the merged Part A). Each item: what to do → what must happen.
+   - **Competition submit, online** (stroke play, 2 groups): the first group submits → its standings appear, the round stays `in-progress`; the second group submits → round `completed`, results written, leaderboard, competition screen and Home refresh without a pull-to-refresh.
+   - **Competition submit, offline:** airplane mode, submit, see "Saved Offline"; leave the scoring screen, then reconnect → the cards upload, then the queued `'finalize'` item runs, `round_results` are written and the round completes. Developer screen: no retained items.
+   - **Non-organiser last submitter** (competition round): a player who isn't the organiser submits the last card → cards and `round_results` are written. Note whether the round flips to `completed` (RLS may refuse the status write: `finalizeRoundStatus` then logs a 0-row refusal and returns `false`). Either way no `round` item is retained. Report the outcome to Sam.
+   - **Singles match play submit** (social, 18 holes and a 9-hole front/back match): round completes; a 9-hole match resumes as 9 holes and its submit is not blocked.
+   - **Team match play**, 9-hole: result and round completion as before.
+   - **Split singles competition round completes:** a 2-match split singles round. The first player submits from MatchPlayScoring → that sub-match shows `completed` with the right winner and margin, and the round stays `in-progress`. The second submits → round `completed`, results written. An organiser's manual sub-match result is not overwritten.
+   - **Skins, 18 holes and 9 holes**, settled from Review, MatchPlayScorecard and MatchPlayScoring: payouts appear, skins achievements fire once (online). A 9-hole game is priced for 9 holes.
+   - **Sync drain after leaving the scoring screen:** offline, submit; go to Home (the scoring screen unmounts); reconnect → the queue drains within a few seconds, with no scoring screen open. Also background the app and return to the foreground → a drain runs.
+   - **Sign-out / sign-in:** offline, submit, then sign out (still offline); reconnect while signed out → nothing drains (Developer screen shows the items still pending, none retained). Sign back in → the queue drains and the round completes.
+   - **App kill mid-finalise:** online, submit and kill the app the moment the success dialog appears → on relaunch the round is `completed`, or a `round:<id>:finalize` item drains and completes it.
+   - **Quick Score partial card:** a Quick Score with fewer holes than the round's nine type → no `handicap_differential`, the handicap index is unchanged, and the card isn't in handicap history.
+5. [ ] **Apply A7 to prod.** Repeat item 1 against prod (keep the report), get Sam's go-ahead again, then:
+   ```bash
+   PGOPTIONS='-c default_transaction_read_only=off' psql "$PROD_DB_URL" -v ON_ERROR_STOP=1 --single-transaction -f supabase/migrations/20261007000100_full_scorecards_only_handicap.sql
+   psql "$PROD_DB_URL" -v ON_ERROR_STOP=1 -f supabase/scripts/full_scorecards_only_report.sql
+   ```
+   A7 is server-only and safe for old clients, so it can go before the build.
+6. [ ] **Ship the store build** with a version bump (the next store release, e.g. 1.14.1). **No OTA**: the live binaries are on an older runtime, so none can take this bundle over the air. If an OTA is ever needed later for a binary on this runtime, use `pnpm update:prod` (a bare `eas update` bundles the staging `.env`).
+7. [ ] **Force-update: Sam decides.** Part A has no server dependency on the new client, so raising `app_version_config.minimum_version` is optional. Raising it stops old clients from creating new stuck rounds (their offline submits never finalise).
+8. [ ] **Stuck social rounds** (victims of the offline-submit bug A6 fixes), once the build is live; run it again later if old clients stay in use. List social rounds still `in-progress` although every card is terminal and every expected player has one:
+   ```sql
+   select r.id, r.user_id, r.updated_at, count(s.id) as cards,
+          exists (select 1 from skins_games g where g.round_id = r.id and g.status = 'active') as has_active_skins
+   from rounds r
+   join scorecards s on s.round_id = r.id
+   where r.competition_id is null
+     and r.status = 'in-progress'
+     and r.deleted_at is null
+   group by r.id, r.user_id, r.updated_at
+   having bool_and(s.status in ('completed', 'confirmed'))
+      and count(s.id) >= coalesce((
+            select count(distinct pid)
+            from pairings p, unnest(p.player_ids) as pid
+            where p.round_id = r.id), 0)
+      and not exists (
+            select 1 from sub_matches sm
+            where sm.round_id = r.id and sm.status not in ('completed', 'forfeited'))
+   order by r.updated_at desc;
+   ```
+   Review the list with Sam and save the approved ids, one per line, in `stuck_rounds.txt` (outside the repo).
+
+   **Finalise them through the service path**, not with a bare `UPDATE`: `finalizeSubmittedRound` also writes results and settles any active skins game (priced with `fetchSkinsHoleCounts`). Use a throwaway jest runner, never committed. Create `src/__oneoff__/finalizeStuckRounds.oneoff.ts`. The `.oneoff.ts` name keeps it out of the normal `testMatch`.
+   ```ts
+   /* One-off, NOT committed: finalise approved stuck rounds via finalizeSubmittedRound. */
+   jest.mock('@/services/supabase/client', () => {
+     const { createClient } = jest.requireActual('@supabase/supabase-js');
+     const supabase = createClient(process.env.ONEOFF_SUPABASE_URL, process.env.ONEOFF_SERVICE_ROLE_KEY, {
+       auth: { persistSession: false, autoRefreshToken: false },
+     });
+     return { supabase, getCurrentUser: async () => null };
+   });
+   jest.mock('@/services/queryClient', () => ({
+     queryClient: { invalidateQueries: jest.fn() },
+     invalidateLeaderboardCache: jest.fn(),
+   }));
+
+   import { finalizeSubmittedRound } from '@/services/rounds/finalizeSubmittedRound';
+
+   jest.setTimeout(10 * 60 * 1000);
+
+   it('finalises the approved stuck rounds', async () => {
+     const ids = (process.env.STUCK_ROUND_IDS ?? '').split(',').map((id) => id.trim()).filter(Boolean);
+     expect(ids.length).toBeGreaterThan(0);
+     for (const id of ids) {
+       const r = await finalizeSubmittedRound(id);
+       // eslint-disable-next-line no-console
+       console.log(JSON.stringify({
+         id,
+         completed: r.completed,
+         skinsGame: r.skinsGame?.id ?? null,
+         statusError: r.statusError ? String(r.statusError) : null,
+         skinsError: r.skinsError ? String(r.skinsError) : null,
+       }));
+     }
+   });
+   ```
+   Run it on **staging first**, with one round, then with the full list on prod. The service-role key comes from the dashboard and is passed only on the command line: never write it to `.env` or any file.
+   ```bash
+   STUCK_ROUND_IDS="$(paste -sd, stuck_rounds.txt)" \
+   ONEOFF_SUPABASE_URL="https://<project>.supabase.co" \
+   ONEOFF_SERVICE_ROLE_KEY="<service role key>" \
+   pnpm jest --runInBand --testMatch '**/__oneoff__/finalizeStuckRounds.oneoff.ts'
+   rm -r src/__oneoff__
+   ```
+   Expected: one JSON line per round with `completed: true` and both errors `null`; for rounds with `has_active_skins`, a `skinsGame` id. Re-run the listing query: the approved rounds are gone, and `select status from skins_games where round_id = any(...)` shows `completed`. `git status` must show nothing left behind.
+   This runner was written without a live run. If it can't reach the database (for example, the test environment's fetch or the global `@/services/supabase/client` mock gets in the way), stop and ask Sam. The fallback is the bare status flip plus a hand-settled list of the `has_active_skins` rounds, and it needs his explicit OK.
+9. [ ] **Watch for 48 hours.**
+   - Sentry: `Round finalisation left to the sync queue` volume; `Failed to process round sync`; `Round item retained for explicit retry` and "is waiting on a retained scorecard upload failure"; `Failed to record the sub-match result`; `Skins finalization failed; it will be retried` (from `finalizeSubmittedRound`); `getDb`/SQLite errors at app start.
+   - Developer screen on the QA devices: Retained Uploads stays empty.
+   - Prod spot-check, daily: re-run item 8's listing query. Rounds from the new build must not appear; any that do are a bug.
+10. [ ] **Outstanding note.** Record: A7 dry-run and after-report numbers for staging and prod, Sam's go-ahead, stuck rounds finalised (ids and skins settled), QA results (including the non-organiser outcome), the build version, the force-update decision, and pushed or not.
+
 
 ---
 
 # Part B — End round early
 
-### Task B1a-1: Migration — `rounds.holes_played`, `end_round_early` RPC, trigger extensions, feed RPCs
+### Task B1a-1: Migration — `rounds.holes_played`, `end_round_early` RPC, guard trigger, handicap rule, feed RPCs
 
 **Files:**
 - Create: `supabase/migrations/20261007000200_end_round_early.sql`
@@ -16883,17 +18797,22 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 **Interfaces:**
 - Consumes:
   - `is_accepted_round_participant(p_round_id UUID, p_player_id UUID)` (`20260612000000_scheduled_rounds.sql:45-55`, SECURITY DEFINER, `invitation_status = 'accepted'`; `players.id = auth.users.id`, so `auth.uid()` is the player id);
-  - A7: `scorecard_is_complete_for_handicap(JSONB, TEXT)` and the shared helper `scorecard_eligible_for_differential(p_round_id UUID, p_scores JSONB) RETURNS BOOLEAN` (STABLE, plpgsql), which both A7 trigger functions (`scorecards_full_card_differential()`, `handicap_combined_rounds_full_cards()`, RAISE `'Both nines must be fully scored to combine'` / `22023`) call (Contract note 1);
+  - A7: `scorecard_is_complete_for_handicap(JSONB, TEXT)` and the shared helper `scorecard_eligible_for_differential(p_round_id UUID, p_scores JSONB) RETURNS BOOLEAN` (STABLE, plpgsql). Both A7 trigger functions (`scorecards_full_card_differential()`, `handicap_combined_rounds_full_cards()`, which raises `'Both nines must be fully scored to combine'` / `22023`) call it, so replacing the helper extends both triggers;
   - the feed bodies from `20260905000150_ugc_moderation_feed.sql:23-198`, and the DROP/COMMENT/GRANT precedent from `20260616000000_activity_feed_course_id.sql`;
-  - table columns (verified in migrations): `skins_results.skins_game_id/hole_number` (`20260105000000:79`), `wolf_hole_decisions.wolf_game_id/hole_number` (`20260131160000:92`), `score_entries.round_id/hole_number` and `score_mismatches.round_id/hole_number` (`20260121000000`), `shot_log.round_id/hole_number/player_id` (`20260501000000:9-14`; its AFTER DELETE compaction trigger is harmless), `handicap_combined_rounds.front_scorecard_id/back_scorecard_id` (`20260514000000:9-35`), `scorecards.revision` (`20260714000000`, bumped only by `write_scorecard_snapshot`).
+  - `write_scorecard_snapshot` (`20260714000000`): the only writer that bumps `scorecards.revision`; it applies a snapshot only when `p_expected_revision = revision`, and overwrites `scores` and the totals wholesale;
+  - the `protect_round_ownership_fields` BEFORE UPDATE pattern (`20260612000000_scheduled_rounds.sql:93-115`);
+  - table columns (verified in migrations): `rounds.status` (`'upcoming' | 'in-progress' | 'completed'`, `20250109000000:114`), `skins_results.skins_game_id/hole_number` (`20260105000000:79`), `wolf_hole_decisions.wolf_game_id/hole_number` (`20260131160000:92`), `score_entries.round_id/hole_number` and `score_mismatches.round_id/hole_number` (`20260121000000`), `shot_log.round_id/hole_number/player_id` (`20260501000000:9-14`; its AFTER DELETE compaction trigger is harmless), `handicap_combined_rounds.front_scorecard_id/back_scorecard_id` (`20260514000000:9-35`), `scorecards.scores JSONB NOT NULL DEFAULT '{}'` (keys are hole numbers as text).
 - Produces:
   - `rounds.holes_played SMALLINT NULL`, `CONSTRAINT rounds_holes_played_check CHECK (holes_played IS NULL OR (competition_id IS NULL AND holes_played > 0 AND holes_played < CASE nine_type WHEN 'full' THEN 18 ELSE 9 END))`;
-  - `end_round_early(p_round_id UUID, p_holes_played INT) RETURNS VOID` (SECURITY DEFINER, `search_path = public`, `REVOKE … FROM PUBLIC`, `GRANT EXECUTE … TO authenticated`), with the error contract in Contract note 2;
-  - `scorecard_eligible_for_differential(UUID, JSONB)` replaced (`CREATE OR REPLACE`) to also require `rounds.holes_played IS NULL`; A7's trigger functions and triggers are not touched;
+  - `end_round_early(p_round_id UUID, p_holes_played INT) RETURNS VOID` (SECURITY DEFINER, `SET search_path = public, pg_temp`, `REVOKE … FROM PUBLIC`, `GRANT EXECUTE … TO authenticated`). Errors: `42501` (unauthenticated / competition round / not owner or accepted participant), `P0002` (missing or soft-deleted), `22023` with HINT `invalid_holes_played` | `round_already_ended` (DETAIL = the server's N) | `round_completed` | `round_not_in_progress`. The same N again is a no-op success, whatever the status; otherwise the round must be `in-progress`. Effects: sets `holes_played`; deletes `skins_results` / `wolf_hole_decisions` / `score_entries` / `score_mismatches` / `shot_log` rows after the last played hole; strips the same hole keys from the round's `scorecards.scores` **without** bumping `revision` or recomputing totals; nulls the round's handicap differentials;
+  - `guard_rounds_holes_played()` + `BEFORE UPDATE` trigger `trigger_guard_rounds_holes_played` on `rounds`: `42501` when `holes_played` changes unless `current_setting('app.ending_round', true) = 'on'` (set transaction-locally only by `end_round_early`), or when `nine_type` changes while `OLD.holes_played` is set;
+  - `scorecard_eligible_for_differential(UUID, JSONB)` replaced (`CREATE OR REPLACE`, `SET search_path = public, pg_temp`) to also require `rounds.holes_played IS NULL`; A7's trigger functions and triggers are not touched;
   - `get_activity_feed` / `get_round_feed_card` with `holes_played INT, nine_type TEXT` appended to `RETURNS TABLE`.
-  - Consumers: B1a-2 (verification), B1b (types), B6b (`applyEndRoundEarly`, the `'end_early'` item), B9d (feed card), B11 (rollout).
+  - Consumers: B1a-2 (verification), B1b (types), B6b (`applyEndRoundEarly` maps every `22023` other than `round_already_ended` to `'invalid'`; the `'end_early'` item), B9d (feed card), B9g (the server now also refuses a `nine_type` change on an ended round), B11 (rollout).
 
-> **Rollout:** this migration must reach staging, then prod, **before** the app build that includes B1b (Contract note 14). B11 owns the checklist. Do not deploy in this task.
+> **Rollout:** this migration must reach staging, then prod, **before** the app build that includes B1b: from B1b on, the app selects `rounds.holes_played`, and against a database without it no round opens for scoring. B11 owns the checklist. Do not deploy in this task.
+>
+> **One-way order:** A7's migration (`20261007000100`) also defines `scorecard_eligible_for_differential`, without the `holes_played` clause. **Never re-apply A7's migration after this one**; if A7 has to be re-applied, re-apply this migration straight after it (every statement here is idempotent).
 
 There is no Jest for SQL. This task is: write the migration, extend the catalog check, run the static checks, commit. B1a-2 adds the runnable verification script.
 
@@ -16913,10 +18832,11 @@ Create `supabase/migrations/20261007000200_end_round_early.sql`:
 -- 2. end_round_early(p_round_id, p_holes_played): SECURITY DEFINER. Called
 --    by the client at confirm time (online), or by the queued 'end_early'
 --    round sync item (offline). Sets holes_played, trims side-game and
---    multi-scorer rows after the last played hole, and nulls the round's
---    handicap differentials. skins_results can only be deleted by the
---    skins-game creator under RLS, so a participant ending the round needs
---    the definer's rights.
+--    multi-scorer rows after the last played hole, strips those holes from
+--    the round's scorecards.scores, and nulls the round's handicap
+--    differentials. skins_results can only be deleted by the skins-game
+--    creator under RLS, so a participant ending the round needs the
+--    definer's rights.
 --    Error contract (the client maps these; it never retries them):
 --      42501  not authenticated / competition round / not the owner or an
 --             ACCEPTED round participant
@@ -16925,7 +18845,16 @@ Create `supabase/migrations/20261007000200_end_round_early.sql`:
 --             HINT 'round_already_ended'   holes_played already set to a
 --                                          different N (DETAIL = that N)
 --             HINT 'round_completed'       round completed, never ended
---    The same N again is a no-op success (idempotent retries).
+--             HINT 'round_not_in_progress' round not started (upcoming)
+--    The same N again is a no-op success (idempotent retries), whatever the
+--    round's status.
+--    scorecards.revision is NOT bumped and totals are NOT recomputed: totals
+--    are client-owned, and the ending device's next write_scorecard_snapshot
+--    (same stripped scores, the revision it already holds) must apply
+--    cleanly instead of raising a false "changed on another device" conflict.
+-- 2b. guard_rounds_holes_played (BEFORE UPDATE on rounds): holes_played can
+--    only change inside end_round_early (transaction-local flag
+--    app.ending_round = 'on'), and nine_type can't change once it is set.
 -- 3. Extends the "only full scorecards count" rule from
 --    20261007000100_full_scorecards_only_handicap.sql by replacing its shared
 --    helper scorecard_eligible_for_differential(round_id, scores): a round
@@ -16938,6 +18867,9 @@ Create `supabase/migrations/20261007000200_end_round_early.sql`:
 --
 -- DEPLOY ORDER: after 20260905000150 (UGC feed) and 20261007000100 (A7);
 -- staging, then prod, BEFORE the app build that selects rounds.holes_played.
+-- NEVER re-apply 20261007000100 after this file: it redefines
+-- scorecard_eligible_for_differential without the holes_played rule. If A7
+-- must be re-applied, re-apply this file straight after it (idempotent).
 -- Apply with:
 --   psql "$DB_URL" -v ON_ERROR_STOP=1 --single-transaction -f supabase/migrations/20261007000200_end_round_early.sql
 -- =====================================================
@@ -16987,7 +18919,7 @@ CREATE OR REPLACE FUNCTION end_round_early(
 RETURNS VOID
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_user UUID := auth.uid();
@@ -17042,16 +18974,26 @@ BEGIN
       USING ERRCODE = '22023', DETAIL = v_existing::TEXT, HINT = 'round_already_ended';
   END IF;
 
-  IF v_status = 'completed' THEN
-    RAISE EXCEPTION 'Round % is already completed', p_round_id
-      USING ERRCODE = '22023', HINT = 'round_completed';
+  -- Only a round being played can be ended (the same-N retry above already
+  -- returned, so a queued retry after completion still succeeds).
+  IF v_status IS DISTINCT FROM 'in-progress' THEN
+    IF v_status = 'completed' THEN
+      RAISE EXCEPTION 'Round % is already completed', p_round_id
+        USING ERRCODE = '22023', HINT = 'round_completed';
+    END IF;
+    RAISE EXCEPTION 'Round % is not in progress (status %)', p_round_id, v_status
+      USING ERRCODE = '22023', HINT = 'round_not_in_progress';
   END IF;
 
   v_last_hole := (CASE WHEN v_nine_type = 'back9' THEN 9 ELSE 0 END) + p_holes_played;
 
+  -- guard_rounds_holes_played (below) refuses any holes_played change unless
+  -- this transaction-local flag is on. Set it around this one UPDATE only.
+  PERFORM set_config('app.ending_round', 'on', true);
   UPDATE rounds
      SET holes_played = p_holes_played, updated_at = NOW()
    WHERE id = p_round_id;
+  PERFORM set_config('app.ending_round', 'off', true);
 
   -- Rows for holes after the last played hole.
   DELETE FROM skins_results sr
@@ -17081,11 +19023,29 @@ BEGIN
    WHERE sl.round_id = p_round_id
      AND sl.hole_number > v_last_hole;
 
+  -- Score keys after the last played hole ('16', '17', '18' for a back 9
+  -- ended after 6). Non-numeric keys and {} cards are left alone.
+  -- Deliberately NOT touched: revision (only write_scorecard_snapshot bumps
+  -- it; bumping it here would turn the ending device's own follow-up
+  -- snapshot into a stale write and a false "changed on another device"
+  -- conflict) and the totals (client-owned; that snapshot carries them,
+  -- recomputed over the holes played).
+  UPDATE scorecards sc
+     SET scores = (
+           SELECT COALESCE(jsonb_object_agg(e.key, e.value), '{}'::JSONB)
+             FROM jsonb_each(sc.scores) AS e
+            WHERE CASE WHEN e.key ~ '^[0-9]{1,3}$' THEN e.key::INT <= v_last_hole ELSE TRUE END
+         )
+   WHERE sc.round_id = p_round_id
+     AND jsonb_typeof(sc.scores) = 'object'
+     AND EXISTS (
+           SELECT 1
+             FROM jsonb_object_keys(sc.scores) AS k
+            WHERE CASE WHEN k ~ '^[0-9]{1,3}$' THEN k::INT > v_last_hole ELSE FALSE END
+         );
+
   -- No handicap impact at all (R13). A7's scorecards trigger (via the helper
-  -- replaced in section 3) keeps it NULL on every
-  -- later write. scorecards.revision is only bumped by
-  -- write_scorecard_snapshot, so this does not cause client revision
-  -- conflicts.
+  -- replaced in section 3) keeps it NULL on every later write.
   UPDATE scorecards
      SET handicap_differential = NULL
    WHERE round_id = p_round_id
@@ -17097,7 +19057,48 @@ REVOKE ALL ON FUNCTION end_round_early(UUID, INT) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION end_round_early(UUID, INT) TO authenticated;
 
 COMMENT ON FUNCTION end_round_early(UUID, INT) IS
-  'End a standalone round early (owner or accepted participant). Sets holes_played = N; deletes skins_results / wolf_hole_decisions / score_entries / score_mismatches / shot_log after the last played hole; nulls the round''s handicap differentials. Same N again = no-op. Errors: 42501 auth/competition, P0002 missing/deleted, 22023 with HINT invalid_holes_played | round_already_ended (DETAIL = existing N) | round_completed. SECURITY DEFINER (skins_results RLS is creator-only).';
+  'End an in-progress standalone round early (owner or accepted participant). Sets holes_played = N; deletes skins_results / wolf_hole_decisions / score_entries / score_mismatches / shot_log after the last played hole; strips those hole keys from the round''s scorecards.scores (revision and totals untouched: totals are client-owned); nulls the round''s handicap differentials. Same N again = no-op, any status. Errors: 42501 auth/competition, P0002 missing/deleted, 22023 with HINT invalid_holes_played | round_already_ended (DETAIL = existing N) | round_completed | round_not_in_progress. SECURITY DEFINER (skins_results RLS is creator-only).';
+
+-- =====================================================
+-- 2b. holes_played is written only by end_round_early
+-- =====================================================
+-- "Users can update rounds" / "Accepted players can update standalone
+-- rounds" let the owner and accepted invitees UPDATE the row, and
+-- protect_round_ownership_fields pins only user_id / competition_id /
+-- deleted_at. A direct write of holes_played would skip the trims (or clear
+-- an end), and changing nine_type after an end would move the played holes.
+-- No service-role exemption: an admin fix runs
+--   SELECT set_config('app.ending_round', 'on', true);
+-- in the same transaction first. The flag is transaction-local, so it never
+-- leaks across pooled connections, and clients can't set it through
+-- PostgREST.
+
+CREATE OR REPLACE FUNCTION public.guard_rounds_holes_played()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  IF NEW.holes_played IS DISTINCT FROM OLD.holes_played
+     AND COALESCE(current_setting('app.ending_round', true), '') <> 'on' THEN
+    RAISE EXCEPTION 'rounds.holes_played can only be changed by end_round_early()'
+      USING ERRCODE = '42501';
+  END IF;
+  IF OLD.holes_played IS NOT NULL AND NEW.nine_type IS DISTINCT FROM OLD.nine_type THEN
+    RAISE EXCEPTION 'The nine type of a round that was ended early cannot change'
+      USING ERRCODE = '42501';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+COMMENT ON FUNCTION public.guard_rounds_holes_played() IS
+  'BEFORE UPDATE guard on rounds: holes_played changes only inside end_round_early (transaction-local app.ending_round = on); nine_type is frozen once holes_played is set. Raises 42501.';
+
+DROP TRIGGER IF EXISTS trigger_guard_rounds_holes_played ON rounds;
+CREATE TRIGGER trigger_guard_rounds_holes_played
+  BEFORE UPDATE ON rounds
+  FOR EACH ROW EXECUTE FUNCTION public.guard_rounds_holes_played();
 
 -- =====================================================
 -- 3. Extend the "only full scorecards count" rule (A7)
@@ -17109,7 +19110,8 @@ COMMENT ON FUNCTION end_round_early(UUID, INT) IS
 -- text ('Both nines must be fully scored to combine') and ERRCODE (22023) are
 -- untouched. The one change: a round with holes_played set is never eligible,
 -- even for a card with no per-hole data ({} legacy / multi-ball).
--- CREATE OR REPLACE keeps A7's REVOKE on this function.
+-- CREATE OR REPLACE keeps A7's REVOKE on this function. Re-applying A7's
+-- migration after this one would undo this replacement (see DEPLOY ORDER).
 
 CREATE OR REPLACE FUNCTION public.scorecard_eligible_for_differential(
   p_round_id UUID,
@@ -17118,7 +19120,7 @@ CREATE OR REPLACE FUNCTION public.scorecard_eligible_for_differential(
 RETURNS BOOLEAN
 LANGUAGE plpgsql
 STABLE
-SET search_path = public
+SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_nine_type TEXT;
@@ -17393,11 +19395,33 @@ grep -n "WHEN v_nine_type = 'back9' THEN 9 ELSE 0" $M
 grep -c "^  DELETE FROM \(skins_results\|wolf_hole_decisions\|score_entries\|score_mismatches\|shot_log\)" $M
 grep -c "is_accepted_round_participant(p_round_id, v_user)" $M
 grep -c "is_round_participant(\|p_convert_to_front9" $M
-grep -c "HINT = 'round_already_ended'\|HINT = 'invalid_holes_played'\|HINT = 'round_completed'" $M
-grep -c "^CREATE TRIGGER\|^CREATE OR REPLACE FUNCTION scorecards_full_card_differential\|^CREATE OR REPLACE FUNCTION handicap_combined_rounds_full_cards" $M
+grep -c "HINT = 'round_already_ended'\|HINT = 'invalid_holes_played'\|HINT = 'round_completed'\|HINT = 'round_not_in_progress'" $M
+grep -c "CREATE TRIGGER scorecards_full_card_differential\|CREATE TRIGGER handicap_combined_rounds_full_cards\|FUNCTION \(public\.\)\?scorecards_full_card_differential\|FUNCTION \(public\.\)\?handicap_combined_rounds_full_cards" $M
 grep -c "^CREATE OR REPLACE FUNCTION public.scorecard_eligible_for_differential" $M
+grep -c "^SET search_path = public, pg_temp$" $M
+grep -c "^SET search_path = public$" $M
+grep -c "^  PERFORM set_config('app.ending_round', '\(on\|off\)', true);" $M
+grep -c "^CREATE TRIGGER trigger_guard_rounds_holes_played$" $M
+grep -c "FROM jsonb_each(sc.scores)" $M
+grep -c "revision *=\|revision + 1" $M
 ```
-Expected, in order: `2`, `4`, `3`, one matching line (the Review Focus #2 offset: a back-9 round ended after 6 trims holes > 15, not > 6), `5` (one trim per table), `1`, `0`, `3`, `0` (A7's triggers are not redefined), `1`.
+Expected, in order:
+1. `2`;
+2. `4`;
+3. `3`;
+4. one matching line (the Review Focus #2 offset: a back-9 round ended after 6 trims holes > 15, not > 6);
+5. `5` (one trim per table; the score-key strip is an `UPDATE`);
+6. `1`;
+7. `0`;
+8. `4` (one `RAISE` per hint);
+9. `0` (A7's trigger functions and triggers are not redefined);
+10. `1`;
+11. `3` (`end_round_early`, `guard_rounds_holes_played`, `scorecard_eligible_for_differential`; the two feed functions carry it on their `LANGUAGE` line);
+12. `0`;
+13. `2` (on around the one `UPDATE rounds`, then off);
+14. `1`;
+15. `1`;
+16. `0` (nothing writes `scorecards.revision`).
 
 Then diff the two feed bodies against the UGC migration:
 ```bash
@@ -17412,10 +19436,13 @@ Expected: only these hunks — `viewer_has_liked BOOLEAN` gains a comma plus the
 git add supabase/migrations/20261007000200_end_round_early.sql supabase/tests/activity_feed_verify.sql
 git commit -m "feat(db): rounds.holes_played, end_round_early RPC, ended-early handicap guard, feed RPCs
 
-end_round_early(round, N): owner or accepted participant; first end wins
-(22023 round_already_ended with the server N in DETAIL); same N is a no-op;
-trims skins/wolf/score_entries/score_mismatches/shot_log after the last
-played hole and nulls the round's differentials. A7's shared helper
+end_round_early(round, N): in-progress rounds only, owner or accepted
+participant; first end wins (22023 round_already_ended with the server N in
+DETAIL); same N is a no-op; trims skins/wolf/score_entries/score_mismatches/
+shot_log after the last played hole, strips those holes from the cards'
+scores (no revision bump, totals stay client-owned) and nulls the round's
+differentials. A BEFORE UPDATE guard keeps holes_played RPC-only and freezes
+nine_type once it is set. A7's shared helper
 scorecard_eligible_for_differential also requires holes_played IS NULL, so
 both A7 triggers refuse a differential / combination for an ended round.
 
@@ -17435,15 +19462,19 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 It covers:
 - the back-9 offset (trims > 15, not > 6) on all five trimmed tables, and the round's differentials nulled (Review Focus #2);
+- the score-key strip: a card's `scores` keeps holes 10–15 only, a `{}` card stays `{}`, and `revision` and `total_gross` are untouched; the `app.ending_round` flag is off again after the call;
 - the trigger extension against an old-client write: a complete card, a `{}` card and a new card all stay NULL (Review Focus #5);
 - the combine trigger: an ended-early card is rejected; a complete, not-ended pair still combines (positive control);
 - same-N retry is a no-op; a different N is a conflict with `HINT round_already_ended` and `DETAIL '6'` (Review Focus #3);
 - declined and pending invitees, an outsider and an unauthenticated call are rejected (`42501`);
 - range checks (`0`, `18`, `19`, `NULL` on a full round);
-- completed rounds: same N no-op, different N conflict, never-ended refused (`round_completed`);
+- rounds not in progress: completed same N no-op, different N conflict, never-ended refused (`round_completed`); an `upcoming` round refused (`round_not_in_progress`);
 - competition (`42501`), soft-deleted and missing rounds (`P0002`);
-- the CHECK constraint (`18` and `0` on full, `9` on back 9, any value on a competition round);
-- the catalog: feed columns, a single 2-argument overload, `EXECUTE` granted to `authenticated`.
+- the CHECK constraint (`18` and `0` on full, `9` on back 9, any value on a competition round), with the guard's flag on;
+- the catalog: feed columns, a single 2-argument overload, `EXECUTE` granted to `authenticated`, `search_path = public, pg_temp` on the RPC and the helper, the guard trigger;
+- the guard trigger: a direct `holes_played` write (set, change or clear; owner or superuser) and a `nine_type` change on an ended round are refused with `42501`; a `nine_type` change on a round that wasn't ended still works.
+
+Every fixture `INSERT` was checked against the NOT NULL / CHECK constraints in the migrations as they stand: `competitions` needs `end_date` because `competition_type` defaults to `'event'` (`event_requires_end_date`, `20260228300000_rename_league_to_knockout.sql:13,19-23`); `skins_games` needs 2–4 `participant_ids` and the disclaimer columns; `wolf_games` needs 3–4 participants with a matching `wolf_order`; `score_mismatches`' legacy `self_*`/`partner_*` columns are nullable since `20260425000000`; `handicap_combined_rounds` needs `course_id` and distinct, unused front/back cards; `courses.holes` / `timezone` have defaults.
 
 - [ ] **Step 1: Write the verification script**
 
@@ -17578,11 +19609,13 @@ INSERT INTO round_players (round_id, player_id, invitation_status) VALUES
   ('ee000000-0000-0000-0001-000000000002', 'ee000000-0000-0000-0000-000000000003', 'declined'),
   ('ee000000-0000-0000-0001-000000000002', 'ee000000-0000-0000-0000-000000000005', 'pending');
 
--- R3: a competition round (must be rejected).
+-- R3: a competition round (must be rejected). competition_type defaults to
+-- 'event', which needs an end_date (event_requires_end_date,
+-- 20260228300000_rename_league_to_knockout.sql).
 INSERT INTO competitions (
-  id, name, start_date, handicap_system, visibility, invite_code, organizer_id, status
+  id, name, start_date, end_date, handicap_system, visibility, invite_code, organizer_id, status
 ) VALUES (
-  'ee000000-0000-0000-0004-000000000001', 'ERE Verify Competition', CURRENT_DATE,
+  'ee000000-0000-0000-0004-000000000001', 'ERE Verify Competition', CURRENT_DATE, CURRENT_DATE,
   'honor', 'private', 'EREVFY-0001', 'ee000000-0000-0000-0000-000000000001', 'upcoming'
 );
 INSERT INTO rounds (id, competition_id, round_number, status) VALUES
@@ -17599,6 +19632,10 @@ INSERT INTO rounds (id, user_id, status, nine_type) VALUES
 -- R6: soft-deleted standalone round.
 INSERT INTO rounds (id, user_id, status, nine_type, deleted_at) VALUES
   ('ee000000-0000-0000-0001-000000000006', 'ee000000-0000-0000-0000-000000000001', 'in-progress', 'full', NOW());
+
+-- R9: standalone round that hasn't started (status upcoming).
+INSERT INTO rounds (id, user_id, status, nine_type) VALUES
+  ('ee000000-0000-0000-0001-000000000009', 'ee000000-0000-0000-0000-000000000001', 'upcoming', 'full');
 
 -- R7: completed front 9 with a complete card (combine partner).
 -- R8: completed back 9, NOT ended, with a complete card (positive control).
@@ -17632,8 +19669,9 @@ END $$;
 -- =====================================================
 -- TEST 1: an accepted participant (not the owner) ends the back-9 round
 --         after 6. Last played hole = 9 + 6 = 15 (Review Focus #2): rows
---         for holes 16-18 are deleted, rows for 10-15 are kept, and the
---         round's differentials are nulled.
+--         for holes 16-18 are deleted, rows for 10-15 are kept, score keys
+--         16-18 are stripped from the cards (revision and totals untouched),
+--         and the round's differentials are nulled.
 -- =====================================================
 SET LOCAL role authenticated;
 SET LOCAL request.jwt.claims = '{"sub":"ee000000-0000-0000-0000-000000000002","role":"authenticated"}';
@@ -17656,6 +19694,10 @@ DECLARE
   v_shots        INT;
   v_shot_max     INT;
   v_diffs        INT;
+  v_sc1_keys     TEXT[];
+  v_sc1_revision BIGINT;
+  v_sc1_gross    INT;
+  v_sc2_scores   JSONB;
 BEGIN
   SELECT holes_played, nine_type INTO v_holes, v_nine
     FROM rounds WHERE id = 'ee000000-0000-0000-0001-000000000001';
@@ -17684,7 +19726,24 @@ BEGIN
   ASSERT v_shots = 6 AND v_shot_max = 15,
     'Test 1 FAILED: expected shot_log for holes 10-15 only, got ' || v_shots || ' rows, max ' || COALESCE(v_shot_max::TEXT, 'NULL');
   ASSERT v_diffs = 0, 'Test 1 FAILED: the round''s differentials should be NULL, ' || v_diffs || ' remain';
-  RAISE NOTICE 'Test 1 PASSED: back-9 ended after 6 trims holes 16-18 and nulls the differentials';
+
+  -- Score keys after hole 15 are stripped; revision and totals are not
+  -- touched (totals are client-owned; a revision bump would turn the ending
+  -- device's next snapshot into a false conflict).
+  SELECT ARRAY(SELECT k FROM jsonb_object_keys(scores) AS k ORDER BY k::INT), revision, total_gross
+    INTO v_sc1_keys, v_sc1_revision, v_sc1_gross
+    FROM scorecards WHERE id = 'ee000000-0000-0000-0007-000000000001';
+  SELECT scores INTO v_sc2_scores FROM scorecards WHERE id = 'ee000000-0000-0000-0007-000000000002';
+  ASSERT v_sc1_keys = ARRAY['10', '11', '12', '13', '14', '15'],
+    'Test 1 FAILED: SC1 should keep score keys 10-15 only, got ' || array_to_string(v_sc1_keys, ',');
+  ASSERT v_sc1_revision = 1, 'Test 1 FAILED: revision must not be bumped, got ' || v_sc1_revision;
+  ASSERT v_sc1_gross = 36, 'Test 1 FAILED: totals are client-owned and must not change, got ' || v_sc1_gross;
+  ASSERT v_sc2_scores = '{}'::JSONB, 'Test 1 FAILED: a {} card should stay {}, got ' || v_sc2_scores::TEXT;
+
+  -- The RPC turns the guard's flag back off after its UPDATE.
+  ASSERT COALESCE(current_setting('app.ending_round', true), '') <> 'on',
+    'Test 1 FAILED: app.ending_round should be off after end_round_early returns';
+  RAISE NOTICE 'Test 1 PASSED: back-9 ended after 6 trims holes 16-18, strips their scores and nulls the differentials';
 END $$;
 
 -- =====================================================
@@ -17933,9 +19992,10 @@ END $$;
 RESET ROLE;
 
 -- =====================================================
--- TEST 9: completed rounds. Already ended at the same N ⇒ no-op success;
---         a different N ⇒ 22023 round_already_ended; never ended ⇒ 22023
---         round_completed.
+-- TEST 9: rounds that are not in progress. Completed and already ended at
+--         the same N ⇒ no-op success; a different N ⇒ 22023
+--         round_already_ended; completed, never ended ⇒ 22023
+--         round_completed; upcoming ⇒ 22023 round_not_in_progress.
 -- =====================================================
 SET LOCAL role authenticated;
 SET LOCAL request.jwt.claims = '{"sub":"ee000000-0000-0000-0000-000000000001","role":"authenticated"}';
@@ -17966,6 +20026,17 @@ BEGIN
   END;
   ASSERT v_raised AND v_hint = 'round_completed',
     'Test 9 FAILED: a completed, never-ended round should raise round_completed';
+
+  v_raised := FALSE;
+  v_hint := NULL;
+  BEGIN
+    PERFORM end_round_early('ee000000-0000-0000-0001-000000000009', 6);
+  EXCEPTION WHEN invalid_parameter_value THEN
+    v_raised := TRUE;
+    GET STACKED DIAGNOSTICS v_hint = PG_EXCEPTION_HINT;
+  END;
+  ASSERT v_raised AND v_hint = 'round_not_in_progress',
+    'Test 9 FAILED: an upcoming round should raise round_not_in_progress, got ' || COALESCE(v_hint, 'NULL');
 END $$;
 
 RESET ROLE;
@@ -17974,11 +20045,13 @@ DO $$
 DECLARE
   v_r4 SMALLINT;
   v_r5 SMALLINT;
+  v_r9 SMALLINT;
 BEGIN
   SELECT holes_played INTO v_r4 FROM rounds WHERE id = 'ee000000-0000-0000-0001-000000000004';
   SELECT holes_played INTO v_r5 FROM rounds WHERE id = 'ee000000-0000-0000-0001-000000000005';
-  ASSERT v_r4 = 6 AND v_r5 IS NULL, 'Test 9 FAILED: completed rounds changed';
-  RAISE NOTICE 'Test 9 PASSED: completed rounds are guarded';
+  SELECT holes_played INTO v_r9 FROM rounds WHERE id = 'ee000000-0000-0000-0001-000000000009';
+  ASSERT v_r4 = 6 AND v_r5 IS NULL AND v_r9 IS NULL, 'Test 9 FAILED: rounds that are not in progress changed';
+  RAISE NOTICE 'Test 9 PASSED: completed and upcoming rounds are guarded';
 END $$;
 
 -- =====================================================
@@ -18021,12 +20094,14 @@ RESET ROLE;
 
 -- =====================================================
 -- TEST 11: the CHECK constraint (standalone only; 1 <= N < planned).
+--          Direct writes need the guard's flag (Test 13 covers the guard).
 -- =====================================================
 DO $$
 DECLARE
   v_case   TEXT;
   v_raised BOOLEAN;
 BEGIN
+  PERFORM set_config('app.ending_round', 'on', true);
   FOREACH v_case IN ARRAY ARRAY['full-18', 'full-0', 'back9-9', 'competition-3'] LOOP
     v_raised := FALSE;
     BEGIN
@@ -18044,6 +20119,7 @@ BEGIN
     END;
     ASSERT v_raised, 'Test 11 FAILED: CHECK should reject case ' || v_case;
   END LOOP;
+  PERFORM set_config('app.ending_round', 'off', true);
   RAISE NOTICE 'Test 11 PASSED: rounds_holes_played_check enforces the range and standalone-only';
 END $$;
 
@@ -18075,7 +20151,88 @@ BEGIN
    WHERE tgname IN ('scorecards_full_card_differential', 'handicap_combined_rounds_full_cards')
      AND NOT tgisinternal;
   ASSERT v_count = 2, 'Test 12 FAILED: expected A7''s two triggers, got ' || v_count;
+
+  -- search_path pinned with pg_temp last on the definer RPC and the helper.
+  SELECT COUNT(*) INTO v_count
+    FROM pg_proc
+   WHERE oid IN ('public.end_round_early(uuid, integer)'::regprocedure,
+                 'public.scorecard_eligible_for_differential(uuid, jsonb)'::regprocedure)
+     AND 'search_path=public, pg_temp' = ANY (proconfig);
+  ASSERT v_count = 2, 'Test 12 FAILED: expected search_path=public, pg_temp on 2 functions, got ' || v_count;
+
+  SELECT COUNT(*) INTO v_count
+    FROM pg_trigger
+   WHERE tgname = 'trigger_guard_rounds_holes_played'
+     AND tgrelid = 'public.rounds'::regclass
+     AND NOT tgisinternal;
+  ASSERT v_count = 1, 'Test 12 FAILED: expected the holes_played guard trigger on rounds, got ' || v_count;
   RAISE NOTICE 'Test 12 PASSED: catalog is as expected';
+END $$;
+
+-- =====================================================
+-- TEST 13: holes_played is RPC-only, and nine_type is frozen once it is
+--          set. Direct writes by the owner (RLS allows the row) and by a
+--          superuser are refused with 42501; a nine_type change on a round
+--          that wasn't ended still works (positive control).
+-- =====================================================
+SET LOCAL role authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"ee000000-0000-0000-0000-000000000001","role":"authenticated"}';
+
+DO $$
+DECLARE
+  v_case   TEXT;
+  v_raised BOOLEAN;
+BEGIN
+  ASSERT COALESCE(current_setting('app.ending_round', true), '') <> 'on',
+    'Test 13 FAILED: app.ending_round should be off before the guard checks';
+
+  FOREACH v_case IN ARRAY ARRAY['set', 'change', 'clear', 'nine_type'] LOOP
+    v_raised := FALSE;
+    BEGIN
+      IF v_case = 'set' THEN
+        -- R2: full, in progress, never ended.
+        UPDATE rounds SET holes_played = 5 WHERE id = 'ee000000-0000-0000-0001-000000000002';
+      ELSIF v_case = 'change' THEN
+        -- R1: back 9, ended after 6.
+        UPDATE rounds SET holes_played = 7 WHERE id = 'ee000000-0000-0000-0001-000000000001';
+      ELSIF v_case = 'clear' THEN
+        UPDATE rounds SET holes_played = NULL WHERE id = 'ee000000-0000-0000-0001-000000000001';
+      ELSE
+        UPDATE rounds SET nine_type = 'front9' WHERE id = 'ee000000-0000-0000-0001-000000000001';
+      END IF;
+    EXCEPTION WHEN insufficient_privilege THEN
+      v_raised := TRUE;
+    END;
+    ASSERT v_raised, 'Test 13 FAILED: the owner''s direct write should raise 42501 (case ' || v_case || ')';
+  END LOOP;
+
+  -- Positive control: R2 was never ended, so its nine type can change.
+  UPDATE rounds SET nine_type = 'front9' WHERE id = 'ee000000-0000-0000-0001-000000000002';
+END $$;
+
+RESET ROLE;
+
+DO $$
+DECLARE
+  v_raised BOOLEAN := FALSE;
+  v_r1     SMALLINT;
+  v_r1nine TEXT;
+  v_r2     SMALLINT;
+  v_r2nine TEXT;
+BEGIN
+  -- No service-role exemption: without the flag even a superuser is refused.
+  BEGIN
+    UPDATE rounds SET holes_played = 3 WHERE id = 'ee000000-0000-0000-0001-000000000002';
+  EXCEPTION WHEN insufficient_privilege THEN
+    v_raised := TRUE;
+  END;
+  ASSERT v_raised, 'Test 13 FAILED: a superuser write without app.ending_round should raise 42501';
+
+  SELECT holes_played, nine_type INTO v_r1, v_r1nine FROM rounds WHERE id = 'ee000000-0000-0000-0001-000000000001';
+  SELECT holes_played, nine_type INTO v_r2, v_r2nine FROM rounds WHERE id = 'ee000000-0000-0000-0001-000000000002';
+  ASSERT v_r1 = 6 AND v_r1nine = 'back9', 'Test 13 FAILED: R1 should still be back9 ended after 6';
+  ASSERT v_r2 IS NULL AND v_r2nine = 'front9', 'Test 13 FAILED: R2 should be front9 (positive control) and not ended';
+  RAISE NOTICE 'Test 13 PASSED: holes_played is RPC-only and nine_type is frozen once ended';
 END $$;
 
 DO $$
@@ -18098,8 +20255,9 @@ grep -c "PASSED" $V
 grep -c "^BEGIN;\|^ROLLBACK;" $V
 grep -c "p_convert_to_front9\|, FALSE);\|, TRUE);" $V
 grep -c "end_round_early('ee000000-0000-0000-0001-000000000001', 6)" $V
+grep -c "id, name, start_date, end_date," $V
 ```
-Expected: `12` (one per test), `2`, `0` (only 2-argument calls), `2` (Test 1 by the mate, Test 4's same-N retry by the owner).
+Expected: `13` (one per test), `2`, `0` (only 2-argument calls), `2` (Test 1 by the mate, Test 4's same-N retry by the owner), `1` (the competition fixture sets `end_date`, which `event_requires_end_date` needs).
 
 The script is run against staging in B11, after A7 and B1a-1 are applied there:
 `psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/tests/end_round_early_verify.sql`. Every test prints `Test N PASSED`, and it ends with `ROLLBACK`. It was authored without a live database: first-run fixups (trigger side-effects, constraint drift) are expected and belong in the B11 rollout notes.
@@ -18108,7 +20266,7 @@ The script is run against staging in B11, after A7 and B1a-1 are applied there:
 
 ```bash
 git add supabase/tests/end_round_early_verify.sql
-git commit -m "test(db): end_round_early verification script (back-9 trims, conflicts, invitees, triggers)
+git commit -m "test(db): end_round_early verification script (back-9 trims, score strip, conflicts, status, invitees, guard, triggers)
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
@@ -18123,7 +20281,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Modify: `src/hooks/scorecard/useRoundMetadata.ts:46-47` (`RoundMetadata.holesPlayed`) and `:206` (mapping)
 - Modify: `src/hooks/activity/types.ts:1-6` (import) and `:46-48` (`ActivityFeedCard.holes_played`, `nine_type`)
 - Modify: `src/types/database/schema.ts:432-439` (`Functions.end_round_early`)
-- Modify: `src/services/skins/roundHoleCounts.ts` — `fetchSkinsHoleCounts` select + row type (as A5a-2 leaves it; Contract note 6)
+- Modify: `src/services/skins/roundHoleCounts.ts` — `fetchSkinsHoleCounts` select + row type (A5a-2 creates the file there; the pure helpers stay in `src/utils/skins/holeCounts.ts`)
 - Modify: `src/__tests__/services/skins/roundHoleCounts.test.ts` — A5a-2's select assertion
 - Test: `src/__tests__/hooks/scorecard/useRoundMetadata.test.tsx` (new)
 - Test: `src/__tests__/services/skins/fetchSkinsHoleCounts.holesPlayed.test.ts` (new)
@@ -18135,9 +20293,17 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - `SupabaseRoundData.holes_played?: number | null`; `ROUND_METADATA_SELECT` includes `holes_played`;
   - `RoundMetadata.holesPlayed: number | null`;
   - `ActivityFeedCard.holes_played?: number | null; nine_type?: NineType | null`;
-  - `Database['public']['Functions']['end_round_early']` with `Args { p_round_id: string; p_holes_played: number }`, `Returns: undefined`;
+  - `Database['public']['Functions']['end_round_early']` with `Args { p_round_id: string; p_holes_played: number }`, `Returns: undefined`. **This entry documents the shape only.** `createClient<Database>` (`src/services/supabase/client.ts:37`) resolves its schema to `never`, because the hand-written `Database` (`src/types/database/schema.ts`, `Row: Player` interfaces) doesn't satisfy supabase-js 2.80's `GenericSchema`: even the existing typed `supabase.rpc('get_player_scorer', {…})` fails type-check ("not assignable to parameter of type 'undefined'", result `PostgrestSingleResponse<never>`). So every `.rpc` call in the app is cast (`src/services/offline/sync/scorecardSync.ts:261` `(supabase.rpc as any)('write_scorecard_snapshot', …)`, `src/services/api/permissions.ts:29` `'…' as unknown as never`);
   - `fetchSkinsHoleCounts` selects `nine_type, holes_played`.
-  - Consumers: B3c (init + mismatch guards read `metadata.data.holesPlayed`), B6b (`supabase.rpc('end_round_early', …)`), B9a/B9d (round list, feed card), every skins settlement path (A5b/A6a).
+  - Consumers: B3c (init + mismatch guards read `metadata.data.holesPlayed`), B9a/B9d (round list, feed card), every skins settlement path (A5b/A6a), and B6b-1, which types its arguments from the entry and casts the call inline:
+    ```ts
+    type EndRoundEarlyArgs = Database['public']['Functions']['end_round_early']['Args'];
+    const args: EndRoundEarlyArgs = { p_round_id: roundId, p_holes_played: holesPlayed };
+    // createClient<Database> resolves rpc() to never (hand-written schema); the args stay typed above.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    result = await (supabase.rpc as any)('end_round_early', args);
+    ```
+    Keep the cast inline: `(supabase.rpc as any)(…)` compiles to `supabase.rpc(…)` and keeps `this`; assigning `supabase.rpc` to a variable first loses it.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -18463,6 +20629,9 @@ Replace with:
         };
         Returns: string | null; // UUID of scorer, or null
       };
+      // Shape only: createClient<Database> resolves rpc() to never with this
+      // hand-written schema, so callers type their args from this entry and
+      // cast the call: (supabase.rpc as any)('end_round_early', args).
       end_round_early: {
         Args: {
           p_round_id: string; // UUID
@@ -18473,7 +20642,7 @@ Replace with:
       validate_scoring_pairs: {
 ```
 
-**3f.** `fetchSkinsHoleCounts` in `src/services/skins/roundHoleCounts.ts` (A5a-2 creates it there, not in `src/utils/skins/holeCounts.ts`, which stays pure; `D3-skins.md` Contract notes 2–3). Current, inside `fetchSkinsHoleCounts` (as A5a-2 leaves it):
+**3f.** `fetchSkinsHoleCounts` in `src/services/skins/roundHoleCounts.ts` (A5a-2 creates it there, not in `src/utils/skins/holeCounts.ts`, which stays pure). Current, inside `fetchSkinsHoleCounts` (as A5a-2 leaves it):
 ```ts
     .from('rounds')
     .select('nine_type')
@@ -18520,7 +20689,7 @@ Expected: PASS (5 + 4 tests).
 - [ ] **Step 5: Run the scoring subset + type-check**
 
 Run: the TEST_SUBSET command from Global Constraints, then `pnpm type-check`
-Expected: green (apart from the Task 0 baseline). The subset covers both new files (`hooks/scorecard`, `skins`) and A5a's skins tests. `pnpm type-check` now enforces the RPC args: the `@ts-expect-error` in `useRoundMetadata.test.tsx` fails the build if `p_convert_to_front9` ever comes back (or if `end_round_early` is missing). `Round.holes_played` and the `ActivityFeedCard` fields are optional, so existing literals (`ActivityRoundCard.test.tsx:41` `makeCard`, `Round` fixtures) need no change.
+Expected: green (apart from the Task 0 baseline). The subset covers both new files (`hooks/scorecard`, `skins`) and A5a's skins tests. `pnpm type-check` now enforces the entry's `Args` shape: the `@ts-expect-error` in `useRoundMetadata.test.tsx` fails the build if `p_convert_to_front9` ever comes back (or if `end_round_early` is missing). It does **not** check `supabase.rpc(...)` calls, which are cast app-wide (see Interfaces); B6b-1 gets its type safety by annotating its args with `EndRoundEarlyArgs`. `Round.holes_played` and the `ActivityFeedCard` fields are optional, so existing literals (`ActivityRoundCard.test.tsx:41` `makeCard`, `Round` fixtures) need no change.
 
 - [ ] **Step 6: Commit**
 
@@ -18704,6 +20873,18 @@ describe('resolveRoundShape', () => {
     });
     expect(resolveRoundShape({ nine_type: 'full' }, { holesPlayed: -1 })).toEqual({ nineType: 'full', holesPlayed: null });
   });
+
+  it('treats a non-integer holes_played as not set, like filterPlayableHoles', () => {
+    expect(resolveRoundShape({ nine_type: 'full', holes_played: 2.5 })).toEqual({ nineType: 'full', holesPlayed: null });
+    expect(resolveRoundShape({ nine_type: 'full', holes_played: 2.5 }, { holesPlayed: 4 })).toEqual({
+      nineType: 'full',
+      holesPlayed: 4,
+    });
+    expect(resolveRoundShape({ nine_type: 'full' }, { holesPlayed: Number.NaN })).toEqual({
+      nineType: 'full',
+      holesPlayed: null,
+    });
+  });
 });
 
 describe('firstHoleNumber / lastPlayedHoleNumber', () => {
@@ -18728,6 +20909,11 @@ describe('isHoleAfterEarlyEnd', () => {
     expect(isHoleAfterEarlyEnd('full', 0, 5)).toBe(false);
   });
 
+  it('ignores a non-integer holesPlayed, agreeing with filterPlayableHoles (which keeps every hole)', () => {
+    expect(isHoleAfterEarlyEnd('full', 2.5, 5)).toBe(false);
+    expect(isHoleAfterEarlyEnd('full', Number.NaN, 18)).toBe(false);
+  });
+
   it('is true only after the last played hole', () => {
     expect(isHoleAfterEarlyEnd('full', 6, 6)).toBe(false);
     expect(isHoleAfterEarlyEnd('full', 6, 7)).toBe(true);
@@ -18749,6 +20935,7 @@ describe('isEndedEarly', () => {
     expect(isEndedEarly({})).toBe(false);
     expect(isEndedEarly({ holes_played: null })).toBe(false);
     expect(isEndedEarly({ holes_played: 0 })).toBe(false);
+    expect(isEndedEarly({ holes_played: 2.5 })).toBe(false);
     expect(isEndedEarly({ holes_played: 6 })).toBe(true);
   });
 });
@@ -19023,9 +21210,13 @@ export interface RoundShape {
   holesPlayed: number | null;
 }
 
-/** A positive holes-played count, or null ("played as planned"). */
+/**
+ * A positive integer holes-played count, or null ("played as planned").
+ * Same rule as filterPlayableHoles, so a value it ignores (0, -3, 2.5, NaN)
+ * never reads as "ended early" here either.
+ */
 function positiveOrNull(value: number | null | undefined): number | null {
-  return value != null && value > 0 ? value : null;
+  return value != null && Number.isInteger(value) && value > 0 ? value : null;
 }
 
 /**
@@ -19033,7 +21224,7 @@ function positiveOrNull(value: number | null | undefined): number | null {
  *   the server, so a device that ended at a different N adopts it); otherwise
  *   the local value from the SQLite cards; otherwise null.
  * - nineType: server `nine_type` → local nine type → 'full'.
- * Non-positive values on either side count as "not set".
+ * Non-positive or non-integer values on either side count as "not set".
  */
 export function resolveRoundShape(
   server: { nine_type?: NineType | null; holes_played?: number | null } | null | undefined,
@@ -19175,7 +21366,7 @@ export function planEndRoundEarly(input: {
 - [ ] **Step 6: Run the tests to verify they pass**
 
 Run: `pnpm test src/utils/holeTransformers.test.ts src/utils/roundShape.test.ts src/utils/endRoundEarly.test.ts`
-Expected: PASS — 14 + 13 + 17 = 44 tests.
+Expected: PASS — 14 + 15 + 17 = 46 tests.
 
 - [ ] **Step 7: Run the scoring subset + type-check**
 
@@ -19199,13 +21390,13 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ### Task B3a: SQLite end marker, `Scorecard.holesPlayed`, `deleteHoleScoresForCards`
 
 **Files:**
-- Modify: `src/services/offline/schema/migrations.ts` (new last entry, `version: 22`, after A3b's 19–21)
+- Modify: `src/services/offline/schema/migrations.ts` (new last entry, `version: 20`, after A3b's migration 19)
 - Modify: `src/services/offline/types.ts` (`ScorecardRow.holes_played`, after A3b's `sync_*` fields)
 - Modify: `src/types/index.ts:414-416` (`Scorecard.holesPlayed`)
 - Modify: `src/services/offline/dao/ScorecardDAO.ts` (`rowToScorecard` return object; `saveScorecard` INSERT columns, placeholders, values, as A3b leaves them)
 - Modify: `src/services/offline/dao/HoleScoreDAO.ts:138-147` (add `deleteHoleScoresForCards` after `deleteHoleScores`)
 - Modify: `src/services/offline/database.ts:36` (re-export)
-- Test: `src/__tests__/services/offline/database.test.ts` (new `describe` block appended; A3b's two `slice(-3)` assertions move to `slice(-4, -1)`)
+- Test: `src/__tests__/services/offline/database.test.ts` (new `describe` block appended; A3b's two `slice(-3)` assertions move to `slice(-4, -1)` and its `toHaveLength(23)` becomes `toHaveLength(24)`)
 
 **Interfaces:**
 - Consumes: `getDb`, `TABLE_NAMES.HOLE_SCORES` (`'hole_scores'`), `DatabaseInstance.withTransactionAsync` (already used at `ScorecardDAO.ts:82`); A3b's `sync_*` columns.
@@ -19380,23 +21571,27 @@ Expected: FAIL.
 `src/services/offline/schema/migrations.ts`, the end of `MIGRATIONS`. Current (as A3b leaves it):
 ```ts
   {
-    version: 21,
-    name: 'add_scorecard_sync_holes',
-    up: `ALTER TABLE scorecards ADD COLUMN sync_holes TEXT`,
+    version: 19,
+    name: 'add_scorecard_sync_metadata',
+    up: `ALTER TABLE scorecards ADD COLUMN sync_nine_type TEXT;
+         ALTER TABLE scorecards ADD COLUMN sync_game_type TEXT;
+         ALTER TABLE scorecards ADD COLUMN sync_holes TEXT;`,
   },
 ];
 ```
 Replace with:
 ```ts
   {
-    version: 21,
-    name: 'add_scorecard_sync_holes',
-    up: `ALTER TABLE scorecards ADD COLUMN sync_holes TEXT`,
+    version: 19,
+    name: 'add_scorecard_sync_metadata',
+    up: `ALTER TABLE scorecards ADD COLUMN sync_nine_type TEXT;
+         ALTER TABLE scorecards ADD COLUMN sync_game_type TEXT;
+         ALTER TABLE scorecards ADD COLUMN sync_holes TEXT;`,
   },
   {
     // End round early (R15): set on every local card of a round when it is
     // ended, so a relaunch keeps the end before the server knows about it.
-    version: 22,
+    version: 20,
     name: 'add_scorecard_holes_played',
     up: `ALTER TABLE scorecards ADD COLUMN holes_played INTEGER`,
   },
@@ -19405,7 +21600,7 @@ Replace with:
 
 `src/services/offline/types.ts`, the end of `ScorecardRow`. Current (as A3b leaves it):
 ```ts
-  // Sync metadata (migrations 19-21); absent on rows written before them
+  // Sync metadata (migration 19); absent on rows written before it
   sync_nine_type?: string | null;
   sync_game_type?: string | null;
   /** JSON-encoded Hole[] (the round's planned holes at submit) */
@@ -19414,12 +21609,12 @@ Replace with:
 ```
 Replace with:
 ```ts
-  // Sync metadata (migrations 19-21); absent on rows written before them
+  // Sync metadata (migration 19); absent on rows written before it
   sync_nine_type?: string | null;
   sync_game_type?: string | null;
   /** JSON-encoded Hole[] (the round's planned holes at submit) */
   sync_holes?: string | null;
-  /** Holes played when the round was ended early (migration 22); absent on older rows */
+  /** Holes played when the round was ended early (migration 20); absent on older rows */
   holes_played?: number | null;
 }
 ```
@@ -19454,7 +21649,7 @@ Replace with:
 ```ts
     syncGameType: (row.sync_game_type as GameType | null | undefined) ?? undefined,
     syncHoles,
-    // End round early marker (local migration 22)
+    // End round early marker (local migration 20)
     holesPlayed: row.holes_played ?? null,
   };
 }
@@ -19504,10 +21699,13 @@ Replace with:
 ```
 And in A3b's next test, current:
 ```ts
+      expect(insertCall[1]).toHaveLength(23);
       expect(insertCall[1].slice(-3)).toEqual([null, null, null]);
 ```
 Replace with:
 ```ts
+      // A3b's 23 values + holes_played (B3a).
+      expect(insertCall[1]).toHaveLength(24);
       expect(insertCall[1].slice(-4, -1)).toEqual([null, null, null]);
 ```
 
@@ -19569,7 +21767,7 @@ export { saveHoleScore, getHoleScores, deleteHoleScoresForCards } from './dao/Ho
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `pnpm test src/__tests__/services/offline/database.test.ts`
-Expected: PASS. That covers the 8 new tests, A3b's round-trip tests with their updated slices, and the existing suite. "is_synced at index 13" and "is_standalone at index 14" still hold because the new value is appended at the end.
+Expected: PASS. That covers the 8 new tests, A3b's round-trip tests with their updated slices and length, and the existing suite. "is_synced at index 13" and "is_standalone at index 14" still hold because the new value is appended at the end.
 
 - [ ] **Step 5: Run the scoring subset + type-check**
 
@@ -19603,7 +21801,6 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - `submitScorecards` `374`, `405-409`, `433-437`;
   - `resetRound` `512`.
 - Modify: `src/store/initializeRoundSlice.ts:155-169` and `:466-480` (both final `set`s get `holesPlayed: null`; B3c-1 replaces them with the resolved shape)
-- Modify: `src/__tests__/mocks/stores/scorecardStore.mock.ts:8, 21-23, 47-49, 74-76, 105-107`
 - Test: `src/__tests__/store/scorecardStore.endRoundEarly.test.ts` (new; B3b-2, B3b-3 and B3c-1 append)
 
 **Interfaces:**
@@ -19611,8 +21808,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Produces (contract):
   - store `holesPlayed: number | null`, set to `null` by both init paths (placeholder) and by `resetRound`;
   - `getPlayedHoles: () => Hole[]`;
-  - `submitScorecards` carries `holesPlayed` on an ended round's payload, while `coursePar` / `syncHoles` stay the planned holes (R1);
-  - the store mock has `nineType`, `holesPlayed`, `getPlayedHoles`, `endRoundEarly`.
+  - `submitScorecards` carries `holesPlayed` on an ended round's payload, while `coursePar` / `syncHoles` stay the planned holes (R1).
 
   Consumed by B3b-2 (`endRoundEarly`), B3b-3 (guard, Watch), B3c, B4, B5, B6, B7 and B8.
 
@@ -20067,72 +22263,7 @@ Replace with:
 ```
 (B3c-1 replaces both `holesPlayed: null` with the resolved shape.)
 
-**Store mock** (`src/__tests__/mocks/stores/scorecardStore.mock.ts`), so B6/B7 screen tests can drive the ended state. Line 8, current:
-```ts
-import type { Player, Hole, HoleScore } from '@/types/database.types';
-```
-Replace with:
-```ts
-import type { Player, Hole, HoleScore } from '@/types/database.types';
-import type { NineType } from '@/types/database/enums';
-```
-Lines 21-23, current:
-```ts
-  // Hole navigation
-  currentHole: number;
-  holes: Hole[];
-```
-Replace with:
-```ts
-  // Hole navigation
-  currentHole: number;
-  holes: Hole[];
-  nineType: NineType;
-  holesPlayed: number | null;
-```
-Lines 47-49, current:
-```ts
-  submitScorecards: jest.Mock;
-  resetRound: jest.Mock;
-  syncScores: jest.Mock;
-```
-Replace with:
-```ts
-  submitScorecards: jest.Mock;
-  resetRound: jest.Mock;
-  syncScores: jest.Mock;
-  getPlayedHoles: jest.Mock;
-  endRoundEarly: jest.Mock;
-```
-Lines 74-76, current:
-```ts
-    // Hole navigation
-    currentHole: 1,
-    holes: defaultHoles,
-```
-Replace with:
-```ts
-    // Hole navigation
-    currentHole: 1,
-    holes: defaultHoles,
-    nineType: 'full',
-    holesPlayed: null,
-```
-Lines 105-107, current:
-```ts
-    submitScorecards: jest.fn().mockResolvedValue({ success: true }),
-    resetRound: jest.fn(),
-    syncScores: jest.fn().mockResolvedValue({ success: true }),
-```
-Replace with:
-```ts
-    submitScorecards: jest.fn().mockResolvedValue({ success: true }),
-    resetRound: jest.fn(),
-    syncScores: jest.fn().mockResolvedValue({ success: true }),
-    // Played holes = the planned holes unless a test overrides it.
-    getPlayedHoles: jest.fn(() => baseState.holes),
-    endRoundEarly: jest.fn().mockResolvedValue(undefined),
-```
+(No change to `src/__tests__/mocks/stores/scorecardStore.mock.ts`: no screen test imports it for the ended state. A later task that needs it adds the fields it uses.)
 
 - [ ] **Step 6: Run tests to verify they pass**
 
@@ -20147,7 +22278,7 @@ Expected: green (apart from the Task 0 baseline).
 - [ ] **Step 8: Commit**
 
 ```bash
-git add src/store/scorecardStore.ts src/store/initializeRoundSlice.ts src/__tests__/mocks/stores/scorecardStore.mock.ts src/__tests__/store/scorecardStore.endRoundEarly.test.ts
+git add src/store/scorecardStore.ts src/store/initializeRoundSlice.ts src/__tests__/store/scorecardStore.endRoundEarly.test.ts
 git commit -m "feat(scoring): store holesPlayed and getPlayedHoles
 
 The store keeps the planned holes and gains holesPlayed (null = as
@@ -20165,6 +22296,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Create: `src/store/endRoundEarlySlice.ts`
 - Modify: `src/store/scorecardStore.ts` (as B3b-1 leaves it): imports (the `initSlice` line), the interface (after `getPlayedHoles`), and the actions (after the `getPlayedHoles` getter)
 - Test: `src/__tests__/store/scorecardStore.endRoundEarly.test.ts` (extend)
+- Test: `src/__tests__/store/endRoundEarlySlice.test.ts` (new: `scoresEveryPlayer`)
 
 **Interfaces:**
 - Consumes:
@@ -20173,12 +22305,17 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - store `holesPlayed` / `getPlayedHoles` (B3b-1);
   - `calculatePlayerTotals` (`src/store/utils/scorecardCalculations.ts:46`, already takes `nineType` on `main`);
   - `persistScorecardUpdate` (`src/store/scorecardPersistence.ts:40`), `debouncedQueueScorecardSync` (`src/store/scorecardSyncDebounce.ts:41`).
-- Produces (contract): `endRoundEarly: (n: number) => Promise<void>` on the store, and `endRoundEarly(get, set, n)` in `src/store/endRoundEarlySlice.ts` (B3c-1 adds an options argument and reconcile). Consumed by B6c (confirm and conflict adoption) and B3c-1 (reconcile).
+- Produces (contract):
+  - `endRoundEarly: (n: number) => Promise<void>` on the store, and `endRoundEarly(get, set, n)` in `src/store/endRoundEarlySlice.ts` (B3c-1 adds an options argument and reconcile);
+  - `export function scoresEveryPlayer(state: { allowedPlayerIds: readonly string[]; currentPlayers: readonly { id: string }[]; groupScorecards: ReadonlyMap<string, unknown> }): boolean` from `@/store/endRoundEarlySlice`. B6c's gate calls it with the store's fields, so the button and the store refuse on the same rule;
+  - `export class EndRoundEarlyRoundChangedError extends Error` (`name = 'EndRoundEarlyRoundChangedError'`, `roundId`), thrown when the store's `currentRoundId` changed while the SQLite delete ran.
+
+  Consumed by B6c (confirm, conflict adoption, the gate) and B3c-1 (reconcile).
 
 **`endRoundEarly(n)`, in order:**
 1. Validate: a round id; `n` an integer with 1 ≤ n < `holes.length` (planned); the device scores every player (Global Constraints). Throws and changes nothing otherwise.
 2. No-op when already ended at `n`, nothing is left outside the played holes, and every card already says `holesPlayed: n` (idempotent).
-3. **SQLite first:** one `deleteHoleScoresForCards` call for every card's keys outside `filterPlayableHoles(holes, nineType, n)`. A rejection propagates with nothing changed.
+3. **SQLite first:** one `deleteHoleScoresForCards` call for every card's keys outside `filterPlayableHoles(holes, nineType, n)`. A rejection propagates with nothing changed. After the `await`, if `get().currentRoundId` is no longer the round being ended (the store was reset or re-initialised for another round meanwhile), throw `EndRoundEarlyRoundChangedError` and change no state. The rows already deleted were later holes of the round being ended, which the caller was about to drop anyway.
 4. Rebuild every card: keep only played-hole keys, set `holesPlayed: n`, set `teeData` to the player's tee (`playerTeeMap.get(id) ?? selectedTeeData`, the same as `getPlayerTee`), and recompute totals over the **planned** `holes` (the DHC stays the planned round's, R1). Then `set` the cards, `holesPlayed: n`, and `currentHole` clamped to the played holes.
 5. Persist every card with `persistScorecardUpdate`, which logs and doesn't throw, as every store write does. Schedule `debouncedQueueScorecardSync` for each non-standalone card; `write_scorecard_snapshot` replaces `scores` wholesale, so the removals reach the server.
 
@@ -20342,6 +22479,23 @@ describe('endRoundEarly(n)', () => {
     expect(debouncedQueueScorecardSync).not.toHaveBeenCalled();
   });
 
+  it('aborts with EndRoundEarlyRoundChangedError when the store is reset while SQLite deletes', async () => {
+    (deleteHoleScoresForCards as jest.Mock).mockImplementationOnce(async () => {
+      getStore().resetRound(); // e.g. the user left and opened another round
+    });
+
+    await expect(getStore().endRoundEarly(6)).rejects.toMatchObject({
+      name: 'EndRoundEarlyRoundChangedError',
+      roundId: ROUND_ID,
+    });
+
+    expect(getStore().currentRoundId).toBeNull();
+    expect(getStore().holesPlayed).toBeNull();
+    expect(getStore().groupScorecards.size).toBe(0);
+    expect(saveScorecard).not.toHaveBeenCalled();
+    expect(debouncedQueueScorecardSync).not.toHaveBeenCalled();
+  });
+
   it('is idempotent: ending again at the same N writes nothing', async () => {
     await getStore().endRoundEarly(6);
     jest.clearAllMocks();
@@ -20398,10 +22552,52 @@ describe('endRoundEarly — back 9 (Review Focus #2)', () => {
 });
 ```
 
+Create `src/__tests__/store/endRoundEarlySlice.test.ts` (the rule B6c's gate shares with the store):
+```ts
+/**
+ * endRoundEarlySlice — scoresEveryPlayer, the "who can end" rule shared by
+ * the store action and useEndRoundEarly's gate (Global Constraints).
+ */
+
+import { scoresEveryPlayer } from '@/store/endRoundEarlySlice';
+
+jest.mock('@/services/offline/database', () => ({ deleteHoleScoresForCards: jest.fn() }));
+jest.mock('@/store/scorecardPersistence', () => ({ persistScorecardUpdate: jest.fn() }));
+jest.mock('@/store/scorecardSyncDebounce', () => ({ debouncedQueueScorecardSync: jest.fn() }));
+
+const players = [{ id: 'p1' }, { id: 'p2' }];
+const cards = new Map<string, unknown>([['p1', {}], ['p2', {}]]);
+
+describe('scoresEveryPlayer', () => {
+  it('is true when allowedPlayerIds is empty (this device scores everyone)', () => {
+    expect(scoresEveryPlayer({ allowedPlayerIds: [], currentPlayers: players, groupScorecards: cards })).toBe(true);
+  });
+
+  it('is true when allowedPlayerIds lists every player (ScorecardEntryScreen always fills it)', () => {
+    expect(
+      scoresEveryPlayer({ allowedPlayerIds: ['p2', 'p1'], currentPlayers: players, groupScorecards: cards })
+    ).toBe(true);
+  });
+
+  it('is false when a player, or a card held for another player, is outside allowedPlayerIds', () => {
+    expect(scoresEveryPlayer({ allowedPlayerIds: ['p1'], currentPlayers: players, groupScorecards: cards })).toBe(false);
+    expect(
+      scoresEveryPlayer({
+        allowedPlayerIds: ['p1', 'p2'],
+        currentPlayers: players,
+        groupScorecards: new Map<string, unknown>([...cards, ['p3', {}]]),
+      })
+    ).toBe(false);
+  });
+});
+```
+
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `pnpm test src/__tests__/store/scorecardStore.endRoundEarly.test.ts -t 'endRoundEarly'`
-Expected: FAIL. Every new test fails with `TypeError: getStore().endRoundEarly is not a function`: the 10 tests in `endRoundEarly(n)` and the 1 back-9 test.
+Run: `pnpm test src/__tests__/store/scorecardStore.endRoundEarly.test.ts src/__tests__/store/endRoundEarlySlice.test.ts -t 'endRoundEarly|scoresEveryPlayer'`
+Expected: FAIL.
+- In the store suite, every new test fails with `TypeError: getStore().endRoundEarly is not a function`: the 11 tests in `endRoundEarly(n)` and the 1 back-9 test.
+- `endRoundEarlySlice.test.ts` fails to run: `Cannot find module '@/store/endRoundEarlySlice'`.
 
 - [ ] **Step 3: Implement**
 
@@ -20454,11 +22650,28 @@ type SetFn = (
 ) => void;
 
 /**
+ * Thrown when the store was reset or re-initialised for another round while
+ * the SQLite delete ran. No store state changed. The rows already deleted
+ * were later holes of the round being ended.
+ */
+export class EndRoundEarlyRoundChangedError extends Error {
+  constructor(readonly roundId: string) {
+    super(`Round ${roundId} was unloaded while it was being ended early`);
+    this.name = 'EndRoundEarlyRoundChangedError';
+  }
+}
+
+/**
  * Whether this device scores every player (Global Constraints, "Who can
  * end"). ScorecardEntryScreen always fills allowedPlayerIds, so "non-empty"
  * alone is not a refusal: it must cover every current player and every card.
+ * Exported so useEndRoundEarly's gate (B6c) applies the same rule.
  */
-function scoresEveryPlayer(state: StoreState): boolean {
+export function scoresEveryPlayer(state: {
+  allowedPlayerIds: readonly string[];
+  currentPlayers: readonly { id: string }[];
+  groupScorecards: ReadonlyMap<string, unknown>;
+}): boolean {
   if (state.allowedPlayerIds.length === 0) return true;
   const allowed = new Set(state.allowedPlayerIds);
   return (
@@ -20478,8 +22691,9 @@ function keysOutside(scorecard: Scorecard, played: Set<number>): number[] {
 /**
  * End the round after `n` holes. Idempotent. Order: one SQLite delete for
  * every card, then rebuild and stamp the cards, then persist and sync.
- * Throws (changing nothing) when `n` is out of range, the device doesn't
- * score every player, or the SQLite delete fails.
+ * Throws (changing no store state) when `n` is out of range, the device
+ * doesn't score every player, the SQLite delete fails, or the round was
+ * unloaded during the delete (EndRoundEarlyRoundChangedError).
  */
 export async function endRoundEarly(get: GetFn, set: SetFn, n: number): Promise<void> {
   const state = get();
@@ -20518,6 +22732,11 @@ export async function endRoundEarly(get: GetFn, set: SetFn, n: number): Promise<
   //    after N while the delete ran is dropped here; its SQLite row (if any)
   //    is caught by the next load's reconcile.
   const current = get();
+  if (current.currentRoundId !== currentRoundId) {
+    // Reset or re-initialised for another round mid-end: never stamp this
+    // round's end onto whatever the store holds now.
+    throw new EndRoundEarlyRoundChangedError(currentRoundId);
+  }
   const now = new Date();
   const nextScorecards = new Map<string, Scorecard>();
   for (const [playerId, scorecard] of current.groupScorecards) {
@@ -20605,8 +22824,8 @@ Replace with:
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `pnpm test src/__tests__/store/scorecardStore.endRoundEarly.test.ts src/__tests__/store/scorecardStore.test.ts`
-Expected: PASS: 11 new tests plus everything from B3b-1. `scorecardStore.test.ts` is unchanged: its `@/services/offline/database` mock has no `deleteHoleScoresForCards`, but it never ends a round.
+Run: `pnpm test src/__tests__/store/scorecardStore.endRoundEarly.test.ts src/__tests__/store/endRoundEarlySlice.test.ts src/__tests__/store/scorecardStore.test.ts`
+Expected: PASS: 12 new store tests, 3 `scoresEveryPlayer` tests, plus everything from B3b-1. `scorecardStore.test.ts` is unchanged: its `@/services/offline/database` mock has no `deleteHoleScoresForCards`, but it never ends a round.
 
 - [ ] **Step 5: Run the scoring subset + type-check**
 
@@ -20616,14 +22835,15 @@ Expected: green (apart from the Task 0 baseline). Type-check verifies that zusta
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/store/endRoundEarlySlice.ts src/store/scorecardStore.ts src/__tests__/store/scorecardStore.endRoundEarly.test.ts
+git add src/store/endRoundEarlySlice.ts src/store/scorecardStore.ts src/__tests__/store/scorecardStore.endRoundEarly.test.ts src/__tests__/store/endRoundEarlySlice.test.ts
 git commit -m "feat(scoring): endRoundEarly(n) store action
 
 Removes every score after hole N from every card in one SQLite
 transaction before touching state, stamps holesPlayed and the player's
 tee on every card, recomputes totals on the planned holes, persists and
 schedules snapshot syncs. Idempotent; refuses unless this device scores
-every player.
+every player (scoresEveryPlayer, exported for the UI gate), and aborts
+if the round is unloaded while SQLite deletes.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
@@ -20646,9 +22866,9 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 **Interfaces:**
 - Consumes: `isHoleAfterEarlyEnd`, `filterPlayableHoles` (B2); store `holesPlayed` / `getPlayedHoles` (B3b-1); `endRoundEarly` (B3b-2, used by the tests).
 - Produces (contract):
-  - `applyScoreUpdate` returns `Scorecard | null`: null (no persist, no sync) when the hole is after the early end **or** not in `holes` (Contract note 5);
+  - `applyScoreUpdate` returns `Scorecard | null`: null (no persist, no sync) when the hole is after the early end **or** not in `holes` (Appendix A, Store end-early note 5);
   - `setMultiBallScore` / `updateMultiBallStats` apply the same guard;
-  - the Watch snapshot carries the played holes only, and a write to a closed hole acks `'error'` (Contract note 6).
+  - the Watch snapshot carries the played holes only, and a write to a closed hole acks `'error'` (Appendix A, Store end-early note 6).
 
   Consumed by B6d (scoring screens when ended) and B8.
 
@@ -21120,17 +23340,17 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - the `rounds.holes_played` column (B1a).
 - Produces (contract):
   - `initializeRound(…, nineType?, startHole?, holesPlayed?: number | null)`;
-  - both init paths resolve the shape with `resolveRoundShape(serverRow, { nineType, holesPlayed: max(cards' holesPlayed) })`, then reconcile: `endRoundEarly(N)` runs when a card holds a score after N or its marker isn't N (Contract note 4);
+  - both init paths resolve the shape with `resolveRoundShape(serverRow, { nineType, holesPlayed: max(cards' holesPlayed) })`, then reconcile: `endRoundEarly(N, { reconcile: true })` runs when a card holds a score after N or its marker isn't N (Appendix A, Store end-early note 4). Reconcile schedules a snapshot sync only for a card that lost scores; a re-stamp-only card is persisted locally;
   - `needsEndRoundEarlyReconcile(state): boolean` and `reconcileEndedEarly(get, set): Promise<void>` (`src/store/endRoundEarlySlice.ts`).
 
   Consumed by B3c-2 (the hooks pass `holesPlayed`), B6c and B6d (the round reopens ended).
 
 **Why scores can't come back after N:**
 - `saveScorecard` upserts only the kept keys, and B3b-2 deletes the later `hole_scores` rows in SQLite.
-- `hydrateFromSupabase` (`useRoundData.ts:593-602`, `useMatchPlayData.ts:363-368`) merges only into cards with **no** local scores.
+- `hydrateFromSupabase` (`useRoundData.ts:593-602`, `useMatchPlayData.ts:363-368`) merges only into cards with **no** local scores, and B3c-2 makes both merges skip keys after an early end.
 - The snapshot RPC replaces `scores` wholesale.
 
-The fresh-device window that remains is listed in Follow-ups.
+That closes the fresh-device window: a second phone opening the round before the ending device's trimmed snapshot syncs (2 s debounce) gets `holes_played` from the server and drops the later keys at merge time.
 
 - [ ] **Step 0: Scoring guardrail**
 
@@ -21236,7 +23456,10 @@ describe('init paths resolve the round shape and reconcile', () => {
     (getHoles as jest.Mock).mockResolvedValue(create18Holes());
   });
 
-  it('ended offline, app killed, relaunched before submit: still ended, tee and net intact (Review Focus #1)', async () => {
+  // Relaunch ONLINE before the queued end_early drains (the server row is
+  // still NULL). A true offline cold start is out of scope (R15): see the
+  // characterization test that loadFromOffline bails without the round row.
+  it('relaunched online before the queued end_early drains: still ended, tee and net intact (Review Focus #1)', async () => {
     const SAM18: Player = createTestPlayer({ id: P1.id, name: 'Sam', handicap: 18 });
     const TEE_SHORT: TeeBox = { name: 'Short', color: 'yellow', slopeRating: 70, courseRating: 72 };
     // The queued end_early item has not reached the server yet.
@@ -21302,6 +23525,20 @@ describe('init paths resolve the round shape and reconcile', () => {
     expect(roundsSelects.some((columns) => /\bholes_played\b/.test(columns))).toBe(true);
   });
 
+  it('reconcile syncs only the cards that lost scores; a re-stamp alone stays local', async () => {
+    supabaseMock.__setRoundsResult(roundsRow({ holes_played: 6 }));
+    // P1: holes 1–6 and no marker yet (re-stamp only). P2: a stray hole 7.
+    (getScorecardsByRound as jest.Mock).mockResolvedValue([cachedCard(P1, range(1, 6)), cachedCard(P2, range(1, 7))]);
+
+    await getStore().loadFromOffline(ROUND_ID);
+
+    expect(deleteHoleScoresForCards).toHaveBeenCalledWith([{ scorecardId: cardId(P2.id), holeNumbers: [7] }]);
+    expect(saveScorecard).toHaveBeenCalledWith(expect.objectContaining({ id: cardId(P1.id), holesPlayed: 6 }));
+    expect(saveScorecard).toHaveBeenCalledWith(expect.objectContaining({ id: cardId(P2.id), holesPlayed: 6 }));
+    expect(debouncedQueueScorecardSync).toHaveBeenCalledTimes(1);
+    expect(debouncedQueueScorecardSync).toHaveBeenCalledWith(cardId(P2.id), expect.any(Function));
+  });
+
   it('the server N wins over a different local N (first device to end wins — Review Focus #3)', async () => {
     supabaseMock.__setRoundsResult(roundsRow({ holes_played: 4 }));
     (getScorecardsByRound as jest.Mock).mockResolvedValue([cachedCard(P1, range(1, 6), 6), cachedCard(P2, range(1, 6), 6)]);
@@ -21357,24 +23594,12 @@ Run: `pnpm test src/__tests__/store/scorecardStore.endRoundEarly.test.ts -t 'ini
 Expected: FAIL.
 - **Review Focus #1 relaunch:** `Expected: 6, Received: null` on `holesPlayed`, because `loadFromOffline` still sets B3b-1's `holesPlayed: null` placeholder.
 - **Another device ended / back 9:** `Expected: 6, Received: null`. **Server N wins:** `Expected: 4, Received: null`.
+- **Reconcile syncs only cards that lost scores:** `expect(jest.fn()).toHaveBeenCalledWith(...expected)`, `Number of calls: 0` on `deleteHoleScoresForCards`.
 - **`initializeRound` server param / local cards:** `Expected: 6, Received: null`.
 
 - [ ] **Step 5: Implement**
 
 `src/store/endRoundEarlySlice.ts` (as B3b-2 leaves it). Current:
-```ts
-/** Score keys on `scorecard` that are not played holes, ascending. */
-```
-Replace with:
-```ts
-/** Whether this device may write `playerId`'s card (empty allowedPlayerIds = every card). */
-function canWriteCard(state: StoreState, playerId: string): boolean {
-  return state.allowedPlayerIds.length === 0 || state.allowedPlayerIds.includes(playerId);
-}
-
-/** Score keys on `scorecard` that are not played holes, ascending. */
-```
-Current:
 ```ts
 export async function endRoundEarly(get: GetFn, set: SetFn, n: number): Promise<void> {
 ```
@@ -21384,8 +23609,10 @@ interface EndRoundEarlyOptions {
   /**
    * Init reconcile: adopt an end already recorded (server holes_played or this
    * device's SQLite cards). Skips the "device scores every player" check — that
-   * guards the scorer's decision to end, not a recorded fact — and still only
-   * schedules syncs for cards this device may write.
+   * guards the scorer's decision to end, not a recorded fact — and schedules a
+   * snapshot sync only for a card that lost scores. A card that only needed
+   * its holesPlayed / tee re-stamped is persisted locally: the server already
+   * holds those scores and the marker is local-only.
    */
   reconcile?: boolean;
 }
@@ -21407,6 +23634,11 @@ Replace with:
 ```
 Current:
 ```ts
+  for (const [playerId, scorecard] of nextScorecards) {
+    await persistScorecardUpdate({
+      scorecard: { scorecardId: scorecard.id, scorecard },
+      context: 'endRoundEarly',
+    });
     if (!scorecard.isStandalone) {
       debouncedQueueScorecardSync(scorecard.id, () => get().groupScorecards.get(playerId));
     }
@@ -21415,7 +23647,17 @@ Current:
 ```
 Replace with:
 ```ts
-    if (!scorecard.isStandalone && canWriteCard(get(), playerId)) {
+  // Reconcile syncs only the cards that lost scores (`removals`; in reconcile
+  // mode holesPlayed is already set, so the guard blocks new writes after N
+  // during the delete). A re-stamp alone stays local.
+  const cardsThatLostScores = new Set(removals.map((entry) => entry.scorecardId));
+  for (const [playerId, scorecard] of nextScorecards) {
+    await persistScorecardUpdate({
+      scorecard: { scorecardId: scorecard.id, scorecard },
+      context: options.reconcile ? 'endRoundEarly:reconcile' : 'endRoundEarly',
+    });
+    const shouldSync = !options.reconcile || cardsThatLostScores.has(scorecard.id);
+    if (!scorecard.isStandalone && shouldSync) {
       debouncedQueueScorecardSync(scorecard.id, () => get().groupScorecards.get(playerId));
     }
   }
@@ -21760,7 +24002,7 @@ Replace with:
 - [ ] **Step 6: Run tests to verify they pass**
 
 Run: `pnpm test src/__tests__/store/scorecardStore.endRoundEarly.test.ts src/__tests__/store/scorecardStore.test.ts src/__tests__/integration/scoringFlow.test.ts`
-Expected: PASS: 6 new tests and every earlier one. The existing suites are unchanged:
+Expected: PASS: 7 new tests and every earlier one. The existing suites are unchanged:
 - `scorecardStore.test.ts`'s `rounds` mock has no `holes_played` (resolves to `null`), and its cards carry no marker, so reconcile is a no-op.
 - `initializeRound`'s new `getScorecardsByRound` read hits the `[]` default mocks in both store suites.
 
@@ -21793,26 +24035,30 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - guard `164-169`;
   - reset log `218-224`;
   - `initializeRound` call `384-386`;
-  - deps `395-396`.
+  - deps `395-396`;
+  - `hydrateFromSupabase` `589`, `610-612`.
 - Modify: `src/hooks/scorecard/useMatchPlayData.ts`:
   - imports `20`;
   - destructure (line `79`);
   - `102-107`;
   - divergence `190-210`;
   - `initializeRound` call `295-299`;
-  - deps `309-310`.
-- Modify: `src/screens/scoring/TeamMatchPlayScoringScreen/index.tsx` (A2a's `roundNineType` line, its `initializeRound` call and deps; import)
+  - deps `309-310`;
+  - `hydrateFromSupabase` `359`, `378-380`.
+- Modify: `src/screens/scoring/TeamMatchPlayScoringScreen/index.tsx` (React import line 17; A2a's `roundNineType` line; the init effect's early return, reset, `initializeRound` call and deps; import)
 - Test: `src/__tests__/hooks/scorecard/useRoundData.test.tsx` (new), `src/__tests__/hooks/scorecard/useMatchPlayData.test.tsx` (extend)
 
 **Interfaces:**
 - Consumes:
-  - `resolveRoundShape` (B2);
+  - `resolveRoundShape`, `isHoleAfterEarlyEnd` (B2);
   - `RoundMetadata.holesPlayed` and `Round.holes_played` (B1b);
   - store `holesPlayed` (B3b-1);
   - `initializeRound(…, holesPlayed?)` (B3c-1).
 - Produces (contract):
-  - the `useRoundData` / `useMatchPlayData` mismatch guards compare `holesPlayed` as well as `nineType`. The server's value wins once set, and a pending local end (server still NULL) is left alone.
-  - every network init path passes the server `holes_played` to `initializeRound` (Contract note 9 for the team screen).
+  - the `useRoundData` / `useMatchPlayData` mismatch guards compare `holesPlayed` as well as `nineType`, as `resolvedHolesPlayed !== (storeHolesPlayed ?? null)`. The server's value wins once set, and a pending local end (server still NULL) is left alone.
+  - `TeamMatchPlayScoringScreen`'s init effect no longer returns early when the server's `holes_played` differs from the store's: it resets once per `(round, holes_played)` and reloads (Appendix A, Store end-early note 9).
+  - every network init path passes the server `holes_played` to `initializeRound` (Appendix A, Store end-early note 9 for the team screen).
+  - both `hydrateFromSupabase` merges skip score keys where `isHoleAfterEarlyEnd(store.nineType, store.holesPlayed, hole)`, so a fresh device can't pull holes after N from a server snapshot that hasn't been trimmed yet.
 
   Consumed by B6c (conflict adoption reloads), B6d and B8.
 
@@ -21841,9 +24087,14 @@ Create `src/__tests__/hooks/scorecard/useRoundData.test.tsx`:
 
 import { renderHook } from '@testing-library/react-native';
 import { useRoundData } from '@/hooks/scorecard/useRoundData';
-import type { Hole } from '@/types';
+import { saveScorecard } from '@/services/offline/database';
+import type { Hole, Scorecard } from '@/types';
 
 const ROUND_ID = 'round-ee';
+
+// What hydrateFromSupabase sees: the store's cards and the server's rows.
+let mockGroupScorecards = new Map<string, Partial<Scorecard>>();
+let mockRemoteScorecards: unknown[] = [];
 
 const mockStoreState = {
   currentRoundId: ROUND_ID as string | null,
@@ -21864,7 +24115,7 @@ jest.mock('@/store/scorecardStore', () => {
   const useScorecardStore = jest.fn(() => mockStoreState);
   (useScorecardStore as unknown as { getState: () => unknown }).getState = () => ({
     ...mockStoreState,
-    groupScorecards: new Map(),
+    groupScorecards: mockGroupScorecards,
   });
   (useScorecardStore as unknown as { setState: (s: unknown) => void }).setState = jest.fn();
   return { useScorecardStore };
@@ -21941,12 +24192,15 @@ jest.mock('@/services/offline/database', () => ({
 jest.mock('@/services/diagnostics', () => ({ pushDiagnostic: jest.fn() }));
 jest.mock('@/services/supabase/client', () => ({
   supabase: {
-    from: jest.fn(() => {
+    from: jest.fn((table: string) => {
       const chain: Record<string, jest.Mock> = {};
       chain.select = jest.fn(() => chain);
       chain.eq = jest.fn(() => chain);
       chain.update = jest.fn(() => chain);
-      chain.is = jest.fn(() => Promise.resolve({ data: [], error: null }));
+      // hydrateFromSupabase ends its scorecards query with .is('deleted_at', null).
+      chain.is = jest.fn(() =>
+        Promise.resolve({ data: table === 'scorecards' ? mockRemoteScorecards : [], error: null })
+      );
       return chain;
     }),
   },
@@ -21966,6 +24220,8 @@ const renderTheHook = () => renderHook(() => useRoundData({ roundId: ROUND_ID, c
 describe('useRoundData — round-shape guard', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGroupScorecards = new Map();
+    mockRemoteScorecards = [];
     mockStoreState.currentRoundId = ROUND_ID;
     mockStoreState.isInitialized = true;
     mockStoreState.nineType = 'full';
@@ -22007,6 +24263,8 @@ Append to `src/__tests__/hooks/scorecard/useRoundData.test.tsx`:
 describe('useRoundData — holes_played (end round early)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGroupScorecards = new Map();
+    mockRemoteScorecards = [];
     mockStoreState.currentRoundId = ROUND_ID;
     mockStoreState.isInitialized = true;
     mockStoreState.nineType = 'full';
@@ -22051,10 +24309,78 @@ describe('useRoundData — holes_played (end round early)', () => {
     expect(args[9]).toBe('full');
     expect(args[11]).toBe(6);
   });
+
+  it("a fresh device drops server scores after the early end when hydrating an empty card", async () => {
+    // Phone A ended after 6 (RPC landed); its trimmed snapshot hasn't synced yet.
+    mockStoreState.holesPlayed = 6;
+    mockMetadata.data.holesPlayed = 6;
+    mockGroupScorecards = new Map([
+      ['player-1', { id: 'scorecard-1', roundId: ROUND_ID, playerId: 'player-1', scores: {} }],
+    ]);
+    mockRemoteScorecards = [
+      {
+        player_id: 'player-1',
+        scores: Object.fromEntries([1, 2, 3, 4, 5, 6, 7, 8].map((h) => [String(h), { strokes: 4 }])),
+        total_gross: 32,
+        total_net: 32,
+        total_points: null,
+        status: 'in-progress',
+        revision: 3,
+      },
+    ];
+
+    renderTheHook();
+    await tick();
+
+    expect(saveScorecard).toHaveBeenCalledTimes(1);
+    const saved = (saveScorecard as jest.Mock).mock.calls[0][0] as Scorecard;
+    expect(Object.keys(saved.scores).map(Number)).toEqual([1, 2, 3, 4, 5, 6]);
+  });
 });
 ```
 
-In `src/__tests__/hooks/scorecard/useMatchPlayData.test.tsx`, current lines 36-37:
+In `src/__tests__/hooks/scorecard/useMatchPlayData.test.tsx`, current lines 12-14:
+```ts
+import { renderHook, waitFor } from '@testing-library/react-native';
+import { useMatchPlayData } from '@/hooks/scorecard/useMatchPlayData';
+import type { Hole } from '@/types';
+```
+Replace with:
+```ts
+import { renderHook, waitFor } from '@testing-library/react-native';
+import { useMatchPlayData } from '@/hooks/scorecard/useMatchPlayData';
+import { saveScorecard } from '@/services/offline/database';
+import type { Hole } from '@/types';
+
+// What hydrateFromSupabase sees: the store's cards and the server's rows.
+let mockGroupScorecards = new Map<string, unknown>();
+let mockRemoteScorecards: unknown[] = [];
+```
+Current lines 43-47 (the store mock's `getState`):
+```ts
+  // Used by the Supabase hydration effect
+  (useScorecardStore as unknown as { getState: () => unknown }).getState = () => ({
+    groupScorecards: new Map(),
+  });
+```
+Replace with:
+```ts
+  // Used by the Supabase hydration effect
+  (useScorecardStore as unknown as { getState: () => unknown }).getState = () => ({
+    ...mockStoreState,
+    groupScorecards: mockGroupScorecards,
+  });
+```
+Current line 90 (the supabase mock's thenable):
+```ts
+      then: jest.fn((resolve: (v: unknown) => unknown) => resolve({ data: [], error: null })),
+```
+Replace with:
+```ts
+      then: jest.fn((resolve: (v: unknown) => unknown) => resolve({ data: mockRemoteScorecards, error: null })),
+```
+
+Current lines 36-37:
 ```ts
   nineType: 'full',
   loadFromOffline: jest.fn(() => Promise.resolve(false)),
@@ -22089,6 +24415,8 @@ Replace with:
 ```ts
     mockStoreState.nineType = 'full';
     mockStoreState.holesPlayed = null;
+    mockGroupScorecards = new Map();
+    mockRemoteScorecards = [];
     mockStoreState.loadFromOffline.mockImplementation(() => Promise.resolve(false));
 ```
 Add these tests before the closing `});` of `describe('useMatchPlayData (nine_type awareness)', …)` (line 199):
@@ -22136,6 +24464,34 @@ Add these tests before the closing `});` of `describe('useMatchPlayData (nine_ty
     expect(args[10]).toBeUndefined(); // startHole → the slice default (1)
     expect(args[11]).toBe(4);
   });
+
+  it('a fresh device drops server scores after the early end when hydrating an empty card', async () => {
+    mockRoundDetails = { data: { ...mockRoundData, nine_type: 'full', holes_played: 6 }, isLoading: false, error: null };
+    mockStoreState.currentRoundId = ROUND_ID;
+    mockStoreState.currentPlayers = [{ id: P1 }, { id: P2 }];
+    mockStoreState.isInitialized = true;
+    mockStoreState.holes = mockEighteenHoles;
+    mockStoreState.nineType = 'full';
+    mockStoreState.holesPlayed = 6;
+    mockGroupScorecards = new Map([[P1, { id: 'scorecard-1', playerId: P1, scores: {} }]]);
+    mockRemoteScorecards = [
+      {
+        player_id: P1,
+        scores: Object.fromEntries([1, 2, 3, 4, 5, 6, 7, 8].map((h) => [String(h), { strokes: 4 }])),
+        total_gross: 32,
+        total_net: 32,
+        status: 'completed',
+      },
+    ];
+
+    renderTheHook();
+
+    await waitFor(() => {
+      expect(saveScorecard).toHaveBeenCalledTimes(1);
+    });
+    const saved = (saveScorecard as jest.Mock).mock.calls[0][0] as { scores: Record<number, unknown> };
+    expect(Object.keys(saved.scores).map(Number)).toEqual([1, 2, 3, 4, 5, 6]);
+  });
 ```
 
 - [ ] **Step 4: Run tests to verify they fail**
@@ -22146,7 +24502,8 @@ Expected: FAIL.
 - **`useRoundData` network init:** `args[11]` is `undefined`, expected `6`.
 - **`useMatchPlayData` reset:** the `waitFor` times out (`resetRound` not called).
 - **`useMatchPlayData` fallback:** `args[11]` is `undefined`, expected `4`.
-- **Still passing:** both "pending local end" tests (regression guards) and every characterization test.
+- **Both hydrate tests:** `Expected: [1, 2, 3, 4, 5, 6], Received: [1, 2, 3, 4, 5, 6, 7, 8]`.
+- **Still passing:** both "pending local end" tests (regression guards) and every characterization test. The `useMatchPlayData` mock edits (`getState` spreading the store state, the thenable reading `mockRemoteScorecards`) leave the 5 existing tests green, because both defaults are empty.
 
 - [ ] **Step 5: Implement**
 
@@ -22157,7 +24514,7 @@ import { filterHolesByNineType } from '@/utils/holeTransformers';
 Replace with:
 ```ts
 import { filterHolesByNineType } from '@/utils/holeTransformers';
-import { resolveRoundShape } from '@/utils/roundShape';
+import { isHoleAfterEarlyEnd, resolveRoundShape } from '@/utils/roundShape';
 ```
 
 `useRoundData.ts:97`. Current:
@@ -22187,17 +24544,19 @@ Replace with:
     // holes_played too (R16): the server's value wins once set (another device
     // ended the round, or our own end_early landed); a pending local end
     // (server still NULL) resolves to the store's own value and is left alone.
+    // `?? null` on the store side: a store without the field (undefined) is
+    // "not ended", the same as null, and must not read as a change.
     const resolvedHolesPlayed = metadata.data
       ? resolveRoundShape(
           { nine_type: metadataNineType, holes_played: metadata.data.holesPlayed },
           { nineType: storeNineType, holesPlayed: storeHolesPlayed }
         ).holesPlayed
-      : storeHolesPlayed;
+      : (storeHolesPlayed ?? null);
     const rawNineTypeChanged =
       isInitialized &&
       currentRoundId === roundId &&
       ((!!metadataNineType && metadataNineType !== storeNineType) ||
-        resolvedHolesPlayed !== storeHolesPlayed);
+        resolvedHolesPlayed !== (storeHolesPlayed ?? null));
 ```
 
 `useRoundData.ts:218-224` (the reset branch). Current:
@@ -22249,6 +24608,35 @@ Replace with:
     metadata.data,
 ```
 
+`useRoundData.ts:589` (inside `hydrateFromSupabase`). Current:
+```ts
+        const { groupScorecards } = useScorecardStore.getState();
+```
+Replace with:
+```ts
+        const { groupScorecards, nineType, holesPlayed } = useScorecardStore.getState();
+```
+`useRoundData.ts:610-612`. Current:
+```ts
+          for (const [holeStr, scoreData] of Object.entries(remoteScores ?? {})) {
+            const holeNum = parseInt(holeStr, 10);
+            if (!isNaN(holeNum) && scoreData?.strokes != null) {
+```
+Replace with:
+```ts
+          for (const [holeStr, scoreData] of Object.entries(remoteScores ?? {})) {
+            const holeNum = parseInt(holeStr, 10);
+            // Round ended early: the server snapshot may not be trimmed yet
+            // (the ending device's sync is debounced), so never pull holes
+            // after N into a fresh device's card.
+            if (
+              !isNaN(holeNum) &&
+              scoreData?.strokes != null &&
+              !isHoleAfterEarlyEnd(nineType, holesPlayed, holeNum)
+            ) {
+```
+(The closing `}` of that `if` and the loop body are unchanged. The merge still copies the server's `total_gross` / `total_net`; see Follow-ups.)
+
 `src/hooks/scorecard/useMatchPlayData.ts:20`. Current:
 ```ts
 import { filterHolesByNineType } from '@/utils/holeTransformers';
@@ -22256,7 +24644,7 @@ import { filterHolesByNineType } from '@/utils/holeTransformers';
 Replace with:
 ```ts
 import { filterHolesByNineType } from '@/utils/holeTransformers';
-import { resolveRoundShape } from '@/utils/roundShape';
+import { isHoleAfterEarlyEnd, resolveRoundShape } from '@/utils/roundShape';
 ```
 
 `useMatchPlayData.ts:79`. Current:
@@ -22326,7 +24714,7 @@ Replace with:
       resolveRoundShape(
         { nine_type: roundNineType, holes_played: serverHolesPlayed },
         { nineType: storeNineType, holesPlayed: storeHolesPlayed }
-      ).holesPlayed !== storeHolesPlayed;
+      ).holesPlayed !== (storeHolesPlayed ?? null);
     const nineTypeDiverged =
       (initializedForRound && roundNineType !== null && storeNineType !== roundNineType) ||
       holesPlayedDiverged;
@@ -22383,7 +24771,42 @@ Replace with:
     storeHolesPlayed,
 ```
 
-`src/screens/scoring/TeamMatchPlayScoringScreen/index.tsx`, as A2a leaves it. A2a declares:
+`useMatchPlayData.ts:359` (inside `hydrateFromSupabase`). Current:
+```ts
+        const { groupScorecards } = useScorecardStore.getState();
+```
+Replace with:
+```ts
+        const { groupScorecards, nineType, holesPlayed } = useScorecardStore.getState();
+```
+`useMatchPlayData.ts:378-380`. Current:
+```ts
+          for (const [holeStr, scoreData] of Object.entries(remoteScores)) {
+            const holeNum = parseInt(holeStr, 10);
+            if (!isNaN(holeNum) && scoreData?.strokes != null) {
+```
+Replace with:
+```ts
+          for (const [holeStr, scoreData] of Object.entries(remoteScores)) {
+            const holeNum = parseInt(holeStr, 10);
+            // Round ended early: never pull holes after N from a server
+            // snapshot that hasn't been trimmed yet.
+            if (
+              !isNaN(holeNum) &&
+              scoreData?.strokes != null &&
+              !isHoleAfterEarlyEnd(nineType, holesPlayed, holeNum)
+            ) {
+```
+
+`src/screens/scoring/TeamMatchPlayScoringScreen/index.tsx`, as A2a leaves it. Line 17, current:
+```ts
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+```
+Replace with (skip if an earlier task already imports `useRef`):
+```ts
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+```
+A2a declares:
 ```ts
   const roundNineType: NineType = roundData?.nine_type ?? 'full';
 ```
@@ -22393,6 +24816,73 @@ Replace that line with:
   // (here or on another device); initializeRound needs it on a fresh device.
   const roundShape = resolveRoundShape(roundData);
   const roundNineType: NineType = roundShape.nineType;
+```
+Directly above the init effect's comment `// Ensure the scorecard store is initialized for this round.`, add:
+```tsx
+  // One-shot guard: recover from a server-side early end once per
+  // (round, holes_played), so a failed reload can't loop (as useMatchPlayData).
+  const holesPlayedResetRef = useRef<string | null>(null);
+
+```
+In that effect, current:
+```tsx
+    const alreadyHydrated =
+      isInitialized &&
+      currentRoundId === roundId &&
+      currentPlayers.length > 0;
+    if (alreadyHydrated) return;
+
+    const players: Player[] = teamsData.flatMap((team) =>
+```
+Replace with:
+```tsx
+    const alreadyHydrated =
+      isInitialized &&
+      currentRoundId === roundId &&
+      currentPlayers.length > 0;
+
+    // Another device ended the round (R16): the server's holes_played is set
+    // and the store disagrees. Same rule as useMatchPlayData's divergence
+    // check: the server wins once set; a pending local end (server still
+    // NULL) is left alone. The store is read imperatively (the effect re-runs
+    // when roundShape.holesPlayed changes; a hook-level selector would clash
+    // with the screen's later `storeHolesPlayed`).
+    const serverHolesPlayed = roundShape.holesPlayed;
+    const endedElsewhere =
+      alreadyHydrated &&
+      serverHolesPlayed != null &&
+      serverHolesPlayed !== (useScorecardStore.getState().holesPlayed ?? null);
+    if (alreadyHydrated && !endedElsewhere) return;
+
+    const players: Player[] = teamsData.flatMap((team) =>
+```
+Current:
+```tsx
+    if (players.length === 0) return;
+
+    let cancelled = false;
+    (async () => {
+      if (currentRoundId && currentRoundId !== roundId) {
+        resetRound();
+      }
+```
+Replace with:
+```tsx
+    if (players.length === 0) return;
+
+    if (endedElsewhere) {
+      const resetKey = `${roundId}:${serverHolesPlayed}`;
+      if (holesPlayedResetRef.current === resetKey) return; // already tried for this N
+      holesPlayedResetRef.current = resetKey;
+    }
+
+    let cancelled = false;
+    (async () => {
+      // Different round, or ended on another device: reset, then
+      // loadFromOffline resolves the server N and reconciles the cards.
+      if (endedElsewhere || (currentRoundId && currentRoundId !== roundId)) {
+        resetRound();
+      }
 ```
 In the store-init effect, A2a's `initializeRound(…)` call ends:
 ```ts
@@ -22434,12 +24924,12 @@ import { resolveRoundShape } from '@/utils/roundShape';
 - [ ] **Step 6: Run tests to verify they pass**
 
 Run: `pnpm test src/__tests__/hooks/scorecard/useRoundData.test.tsx src/__tests__/hooks/scorecard/useMatchPlayData.test.tsx`
-Expected: PASS: 3 new `useRoundData` tests, 3 new `useMatchPlayData` tests, and every earlier test.
+Expected: PASS: 4 new `useRoundData` tests, 4 new `useMatchPlayData` tests, and every earlier test.
 
 - [ ] **Step 7: Run the scoring subset + type-check**
 
 Run: the TEST_SUBSET command from Global Constraints, then `pnpm type-check`
-Expected: green (apart from the Task 0 baseline). The `TeamMatchPlayScoringScreen` change is checked by type only, since there is no screen test; B6c/B6d cover it on device (B11 QA: "team match play ended early").
+Expected: green (apart from the Task 0 baseline). The `TeamMatchPlayScoringScreen` change is checked by type only, since there is no screen test; B6c/B6d cover it on device (B11 QA: "team match play ended early", including "ended on phone A while phone B has the match open": phone B reloads ended after N).
 
 - [ ] **Step 8: Commit**
 
@@ -22449,8 +24939,9 @@ git commit -m "feat(scoring): round-shape guards compare holes_played
 
 useRoundData and useMatchPlayData reset and reload when the server's
 holes_played differs from the store (another device ended the round),
-leave a pending local end alone, and pass holes_played to
-initializeRound; the team match screen does the same.
+leave a pending local end alone, pass holes_played to initializeRound,
+and never hydrate server scores after the early end; the team match
+screen resets and reloads the same way.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
@@ -22799,20 +25290,35 @@ At the end of the file, add:
 
 ```ts
 describe('calculateNetOverHolesPlayed', () => {
-  it('sums gross − strokes received over the given holes, skipping unscored and multi-ball holes', () => {
+  it('sums gross − strokes received over the given holes, skipping unscored holes', () => {
     const [h1, h2, h3] = create18Holes(); // par 4 SI 7, par 3 SI 15, par 5 SI 1
-    const scores = {
-      1: { strokes: 5 },
-      3: { balls: [{ strokes: 5 }] },
-    } as unknown as ScoresRecord;
+    const scores = { 1: { strokes: 5 }, 3: { strokes: 6 } } as unknown as ScoresRecord;
 
-    // DHC 18 ⇒ one stroke on hole 1 ⇒ 5 − 1 = 4. Hole 2 unscored; hole 3 multi-ball.
-    expect(calculateNetOverHolesPlayed(scores, [h1, h2, h3], 18)).toBe(4);
+    // DHC 18 ⇒ one stroke on every hole ⇒ (5 − 1) + (6 − 1) = 9. Hole 2 unscored.
+    expect(calculateNetOverHolesPlayed(scores, [h1, h2, h3], 18)).toBe(9);
   });
 
-  it('gives a plus handicap no strokes back', () => {
-    const [h1] = create18Holes();
-    expect(calculateNetOverHolesPlayed({ 1: { strokes: 4 } } as unknown as ScoresRecord, [h1], -2)).toBe(4);
+  it("reads a multi-ball hole's first ball, as the store's calculatePlayerTotals does", () => {
+    const [h1, h2, h3] = create18Holes();
+    const scores = {
+      1: { balls: [{ strokes: 5 }, { strokes: 7 }] },
+      2: { balls: [] },
+      3: { balls: [{ strokes: 6 }, { strokes: 4 }] },
+    } as unknown as ScoresRecord;
+
+    // Hole 1: 5 − 1 = 4. Hole 2: no first ball ⇒ skipped. Hole 3: 6 − 1 = 5.
+    // (Skipping multi-ball holes would give 0.)
+    expect(calculateNetOverHolesPlayed(scores, [h1, h2, h3], 18)).toBe(9);
+  });
+
+  it('gives a plus handicap no strokes back, as in the store — even on SI 17 and 18', () => {
+    const holes = create18Holes();
+    const played = [holes[5], holes[14]]; // hole 6 par 3 SI 17; hole 15 par 3 SI 18
+    const scores = { 6: { strokes: 4 }, 15: { strokes: 4 } } as unknown as ScoresRecord;
+
+    // A WHS +2 would give a stroke back on SI 17 and 18 (net 10). The app's
+    // getStrokesReceived floors at 0 for every round, so net = gross = 8.
+    expect(calculateNetOverHolesPlayed(scores, played, -2)).toBe(8);
   });
 });
 ```
@@ -22955,9 +25461,11 @@ Add this function directly after `calculatePlayerStats`'s closing `}` (line 250)
  * - `playedHoles` must be the PLAYED holes; `dailyHandicap` is the planned round's.
  * - Pickups count as net double bogey (getEffectiveGrossStrokes, I3), matching
  *   the stored gross.
- * - Unscored holes and multi-ball scores are skipped (single-ball only, like
- *   the sync payload).
- * - Plus handicaps get no strokes back (getStrokesReceived floors at 0).
+ * - Unscored holes are skipped. A multi-ball hole counts its FIRST ball, as
+ *   the store's calculatePlayerTotals (src/store/utils/scorecardCalculations.ts)
+ *   does — that is how the synced total_gross is summed, so net must match it.
+ * - Plus handicaps: no strokes given back, as in the store (getStrokesReceived
+ *   floors at 0 for a handicap ≤ 0, on every stroke index).
  */
 export function calculateNetOverHolesPlayed(
   scores:
@@ -22973,9 +25481,11 @@ export function calculateNetOverHolesPlayed(
   let net = 0;
   for (const hole of playedHoles) {
     const score = byHole?.[String(hole.number)];
-    if (!score || !isSingleBallScore(score)) continue;
+    if (!score) continue;
+    // Same read as calculatePlayerTotals: single-ball strokes, else ball 1.
+    const rawStrokes = isSingleBallScore(score) ? score.strokes : score.balls?.[0]?.strokes;
     const strokesReceived = getStrokesReceived(dailyHandicap, hole.strokeIndex);
-    const strokes = getEffectiveGrossStrokes(score.strokes, hole.par, strokesReceived);
+    const strokes = getEffectiveGrossStrokes(rawStrokes, hole.par, strokesReceived);
     if (strokes == null) continue;
     net += strokes - strokesReceived;
   }
@@ -23007,6 +25517,23 @@ In `src/__tests__/services/offline/scorecardSync.totalNet.test.ts`, inside `desc
       expect(lastSnapshot().total_net).toBe(24);
       // A 5 on a par 4 with a stroke = net par = 2 pts × 6 holes.
       expect(lastSnapshot().total_points).toBe(12);
+    });
+
+    it("nets a multi-ball card from its first ball, as the store's totalGross is summed", async () => {
+      // The store's calculatePlayerTotals sums balls[0] into totalGross (30
+      // here), so net must read the same ball — skipping multi-ball holes
+      // would sync total_net = 0.
+      const scores: Record<number, { balls: { strokes: number }[] }> = {};
+      for (const hole of [1, 2, 3, 4, 5, 6]) {
+        scores[hole] = { balls: [{ strokes: 5 }, { strokes: 7 }] };
+      }
+
+      await syncScorecard(
+        sixHoleCard({ holesPlayed: 6, scores: scores as unknown as Scorecard['scores'] })
+      );
+
+      expect(lastSnapshot().total_gross).toBe(30);
+      expect(lastSnapshot().total_net).toBe(24); // Σ(5 − 1) over holes 1–6
     });
 
     it('slices a back-nine round from hole 10', async () => {
@@ -23059,6 +25586,7 @@ Run: `pnpm test src/__tests__/services/offline/scorecardSync.totalNet.test.ts sr
 Expected: FAIL.
 - `nets an ended-early card` fails with "Expected: 24, Received: 13".
 - The stableford test fails with "Expected: 24, Received: 13".
+- The multi-ball test fails with "Expected: 24, Received: 13" (gross 30 − DHC 17). If it ever reads "Received: 0", `calculateNetOverHolesPlayed` is skipping multi-ball holes.
 - The back-nine test fails with "Expected: 15, Received: 7".
 - The belt test fails with "Expected: null, Received: -38" ((113 / 122) × (30 − 71) ≈ −37.98).
 
@@ -24072,6 +26600,20 @@ describe('calculateMatchStatus — ended early (holesPlayed)', () => {
     });
   });
 
+  it('18 planned, ended after 9: wins 1-5, halves 6-9 → "5 up" (5 > 9 left is never true)', () => {
+    // Lead after the 5th: 5 with 13 planned holes left; after the 9th: 5 with 9 left.
+    // No close-out against the planned 18, so the lead after 9 settles it.
+    const results = played([
+      'player1', 'player1', 'player1', 'player1', 'player1',
+      'halved', 'halved', 'halved', 'halved',
+    ]);
+    expect(calculateMatchStatus(results, 18, 9)).toEqual({
+      status: 'complete',
+      winner: 'player1',
+      margin: '5 up',
+    });
+  });
+
   it('stays in progress until all holesPlayed holes are decided (running status)', () => {
     const results = played(['player1', 'player1', 'halved']);
     expect(calculateMatchStatus(results, 18, 6)).toEqual({
@@ -24236,6 +26778,20 @@ describe('computeStandaloneMatchResult — ended early (holesPlayed)', () => {
     expect(computeStandaloneMatchResult(sam, dave, BACK_NINE, 6)?.margin).toBe('2 UP');
   });
 
+  it('applies handicap strokes on the walked holes: DHC 10 v 0, ended after 6 → "3 UP"', () => {
+    // create18Holes stroke indexes for holes 1-6: 7, 15, 1, 11, 5, 17.
+    // getMatchPlayStrokes(10, 0, si) gives Sam 1 stroke where si ≤ 10 — holes 1, 3, 5.
+    // Everyone cards 4: Sam nets 3 on 1, 3, 5 (wins) and halves 2, 4, 6.
+    // 3 up after 6, never closed out against 18 planned.
+    const sam = card('p1', 'Sam', range(1, 6, 4), 10);
+    const dave = card('p2', 'Dave', range(1, 6, 4), 0);
+    expect(computeStandaloneMatchResult(sam, dave, HOLES, 6)).toEqual({
+      winnerId: 'p1',
+      winnerName: 'Sam',
+      margin: '3 UP',
+    });
+  });
+
   it('holesPlayed null behaves as played-as-planned (characterization)', () => {
     expect(computeStandaloneMatchResult(samTwoUp, daveLevel, HOLES, null)?.margin).toBe('2&12');
   });
@@ -24248,9 +26804,9 @@ describe('computeStandaloneMatchResult — ended early (holesPlayed)', () => {
 Run: `pnpm test src/screens/scoring/MatchPlayScoringScreen/utils src/screens/scoring/TeamMatchPlayScoringScreen/utils src/__tests__/utils/matchPlayResult.test.ts`
 
 Expected: FAIL. At runtime the extra `holesPlayed` argument is ignored today (Jest doesn't type-check):
-- **Ended-early calc cases:** `received { status: 'in_progress', leader: 'player1', holesUp: 2, holesRemaining: 12 }` ("2 up"), `holesRemaining: 3` ("3 up"), `leader: null` (the stale 7th hole counted), `'5 & 3'` instead of `'5 & 4'` (singles, team and back-9). The `'4 & 3'` and running-status cases already pass (that close-out on the 6th is real today too).
+- **Ended-early calc cases:** `received { status: 'in_progress', leader: 'player1', holesUp: 2, holesRemaining: 12 }` ("2 up"), `holesRemaining: 3` ("3 up"), `{ …, holesUp: 5, holesRemaining: 9 }` ("5 up", ended after 9), `leader: null` (the stale 7th hole counted), `'5 & 3'` instead of `'5 & 4'` (singles, team and back-9). The `'4 & 3'` and running-status cases already pass (that close-out on the 6th is real today too).
 - **`resolveEndedAfter`:** `resolveEndedAfter is not a function`.
-- **Pill:** `'2&12'`, `'3&3'`, `'A/S'` (the stale 7th counted), `'2&3'` instead of `'2 UP'`, `'3 UP'`, `'1 UP'`, `'2 UP'`. The level `'A/S'` and the `'5&4'` / `'4&3'` close-out cases already pass (the pill stops at the first close-out).
+- **Pill:** `'2&12'`, `'3&3'`, `'A/S'` (the stale 7th counted), `'2&3'`, `'3&12'` (handicap case) instead of `'2 UP'`, `'3 UP'`, `'1 UP'`, `'2 UP'`, `'3 UP'`. The level `'A/S'` and the `'5&4'` / `'4&3'` close-out cases already pass (the pill stops at the first close-out).
 
 The `(characterization)` and `null / 0 / ≥ planned` cases pass.
 
@@ -24729,8 +27285,26 @@ describe('calculateAllData — ended early (holesPlayed)', () => {
     expect(data.total.par).toBe(72);
     expect(data.finalStatus).toEqual({ status: 'in_progress', leader: 'player1', holesUp: 2, holesRemaining: 12 });
   });
+
+  it('counts a pickup on the last played hole as a concession, then settles on the lead', () => {
+    // p1 wins 1-2 (3 v 4), halves 3-5 (4 v 4), picks up on 6 while p2 cards 4:
+    // hole 6 goes to p2. Lead after 6 = 2 − 1 = 1 → "1 up".
+    const withPickup = (playerId: string, holeNumber: number): number | undefined => {
+      if (playerId === 'p1' && holeNumber === 6) return PICKUP_SCORE;
+      return getScore(playerId, holeNumber);
+    };
+    const data = calculateAllData(eighteen, 'p1', 'p2', withPickup, 0, 0, 6);
+    expect(data.holeResults[6]).toEqual(
+      expect.objectContaining({ player1PickedUp: true, winner: 'player2' })
+    );
+    // The pickup is not a gross score: p1 totals 3+3+4+4+4 over the 5 holes it carded.
+    expect(data.total).toEqual({ par: 24, player1: 18, player2: 24, holesPlayed: 6 });
+    expect(data.finalStatus).toEqual({ status: 'complete', winner: 'player1', margin: '1 up' });
+  });
 });
 ```
+
+Also add `import { PICKUP_SCORE } from '@/constants/scoring';` after the file's `import type { Hole } from '@/types/database/base';` (line 2) if it isn't imported yet.
 
 Append to `src/components/scorecard/TeamMatchPlayScorecardTable/utils.test.ts`:
 
@@ -24807,7 +27381,7 @@ In `src/screens/scoring/ReviewScorecardScreen/utils/subMatchLeaderboard.test.ts`
 Run: `pnpm test src/components/scorecard/MatchPlayScorecardTable/utils.test.ts src/components/scorecard/TeamMatchPlayScorecardTable/utils.test.ts src/screens/scoring/ReviewScorecardScreen/utils/subMatchLeaderboard.test.ts`
 
 Expected: FAIL:
-- **Table utils:** 18 `holeResults` keys (expected `[1, 2, 3, 4, 5, 6]`), and `finalStatus` in progress.
+- **Table utils:** 18 `holeResults` keys (expected `[1, 2, 3, 4, 5, 6]`), and `finalStatus` in progress. The pickup case: its `holeResults[6]` assertion already passes (hole 6 to p2 today), then it fails on `total` (`par: 72` — all 18 holes walked); with that fixed, `finalStatus` would read `{ status: 'in_progress', leader: 'player1', holesUp: 1, holesRemaining: 12 }`.
 - **Sub-match:** `isComplete: false` (`'2 UP'` in progress) / `'5&3'` (walks all 9 holes: 6 decided, 5 up with 3 left).
 
 The `(characterization)` cases pass.
@@ -24849,8 +27423,9 @@ export function calculateAllData(
 ```ts
   // Dormie / close-out are judged against the holes this table was given —
   // the round's planned, nine-filtered list (9 for front9/back9) — never a
-  // hard-coded 18.
-  const plannedHoleCount = holes.length;
+  // hard-coded 18. An empty list keeps 18, so it never reads as a finished,
+  // halved match.
+  const plannedHoleCount = holes.length || 18;
 
   // Iterate the round's actual holes — back-9 / combo rounds carry numbers
   // 10..18 (or 10..27), so a 1..18 counter would skip them entirely.
@@ -24864,8 +27439,9 @@ export function calculateAllData(
   // the round's planned, nine-filtered list (9 for front9/back9) — never a
   // hard-coded 18. A round ended early walks and totals only the holes
   // played ('full': the list is already nine-filtered, so only the played
-  // cut applies).
-  const plannedHoleCount = holes.length;
+  // cut applies). An empty list keeps 18, so it never reads as a finished,
+  // halved match.
+  const plannedHoleCount = holes.length || 18;
   const playedHoles = filterPlayableHoles(holes, 'full', holesPlayed);
 
   // Iterate the round's actual holes — back-9 / combo rounds carry numbers
@@ -24902,7 +27478,7 @@ export function calculateTeamMatchData(
 ): TeamCalculatedData {
 ```
 
-- **Replace the A2a-1 block** (identical text to the singles one above) with the same replacement: `const playedHoles = filterPlayableHoles(holes, 'full', holesPlayed);` after `const plannedHoleCount = holes.length;`, the extended comment, and `for (const hole of playedHoles) {`.
+- **Replace the A2a-1 block** (identical text to the singles one above) with the same replacement: `const playedHoles = filterPlayableHoles(holes, 'full', holesPlayed);` after `const plannedHoleCount = holes.length || 18;`, the extended comment, and `for (const hole of playedHoles) {`.
 - **Running and final status.** Add `holesPlayed` as the third argument to both `calculateMatchStatus(holeResults, plannedHoleCount)` calls, exactly as in the singles file.
 
 `src/screens/scoring/ReviewScorecardScreen/utils/subMatchLeaderboard.ts` (as A1a-1 leaves it; the function starts ~line 108). Replace
@@ -25324,8 +27900,9 @@ The `(characterization)` cases pass.
 ```ts
   // Calculate match status against the round's planned holes — the store's
   // nine-filtered list (9 for front9/back9). Defaulting to 18 meant a 9-hole
-  // match could never reach "complete".
-  const plannedHoleCount = holes.length;
+  // match could never reach "complete". An empty list (not loaded yet) keeps
+  // 18, so it never reads as a finished, halved match.
+  const plannedHoleCount = holes.length || 18;
   const matchStatus = useMemo(
     () => calculateMatchStatus(holeResults, plannedHoleCount),
     [holeResults, plannedHoleCount]
@@ -25338,8 +27915,9 @@ The `(characterization)` cases pass.
   // Calculate match status against the round's planned holes — the store's
   // nine-filtered list (9 for front9/back9). Defaulting to 18 meant a 9-hole
   // match could never reach "complete". A round ended early settles on the
-  // lead after `holesPlayed` holes unless already closed out.
-  const plannedHoleCount = holes.length;
+  // lead after `holesPlayed` holes unless already closed out. An empty list
+  // (not loaded yet) keeps 18, so it never reads as a finished, halved match.
+  const plannedHoleCount = holes.length || 18;
   const matchStatus = useMemo(
     () => calculateMatchStatus(holeResults, plannedHoleCount, holesPlayed),
     [holeResults, plannedHoleCount, holesPlayed]
@@ -25418,7 +27996,7 @@ The `(characterization)` cases pass.
 
 ```tsx
     getPlayerScoreValue,
-    totalHoles: holes.length,
+    totalHoles: holes.length || 18,
     onSubmitSuccess: () => navigation.goBack(),
 ```
 
@@ -25426,7 +28004,7 @@ The `(characterization)` cases pass.
 
 ```tsx
     getPlayerScoreValue,
-    totalHoles: holes.length,
+    totalHoles: holes.length || 18,
     holesPlayed: storeHolesPlayed,
     onSubmitSuccess: () => navigation.goBack(),
 ```
@@ -25785,7 +28363,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 **Files:**
 - Modify: `src/screens/scoring/ReviewScorecardScreen/components/MatchScorecardTabContent.tsx:48, 115-120`
-- Modify: `src/screens/scoring/ReviewScorecardScreen/components/MatchPlayLeaderboardTab.tsx:135, 184-191` (as A1a-2 leaves it)
+- Modify: `src/screens/scoring/ReviewScorecardScreen/components/MatchPlayLeaderboardTab.tsx:138, 187-194` (as A1a-2 leaves it)
 - Modify: `src/screens/scoring/MatchPlayScorecardScreen/index.tsx:86-94` (store destructure), `:380-389` (table props)
 - Modify: `src/components/leaderboard/SubMatchLeaderboardTab.tsx:32-48, 59-75, 195, 231` (`holesPlayed` prop)
 - Test: `src/screens/scoring/ReviewScorecardScreen/components/MatchScorecardTabContent.test.tsx` (new)
@@ -25917,7 +28495,7 @@ describe('MatchScorecardTabContent', () => {
 `src/screens/scoring/ReviewScorecardScreen/components/MatchPlayLeaderboardTab.test.tsx` (A1a-2's file). Inside `describe('MatchPlayLeaderboardTab'`, after the `"passes the round's planned hole count…"` case, add:
 
 ```tsx
-  it('settles an ended-early team match on the lead (win "2 up" / loss)', () => {
+  it('settles an ended-early team match on the lead (win "2 UP" / loss)', () => {
     // 18 planned holes, ended after 6: Reds card 4 v Blues 5 on 1-2, 4 v 4 on 3-6.
     mockStoreState = {
       getPlayerScore: (playerId, holeNumber) => {
@@ -25933,10 +28511,10 @@ describe('MatchScorecardTabContent', () => {
     const props = lastLeaderboardProps();
     expect(props.entries[0].teamName).toBe('Reds');
     expect(props.entries[0].scoreData).toEqual(
-      expect.objectContaining({ matchResult: 'win', holesUpDown: '2 up' })
+      expect.objectContaining({ matchResult: 'win', holesUpDown: '2 UP' })
     );
     expect(props.entries[1].scoreData).toEqual(
-      expect.objectContaining({ matchResult: 'loss', holesUpDown: '2 up' })
+      expect.objectContaining({ matchResult: 'loss', holesUpDown: '2 UP' })
     );
   });
 ```
@@ -26117,7 +28695,7 @@ Expected: FAIL. Nothing reads or forwards `holesPlayed` yet:
 
 `src/screens/scoring/ReviewScorecardScreen/components/MatchPlayLeaderboardTab.tsx`:
 
-- **Line 135.** Replace
+- **Line 138 (135 before A1a-2).** Replace
 
 ```tsx
   const getPlayerScoreFromStore = useScorecardStore((s) => s.getPlayerScore);
@@ -26132,7 +28710,7 @@ Expected: FAIL. Nothing reads or forwards `holesPlayed` yet:
   const holesPlayed = useScorecardStore((s) => s.holesPlayed);
 ```
 
-- **Lines 184-191.** Replace
+- **Lines 187-194 (184-191 before A1a-2).** Replace
 
 ```tsx
   const entries = useMemo(() => {
@@ -26326,7 +28904,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - `EndEarlyMatchContext`, `EndRoundEarlyStatsRow`, `EndRoundEarlyResultInput`;
   - `describeEndRoundEarlyResult(input: EndRoundEarlyResultInput): string | null`;
   - `RoundHeaderProps.canEndRoundEarly?: boolean`, `RoundHeaderProps.onEndRoundEarlyPress?: () => void`;
-  - `EndRoundEarlySheet` / `EndRoundEarlySheetProps`, exactly as in the contract.
+  - `EndRoundEarlySheet` / `EndRoundEarlySheetProps`, as in the contract plus `handicapRound?: boolean` (R22, B6a-2).
 
 - [ ] **Step 0: Scoring guardrails**
 
@@ -26613,7 +29191,12 @@ export type EndRoundEarlyResultInput =
   | (EndEarlyMatchContext & {
       /** Hole numbers that will count: the first N of the round's nine (10–15 on a back 9). */
       playedHoleNumbers: number[];
-      /** Planned hole count the match is measured against (getHoleCount(nineType)). */
+      /**
+       * Planned hole count the match is measured against: the round's holes
+       * for its nine, `filterHolesByNineType(holes, nineType).length` — the
+       * same `totalHoles` the match views pass (9 on a 9-hole course even when
+       * nine_type is 'full'). Not getHoleCount(nineType).
+       */
       plannedHoles: number;
       /** N — the round ends after this many holes. */
       holesPlayed: number;
@@ -26754,7 +29337,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - `BottomSheet` (`@/components/common/BottomSheet`).
 - Produces:
   - `RoundHeaderProps.canEndRoundEarly?: boolean`, `RoundHeaderProps.onEndRoundEarlyPress?: () => void`;
-  - `EndRoundEarlySheet` / `EndRoundEarlySheetProps`, exactly as in the contract.
+  - `EndRoundEarlySheet` / `EndRoundEarlySheetProps`, as in the contract **plus one optional prop (R22): `handicapRound?: boolean`**. When true, the sheet's notice reads "This is a handicap round. Ending it early makes it a practice round, and it won't count towards your handicap index." in place of the generic "This round won't count towards your handicap index." line.
 
 Step 0 of B6a-1 (the guardrails on `RoundHeader.tsx`) covers this task too.
 
@@ -26866,6 +29449,26 @@ describe('EndRoundEarlySheet', () => {
     expect(screen.getByText('Dave wins 2 UP')).toBeTruthy();
     expect(screen.getByText("This round won't count towards your handicap index.")).toBeTruthy();
     expect(screen.queryByText(/front-9/)).toBeNull();
+    expect(screen.queryByText(/This is a handicap round/)).toBeNull();
+  });
+
+  it('a handicap round warns that ending early makes it a practice round (R22)', () => {
+    renderSheet({ handicapRound: true });
+
+    expect(
+      screen.getByText(
+        "This is a handicap round. Ending it early makes it a practice round, and it won't count towards your handicap index."
+      )
+    ).toBeTruthy();
+    // It replaces the generic line rather than adding to it.
+    expect(screen.queryByText("This round won't count towards your handicap index.")).toBeNull();
+  });
+
+  it('handicapRound={false} keeps the generic handicap line', () => {
+    renderSheet({ handicapRound: false });
+
+    expect(screen.getByText("This round won't count towards your handicap index.")).toBeTruthy();
+    expect(screen.queryByText(/This is a handicap round/)).toBeNull();
   });
 
   it('a back-nine round ended after 6 asks about hole 15', () => {
@@ -27101,9 +29704,18 @@ export interface EndRoundEarlySheetProps {
   /** Display offset for combo courses (default 1); copy uses displayHoleNumber. */
   startHole?: number;
   loading?: boolean;
+  /**
+   * The round's handicap_source isn't 'none' (R22): warn that ending early
+   * turns it into a practice round, in place of the generic handicap line.
+   */
+  handicapRound?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }
+
+const GENERIC_HANDICAP_NOTICE = "This round won't count towards your handicap index.";
+const HANDICAP_ROUND_NOTICE =
+  "This is a handicap round. Ending it early makes it a practice round, and it won't count towards your handicap index.";
 
 export function EndRoundEarlySheet({
   visible,
@@ -27111,6 +29723,7 @@ export function EndRoundEarlySheet({
   resultPreview,
   startHole = 1,
   loading = false,
+  handicapRound = false,
   onConfirm,
   onCancel,
 }: EndRoundEarlySheetProps) {
@@ -27156,9 +29769,18 @@ export function EndRoundEarlySheet({
           ) : null}
 
           <View style={styles.noticeRow}>
-            <Icon source="alert-circle-outline" size={18} color={colors.textSecondary} />
-            <Text style={[styles.noticeText, { color: colors.textSecondary }]}>
-              This round won&apos;t count towards your handicap index.
+            <Icon
+              source="alert-circle-outline"
+              size={18}
+              color={handicapRound ? colors.warning : colors.textSecondary}
+            />
+            <Text
+              style={[
+                styles.noticeText,
+                { color: handicapRound ? colors.textPrimary : colors.textSecondary },
+              ]}
+            >
+              {handicapRound ? HANDICAP_ROUND_NOTICE : GENERIC_HANDICAP_NOTICE}
             </Text>
           </View>
         </ScrollView>
@@ -27271,7 +29893,7 @@ const styles = StyleSheet.create({
 export default EndRoundEarlySheet;
 ```
 
-The JSX text `won&apos;t` renders as "won't", so the test's `"This round won't count towards your handicap index."` matches. The `&apos;` entity matches the lint style in `ChangeTeesSheet` ("doesn&apos;t").
+The two notices are string constants rendered as `{expression}`, not JSX text, so the apostrophes need no `&apos;` entity (`react/no-unescaped-entities` only checks JSX text). Each renders as one `Text` node, so the tests' exact `getByText` strings match. `colors.warning` is one of the semantic colours listed in CLAUDE.md.
 
 `src/components/scorecard/index.ts:63-64`. Current:
 
@@ -27312,7 +29934,8 @@ git commit -m "feat(scorecard): end-round-early header action and confirmation s
 
 RoundHeader gains an optional ⋮ 'End round early' action that opens the
 confirmation sheet directly. EndRoundEarlySheet shows the finishing hole,
-the scores to be removed, a one-line result and the no-handicap notice.
+the scores to be removed, a one-line result and the handicap notice
+(a practice-round warning when the round is a handicap round, R22).
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
@@ -27326,19 +29949,20 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Create: `src/__tests__/services/rounds/applyEndRoundEarly.test.ts`
 - Modify: `src/services/rounds/finalizeSubmittedRound.ts` (A6a):
   - `RoundSyncData` gains the `'end_early'` variant;
-  - the first statement of `finalizeSubmittedRound` waits for a queued end.
+  - the first statement of the private `runFinalizeSteps` waits for a queued end.
 - Create: `src/__tests__/services/rounds/finalizeSubmittedRound.endEarly.test.ts`
 - Modify: `src/__tests__/services/rounds/finalizeSubmittedRound.test.ts` (A6a; one `jest.mock` block)
 
 **Interfaces:**
 - Consumes:
-  - the `end_round_early(p_round_id, p_holes_played)` RPC, typed by B1b. Codes (B1a-1): `22023` with `hint` `round_already_ended` (`details` = server N) / `invalid_holes_played` / `round_completed`; `P0002`; `42501`; idempotent for the same N;
+  - the `end_round_early(p_round_id, p_holes_played)` RPC, called inline through `(supabase.rpc as any)` with arguments typed from B1b's `Database['public']['Functions']['end_round_early']['Args']` (the `createClient<Database>` client resolves the rpc Schema to `never`, as at `scorecardSync.ts:261`). Codes (B1a-1): `22023` with `hint` `round_already_ended` (`details` = server N) / `invalid_holes_played` / `round_completed` / `round_not_in_progress`; `P0002`; `42501`; idempotent for the same N;
   - `rounds.holes_played` (B1a);
   - `addPendingSync`, `getQueuedEntityKeys` (`@/services/offline/database`);
   - `requestSyncDrain(reason)` (A6b, `src/services/offline/sync/drain.ts`);
-  - `RoundNotReadyError`, `RoundSyncData`, `finalizeSubmittedRound` (A6a).
+  - `RoundNotReadyError`, `RoundSyncData`, `finalizeSubmittedRound`, `isRoundFinalizeInFlight` and the private `runFinalizeSteps` (A6a-2).
 - Produces:
   - `EndRoundEarlyErrorCode`, `EndRoundEarlyError { code; serverHolesPlayed? }`;
+  - `END_ROUND_EARLY_TIMEOUT_MS` (8000): no answer within it ⇒ `'network'`;
   - `applyEndRoundEarly(roundId, holesPlayed): Promise<void>`;
   - `queueRoundEndEarly(roundId, holesPlayed): Promise<void>`;
   - `fetchRoundHolesPlayed(roundId): Promise<number | null>`;
@@ -27349,7 +29973,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 Two rules matter here:
 - **Own entity key:** `round:<id>:end_early`, following A6a's per-action scheme (`'finalize'` is `round:<id>:finalize`), so neither overwrites the other.
-- **Finalize waits for it:** `finalizeSubmittedRound` throws `RoundNotReadyError` while the end-early row exists (pending or failed), on both the queue path and the online path.
+- **Finalize waits for it:** `finalizeSubmittedRound` throws `RoundNotReadyError` while the end-early row exists (pending or failed), on both the queue path and the online path. When the row is retained `failed`, B6b-2 makes the queued finalize fail with it (so Retry revives both) instead of waiting.
 
 - [ ] **Step 1: Write the failing service tests**
 
@@ -27367,11 +29991,16 @@ import {
   hasQueuedRoundEndEarly,
   roundEndEarlyEntityKey,
   EndRoundEarlyError,
+  END_ROUND_EARLY_TIMEOUT_MS,
 } from '@/services/rounds/applyEndRoundEarly';
 import { addPendingSync, getQueuedEntityKeys } from '@/services/offline/database';
 import { requestSyncDrain } from '@/services/offline/sync/drain';
 
-const mockRpc = jest.fn();
+// supabase.rpc(...) returns a builder; the service awaits
+// builder.abortSignal(signal). mockRpcResult is what that await yields.
+const mockRpcResult = jest.fn();
+const mockAbortSignal = jest.fn((_signal: AbortSignal) => mockRpcResult());
+const mockRpc = jest.fn((..._args: unknown[]) => ({ abortSignal: mockAbortSignal }));
 const mockMaybeSingle = jest.fn();
 const mockEq = jest.fn(() => ({ maybeSingle: mockMaybeSingle }));
 const mockSelect = jest.fn(() => ({ eq: mockEq }));
@@ -27406,7 +30035,7 @@ async function rejectionOf(promise: Promise<unknown>): Promise<EndRoundEarlyErro
 
 describe('applyEndRoundEarly', () => {
   it('calls end_round_early with the round and the holes played', async () => {
-    mockRpc.mockResolvedValue({ data: null, error: null });
+    mockRpcResult.mockResolvedValue({ data: null, error: null });
 
     await expect(applyEndRoundEarly(ROUND_ID, 6)).resolves.toBeUndefined();
 
@@ -27433,7 +30062,7 @@ describe('applyEndRoundEarly', () => {
   // B1a-1's error contract: every 22023 carries a stable HINT; only
   // 'round_already_ended' is a conflict, and its DETAIL is the server's N.
   it("maps 22023 HINT round_already_ended to 'conflict' with the server's N from DETAIL", async () => {
-    mockRpc.mockResolvedValue({
+    mockRpcResult.mockResolvedValue({
       data: null,
       error: {
         code: '22023',
@@ -27453,7 +30082,7 @@ describe('applyEndRoundEarly', () => {
   });
 
   it('reads holes_played back when the conflict DETAIL is not a number', async () => {
-    mockRpc.mockResolvedValue({
+    mockRpcResult.mockResolvedValue({
       data: null,
       error: { code: '22023', message: 'already ended', details: null, hint: 'round_already_ended' },
     });
@@ -27469,7 +30098,7 @@ describe('applyEndRoundEarly', () => {
   });
 
   it('leaves serverHolesPlayed undefined when DETAIL is missing and the read-back fails', async () => {
-    mockRpc.mockResolvedValue({
+    mockRpcResult.mockResolvedValue({
       data: null,
       error: { code: '22023', message: 'already ended', hint: 'round_already_ended' },
     });
@@ -27484,9 +30113,11 @@ describe('applyEndRoundEarly', () => {
   it.each([
     ['invalid_holes_played', 'holes_played must be between 1 and 17 for a full round (got 18)'],
     ['round_completed', 'Round 550e8400 is already completed'],
+    // B1a-1's 'round_not_in_progress' (an upcoming round), and any hint added later, is 'invalid' too.
+    ['round_not_in_progress', 'Round 550e8400 is not in progress'],
     [undefined, 'some other 22023'],
   ])("maps 22023 with HINT %p to 'invalid' (no read-back)", async (hint, message) => {
-    mockRpc.mockResolvedValue({ data: null, error: { code: '22023', message, hint } });
+    mockRpcResult.mockResolvedValue({ data: null, error: { code: '22023', message, hint } });
 
     const error = await rejectionOf(applyEndRoundEarly(ROUND_ID, 6));
 
@@ -27502,7 +30133,7 @@ describe('applyEndRoundEarly', () => {
     ['22P02', 'invalid'],
     ['23514', 'invalid'],
   ])('maps server code %s to %s, keeping the server message', async (code, expected) => {
-    mockRpc.mockResolvedValue({ data: null, error: { code, message: `server said ${code}` } });
+    mockRpcResult.mockResolvedValue({ data: null, error: { code, message: `server said ${code}` } });
 
     const error = await rejectionOf(applyEndRoundEarly(ROUND_ID, 6));
 
@@ -27516,18 +30147,57 @@ describe('applyEndRoundEarly', () => {
     ['a statement timeout', { code: '57014', message: 'canceling statement due to statement timeout' }],
     ['a missing RPC (migration not deployed)', { code: 'PGRST202', message: 'Could not find the function' }],
   ])("maps %s to 'network' (retryable)", async (_label, error) => {
-    mockRpc.mockResolvedValue({ data: null, error });
+    mockRpcResult.mockResolvedValue({ data: null, error });
 
     await expect(rejectionOf(applyEndRoundEarly(ROUND_ID, 6))).resolves.toMatchObject({ code: 'network' });
   });
 
   it("maps a thrown request to 'network'", async () => {
-    mockRpc.mockRejectedValue(new TypeError('Network request failed'));
+    mockRpcResult.mockRejectedValue(new TypeError('Network request failed'));
 
     const error = await rejectionOf(applyEndRoundEarly(ROUND_ID, 6));
 
     expect(error.code).toBe('network');
     expect(error.message).toContain('Network request failed');
+  });
+
+  it('passes an abort signal to the request', async () => {
+    mockRpcResult.mockResolvedValue({ data: null, error: null });
+
+    await applyEndRoundEarly(ROUND_ID, 6);
+
+    expect(mockAbortSignal).toHaveBeenCalledTimes(1);
+    const [signal] = mockAbortSignal.mock.calls[0];
+    expect(signal.aborted).toBe(false);
+  });
+
+  describe('with no answer from the server', () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it("gives up after END_ROUND_EARLY_TIMEOUT_MS with 'network' and aborts the request", async () => {
+      expect(END_ROUND_EARLY_TIMEOUT_MS).toBe(8000);
+      mockRpcResult.mockReturnValueOnce(new Promise(() => {})); // never settles
+      let settled = false;
+      const outcome = rejectionOf(applyEndRoundEarly(ROUND_ID, 6)).finally(() => {
+        settled = true;
+      });
+
+      await jest.advanceTimersByTimeAsync(END_ROUND_EARLY_TIMEOUT_MS - 1);
+      expect(settled).toBe(false);
+
+      await jest.advanceTimersByTimeAsync(1);
+      const error = await outcome;
+
+      expect(error.code).toBe('network');
+      expect(error.message).toMatch(/did not answer within 8s/);
+      const [signal] = mockAbortSignal.mock.calls[0];
+      expect(signal.aborted).toBe(true);
+    });
   });
 });
 
@@ -27607,7 +30277,11 @@ Create `src/__tests__/services/rounds/finalizeSubmittedRound.endEarly.test.ts`:
  * still queued: the end_round_early RPC refuses a completed round whose
  * holes_played is NULL, so the end would be lost for good.
  */
-import { finalizeSubmittedRound, RoundNotReadyError } from '@/services/rounds/finalizeSubmittedRound';
+import {
+  finalizeSubmittedRound,
+  isRoundFinalizeInFlight,
+  RoundNotReadyError,
+} from '@/services/rounds/finalizeSubmittedRound';
 
 const mockHasQueuedRoundEndEarly = jest.fn();
 jest.mock('@/services/rounds/applyEndRoundEarly', () => ({
@@ -27630,10 +30304,12 @@ jest.mock('@/services/skins/finalizeSkinsGame', () => ({
 
 jest.mock('@/services/queryClient', () => ({
   queryClient: { invalidateQueries: jest.fn() },
+  invalidateLeaderboardCache: jest.fn(),
 }));
 
 jest.mock('@/services/offline/database', () => ({
   addPendingSync: jest.fn(() => Promise.resolve()),
+  removePendingSyncByEntityKey: jest.fn(() => Promise.resolve(true)),
   hasUnsyncedScorecardsForRound: jest.fn(() => Promise.resolve(false)),
   getQueuedEntityKeys: jest.fn(() => Promise.resolve(new Set())),
 }));
@@ -27658,14 +30334,20 @@ describe('finalizeSubmittedRound — queued early end', () => {
     expect(mockHasQueuedRoundEndEarly).toHaveBeenCalledWith(ROUND_ID);
     expect(mockFinalizeRoundStatus).not.toHaveBeenCalled();
     expect(mockFinalizeActiveSkins).not.toHaveBeenCalled();
+    // The guard runs inside the in-flight mark, which is released on the throw,
+    // so the queued 'finalize' item isn't left waiting on a stale mark.
+    expect(isRoundFinalizeInFlight(ROUND_ID)).toBe(false);
   });
 
   it('finalises as before when no early end is queued', async () => {
     mockHasQueuedRoundEndEarly.mockResolvedValue(false);
 
-    await expect(finalizeSubmittedRound(ROUND_ID)).resolves.toEqual(
-      expect.objectContaining({ completed: true })
-    );
+    await expect(finalizeSubmittedRound(ROUND_ID)).resolves.toEqual({
+      completed: true,
+      skinsGame: null,
+      statusError: null,
+      skinsError: null,
+    });
 
     const [checked] = mockHasQueuedRoundEndEarly.mock.invocationCallOrder;
     const [status] = mockFinalizeRoundStatus.mock.invocationCallOrder;
@@ -27719,9 +30401,11 @@ Create `src/services/rounds/applyEndRoundEarly.ts`:
  * - 'forbidden' (42501) not authenticated, a competition round, or not the
  *               owner / an accepted participant.
  * - 'invalid'   bad arguments (checked before calling); any other 22023
- *               (HINT 'invalid_holes_played' / 'round_completed'); 22P02; 23514.
- * - 'network'   anything else — no answer, a timeout, a 5xx, a missing RPC.
- *               Transient: safe to retry.
+ *               (HINT 'invalid_holes_played' / 'round_completed' /
+ *               'round_not_in_progress'); 22P02; 23514.
+ * - 'network'   anything else — no answer within END_ROUND_EARLY_TIMEOUT_MS,
+ *               a statement timeout, a 5xx, a missing RPC. Transient: safe to
+ *               retry (the RPC is idempotent for the same N).
  */
 
 import { supabase } from '@/services/supabase/client';
@@ -27729,7 +30413,11 @@ import { addPendingSync, getQueuedEntityKeys } from '@/services/offline/database
 import { requestSyncDrain } from '@/services/offline/sync/drain';
 import { createError } from '@/services/errors';
 import { submitLogger } from '@/utils/debugLogger';
+import type { Database } from '@/types/database';
 import type { RoundSyncData } from './finalizeSubmittedRound';
+
+/** B1b's typed entry; it documents the shape (the rpc call itself is cast). */
+type EndRoundEarlyArgs = Database['public']['Functions']['end_round_early']['Args'];
 
 export type EndRoundEarlyErrorCode = 'conflict' | 'not_found' | 'forbidden' | 'invalid' | 'network';
 
@@ -27748,6 +30436,20 @@ export class EndRoundEarlyError extends Error {
     this.code = code;
     this.serverHolesPlayed = options.serverHolesPlayed;
   }
+}
+
+/**
+ * How long the confirm flow (and a queued retry) waits for end_round_early.
+ * On-course connections can hang rather than fail; past this the call counts
+ * as 'network', so the scorer ends locally and the end is queued.
+ */
+export const END_ROUND_EARLY_TIMEOUT_MS = 8000;
+
+interface RpcError {
+  code?: string;
+  message: string;
+  details?: string | null;
+  hint?: string | null;
 }
 
 const PG_INVALID_PARAMETER_VALUE = '22023';
@@ -27796,20 +30498,54 @@ export async function fetchRoundHolesPlayed(roundId: string): Promise<number | n
   return data?.holes_played ?? null;
 }
 
+/**
+ * The raw RPC call, bounded by END_ROUND_EARLY_TIMEOUT_MS. The abort signal
+ * cancels the HTTP request (postgrest-js then resolves with an empty-code
+ * error); the race guarantees the rejection even if the abort is never honoured.
+ */
+async function callEndRoundEarlyRpc(
+  roundId: string,
+  holesPlayed: number
+): Promise<{ error: RpcError | null }> {
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      reject(
+        new EndRoundEarlyError(
+          'network',
+          `The server did not answer within ${END_ROUND_EARLY_TIMEOUT_MS / 1000}s`
+        )
+      );
+    }, END_ROUND_EARLY_TIMEOUT_MS);
+  });
+
+  try {
+    const args: EndRoundEarlyArgs = { p_round_id: roundId, p_holes_played: holesPlayed };
+    // createClient<Database> resolves rpc() to never (hand-written schema); the
+    // args stay typed above. Called inline so `this` is kept — never assign
+    // supabase.rpc to a variable first.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const request: PromiseLike<{ error: RpcError | null }> = (supabase.rpc as any)('end_round_early', args).abortSignal(
+      controller.signal
+    );
+    return await Promise.race([Promise.resolve(request), timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** Call end_round_early. Resolves on success (or a same-N retry); otherwise
  *  rejects with an EndRoundEarlyError carrying the mapped code. */
 export async function applyEndRoundEarly(roundId: string, holesPlayed: number): Promise<void> {
   assertValidEndRequest(roundId, holesPlayed);
 
-  let result: {
-    error: { code?: string; message: string; details?: string | null; hint?: string | null } | null;
-  };
+  let result: { error: RpcError | null };
   try {
-    result = await supabase.rpc('end_round_early', {
-      p_round_id: roundId,
-      p_holes_played: holesPlayed,
-    });
+    result = await callEndRoundEarlyRpc(roundId, holesPlayed);
   } catch (thrown) {
+    if (thrown instanceof EndRoundEarlyError) throw thrown; // the timeout
     throw new EndRoundEarlyError(
       'network',
       `Could not reach the server to end the round early: ${messageOf(thrown)}`
@@ -27836,7 +30572,8 @@ export async function applyEndRoundEarly(roundId: string, holesPlayed: number): 
         { serverHolesPlayed }
       );
     }
-    // HINT 'invalid_holes_played' / 'round_completed' (or none): not retryable.
+    // HINT 'invalid_holes_played' / 'round_completed' / 'round_not_in_progress'
+    // (or none): not retryable.
     throw new EndRoundEarlyError('invalid', `Invalid end-round-early request: ${error.message}`);
   }
   if (code === PG_NO_DATA_FOUND) {
@@ -27904,17 +30641,17 @@ Add an import next to A6a's other `./…` imports:
 import { hasQueuedRoundEndEarly } from './applyEndRoundEarly';
 ```
 
-Then make the guard the **first statement** of `finalizeSubmittedRound`'s body. Current (as A6a-2 leaves it, the function's opening):
+Then make the guard the **first statement** of A6a-2's private `runFinalizeSteps` (not of `finalizeSubmittedRound`, which only wraps `runFinalizeSteps` in the in-flight mark; leave it unchanged, so the mark is always released in its `finally`). Current (as A6a-2 leaves it, the function's opening):
 
 ```ts
-export async function finalizeSubmittedRound(roundId: string): Promise<FinalizeSubmittedRoundResult> {
+async function runFinalizeSteps(roundId: string): Promise<FinalizeSubmittedRoundResult> {
   let completed = false;
 ```
 
 Replacement:
 
 ```ts
-export async function finalizeSubmittedRound(roundId: string): Promise<FinalizeSubmittedRoundResult> {
+async function runFinalizeSteps(roundId: string): Promise<FinalizeSubmittedRoundResult> {
   // An early end still queued for this round must reach the server first:
   // end_round_early refuses a completed round whose holes_played is NULL
   // (22023 round_completed), so finalising now would lose the end for good.
@@ -27931,14 +30668,14 @@ export async function finalizeSubmittedRound(roundId: string): Promise<FinalizeS
 In the same file's header comment, current (A6a-2):
 
 ```ts
- * Never rejects. A failed status read/write comes back as `statusError`, after
+ * Never rejects. A failed status read/write comes back as `statusError`, and a
 ```
 
 Replacement:
 
 ```ts
  * Never rejects, except with RoundNotReadyError while an 'end_early' item for
- * the round is still queued (B6b). A failed status read/write comes back as `statusError`, after
+ * the round is still queued (B6b). A failed status read/write comes back as `statusError`, and a
 ```
 
 - [ ] **Step 4: Run them to verify they pass**
@@ -27950,7 +30687,7 @@ Expected: PASS. That includes A6a's `finalizeSubmittedRound.test.ts`, now with t
 - [ ] **Step 5: Run the scoring subset and type-check**
 
 Run: the TEST_SUBSET command from Global Constraints, then `pnpm type-check`.
-Expected: green, apart from the Task 0 baseline. `pnpm type-check` also confirms that B1b's typed `end_round_early` RPC accepts `{ p_round_id, p_holes_played }`.
+Expected: green, apart from the Task 0 baseline. Also run `pnpm exec eslint src/services/rounds/applyEndRoundEarly.ts`: the `(supabase.rpc as any)` cast must carry its `eslint-disable-next-line @typescript-eslint/no-explicit-any`, so the file lints clean.
 
 - [ ] **Step 6: Commit**
 
@@ -27961,8 +30698,9 @@ git commit -m "feat(rounds): end-round-early RPC client and queueing
 applyEndRoundEarly calls end_round_early and keeps the server's answer:
 22023 round_already_ended -> conflict (server N from DETAIL), other
 22023 -> invalid, P0002 -> not_found, 42501 -> forbidden, bad input ->
-invalid, anything else -> network (retryable). queueRoundEndEarly queues a 'round' item under its own entity
-key (round:<id>:end_early, so a later finalize can't overwrite it) and
+invalid, anything else -> network (retryable). The call is aborted and
+mapped to network after 8s without an answer. queueRoundEndEarly queues a
+'round' item under its own entity key (round:<id>:end_early, so a later finalize can't overwrite it) and
 requests a drain. finalizeSubmittedRound waits (RoundNotReadyError) while
 an end_early item is queued, so a round is never completed before its
 early end reaches the server.
@@ -27976,48 +30714,87 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 **Files:**
 - Modify: `src/services/offline/sync/syncOrchestrator.ts` (as A6a-3 leaves it):
-  - one import after A6a-3's `finalizeSubmittedRound` import;
+  - imports: `queryClient` on the existing `@/services/queryClient` line (28), plus two new imports after A6a-3's `finalizeSubmittedRound` import;
+  - A6a-3's `processRoundSyncs` catch: a `RoundSyncDeferredError` stays pending, like `RoundNotReadyError`;
+  - A6a-3's `processRoundFinalize`: a new step 3 that fails the item while the round's `end_early` row is retained `failed`;
   - one `case 'end_early'` in A6a-3's `processRoundSync` switch;
-  - new `processRoundEndEarlySync` after `processRoundSync`.
-  A6a-3's `orderRoundSyncs` (every non-`'finalize'` action first, stable) and `processRoundSyncs` catch (`RoundNotReadyError` → stays pending; `RoundSyncPermanentError` → retained `failed` at once; anything else → normal retry path) are used **unchanged**.
-- Modify: `src/__tests__/services/offline/sync.test.ts` (one mock + a new describe at the end)
+  - new `RoundSyncDeferredError` (next to `RoundSyncPermanentError`), and `processRoundEndEarlySync`, `adoptServerHolesPlayed` and `invalidateRoundShapeQueries` after `processRoundSync`.
+  A6a-3's `orderRoundSyncs` (every non-`'finalize'` action first, stable) is used **unchanged**.
+- Modify: `src/__tests__/services/offline/sync.test.ts` (three mocks, two imports, a new describe at the end)
 
 **Interfaces:**
 - Consumes:
-  - `applyEndRoundEarly`, `EndRoundEarlyError` (B6b-1);
-  - from A6a-3 (module-private in `syncOrchestrator.ts`): `processRoundSync` (switch on `sync.data.action`), `orderRoundSyncs`, `processRoundSyncs`, `class RoundSyncPermanentError`; `finalizeSubmittedRound` and `hasUnsyncedScorecardsForRound` (A6a-2).
-- Produces: sync handling of `PendingSync { type: 'round', data: { id, action: 'end_early', holesPlayed } }`.
+  - `applyEndRoundEarly`, `EndRoundEarlyError`, `roundEndEarlyEntityKey` (B6b-1);
+  - from A6a-3 (module-private in `syncOrchestrator.ts`): `processRoundSync` (switch on `sync.data.action`), `orderRoundSyncs`, `processRoundSyncs`, `processRoundFinalize`, `class RoundSyncPermanentError`; `finalizeSubmittedRound`, `RoundNotReadyError` and `hasUnsyncedScorecardsForRound` (A6a-2);
+  - `getFailedSyncs` (existing, already imported by `syncOrchestrator.ts`);
+  - `useScorecardStore.getState()`: `currentRoundId` and the store action `endRoundEarly(n: number): Promise<void>` (B3b-2), reached through a lazy `require` (the store imports the sync barrel via `scorecardPersistence.ts`, so a static import would be circular);
+  - `queryClient` (`@/services/queryClient`), `skinsKeys.holeCounts` (A5c-1) and `roundKeys.detail` (`@/hooks/queryKeys`).
+- Produces: sync handling of `PendingSync { type: 'round', data: { id, action: 'end_early', holesPlayed } }`, and module-private `RoundSyncDeferredError`.
 
 **Queue semantics** (`'end_early'` item):
 
 | Outcome | Item | Why |
 |---|---|---|
-| RPC succeeds (also a same-N retry: the RPC is idempotent) | removed | done |
-| `'conflict'` (`22023`) | removed | the server holds another N (or the round is completed); B3c's init reconcile adopts the server N on the next load |
+| RPC succeeds (also a same-N retry: the RPC is idempotent) | removed; `skinsKeys.holeCounts(id)` and `roundKeys.detail(id)` invalidated | done |
+| `'conflict'` (`22023`, HINT `round_already_ended`) | removed; the server N is adopted into the open round (when `currentRoundId === id`), queries invalidated | the server already holds another N. A round that isn't open adopts it on its next load (B3c-1 init reconcile) |
 | `'not_found'` (`P0002`) | removed | the round was deleted |
-| `'forbidden'` (`42501`), `'invalid'` (bad payload / other `22023` hints / `22P02` / `23514`) | retained `failed`, no retries (thrown as A6a-3's `RoundSyncPermanentError`) | the server will never accept it; shown in Retained Uploads |
-| `'network'` | normal retry path (`incrementSyncRetryCount` → retained after `MAX_RETRY_COUNT`) | transient |
+| `'forbidden'` (`42501`), `'invalid'` (bad payload; any other `22023` hint, including `round_completed` — a completed round with NULL `holes_played` — and `invalid_holes_played`; `22P02`; `23514`) | retained `failed`, no retries (thrown as A6a-3's `RoundSyncPermanentError`) | the server will never accept it; shown in Retained Uploads |
+| `'network'` (no answer in 8 s, 5xx, statement timeout, missing RPC) | stays `pending`, **no retry spent** (`RoundSyncDeferredError`) | transient, and the RPC is idempotent, so it is safe to try on every drain |
 
 Other rules:
 - **It doesn't wait for cards:** no `hasUnsyncedScorecardsForRound` check.
 - **Order:** `'end_early'` items run before `'finalize'` items in the round-item pass (A6a-3's `orderRoundSyncs` already does this).
+- **A retained `end_early` row fails the round's `'finalize'` too.** `finalizeSubmittedRound` (B6b-1) would otherwise throw `RoundNotReadyError` on every drain and the finalize would wait silently. With both retained, Retry (`resetFailedSyncs`) revives both and the drain runs the end first. Discarding the end-early row lets the finalize through on its next run.
 
 - [ ] **Step 1: Write the failing sync-queue tests**
 
-In `src/__tests__/services/offline/sync.test.ts`, after A6a's `jest.mock('@/services/rounds/finalizeSubmittedRound', …)` block, add:
+In `src/__tests__/services/offline/sync.test.ts`:
+
+The `@/services/queryClient` mock, lines 60-64. Current:
 
 ```ts
-// End-early round items (B6b): the real error class, a mocked RPC call.
+jest.mock('@/services/queryClient', () => ({
+  invalidateLeaderboardCache: jest.fn(),
+  invalidateScorecardCache: jest.fn(),
+  invalidateHandicapCache: jest.fn(),
+}));
+```
+
+Replacement:
+
+```ts
+jest.mock('@/services/queryClient', () => ({
+  invalidateLeaderboardCache: jest.fn(),
+  invalidateScorecardCache: jest.fn(),
+  invalidateHandicapCache: jest.fn(),
+  queryClient: { invalidateQueries: jest.fn() },
+}));
+```
+
+Leave A6a-3's `jest.mock('@/services/rounds/finalizeSubmittedRound', …)` block as it is: it already stubs `finalizeSubmittedRound`, `isRoundFinalizeInFlight` and `RoundNotReadyError`, and A6a-3's import line already brings in `finalizeSubmittedRound` and `isRoundFinalizeInFlight`, which this describe uses. After that block, add:
+
+```ts
+// End-early round items (B6b): the real error class and entity key, a mocked RPC call.
 jest.mock('@/services/rounds/applyEndRoundEarly', () => ({
   ...jest.requireActual('@/services/rounds/applyEndRoundEarly'),
   applyEndRoundEarly: jest.fn(),
 }));
+
+// The scoring store, read lazily when a queued end conflicts with the server.
+const mockScorecardStoreState = {
+  currentRoundId: null as string | null,
+  endRoundEarly: jest.fn(),
+};
+jest.mock('@/store/scorecardStore', () => ({
+  useScorecardStore: { getState: () => mockScorecardStoreState },
+}));
 ```
 
-and next to A6a's `finalizeSubmittedRound` import:
+Next to A6a's `finalizeSubmittedRound` import, add:
 
 ```ts
 import { applyEndRoundEarly, EndRoundEarlyError } from '@/services/rounds/applyEndRoundEarly';
+import { roundKeys, skinsKeys } from '@/hooks/queryKeys';
 ```
 
 Append at the end of the file:
@@ -28048,6 +30825,22 @@ describe('Queued end-round-early', () => {
     };
   }
 
+  function createFinalizeSync(overrides: Partial<PendingSync> = {}): PendingSync {
+    return {
+      id: 7,
+      type: 'round',
+      action: 'update',
+      data: { id: ROUND_ID, action: 'finalize' },
+      entityKey: `round:${ROUND_ID}:finalize`,
+      timestamp: new Date('2025-01-15T09:00:00Z'),
+      retryCount: 0,
+      revision: 1,
+      ...overrides,
+    };
+  }
+
+  const invalidateQueries = () => queryClient.queryClient.invalidateQueries as jest.Mock;
+
   beforeEach(async () => {
     initSyncService();
     await flushPromises();
@@ -28056,12 +30849,17 @@ describe('Queued end-round-early', () => {
       completed: true,
       skinsGame: null,
       statusError: null,
+      skinsError: null,
     });
+    // clearMocks keeps implementations: reset A6a-3's in-flight stub explicitly.
+    (isRoundFinalizeInFlight as jest.Mock).mockReturnValue(false);
     (database.hasUnsyncedScorecardsForRound as jest.Mock).mockResolvedValue(false);
     (database.getFailedSyncCountForRound as jest.Mock).mockResolvedValue(0);
+    mockScorecardStoreState.currentRoundId = null;
+    mockScorecardStoreState.endRoundEarly.mockResolvedValue(undefined);
   });
 
-  it('applies the queued end and removes the item', async () => {
+  it('applies the queued end, removes the item and refreshes the round queries', async () => {
     (database.getPendingSyncs as jest.Mock).mockResolvedValue([createEndEarlySync()]);
 
     await expect(syncAll()).resolves.toBe(true);
@@ -28069,6 +30867,8 @@ describe('Queued end-round-early', () => {
     expect(applyEndRoundEarly).toHaveBeenCalledWith(ROUND_ID, 6);
     expect(database.removePendingSync).toHaveBeenCalledWith(21, 1);
     expect(finalizeSubmittedRound).not.toHaveBeenCalled();
+    expect(invalidateQueries()).toHaveBeenCalledWith({ queryKey: skinsKeys.holeCounts(ROUND_ID) });
+    expect(invalidateQueries()).toHaveBeenCalledWith({ queryKey: roundKeys.detail(ROUND_ID) });
   });
 
   it("does not wait for this device's scorecards", async () => {
@@ -28082,21 +30882,77 @@ describe('Queued end-round-early', () => {
     expect(database.removePendingSync).toHaveBeenCalledWith(21, 1);
   });
 
-  it.each(['conflict', 'not_found'] as const)(
-    "treats '%s' as done: the item is removed with no retry or failure",
-    async (code) => {
-      (database.getPendingSyncs as jest.Mock).mockResolvedValue([createEndEarlySync()]);
+  it("treats 'not_found' as done: removed, with no retry, failure or adoption", async () => {
+    mockScorecardStoreState.currentRoundId = ROUND_ID;
+    (database.getPendingSyncs as jest.Mock).mockResolvedValue([createEndEarlySync()]);
+    (applyEndRoundEarly as jest.Mock).mockRejectedValue(
+      new EndRoundEarlyError('not_found', 'server said not_found')
+    );
+
+    await expect(syncAll()).resolves.toBe(true);
+
+    expect(database.removePendingSync).toHaveBeenCalledWith(21, 1);
+    expect(database.incrementSyncRetryCount).not.toHaveBeenCalled();
+    expect(database.markPendingSyncFailed).not.toHaveBeenCalled();
+    expect(mockScorecardStoreState.endRoundEarly).not.toHaveBeenCalled();
+  });
+
+  describe("a 'conflict' (the server already holds another N)", () => {
+    function conflictWith(serverHolesPlayed: number | null | undefined) {
       (applyEndRoundEarly as jest.Mock).mockRejectedValue(
-        new EndRoundEarlyError(code, `server said ${code}`, { serverHolesPlayed: 4 })
+        new EndRoundEarlyError('conflict', 'server said conflict', { serverHolesPlayed })
       );
+    }
+
+    beforeEach(() => {
+      (database.getPendingSyncs as jest.Mock).mockResolvedValue([createEndEarlySync()]);
+    });
+
+    it("adopts the server's N into the open round, then removes the item", async () => {
+      mockScorecardStoreState.currentRoundId = ROUND_ID;
+      conflictWith(4);
+
+      await expect(syncAll()).resolves.toBe(true);
+
+      expect(mockScorecardStoreState.endRoundEarly).toHaveBeenCalledWith(4);
+      expect(database.removePendingSync).toHaveBeenCalledWith(21, 1);
+      expect(database.incrementSyncRetryCount).not.toHaveBeenCalled();
+      expect(database.markPendingSyncFailed).not.toHaveBeenCalled();
+      expect(invalidateQueries()).toHaveBeenCalledWith({ queryKey: skinsKeys.holeCounts(ROUND_ID) });
+      expect(invalidateQueries()).toHaveBeenCalledWith({ queryKey: roundKeys.detail(ROUND_ID) });
+    });
+
+    it('leaves adoption to the next load when another round is open', async () => {
+      mockScorecardStoreState.currentRoundId = 'another-round';
+      conflictWith(4);
+
+      await syncAll();
+
+      expect(mockScorecardStoreState.endRoundEarly).not.toHaveBeenCalled();
+      expect(database.removePendingSync).toHaveBeenCalledWith(21, 1);
+    });
+
+    it('does not adopt without a server N', async () => {
+      mockScorecardStoreState.currentRoundId = ROUND_ID;
+      conflictWith(undefined);
+
+      await syncAll();
+
+      expect(mockScorecardStoreState.endRoundEarly).not.toHaveBeenCalled();
+      expect(database.removePendingSync).toHaveBeenCalledWith(21, 1);
+    });
+
+    it('still removes the item when adopting fails (the next load reconciles)', async () => {
+      mockScorecardStoreState.currentRoundId = ROUND_ID;
+      mockScorecardStoreState.endRoundEarly.mockRejectedValue(new Error('SQLite busy'));
+      conflictWith(4);
 
       await expect(syncAll()).resolves.toBe(true);
 
       expect(database.removePendingSync).toHaveBeenCalledWith(21, 1);
-      expect(database.incrementSyncRetryCount).not.toHaveBeenCalled();
       expect(database.markPendingSyncFailed).not.toHaveBeenCalled();
-    }
-  );
+    });
+  });
 
   it.each(['forbidden', 'invalid'] as const)(
     "retains a '%s' refusal as failed without spending retries",
@@ -28126,31 +30982,22 @@ describe('Queued end-round-early', () => {
     expect(database.incrementSyncRetryCount).not.toHaveBeenCalled();
   });
 
-  it('retries a network failure on the normal retry path', async () => {
-    (database.getPendingSyncs as jest.Mock).mockResolvedValue([createEndEarlySync()]);
+  it('keeps a network failure pending without spending a retry, even on its last retry', async () => {
+    // retryCount 2 = one below MAX_RETRY_COUNT: the normal path would retain it.
+    (database.getPendingSyncs as jest.Mock).mockResolvedValue([createEndEarlySync({ retryCount: 2 })]);
     (applyEndRoundEarly as jest.Mock).mockRejectedValue(new EndRoundEarlyError('network', 'offline'));
 
     await syncAll();
 
-    expect(database.incrementSyncRetryCount).toHaveBeenCalledWith(21, 1, 'offline');
-    expect(database.removePendingSync).not.toHaveBeenCalled();
+    expect(database.incrementSyncRetryCount).not.toHaveBeenCalled();
     expect(database.markPendingSyncFailed).not.toHaveBeenCalled();
+    expect(database.removePendingSync).not.toHaveBeenCalled();
   });
 
   it("runs before the same round's 'finalize' item, whatever their timestamps", async () => {
-    const finalizeSync: PendingSync = {
-      id: 7,
-      type: 'round',
-      action: 'update',
-      data: { id: ROUND_ID, action: 'finalize' },
-      entityKey: `round:${ROUND_ID}:finalize`,
-      timestamp: new Date('2025-01-15T09:00:00Z'),
-      retryCount: 0,
-      revision: 1,
-    };
     // getPendingSyncs returns timestamp order: the finalize item first.
     (database.getPendingSyncs as jest.Mock).mockResolvedValue([
-      finalizeSync,
+      createFinalizeSync(),
       createEndEarlySync({ timestamp: new Date('2025-01-15T10:00:00Z') }),
     ]);
 
@@ -28162,6 +31009,64 @@ describe('Queued end-round-early', () => {
     expect(database.removePendingSync).toHaveBeenCalledWith(21, 1);
     expect(database.removePendingSync).toHaveBeenCalledWith(7, 1);
   });
+
+  describe("a retained 'end_early' row", () => {
+    it("retains the round's 'finalize' item as failed too, without finalising", async () => {
+      (database.getPendingSyncs as jest.Mock).mockResolvedValue([createFinalizeSync()]);
+      (database.getFailedSyncs as jest.Mock).mockResolvedValue([
+        createEndEarlySync({ status: 'failed', lastError: 'server said invalid' }),
+      ]);
+
+      await expect(syncAll()).resolves.toBe(false);
+
+      expect(finalizeSubmittedRound).not.toHaveBeenCalled();
+      expect(database.markPendingSyncFailed).toHaveBeenCalledWith(
+        7,
+        1,
+        expect.stringContaining('end-round-early')
+      );
+      expect(database.incrementSyncRetryCount).not.toHaveBeenCalled();
+    });
+
+    it('fails both in the same drain when the server refuses the end', async () => {
+      (database.getPendingSyncs as jest.Mock).mockResolvedValue([createFinalizeSync(), createEndEarlySync()]);
+      (applyEndRoundEarly as jest.Mock).mockRejectedValue(
+        new EndRoundEarlyError('invalid', 'server said invalid')
+      );
+      // The SQLite row is failed once markPendingSyncFailed(21, …) has run.
+      (database.getFailedSyncs as jest.Mock).mockImplementation(async () =>
+        (database.markPendingSyncFailed as jest.Mock).mock.calls.some(([id]) => id === 21)
+          ? [createEndEarlySync({ status: 'failed' })]
+          : []
+      );
+
+      await syncAll();
+
+      expect(database.markPendingSyncFailed).toHaveBeenCalledWith(21, 1, 'server said invalid');
+      expect(database.markPendingSyncFailed).toHaveBeenCalledWith(
+        7,
+        1,
+        expect.stringContaining('end-round-early')
+      );
+      expect(finalizeSubmittedRound).not.toHaveBeenCalled();
+    });
+
+    it("does not block another round's finalize", async () => {
+      (database.getPendingSyncs as jest.Mock).mockResolvedValue([createFinalizeSync()]);
+      (database.getFailedSyncs as jest.Mock).mockResolvedValue([
+        createEndEarlySync({
+          status: 'failed',
+          data: { id: 'other-round', action: 'end_early', holesPlayed: 6 },
+          entityKey: 'round:other-round:end_early',
+        }),
+      ]);
+
+      await syncAll();
+
+      expect(finalizeSubmittedRound).toHaveBeenCalledWith(ROUND_ID);
+      expect(database.removePendingSync).toHaveBeenCalledWith(7, 1);
+    });
+  });
 });
 ```
 
@@ -28169,13 +31074,27 @@ describe('Queued end-round-early', () => {
 
 Run: `pnpm test src/__tests__/services/offline/sync.test.ts -t 'Queued end-round-early'`
 Expected: FAIL. A6a-3's `processRoundSync` hits its `default` branch ("Unsupported round sync action: end_early"), so:
-- `applyEndRoundEarly` is never called;
-- `incrementSyncRetryCount(21, 1, 'Unsupported round sync action: end_early')` is called instead of `removePendingSync` / `markPendingSyncFailed`;
-- the ordering case reports `endEarly` as `undefined`.
+- `applyEndRoundEarly` is never called, and nothing is invalidated or adopted;
+- `incrementSyncRetryCount(21, 1, 'Unsupported round sync action: end_early')` is called instead of `removePendingSync` / `markPendingSyncFailed`. The network test (`retryCount: 2`) instead fails on "expected markPendingSyncFailed not to have been called": at the last retry the default branch retains the row;
+- the ordering case reports `endEarly` as `undefined`;
+- the two "retained `end_early`" finalize tests fail because `finalizeSubmittedRound` was called;
+- (`does not block another round's finalize` passes already.)
 
 - [ ] **Step 3: Implement in `src/services/offline/sync/syncOrchestrator.ts`**
 
-**Import.** Current (as A6a-3 leaves it):
+**Imports.** Current (line 28):
+
+```ts
+import { invalidateLeaderboardCache, invalidateScorecardCache } from '@/services/queryClient';
+```
+
+Replacement:
+
+```ts
+import { invalidateLeaderboardCache, invalidateScorecardCache, queryClient } from '@/services/queryClient';
+```
+
+Current (as A6a-3 leaves it):
 
 ```ts
 import { finalizeSubmittedRound, RoundNotReadyError } from '@/services/rounds/finalizeSubmittedRound';
@@ -28185,12 +31104,96 @@ Replacement:
 
 ```ts
 import { finalizeSubmittedRound, RoundNotReadyError } from '@/services/rounds/finalizeSubmittedRound';
-import { applyEndRoundEarly, EndRoundEarlyError } from '@/services/rounds/applyEndRoundEarly';
+import {
+  applyEndRoundEarly,
+  EndRoundEarlyError,
+  roundEndEarlyEntityKey,
+} from '@/services/rounds/applyEndRoundEarly';
+import { roundKeys, skinsKeys } from '@/hooks/queryKeys';
 ```
 
-(Import from the module directly, never the `@/services/offline/sync` barrel — A6a Contract note 7.)
+Import these modules directly. Never import from the `@/services/offline/sync` barrel inside the sync modules: the barrel re-exports `syncOrchestrator` itself, which makes a cycle.
 
-**Ordering and the drain `catch`: no change.** A6a-3's `orderRoundSyncs` ranks every action other than `'finalize'` first with a stable sort, so `'end_early'` already runs before `'finalize'`. Its `processRoundSyncs` catch already retains a `RoundSyncPermanentError` as `failed` without retries and sends anything else down the normal retry path.
+**Deferred error class.** Directly after A6a-3's `RoundSyncPermanentError` class, add:
+
+```ts
+/**
+ * A round item that should simply run again on the next drain: it stays
+ * pending, no retry spent (like RoundNotReadyError). B6b: an end_early RPC
+ * that got no answer — it is idempotent, so retrying forever is safe, and a
+ * retained row would hold the round's finalize back.
+ */
+class RoundSyncDeferredError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'RoundSyncDeferredError';
+  }
+}
+```
+
+**`processRoundSyncs` catch.** Current (A6a-3):
+
+```ts
+      if (error instanceof RoundNotReadyError) {
+        syncLogger.info("Round item waiting on this device's scorecards; leaving it queued", {
+          id: sync.id,
+          roundId: String(sync.data?.id ?? '').substring(0, 8) + '...',
+        });
+        continue;
+      }
+```
+
+Replacement:
+
+```ts
+      if (error instanceof RoundNotReadyError || error instanceof RoundSyncDeferredError) {
+        syncLogger.info('Round item not ready to run; leaving it queued', {
+          id: sync.id,
+          action: sync.data?.action,
+          roundId: String(sync.data?.id ?? '').substring(0, 8) + '...',
+          reason: errorMessage,
+        });
+        continue;
+      }
+```
+
+Also update the `processRoundSyncs` doc comment. Current:
+
+```ts
+ *  - RoundNotReadyError → stays pending: no retry spent, not a failure;
+```
+
+Replacement:
+
+```ts
+ *  - RoundNotReadyError / RoundSyncDeferredError → stays pending: no retry
+ *    spent, not a failure;
+```
+
+**`processRoundFinalize`: fail with a retained end.** Replace A6a-3's step 3 marker (between the retained-failed-cards check and the `finalizeSubmittedRound` call). Current (A6a-3):
+
+```ts
+  // Step 3 (B6b-2): end_early gate. A finalize item for a round whose
+  // 'end_early' item is retained as failed must not sit pending for ever
+  // behind it. B6b-2 owns that check and adds it here, before any server call.
+```
+
+Replacement:
+
+```ts
+  // 3. A retained end_early row (B6b) never runs on its own, and
+  //    finalizeSubmittedRound (runFinalizeSteps' guard) would wait for it on
+  //    every drain. Fail this item too, so Retry revives both and the drain
+  //    runs the end first. A *pending* end_early row is left to that guard.
+  const endEarlyKey = roundEndEarlyEntityKey(roundId);
+  if ((await getFailedSyncs()).some((failed) => failed.entityKey === endEarlyKey)) {
+    throw new RoundSyncPermanentError(
+      `Round ${roundId.substring(0, 8)} is waiting on a retained end-round-early failure; retry that first`
+    );
+  }
+```
+
+Leave A6a-3's step 4 (`const { completed, statusError, skinsError } = await finalizeSubmittedRound(roundId);` and its two throws) unchanged.
 
 **Dispatch.** In A6a-3's `processRoundSync`, current (as A6a-3 leaves it):
 
@@ -28231,7 +31234,7 @@ Replacement:
  */
 ```
 
-Add this function directly after `processRoundSync`'s closing `}`:
+Add these functions directly after `processRoundSync`'s closing `}`:
 
 ```ts
 /**
@@ -28239,12 +31242,12 @@ Add this function directly after `processRoundSync`'s closing `}`:
  * end_round_early RPC the scorer couldn't reach at confirm time.
  *
  * - Done (item removed): applied — also a same-N retry, the RPC is
- *   idempotent; 'conflict' — the server already holds another N, and this
- *   device's store adopts the server's N on its next load (initializeRound
- *   reconcile); 'not_found' — the round was deleted.
+ *   idempotent; 'conflict' — the server already holds another N, adopted
+ *   into the open round now or by the next load's init reconcile;
+ *   'not_found' — the round was deleted.
  * - Retained without retries (RoundSyncPermanentError): 'forbidden' /
- *   'invalid', or a malformed item.
- * - Retried: 'network', on the normal retry path.
+ *   'invalid' (incl. 22023 round_completed), or a malformed item.
+ * - Left pending without spending a retry (RoundSyncDeferredError): 'network'.
  *
  * Unlike 'finalize' it does not wait for this device's scorecards: the RPC
  * doesn't depend on them, and the sooner the server holds holes_played the
@@ -28260,36 +31263,86 @@ async function processRoundEndEarlySync(roundId: string, holesPlayed: unknown): 
   try {
     await applyEndRoundEarly(roundId, holesPlayed);
   } catch (error) {
-    if (error instanceof EndRoundEarlyError) {
-      if (error.code === 'conflict' || error.code === 'not_found') {
-        syncLogger.info('Queued end-round-early superseded by the server; dropping it', {
+    if (!(error instanceof EndRoundEarlyError)) throw error;
+
+    switch (error.code) {
+      case 'conflict':
+        syncLogger.info('Queued end-round-early superseded by the server; adopting its N', {
           roundId: roundId.substring(0, 8) + '...',
-          code: error.code,
           holesPlayed,
           serverHolesPlayed: error.serverHolesPlayed,
         });
+        await adoptServerHolesPlayed(roundId, error.serverHolesPlayed);
+        invalidateRoundShapeQueries(roundId);
         return;
-      }
-      if (error.code === 'forbidden' || error.code === 'invalid') {
+      case 'not_found':
+        syncLogger.info('Queued end-round-early: the round no longer exists; dropping it', {
+          roundId: roundId.substring(0, 8) + '...',
+        });
+        return;
+      case 'forbidden':
+      case 'invalid':
         // The server will never accept this early end: retain it for the
         // user (Retained Uploads) without burning retries.
         throw new RoundSyncPermanentError(error.message);
-      }
+      case 'network':
+        // Idempotent: try again on the next drain, without spending a retry.
+        throw new RoundSyncDeferredError(error.message);
+      default:
+        throw error;
     }
-    throw error;
   }
+
+  invalidateRoundShapeQueries(roundId);
+}
+
+/**
+ * After a queued end conflicted: bring the open round in line with the
+ * server's N. Only when this round is the one loaded in the scoring store —
+ * any other round adopts it on its next load (B3c-1's init reconcile reads
+ * rounds.holes_played). Never throws: the item is done either way.
+ */
+async function adoptServerHolesPlayed(
+  roundId: string,
+  serverHolesPlayed: number | null | undefined
+): Promise<void> {
+  if (typeof serverHolesPlayed !== 'number') return;
+
+  try {
+    // Lazy: the store imports the sync barrel (scorecardPersistence), so a
+    // static import here would be circular.
+    // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports -- circular import
+    const { useScorecardStore } = require('@/store/scorecardStore') as typeof import('@/store/scorecardStore');
+    const store = useScorecardStore.getState();
+    if (store.currentRoundId !== roundId) return;
+    // The store action has no reconcile option; this device queued the end,
+    // so it passed the "scores every player" check when it did.
+    await store.endRoundEarly(serverHolesPlayed);
+  } catch (error) {
+    syncLogger.warn("Could not adopt the server's holes played in the open round; the next load will", {
+      roundId: roundId.substring(0, 8) + '...',
+      serverHolesPlayed,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+/** The queries that show a round's shape (as useEndRoundEarly invalidates online). */
+function invalidateRoundShapeQueries(roundId: string): void {
+  void queryClient.invalidateQueries({ queryKey: skinsKeys.holeCounts(roundId) });
+  void queryClient.invalidateQueries({ queryKey: roundKeys.detail(roundId) });
 }
 ```
 
 - [ ] **Step 4: Run them to verify they pass**
 
 Run: `pnpm test src/__tests__/services/offline src/__tests__/services/rounds`
-Expected: PASS, including all of A6a's `Queued round finalisation` cases.
+Expected: PASS, including all of A6a's `Queued round finalisation` cases (their `getFailedSyncs` default is `[]`, so step 3 never fires there).
 
-- [ ] **Step 5: Run the scoring subset and type-check**
+- [ ] **Step 5: Run the scoring subset, type-check and lint**
 
-Run: the TEST_SUBSET command from Global Constraints, then `pnpm type-check`.
-Expected: green, apart from the Task 0 baseline.
+Run: the TEST_SUBSET command from Global Constraints, then `pnpm type-check`, then `pnpm exec eslint src/services/offline/sync/syncOrchestrator.ts`.
+Expected: green, apart from the Task 0 baseline. The lazy `require` carries its eslint-disable comment, as in `src/watch/transport.ts:66`.
 
 - [ ] **Step 6: Commit**
 
@@ -28298,8 +31351,12 @@ git add src/services/offline/sync/syncOrchestrator.ts src/__tests__/services/off
 git commit -m "feat(sync): run queued end_early round items before finalize
 
 The sync queue runs end_early items before finalize items, without waiting
-for this device's cards. Conflict / not_found are done; forbidden / invalid
-are retained without retries; network failures use the normal retry path.
+for this device's cards. Applied ends refresh the round's hole-count and
+detail queries. A conflict is done: the server's N is adopted into the open
+round (else on next load). not_found is done; forbidden / invalid are
+retained without retries; network failures stay pending without spending
+retries (the RPC is idempotent). A retained end_early row fails the
+round's finalize too, so Retry revives both.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
@@ -28334,16 +31391,18 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Consumes:
   - `planEndRoundEarly`, `EndRoundEarlyPlan` (B2);
   - `describeEndRoundEarlyResult`, `EndEarlyMatchContext`, `EndRoundEarlyStatsRow` (B6a);
-  - `filterPlayableHoles` (B2);
+  - `filterPlayableHoles` (B2) and `filterHolesByNineType` (`@/utils/holeTransformers`, existing);
   - `calculatePlayerStats(players, holes, tee, handicapSource, { holesPlayed })` (B4);
   - from the store (B3b): `holesPlayed`, `endRoundEarly(n)`, `isMultiBall`, `allowedPlayerIds`, `currentPlayers`, `groupScorecards`, `holes`, `nineType`, `startHole`, `currentRoundId`, `playerTeeMap`, `selectedTeeData`, `handicapSource`;
+  - `scoresEveryPlayer(state): boolean` (B3b, exported from `src/store/endRoundEarlySlice.ts`). It is the same check `endRoundEarly(n)` enforces: an empty `allowedPlayerIds` means everyone; otherwise the scope must cover every current player and every card in `groupScorecards`.
   - `applyEndRoundEarly`, `queueRoundEndEarly`, `fetchRoundHolesPlayed`, `EndRoundEarlyError`, `EndRoundEarlyErrorCode` (B6b, `@/services/rounds/applyEndRoundEarly`);
   - `checkIsOnline` (`@/hooks/useOnlineStatus`);
   - `queryClient` (`@/services/queryClient`), `roundKeys.detail`, `skinsKeys.holeCounts` (A5c-1, `@/hooks/queryKeys`);
   - `EndRoundEarlySheet` and the `RoundHeader` props (B6a).
 - Produces, exactly as in the contract:
   - `useEndRoundEarly(args: { roundId; isStandalone; gameType; teamFormat?; scoringPairsEnabled; getMatchContext?; onEnded }): { canEndRoundEarly; isEnded; open; sheetProps }`;
-  - `UseEndRoundEarlyArgs` / `UseEndRoundEarlyResult` types.
+  - `UseEndRoundEarlyArgs` / `UseEndRoundEarlyResult` types;
+  - `sheetProps.handicapRound` = store `handicapSource !== 'none'` (R22; the `EndRoundEarlySheetProps.handicapRound` prop from B6a-2).
 
 **Navigation on `onEnded(n)`** (route params from `src/navigation/types.ts:93-97, 236-241`):
 - **ScorecardEntryScreen:** `ReviewScorecard` via the existing `scoreHandlers.handleViewScorecard`, which passes `{ roundId, competitionId, holes }`.
@@ -28361,7 +31420,8 @@ Create `src/hooks/scorecard/useEndRoundEarly.test.ts`. Fixture: `create18Holes()
  * adopt the server's N; not_found → done; forbidden / invalid → no change).
  *
  * The scoring store, the RPC client, connectivity and toasts are mocked. The
- * planner, the result text and calculatePlayerStats are real.
+ * planner, the result text, calculatePlayerStats and the store slice's
+ * scoresEveryPlayer gate are real.
  */
 
 import { renderHook, act, waitFor } from '@testing-library/react-native';
@@ -28375,6 +31435,7 @@ import {
   type EndRoundEarlyErrorCode,
 } from '@/services/rounds/applyEndRoundEarly';
 import { create18Holes } from '@/__tests__/utils/testFixtures';
+import { EndRoundEarlyRoundChangedError } from '@/store/endRoundEarlySlice';
 import type { EndEarlyMatchContext } from '@/utils/endRoundEarly';
 import type { HoleResult } from '@/screens/scoring/MatchPlayScoringScreen/types';
 import type { Player, Scorecard } from '@/types';
@@ -28382,6 +31443,13 @@ import type { Player, Scorecard } from '@/types';
 jest.mock('@/store/scorecardStore', () => ({
   useScorecardStore: jest.fn(),
 }));
+
+// The hook imports the real scoresEveryPlayer from the end-early slice. Its
+// side-effecting imports (SQLite, persistence, sync) are never called by that
+// pure check, so they are stubbed to keep the module graph light.
+jest.mock('@/services/offline/database', () => ({}));
+jest.mock('@/store/scorecardPersistence', () => ({}));
+jest.mock('@/store/scorecardSyncDebounce', () => ({}));
 
 jest.mock('@/hooks/useOnlineStatus', () => ({
   checkIsOnline: jest.fn(),
@@ -28537,6 +31605,19 @@ describe('useEndRoundEarly — who can end', () => {
     ['a competition round', { isStandalone: false }, {}],
     ['a round using scoring pairs', { scoringPairsEnabled: true }, {}],
     ['a device that scores only part of the round', {}, { allowedPlayerIds: ['p1'] }],
+    [
+      // The store's rule also checks the cards: a card outside the scope means
+      // endRoundEarly(n) would refuse, so the action must not be offered.
+      'a device holding a card outside its scoring scope',
+      {},
+      {
+        allowedPlayerIds: ['p1', 'p2'],
+        groupScorecards: new Map([
+          ...cards(6),
+          ['p3', { ...(cards(6).get('p1') as Scorecard), id: 'sc-p3', playerId: 'p3' }],
+        ]),
+      },
+    ],
     ['a round already ended (holesPlayed set)', {}, { holesPlayed: 6 }],
     ['a round with a submitted card', {}, { groupScorecards: cards(6, 'completed') }],
     ['a round with no hole complete for every player', {}, { groupScorecards: cards(0) }],
@@ -28561,6 +31642,22 @@ describe('useEndRoundEarly — who can end', () => {
 
     expect(result.current.isEnded).toBe(true);
   });
+});
+
+describe('useEndRoundEarly — handicap warning (R22)', () => {
+  it("a round with handicap_source 'none' gets the generic line", () => {
+    const { result } = renderOpened();
+    expect(result.current.sheetProps.handicapRound).toBe(false);
+  });
+
+  it.each(['profile', 'calculated'])(
+    "a round with handicap_source '%s' is a handicap round",
+    (handicapSource) => {
+      mockStore({ handicapSource });
+      const { result } = renderOpened();
+      expect(result.current.sheetProps.handicapRound).toBe(true);
+    }
+  );
 });
 
 describe('useEndRoundEarly — result preview', () => {
@@ -28602,6 +31699,33 @@ describe('useEndRoundEarly — result preview', () => {
 
     expect(result.current.sheetProps.resultPreview).toBe('Alice wins 2 UP');
   });
+
+  it("measures the match against the round's own holes (9-hole course, nine_type 'full')", () => {
+    // Holes 1–9 only, nine_type 'full': getHoleCount('full') would say 18, but
+    // the match views use the 9 holes. Alice wins 1–5, hole 6 halved: after
+    // hole 5 she is 5 up with 4 of 9 left ⇒ closed out "5&4". Against 18 it
+    // would be "5 UP" (13 left, no close-out).
+    mockStore({ holes: holes.slice(0, 9) });
+    const won = (winner: HoleResult['winner']): HoleResult => ({
+      player1Score: 4,
+      player2Score: 4,
+      player1PickedUp: false,
+      player2PickedUp: false,
+      winner,
+    });
+    const getMatchContext = (): EndEarlyMatchContext => ({
+      kind: 'singles',
+      names: ['Alice', 'Bob'],
+      holeResults: {
+        1: won('player1'), 2: won('player1'), 3: won('player1'),
+        4: won('player1'), 5: won('player1'), 6: won('halved'),
+      },
+    });
+    const { result } = renderOpened({ gameType: 'match-play', getMatchContext });
+
+    expect(result.current.sheetProps.plan?.holesPlayed).toBe(6);
+    expect(result.current.sheetProps.resultPreview).toBe('Alice wins 5&4');
+  });
 });
 
 describe('useEndRoundEarly — confirm', () => {
@@ -28635,6 +31759,25 @@ describe('useEndRoundEarly — confirm', () => {
     expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['rounds', 'detail', 'round-1'] });
   });
 
+  it('refreshes the round-shape queries only after the local end has finished', async () => {
+    // A refetch mid-end would show the round-shape guard a server holes_played
+    // while the store's holesPlayed is still null, and it would reset the round.
+    let finishLocalEnd: () => void = () => {};
+    mockEndRoundEarly.mockImplementation(
+      () => new Promise<void>((resolve) => { finishLocalEnd = resolve; })
+    );
+    const { result, onEnded } = renderOpened();
+
+    pressConfirm(result);
+    await waitFor(() => expect(mockEndRoundEarly).toHaveBeenCalledWith(6));
+    expect(mockInvalidateQueries).not.toHaveBeenCalled();
+
+    await act(async () => finishLocalEnd());
+
+    await waitFor(() => expect(onEnded).toHaveBeenCalledWith(6));
+    expect(mockInvalidateQueries).toHaveBeenCalledTimes(2);
+  });
+
   it('offline: ends locally, then queues the end_early item', async () => {
     mockedCheckIsOnline.mockResolvedValue(false);
     const { result, onEnded } = renderOpened();
@@ -28663,6 +31806,32 @@ describe('useEndRoundEarly — confirm', () => {
     expect(mockedQueue).toHaveBeenCalledWith('round-1', 6);
   });
 
+  it("a slow request that times out as 'network' still ends locally and queues; Cancel waits, then the sheet closes", async () => {
+    // applyEndRoundEarly bounds the request (B6b-1) and rejects with 'network'
+    // when it gives up. Until then the sheet shows "Ending…" and ignores Cancel.
+    let timeOut: (error: unknown) => void = () => {};
+    mockedApply.mockImplementation(
+      () => new Promise<void>((_resolve, reject) => { timeOut = reject; })
+    );
+    const { result, onEnded } = renderOpened();
+
+    pressConfirm(result);
+    await waitFor(() => expect(mockedApply).toHaveBeenCalledTimes(1));
+    expect(result.current.sheetProps.loading).toBe(true);
+
+    act(() => result.current.sheetProps.onCancel());
+    expect(result.current.sheetProps.visible).toBe(true);
+
+    await act(async () => timeOut(new MockEndRoundEarlyError('network')));
+
+    await waitFor(() => expect(onEnded).toHaveBeenCalledWith(6));
+    expect(mockEndRoundEarly).toHaveBeenCalledWith(6);
+    expect(mockedQueue).toHaveBeenCalledWith('round-1', 6);
+    expect(mockInvalidateQueries).not.toHaveBeenCalled();
+    await waitFor(() => expect(result.current.sheetProps.loading).toBe(false));
+    expect(result.current.sheetProps.visible).toBe(false);
+  });
+
   it("'conflict': adopts the server's N carried on the error, without a read-back", async () => {
     mockedApply.mockRejectedValue(new MockEndRoundEarlyError('conflict', 4));
     const { result, onEnded } = renderOpened();
@@ -28674,6 +31843,10 @@ describe('useEndRoundEarly — confirm', () => {
     expect(mockEndRoundEarly).toHaveBeenCalledTimes(1);
     expect(mockEndRoundEarly).toHaveBeenCalledWith(4);
     expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['rounds', 'detail', 'round-1'] });
+    // Adopted locally first, then the caches are refreshed.
+    expect(mockEndRoundEarly.mock.invocationCallOrder[0]).toBeLessThan(
+      mockInvalidateQueries.mock.invocationCallOrder[0]
+    );
     expect(mockedQueue).not.toHaveBeenCalled();
   });
 
@@ -28770,6 +31943,23 @@ describe('useEndRoundEarly — confirm', () => {
       expect(mockShowErrorToast).toHaveBeenCalledWith('Could not end the round', 'Please try again.')
     );
     expect(onEnded).not.toHaveBeenCalled();
+    // The server already holds the end: refresh so the round-shape guard can adopt it.
+    expect(mockInvalidateQueries).toHaveBeenCalledTimes(2);
+  });
+
+  it('offline: a local end that fails (the round was unloaded mid-end) queues nothing', async () => {
+    mockedCheckIsOnline.mockResolvedValue(false);
+    mockEndRoundEarly.mockRejectedValue(new EndRoundEarlyRoundChangedError('round-1'));
+    const { result, onEnded } = renderOpened();
+
+    pressConfirm(result);
+
+    await waitFor(() =>
+      expect(mockShowErrorToast).toHaveBeenCalledWith('Could not end the round', 'Please try again.')
+    );
+    expect(mockedQueue).not.toHaveBeenCalled();
+    expect(onEnded).not.toHaveBeenCalled();
+    expect(mockInvalidateQueries).not.toHaveBeenCalled();
   });
 
   it('ignores a second tap while the first confirm is running', async () => {
@@ -28812,8 +32002,11 @@ Create `src/hooks/scorecard/useEndRoundEarly.ts`:
  *   device ended at a different N) → adopt the server's N. 'not_found'
  *   (P0002) → nothing to end on the server; end locally, no queue.
  *   'forbidden' (42501) / 'invalid' (other 22023) → error toast, nothing
- *   changes. After the RPC succeeds (or a conflict is adopted) the round-shape
- *   queries are invalidated (skinsKeys.holeCounts, roundKeys.detail).
+ *   changes. Once the server holds the end (RPC success or an adopted
+ *   conflict) the round-shape queries (skinsKeys.holeCounts, roundKeys.detail)
+ *   are invalidated — only after the local end has run, so a refetch can't
+ *   trip the round-shape guard's reset mid-end.
+ * - tells the sheet whether this is a handicap round (R22).
  *
  * Ending is final — there is no Resume and no relaunch redirect; the scoring
  * screens show the "Ended after N of M · Finish" banner instead (B6d).
@@ -28821,9 +32014,10 @@ Create `src/hooks/scorecard/useEndRoundEarly.ts`:
 
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useScorecardStore } from '@/store/scorecardStore';
+import { scoresEveryPlayer } from '@/store/endRoundEarlySlice';
 import { useToast } from '@/context/ToastContext';
 import { checkIsOnline } from '@/hooks/useOnlineStatus';
-import { filterPlayableHoles } from '@/utils/holeTransformers';
+import { filterHolesByNineType, filterPlayableHoles } from '@/utils/holeTransformers';
 import { calculatePlayerStats } from '@/utils/scorecardCalculations';
 import {
   describeEndRoundEarlyResult,
@@ -28912,7 +32106,10 @@ function buildResultPreview({
     return describeEndRoundEarlyResult({
       ...matchContext,
       playedHoleNumbers,
-      plannedHoles: plan.plannedHoles,
+      // The same planned count the match views pass as totalHoles (B5b):
+      // the round's own holes, so a 'full' round on a 9-hole course is
+      // measured over 9, not getHoleCount('full') = 18.
+      plannedHoles: filterHolesByNineType(holes, nineType).length,
       holesPlayed: plan.holesPlayed,
     });
   }
@@ -28971,6 +32168,7 @@ export function useEndRoundEarly({
   getMatchContext,
   onEnded,
 }: UseEndRoundEarlyArgs): UseEndRoundEarlyResult {
+  const store = useScorecardStore();
   const {
     currentRoundId,
     holes,
@@ -28979,13 +32177,12 @@ export function useEndRoundEarly({
     startHole,
     currentPlayers,
     groupScorecards,
-    allowedPlayerIds,
     playerTeeMap,
     selectedTeeData,
     handicapSource,
     isMultiBall,
     endRoundEarly,
-  } = useScorecardStore();
+  } = store;
   const { showErrorToast, showToast } = useToast();
 
   const [visible, setVisible] = useState(false);
@@ -28998,12 +32195,12 @@ export function useEndRoundEarly({
   const isEnded = currentRoundId === roundId && holesPlayed != null;
 
   // R11/R16: only a device that scores every player may end the round, or
-  // another group's cards could hold more holes than N. An empty scope means
-  // "everyone"; ScorecardEntryScreen always mirrors its on-screen players into
-  // allowedPlayerIds, so a scope listing every player also qualifies.
-  const scoresEveryPlayer =
-    allowedPlayerIds.length === 0 ||
-    currentPlayers.every((player) => allowedPlayerIds.includes(player.id));
+  // another group's cards could hold more holes than N. The store's own rule
+  // (the one endRoundEarly(n) enforces), so the action is offered exactly
+  // when the end would be accepted. `allowedPlayerIds`, `currentPlayers` and
+  // `groupScorecards` re-render this hook whenever the rule's inputs change.
+  const deviceScoresEveryPlayer = scoresEveryPlayer(store);
+  const handicapRound = handicapSource !== 'none';
 
   // "Round still in progress", decidable offline: nothing submitted yet.
   const anyCardSubmitted = useMemo(
@@ -29016,7 +32213,7 @@ export function useEndRoundEarly({
 
   const plan = useMemo(() => {
     if (!isStandalone || scoringPairsEnabled || !isLoadedForRound || isEnded) return null;
-    if (!scoresEveryPlayer || anyCardSubmitted) return null;
+    if (!deviceScoresEveryPlayer || anyCardSubmitted) return null;
     return planEndRoundEarly({
       holes,
       nineType,
@@ -29028,7 +32225,7 @@ export function useEndRoundEarly({
     scoringPairsEnabled,
     isLoadedForRound,
     isEnded,
-    scoresEveryPlayer,
+    deviceScoresEveryPlayer,
     anyCardSubmitted,
     holes,
     nineType,
@@ -29083,16 +32280,24 @@ export function useEndRoundEarly({
     const logContext = { roundId: roundId.substring(0, 8) + '...', holesPlayed: n };
     inFlightRef.current = true;
     setLoading(true);
+    // True once the server holds holes_played (RPC success or adopted
+    // conflict). The round-shape queries are invalidated only AFTER the local
+    // end has run: a refetch landing mid-end would show the round-shape guard
+    // (useRoundData / useMatchPlayData, B3c-2) a server holes_played while
+    // the store's holesPlayed is still null, and it would reset the round.
+    let serverHoldsEnd = false;
     try {
       let queueForLater = false;
 
       if (await checkIsOnline()) {
         try {
           await applyEndRoundEarly(roundId, n);
-          invalidateRoundShapeQueries(roundId);
+          serverHoldsEnd = true;
         } catch (error) {
           const code = endEarlyErrorCode(error);
           if (code === 'network') {
+            // Also how applyEndRoundEarly reports its own request timeout:
+            // end locally and let the queue deliver it.
             queueForLater = true;
           } else if (code === 'not_found') {
             // P0002: the round has no server row to end — the server step is done.
@@ -29109,8 +32314,9 @@ export function useEndRoundEarly({
               showErrorToast(END_FAILED_TITLE, 'This round can no longer be ended.');
               return;
             }
-            invalidateRoundShapeQueries(roundId);
+            serverHoldsEnd = true;
             await endRoundEarly(serverHolesPlayed);
+            invalidateRoundShapeQueries(roundId);
             setVisible(false);
             showToast({
               variant: 'info',
@@ -29134,11 +32340,15 @@ export function useEndRoundEarly({
       }
 
       await endRoundEarly(n);
+      if (serverHoldsEnd) invalidateRoundShapeQueries(roundId);
       if (queueForLater) await queueRoundEndEarly(roundId, n);
       setVisible(false);
       onEnded(n);
     } catch (error) {
       scoringLogger.error('End round early failed', error, logContext);
+      // The local end failed after the server took it: refresh anyway, so the
+      // round-shape guard adopts the server's holes_played on the refetch.
+      if (serverHoldsEnd) invalidateRoundShapeQueries(roundId);
       showErrorToast(END_FAILED_TITLE, 'Please try again.');
     } finally {
       inFlightRef.current = false;
@@ -29160,12 +32370,15 @@ export function useEndRoundEarly({
       resultPreview,
       startHole,
       loading,
+      handicapRound,
       onConfirm: handleConfirm,
       onCancel: handleCancel,
     },
   };
 }
 ```
+
+`scoresEveryPlayer(store)` passes the whole store state. B3b-2 types the parameter as `{ allowedPlayerIds: readonly string[]; currentPlayers: readonly { id: string }[]; groupScorecards: ReadonlyMap<string, unknown> }`, which the store state satisfies structurally.
 
 Check `scoringLogger.warn(message, context)`. `createModuleLogger` loggers take `(message, data?)` for `warn`, as `matchPlayLogger.warn('SKINS: …', { error })` already does in `MatchPlayScoringScreen`.
 
@@ -29185,7 +32398,7 @@ export * from './useEndRoundEarly';
 - [ ] **Step 4: Run the tests and confirm they pass**
 
 Run: `pnpm test src/hooks/scorecard/useEndRoundEarly.test.ts`
-Expected: PASS.
+Expected: PASS. If the suite fails to load because the real `@/store/endRoundEarlySlice` pulls in a module the three stubs don't cover, stub that module the same way (`jest.mock(path, () => ({}))`). Never mock `scoresEveryPlayer` itself: the gate cases test it.
 
 - [ ] **Step 5: Run the scoring subset and type-check**
 
@@ -29203,8 +32416,10 @@ Gates the action (standalone, in progress, not ended, no scoring pairs,
 this device scores every player, a complete hole, holes left), previews
 the result, and on confirm runs the end_round_early RPC (online) before
 ending locally, or ends locally and queues an end_early item (offline /
-network failure). A conflict adopts the server's N; not_found ends
-locally; forbidden / invalid change nothing.
+network failure, including the client's request timeout). A conflict
+adopts the server's N; not_found ends locally; forbidden / invalid change
+nothing. Round-shape queries refresh only after the local end. The gate
+uses the store's scoresEveryPlayer; handicap rounds get the R22 warning.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
@@ -29587,7 +32802,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 ---
 
-### Task B6d-1: Building blocks for an ended round: banner, played-hole range, submit guard
+### Task B6d-1: Building blocks for an ended round: banner and played-hole range
 
 **Files:**
 - Create: `src/components/scorecard/EndedEarlyBanner.tsx`
@@ -29596,8 +32811,8 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Create: `src/hooks/scorecard/usePlayedHoleRange.ts`
 - Create: `src/hooks/scorecard/usePlayedHoleRange.test.ts`
 - Modify: `src/hooks/scorecard/index.ts` (export, after B6c's line)
-- Modify: `src/screens/scoring/ScorecardEntryScreen/hooks/useScorecardSubmission.ts:65-117` (an ended round routes to Review)
-- Create: `src/screens/scoring/ScorecardEntryScreen/hooks/useScorecardSubmission.test.ts`
+
+`useScorecardSubmission.ts` is deliberately **not** changed. Its `handleSubmit` has no caller in `ScorecardEntryScreen`, and `performSubmit` is only reachable from the incomplete-holes dialog that `handleSubmit` opens, so both are dead code. An ended round leaves score entry through the banner's Finish and the footer's Review button (B6d-2). See Follow-ups.
 
 (B6d-2 applies them to the screens:
 - Modify: `src/screens/scoring/ScorecardEntryScreen/index.tsx`:
@@ -29810,111 +33025,12 @@ describe('usePlayedHoleRange', () => {
 });
 ```
 
-Create `src/screens/scoring/ScorecardEntryScreen/hooks/useScorecardSubmission.test.ts`. The first case locks today's behaviour (characterization); the next two are new.
-
-```ts
-/**
- * useScorecardSubmission — a round ended early is finished on Review (played
- * holes only); it must never be submitted from score entry against the
- * planned hole count ("6 of 18 … Submit anyway?").
- */
-
-import { renderHook, act } from '@testing-library/react-native';
-import { useScorecardSubmission } from './useScorecardSubmission';
-import { useScorecardStore } from '@/store/scorecardStore';
-import { create18Holes } from '@/__tests__/utils/testFixtures';
-
-jest.mock('@/store/scorecardStore', () => ({
-  useScorecardStore: { getState: jest.fn() },
-}));
-jest.mock('@/hooks/rounds/mutations', () => ({
-  useDeleteRound: () => ({ mutateAsync: jest.fn() }),
-}));
-jest.mock('@/services/activeRoundSession', () => ({
-  activeRoundSession: { clear: jest.fn(() => Promise.resolve()), set: jest.fn() },
-}));
-
-const mockedGetState = useScorecardStore.getState as jest.Mock;
-const holes = create18Holes();
-
-function setup(holesPlayed: number | null) {
-  mockedGetState.mockReturnValue({
-    holesPlayed,
-    allowedPlayerIds: [],
-    groupScorecards: new Map([['p1', {}], ['p2', {}]]),
-  });
-  const navigation = { navigate: jest.fn() };
-  const params = {
-    navigation: navigation as any,
-    roundId: 'round-1',
-    competitionId: 'standalone',
-    holes,
-    playerCount: 2,
-    getCompletedHolesCount: jest.fn(() => 6),
-    submitScorecards: jest.fn(() => Promise.resolve()),
-    resetRound: jest.fn(),
-    onIncompleteRound: jest.fn(),
-    onSubmitError: jest.fn(),
-    onCloseIncompleteDialog: jest.fn(),
-  };
-  const { result } = renderHook(() => useScorecardSubmission(params));
-  return { result, navigation, params };
-}
-
-describe('useScorecardSubmission', () => {
-  it('a round not ended with 6 of 18 holes asks before submitting (characterization)', async () => {
-    const { result, navigation, params } = setup(null);
-
-    await act(async () => {
-      await result.current.handleSubmit();
-    });
-
-    expect(params.onIncompleteRound).toHaveBeenCalledWith(6);
-    expect(params.submitScorecards).not.toHaveBeenCalled();
-    expect(navigation.navigate).not.toHaveBeenCalled();
-  });
-
-  it('an ended round routes Submit to Review without submitting', async () => {
-    const { result, navigation, params } = setup(6);
-
-    await act(async () => {
-      await result.current.handleSubmit();
-    });
-
-    expect(navigation.navigate).toHaveBeenCalledWith('ReviewScorecard', {
-      roundId: 'round-1',
-      competitionId: 'standalone',
-      holes,
-    });
-    expect(params.onIncompleteRound).not.toHaveBeenCalled();
-    expect(params.submitScorecards).not.toHaveBeenCalled();
-  });
-
-  it('performSubmit on an ended round also goes to Review without submitting', async () => {
-    const { result, navigation, params } = setup(6);
-
-    await act(async () => {
-      await result.current.performSubmit();
-    });
-
-    expect(params.submitScorecards).not.toHaveBeenCalled();
-    expect(navigation.navigate).toHaveBeenCalledWith('ReviewScorecard', {
-      roundId: 'round-1',
-      competitionId: 'standalone',
-      holes,
-    });
-  });
-});
-```
-
 - [ ] **Step 2: Run the tests and confirm they fail**
 
-Run: `pnpm test src/components/scorecard/EndedEarlyBanner.test.tsx src/hooks/scorecard/usePlayedHoleRange.test.ts src/screens/scoring/ScorecardEntryScreen/hooks/useScorecardSubmission.test.ts`
-Expected: FAIL.
-- The banner and range suites fail with "Cannot find module './EndedEarlyBanner'" / "Cannot find module './usePlayedHoleRange'".
-- In the submission suite, the characterization case PASSES. The two ended-round cases FAIL: `onIncompleteRound` was called with 6, and `navigate` was not called.
+Run: `pnpm test src/components/scorecard/EndedEarlyBanner.test.tsx src/hooks/scorecard/usePlayedHoleRange.test.ts`
+Expected: FAIL. The suites fail with "Cannot find module './EndedEarlyBanner'" / "Cannot find module './usePlayedHoleRange'".
 
-- [ ] **Step 3: Implement the banner, the range hook and the submission guard**
+- [ ] **Step 3: Implement the banner and the range hook**
 
 Create `src/components/scorecard/EndedEarlyBanner.tsx`:
 
@@ -30101,104 +33217,14 @@ export * from './useEndRoundEarly';
 export * from './usePlayedHoleRange';
 ```
 
-`src/screens/scoring/ScorecardEntryScreen/hooks/useScorecardSubmission.ts`, lines 65-68. Current:
-
-```ts
-  // Perform the actual submission (navigates to review screen)
-  // Note: Skins finalization happens only when submitting from ReviewScorecard
-  const performSubmit = useCallback(async () => {
-    onCloseIncompleteDialog();
-```
-
-Replacement:
-
-```ts
-  // A round ended early is finished on Review (played holes only) — never
-  // submitted from score entry against the planned hole count.
-  const isEndedEarly = () => useScorecardStore.getState().holesPlayed != null;
-  const goToFinishScreen = useCallback(() => {
-    navigation.navigate('ReviewScorecard', {
-      roundId,
-      competitionId,
-      holes,
-    });
-  }, [navigation, roundId, competitionId, holes]);
-
-  // Perform the actual submission (navigates to review screen)
-  // Note: Skins finalization happens only when submitting from ReviewScorecard
-  const performSubmit = useCallback(async () => {
-    onCloseIncompleteDialog();
-    if (isEndedEarly()) {
-      goToFinishScreen();
-      return;
-    }
-```
-
-Lines 93-117. Current:
-
-```ts
-  }, [
-    submitScorecards,
-    navigation,
-    roundId,
-    competitionId,
-    holes,
-    playerCount,
-    onSubmitError,
-    onCloseIncompleteDialog,
-  ]);
-
-  // Handle submit button press with completion check
-  const handleSubmit = useCallback(async () => {
-    const completedCount = getCompletedHolesCount();
-```
-
-Replacement:
-
-```ts
-  }, [
-    submitScorecards,
-    navigation,
-    roundId,
-    competitionId,
-    holes,
-    playerCount,
-    onSubmitError,
-    onCloseIncompleteDialog,
-    goToFinishScreen,
-  ]);
-
-  // Handle submit button press with completion check
-  const handleSubmit = useCallback(async () => {
-    if (isEndedEarly()) {
-      goToFinishScreen();
-      return;
-    }
-    const completedCount = getCompletedHolesCount();
-```
-
-Line 117. Current:
-
-```ts
-  }, [getCompletedHolesCount, performSubmit, onIncompleteRound]);
-```
-
-Replacement:
-
-```ts
-  }, [getCompletedHolesCount, performSubmit, onIncompleteRound, goToFinishScreen]);
-```
-
-`isEndedEarly` reads the store at call time, like the existing `useScorecardStore.getState()` read inside `performSubmit`. So it is a plain function and doesn't need `useCallback` or a deps entry.
-
 - [ ] **Step 4: Run the tests and confirm they pass**
 
-Run: `pnpm test src/components/scorecard/EndedEarlyBanner.test.tsx src/hooks/scorecard/usePlayedHoleRange.test.ts src/screens/scoring/ScorecardEntryScreen/hooks/useScorecardSubmission.test.ts`
+Run: `pnpm test src/components/scorecard/EndedEarlyBanner.test.tsx src/hooks/scorecard/usePlayedHoleRange.test.ts`
 Expected: PASS.
 
 - [ ] **Step 5: Run the scoring subset and type-check**
 
-Run the TEST_SUBSET command from Global Constraints, then `pnpm test src/screens/scoring/ScorecardEntryScreen`, then `pnpm type-check`.
+Run the TEST_SUBSET command from Global Constraints, then `pnpm type-check`.
 Expected: green, apart from the Task 0 baseline.
 
 - [ ] **Step 6: Commit**
@@ -30207,16 +33233,12 @@ Expected: green, apart from the Task 0 baseline.
 git add src/components/scorecard/EndedEarlyBanner.tsx src/components/scorecard/EndedEarlyBanner.test.tsx \
   src/components/scorecard/index.ts \
   src/hooks/scorecard/usePlayedHoleRange.ts src/hooks/scorecard/usePlayedHoleRange.test.ts \
-  src/hooks/scorecard/index.ts \
-  src/screens/scoring/ScorecardEntryScreen/hooks/useScorecardSubmission.ts \
-  src/screens/scoring/ScorecardEntryScreen/hooks/useScorecardSubmission.test.ts
-git commit -m "feat(scoring): ended-early banner, played-hole range and submit guard
+  src/hooks/scorecard/index.ts
+git commit -m "feat(scoring): ended-early banner and played-hole range
 
 EndedEarlyBanner shows 'Ended after N of M' (+ Finish on scoring screens).
 usePlayedHoleRange limits navigation to the played holes once a round is
-ended early and pulls the current hole back inside. Score entry's submit
-routes an ended round to Review instead of submitting against the planned
-hole count.
+ended early and pulls the current hole back inside.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
@@ -31468,7 +34490,10 @@ Add inside `describe('useScoreReview — validateScores')`:
 - [ ] **Step 3: Run them to see them fail**
 
 Run: `pnpm test src/screens/scoring/ReviewScorecardScreen/hooks/useScoreReview.test.ts -t '(played|back-nine)'`
-Expected: FAIL. "Expected: [] … Received: [12 incomplete holes]" (holes 7–18). The back-nine case fails with `TypeError: Cannot read properties of undefined (reading 'map')`, because `playedHoles` is undefined.
+Expected: FAIL, each on its first `incomplete` assertion (validation still walks every planned hole):
+- "validates only the played holes": `expect(incomplete).toEqual([])` receives 12 incomplete holes (7–18).
+- "still reports a gap": receives holes 6–18 (hole 6 missing Bob only; 7–18 missing both), not just hole 6.
+- "slices a back-nine round": `expect(incomplete).toEqual([])` receives holes 16–18. It fails there, before reaching `playedHoles.map`.
 
 - [ ] **Step 4: Implement `useScoreReview`**
 
@@ -31830,7 +34855,8 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 | `SubMatchLeaderboardTab` | planned (unchanged) | Split rounds are competition-only, so an ended round never reaches it. |
 | `ScrambleLeaderboardTab` | **played** | Team handicap comes from members; strokes are per hole. |
 | `LeaderboardTabContent` | **played** | Per-hole net/points off `dailyHandicaps`, which come from the **planned** `holes` (memo kept). `coursePar` is the played Σpar, so to-par is right. |
-| `SkinsTabContent` / `WolfTabContent` / `usePartnerStatus` / `useScoreSubmission` | `holeCount` = played count | "of N holes" copy; readiness count. |
+| `SkinsTabContent` / `PayoutsTabContent` | `holeCounts={skinsHoleCounts}` (A5d-1; unchanged here, B8-2 adjusts the memo) | Skins pricing needs both the planned and the played count. |
+| `WolfTabContent` / `usePartnerStatus` / `useScoreSubmission` | `holeCount` = played count (B8-1 also passes `playedHoleNumbers` to `useScoreSubmission`) | "of N holes" copy; readiness count. |
 | `ShotLogList` | `holeNumbers` = played hole numbers | Back 9 ended after 6 shows holes 10–15, not 1–6. |
 | `leaderboardDailyHandicaps` memo | planned `holes` (unchanged) | The daily handicap comes from Σpar. A comment is added. |
 
@@ -31862,7 +34888,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - store `isHoleComplete`, `groupScorecards`, `nineType` (B7a-2 adds it to the destructure), `holesPlayed` (B5b-2), from `scorecardStore.ts:107, 349-362`;
   - `filterPlayableHoles` (B2).
 - Produces:
-  - Review's `holeCount` is the played count. It feeds `useScoreSubmission` → `checkSubmissionReadiness`, `usePartnerStatus`, and the Skins/Wolf/Shots tabs.
+  - Review's `holeCount` is the played count. It feeds `useScoreSubmission` → `checkSubmissionReadiness`, `usePartnerStatus`, the Wolf and Shots tabs, and the skins memo's loading fallback (A5d-1). B7b also produces `playedHoleNumbers` (the real hole numbers), which B8-1 passes to `useScoreSubmission` and uses to filter the mismatch modal.
   - `MatchPlayScorecardScreen` offers Review & Submit once every **played** hole is complete.
 
 - [ ] **Step 1: Update the existing store mocks**
@@ -31885,30 +34911,9 @@ Expected: 8 replacements:
 - `setupSuccessfulMock`, `setupLoadingMock`, `setupErrorMock`, `setupEmptyHolesMock`;
 - the inline mocks in "store is not initialized", "uses getPlayerScore", "extracts strokes" and "returns undefined for null scores".
 
-Verify with `grep -c "isHoleComplete: jest.fn().mockReturnValue(false)" src/screens/scoring/MatchPlayScorecardScreen/MatchPlayScorecardScreen.test.tsx` → `8`.
+Verify with `grep -c "mockReturnValue(0), isHoleComplete: jest.fn().mockReturnValue(false)" src/screens/scoring/MatchPlayScorecardScreen/MatchPlayScorecardScreen.test.tsx` → `8`. (Grep the combined string: B7a-2's banner case already has its own `isHoleComplete: jest.fn().mockReturnValue(false),` line, so a grep for `isHoleComplete` alone returns `9`.)
 
-**(b)** B5b's first "Ended early" case. Current (as B5b leaves it):
-
-```tsx
-        getPlayerScore: jest.fn().mockReturnValue(undefined),
-        getCompletedHolesCount: jest.fn().mockReturnValue(6),
-        submitScorecards: jest.fn(),
-        resetRound: jest.fn(),
-        holesPlayed: 6,
-      } as any);
-```
-
-Replacement:
-
-```tsx
-        getPlayerScore: jest.fn().mockReturnValue(undefined),
-        getCompletedHolesCount: jest.fn().mockReturnValue(6),
-        isHoleComplete: jest.fn().mockReturnValue(false),
-        submitScorecards: jest.fn(),
-        resetRound: jest.fn(),
-        holesPlayed: 6,
-      } as any);
-```
+**(b)** B5b's "Ended early" cases: **no change needed.** B5b-2's first case spreads `setupSuccessfulMock`'s store (`{ ...baseStore, holesPlayed: 6 }`), so it picks up `isHoleComplete` from (a); its second case calls `setupSuccessfulMock()` directly.
 
 **(c)** A6d's `describe('Submission')` store mock (review finding). After this task the footer renders only when every played hole is complete according to `isHoleComplete`. Current (as A6d leaves it):
 
@@ -32230,11 +35235,12 @@ Replacement:
 ```ts
   // Holes that count toward submission: the first N once the round was ended
   // early, else every planned hole. Feeds checkSubmissionReadiness / partner
-  // progress and the Skins / Wolf / Shots "of N holes" copy.
+  // progress and the Wolf / Shots "of N holes" copy.
   const holeCount = playedHoles.length || 18;
 
   // Real hole numbers of the played holes (10–15 for a back nine ended after
-  // 6), so the Shots tab lists the right holes.
+  // 6), so the Shots tab lists the right holes. B8-1 also limits submit
+  // readiness and the mismatch modal to them.
   const playedHoleNumbers = useMemo(() => playedHoles.map((h) => h.number), [playedHoles]);
 ```
 
@@ -32345,7 +35351,7 @@ Leave `MatchScorecardTabContent`, `SubMatchLeaderboardTab`, `MatchPlayLeaderboar
 - [ ] **Step 7: Run the affected tests**
 
 Run: `pnpm test src/screens/scoring/ReviewScorecardScreen src/screens/scoring/MatchPlayScorecardScreen src/components/scorecard`
-Expected: PASS. The Review screen itself has no unit test (Contract note 10). Type-check covers its wiring.
+Expected: PASS. The Review screen itself has no unit test (none exists, and its import graph is very large). Type-check covers its wiring, and B11's on-device QA covers the behaviour.
 
 - [ ] **Step 8: Run the scoring subset + type-check**
 
@@ -32382,14 +35388,24 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - a new `filterToPlayedHoles` after `filterMismatchesToPlayers`, `:63`;
   - `checkMultiScorerReadiness`, `:113-160`.
 - Test: `src/__tests__/services/scoreMismatch/scoreMismatchService.test.ts` (a nested describe at the end of `describe('checkSubmissionReadiness() - multi-scorer (no pairs)')`, before `describe('getPartnerProgress()'`)
-- Modify: `src/screens/scoring/ReviewScorecardScreen/hooks/useScoreSubmission.ts` (the readiness block in `handleSubmit`, `:419-443`)
+- Modify: `src/screens/scoring/ReviewScorecardScreen/hooks/useScoreSubmission.ts`:
+  - `UseScoreSubmissionParams`, `:132-135`;
+  - param destructure, `:177-180`;
+  - the readiness block in `handleSubmit`, `:419-443`;
+  - `handleSubmit`'s dependency list, `:771-772`.
 - Create: `src/screens/scoring/ReviewScorecardScreen/hooks/useScoreSubmission.endedEarly.test.tsx`
+- Modify: `src/screens/scoring/ReviewScorecardScreen/index.tsx`:
+  - the mismatch query, `:217`;
+  - the `useScoreSubmission` call, `:248-250`;
+  - `MismatchResolutionModal`, `:623`.
 
 **Interfaces:**
 - Consumes:
-  - store `holesPlayed`, `getPlayedHoles()` (B3b);
+  - Review's `playedHoleNumbers` and `useScoreReview().holesPlayed` (B7b, B7a-2);
   - `useFinalizeSubmittedRound` (A6c), mocked in tests.
-- Produces: `checkSubmissionReadiness(roundId, userId, scoringPairsEnabled, holeCount = 18, groupPlayerIds?, playedHoleNumbers?: number[])`.
+- Produces:
+  - `checkSubmissionReadiness(roundId, userId, scoringPairsEnabled, holeCount = 18, groupPlayerIds?, playedHoleNumbers?: number[])`;
+  - `UseScoreSubmissionParams.playedHoleNumbers?: number[]`. Set ⇒ readiness is limited to those holes; `undefined` or `[]` ⇒ not limited (today's call).
 
 - [ ] **Step 1: Write the failing service tests**
 
@@ -32662,19 +35678,20 @@ Expected: PASS, with all three new cases and every existing readiness test (none
 
 - [ ] **Step 3: Write the failing `useScoreSubmission` test**
 
+The played hole numbers come from Review (B7b's `playedHoleNumbers`, the same slice the tabs render), passed in as a param. The hook doesn't read them from the store.
+
 Create `src/screens/scoring/ReviewScorecardScreen/hooks/useScoreSubmission.endedEarly.test.tsx`:
 
 ```tsx
 /**
  * useScoreSubmission — an ended-early round's readiness check is limited to
- * its played holes (R16), not skipped.
+ * its played holes (R16), not skipped. Review passes the played hole numbers
+ * in as `playedHoleNumbers`.
  */
 import React from 'react';
 import { act, renderHook } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useScoreSubmission } from './useScoreSubmission';
-import { create18Holes } from '@/__tests__/utils/testFixtures';
-import type { Hole } from '@/types';
 
 const mockCheckSubmissionReadiness = jest.fn();
 jest.mock('@/services/scoreMismatch', () => ({
@@ -32707,34 +35724,21 @@ jest.mock('@/hooks/rounds/useFinalizeSubmittedRound', () => ({
   finalizeOrQueueRound: jest.fn(),
 }));
 
-const mockStoreState: {
-  allowedPlayerIds: string[];
-  groupScorecards: Map<string, unknown>;
-  holes: Hole[];
-  gameType: string;
-  holesPlayed: number | null;
-  getPlayedHoles: () => Hole[];
-} = {
-  allowedPlayerIds: [],
-  groupScorecards: new Map([
+// Only what getGroupScopeIds (and the post-submit achievement read) touch.
+const mockStoreState = {
+  allowedPlayerIds: [] as string[],
+  groupScorecards: new Map<string, unknown>([
     ['p1', {}],
     ['p2', {}],
   ]),
   holes: [],
   gameType: 'stroke',
-  holesPlayed: null,
-  getPlayedHoles: () =>
-    mockStoreState.holesPlayed == null
-      ? mockStoreState.holes
-      : [...mockStoreState.holes]
-          .sort((a, b) => a.number - b.number)
-          .slice(0, mockStoreState.holesPlayed),
 };
 jest.mock('@/store/scorecardStore', () => ({
   useScorecardStore: { getState: () => mockStoreState },
 }));
 
-function renderSubmission(holeCount: number) {
+function renderSubmission(holeCount: number, playedHoleNumbers?: number[]) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const wrapper = ({ children }: { children: React.ReactNode }) => (
     <QueryClientProvider client={client}>{children}</QueryClientProvider>
@@ -32755,25 +35759,28 @@ function renderSubmission(holeCount: number) {
         navigation: { reset: jest.fn(), popToTop: jest.fn() } as never,
         currentUserId: 'user-1',
         holeCount,
+        playedHoleNumbers,
       }),
     { wrapper }
   );
+}
+
+async function submit(result: ReturnType<typeof renderSubmission>['result']) {
+  await act(async () => {
+    await result.current.handleSubmit();
+  });
 }
 
 describe('useScoreSubmission — readiness over the played holes', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockCheckSubmissionReadiness.mockResolvedValue({ canSubmit: true });
-    mockStoreState.holes = create18Holes();
-    mockStoreState.holesPlayed = null;
   });
 
   it('checks every planned hole for a round played as planned (locks current behaviour)', async () => {
     const { result } = renderSubmission(18);
 
-    await act(async () => {
-      await result.current.handleSubmit();
-    });
+    await submit(result);
 
     const call = mockCheckSubmissionReadiness.mock.calls[0];
     expect(call.slice(0, 5)).toEqual(['round-1', 'user-1', false, 18, ['p1', 'p2']]);
@@ -32782,12 +35789,9 @@ describe('useScoreSubmission — readiness over the played holes', () => {
   });
 
   it('limits readiness to holes 1–6 when the round was ended after 6', async () => {
-    mockStoreState.holesPlayed = 6;
-    const { result } = renderSubmission(6);
+    const { result } = renderSubmission(6, [1, 2, 3, 4, 5, 6]);
 
-    await act(async () => {
-      await result.current.handleSubmit();
-    });
+    await submit(result);
 
     expect(mockCheckSubmissionReadiness.mock.calls[0]).toEqual([
       'round-1', 'user-1', false, 6, ['p1', 'p2'], [1, 2, 3, 4, 5, 6],
@@ -32796,26 +35800,92 @@ describe('useScoreSubmission — readiness over the played holes', () => {
   });
 
   it('passes the real hole numbers for a back nine ended after 6 (10–15)', async () => {
-    mockStoreState.holes = create18Holes().filter((h) => h.number >= 10);
-    mockStoreState.holesPlayed = 6;
-    const { result } = renderSubmission(6);
+    const { result } = renderSubmission(6, [10, 11, 12, 13, 14, 15]);
 
-    await act(async () => {
-      await result.current.handleSubmit();
-    });
+    await submit(result);
 
     expect(mockCheckSubmissionReadiness.mock.calls[0][5]).toEqual([10, 11, 12, 13, 14, 15]);
     expect(mockCheckSubmissionReadiness.mock.calls[0][3]).toBe(6);
+  });
+
+  it('counts the played holes even if the caller passed a different holeCount', async () => {
+    const { result } = renderSubmission(18, [1, 2, 3, 4, 5, 6]);
+
+    await submit(result);
+
+    expect(mockCheckSubmissionReadiness.mock.calls[0][3]).toBe(6);
+  });
+
+  it('treats an empty played list as not limited', async () => {
+    const { result } = renderSubmission(18, []);
+
+    await submit(result);
+
+    const call = mockCheckSubmissionReadiness.mock.calls[0];
+    expect(call[3]).toBe(18);
+    expect(call[5]).toBeUndefined();
   });
 });
 ```
 
 Run: `pnpm test src/screens/scoring/ReviewScorecardScreen/hooks/useScoreSubmission.endedEarly.test.tsx`
-Expected: FAIL. The two ended-early cases fail because the call has only 5 arguments (no `[1, 2, 3, 4, 5, 6]` / `[10 … 15]`). The planned-round case passes; it locks today's call.
+Expected: FAIL.
+- **"limits readiness to holes 1–6"** and **"passes the real hole numbers"**: the call has only 5 arguments, so `[1, 2, 3, 4, 5, 6]` / `[10 … 15]` is missing (the hook ignores the unknown param).
+- **"counts the played holes even if … a different holeCount"**: receives `18`.
+- **"checks every planned hole"** and **"treats an empty played list as not limited"** already pass. They lock today's call.
+
+`pnpm type-check` would also flag `playedHoleNumbers` as an unknown property of `UseScoreSubmissionParams`; Step 4 adds it.
 
 - [ ] **Step 4: Implement `useScoreSubmission`**
 
-`src/screens/scoring/ReviewScorecardScreen/hooks/useScoreSubmission.ts`, the readiness block in `handleSubmit` (lines 419-443). B10b doesn't touch this block. Current:
+`src/screens/scoring/ReviewScorecardScreen/hooks/useScoreSubmission.ts`. The params interface (lines 131-135). Current:
+
+```ts
+  // Scoring pairs mismatch detection
+  scoringPairsEnabled?: boolean;
+  currentUserId?: string;
+  holeCount?: number;
+}
+```
+
+Replacement:
+
+```ts
+  // Scoring pairs mismatch detection
+  scoringPairsEnabled?: boolean;
+  currentUserId?: string;
+  holeCount?: number;
+  /**
+   * Real hole numbers of the played holes, set by Review for a round ended
+   * early (10–15 for a back nine ended after 6). A non-empty list limits the
+   * readiness check to those holes; undefined or [] ⇒ not limited.
+   */
+  playedHoleNumbers?: number[];
+}
+```
+
+The param destructure (lines 176-180). Current:
+
+```ts
+  // Scoring pairs mismatch detection
+  scoringPairsEnabled = false,
+  currentUserId,
+  holeCount = 18,
+}: UseScoreSubmissionParams): UseScoreSubmissionReturn {
+```
+
+Replacement:
+
+```ts
+  // Scoring pairs mismatch detection
+  scoringPairsEnabled = false,
+  currentUserId,
+  holeCount = 18,
+  playedHoleNumbers,
+}: UseScoreSubmissionParams): UseScoreSubmissionReturn {
+```
+
+The readiness block in `handleSubmit` (lines 419-443). B10b doesn't touch this block. Current:
 
 ```ts
     // Submission readiness check.
@@ -32861,44 +35931,109 @@ Replacement:
         // (its on-course group / pair) so different groups submit independently.
         // See resolveGroupScope: allowedPlayerIds → user's pairing → full field.
         const groupPlayerIds = getGroupScopeIds();
-        const { holesPlayed: endedHolesPlayed, getPlayedHoles } = useScorecardStore.getState();
-        const playedHoleNumbers =
-          endedHolesPlayed != null ? getPlayedHoles().map((hole) => hole.number) : undefined;
+        // Review passes the played hole numbers for a round ended early; an
+        // empty list means "not limited".
+        const limitToHoles = playedHoleNumbers?.length ? playedHoleNumbers : undefined;
         submitLogger.info('Checking submission readiness', {
           scoringPairsEnabled,
           groupPlayerCount: groupPlayerIds.length,
-          playedHoleCount: playedHoleNumbers?.length ?? null,
+          playedHoleCount: limitToHoles?.length ?? null,
         });
         const readiness = await checkSubmissionReadiness(
           roundId,
           currentUserId,
           scoringPairsEnabled,
-          playedHoleNumbers?.length ?? holeCount,
+          limitToHoles ? limitToHoles.length : holeCount,
           groupPlayerIds,
-          playedHoleNumbers,
+          limitToHoles,
         );
 ```
 
-No dependency-list change: the store is read through `getState()` at call time, like `getGroupScopeIds`.
+`handleSubmit`'s dependency list (lines 771-773). Current:
 
-Run: `pnpm test src/screens/scoring/ReviewScorecardScreen/hooks/useScoreSubmission.endedEarly.test.tsx`
-Expected: PASS.
+```ts
+    currentUserId,
+    holeCount,
+    bypassAvailable,
+```
 
-- [ ] **Step 5: Run the subsets + type-check**
+Replacement:
+
+```ts
+    currentUserId,
+    holeCount,
+    playedHoleNumbers,
+    bypassAvailable,
+```
+
+(That `holeCount,` / `bypassAvailable,` pair occurs only in `handleSubmit`'s list; `handleBypassSubmit`'s list has no `holeCount`.)
+
+Run: `pnpm test src/screens/scoring/ReviewScorecardScreen/hooks/useScoreSubmission.endedEarly.test.tsx src/screens/scoring/ReviewScorecardScreen/hooks`
+Expected: PASS, including A6c's `useScoreSubmission.test.tsx` (it passes no `playedHoleNumbers`, so its calls are unchanged).
+
+- [ ] **Step 5: Wire Review**
+
+`src/screens/scoring/ReviewScorecardScreen/index.tsx`. `holesPlayed` (B7a-2) and `playedHoleNumbers` (B7b) are both declared above the mismatch query and the `useScoreSubmission` call, so there's no TDZ.
+
+The mismatch query (line 217). Stale `score_mismatches` rows after N (written by another phone before it learned of the end) would otherwise be listed in the resolution modal next to a real mismatch on holes 1–N. Current:
+
+```tsx
+  const { data: mismatches = [] } = usePendingMismatches(roundId || undefined);
+```
+
+Replacement:
+
+```tsx
+  const { data: pendingMismatches = [] } = usePendingMismatches(roundId || undefined);
+  // A round ended early only resolves mismatches on its played holes; rows
+  // after N are stale (readiness ignores them too, B8-1).
+  const mismatches = useMemo(() => {
+    if (holesPlayed == null || playedHoleNumbers.length === 0) return pendingMismatches;
+    const played = new Set(playedHoleNumbers);
+    return pendingMismatches.filter((m) => played.has(m.hole_number));
+  }, [pendingMismatches, holesPlayed, playedHoleNumbers]);
+```
+
+`MismatchResolutionModal`'s `mismatches={mismatches}` (line 623) is unchanged; it now receives the filtered list.
+
+The `useScoreSubmission` call (lines 248-250). Current:
+
+```tsx
+    currentUserId,
+    holeCount,
+  });
+```
+
+Replacement:
+
+```tsx
+    currentUserId,
+    holeCount,
+    // Only for a round ended early; otherwise readiness is not limited.
+    playedHoleNumbers: holesPlayed != null ? playedHoleNumbers : undefined,
+  });
+```
+
+Run: `pnpm type-check`
+Expected: no new errors. (`ScoreMismatch` rows carry `hole_number`, which `submission.ts` already filters on.)
+
+- [ ] **Step 6: Run the subsets + type-check**
 
 Run: `pnpm test src/__tests__/services/scoreMismatch` (not in TEST_SUBSET, apart from the golden test). Then run the TEST_SUBSET command from Global Constraints, then `pnpm type-check`.
 Expected: green, apart from the Task 0 baseline.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
-git add src/services/scoreMismatch/submission.ts src/__tests__/services/scoreMismatch/scoreMismatchService.test.ts src/screens/scoring/ReviewScorecardScreen/hooks/useScoreSubmission.ts src/screens/scoring/ReviewScorecardScreen/hooks/useScoreSubmission.endedEarly.test.tsx
+git add src/services/scoreMismatch/submission.ts src/__tests__/services/scoreMismatch/scoreMismatchService.test.ts src/screens/scoring/ReviewScorecardScreen/hooks/useScoreSubmission.ts src/screens/scoring/ReviewScorecardScreen/hooks/useScoreSubmission.endedEarly.test.tsx src/screens/scoring/ReviewScorecardScreen/index.tsx
 git commit -m "feat(scoring): limit submit readiness to the holes played
 
-For a round ended early, checkSubmissionReadiness takes the played hole
-numbers: score entries and pending mismatches after N (another phone's,
-written before it learned of the end) neither block nor complete the
-check, while mismatches on holes 1-N are still caught.
+For a round ended early, Review passes its played hole numbers to
+useScoreSubmission, and checkSubmissionReadiness takes them: score
+entries and pending mismatches after N (another phone's, written before
+it learned of the end) neither block nor complete the check, while
+mismatches on holes 1-N are still caught. Review's mismatch modal lists
+only mismatches on the played holes.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
@@ -32924,7 +36059,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 **Interfaces:**
 - Consumes:
   - store `holesPlayed` (B3b);
-  - `getSkinsHoleCounts({ nine_type, holes_played })` (A5a-1), `useSkinsHoleCounts(roundId)` (A5c-1), Review's `skinsHoleCounts` memo over `roundDetails` (A5d-1; `D3-skins.md` Contract note 9);
+  - `getSkinsHoleCounts({ nine_type, holes_played })` (A5a-1), `useSkinsHoleCounts(roundId)` (A5c-1), Review's `skinsHoleCounts` memo over `roundDetails` (A5d-1: Review builds it from `roundDetails` with `getSkinsHoleCounts`, not from the store);
   - `useScoreReview().holesPlayed` (B7a-2);
   - B7b's `mockEndedStore` helper in the MatchPlayScorecard test;
   - `useFinalizeSubmittedRound` (A6c), mocked in tests.
@@ -33286,25 +36421,25 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Consumes:
   - `computeStandaloneMatchResult(p1, p2, holes, holesPlayed?)` and `ScorecardForMatchPlay` (`src/utils/matchPlayResult.ts`; A1b creates it, B5a adds `holesPlayed`);
   - `calculatePlayerStats(players, holes, selectedTee?, handicapSource?, options?: { holesPlayed?: number | null })` (B4);
-  - `filterHolesByNineType` (existing);
+  - `standaloneMatchHoles(courseHoles, nineType)` (`src/utils/matchPlayResult.ts`, A1b) for `plannedHoles`;
   - the `rounds.holes_played` column (B1a).
 - Produces:
   - `RoundListCardData.holesPlayed?: number | null` (B9a-2 renders it);
   - `buildRoundListMeta(round: RoundListMetaSource): RoundListMeta`, where `RoundListMeta` = `{ courseHoles, plannedHoles, statsHoles, selectedTee, handicapSource, holesPlayed }`.
 
-B9a is split in two (Contract note 14): B9a-1 is the data, B9a-2 is the card label.
+B9a is split in two (Appendix A, Displays note 14): B9a-1 is the data, B9a-2 is the card label.
 
 Not on the CLAUDE.md scoring-guard list. A1b ran the `scoring-impact-analyst` on `useRoundList.ts` for the pill. This task only changes which hole list feeds the pill and stats.
 
 - [ ] **Step 1: Confirm the upstream pieces exist**
 
 ```bash
-grep -n "export function computeStandaloneMatchResult" -A6 src/utils/matchPlayResult.ts
+grep -n "export function computeStandaloneMatchResult\|export function standaloneMatchHoles" -A6 src/utils/matchPlayResult.ts
 grep -n "export function calculatePlayerStats" -A6 src/utils/scorecardCalculations.ts
 grep -n "computeStandaloneMatchResult\|function computeUserMatchResult\|filterHolesByNineType" src/screens/rounds/RoundListScreen/hooks/useRoundList.ts
 ```
 Expected:
-- `computeStandaloneMatchResult(p1, p2, holes, holesPlayed?)` exists;
+- `computeStandaloneMatchResult(p1, p2, holes, holesPlayed?)` and `standaloneMatchHoles(courseHoles, nineType)` exist;
 - `calculatePlayerStats` has a fifth parameter, `options?: { holesPlayed?: number | null }`;
 - `useRoundList.ts` calls `computeStandaloneMatchResult` with A1b's `matchHoles = standaloneMatchHoles(holes, round.nineType)`, and still defines `computeUserMatchResult`.
 
@@ -33484,6 +36619,44 @@ describe('round-list stats fed from buildRoundListMeta', () => {
     expect(stats.totalGross).toBe(24);
     expect(stats.totalNet).toBe(24);
   });
+
+  it('keeps the stored snapshot DHC and nets a front-9 card ended after 6 over holes 1–6', () => {
+    // 5 on holes 1–7; hole 7 lies after the end and must not count.
+    const scores: Record<string, HoleScore> = {};
+    for (const n of range(1, 7)) scores[String(n)] = { strokes: 5 };
+    const meta = buildRoundListMeta(source({ nine_type: 'front9', holes_played: 6 }));
+
+    const [stats] = calculatePlayerStats(
+      [
+        {
+          id: 'sc1',
+          playerId: 'p1',
+          // Profile handicap 20 must be ignored: the stored snapshot wins.
+          player: { id: 'p1', name: 'Sam', handicap: 20 },
+          scores,
+          hasScorecard: true,
+          storedGaHandicap: 10,
+          storedDailyHandicap: 9,
+          storedTotalPoints: 13,
+        },
+      ],
+      meta.statsHoles,
+      meta.selectedTee,
+      meta.handicapSource,
+      { holesPlayed: meta.holesPlayed }
+    );
+
+    // Hand check (create18Holes, holes 1–6):
+    //   stroke index 7, 15, 1, 11, 5, 17 → at DHC 9 a stroke on SI ≤ 9:
+    //   holes 1, 3, 5 ⇒ 3 strokes received; holes 2, 4, 6 ⇒ 0.
+    //   gross = 6 × 5 = 30; net = Σ(gross − strokes) = 30 − 3 = 27
+    //   (not 30 − 9 = 21: the full DHC would credit 9 holes never played).
+    expect(stats.dailyHandicap).toBe(9);
+    expect(stats.handicap).toBe(10);
+    expect(stats.totalGross).toBe(30);
+    expect(stats.totalNet).toBe(27);
+    expect(stats.totalStableford).toBe(13);
+  });
 });
 ```
 
@@ -33514,9 +36687,9 @@ Create `src/screens/rounds/RoundListScreen/hooks/roundListMeta.ts`:
  * - holesPlayed: rounds.holes_played, set when a social round was ended early.
  */
 
-import { filterHolesByNineType } from '@/utils/holeTransformers';
+import { standaloneMatchHoles } from '@/utils/matchPlayResult';
 import type { Hole, TeeBox } from '@/types/database/base';
-import type { HandicapSource, NineType } from '@/types/database/enums';
+import type { HandicapSource } from '@/types/database/enums';
 
 export interface RoundListMeta {
   /** The course's holes as stored. */
@@ -33540,15 +36713,13 @@ export interface RoundListMetaSource {
   courses: { holes: unknown[] | null } | null;
 }
 
-function toNineType(value: string | null | undefined): NineType {
-  return value === 'front9' || value === 'back9' ? value : 'full';
-}
-
 export function buildRoundListMeta(round: RoundListMetaSource): RoundListMeta {
   const courseHoles = Array.isArray(round.courses?.holes)
     ? (round.courses!.holes as Hole[])
     : [];
-  const plannedHoles = filterHolesByNineType(courseHoles, toNineType(round.nine_type));
+  // A1b's helper: the course narrowed to the round's nine; anything other
+  // than 'front9' / 'back9' (including null) means the full card.
+  const plannedHoles = standaloneMatchHoles(courseHoles, round.nine_type);
   const holesPlayed = round.holes_played ?? null;
   return {
     courseHoles,
@@ -33564,7 +36735,7 @@ export function buildRoundListMeta(round: RoundListMetaSource): RoundListMeta {
 - [ ] **Step 5: Run test to verify it passes**
 
 Run: `pnpm test src/screens/rounds/RoundListScreen/hooks/roundListMeta.test.ts`
-Expected: PASS (11 tests).
+Expected: PASS (12 tests).
 
 - [ ] **Step 6: Wire `useRoundList.ts`**
 
@@ -33823,7 +36994,7 @@ Replace with:
                   : [];
 ```
 
-l) Match pill (738-760, as A1b leaves it). A1b walks `standaloneMatchHoles(holes, round.nineType)`; the meta's `plannedHoles` is the same list (both are `filterHolesByNineType` of the course holes on the round's nine type), so the local goes. Current:
+l) Match pill (738-760, as A1b leaves it). A1b walks `standaloneMatchHoles(holes, round.nineType)`; the meta's `plannedHoles` is the same call, `standaloneMatchHoles(courseHoles, round.nine_type)`, made once in `buildRoundListMeta`, so the local goes. Current:
 ```ts
                 if (round.gameType === 'match-play') {
                   // Match play still needs hole-by-hole walk to produce margin.
@@ -33908,7 +37079,7 @@ function computeUserMatchResult(
   );
 ```
 
-n) Unused imports. `standaloneMatchHoles` is no longer used here. A1b's import block, current:
+n) Unused imports. `standaloneMatchHoles` is no longer used in `useRoundList.ts` (it is called once per round inside `buildRoundListMeta`). A1b's import block, current:
 ```ts
 import {
   computeStandaloneMatchResult,
@@ -33923,7 +37094,7 @@ import {
   type ScorecardForMatchPlay,
 } from '@/utils/matchPlayResult';
 ```
-(`standaloneMatchHoles` stays exported from `matchPlayResult.ts` and keeps A1b's tests.) `Hole`, `TeeBox` and `HandicapSource` stay: they are used by `StandaloneRoundRow` and `computeUserMatchResult`. Run `pnpm lint src/screens/rounds/RoundListScreen/hooks/useRoundList.ts` and remove any other name it reports as unused.
+(`standaloneMatchHoles` stays exported from `matchPlayResult.ts`; `roundListMeta.ts` now imports it.) `Hole`, `TeeBox` and `HandicapSource` stay: they are used by `StandaloneRoundRow` and `computeUserMatchResult`. Run `pnpm lint src/screens/rounds/RoundListScreen/hooks/useRoundList.ts` and remove any other name it reports as unused.
 
 o) The card data type, needed by the `holesPlayed: meta.holesPlayed` lines in (g)–(i). `src/components/rounds/RoundListCard/types.ts:121-123`. Current:
 ```ts
@@ -33979,6 +37150,8 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - `RoundListCardData.holesPlayed` (B9a-1);
   - `formatEndedEarlyLabel(holesPlayed, nineType)` (`src/utils/roundShape.ts`, B2).
 - Produces: the `round-card-ended-early` pill (testID) and the accessibility-label fragment `", ended after N of M"`.
+
+This task does **not** touch the card's `typeLabel` (`RoundListCard.tsx:83-89`, "Handicap Round" / "Practice Round"). Per spec R22 an ended-early round reads "Practice Round"; B9f-2 makes that change, after this task, below the `endedEarlyLabel` const added here.
 
 - [ ] **Step 1: Write the failing card tests**
 
@@ -34156,7 +37329,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - `StatsTab` prop `holesPlayed?: number | null`;
   - `MatchTab` prop `holesPlayed?: number | null`.
 
-B9b is split in two (Contract note 14): B9b-1 adds the tab props, and B9b-2 derives the hole lists on ViewRound and wires them.
+B9b is split in two (Appendix A, Displays note 14): B9b-1 adds the tab props, and B9b-2 derives the hole lists on ViewRound and wires them.
 
 
 **The rule applied here (scoring guardrail notes):**
@@ -34711,7 +37884,7 @@ Replace with:
         />
       )}
 ```
-(B7a-1's `ScorecardTable` takes `nineType` and `holesPlayed` and slices the rows with `filterPlayableHoles(holes, nineType, holesPlayed)`; see Contract note 5.)
+(B7a-1's `ScorecardTable` takes `nineType` and `holesPlayed` and slices the rows with `filterPlayableHoles(holes, nineType, holesPlayed)`; see Appendix A, Displays note 5.)
 
 **StatsTab** (`src/screens/rounds/ViewRoundScreen/tabs/StatsTab.tsx`).
 
@@ -35009,7 +38182,7 @@ Replace with:
 ```ts
 import { getViewRoundHoles } from './viewRoundHoles';
 ```
-(If A5c added `import { getSkinsHoleCounts } from '@/utils/skins/holeCounts';` right after this line, keep it.)
+(No earlier task edits `ViewRoundScreen/index.tsx`, so line 66 is as on `main`.)
 
 Hole derivation (224-235). Current:
 ```ts
@@ -35163,7 +38336,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Modify: `src/components/leaderboard/RoundSubMatchLeaderboard.tsx` (imports 1-6; doc 17-23; body 31-68)
 - Create: `src/components/leaderboard/RoundSubMatchLeaderboard.holes.test.tsx` (a separate file, because it mocks `SubMatchLeaderboardTab`, which the existing `RoundSubMatchLeaderboard.test.tsx` renders for real)
 - Modify: `src/components/rounds/ViewRound/RoundDetailsTab/index.tsx` (import 33; Holes row pill 388-398)
-- Test: `src/components/rounds/ViewRound/RoundDetailsTab/RoundDetailsTab.test.tsx` (new describe before `describe('Snapshots')`, line 1010)
+- Test: `src/components/rounds/ViewRound/RoundDetailsTab/RoundDetailsTab.test.tsx` (`Pill` mock 170-179 honours `testID`; new describe before `describe('Snapshots')`, line 1010)
 
 **Interfaces:**
 - Consumes:
@@ -35253,7 +38426,45 @@ describe('RoundSubMatchLeaderboard holes', () => {
 });
 ```
 
-**b)** In `src/components/rounds/ViewRound/RoundDetailsTab/RoundDetailsTab.test.tsx`, add this before `describe('Snapshots', …)` (line 1010):
+**b)** In `src/components/rounds/ViewRound/RoundDetailsTab/RoundDetailsTab.test.tsx`, first make the `Pill` mock (170-179) honour an explicit `testID`. Today it drops the prop and always derives `pill-<label>`, so `getByTestId('round-details-ended-early')` could never match. Current:
+```tsx
+jest.mock('@/components/common/Pill', () => {
+  const { View, Text } = require('react-native');
+  return {
+    Pill: ({ label, variant: _variant, size: _size }: { label: string; variant?: string; size?: string }) => (
+      <View testID={`pill-${label.toLowerCase().replace(/\s+/g, '-')}`}>
+        <Text>{label}</Text>
+      </View>
+    ),
+  };
+});
+```
+Replace with:
+```tsx
+jest.mock('@/components/common/Pill', () => {
+  const { View, Text } = require('react-native');
+  return {
+    Pill: ({
+      label,
+      testID,
+      variant: _variant,
+      size: _size,
+    }: {
+      label: string;
+      testID?: string;
+      variant?: string;
+      size?: string;
+    }) => (
+      <View testID={testID ?? `pill-${label.toLowerCase().replace(/\s+/g, '-')}`}>
+        <Text>{label}</Text>
+      </View>
+    ),
+  };
+});
+```
+No existing `<Pill>` in `RoundDetailsTab/index.tsx` (lines 388 and 428) passes a `testID`, so every existing `pill-…` query and the three snapshots are unchanged.
+
+Then add this before `describe('Snapshots', …)` (line 1010):
 ```tsx
   // ===========================================================================
   // ENDED-EARLY LABEL
@@ -35292,10 +38503,19 @@ describe('RoundSubMatchLeaderboard holes', () => {
     });
 
     it('shows no ended-early pill for a round played as planned', () => {
-      const round = createRoundWithCourse({ competition_id: null, competition: null, holes_played: null });
+      const round = createRoundWithCourse({
+        competition_id: null,
+        competition: null,
+        status: 'completed',
+        nine_type: 'full',
+        holes_played: null,
+      });
 
       render(<RoundDetailsTab round={round} />);
 
+      // The Holes row IS rendered (standalone round), so the absence below is
+      // the holes_played gate, not a missing row.
+      expect(screen.getByTestId('pill-full-18')).toBeTruthy();
       expect(screen.queryByTestId('round-details-ended-early')).toBeNull();
       expect(screen.queryByText(/Ended after/)).toBeNull();
     });
@@ -35307,7 +38527,7 @@ describe('RoundSubMatchLeaderboard holes', () => {
 Run: `pnpm test src/components/leaderboard/RoundSubMatchLeaderboard.holes.test.tsx src/components/rounds/ViewRound/RoundDetailsTab`
 Expected: FAIL:
 - **`RoundSubMatchLeaderboard.holes`:** the back-9 and front-9 cases receive 18 holes, and `holesPlayed` is `undefined` (`Expected: 6, Received: undefined`). The characterization case passes.
-- **`RoundDetailsTab`:** `Unable to find an element with testID: round-details-ended-early`. The "played as planned" case and every existing test pass.
+- **`RoundDetailsTab`:** the two positive cases fail with `Unable to find an element with testID: round-details-ended-early` / `Unable to find an element with text: Ended after 6 of 9`. The "played as planned" case (it asserts the `pill-full-18` Holes pill is present) and every existing test and snapshot pass with the updated mock.
 
 - [ ] **Step 4: Implement**
 
@@ -35472,6 +38692,12 @@ RoundSubMatchLeaderboard hands the sub-match leaderboard the round's planned
 (nine-filtered) holes, as Review and the live screen already do, plus
 rounds.holes_played so an ended-early team match settles on its final lead.
 Round details show 'Ended after N of M' beside the hole-count pill.
+
+Behaviour change for normal 9-hole rounds too: a front/back-9 standalone
+team match on ViewRound is now decided over its 9 holes instead of 18, and
+because SubMatchLeaderboardTab takes Σpar from the holes it is given, its
+playing handicaps now come from the 9-hole par (as Review already does).
+See Follow-ups (nine-aware DHC). Competition rounds ('full') are unchanged.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
@@ -35917,7 +39143,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - `buildWolfResultRows(decisionsMap, holeNumbers?)` and `WolfResultRow` (exported from `WolfResultsCard.tsx`);
   - `WolfResultsCard` prop `holeNumbers?: number[]`.
 
-B9e is split in two (Contract note 14): B9e-1 is the utils, hook and card, with every default unchanged; B9e-2 wires the screens.
+B9e is split in two (Appendix A, Displays note 14): B9e-1 is the utils, hook and card, with every default unchanged; B9e-2 wires the screens.
 
 
 **Scope (R10).**
@@ -36633,7 +39859,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Modify: `src/screens/rounds/ViewRoundScreen/index.tsx` (`WolfTab`, 471-476)
 - Create: `src/screens/rounds/ViewRoundScreen/tabs/WolfTab.test.tsx`
 - Modify: `src/screens/scoring/ReviewScorecardScreen/components/WolfTabContent.tsx` (props 10-18; hook 20-26; results card 93-97)
-- Modify: `src/screens/scoring/ReviewScorecardScreen/components/PayoutsTabContent.tsx` (imports 14-15; wolf hook call 43-47)
+- Modify: `src/screens/scoring/ReviewScorecardScreen/components/PayoutsTabContent.tsx` (imports 14-15; wolf hook call, 43-47 on `main`, about 46-50 after A5d-2)
 - Modify: `src/screens/scoring/ReviewScorecardScreen/index.tsx` (`WolfTabContent` 562-568; reuses B7b's `playedHoleNumbers`)
 - Create: `src/screens/scoring/ReviewScorecardScreen/components/wolfHoleCut.test.tsx`
 
@@ -36834,7 +40060,7 @@ describe('PayoutsTabContent', () => {
   });
 });
 ```
-A5c adds a `holeCounts` prop to `PayoutsTabContent`. If it is required in A5c's version, pass `holeCounts={{ plannedHoles: 18, holesPlayed: 18 }}` in both renders. If A5c's version reads other store fields, add them to the `state` object given to `setStore`.
+A5d-2 adds an optional `holeCounts` prop to `PayoutsTabContent` (default 18/18) and passes it only to `useSkinsSummary`, which this test mocks, so both renders omit it. `PayoutsTabContent` reads no other store field.
 
 - [ ] **Step 2: Run tests to verify they fail**
 
@@ -37009,7 +40235,7 @@ import { useWolfSummary } from '@/hooks/wolf';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { lastPlayedHoleNumber } from '@/utils/roundShape';
 ```
-Wolf hook call (43-47; A5c leaves it unchanged). Current:
+Wolf hook call (lines 43-47 on `main`, about 46-50 after A5d-2 adds an import line and two prop lines above it; A5d-2 does not change the call). Current:
 ```ts
   const {
     data: wolfSummary,
@@ -37038,7 +40264,7 @@ Replace with:
 ```ts
   const playedHoleNumbers = useMemo(() => playedHoles.map((h) => h.number), [playedHoles]);
 ```
-Reuse it (Contract note 10). If it is somehow missing, add exactly that line after `const holeCount = playedHoles.length || 18;`.
+Reuse it (Appendix A, Displays note 10). If it is somehow missing, add exactly that line after `const holeCount = playedHoles.length || 18;`.
 
 `WolfTabContent` (562-568). Current:
 ```tsx
@@ -37088,6 +40314,10 @@ The ViewRound Wolf tab reads 'x of N holes' instead of a hard-coded 18 and
 draws only the played rows; Review's Wolf and Payouts tabs cut standings at
 the last played hole (decisions for removed holes can linger until the queued
 end_early trim syncs). Wolf finalisation is unchanged (separate follow-up).
+
+Behaviour change for normal 9-hole rounds too: ViewRound's Wolf tab now
+reads 'x of 9 holes' and draws only the round's 9 rows (it hard-coded 18),
+and its in-progress card hides once 9 holes are complete.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
@@ -37162,7 +40392,9 @@ jest.mock('@/screens/admin/EditRoundScreen/hooks/useEditRoundData', () => ({
   updateRound: (...args: unknown[]) => mockUpdateRound(...args),
 }));
 
-const mockDeleteHoles = jest.fn(() => Promise.resolve());
+// Untyped jest.fn() so the spread call below type-checks (a typed
+// `jest.fn(() => Promise.resolve())` takes no args and fails TS2556).
+const mockDeleteHoles = jest.fn();
 jest.mock('@/services/offline/database', () => ({
   deleteHoles: (...args: unknown[]) => mockDeleteHoles(...args),
 }));
@@ -37207,6 +40439,7 @@ describe('EditNineTypeSheet', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockUpdateRound.mockResolvedValue(undefined);
+    mockDeleteHoles.mockResolvedValue(undefined);
   });
 
   it('switches the round to Front 9 and clears the scoring caches (characterization)', async () => {
@@ -37241,7 +40474,7 @@ describe('EditNineTypeSheet', () => {
 Run: `pnpm test src/components/rounds/ViewRound/RoundDetailsTab`
 Expected: FAIL:
 - **`RoundDetailsTab` "stops offering…":** the `Holes` row is still a `button`.
-- **`EditNineTypeSheet` "offers no change":** `Unable to find an element with text: This round was ended after 6 holes…`. (`ts-jest` may report the unknown `holesPlayed` prop as TS2322 first; that also counts as the expected red.)
+- **`EditNineTypeSheet` "offers no change":** `Unable to find an element with text: This round was ended after 6 holes…`. (`ts-jest` may report the unknown `holesPlayed` prop as TS2322 first; that also counts as the expected red. It must not report TS2556 on the `deleteHoles` mock; if it does, `mockDeleteHoles` was declared with a typed implementation instead of a bare `jest.fn()`.)
 
 Both characterization tests pass, along with every existing `RoundDetailsTab` test and snapshot.
 
@@ -37465,7 +40698,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 ### Task B10a-1: Stats — keep early-ended rounds out of per-round aggregates (player statistics)
 
-Runs **before B9f** (see Contract note 1).
+Runs **before B9f**: B9f consumes this task's `statsFixtures.ts`, the `holes_played` selects, the per-card `endedEarly` locals and `endedEarlySummaries`.
 
 **Files:**
 - Modify: `src/hooks/playerStatistics/advancedHelpers.ts:106-189`: `calculateBunkerStats` / `calculateHazardStats` gain an optional `roundAverageScores` parameter.
@@ -37494,9 +40727,9 @@ Runs **before B9f** (see Contract note 1).
   - `calculateBunkerStats(allScores: EnrichedHoleScore[], roundsPlayed: number, roundAverageScores?: EnrichedHoleScore[]): BunkerStats`;
   - `calculateHazardStats(allScores: EnrichedHoleScore[], roundsPlayed: number, roundAverageScores?: EnrichedHoleScore[]): HazardStats`.
 
-  Omitting `roundAverageScores` gives output identical to today.
+  Omitting `roundAverageScores` gives output identical to today. When it is passed, the per-round average is `null` ("—") unless some hole in `roundAverageScores` tracked the stat, so rounds that are left out can't turn "not tracked" into a 0.
 - Produces for B10a-2 and B9f:
-  - `statsFixtures.ts` exports `PLAYER_ID`, `COURSE_ID`, `range`, `buildStatsCard`, `FULL_CARD`, `NINE_CARD`, `ENDED_EARLY_CARD`, `STATS_CARDS`, `resolvingQuery`;
+  - `statsFixtures.ts` exports `PLAYER_ID`, `COURSE_ID`, `range`, `buildStatsCard` (its `putts` is optional: omitted = not tracked), `FULL_CARD`, `NINE_CARD`, `ENDED_EARLY_CARD`, `UNTRACKED_FULL_CARD`, `STATS_CARDS`, `resolvingQuery`;
   - in `queries.ts`: the per-card local `const endedEarly = isEndedEarly(round);`, declared right after the `if (!round || !course) return;` guard and before `isStandaloneRound`; and the `endedEarlySummaries` list feeding `recentRounds`.
 
 **Rules (spec §3 Stats and R11).** An early-ended card (`rounds.holes_played != null`):
@@ -37507,6 +40740,7 @@ Runs **before B9f** (see Contract note 1).
   - `perRoundStats` → `roundTrends`;
   - putts per round (numerator and denominator);
   - the bunker/hazard per-round averages;
+  - the "is this stat tracked?" checks of those per-round averages: when only ended-early rounds recorded putts / bunker shots / hazards, the average is `null` ("—"), not 0;
 - **adds** its gross to the per-hole-average numerator through its own accumulator (its holes are already in the denominator);
 - **appears** in `recentRounds` through its own summaries list.
 
@@ -37558,6 +40792,13 @@ describe('calculateBunkerStats', () => {
   it('returns a null per-round average when no round is eligible', () => {
     expect(calculateBunkerStats(holes, 0, []).averageBunkerShotsPerRound).toBeNull();
   });
+
+  it('returns a null per-round average when only left-out rounds tracked bunkers', () => {
+    // One eligible round that didn't track bunkers; the tracked holes are all left out.
+    const stats = calculateBunkerStats(holes, 1, [hole()]);
+    expect(stats.averageBunkerShotsPerRound).toBeNull();
+    expect(stats.totalBunkerShots).toBe(3);
+  });
 });
 
 describe('calculateHazardStats', () => {
@@ -37579,6 +40820,12 @@ describe('calculateHazardStats', () => {
     expect(stats.totalHazards).toBe(3);
     expect(stats.holesWithHazards).toBe(2);
   });
+
+  it('returns a null per-round average when only left-out rounds tracked hazards', () => {
+    const stats = calculateHazardStats(holes, 1, [hole()]);
+    expect(stats.averageHazardsPerRound).toBeNull();
+    expect(stats.totalHazards).toBe(3);
+  });
 });
 ```
 
@@ -37587,8 +40834,10 @@ describe('calculateHazardStats', () => {
 Run: `pnpm test src/__tests__/hooks/playerStatistics/advancedHelpers.test.ts -t 'locks current behaviour'`
 Expected: PASS (2 tests).
 
-Run: `pnpm test src/__tests__/hooks/playerStatistics/advancedHelpers.test.ts -t 'round-average holes only'`
-Expected: FAIL — `Expected: 0, Received: 3`. The third argument is ignored today.
+Run: `pnpm test src/__tests__/hooks/playerStatistics/advancedHelpers.test.ts -t 'round-average holes only|only left-out rounds'`
+Expected: FAIL (4 tests). The third argument is ignored today:
+- bunkers: `Expected: 0, Received: 3`; hazards: `Expected: 0, Received: 3`;
+- the left-out cases: `expect(received).toBeNull()` with `Received: 3`.
 
 - [ ] **Step 3: Add the optional `roundAverageScores` parameter**
 
@@ -37653,9 +40902,15 @@ export function calculateBunkerStats(
     }
   }
 
+  // The per-round average reads only roundAverageScores, including its
+  // "tracked" check: holes from left-out rounds can't turn "not tracked" into 0.
   let roundAverageBunkerShots = 0;
+  let roundAverageHolesTracked = 0;
   for (const score of roundAverageScores) {
-    if (typeof score.bunkerShots === 'number') roundAverageBunkerShots += score.bunkerShots;
+    if (typeof score.bunkerShots === 'number') {
+      roundAverageHolesTracked++;
+      roundAverageBunkerShots += score.bunkerShots;
+    }
   }
 
   return {
@@ -37663,10 +40918,12 @@ export function calculateBunkerStats(
     holesWithBunkers,
     totalHolesTracked,
     averageBunkerShotsPerRound:
-      roundsPlayed > 0 && totalHolesTracked > 0
+      roundsPlayed > 0 && roundAverageHolesTracked > 0
         ? Math.round((roundAverageBunkerShots / roundsPlayed) * 10) / 10
         : null,
 ```
+
+With the default `roundAverageScores = allScores`, `roundAverageHolesTracked === totalHolesTracked` and the output is unchanged.
 
 Replace lines 143-149:
 
@@ -37721,10 +40978,15 @@ with:
   const totalHazards = waterCount + obCount + lateralCount + lostBallCount;
 
   // Every HazardEntry is one of the four counted types, so an entry count
-  // equals the per-type sum above.
+  // equals the per-type sum above. The per-round average reads only
+  // roundAverageScores, including its "tracked" check (see calculateBunkerStats).
   let roundAverageHazards = 0;
+  let roundAverageHolesTracked = 0;
   for (const score of roundAverageScores) {
-    roundAverageHazards += score.hazards?.length ?? 0;
+    if (score.hazards !== undefined) {
+      roundAverageHolesTracked++;
+      roundAverageHazards += score.hazards.length;
+    }
   }
 
   return {
@@ -37734,7 +40996,7 @@ with:
     lostBallCount,
     totalHazards,
     averageHazardsPerRound:
-      roundsPlayed > 0 && totalHolesTracked > 0
+      roundsPlayed > 0 && roundAverageHolesTracked > 0
         ? Math.round((roundAverageHazards / roundsPlayed) * 10) / 10
         : null,
 ```
@@ -37742,7 +41004,7 @@ with:
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `pnpm test src/__tests__/hooks/playerStatistics/advancedHelpers.test.ts`
-Expected: PASS (5 tests)
+Expected: PASS (7 tests)
 
 - [ ] **Step 5: Write the shared fixtures and the player-statistics hook test**
 
@@ -37768,7 +41030,8 @@ interface StatsCardOptions {
   date: string;
   holeNumbers: number[];
   strokes: number;
-  putts: number;
+  /** Putts recorded on every hole (omitted = not tracked). */
+  putts?: number;
   /** Bunker shots recorded on every hole (omitted = not tracked). */
   bunkerShots?: number;
   /** Record a hazards array on every hole (empty except hole 1 when hazardOnFirstHole). */
@@ -37783,7 +41046,7 @@ export function buildStatsCard(opts: StatsCardOptions) {
   opts.holeNumbers.forEach((n, index) => {
     scores[String(n)] = {
       strokes: opts.strokes,
-      putts: opts.putts,
+      ...(opts.putts !== undefined && { putts: opts.putts }),
       ...(opts.bunkerShots !== undefined && { bunkerShots: opts.bunkerShots }),
       ...(opts.trackHazards && {
         hazards: opts.hazardOnFirstHole && index === 0 ? [{ type: 'water' }] : [],
@@ -37842,6 +41105,12 @@ export const ENDED_EARLY_CARD = buildStatsCard({
 
 export const STATS_CARDS = [FULL_CARD, NINE_CARD, ENDED_EARLY_CARD];
 
+/** 18 holes × 5 = 90 with no putts, bunkers or hazards tracked. */
+export const UNTRACKED_FULL_CARD = buildStatsCard({
+  id: 'untracked', date: '2026-09-01', holeNumbers: range(1, 18), strokes: 5,
+  holesPlayed: null, points: 30,
+});
+
 /** supabase.from() stub: every chain method passes through; awaiting resolves `result`. */
 export function resolvingQuery(result: { data: unknown; error: unknown }) {
   const chain: Record<string, unknown> = {};
@@ -37870,7 +41139,7 @@ import { renderHook, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { usePlayerStatistics } from '@/hooks/playerStatistics/queries';
 import type { PlayerStatistics } from '@/hooks/playerStatistics/types';
-import { PLAYER_ID, STATS_CARDS, resolvingQuery } from './statsFixtures';
+import { ENDED_EARLY_CARD, PLAYER_ID, STATS_CARDS, UNTRACKED_FULL_CARD, resolvingQuery } from './statsFixtures';
 
 const mockFrom = jest.fn();
 jest.mock('@/services/supabase/client', () => ({
@@ -37884,10 +41153,10 @@ function makeWrapper() {
   };
 }
 
-async function loadStats(): Promise<PlayerStatistics> {
+async function loadStats(cards: unknown[] = STATS_CARDS): Promise<PlayerStatistics> {
   mockFrom.mockImplementation((table: string) =>
     resolvingQuery(
-      table === 'scorecards' ? { data: STATS_CARDS, error: null } : { data: [], error: null },
+      table === 'scorecards' ? { data: cards, error: null } : { data: [], error: null },
     ),
   );
   const { result } = renderHook(() => usePlayerStatistics(PLAYER_ID), { wrapper: makeWrapper() });
@@ -37942,6 +41211,18 @@ describe('usePlayerStatistics — early-ended rounds', () => {
     expect(stats.bunkerStats.averageBunkerShotsPerRound).toBe(0);
     expect(stats.hazardStats.averageHazardsPerRound).toBe(0);
   });
+
+  it('shows no per-round average ("—") when only the early-ended round tracked the stat', async () => {
+    const stats = await loadStats([UNTRACKED_FULL_CARD, ENDED_EARLY_CARD]);
+
+    // Before: 3 / 3 / 0.5 (every round in the average). Excluding the ended
+    // round without also excluding it from the "tracked" check would give 0.
+    expect(stats.averagePuttsPerRound).toBeNull();
+    expect(stats.bunkerStats.averageBunkerShotsPerRound).toBeNull();
+    expect(stats.hazardStats.averageHazardsPerRound).toBeNull();
+    // Per-hole figures still use the ended card's holes.
+    expect(stats.averagePuttsPerHole).toBe(1);
+  });
 });
 ```
 
@@ -37950,11 +41231,12 @@ describe('usePlayerStatistics — early-ended rounds', () => {
 Run: `pnpm test src/__tests__/hooks/playerStatistics -t 'locks current behaviour'`
 Expected: PASS (3 tests: the 2 helper locks and the hook lock).
 
-Run: `pnpm test src/__tests__/hooks/playerStatistics/usePlayerStatistics.endedEarly.test.tsx -t 'out of'`
-Expected: FAIL:
+Run: `pnpm test src/__tests__/hooks/playerStatistics/usePlayerStatistics.endedEarly.test.tsx -t 'out of|no per-round average'`
+Expected: FAIL (4 tests):
 - `Expected: 1, Received: 2` (nineHoleRoundsPlayed);
 - the trend array includes `'round-ended'`;
-- `Expected: 27, Received: 20` (putts per round).
+- `Expected: 27, Received: 20` (putts per round);
+- `expect(received).toBeNull()` with `Received: 3` (today: the ended card's 6 putts over 2 rounds).
 
 - [ ] **Step 7: Apply the rules in `queries.ts`**
 
@@ -38011,6 +41293,7 @@ with:
       let endedEarlyRoundsCount = 0;
       let endedEarlyGrossSum = 0;
       let endedEarlyPutts = 0;
+      let endedEarlyHolesWithPutts = 0;
 ```
 
 Replace lines 255-256:
@@ -38080,7 +41363,10 @@ with:
           if (typeof holeScore.putts === 'number' && holeScore.putts >= 0) {
             totalPutts += holeScore.putts;
             holesWithPuttsRecorded++;
-            if (endedEarly) endedEarlyPutts += holeScore.putts;
+            if (endedEarly) {
+              endedEarlyPutts += holeScore.putts;
+              endedEarlyHolesWithPutts++;
+            }
           }
 ```
 
@@ -38215,13 +41501,14 @@ Replace lines 664-668:
 with:
 
 ```ts
-      // Per-round averages leave early-ended rounds out of both numerator and
-      // denominator; per-hole averages keep every hole.
+      // Per-round averages leave early-ended rounds out of the numerator, the
+      // denominator and the "tracked" check (so only an ended-early round
+      // recording putts gives "—", not 0); per-hole averages keep every hole.
       const roundsForAverages = roundsPlayed - endedEarlyRoundsCount;
 
       // Calculate putting averages
       const averagePuttsPerRound =
-        holesWithPuttsRecorded > 0 && roundsForAverages > 0
+        holesWithPuttsRecorded - endedEarlyHolesWithPutts > 0 && roundsForAverages > 0
           ? Math.round(((totalPutts - endedEarlyPutts) / roundsForAverages) * 10) / 10
           : null;
 ```
@@ -38243,7 +41530,7 @@ with:
 - [ ] **Step 8: Run tests to verify they pass**
 
 Run: `pnpm test src/__tests__/hooks/playerStatistics`
-Expected: PASS (9 tests: 5 helper, 4 player-statistics).
+Expected: PASS (12 tests: 7 helper, 5 player-statistics).
 
 - [ ] **Step 9: Run the scoring subset + type-check**
 
@@ -38260,7 +41547,8 @@ git commit -m "feat(stats): keep early-ended rounds out of per-round player aggr
 
 An early-ended social round still counts as a round played, feeds every
 per-hole stat and shows in recent rounds, but no longer lands in the 9-hole
-bucket, the trend sparkline or the per-round putts/bunker/hazard averages.
+bucket, the trend sparkline or the per-round putts/bunker/hazard averages
+(which show "—" when only ended-early rounds tracked the stat).
 calculateBunkerStats/calculateHazardStats take an optional per-round subset;
 omitting it gives the same output as before.
 
@@ -38289,7 +41577,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Consumes: `isEndedEarly` (B2); `calculateBunkerStats` / `calculateHazardStats` with `roundAverageScores` and `statsFixtures.ts` (B10a-1).
 - Produces for B9f: in `courseQueries.ts`, the per-card local `const endedEarly = isEndedEarly(round);`, declared right after `if (!round || !course) return;` and before `courseName = course.name;`.
 
-Same rules as B10a-1. `timesPlayed` (the "Rounds Played" tile) still counts the early-ended round; course best/worst/average and the per-round averages don't.
+Same rules as B10a-1. `timesPlayed` (the "Rounds Played" tile) still counts the early-ended round; course best/worst/average and the per-round averages don't. When only ended-early rounds tracked putts / bunker shots / hazards, the per-round average is `null` ("—"), not 0.
 
 - [ ] **Step 1: Write the course-statistics tests**
 
@@ -38305,7 +41593,14 @@ import { renderHook, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useCourseStatistics } from '@/hooks/playerStatistics/courseQueries';
 import type { CourseStatisticsData } from '@/hooks/playerStatistics/types';
-import { COURSE_ID, PLAYER_ID, STATS_CARDS, resolvingQuery } from './statsFixtures';
+import {
+  COURSE_ID,
+  ENDED_EARLY_CARD,
+  PLAYER_ID,
+  STATS_CARDS,
+  UNTRACKED_FULL_CARD,
+  resolvingQuery,
+} from './statsFixtures';
 
 const mockFrom = jest.fn();
 jest.mock('@/services/supabase/client', () => ({
@@ -38319,8 +41614,8 @@ function makeWrapper() {
   };
 }
 
-async function loadCourseStats(): Promise<CourseStatisticsData> {
-  mockFrom.mockImplementation(() => resolvingQuery({ data: STATS_CARDS, error: null }));
+async function loadCourseStats(cards: unknown[] = STATS_CARDS): Promise<CourseStatisticsData> {
+  mockFrom.mockImplementation(() => resolvingQuery({ data: cards, error: null }));
   const { result } = renderHook(() => useCourseStatistics(PLAYER_ID, COURSE_ID), {
     wrapper: makeWrapper(),
   });
@@ -38364,6 +41659,15 @@ describe('useCourseStatistics — early-ended rounds', () => {
     expect(stats.bunkerStats.averageBunkerShotsPerRound).toBe(0);
     expect(stats.hazardStats.averageHazardsPerRound).toBe(0);
   });
+
+  it('shows no per-round average ("—") when only the early-ended round tracked the stat', async () => {
+    const stats = await loadCourseStats([UNTRACKED_FULL_CARD, ENDED_EARLY_CARD]);
+
+    // Before: 3 / 3 / 0.5 (the ended card's 6 putts, 6 bunker shots, 1 hazard over 2 rounds).
+    expect(stats.averagePuttsPerRound).toBeNull();
+    expect(stats.bunkerStats.averageBunkerShotsPerRound).toBeNull();
+    expect(stats.hazardStats.averageHazardsPerRound).toBeNull();
+  });
 });
 ```
 
@@ -38372,10 +41676,11 @@ describe('useCourseStatistics — early-ended rounds', () => {
 Run: `pnpm test src/__tests__/hooks/playerStatistics/useCourseStatistics.endedEarly.test.tsx -t 'locks current behaviour'`
 Expected: PASS (1 test).
 
-Run: `pnpm test src/__tests__/hooks/playerStatistics/useCourseStatistics.endedEarly.test.tsx -t 'out of'`
-Expected: FAIL:
+Run: `pnpm test src/__tests__/hooks/playerStatistics/useCourseStatistics.endedEarly.test.tsx -t 'out of|no per-round average'`
+Expected: FAIL (3 tests):
 - the trend array includes `'round-ended'`;
-- `Expected: 27, Received: 20` (putts per round).
+- `Expected: 27, Received: 20` (putts per round);
+- `expect(received).toBeNull()` with `Received: 3` (putts per round).
 
 - [ ] **Step 3: Apply the rules in `courseQueries.ts`**
 
@@ -38426,6 +41731,7 @@ with:
       let endedEarlyRoundsCount = 0;
       let endedEarlyGrossSum = 0;
       let endedEarlyPutts = 0;
+      let endedEarlyHolesWithPutts = 0;
 ```
 
 Replace line 138:
@@ -38547,7 +41853,10 @@ with:
           if (typeof holeScore.putts === 'number' && holeScore.putts >= 0) {
             totalPutts += holeScore.putts;
             holesWithPuttsRecorded++;
-            if (endedEarly) endedEarlyPutts += holeScore.putts;
+            if (endedEarly) {
+              endedEarlyPutts += holeScore.putts;
+              endedEarlyHolesWithPutts++;
+            }
           }
 ```
 
@@ -38602,21 +41911,24 @@ Replace lines 430-434:
 with:
 
 ```ts
-      // Per-round averages leave early-ended rounds out of both numerator and
-      // denominator; `timesPlayed` (the Rounds Played tile) still counts them.
+      // Per-round averages leave early-ended rounds out of the numerator, the
+      // denominator and the "tracked" check; `timesPlayed` (the Rounds Played
+      // tile) still counts them.
       const roundsForAverages = timesPlayed - endedEarlyRoundsCount;
       const bunkerStatsData = calculateBunkerStats(allHoleScores, roundsForAverages, roundAverageHoleScores);
       const hazardStatsData = calculateHazardStats(allHoleScores, roundsForAverages, roundAverageHoleScores);
 
-      const averagePuttsPerRound = holesWithPuttsRecorded > 0 && roundsForAverages > 0
-        ? Math.round(((totalPutts - endedEarlyPutts) / roundsForAverages) * 10) / 10 : null;
+      const averagePuttsPerRound =
+        holesWithPuttsRecorded - endedEarlyHolesWithPutts > 0 && roundsForAverages > 0
+          ? Math.round(((totalPutts - endedEarlyPutts) / roundsForAverages) * 10) / 10
+          : null;
 ```
 
 
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `pnpm test src/__tests__/hooks/playerStatistics`
-Expected: PASS (12 tests: 5 helper, 4 player-statistics, 3 course-statistics).
+Expected: PASS (16 tests: 7 helper, 5 player-statistics, 4 course-statistics).
 
 - [ ] **Step 5: Run the scoring subset + type-check**
 
@@ -38633,7 +41945,8 @@ git commit -m "feat(stats): keep early-ended rounds out of per-round course aggr
 Course statistics follow the player-statistics rules: an early-ended round
 counts in Rounds Played and every per-hole stat, stays in recent rounds, and
 is left out of best/worst/average, the trend sparkline and the per-round
-putts/bunker/hazard averages.
+putts/bunker/hazard averages (which show "—" when only ended-early rounds
+tracked the stat).
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
@@ -38840,7 +42153,6 @@ describe('RecentRoundRow ended-early pill', () => {
 
     expect(screen.getByTestId('recent-round-ended-early')).toBeTruthy();
     expect(screen.getByText('Ended after 6 of 18')).toBeTruthy();
-    expect(screen.queryByText('Handicap')).toBeNull();
   });
 
   it('shows no ended-early pill for a round played as planned', () => {
@@ -39027,13 +42339,14 @@ Replace with:
           {endedEarlyLabel && (
             <Pill
               label={endedEarlyLabel}
-              variant="warning"
+              variant="info"
               size="sm"
               testID="recent-round-ended-early"
             />
           )}
         </View>
 ```
+(`variant="info"`, as the "Ended after N of M" pills in B9a / B9c / B9d.)
 
 **`OverviewStats.tsx`.** Import (after line 24). Current:
 ```ts
@@ -39212,18 +42525,22 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Test: `src/screens/rounds/RoundListScreen/hooks/useRoundFilters.test.ts` (type import line 12; new `describe` at the end)
 - Modify: `src/components/rounds/RoundListCard/RoundListCard.tsx:83-89` (`typeLabel`; B9a inserts its `endedEarlyLabel` const above this block and doesn't change it)
 - Test: `src/components/rounds/RoundListCard/RoundListCard.test.tsx` (new case after the `"Handicap Round"` case, which ends at line 321)
+- Modify: `src/screens/rounds/ViewRoundScreen/hooks/useViewRoundHandlers.ts:10` (import) and `:209-211` (`getHeaderTitle`, the solo standalone title)
+- Create: `src/screens/rounds/ViewRoundScreen/hooks/useViewRoundHandlers.test.tsx`
+- Modify: `src/screens/rounds/RoundSettingsScreen.tsx:51` (import) and `:141-143` (`derivedRoundTitle`, the same title)
 
 **Interfaces:**
 - Consumes:
   - the per-card `endedEarly` locals in `queries.ts` / `courseQueries.ts` (B10a-1 / B10a-2);
   - `RoundListCardData.holesPlayed?: number | null` (B9a; `RoundItem` re-exports it);
+  - `isEndedEarly(round)` (B2) and `Round.holes_played` (B1b; `RoundWithCourse` extends `Round`);
   - `statsFixtures.ts` (`STATS_CARDS`, `resolvingQuery`, `PLAYER_ID`, `COURSE_ID`; B10a-1).
-- Produces: no new exports. `RoundSummary.isHandicapRound` / `isPracticeRound`, `handicapRoundsPlayed` / `practiceRoundsPlayed` and the Rounds-list filters change meaning for ended-early rounds only.
+- Produces: no new exports. `RoundSummary.isHandicapRound` / `isPracticeRound`, `handicapRoundsPlayed` / `practiceRoundsPlayed`, the Rounds-list filters and the solo standalone round title (ViewRound header, round-settings name placeholder) change for ended-early rounds only.
 
-**Rules (spec R20, R21; Contract note 3).**
+**Rules (spec R20, R21, R22).**
 - Ended-early rows don't carry the "Handicap" badge (`RecentRoundRow.tsx:109`) and aren't counted in `handicapRoundsPlayed` (`queries.ts:333-335`). They are **Practice** rounds (not tracked for handicap), so Practice + Handicap + Competition still add up to Rounds Played.
 - The My Stats tiles tap through to the Rounds-list filters (`OverviewStats.tsx:114,132,141` → `AllRounds` `initialFilter`). The `practice` / `handicap` / `ninehole` filters treat ended-early rounds as the tiles count them: Practice yes, Handicap no, 9-Hole no (B10a keeps them out of `nineHoleRoundsPlayed`).
-- The round-list card's subtitle reads "Practice Round", not "Handicap Round".
+- The round-list card's subtitle, the ViewRound header title and the round-settings title (the name placeholder) read "Practice Round", not "Handicap Round" (spec R22). The header and settings titles apply only to a solo standalone round with no custom name; a competition round can't be ended early.
 
 Every fixture card in `statsFixtures.ts` is a standalone round with `handicap_source: 'profile'`, so before this task all three of `STATS_CARDS` are "Handicap" rounds.
 
@@ -39398,14 +42715,95 @@ In `src/components/rounds/RoundListCard/RoundListCard.test.tsx`, after the `'sho
     });
 ```
 
+Create `src/screens/rounds/ViewRoundScreen/hooks/useViewRoundHandlers.test.tsx`:
+```tsx
+/**
+ * useViewRoundHandlers — the derived header title for a solo standalone round.
+ * A round ended early never counts toward the handicap index, so it is a
+ * "Practice Round" whatever its handicap source (spec R22).
+ */
+import React from 'react';
+import { renderHook } from '@testing-library/react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '@/navigation/types';
+import type { RoundWithCourse } from '@/hooks/useRoundDetails';
+
+jest.mock('@/services/supabase/client', () => ({ supabase: { from: jest.fn() } }));
+
+import { useViewRoundHandlers } from './useViewRoundHandlers';
+
+// Minimal round factory — only the fields getHeaderTitle reads matter.
+function makeRound(overrides: Partial<RoundWithCourse> = {}): RoundWithCourse {
+  return {
+    id: 'round-1',
+    name: null,
+    competition_id: null,
+    status: 'completed',
+    nine_type: 'full',
+    handicap_source: 'profile',
+    holes_played: null,
+    ...overrides,
+  } as unknown as RoundWithCourse;
+}
+
+function headerTitle(round: RoundWithCourse) {
+  const queryClient = new QueryClient();
+  const wrapper = ({ children }: { children: React.ReactNode }) => (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
+  const noop = jest.fn();
+  const { result } = renderHook(
+    () =>
+      useViewRoundHandlers({
+        roundId: 'round-1',
+        navigation: {} as NativeStackNavigationProp<RootStackParamList, 'ViewRound'>,
+        isStandalone: true,
+        isMatchPlayRound: false,
+        isTeamMatchPlayRound: false,
+        hasSkinsGame: false,
+        hasWolfGame: false,
+        round,
+        scorecards: [],
+        roundPlayers: [{ id: 'player-1' }],
+        refetchRound: noop,
+        refetchScorecards: noop,
+        refetchPlayers: noop,
+        refetchMatchPlay: noop,
+        refetchSkinsResults: noop,
+        refetchSkinsGame: noop,
+        refetchWolfSummary: noop,
+        setShowCourseModal: noop,
+        setCourseSearchQuery: noop,
+        setShowTagLeagueSheet: noop,
+      }),
+    { wrapper },
+  );
+  return result.current.getHeaderTitle();
+}
+
+describe('useViewRoundHandlers — solo round header title', () => {
+  it('titles a solo round by its handicap source (locks current behaviour)', () => {
+    expect(headerTitle(makeRound())).toBe('Handicap Round');
+    expect(headerTitle(makeRound({ handicap_source: 'none' }))).toBe('Practice Round');
+  });
+
+  it('titles a solo handicap round that was ended early "Practice Round"', () => {
+    // Before: 'Handicap Round'.
+    expect(headerTitle(makeRound({ holes_played: 6 }))).toBe('Practice Round');
+  });
+});
+```
+
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `pnpm test src/__tests__/hooks/playerStatistics/endedEarlyClassification.test.tsx src/screens/rounds/RoundListScreen/hooks/useRoundFilters.test.ts src/components/rounds/RoundListCard/RoundListCard.test.tsx`
+Run: `pnpm test src/__tests__/hooks/playerStatistics/endedEarlyClassification.test.tsx src/screens/rounds/RoundListScreen/hooks/useRoundFilters.test.ts src/components/rounds/RoundListCard/RoundListCard.test.tsx src/screens/rounds/ViewRoundScreen/hooks/useViewRoundHandlers.test.tsx`
 Expected: FAIL:
 - `endedEarlyClassification`: `Expected: 2, Received: 3` (handicapRoundsPlayed) and `isHandicapRound: true` on `'round-ended'` in the course case; the lock passes;
 - `useRoundFilters`: `Expected: ["full-handicap", "back9"], Received: ["full-handicap", "ended-full", "back9", "ended-back9"]` and `Expected: ["back9"], Received: ["back9", "ended-back9"]`; the `'all'` lock passes;
-- `RoundListCard`: `Unable to find an element with text: Practice Round`.
+- `RoundListCard`: `Unable to find an element with text: Practice Round`;
+- `useViewRoundHandlers`: `Expected: "Practice Round", Received: "Handicap Round"`; the lock passes.
 
 - [ ] **Step 3: Implement**
 
@@ -39541,10 +42939,47 @@ Replace with:
     : round.competition?.name || 'Competition';
 ```
 
+**`useViewRoundHandlers.ts` header title.** After line 10 (`import type { RoundWithCourse, ScorecardWithPlayer } from '@/hooks/useRoundDetails';`) add:
+```ts
+import { isEndedEarly } from '@/utils/roundShape';
+```
+Replace lines 209-211. Current:
+```ts
+      return round?.handicap_source && round.handicap_source !== 'none'
+        ? 'Handicap Round'
+        : 'Practice Round';
+```
+Replace with:
+```ts
+      // A round ended early never counts toward the handicap index (R22).
+      return round?.handicap_source && round.handicap_source !== 'none' && !isEndedEarly(round)
+        ? 'Handicap Round'
+        : 'Practice Round';
+```
+
+**`RoundSettingsScreen.tsx` title.** After line 51 (`import type { SkinsConfig } from '@/types/database/skins.types';`) add:
+```ts
+import { isEndedEarly } from '@/utils/roundShape';
+```
+Replace lines 141-143 (in `derivedRoundTitle`, which mirrors the ViewRound header). Current:
+```ts
+      return round.handicap_source && round.handicap_source !== 'none'
+        ? 'Handicap Round'
+        : 'Practice Round';
+```
+Replace with:
+```ts
+      // Mirrors the ViewRound header: an ended-early round is a Practice round (R22).
+      return round.handicap_source && round.handicap_source !== 'none' && !isEndedEarly(round)
+        ? 'Handicap Round'
+        : 'Practice Round';
+```
+`derivedRoundTitle`'s `useMemo` already depends on `round`. The screen has no test file; the expression is the one `useViewRoundHandlers.test.tsx` covers, and type-check covers the import.
+
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `pnpm test src/__tests__/hooks/playerStatistics src/screens/rounds/RoundListScreen src/components/rounds/RoundListCard src/components/statistics`
+Run: `pnpm test src/__tests__/hooks/playerStatistics src/screens/rounds/RoundListScreen src/screens/rounds/ViewRoundScreen src/components/rounds/RoundListCard src/components/statistics`
 Expected: PASS, including B10a's and B9f-1's suites (their fixtures don't assert the classification) and the existing `useRoundFilters` / `RoundListCard` tests.
 
 - [ ] **Step 5: Run the scoring subset + type-check**
@@ -39560,13 +42995,17 @@ git add src/hooks/playerStatistics/queries.ts src/hooks/playerStatistics/courseQ
   src/screens/rounds/RoundListScreen/hooks/useRoundFilters.ts \
   src/screens/rounds/RoundListScreen/hooks/useRoundFilters.test.ts \
   src/components/rounds/RoundListCard/RoundListCard.tsx \
-  src/components/rounds/RoundListCard/RoundListCard.test.tsx
+  src/components/rounds/RoundListCard/RoundListCard.test.tsx \
+  src/screens/rounds/ViewRoundScreen/hooks/useViewRoundHandlers.ts \
+  src/screens/rounds/ViewRoundScreen/hooks/useViewRoundHandlers.test.tsx \
+  src/screens/rounds/RoundSettingsScreen.tsx
 git commit -m "feat(stats): ended-early rounds are practice rounds, never handicap rounds
 
 An ended-early round never counts toward the handicap index, so it no longer
 carries the Handicap badge or counts in handicapRoundsPlayed. It is a
 Practice round in My Stats, the Rounds-list tap-through filters
-(practice/handicap/ninehole) and the round-list card subtitle, so Practice +
+(practice/handicap/ninehole), the round-list card subtitle, the ViewRound
+header and the round-settings title, so Practice +
 Handicap + Competition still add up to Rounds Played and each tile's list
 matches its count.
 
@@ -39580,9 +43019,11 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 **Files:**
 - Create: `src/screens/scoring/ReviewScorecardScreen/hooks/roundAchievementEvent.ts` (`buildRoundAchievementEventData`)
 - Create: `src/screens/scoring/ReviewScorecardScreen/hooks/roundAchievementEvent.test.ts`
+- Create: `src/screens/scoring/ReviewScorecardScreen/hooks/roundAchievementStore.ts` (`readRoundAchievementStore`)
+- Create: `src/screens/scoring/ReviewScorecardScreen/hooks/roundAchievementStore.test.ts`
 - Modify: `src/screens/scoring/ReviewScorecardScreen/hooks/useScoreSubmission.ts`. Line numbers are from planning (A6c and B8 move them), so match on the snippet:
   - imports (`:48`);
-  - `checkRoundAchievements` store read (`:282-286`);
+  - `checkRoundAchievements` store read (`:282-287`);
   - event literal (`:311-326`).
 - Modify: `src/services/api/leagues/queries.ts`:
   - imports (`:19`);
@@ -39597,9 +43038,9 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - `useScorecardStore.getState().holesPlayed: number | null` (B3b);
   - `isEndedEarly(round)` (B2);
   - the `rounds.holes_played` column (B1a) and `Round.holes_played` (B1b), so the typed `rounds!inner(… holes_played …)` select resolves.
-- Produces: `buildRoundAchievementEventData(params: RoundAchievementEventParams): AchievementEventData`, where:
-  - `RoundAchievementEventParams = { roundId: string; gameType: string; courseId: string | undefined; isCompetition: boolean; scoreStats: RoundAchievementScoreStats; totalNet: number | undefined; endedEarly?: boolean }`;
-  - `RoundAchievementScoreStats` mirrors `calculateScoreStats`'s return.
+- Produces:
+  - `buildRoundAchievementEventData(params: RoundAchievementEventParams): AchievementEventData`, where `RoundAchievementEventParams = { roundId: string; gameType: string; courseId: string | undefined; isCompetition: boolean; scoreStats: RoundAchievementScoreStats; totalNet: number | undefined; endedEarly?: boolean }` and `RoundAchievementScoreStats` mirrors `calculateScoreStats`'s return;
+  - `readRoundAchievementStore(playerId: string): RoundAchievementStoreInputs` = `{ holes, gameType, userScorecard, endedEarly }` — the store fields `checkRoundAchievements` reads, with `endedEarly = holesPlayed != null`. It lives in its own file so the builder test doesn't load the store.
 
 **Rules (spec §3, R11).**
 - The achievement event for an ended-early round omits `gross_score` and `net_score` (so `LOW_SCORER` and `NET_MASTER` skip it) **and `hole_count`**. `18_HOLES_OF_GLORY` / `NINE_HOLE_SPECIALIST` read only `hole_count` (`src/services/achievements/progressCalculation.ts:160-167`, `=== 18` / `=== 9`), so an 18-hole round ended after exactly 9 must not advance the 9-hole achievement. `ROUND_VETERAN`, `PRACTICE_MAKES_PERFECT`, `COMPETITOR` and the course achievements don't read `hole_count` and still count the round.
@@ -39821,11 +43262,62 @@ Append inside the `describe` block:
   });
 ```
 
+Create the store-wiring test, `src/screens/scoring/ReviewScorecardScreen/hooks/roundAchievementStore.test.ts`:
+
+```ts
+/**
+ * readRoundAchievementStore — what checkRoundAchievements reads from the
+ * scoring store, including the ended-early flag (store holesPlayed, B3b).
+ */
+let mockState: Record<string, unknown> = {};
+jest.mock('@/store/scorecardStore', () => ({
+  useScorecardStore: { getState: () => mockState },
+}));
+
+import { readRoundAchievementStore } from './roundAchievementStore';
+
+const HOLES = [{ number: 1, par: 4 }];
+const CARD = { playerId: 'player-1', scores: {} };
+
+function setStore(holesPlayed: number | null) {
+  mockState = {
+    holes: HOLES,
+    gameType: 'stroke',
+    groupScorecards: new Map([['player-1', CARD]]),
+    holesPlayed,
+  };
+}
+
+describe('readRoundAchievementStore', () => {
+  it('reads the holes, game type and the player\'s card', () => {
+    setStore(null);
+
+    const inputs = readRoundAchievementStore('player-1');
+
+    expect(inputs.holes).toBe(HOLES);
+    expect(inputs.gameType).toBe('stroke');
+    expect(inputs.userScorecard).toBe(CARD);
+    expect(readRoundAchievementStore('player-2').userScorecard).toBeUndefined();
+  });
+
+  it('flags a round ended early from the store holesPlayed', () => {
+    setStore(6);
+    expect(readRoundAchievementStore('player-1').endedEarly).toBe(true);
+
+    setStore(null);
+    expect(readRoundAchievementStore('player-1').endedEarly).toBe(false);
+  });
+});
+```
+
 Run: `pnpm test src/screens/scoring/ReviewScorecardScreen/hooks/roundAchievementEvent.test.ts -t 'early-ended|ended after exactly 9|played as planned still'`
 Expected: 2 FAIL, 1 PASS:
 - "omits the score totals and the hole count…" — `Expected: undefined, Received: 26` (`endedEarly` is ignored today);
 - "…ended after exactly 9…" — `Expected: undefined, Received: 9`;
 - "a 9-hole round played as planned…" passes (characterization).
+
+Run: `pnpm test src/screens/scoring/ReviewScorecardScreen/hooks/roundAchievementStore.test.ts`
+Expected: FAIL — `Cannot find module './roundAchievementStore'`.
 
 - [ ] **Step 4: Implement `endedEarly` and wire it from the store**
 
@@ -39878,7 +43370,45 @@ export function buildRoundAchievementEventData(
     net_score: endedEarly ? undefined : totalNet || undefined,
 ```
 
-In `useScoreSubmission.ts` `checkRoundAchievements`, replace:
+Create `src/screens/scoring/ReviewScorecardScreen/hooks/roundAchievementStore.ts`:
+
+```ts
+/**
+ * The scoring-store fields useScoreSubmission.checkRoundAchievements reads.
+ * Separate from roundAchievementEvent.ts so the payload builder's tests don't
+ * load the store.
+ */
+import { useScorecardStore } from '@/store/scorecardStore';
+
+type ScorecardStoreState = ReturnType<typeof useScorecardStore.getState>;
+
+export interface RoundAchievementStoreInputs {
+  holes: ScorecardStoreState['holes'];
+  gameType: ScorecardStoreState['gameType'];
+  userScorecard: ReturnType<ScorecardStoreState['groupScorecards']['get']>;
+  /** The round was ended early (store holesPlayed set, B3b). */
+  endedEarly: boolean;
+}
+
+export function readRoundAchievementStore(playerId: string): RoundAchievementStoreInputs {
+  const { holes, gameType, groupScorecards, holesPlayed } = useScorecardStore.getState();
+  return {
+    holes,
+    gameType,
+    userScorecard: groupScorecards.get(playerId),
+    // resetRound clears holesPlayed only after checkRoundAchievements has run.
+    endedEarly: holesPlayed != null,
+  };
+}
+```
+
+In `useScoreSubmission.ts`, after the import added in Step 1 (`import { buildRoundAchievementEventData } from './roundAchievementEvent';`), add:
+
+```ts
+import { readRoundAchievementStore } from './roundAchievementStore';
+```
+
+In `checkRoundAchievements`, replace:
 
 ```ts
         const {
@@ -39886,6 +43416,7 @@ In `useScoreSubmission.ts` `checkRoundAchievements`, replace:
           gameType: storeGameType,
           groupScorecards: storeScorecards,
         } = useScorecardStore.getState();
+        const userScorecard = storeScorecards.get(achievementPlayerId);
 ```
 
 with:
@@ -39894,10 +43425,12 @@ with:
         const {
           holes: storeHoles,
           gameType: storeGameType,
-          groupScorecards: storeScorecards,
-          holesPlayed: storeHolesPlayed,
-        } = useScorecardStore.getState();
+          userScorecard,
+          endedEarly,
+        } = readRoundAchievementStore(achievementPlayerId);
 ```
+
+(`useScorecardStore` stays imported; `useScoreSubmission.ts` reads the store elsewhere too.)
 
 Then replace the builder call from Step 1:
 
@@ -39912,20 +43445,18 @@ with:
 ```ts
           scoreStats,
           totalNet: userScorecard.totalNet,
-          // Ended early (B3b store state; resetRound clears it only after
-          // this check has run).
-          endedEarly: storeHolesPlayed != null,
+          endedEarly,
         });
 ```
 
 `calculateScoreStats(userScorecard, storeHoles)` iterates the planned holes, but `endRoundEarly` (B3b) removes every score after N. So `holesPlayed` / `totalGross` are already the played-hole figures and need no change.
 
-`hole_count` is omitted for an ended-early round, so neither `18_HOLES_OF_GLORY` nor `NINE_HOLE_SPECIALIST` (`progressCalculation.ts:160-167`, the only readers of `hole_count`) advances — including an 18-hole round ended after exactly 9. See Contract note 5.
+`hole_count` is omitted for an ended-early round, so neither `18_HOLES_OF_GLORY` nor `NINE_HOLE_SPECIALIST` (`progressCalculation.ts:160-167`, the only readers of `hole_count`) advances — including an 18-hole round ended after exactly 9. This refines spec R11 ("hole_count = holes played"); `ROUND_VETERAN` and the course achievements still count the round.
 
 - [ ] **Step 5: Run test to verify it passes**
 
-Run: `pnpm test src/screens/scoring/ReviewScorecardScreen/hooks/roundAchievementEvent.test.ts`
-Expected: PASS (5 tests)
+Run: `pnpm test src/screens/scoring/ReviewScorecardScreen/hooks/roundAchievementEvent.test.ts src/screens/scoring/ReviewScorecardScreen/hooks/roundAchievementStore.test.ts`
+Expected: PASS (5 + 2)
 
 - [ ] **Step 6: Write the league-eligibility tests**
 
@@ -40129,8 +43660,8 @@ with:
 
 - [ ] **Step 9: Run tests to verify they pass**
 
-Run: `pnpm test src/__tests__/services/api/leagueQueries.test.ts src/screens/scoring/ReviewScorecardScreen/hooks/roundAchievementEvent.test.ts`
-Expected: PASS (3 + 3)
+Run: `pnpm test src/__tests__/services/api/leagueQueries.test.ts src/screens/scoring/ReviewScorecardScreen/hooks/roundAchievementEvent.test.ts src/screens/scoring/ReviewScorecardScreen/hooks/roundAchievementStore.test.ts`
+Expected: PASS (3 + 5 + 2)
 
 
 - [ ] **Step 10: Run the scoring subset + type-check**
@@ -40143,14 +43674,18 @@ Expected: green (apart from the Task 0 baseline)
 ```bash
 git add src/screens/scoring/ReviewScorecardScreen/hooks/roundAchievementEvent.ts \
   src/screens/scoring/ReviewScorecardScreen/hooks/roundAchievementEvent.test.ts \
+  src/screens/scoring/ReviewScorecardScreen/hooks/roundAchievementStore.ts \
+  src/screens/scoring/ReviewScorecardScreen/hooks/roundAchievementStore.test.ts \
   src/screens/scoring/ReviewScorecardScreen/hooks/useScoreSubmission.ts \
   src/services/api/leagues/queries.ts src/__tests__/services/api/leagueQueries.test.ts
 git commit -m "feat(end-early): keep early-ended totals out of achievements and league tagging
 
 The round-achievement event (extracted to buildRoundAchievementEventData)
-omits gross and net totals for an early-ended round, so LOW_SCORER and
-NET_MASTER ignore it, and reports the holes played. League eligibility
-excludes early-ended rounds in the query and on the returned rows.
+omits the gross and net totals and the hole count for an early-ended round
+(read from the store's holesPlayed), so LOW_SCORER, NET_MASTER,
+18_HOLES_OF_GLORY and NINE_HOLE_SPECIALIST ignore it while ROUND_VETERAN
+still counts it. League eligibility excludes early-ended rounds in the
+query and on the returned rows.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
@@ -40547,27 +44082,29 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ### Task B10c-1: Handicap belts — index, history and recalculation candidates
 
 **Files:**
-- Modify: `src/services/handicap/updatePlayerHandicapIndex.ts` (as A3 leaves it):
-  - `:15`: import.
-  - `:44`: the `rounds!inner(…)` column list gains `holes_played`.
-  - `:49`: `.is('rounds.holes_played', null)` after `.eq('rounds.nine_type', 'full')`.
-  - `:55`: the `rounds` row type.
-  - `:105`: JS belt.
-- Modify: `src/hooks/player/handicapHistory.ts` (as A3 leaves it):
-  - `:14`: import.
-  - `:43-47`: row type.
-  - `:63-70`: `findScorecardsNeedingRecalculation` joins rounds and skips ended-early rounds.
-  - `:107-127`: main query.
-  - `:165-183`: refresh query; drive-by: add `game_type` and `team_format`.
-  - `:196-203`: JS belt.
+- Modify: `src/services/handicap/updatePlayerHandicapIndex.ts` (as A3-2 leaves it):
+  - imports: after A3-2's `isCompleteForHandicap` import;
+  - the scorecards select: `rounds!inner(…)` gains `holes_played`, and `.is('rounds.holes_played', null)` follows `.eq('rounds.nine_type', 'full')`;
+  - the result-type cast: `rounds` gains `holes_played`;
+  - the loop: an `isEndedEarly` skip after A3-2's completeness skip.
+- Modify: `src/hooks/player/handicapHistory.ts` (as A3-3 leaves it):
+  - imports: after A3-3's `isCompleteForHandicap` import;
+  - `ScorecardWithRound.rounds` and `RecalculationCandidate.rounds`: gain `holes_played`;
+  - `findScorecardsNeedingRecalculation`: selects `rounds.holes_played`, filters it in SQL and in A3-3's JS filter;
+  - main and refresh queries: select `holes_played` and filter it in SQL;
+  - `validScorecards`: an `!isEndedEarly` term after A3-3's completeness term.
 - Create: `src/__tests__/services/handicap/updatePlayerHandicapIndex.endedEarly.test.ts`
-- Create: `src/__tests__/hooks/player/handicapHistory.endedEarly.test.tsx`
+- Create: `src/__tests__/services/handicap/fetchHandicapHistory.endedEarly.test.ts`
 
 **Interfaces:**
-- Consumes: `isEndedEarly(round)` (B2); the `rounds.holes_played` column (B1a); `Round.holes_played` (B1b), which makes the typed `rounds!inner(… holes_played)` selects resolve.
-- Produces: no new exports.
+- Consumes:
+  - `isEndedEarly(round)` (B2);
+  - the `rounds.holes_played` column (B1a); `Round.holes_played` (B1b);
+  - A3-2's `updatePlayerHandicapIndex` (selects `scores`, completeness skip, `clearHandicapIndex` when no qualifying differential remains);
+  - A3-3's exported `fetchHandicapHistory`, its `RecalculationCandidate` interface and its `as unknown as` casts.
+- Produces: no new exports. The recalculation-candidate select becomes `'id, scores, rounds!inner(nine_type, holes_played)'`.
 
-**Coordination with A3.** A3 adds the completeness belt to the same two functions: it selects `scores` and skips cards where `!isCompleteForHandicap(scores, round.nine_type ?? 'full')`. This task adds **only** the `holes_played` condition, beside A3's, and never removes A3's terms. The "Current" snippets below are quoted from `main`; where A3 has added `scores` / `nine_type` / an `isCompleteForHandicap` term inside the same snippet, keep A3's additions and apply this task's insertion next to them. The test files are new `*.endedEarly.*` files, so they can't collide with any test file A3 creates. Every fixture card carries `scores: {}` (no per-hole data — the legacy rule), so A3's completeness belt lets it through and only the `holes_played` belt decides.
+**Coordination with A3-2 / A3-3.** Every "Current" snippet below is quoted as A3-2 / A3-3 leave the file (A3 runs first): from A3's replacement text wherever A3 changed those lines, otherwise from `main`. This task adds **only** the `holes_played` condition beside A3's completeness belt and never removes A3's terms, casts or the refresh query's `game_type, team_format` (A3-3 adds those). Its edits are anchored on lines that don't mention the query `limit`. A3-2's index query and A3-3's main and refresh queries fetch `.limit(BELT_FETCH_LIMIT)` (60) and keep the 20 most recent qualifying rows after the belts (`WHS_RECENT_ROUNDS`); the candidate query keeps `.limit(20)`. The `.is('rounds.holes_played', null)` filters below are server-side, so they compose with that unchanged, and the JS belts sit before A3's `.slice(0, WHS_RECENT_ROUNDS)`. Every fixture card carries `scores: {}` (no per-hole data — the legacy rule), so A3's completeness belt passes it and only the `holes_played` belt decides.
 
 - [ ] **Step 0: Guardrail check**
 
@@ -40576,7 +44113,7 @@ Run the `scoring-impact-analyst` agent on `src/services/handicap/updatePlayerHan
 Expected from planning:
 - **The index writer** is called from `scorecardSync.ts:303`, `recalculateScorecardDifferential.ts:391`, `combineHandicapRounds.ts:406,449` and `handicapHistory.ts:280`.
 - **History** is consumed by `HandicapHistoryScreen` and `useHomeData`.
-- **Tests:** none for either function before A3. This task adds the ended-early cases.
+- **Tests:** A3-2's `updatePlayerHandicapIndex.test.ts` and A3-3's `fetchHandicapHistory.test.ts`. This task adds the ended-early cases in new `*.endedEarly.test.ts` files.
 
 The card gate (A3) and the server trigger (A7, extended by B1a) already keep ended-early cards' differentials null. These filters are the client belt (spec R13).
 
@@ -40644,7 +44181,9 @@ function seed(rows: unknown[]) {
   mockQueries.length = 0;
   mockResults.scorecards = { data: rows, error: null };
   mockResults.handicap_combined_rounds = { data: [], error: null };
-  mockResults.players = { error: null };
+  // Both the index write and A3-2's clear (`.update().eq().not().select('id')`)
+  // resolve this; the clear sees no changed rows and skips invalidation.
+  mockResults.players = { data: [], error: null };
 }
 
 const scorecardQuery = () => mockQueries.find((q) => q.table === 'scorecards')!;
@@ -40652,7 +44191,7 @@ const indexWritten = () =>
   (mockQueries.find((q) => q.table === 'players')?.calls.find((c) => c.method === 'update')
     ?.args[0] ?? {}) as Record<string, unknown>;
 
-describe('updatePlayerHandicapIndex — early-ended rounds', () => {
+describe('updatePlayerHandicapIndex — rounds that ended early', () => {
   it('derives the index from 18-hole differentials (locks current behaviour)', async () => {
     seed([indexRow(10, '2026-09-01', null)]);
 
@@ -40680,6 +44219,15 @@ describe('updatePlayerHandicapIndex — early-ended rounds', () => {
     // Before: 2 rounds → best 1 → −38.4 × 0.96 = −36.864 → −36.9
     expect(indexWritten().handicap_index).toBe(9.6);
   });
+
+  it('clears the index when an early-ended round was the only one', async () => {
+    seed([indexRow(-38.4, '2026-09-10', 6)]);
+
+    await updatePlayerHandicapIndex('player-1');
+
+    // Every row skipped by a belt → A3-2's clearHandicapIndex. Before: −36.9.
+    expect(indexWritten().handicap_index).toBeNull();
+  });
 });
 ```
 
@@ -40689,104 +44237,113 @@ Run: `pnpm test src/__tests__/services/handicap/updatePlayerHandicapIndex.endedE
 Expected: PASS (1 test).
 
 Run: `pnpm test src/__tests__/services/handicap/updatePlayerHandicapIndex.endedEarly.test.ts -t 'early-ended'`
-Expected: FAIL:
+Expected: FAIL (3 tests):
 - `Expected substring: "holes_played"`;
-- `Expected: 9.6, Received: -36.9`.
+- `Expected: 9.6, Received: -36.9`;
+- `expect(received).toBeNull()` with `Received: -36.9`.
 
 - [ ] **Step 3: Add the index belt**
 
-In `src/services/handicap/updatePlayerHandicapIndex.ts`, replace line 15:
+In `src/services/handicap/updatePlayerHandicapIndex.ts`, after A3-2's import line:
 
 ```ts
-import { isSharedBallRound } from '@/utils/roundFormat';
+import { isCompleteForHandicap } from '@/utils/handicapEligibility';
 ```
 
-with:
+add:
 
 ```ts
-import { isSharedBallRound } from '@/utils/roundFormat';
 import { isEndedEarly } from '@/utils/roundShape';
 ```
 
-(A3 adds its `isCompleteForHandicap` import in the same block; keep it.)
-
-In the select string (line 44), replace the substring:
+Replace A3-2's select line:
 
 ```ts
-rounds!inner(nine_type, game_type, team_format)
+      .select('handicap_differential, submitted_at, scores, rounds!inner(nine_type, game_type, team_format)')
 ```
 
 with:
 
 ```ts
-rounds!inner(nine_type, game_type, team_format, holes_played)
+      .select(
+        'handicap_differential, submitted_at, scores, rounds!inner(nine_type, game_type, team_format, holes_played)',
+      )
 ```
 
-(A3 adds `scores` to the scorecard columns of the same string; the `rounds!inner(…)` part is unchanged by A3.)
-
-After the `.eq('rounds.nine_type', 'full')` line (line 49), insert:
+Replace the two lines:
 
 ```ts
+      .is('rounds.deleted_at', null)
+      .eq('rounds.nine_type', 'full')
+```
+
+with:
+
+```ts
+      .is('rounds.deleted_at', null)
+      .eq('rounds.nine_type', 'full')
       // Belt: an early-ended round never counts toward the index (I12, R13).
       .is('rounds.holes_played', null)
 ```
 
-In the result-type cast, replace the `rounds` property (line 55):
+In A3-2's result-type cast, replace:
 
 ```ts
-          rounds: { game_type: string | null; team_format: string | null } | null;
+          rounds: {
+            nine_type: NineType | null;
+            game_type: string | null;
+            team_format: string | null;
+          } | null;
 ```
 
 with:
 
 ```ts
           rounds: {
+            nine_type: NineType | null;
             game_type: string | null;
             team_format: string | null;
-            holes_played?: number | null;
+            holes_played: number | null;
           } | null;
 ```
 
-(If A3 added `nine_type` to this object type, keep it in the new block.)
-
-Replace line 105:
+In the loop, replace A3-2's lines:
 
 ```ts
-        if (isSharedBallRound(sc.rounds ?? {})) continue;
+        if (!isCompleteForHandicap(sc.scores, sc.rounds?.nine_type ?? 'full')) continue;
+        if (sc.handicap_differential != null) {
 ```
 
 with:
 
 ```ts
-        if (isSharedBallRound(sc.rounds ?? {})) continue;
+        if (!isCompleteForHandicap(sc.scores, sc.rounds?.nine_type ?? 'full')) continue;
         // Same backstop for an early-ended round (the card gate and the server
         // trigger already null its differential).
         if (isEndedEarly(sc.rounds)) continue;
+        if (sc.handicap_differential != null) {
 ```
 
-(A3 adds its `isCompleteForHandicap` skip next to the shared-ball skip; keep it, in either order.)
+The skip sits inside A3-2's per-card loop, before its `cardEntries.slice(0, WHS_RECENT_ROUNDS)`, so an ended-early row never takes one of the 20 places. When every row is skipped, `calculateHandicapIndex([])` returns `null` and A3-2's `clearHandicapIndex` path runs (the fetch returned fewer than `BELT_FETCH_LIMIT` rows); nothing else changes.
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `pnpm test src/__tests__/services/handicap/updatePlayerHandicapIndex.endedEarly.test.ts`
-Expected: PASS (3 tests)
+Run: `pnpm test src/__tests__/services/handicap/updatePlayerHandicapIndex.endedEarly.test.ts src/__tests__/services/handicap/updatePlayerHandicapIndex.test.ts`
+Expected: PASS (4 + A3-2's 5)
 
 - [ ] **Step 5: Write the history tests (characterization + failing)**
 
-```tsx
-// src/__tests__/hooks/player/handicapHistory.endedEarly.test.tsx
+```ts
+// src/__tests__/services/handicap/fetchHandicapHistory.endedEarly.test.ts
 /**
- * useHandicapHistory — early-ended rounds stay out of the history, the index
- * shown with it, and the retroactive-recalculation candidates (otherwise the
- * same never-eligible cards would be re-picked every session inside the
- * limit of 20). The refresh query must keep the shared-ball filter's columns.
+ * fetchHandicapHistory — early-ended rounds stay out of the history, the
+ * index shown with it, and the retroactive-recalculation candidates
+ * (otherwise the same never-eligible cards would be re-picked every session
+ * inside the candidate limit).
  *
  * Every card has scores: {} (legacy, no per-hole data), so A3's completeness
  * belt passes it and only the holes_played belt decides.
  */
-import React from 'react';
-import { renderHook, waitFor } from '@testing-library/react-native';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 interface RecordedQuery {
   table: string;
@@ -40835,14 +44392,7 @@ jest.mock('@/utils/debugLogger', () => ({
   syncLogger: { info: jest.fn(), debug: jest.fn(), warn: jest.fn(), error: jest.fn() },
 }));
 
-import { useHandicapHistory } from '@/hooks/player/handicapHistory';
-
-function makeWrapper() {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return function Wrapper({ children }: { children: React.ReactNode }) {
-    return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
-  };
-}
+import { fetchHandicapHistory } from '@/hooks/player/handicapHistory';
 
 function historyRow(id: string, differential: number, date: string, holesPlayed: number | null) {
   return {
@@ -40868,6 +44418,11 @@ function historyRow(id: string, differential: number, date: string, holesPlayed:
   };
 }
 
+/** A recalculation candidate row (null differential) as A3-3's select returns it. */
+function candidateRow(id: string, holesPlayed: number | null) {
+  return { id, scores: {}, rounds: { nine_type: 'full', holes_played: holesPlayed } };
+}
+
 /** Queue results for the scorecards queries in call order: main, recalc candidates, refresh. */
 function queueScorecards(...results: unknown[][]) {
   mockQueries.length = 0;
@@ -40881,13 +44436,7 @@ const filtersEarlyEnded = (q: RecordedQuery) =>
     (c) => c.method === 'is' && c.args[0] === 'rounds.holes_played' && c.args[1] === null,
   );
 
-async function loadHistory() {
-  const { result } = renderHook(() => useHandicapHistory('player-1'), { wrapper: makeWrapper() });
-  await waitFor(() => expect(result.current.isSuccess).toBe(true));
-  return result.current.data!;
-}
-
-describe('useHandicapHistory — early-ended rounds', () => {
+describe('fetchHandicapHistory — rounds that ended early', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockRecalculate.mockResolvedValue({ handicapDifferential: 12 });
@@ -40896,7 +44445,7 @@ describe('useHandicapHistory — early-ended rounds', () => {
   it('lists 18-hole rounds with a differential (locks current behaviour)', async () => {
     queueScorecards([historyRow('a', 10, '2026-09-01', null)], []);
 
-    const summary = await loadHistory();
+    const summary = await fetchHandicapHistory('player-1');
 
     expect(summary.rounds.map((r) => r.scorecardId)).toEqual(['a']);
     // 10 × 0.96
@@ -40909,7 +44458,7 @@ describe('useHandicapHistory — early-ended rounds', () => {
       [],
     );
 
-    const summary = await loadHistory();
+    const summary = await fetchHandicapHistory('player-1');
 
     expect(filtersEarlyEnded(scorecardQueries()[0])).toBe(true);
     // Before: ['b', 'a'] and an index of −38.4 × 0.96 = −36.9.
@@ -40918,98 +44467,110 @@ describe('useHandicapHistory — early-ended rounds', () => {
   });
 
   it('never picks an early-ended card for retroactive recalculation', async () => {
-    queueScorecards([], []);
+    queueScorecards(
+      [],
+      [candidateRow('cand-ended-1', 6), candidateRow('cand-legacy-1', null)],
+      [],
+    );
 
-    await loadHistory();
+    await fetchHandicapHistory('player-1');
 
     const candidates = scorecardQueries()[1];
-    expect(selectOf(candidates)).toContain('rounds!inner');
+    expect(selectOf(candidates)).toContain('holes_played');
     expect(filtersEarlyEnded(candidates)).toBe(true);
+    // The JS belt drops a row the SQL filter missed.
+    expect(mockRecalculate).toHaveBeenCalledTimes(1);
+    expect(mockRecalculate).toHaveBeenCalledWith('cand-legacy-1');
   });
 
-  it('keeps the shared-ball and early-ended filters on the refreshed history', async () => {
-    queueScorecards([], [{ id: 'sc-needs-recalc' }], [historyRow('c', 12, '2026-09-05', null)]);
+  it('keeps the early-ended filter on the refreshed history', async () => {
+    queueScorecards(
+      [],
+      [candidateRow('cand-legacy-2', null)],
+      [historyRow('c', 12, '2026-09-05', null), historyRow('d', -38.4, '2026-09-10', 6)],
+    );
 
-    const summary = await loadHistory();
+    const summary = await fetchHandicapHistory('player-1');
 
     const refresh = scorecardQueries()[2];
-    expect(selectOf(refresh)).toContain('game_type');
-    expect(selectOf(refresh)).toContain('team_format');
+    expect(selectOf(refresh)).toContain('holes_played');
     expect(filtersEarlyEnded(refresh)).toBe(true);
     expect(summary.rounds.map((r) => r.scorecardId)).toEqual(['c']);
   });
 });
 ```
 
-`sc-needs-recalc` is a fresh id, so the module-level `attemptedRecalculations` set (`handicapHistory.ts:25`) doesn't skip it.
+`attemptedRecalculations` is a module-level `Set`, so each test uses its own candidate ids.
 
 - [ ] **Step 6: Run to verify the lock passes and the new tests fail**
 
-Run: `pnpm test src/__tests__/hooks/player/handicapHistory.endedEarly.test.tsx -t 'locks current behaviour'`
+Run: `pnpm test src/__tests__/services/handicap/fetchHandicapHistory.endedEarly.test.ts -t 'locks current behaviour'`
 Expected: PASS (1 test).
 
-Run: `pnpm test src/__tests__/hooks/player/handicapHistory.endedEarly.test.tsx -t 'early-ended|recalculation|refreshed'`
-Expected: FAIL:
-- `Expected: true, Received: false` (no `holes_played` filter);
-- `Expected substring: "rounds!inner"` (the candidates select is just `'id'`);
-- `Expected substring: "game_type"` (the refresh select omits it today).
+Run: `pnpm test src/__tests__/services/handicap/fetchHandicapHistory.endedEarly.test.ts -t 'early-ended'`
+Expected: FAIL (3 tests). After A3-3 every query already selects `scores` and the refresh already selects `game_type, team_format`; the only thing missing is the `holes_played` filter:
+- history: `Expected: true, Received: false` (no `rounds.holes_played` filter on the main query);
+- candidates: `Expected substring: "holes_played"` (the select is A3-3's `'id, scores, rounds!inner(nine_type)'`);
+- refresh: `Expected substring: "holes_played"`.
 
-- [ ] **Step 7: Add the history belts and the refresh-select fix**
+- [ ] **Step 7: Add the history belts**
 
-In `src/hooks/player/handicapHistory.ts`, replace line 14:
+In `src/hooks/player/handicapHistory.ts`, after A3-3's import line:
 
 ```ts
-import { isSharedBallRound } from '@/utils/roundFormat';
+import { isCompleteForHandicap } from '@/utils/handicapEligibility';
 ```
 
-with:
+add:
 
 ```ts
-import { isSharedBallRound } from '@/utils/roundFormat';
 import { isEndedEarly } from '@/utils/roundShape';
 ```
 
-Replace lines 43-47 (row type):
+In A3-3's `ScorecardWithRound`, replace:
 
 ```ts
-  rounds: {
-    id: string;
-    date: string;
+    nine_type: NineType | null;
     game_type: string | null;
     team_format: string | null;
+    courses: {
 ```
 
 with:
 
 ```ts
-  rounds: {
-    id: string;
-    date: string;
+    nine_type: NineType | null;
     game_type: string | null;
     team_format: string | null;
     holes_played?: number | null;
+    courses: {
 ```
 
-Replace lines 63-70:
+In A3-3's `RecalculationCandidate`, replace:
 
 ```ts
-async function findScorecardsNeedingRecalculation(playerId: string): Promise<string[]> {
-  const { data, error } = await supabase
-    .from('scorecards')
-    .select('id')
-    .eq('player_id', playerId)
-    .in('status', ['completed', 'confirmed'])
-    .is('handicap_differential', null)
-    .limit(20);
+  rounds: { nine_type: NineType | null } | null;
 ```
 
 with:
 
 ```ts
-async function findScorecardsNeedingRecalculation(playerId: string): Promise<string[]> {
-  const { data, error } = await supabase
-    .from('scorecards')
-    .select('id, rounds!inner(holes_played)')
+  rounds: { nine_type: NineType | null; holes_played?: number | null } | null;
+```
+
+In `findScorecardsNeedingRecalculation`, replace A3-3's text:
+
+```ts
+    .select('id, scores, rounds!inner(nine_type)')
+    .eq('player_id', playerId)
+    .in('status', ['completed', 'confirmed'])
+    .is('handicap_differential', null)
+```
+
+with:
+
+```ts
+    .select('id, scores, rounds!inner(nine_type, holes_played)')
     .eq('player_id', playerId)
     .in('status', ['completed', 'confirmed'])
     .is('handicap_differential', null)
@@ -41017,12 +44578,27 @@ async function findScorecardsNeedingRecalculation(playerId: string): Promise<str
     // would be re-picked every session and crowd recalculable cards out of
     // the limit below.
     .is('rounds.holes_played', null)
-    .limit(20);
 ```
 
-(`data.map((sc: { id: string }) => sc.id)` below still reads only `id`.)
+and A3-3's filter line:
 
-Main query (107-127). In the `rounds!inner ( … )` column list, replace:
+```ts
+    .filter((sc) => isCompleteForHandicap(sc.scores, sc.rounds?.nine_type ?? 'full'))
+```
+
+with:
+
+```ts
+    .filter(
+      (sc) =>
+        isCompleteForHandicap(sc.scores, sc.rounds?.nine_type ?? 'full') &&
+        !isEndedEarly(sc.rounds),
+    )
+```
+
+(A3-3's `data as unknown as RecalculationCandidate[]` cast stays.)
+
+Main query: in its `rounds!inner ( … )` column list (A3-3 leaves it unchanged), replace:
 
 ```ts
         nine_type,
@@ -41041,17 +44617,28 @@ with:
         courses (
 ```
 
-and after its `.eq('rounds.nine_type', 'full')` (line 127) insert:
+and replace its filter lines:
 
 ```ts
+    .is('rounds.deleted_at', null)
+    .eq('rounds.nine_type', 'full')
+```
+
+with:
+
+```ts
+    .is('rounds.deleted_at', null)
+    .eq('rounds.nine_type', 'full')
     // Belt: early-ended rounds never appear in handicap history (I12, R13).
     .is('rounds.holes_played', null)
 ```
 
-Refresh query (165-183). In its `rounds!inner ( … )` column list, replace:
+Refresh query: A3-3 has already added `game_type, team_format` to its `rounds!inner ( … )` list. Replace (12-space indent):
 
 ```ts
             nine_type,
+            game_type,
+            team_format,
             courses (
 ```
 
@@ -41065,66 +44652,64 @@ with:
             courses (
 ```
 
-and after its `.eq('rounds.nine_type', 'full')` (line 183) insert:
+and replace its filter lines (8-space indent):
 
 ```ts
-        .is('rounds.holes_played', null)
-```
-
-(The drive-by: before this change the refresh select omitted `game_type, team_format`. The shared-ball post-filter at 202 then saw `undefined` and let a recalculated scramble/alt-shot row through. The main and refresh `rounds` column lists now match. A3's `scores` column sits at the scorecard level of both selects and is untouched.)
-
-Replace lines 196-203:
-
-```ts
-  const validScorecards = (scorecards as ScorecardWithRound[]).filter(
-    (sc) =>
-      sc.handicap_differential !== null &&
-      sc.daily_handicap_used !== null &&
-      sc.course_rating_used !== null &&
-      sc.slope_rating_used !== null &&
-      !isSharedBallRound(sc.rounds ?? {})
-  );
+        .is('rounds.deleted_at', null)
+        .eq('rounds.nine_type', 'full')
 ```
 
 with:
 
 ```ts
-  const validScorecards = (scorecards as ScorecardWithRound[]).filter(
-    (sc) =>
-      sc.handicap_differential !== null &&
-      sc.daily_handicap_used !== null &&
-      sc.course_rating_used !== null &&
-      sc.slope_rating_used !== null &&
-      !isSharedBallRound(sc.rounds ?? {}) &&
-      !isEndedEarly(sc.rounds)
-  );
+        .is('rounds.deleted_at', null)
+        .eq('rounds.nine_type', 'full')
+        .is('rounds.holes_played', null)
 ```
 
-(A3 adds an `isCompleteForHandicap(…)` term to this filter; keep it.)
+The main-query and refresh-query replacements differ only in indentation; apply each to its own block.
+
+In `validScorecards`, replace A3-3's last two filter terms and the filter's closing parenthesis:
+
+```ts
+        !isSharedBallRound(sc.rounds ?? {}) &&
+        isCompleteForHandicap(sc.scores, sc.rounds?.nine_type ?? 'full')
+    )
+```
+
+with:
+
+```ts
+        !isSharedBallRound(sc.rounds ?? {}) &&
+        isCompleteForHandicap(sc.scores, sc.rounds?.nine_type ?? 'full') &&
+        !isEndedEarly(sc.rounds)
+    )
+```
+
+The JS belt must sit inside the `.filter(…)`, before A3-3's `.slice(0, WHS_RECENT_ROUNDS)`, so an ended-early row can't take one of the 20 places. (A3-3's `scorecards as unknown as ScorecardWithRound[]` cast and its `.slice` stay.)
 
 - [ ] **Step 8: Run tests to verify they pass**
 
-Run: `pnpm test src/__tests__/hooks/player/handicapHistory.endedEarly.test.tsx src/__tests__/services/handicap/updatePlayerHandicapIndex.endedEarly.test.ts`
-Expected: PASS (4 + 3)
+Run: `pnpm test src/__tests__/services/handicap/fetchHandicapHistory.endedEarly.test.ts src/__tests__/services/handicap/fetchHandicapHistory.test.ts src/__tests__/services/handicap/updatePlayerHandicapIndex.endedEarly.test.ts`
+Expected: PASS (4 + A3-3's 5 + 4)
 
 - [ ] **Step 9: Run the scoring subset + type-check**
 
-Run: the TEST_SUBSET command from Global Constraints (it covers `services/handicap`), then `pnpm test src/hooks/home src/__tests__/hooks/player src/screens/profile/HandicapHistoryScreen`, then `pnpm type-check`
-Expected: green (apart from the Task 0 baseline), including A3's own index/history tests.
+Run: the TEST_SUBSET command from Global Constraints (it covers `services/handicap`), then `pnpm test src/hooks/home src/screens/profile/HandicapHistoryScreen`, then `pnpm type-check`
+Expected: green (apart from the Task 0 baseline), including A3-2's and A3-3's own index/history tests.
 
 - [ ] **Step 10: Commit**
 
 ```bash
 git add src/services/handicap/updatePlayerHandicapIndex.ts \
   src/__tests__/services/handicap/updatePlayerHandicapIndex.endedEarly.test.ts \
-  src/hooks/player/handicapHistory.ts src/__tests__/hooks/player/handicapHistory.endedEarly.test.tsx
+  src/hooks/player/handicapHistory.ts src/__tests__/services/handicap/fetchHandicapHistory.endedEarly.test.ts
 git commit -m "feat(handicap): exclude early-ended rounds from the index and history
 
 Belts behind the card gate and the server trigger: the index writer,
 handicap history (main and refresh queries) and the recalculation-candidate
 query all exclude rounds with holes_played set, in SQL and on the returned
-rows. The refresh query now selects game_type/team_format so the shared-ball
-filter works there too.
+rows.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
@@ -41870,8 +45455,8 @@ At the end of its **Test** cell, append `` , `src/__tests__/utils/matchPlayResul
 Insert these two rows immediately below the `| I10 |` row:
 
 ```markdown
-| I11 | **Skins are priced on the planned holes and settled on the holes played.** Hole values use the planned hole count (`getHoleCount(nine_type)`, never a default 18). The settlement buy-in is `calculateTotalPot(type, value, planned) × holesPlayed / planned / participants`. Individual skins settlement is **zero-sum within cent rounding** (at most ½¢ per hole plus ½¢ per participant) for complete, 9-hole and ended-early rounds; a carryover on the last played hole is split. Every settlement path reads `fetchSkinsHoleCounts(roundId)`; completed games are displayed from the stored `skins_payouts`. Team skins settlement is a known pre-existing gap. | `utils/skins/payouts.ts`, `utils/skins/holeCounts.ts`, `services/skins/roundHoleCounts.ts`, `services/skins/finalizeSkinsGame.ts` | `src/__tests__/utils/skinsCalculations.test.ts`, `src/utils/skins/holeCounts.test.ts`, `src/__tests__/services/skins/roundHoleCounts.test.ts`, `src/__tests__/services/skins/finalizeSkinsGame.test.ts` |
-| I12 | **Only full scorecards count toward the social handicap index.** A card earns a differential only when `isCompleteForHandicap(scores, nineType)` holds — every hole of `getHoleRange(nineType)` has strokes > 0 (a pickup counts) — **and** its round has no `holes_played`. Planned holes come from the nine type, never a hole list. A card with no per-hole data (`{}` / null: legacy imports, multi-ball) keeps the gross-only rule unless its round has `holes_played`. Enforced on the client (the seven I8 sites, `recalculateScorecardDifferential` — which writes `null`, never throws — combine validation, combinable pairs, and the index / history / recalc-candidate queries) **and** on the server (triggers `scorecards_full_card_differential` and `handicap_combined_rounds_full_cards`, via the shared helper `scorecard_eligible_for_differential` = no `holes_played` and `scorecard_is_complete_for_handicap`). | `utils/handicapEligibility.ts`; `supabase/migrations/20261007000100_full_scorecards_only_handicap.sql` + `20261007000200_end_round_early.sql` | `src/utils/handicapEligibility.test.ts`, `src/__tests__/services/offline/calculateHandicapData.test.ts`, `src/__tests__/services/handicap/*.test.ts` (incl. `*.endedEarly.test.ts`), `src/__tests__/hooks/player/handicapHistory.endedEarly.test.tsx`, `supabase/tests/full_scorecards_only_handicap.verify.sql` |
+| I11 | **Skins are priced on the planned holes and settled on the holes played.** Hole values use the planned hole count (`getHoleCount(nine_type)`, never a default 18). The settlement buy-in is `calculatePlayedPot(game, holeCounts) / participants`: `calculateTotalPot(type, value, planned)` for a complete round, and the rounded per-hole price × holes played for an ended-early one (so winnings sum to it exactly). Individual skins settlement is **zero-sum within cent rounding** (at most ½¢ per hole plus ½¢ per participant) for complete, 9-hole and ended-early rounds; a carryover on the last played hole is split. Every settlement path reads `fetchSkinsHoleCounts(roundId)`; completed games are displayed from the stored `skins_payouts`. Team skins settlement is a known pre-existing gap. | `utils/skins/payouts.ts`, `utils/skins/holeCounts.ts`, `services/skins/roundHoleCounts.ts`, `services/skins/finalizeSkinsGame.ts` | `src/__tests__/utils/skinsCalculations.test.ts`, `src/utils/skins/holeCounts.test.ts`, `src/__tests__/services/skins/roundHoleCounts.test.ts`, `src/__tests__/services/skins/finalizeSkinsGame.test.ts` |
+| I12 | **Only full scorecards count toward the social handicap index.** A card earns a differential only when `isCompleteForHandicap(scores, nineType)` holds — every hole of `getHoleRange(nineType)` has strokes > 0 (a pickup counts) — **and** its round has no `holes_played`. Planned holes come from the nine type, never a hole list. A card with no per-hole data (`{}` / null: legacy imports, multi-ball) keeps the gross-only rule unless its round has `holes_played`. Enforced on the client (the seven I8 sites, `recalculateScorecardDifferential` — which writes `null`, never throws — combine validation, combinable pairs, and the index / history / recalc-candidate queries) **and** on the server (triggers `scorecards_full_card_differential` and `handicap_combined_rounds_full_cards`, via the shared helper `scorecard_eligible_for_differential` = no `holes_played` and `scorecard_is_complete_for_handicap`). | `utils/handicapEligibility.ts`; `supabase/migrations/20261007000100_full_scorecards_only_handicap.sql` + `20261007000200_end_round_early.sql` | `src/utils/handicapEligibility.test.ts`, `src/__tests__/services/offline/calculateHandicapData.test.ts`, `src/__tests__/services/handicap/*.test.ts` (incl. `*.endedEarly.test.ts`), `supabase/tests/full_scorecards_only_handicap.verify.sql` |
 ```
 
 - [ ] **Step 3: SCORING_ARCHITECTURE.md — blast-radius rows**
@@ -42066,7 +45651,7 @@ Append these two rows after the I10 row:
 
 ```markdown
 | I11 skins priced on planned holes, settled on holes played; individual skins zero-sum within cent rounding | `__tests__/utils/skinsCalculations.test.ts`, `utils/skins/holeCounts.test.ts`, `__tests__/services/skins/finalizeSkinsGame.test.ts` | ✅ (team skins: known gap) |
-| I12 only full scorecards count (card gate + `holes_played` belts + server triggers; no-hole-data cards keep the gross-only rule unless ended early) | `utils/handicapEligibility.test.ts`, `services/offline/calculateHandicapData.test.ts`, `services/handicap/*.test.ts`, `hooks/player/handicapHistory.endedEarly.test.tsx`, `supabase/tests/full_scorecards_only_handicap.verify.sql` + B1a's verification script | ✅ |
+| I12 only full scorecards count (card gate + `holes_played` belts + server triggers; no-hole-data cards keep the gross-only rule unless ended early) | `utils/handicapEligibility.test.ts`, `services/offline/calculateHandicapData.test.ts`, `services/handicap/*.test.ts` (incl. `*.endedEarly.test.ts`), `supabase/tests/full_scorecards_only_handicap.verify.sql` + B1a's verification script | ✅ |
 ```
 
 - [ ] **Step 6: SKINS_GAME.md — pricing, settlement and the deleted hook**
@@ -42091,7 +45676,9 @@ Hole values are priced on the round's **planned** hole count (`getHoleCount(nine
 Settlement prices each player's buy-in on the holes **actually played**, so payouts
 stay zero-sum (within cent rounding) when a social round is ended early:
 
-`buy-in = calculateTotalPot(type, value, planned) × holesPlayed / planned / participants`
+`buy-in = calculatePlayedPot(game, holeCounts) / participants`, where the played pot is
+`calculateTotalPot(type, value, planned)` for a complete round and the rounded hole value ×
+`holesPlayed` for an ended-early one (≈ total pot × holesPlayed / planned).
 
 `getSkinsHoleCounts(round)` (`src/utils/skins/holeCounts.ts`) returns
 `{ plannedHoles, holesPlayed }`, where `holesPlayed = rounds.holes_played ?? planned`.
@@ -42382,35 +45969,20 @@ Run each command and check its expected result:
    psql "$SCRATCH_DB_URL" -v ON_ERROR_STOP=1 -f "$(ls supabase/tests/*end_round_early*.sql | head -1)"
    psql "$SCRATCH_DB_URL" -v ON_ERROR_STOP=1 -f supabase/tests/activity_feed_verify.sql
    ```
-   Expected: every command exits 0; the verify scripts end in `ROLLBACK` and print no failure.
+   Expected: every command exits 0. The two end-early/full-card verify scripts end in `ROLLBACK` and print no failure; `activity_feed_verify.sql` runs catalog checks only (no transaction) and **every row prints `OK`** (some as `OK (n)`).
+   Apply the migrations in this order only. Never re-apply A7's migration after B1a's: B1a replaces `scorecard_eligible_for_differential`, and re-running A7 would drop its `holes_played` guard (re-apply B1a straight after if A7 is ever re-run).
 
 If any check fails, fix it in the task that owns the code and re-run this step. Do not paper over it here.
 
-- [ ] **Step 11: On-device QA — Part A (Sam; record results in the PR description)**
+- [ ] **Step 11: Part A QA and rollout — a pointer**
 
-Run on a staging build against a database that has A7's migration. Part A can merge on its own, so run this list before it does.
+Part A ships on its own, and its rollout and on-device QA live in **A6d-2's "Part A rollout + QA" step**: the A7 migration with its before/after report, the stuck-rounds fix, the Part A build and the Part A QA list. This task covers only Part B (B1a's migration, the store build, the force-update minimum).
 
-**Competition submit:**
-- [ ] Online: a stableford competition round, last card submitted → the round completes, results and the leaderboard update.
-- [ ] Offline: submit the last card in airplane mode, leave the scoring screen, go back to Home, reconnect → the round completes **without** reopening a scoring screen (the app-wide sync drain), within a few seconds of reconnecting or foregrounding.
-- [ ] A **non-organiser** is the last submitter → no crash; the round's status is reported honestly (stays in-progress if RLS refuses, Appendix B).
-- [ ] Legacy competition match rows stored as "N & 0" now read "N up".
-
-**9-hole matches:**
-- [ ] Singles match play, front 9, played to hole 9 at 1 up → "Submit Match" enables; the result and the round-list pill read "1 UP" (never "1&0" / "1&9").
-- [ ] Team match play (four-ball), back 9 → completes on hole 18; ViewRound / Review margins read "N UP" or "A/S".
-- [ ] A 9-hole match closed out early reads "N&M" with M = holes left of 9.
-
-**Skins:**
-- [ ] 18-hole individual skins, $5 per hole, 4 players → buy-in $22.50 each; net results sum to $0.
-- [ ] 9-hole skins, $5 per hole, 2 players → buy-in $22.50 each (9 × $5 ÷ 2), not $45; net results sum to $0.
-- [ ] An **already-settled** 9-hole game opened on ViewRound (Payouts tab, game setup tab, header indicator) shows the stored payouts, the same on every tab.
-
-**Handicap:**
-- [ ] A Quick Score card with only some holes filled → no differential; Profile → handicap history and the index are unchanged.
-- [ ] A complete 18-hole card → a differential as before; a complete front-9 + back-9 still combine.
-- [ ] League Quick Add on a 9-hole course → "League rounds need an 18-hole course".
-- [ ] After the A7 data fix: a player who had a partial card in their history no longer shows it once their app recomputes the index (open Profile → handicap history).
+Before starting Step 12, check that A6d-2's Step 5 record ("Part A rollout + QA") shows each of these. Don't redo any of them here; if one is missing, finish it in A6d-2's Step 5 first:
+- **Item 1–2:** the A7 dry-run "before" report (applied inside `BEGIN … ROLLBACK` with `PGOPTIONS='-c default_transaction_read_only=off'`, at a quiet time, staging or a prod snapshot first) and Sam's go/no-go before each real apply.
+- **Items 3 and 5:** A7 applied to staging and prod, with the after-report showing zero incomplete cards holding a differential.
+- **Item 8:** the stuck social rounds finalised through the service path (`finalizeSubmittedRound`, which also writes results and settles active skins games), not a bare status `UPDATE`, unless Sam explicitly approved that fallback.
+- **Item 4:** Part A's on-device QA results recorded in the PR description.
 
 - [ ] **Step 12: On-device QA — Part B (Sam; record results in the PR description)**
 
@@ -42418,9 +45990,14 @@ Run on a staging build against a database that has both migrations.
 
 **Stroke play, 18 holes, 2 players, ended after 6:**
 - [ ] ⋮ shows in the header once hole 1 is complete for everyone, and never before.
-- [ ] The sheet title is "End round early"; it reads "End round after hole 6?", lists a half-scored hole 7 under removed scores, and shows "This round won't count towards your handicap index."
+- [ ] Practice round (`handicap_source 'none'`): the sheet title is "End round early"; it reads "End round after hole 6?", lists a half-scored hole 7 under removed scores, and shows "This round won't count towards your handicap index."
+- [ ] Handicap round (`handicap_source` not `'none'`): the same sheet shows "This is a handicap round. Ending it early makes it a practice round, and it won't count towards your handicap index." in place of the generic handicap line (R22).
 - [ ] After confirming: the scoring screen shows "Ended after 6 of 18 · Finish", hole navigation stops at 6, and Submit goes to the finish screen.
 - [ ] After submit: the round-list pill reads "Ended after 6 of 18"; the ViewRound scorecard shows holes 1–6 only with a sane to-par; net equals the per-hole net; Profile → handicap history has no new differential and the index is unchanged.
+- [ ] The round reads "Practice Round" everywhere, even for a handicap round: the round-list card, the ViewRound header, the round-settings name placeholder and My Stats (R22).
+
+**18 holes ended after exactly 9:**
+- [ ] The label reads "Ended after 9 of 18"; no differential; the round is never offered as a combinable nine; `NINE_HOLE_SPECIALIST` (and `18_HOLES_OF_GLORY`) don't advance (Profile → achievements).
 
 **Matches:**
 - [ ] Singles match play, front 9, ended after 6 at 2 up → lands on the Match Play Scorecard screen; result and pill read "2 UP", never "2&3"; a level match reads "A/S".
@@ -42433,16 +46010,23 @@ Run on a staging build against a database that has both migrations.
 **Pickup on the boundary:**
 - [ ] A pickup on hole N is kept and N includes it; a lone pickup on hole N+1 is listed as removed.
 
+**Multi-ball, ended early:**
+- [ ] A multi-ball round ended after 6 → the end-round sheet shows no result preview; net is correct for holes 1–6; the card's `handicap_differential` is NULL in the database.
+
 **Two phones scoring everyone (both see every player):**
 - [ ] Phone A ends after 6, then phone B (still showing hole 8) tries to end after 8 → B shows "This round was already ended after 6 holes on another device", its scores after 6 are removed, and it lands on the finish screen.
-- [ ] Submit readiness on both phones checks holes 1–6 only; a mismatch on hole 4 is still caught.
+- [ ] Phone A ends after 6; phone B never opens the ⋮ menu. On B's next load of the round, ⋮ is hidden and holes after 6 are closed (B picks up `holes_played` from the server).
+- [ ] Stroke play or Stableford (Review-finished; singles match play never runs the readiness check): submit readiness on both phones checks holes 1–6 only; a mismatch on hole 4 is still caught.
+- [ ] Team match play: phone A ends after 6 while phone B has the same team match open on its scoring screen → when phone B reloads or reopens the round, it shows "Ended after 6 of 18 · Finish", holes after 6 are closed, and its scores after 6 are gone (B3c reconcile; B3c-2's guard on `TeamMatchPlayScoringScreen`). Any empty team-member cards created after the end are stamped on the next load (harmless).
 
 **Who can't end:**
 - [ ] A device that doesn't score every player, a round with scoring pairs on, and a competition round → ⋮ never shows.
 
 **Offline:**
 - [ ] Airplane mode on, end after 6, kill the app, relaunch with no signal → the round reopens ended ("Ended after 6 of 18 · Finish"), with removed scores still gone and the tee / daily handicap unchanged; holes after 6 can't be scored.
+- [ ] Airplane mode on, end after 6, then trigger at least 3 drains while still offline (background/foreground the app 3 times) → the `'end_early'` item stays queued (not retained as failed). Reconnect → it applies, and the round finalises.
 - [ ] Submit offline, then reconnect → the `'end_early'` item runs before finalise: the round is `completed`, `holes_played = 6`, and side-game rows after hole 6 are gone (check in staging with SQL).
+- [ ] "Connected but no data" (Wi-Fi with no internet, or a captive portal): confirm the end → within about 8 s the sheet stops showing "Ending…", the round ends locally and the RPC is queued; it applies once the connection really works.
 
 **Old client:**
 - [ ] A co-player on a 1.14.x build opens Home after the round was ended early → no crash; their card's `handicap_differential` stays NULL in the database (the trigger), and their index doesn't move.
@@ -42457,35 +46041,46 @@ Run on a staging build against a database that has both migrations.
 - [ ] Skins, $5 per hole, 4 players, ended after 6 → buy-in $7.50 each; net results sum to $0; no skin shows for hole 7+.
 - [ ] Wolf, ended after 6 → the Wolf tab reads "of 6 holes"; standings and the results card ignore holes 7+.
 
+**Normal 9-hole rounds (display changes that also reach them):**
+- [ ] A 9-hole Wolf round on ViewRound: the Wolf tab reads "x of 9 holes" and draws 9 rows (B9e-2).
+- [ ] A 9-hole standalone team match on ViewRound is decided over its 9 holes, and the board's playing handicaps match the Review screen's (B9c).
+
+**Regression on Part A paths:**
+- [ ] A split singles competition round (Ryder-cup singles) completes when its last sub-match is submitted (A6d).
+
 **Watch:**
 - [ ] After ending, the Watch shows only holes 1–6; a score entered on the Watch for hole 7 reports a failure on the Watch instead of "saved".
 
 **Display:**
 - [ ] Activity feed card subtitle reads "<date> · Ended after 6 of 18 · <location>".
 - [ ] My Stats: the round is in "Recent Activity" with an "Ended after 6 of 18" pill and a "Practice" pill (no "Handicap" pill); it is not on the Performance Trend chart; Rounds Played went up by one; the Handicap tile didn't; average score and the 9-Hole tile are unchanged; tapping Handicap / Practice / 9-Hole lists match the tile counts' treatment of the round.
+- [ ] Home "continue scoring" carousel with a round ended but not yet submitted: note what it shows (it may read "hole 7"; Appendix B).
 - [ ] Dark mode and translucent surfaces: the sheet and the banner are readable on solid surfaces; touch targets ≥ 44px.
 
-- [ ] **Step 13: Rollout checklist (do NOT run any deploy in this task)**
+- [ ] **Step 13: Rollout checklist — Part B (do NOT run any deploy in this task)**
 
-Staging uses the session pooler (`aws-1-ap-southeast-1.pooler.supabase.com`, port 5432). The Supabase CLI in this repo is linked to **prod**: never `supabase db push` thinking it targets staging. The `schema_migrations` table is unreliable (migrations are hand-applied), so check objects, not history.
+Staging uses the session pooler (`aws-1-ap-southeast-1.pooler.supabase.com`, port 5432). The Supabase CLI in this repo is linked to **prod**: never `supabase db push` thinking it targets staging. The `schema_migrations` table is unreliable (migrations are hand-applied), so check objects, not history. The pooler session is read-only by default: prefix every write command with `PGOPTIONS='-c default_transaction_read_only=off'`.
 
-1. [ ] **Pre-check the base migrations** on the target database. These must print `t` for every column; the feed RPCs this branch rebuilds come from the UGC migrations:
+**Never re-apply A7's migration (`20261007000100_full_scorecards_only_handicap.sql`) after B1a's.** B1a replaces `scorecard_eligible_for_differential` to add the `holes_played IS NULL` condition; re-running A7 would put back A7's version and silently drop the ended-early guard. If A7 must be re-run, re-apply B1a's migration straight after it.
+
+1. [ ] **Pre-checks** on the target database. Every column must print `t`:
    ```sql
    select to_regclass('public.age_gate_config') is not null    as age_gate,
           to_regclass('public.content_reports') is not null    as ugc_schema,
           to_regprocedure('public.is_blocked_pair(uuid,uuid)') is not null as ugc_policies,
           (select prosrc ilike '%is_blocked_pair%' from pg_proc where proname = 'get_round_feed_card') as ugc_feed,
-          to_regprocedure('public.moderate_content(uuid,text)') is not null as ugc_ops;
+          to_regprocedure('public.moderate_content(uuid,text)') is not null as ugc_ops,
+          to_regprocedure('public.scorecard_eligible_for_differential(uuid,jsonb)') is not null as part_a_live;
    ```
-   If any is `f`, apply the missing 202609040000xx / 202609050000xx migrations first.
-2. [ ] **Report, before.** Run `supabase/scripts/full_scorecards_only_report.sql` and keep the output (affected cards and players; players whose index would move by more than 2.0; combined rows built from incomplete cards).
-3. [ ] **Staging migrations**, in order, each in one transaction:
+   If a UGC column is `f`, apply the missing 202609040000xx / 202609050000xx migrations first (the feed RPCs this branch rebuilds come from them). If `part_a_live` is `f`, Part A's rollout (A6d-2) hasn't run here: stop.
+2. [ ] **Staging migration**, in one transaction:
    ```bash
-   psql "$STAGING_DB_URL" -v ON_ERROR_STOP=1 --single-transaction -f supabase/migrations/20261007000100_full_scorecards_only_handicap.sql
-   psql "$STAGING_DB_URL" -v ON_ERROR_STOP=1 --single-transaction -f supabase/migrations/20261007000200_end_round_early.sql
+   PGOPTIONS='-c default_transaction_read_only=off' \
+     psql "$STAGING_DB_URL" -v ON_ERROR_STOP=1 --single-transaction -f supabase/migrations/20261007000200_end_round_early.sql
    ```
-   Then run `supabase/tests/full_scorecards_only_handicap.verify.sql`, B1a's verification script and `supabase/tests/activity_feed_verify.sql` (all `BEGIN … ROLLBACK`), and confirm `rounds.holes_played` exists, `end_round_early(uuid, integer)` has `EXECUTE` for `authenticated`, and both feed functions return `holes_played` and `nine_type`.
-4. [ ] **Report, after**, and the two extra checks below. Expected: zero incomplete cards with a differential; zero ended-early rounds with a differential.
+   Note the time it committed (`select now();` straight after); item 6 uses it as `migrated_at`.
+   Then run B1a's verification script and `supabase/tests/full_scorecards_only_handicap.verify.sql` (both `BEGIN … ROLLBACK`; each must print no failure), and `supabase/tests/activity_feed_verify.sql` (catalog checks, no transaction: **every row prints `OK`**, some as `OK (n)`). Confirm `rounds.holes_played` exists, `end_round_early(uuid, integer)` has `EXECUTE` for `authenticated`, and both feed functions return `holes_played` and `nine_type`.
+3. [ ] **After checks.** Expected: zero incomplete or ended-early cards with a differential.
    ```sql
    -- Incomplete or ended-early cards that still carry a differential (expect 0).
    select count(*)
@@ -42505,45 +46100,40 @@ Staging uses the session pooler (`aws-1-ap-southeast-1.pooler.supabase.com`, por
    group by r.id, r.nine_type, r.holes_played
    having count(*) filter (where s.handicap_differential is not null) > 0;
    ```
-5. [ ] **Stuck social rounds** (victims of the offline-submit bug A6 fixes): social rounds still `in-progress` although every card is terminal and every expected player has one.
-   ```sql
-   select r.id, r.user_id, r.updated_at, count(s.id) as cards,
-          exists (select 1 from skins_games g where g.round_id = r.id and g.status = 'active') as has_active_skins
-   from rounds r
-   join scorecards s on s.round_id = r.id
-   where r.competition_id is null
-     and r.status = 'in-progress'
-     and r.deleted_at is null
-   group by r.id, r.user_id, r.updated_at
-   having bool_and(s.status in ('completed', 'confirmed'))
-      and count(s.id) >= coalesce((
-            select count(distinct pid)
-            from pairings p, unnest(p.player_ids) as pid
-            where p.round_id = r.id), 0)
-      and not exists (
-            select 1 from sub_matches sm
-            where sm.round_id = r.id and sm.status not in ('completed', 'forfeited'))
-   order by r.updated_at desc;
-   ```
-   Review the list with Sam. Save the approved ids in a file, one per line (`stuck_rounds.txt`), then flip their status (it mirrors `finalizeRoundStatus`):
-   ```bash
-   psql "$DB_URL" -v ON_ERROR_STOP=1 --single-transaction \
-     -v ids="{$(paste -sd, stuck_rounds.txt)}" <<'SQL'
-   update rounds set status = 'completed'
-   where id = any(:'ids'::uuid[]) and status = 'in-progress' and competition_id is null;
-   SQL
-   ```
-   (Piped on stdin, not `-c`, because psql interpolates `:'ids'` only in script input.)
-   The `UPDATE n` count must equal the number of lines in `stuck_rounds.txt`.
-   Rounds with `has_active_skins = true` still need their skins settled (Appendix B): list them in the outstanding note.
-6. [ ] **Staging QA.** Run Steps 11 and 12 on a staging build.
-7. [ ] **Prod migrations**, **before** any build with this code can reach prod: repeat items 1–5 against prod (session pooler, `user=postgres.bvnxfhuvocxyilhlenka`, port 5432). The pooler session is read-only by default, so prefix each write command with `PGOPTIONS='-c default_transaction_read_only=off'`. The new client selects `holes_played` in the round list, `ROUND_METADATA_SELECT`, the stats hooks and the handicap queries; against a database without the column those selects fail (PostgREST `42703`) and rounds can't open.
-8. [ ] **Ship a store build** (version bump; this branch rides the next store release, e.g. 1.14.1 on runtime 1.14.1). **No OTA**: the live 1.14.0 binaries are on runtime 1.12.7, so no live binary can take this bundle over the air. If an OTA is ever needed later for a binary on this runtime, use `pnpm update:prod` (it ships the production env; a bare `eas update` bundles the staging `.env`).
-9. [ ] **Raise the force-update minimum** once the store build is live on both platforms: set `app_version_config.minimum_version` to the new version for `ios` and `android` (no deploy). Only 1.13.0+ builds see the gate.
-10. [ ] **Watch for 48 hours.**
-    - Sentry: `end_round_early` RPC errors (`22023` / `42501`), `round` sync items retained or failing, PostgREST `42703`.
-    - Spot-check prod: `select id, nine_type, holes_played, status from rounds where holes_played is not null order by updated_at desc limit 20;` and re-run item 4's queries.
-11. [ ] **Outstanding note.** Record the merge/deploy state in the outstanding-work notes: migrations staging/prod, report before/after numbers, stuck rounds finalised, QA done, build shipped, force-update raised, pushed or not.
+4. [ ] **Staging QA.** Run Step 12 on a staging build.
+5. [ ] **Prod migration**, **before** any build with this code can reach prod: repeat items 1–3 against prod (session pooler, `user=postgres.bvnxfhuvocxyilhlenka`, port 5432), at a quiet time and after Sam's go/no-go. The new client selects `holes_played` in the round list, `ROUND_METADATA_SELECT`, the stats hooks and the handicap queries; against a database without the column those selects fail (PostgREST `42703`) and rounds can't open.
+6. [ ] **Ship a store build** (version bump; this branch rides the next store release, e.g. 1.14.1 on runtime 1.14.1). **No OTA**: the live 1.14.0 binaries are on runtime 1.12.7, so no live binary can take this bundle over the air. If an OTA is ever needed later for a binary on this runtime, use `pnpm update:prod` (it ships the production env; a bare `eas update` bundles the staging `.env`).
+7. [ ] **Raise the force-update minimum** once the store build is live on both platforms: set `app_version_config.minimum_version` to the new version for `ios` and `android` (no deploy). Only 1.13.0+ builds see the gate.
+8. [ ] **Watch for 48 hours.**
+   - Sentry: `end_round_early` RPC errors (`22023` / `42501`), `round` sync items retained or failing, PostgREST `42703`.
+   - Spot-check prod: `select id, nine_type, holes_played, status from rounds where holes_played is not null order by updated_at desc limit 20;` and re-run item 3's queries.
+   - **Old-client rewrites.** An old client (1.14.x or earlier) doesn't know `holes_played`: it can re-upload scores for holes after N on an ended round, or rewrite a card the data fix touched. Audit the cards written since the migration (`:'migrated_at'` from item 2/5); both lists should be empty, and any row is a card to check by hand:
+     ```bash
+     psql "$DB_URL" -v migrated_at='2026-10-08 10:00:00+11' <<'SQL'
+     -- Ended rounds whose cards gained scores after hole N since the migration.
+     select s.id, s.round_id, r.nine_type, r.holes_played, s.updated_at
+     from scorecards s
+     join rounds r on r.id = s.round_id
+     where r.holes_played is not null
+       and s.updated_at > :'migrated_at'::timestamptz
+       and exists (
+         select 1 from jsonb_object_keys(coalesce(s.scores, '{}'::jsonb)) as k
+         where k ~ '^[0-9]+$'
+           and k::int > (case r.nine_type when 'back9' then 9 else 0 end) + r.holes_played);
+
+     -- Incomplete or ended-early cards written since the migration that carry a differential.
+     select s.id, s.round_id, s.updated_at, s.handicap_differential
+     from scorecards s
+     join rounds r on r.id = s.round_id
+     where s.updated_at > :'migrated_at'::timestamptz
+       and s.handicap_differential is not null
+       and r.deleted_at is null
+       and (r.holes_played is not null
+            or not scorecard_is_complete_for_handicap(s.scores, r.nine_type));
+     SQL
+     ```
+     (Piped on stdin because psql interpolates `:'migrated_at'` only in script input.)
+9. [ ] **Outstanding note.** Record the merge/deploy state in the outstanding-work notes: B1a migration staging/prod (with `migrated_at`), after-check results, QA done, build shipped, force-update raised, the 48-hour audit result, pushed or not.
 
 ---
 
@@ -42560,7 +46150,7 @@ The reasoning behind each group's contract amendments and hand-offs. Read your g
    - `B5a-1` engines + round-list pill (`resolveEndedAfter`) → `B5a-2` table utils + `computeMatchPlaySubMatch`.
    - `B5b-1` scoring-side wiring (hooks, team screen, `TeamMatchPlayScoreView`, both table components) → `B5b-2` finish-screen wiring (Review tabs, `MatchPlayScorecardScreen`, `SubMatchLeaderboardTab`).
    B5b-1 is ~810 lines; everything else is ≤ 730.
-2. **`compactMatchMargin` is produced by A1a-1, not B5a** (the contract says "B5a adds"). A1a-1 needs it to replace `subMatchLeaderboard.ts`'s identical private `normaliseMargin`, and A1a-2's `TeamMatchPlayScoreView` uses it. Signature and behaviour are exactly the contract's (`'5 & 4'`→`'5&4'`, `'2 up'`→`'2 UP'`, `'All Square'`→`'A/S'`, else unchanged). B6a consumes it from `@/utils/matchMargin`. B5a does not touch `matchMargin.ts`.
+2. **`compactMatchMargin` is produced by A1a-1, not B5a** (the first draft of the contract said "B5a adds"; the Interface Contract now says A1a-1). A1a-1 needs it to replace `subMatchLeaderboard.ts`'s identical private `normaliseMargin`, and A1a-2's `TeamMatchPlayScoreView` uses it. Signature and behaviour are exactly the contract's (`'5 & 4'`→`'5&4'`, `'2 up'`→`'2 UP'`, `'All Square'`→`'A/S'`, else unchanged). B6a consumes it from `@/utils/matchMargin`. B5a does not touch `matchMargin.ts`.
 3. **Additive export (A1b):** `standaloneMatchHoles(courseHoles: Hole[], nineType: string | null | undefined): Hole[]` in `src/utils/matchPlayResult.ts` — `filterHolesByNineType` with the untyped list-row `nineType` normalised ('front9'/'back9', else 'full'). It is the testable seam for the review fix "nine-filtered holes at both pill call sites": `useRoundList` has no hook harness (six chained Supabase queries), so the production composition `computeStandaloneMatchResult(a, b, standaloneMatchHoles(holes, round.nineType))` is pinned by a util test. **B9a hand-off:** `useRoundList.ts` already imports `computeStandaloneMatchResult`, `standaloneMatchHoles`, `type ScorecardForMatchPlay` and has `const matchHoles = standaloneMatchHoles(holes, round.nineType);` feeding both pill calls. If B9a makes `roundMetaByRound.holes` planned (nine-filtered), it may drop that line (re-filtering is a no-op, so keeping it is also safe); B9a adds `holesPlayed` as the 4th arg to both `computeStandaloneMatchResult` calls and must not re-import `filterHolesByNineType` for the pill.
 4. **I10 docs** are added by A1a-1 (blast-radius row after `SCORING_ARCHITECTURE.md:81`, invariant row after `:108`, coverage row after `scoring-invariant-coverage.md:15`); A1a-2 adds `TeamMatchPlayScoreView.tsx` to the row's consumers and updates the `:59` inventory row; A1b appends `utils/matchPlayResult.ts` and its test. **B11** must only extend the existing I10 row with the ended-early clause (and add I11/I12), not add a second I10 row.
 5. **BLOCKER fix (B5a-1):** the local decided-hole counter `let holesPlayed = 0;` is renamed `decidedHoles` in `calculateMatchStatus` (`matchPlayCalculations.ts:28`), `calculateTeamMatchStatus` (`teamMatchPlayCalculations.ts:49`) **and** A1b's `computeStandaloneMatchResult` (same collision). The ended-early walk is a private helper per engine (`calculateEndedEarlyMatchStatus` / `calculateEndedEarlyTeamMatchStatus`).
@@ -42593,8 +46183,8 @@ The reasoning behind each group's contract amendments and hand-offs. Read your g
    - The gate reads `nineType`, never `holes`.
    - The nine-aware Quick Score DHC goes in Appendix B under the split-out branch (see Follow-ups).
 6. **A4b owns `useLeagueQuickAddRound.ts:257-259`** (adds `nineType: 'full'`). **A4c owns every other edit in that file** and quotes the deps line (325) as A4b leaves it (unchanged).
-7. **A3b takes SQLite local migrations 19–21** (`sync_nine_type`, `sync_game_type`, `sync_holes`), with no `sync_holes_played` column.
-   - **B3a must use version 22** for `scorecards.holes_played`, and must append its value **after** `sync_holes` in the `saveScorecard` INSERT. A3b leaves the column list ending `…, server_revision, sync_nine_type, sync_game_type, sync_holes)` with 23 placeholders.
+7. **A3b takes ONE SQLite local migration, version 19** (`add_scorecard_sync_metadata`: three `ALTER TABLE scorecards ADD COLUMN` statements for `sync_nine_type`, `sync_game_type`, `sync_holes` in one `up`), with no `sync_holes_played` column.
+   - **B3a must use version 20** for `scorecards.holes_played`, and must append its value **after** `sync_holes` in the `saveScorecard` INSERT. A3b leaves the column list ending `…, server_revision, sync_nine_type, sync_game_type, sync_holes)` with 23 placeholders.
    - The multi-scorer branch also adds SQLite migrations. Whichever lands second renumbers (R12).
 8. **A7: the extension point for B1a.** Both A7 triggers delegate the eligibility decision to one helper:
    ```sql
@@ -42603,18 +46193,20 @@ The reasoning behind each group's contract amendments and hand-offs. Read your g
    **B1a extends both triggers by `CREATE OR REPLACE`-ing only this helper.** It looks up `rounds.nine_type` today. B1a adds `holes_played` to that lookup and returns `v_holes_played IS NULL AND scorecard_is_complete_for_handicap(...)`, so legacy `{}` / multi-ball cards on an ended round also lose the differential.
    - The trigger functions are `public.scorecards_full_card_differential()` and `public.handicap_combined_rounds_full_cards()`. Their names match the triggers. B1a should not need to touch them.
    - A7 also adds a non-contract helper, `public.scorecard_hole_has_strokes(JSONB)` (IMMUTABLE). The main predicate calls it.
-9. **A7 adds an audit table `public.handicap_full_card_fix_audit`.** The one-off data fix records every nulled card (id, player, round, nine type, old differential) before nulling it.
-   - The report script reads it for the "before" numbers. The model migration's temp table loses that data, so a "before vs after" report would be impossible once the UPDATE had run.
+9. **A7 adds two audit tables.** `public.handicap_full_card_fix_audit` records every nulled card (id, player, round, nine type, old differential, plus competition flag, course hole count, game type, team format and round creation time for the R22 breakdowns) before nulling it. `public.handicap_full_card_fix_player_audit` records each recomputed player's `old_handicap_index` / `new_handicap_index`.
+   - The report script reads them for the "before" numbers, and the migration's commented UNDO block restores from them. The model migration's temp table loses that data, so a "before vs after" report would be impossible once the UPDATE had run.
    - RLS is on, with no policies, and access is revoked from `anon` / `authenticated`.
-   - **Dry run:** the report script's header gives a `BEGIN; \i migration; \i report; ROLLBACK;` recipe, so Sam can see the full impact before applying.
-10. **A7 does not recompute `players.handicap_index` in SQL**, unlike the model migration. Per R21, the index is recomputed the next time the player's app recomputes it.
-    - `fetchHandicapHistory` (old and new clients) calls `updatePlayerHandicapIndex` on every Home / history load.
-    - A player whose **only** differentials were incomplete would have kept a stale index (the service returned early when nothing qualified). **A3-2 closes this:** with no qualifying round left it writes `handicap_index = NULL` (only on a row that still holds one). The report still lists these players ("projected NULL") so Sam can see who is affected.
+   - **Dry run:** the report reads objects the migration creates, so the "before" report is `BEGIN; \i migration; \i report; ROLLBACK;` (with `PGOPTIONS='-c default_transaction_read_only=off'` on the prod pooler, at a quiet time, staging first, then a go/no-go with Sam). The recipe is in the report header and A7 Step 6.
+10. **A7 recomputes `players.handicap_index` server-side** for every player who lost a differential, like the model migration `20260629000000_exclude_shared_ball_handicap.sql:50-122`. Old clients never clear the index (their `updatePlayerHandicapIndex` returns early when nothing qualifies), and other players read it, so waiting for each player's app is not enough.
+    - The projection is a function, `public.handicap_full_card_projected_index(UUID)`, that mirrors `updatePlayerHandicapIndex` as A3-2 leaves it. It returns NULL when nothing qualifies, and the data fix writes that NULL.
+    - The data fix is a function, `public.handicap_full_card_data_fix()`, so the verification script can run it on seeded bad data (trigger disabled inside its transaction) and check the recompute and the NULL case.
+    - **A3-2's clear stays.** It covers new clients going forward (e.g. a player whose last qualifying card is later removed).
 11. **A7's verification script is named `supabase/tests/full_scorecards_only_handicap.verify.sql`** as the contract says, although the existing scripts use `*_verify.sql`. B1a's script should use the same `.verify.sql` form for consistency within this feature.
 12. **A7's combined-rounds trigger is `BEFORE INSERT` only**, as the contract says. Nothing updates `front_scorecard_id` / `back_scorecard_id`.
 13. **Review findings, A3 test counts:** `-t 'locks current behaviour'` also matched the existing test at `calculateHandicapData.test.ts:69`. A3-1 tags its new characterization tests `(I12 lock)` and filters on that, so the counts are exact: calculateHandicapData 12 existing tests → 19, and recalc 16 existing tests → 21. The finding's "13" was also stale: the file has 16 `it(` blocks, and its final `});` is at line 413, not 362.
 14. **A3 multi-ball finding: no change.** On the client, a multi-ball card is judged per hole (any ball scored). The server sees `{}` (the `scorecardSync.ts:153-171` loop writes single-ball holes only) and treats it as legacy. Ended-early multi-ball cards are covered by B1a's helper replacement and B10c's belts.
 15. **Shared file — `src/hooks/player/handicapHistory.ts`:** A3-3 edits it, then B10c. **Shared file — `src/services/handicap/updatePlayerHandicapIndex.ts`:** A3-2 edits it, then B10c. **Shared file — `src/services/offline/dao/ScorecardDAO.ts`:** A3b edits it, then B3a.
+16. **A3-2 and A3-3 over-fetch.** The belts run after the query, so the index query (`updatePlayerHandicapIndex.ts`) and the history main + refresh queries (`handicapHistory.ts`) use `.limit(BELT_FETCH_LIMIT)` (60, module-private), and keep the 20 most recent qualifying rows (`WHS_RECENT_ROUNDS`) after the belts. A3-2 clears a stale index only when its fetch returned fewer than 60 rows. **For B10c:** the selects it extends end in `.limit(BELT_FETCH_LIMIT)`, not `.limit(20)`; its `.is('rounds.holes_played', null)` filters server-side and needs no other change. The candidate query keeps `.limit(20)`.
 
 ### Skins (A5a–A5d)
 
@@ -42643,12 +46235,16 @@ The reasoning behind each group's contract amendments and hand-offs. Read your g
 
    Every settlement and display path reads hole counts through this function, through `useSkinsHoleCounts` (which wraps it), or through a `select('*')` round row (ViewRound `round`, Review `roundDetails`). After B1b, all of them see `holes_played` with no further edits.
 4. **`calculatePlayedPot`** follows the contract: `calculatePlayedPot(game, holeCounts)` in `payouts.ts`. The settlement buy-in is `roundCurrency(calculatePlayedPot(game, holeCounts) / participants)`.
-   - For a round played as planned, this is exactly `calculateBuyIn(type, value, n, planned)`, so complete 18-hole games are byte-identical.
-   - A partial round is rounded twice (pot to the cent, then the buy-in). That stays inside I11's tolerance.
-5. **`awardSkinsAchievements` signature deviation.** The contract has `awardSkinsAchievements(game: SkinsGame)`. A non-hook function can't get the current player, `checkAndAward` (built from `useCheckAchievements` queries) or `showMultipleToasts` (React context). So it is `awardSkinsAchievements(game: Pick<SkinsGame, 'id' | 'pot_value'>, ctx: SkinsAchievementContext)`, where `ctx = { playerId, checkAndAward, showMultipleToasts }`.
+   - For a round played as planned, it is `calculateTotalPot(type, value, planned)`, so the buy-in is exactly `calculateBuyIn(type, value, n, planned)` and complete 18-hole games are byte-identical.
+   - For a round ended early (`holesPlayed < plannedHoles`), it is `roundCurrency(calculateHoleValue(type, value, planned) × holesPlayed)`: the rounded hole price the per-hole processing actually paid out, times the holes played. Winnings then sum to the played pot exactly. Scaling the unrounded pot (`pot × played / planned`) is **wrong**: a $25 total pot on a front nine ended after 3, 4 players, all tied, pays 3 × $2.78 = $8.34 of carryover but would price the pot at $8.33, so Σ net = +4¢.
+   - **`calculateSettledPot(game, payouts)`** (also `payouts.ts`) is the one place that reads a settled game's pot: Σ stored `buy_in` when the game is `completed` and has payouts, else `null`. `buildSkinsSummary`, `useSkinsGameState` and `resolveSkinsNetResults` all use it.
+5. **`awardSkinsAchievements` signature deviation.** The first draft of the contract had `awardSkinsAchievements(game: SkinsGame)`; the Interface Contract now has the signature below. A non-hook function can't get the current player, `checkAndAward` (built from `useCheckAchievements` queries) or `showMultipleToasts` (React context). So it is `awardSkinsAchievements(game: Pick<SkinsGame, 'id' | 'pot_value'>, ctx: SkinsAchievementContext)`, where `ctx = { playerId, checkAndAward, showMultipleToasts }`.
    - It lives in `src/services/skins/finalizeSkinsGame.ts`, as the contract groups it.
    - `useFinalizeSkinsGame.onSuccess` calls it (A5b-2). A6c's `useFinalizeSubmittedRound` calls it with the values from its own `useAuth` / `useCheckAchievements` / `useAchievementToast`.
-6. **`finalizeActiveSkinsForRound(roundId)`** takes no hole-count override (there's no conversion any more). It returns `{ finalized: boolean; game?: SkinsGame; error?: unknown }` and never throws. `error` is the caught value itself, not a message, so A6a can rethrow it if it wants a retry.
+6. **No hole-count overrides.** `finalizeSkinsGame(gameId)` and `finalizeActiveSkinsForRound(roundId)` take no `holeCounts` (there's no conversion any more, and no production caller had one). The Interface Contract reflects this: `finalizeSkinsGame(gameId: string): Promise<SkinsGame>`, not the first draft's `(gameId, holeCounts?)`.
+   - `finalizeActiveSkinsForRound` returns `{ finalized: boolean; game?: SkinsGame; error?: unknown }` and never throws. `error` is set whenever settlement failed, and is the caught value itself, not a message.
+   - **A6a hand-off:** `finalizeSubmittedRound` reads `skins.error` and returns it as `skinsError` (alongside `statusError`), and the queued `'finalize'` handler rethrows it so the item retries. A retry is safe: only `active` games are looked up.
+   - Both settlement paths (`finalizeSkinsGame`, `finalizeSkinsForSubMatch`) take participants from `game.participant_ids`, never from `fetchPlayerListByIds` (which swallows read errors).
 7. **A5b-1 does not touch `useFinalizeSkinsForRound`** (finding A5b). It still calls `useFinalizeSkinsGame().mutateAsync({ gameId })`, whose `mutationFn` now delegates to `finalizeSkinsGame(gameId)` with no override. That function reads the counts through `fetchSkinsHoleCounts`, so this interim path is already correct, and A6d deletes the hook.
 
    **Every settlement path uses `fetchSkinsHoleCounts`:**
@@ -42661,7 +46257,7 @@ The reasoning behind each group's contract amendments and hand-offs. Read your g
    - It returns `DEFAULT_SKINS_HOLE_COUNTS` while loading or with no round.
    - **B6c hand-off:** after a successful `end_round_early` RPC, invalidate `skinsKeys.holeCounts(roundId)` and `roundKeys.detail(roundId)`.
 9. **Review (A5d-1)** derives `skinsHoleCounts` from `roundDetails` (the `select('*')` row), falling back to `{ holeCount, holeCount }` while that loads. A5d-1 does not import `useScorecardStore` into Review.
-   - **B8 hand-off (done in `D9-finish-screens.md` B8-2):** to cover the offline window where `end_early` is still queued, B8-2 changes the memo to `getSkinsHoleCounts({ nine_type: roundDetails.nine_type, holes_played: roundDetails.holes_played ?? holesPlayed })` (`holesPlayed` from B7a-2's `useScoreReview` destructure, declared above the memo) and the loading fallback to `{ plannedHoles: holes.length || 18, holesPlayed: holeCount }` (B7b makes `holeCount` the played count). On MatchPlayScorecard, B8-2 renames A5c-2's line to `roundSkinsHoleCounts` and adds a `skinsHoleCounts` memo below the store destructure that substitutes the store's `holesPlayed` while the server row has none.
+   - **B8 hand-off (Task B8-2 does this):** to cover the offline window where `end_early` is still queued, B8-2 changes the memo to `getSkinsHoleCounts({ nine_type: roundDetails.nine_type, holes_played: roundDetails.holes_played ?? holesPlayed })` (`holesPlayed` from B7a-2's `useScoreReview` destructure, declared above the memo) and the loading fallback to `{ plannedHoles: holes.length || 18, holesPlayed: holeCount }` (B7b makes `holeCount` the played count). On MatchPlayScorecard, B8-2 renames A5c-2's line to `roundSkinsHoleCounts` and adds a `skinsHoleCounts` memo below the store destructure that substitutes the store's `holesPlayed` while the server row has none.
 10. **`SkinsTabContent`'s `totalHoles: number` prop is replaced by `holeCounts: SkinsHoleCounts`** (A5d-1). Later tasks (B7b / B8) must not pass `totalHoles` to it. `WolfTabContent` and `ShotLogList` keep `totalHoles={holeCount}`.
 11. **Finding "MatchPlayScorecardScreen: don't add a second `nineType`"** is satisfied. A5c-2 reads `useSkinsHoleCounts(roundId)` and never touches the store destructure.
 12. **Shared files:**
@@ -42675,11 +46271,12 @@ The reasoning behind each group's contract amendments and hand-offs. Read your g
 
 ### Round finalisation + app-wide sync (A6a–A6d)
 
-1. **`finalizeSubmittedRound` returns a superset: `{ completed, skinsGame, statusError }`.** Review finding A6a says "return `skinsGame` even when the status write throws". A rejecting function can't return anything, so `finalizeSubmittedRound` never rejects. A failed status read or write comes back as `statusError` (`null` when fine), after results and skins have run.
-   - The queue handler rethrows `statusError`, so the normal retry path runs. A retry re-runs the skins step harmlessly: `finalizeActiveSkinsForRound` only looks up `active` games.
-   - The online path (`finalizeOrQueueRound`, A6c) queues a `'finalize'` item and still hands back `skinsGame` for achievements.
-   - **B6b-1 exception:** B6b-1 makes `finalizeSubmittedRound` throw `RoundNotReadyError` (first statement) while an `'end_early'` item for the round is queued. A6c's `finalizeOrQueueRound` therefore wraps the call in `try/catch` and queues a `'finalize'` item on any throw, so any online failure to complete leaves a queued item.
-   - `{ completed, skinsGame }` consumers stay valid.
+1. **`finalizeSubmittedRound` returns a superset: `{ completed, skinsGame, statusError, skinsError }`.** Review finding A6a says "return `skinsGame` even when the status write throws". A rejecting function can't return anything, so `finalizeSubmittedRound` never rejects. A failed status read or write comes back as `statusError`, and a failed skins settlement as `skinsError` (the raw `error` from `finalizeActiveSkinsForRound`). Both are `null` when fine, and both are reported after results and skins have run.
+   - The queue handler throws on `statusError`, then on `skinsError`, so the normal retry path runs. Re-running is idempotent: the status write is a no-op on a completed round, `refinalizeRoundResults` deletes then inserts, and `finalizeActiveSkinsForRound` only picks up `active` games.
+   - Competition results errors are not retried: `refinalizeRoundResults` logs and swallows its own errors (see Follow-ups).
+   - The online path (`finalizeOrQueueRound`, A6c) keeps its `'finalize'` item whenever either error is set, and still hands back `skinsGame` for achievements.
+   - **B6b-1 exception:** B6b-1 makes `finalizeSubmittedRound` throw `RoundNotReadyError` (from the first statement of the private `runFinalizeSteps`, inside the in-flight mark, which `finally` releases) while an `'end_early'` item for the round is queued. A6c's `finalizeOrQueueRound` therefore wraps the call in `try/catch` and keeps its `'finalize'` item on any throw, so any online failure to complete leaves a queued item.
+   - `{ completed, skinsGame, statusError }` consumers stay valid.
 2. **`finalizeRoundStatus` returns `false` (no throw) when the round row is missing** (PostgREST `PGRST116`: deleted or not visible). Otherwise it **throws** on every read error (round, scorecards, sub_matches, pairings), as the contract says. Without this exception, a queued item for a deleted round would burn three retries into a retained failure.
 3. **Round items use an explicit entity key, `round:<roundId>:<action>`.** The default key from `getEntityKey` (`SyncQueueDAO.ts:323`) is `round:<id>`. With it, B6b's `'end_early'` item and the `'finalize'` item for the same round would upsert over each other (`ON CONFLICT(entity_key)`).
    - `queueRoundFinalize` uses `round:<id>:finalize`.
@@ -42695,12 +46292,13 @@ The reasoning behind each group's contract amendments and hand-offs. Read your g
    - Retry (`retryFailedSyncs`) then revives both rows, and the drain order uploads the card first.
 7. **`drain.ts` uses handler registration, not a dynamic import.** `initSyncService` calls `registerSyncDrainHandler(() => syncAll())`, so `drain.ts` has no import of the orchestrator at all. It imports only `networkState`. `requestSyncDrain` is a no-op until the service has started.
    - **Import rule:** `finalizeSubmittedRound.ts` must import `requestSyncDrain` from `@/services/offline/sync/drain` directly. The `@/services/offline/sync` barrel re-exports the orchestrator, which imports `finalizeSubmittedRound`, so going through the barrel creates a cycle. The same rule applies to B6b's `applyEndRoundEarly.ts`.
-8. **Start and foreground drains are requested by the app-root hook (`useAppSyncService`), not by `ensureSyncServiceStarted`.**
-   - The hook drains only once a user is signed in. On a cold start the Supabase session restores asynchronously. A drain fired before then would upload as anon, and the RLS branch of `syncAll` (`syncOrchestrator.ts:308-321`) retains every row as `failed` at once.
-   - `ensureSyncServiceStarted()` itself is idempotent and only starts the listeners and the drain handler.
+8. **No drain runs without a signed-in user, whatever triggers it.** Once A6b runs the service app-wide, it is up while signed out, and `syncAll` has three triggers that don't go through the app-root hook: the NetInfo online callback (`setOnOnlineCallback(syncAll)`), `queueScorecardSync`'s direct `syncAll()`, and `manualSync` / `retryFailedSyncs`. A signed-out drain is harmful: uploads hit the RLS branch of `syncAll` (`syncOrchestrator.ts:308-321`) and are retained as `failed`, and `finalizeRoundStatus` sees `PGRST116` (the round isn't visible to anon), returns `false`, and the queued `'finalize'` item is removed for good.
+   - **The gate is in `syncAll` itself.** `networkState.ts` holds the signed-in user id (`setSyncAuthUser(userId | null)`, `getSyncAuthUserId()`), and `syncAll` returns `false` at its first line while it is `null`. It starts `null`.
+   - `useAppSyncService` sets it from `useAuth().user?.id` on every change, before it requests the sign-in drain. On a cold start the Supabase session restores asynchronously, so the id stays `null` until it has.
+   - `ensureSyncServiceStarted()` itself is idempotent and only starts the listeners and the drain handler. Start and foreground drains are requested by `useAppSyncService`.
    - Test-only exports: `__resetSyncServiceForTests` (syncOrchestrator) and `__resetSyncDrainForTests` (drain). They follow the `__resetDatabaseState` precedent and are not re-exported from barrels.
 9. **`finalizeOrQueueRound` (A6c) also queues when this device has retained-failed cards for the round.** The finding asked for `hasUnsyncedScorecardsForRound` only. Without the extra check, a card retained as failed means nothing ever finalises the round after the user retries that card. The queued item then marks itself failed (note 6), so Retry fixes both.
-10. **`awardSkinsAchievements` signature (reconciled with `D3-skins.md` A5b-2; deviates from the header).** The header lists `awardSkinsAchievements(game: SkinsGame)`. Awarding needs the hook-bound `checkAndAward` (`useCheckAchievements`) and `showMultipleToasts` (context). A5b-2 exports:
+10. **`awardSkinsAchievements` signature (as A5b-2 exports it).** The first draft of the contract listed `awardSkinsAchievements(game: SkinsGame)`. Awarding needs the hook-bound `checkAndAward` (`useCheckAchievements`) and `showMultipleToasts` (context). A5b-2 exports:
     ```ts
     export interface SkinsAchievementContext { playerId: string; checkAndAward: …; showMultipleToasts: … }
     export async function awardSkinsAchievements(game: Pick<SkinsGame, 'id' | 'pot_value'>, ctx: SkinsAchievementContext): Promise<void>
@@ -42720,73 +46318,99 @@ The reasoning behind each group's contract amendments and hand-offs. Read your g
     |---|---|
     | `syncOrchestrator.ts` | A6a-3, A6b-1; B6b adds a case in `processRoundSync` |
     | `src/__tests__/services/offline/sync.test.ts` | A6a-3, A6b-1; B6b |
-    | `finalizeSubmittedRound.ts` | A6a-2, A6b-1 (`queueRoundFinalize` only); B6b widens `RoundSyncData` |
+    | `finalizeSubmittedRound.ts` | A6a-2, A6b-1 (`queueRoundFinalize` only); B6b widens `RoundSyncData` and adds its guard as the first statement of the private `runFinalizeSteps` (not of `finalizeSubmittedRound`, which only wraps it with the in-flight mark) |
+    | `networkState.ts` | A6b-1 (`setSyncAuthUser` / `getSyncAuthUserId`) |
+    | `DatabaseManager.ts` | A6b-2 (`getDb`) |
+    | `MatchPlayScoringScreen/index.tsx` | A6d-1 edits imports, the `matchStatus` destructure and `handleConfirmSubmit`; later B tasks edit its imports, hook calls and `RoundHeader` props. Find snippets by text, not line. |
     | `MatchPlayScorecardScreen/index.tsx` and its test | A5c may edit the skins section; A6d-1 edits the submit path; B5b/B7b edit later. Find snippets by text, not line. |
     | `useScoreSubmission.ts` | A6c; B8 and B10b later |
     | `useScoreSubmission.test.tsx` | A6c creates it; A6d-2 removes two pre-change mocks |
     | `docs/guides/SKINS_GAME.md` | A6d-2 edits lines 299 and 329 only. **B11 owns line 391** ("2. **Finalize Skins**: `useFinalizeSkinsForRound` …"). Per R14, B11 must not say `finalizeSubmittedRound` "runs the end-early RPC". |
     | `docs/guides/OFFLINE_ARCHITECTURE.md` | A6b-2, A6c. **B6b adds an `end_early` row** to the "Sync Queue Items" table and the drain-order line. |
-16. **Behaviour changes, to go into the commit messages and B11's Part A QA / Appendix B:**
+16. **Behaviour changes, to go into the commit messages and A6d-2's Part A rollout + QA:**
     - Offline submits on every screen now queue a `'finalize'` item, so offline-submitted rounds finalise.
     - Competition offline submits now write `round_results` through the queue.
     - Skins settlement and skins achievements are awaited before the success dialog, so submit is slower.
-    - Skins achievements are not fired when settlement happens in the queue (Appendix B).
+    - Skins achievements are not fired when settlement happens in the queue (see Follow-ups).
     - PlayerScorecard's single-card submit on a multi-player round no longer completes the round.
-    - Split singles competition rounds on MatchPlayScoringScreen no longer complete on the first sub-match.
+    - Split singles competition rounds on MatchPlayScoringScreen now write the user's sub-match result (as TeamMatchPlayScoringScreen does), and the round completes once every sub-match is terminal. Before, the first submit flipped the whole round to `completed` and no sub-match result was written.
     - MatchPlayScoringScreen submits now settle skins (they didn't before).
+    - A failed skins settlement after submit is retried by the queue.
+    - No drain runs while signed out.
     - `finalizeRoundStatus` no longer throws on an RLS 0-row refusal (it returns `false`), and throws on read errors instead of reading them as "not complete".
     - The sync service runs app-wide. It drains on sign-in/start and on foreground, and the scoring screens no longer tear down the NetInfo listener.
-17. **Line-number drift.** A5a/A5b/A5c run before these tasks and may touch `src/hooks/skins/*`, `MatchPlayScorecardScreen/index.tsx` (skins section) and `src/hooks/skins/index.ts`. Every edit below quotes the exact text; find it by text.
+17. **The online `'finalize'` item is durable from the start (A6c).** `finalizeOrQueueRound` writes the `round:<id>:finalize` row **before** the online attempt, without requesting a drain (`queueRoundFinalize(roundId, { requestDrain: false })`). It removes the row by entity key (`removeQueuedRoundFinalize`) only when the round is completed with no `statusError` and no `skinsError`, or when the round is waiting only on other devices. Otherwise it keeps the row and requests a drain. An app kill mid-finalise therefore leaves a durable item.
+    - **No double run.** `finalizeSubmittedRound` records the round as in flight for its duration (`isRoundFinalizeInFlight`). The queue's `processRoundFinalize` checks that first and waits (`RoundNotReadyError`), and `finalizeOrQueueRound` skips its own attempt (keeping the row) when the queue is already running it.
+18. **`getDb` waits for the schema (A6b-2).** `DatabaseManager.doInitialize` assigns `db` as soon as the file opens, before tables and migrations run, and `getDb` returned it whenever it was set. App-wide sync makes a DAO call during cold-start init likelier, so `getDb` now always awaits the memoised `initDatabase()` promise.
+19. **Cache refresh on finalise (A6a-2).** Besides `roundKeys.all`, `finalizeSubmittedRound` invalidates the leaderboards (`invalidateLeaderboardCache()`, i.e. `leaderboardKeys.all`), `competitionKeys.all` (`['competitions']`) and the Home round lists (`['home']`, the prefix of `['home', 'inProgressRounds', uid]` and `['home', 'upcomingRounds', uid]`). It does so on every run, not only on completion: results are written on every run, and the queue path has no screen to refresh them.
+20. **Where B6b-2 puts the "finalize blocked behind a failed `end_early`" fix.** `processRoundFinalize` (A6a-3) has a marked step between the retained-failed-cards check and the `finalizeSubmittedRound` call: `// Step 3 (B6b-2): end_early gate`. B6b-2 owns that fix and adds it there; A6a-3 leaves only the comment.
+21. **Part A ships alone.** A6d-2 ends with a "Part A rollout + QA" step: the A7 migration, the stuck-rounds fix, the build, the Part A on-device QA list and the watch. B11 covers only Part B.
+22. **Line-number drift.** A5a/A5b/A5c run before these tasks and may touch `src/hooks/skins/*`, `MatchPlayScorecardScreen/index.tsx` (skins section) and `src/hooks/skins/index.ts`. Every edit below quotes the exact text; find it by text.
 
-18. **Tasks split for size.** v2's A6a/A6b/A6d each came to over 750 plan lines, so they are split into consecutive tasks. Each one is red → green → commit on its own. **The Task Index must list:**
+23. **Tasks split for size.** v2's A6a/A6b/A6d each came to over 750 plan lines, so they are split into consecutive tasks. Each one is red → green → commit on its own. **The Task Index must list:**
 
     | # | Task | What it delivers |
     |---|------|------------------|
     | A6a-1 | `finalizeRoundStatus` | Reports completion; throws on read errors; tests moved to the service |
-    | A6a-2 | Finalise service + DAO | `finalizeSubmittedRound`, `queueRoundFinalize`, `RoundNotReadyError`, `hasUnsyncedScorecardsForRound` |
+    | A6a-2 | Finalise service + DAO | `finalizeSubmittedRound`, `queueRoundFinalize`, `removeQueuedRoundFinalize`, `isRoundFinalizeInFlight`, `RoundNotReadyError`, `hasUnsyncedScorecardsForRound`, `removePendingSyncByEntityKey` |
     | A6a-3 | Queue round items | `round` items after the fallback uploads; wait / fail / retry; B6b extension point |
-    | A6b-1 | Drain + start-once | `requestSyncDrain` (`drain.ts`), `ensureSyncServiceStarted`, `queueRoundFinalize` drains |
-    | A6b-2 | App root | `useAppSyncService` in `App.tsx`; `useOfflineSync` stops tearing down; `OFFLINE_ARCHITECTURE.md` |
+    | A6b-1 | Drain + start-once | `requestSyncDrain` (`drain.ts`), `ensureSyncServiceStarted`, `queueRoundFinalize` drains, `syncAll` gated on `setSyncAuthUser` |
+    | A6b-2 | App root | `useAppSyncService` in `App.tsx` (sets the sync user); `useOfflineSync` stops tearing down; `getDb` awaits init; `OFFLINE_ARCHITECTURE.md` |
     | A6c | Shared submit step + Review | (unchanged) |
-    | A6d-1 | Other submit paths | MatchPlayScorecard, MatchPlayScoring, PlayerScorecard via the shared step |
-    | A6d-2 | Dead hooks | Deletes `useFinalizeSkinsForRound`, `useRoundFinalization`, `useSubmitScorecards`; `pnpm verify:gate` (end of Part A) |
+    | A6d-1 | Other submit paths | MatchPlayScorecard, MatchPlayScoring (+ split singles sub-match result), PlayerScorecard via the shared step |
+    | A6d-2 | Dead hooks + Part A rollout | Deletes `useFinalizeSkinsForRound`, `useRoundFinalization`, `useSubmitScorecards`; `pnpm verify:gate` (end of Part A); Part A rollout + QA |
 
-    A6c is about 770 lines, just over the guideline. It isn't split, because its hook and the Review wiring are one reviewable change.
+    A6c is about 890 lines, over the guideline. It isn't split, because its hook and the Review wiring are one reviewable change.
 
 ### Migration, types, pure utils (B1a, B1b, B2)
 
-1. **A7 extension point (reconciled with `D2-handicap.md` A7).** A7 creates `scorecard_is_complete_for_handicap(JSONB, TEXT)`, the shared helper `public.scorecard_eligible_for_differential(p_round_id UUID, p_scores JSONB) RETURNS BOOLEAN` (plpgsql, `STABLE`, `SET search_path = public`, EXECUTE revoked from PUBLIC/anon/authenticated), and the triggers `scorecards_full_card_differential` / `handicap_combined_rounds_full_cards`, whose same-named trigger functions both call the helper. The combine trigger raises `'Both nines must be fully scored to combine'` with `ERRCODE 22023`. **B1a-1 `CREATE OR REPLACE`s only the helper**, adding `v_holes_played IS NULL AND …`; it does not redefine the trigger functions or recreate the triggers. The migration fails fast if either A7 function is missing. B1a-2 Test 3 catches `SQLSTATE '22023'` and Test 12 checks the helper body mentions `holes_played` and that A7's two triggers exist.
-2. **Error contract for B6b (`applyEndRoundEarly`).** PostgREST returns `{ code, message, details, hint }`. All three `22023` cases carry a stable `hint`:
+1. **A7 extension point.** A7 creates `scorecard_is_complete_for_handicap(JSONB, TEXT)`, the shared helper `public.scorecard_eligible_for_differential(p_round_id UUID, p_scores JSONB) RETURNS BOOLEAN` (plpgsql, `STABLE`, EXECUTE revoked from PUBLIC/anon/authenticated), and the triggers `scorecards_full_card_differential` / `handicap_combined_rounds_full_cards`, whose same-named trigger functions both call the helper. The combine trigger raises `'Both nines must be fully scored to combine'` with `ERRCODE 22023`. **B1a-1 `CREATE OR REPLACE`s only the helper**, adding `v_holes_played IS NULL AND …` and `SET search_path = public, pg_temp`; it does not redefine the trigger functions or recreate the triggers. The migration fails fast if either A7 function is missing. B1a-2 Test 3 catches `SQLSTATE '22023'` and Test 12 checks the helper body mentions `holes_played` and that A7's two triggers exist.
+2. **Migration order is one-way (for B11).** A7's migration also `CREATE OR REPLACE`s `scorecard_eligible_for_differential`, without the `holes_played` clause. **Never re-apply `20261007000100` after `20261007000200`**: it would silently drop the ended-early rule. If A7 must be re-applied, re-apply `20261007000200` straight after it (it is idempotent: `ADD COLUMN IF NOT EXISTS`, the CHECK in a `duplicate_object` guard, `CREATE OR REPLACE` / `DROP … IF EXISTS` everywhere).
+3. **Error contract for B6b (`applyEndRoundEarly`).** PostgREST returns `{ code, message, details, hint }`. Every `22023` case carries a stable `hint`:
    - `hint === 'round_already_ended'` ⇒ `EndRoundEarlyError('conflict')` with `serverHolesPlayed = Number(details)` (`details` is the server's N as text). This also covers a *completed* round ended at a different N.
-   - `hint === 'invalid_holes_played'` or `'round_completed'` ⇒ `'invalid'`.
+   - `hint === 'invalid_holes_played'`, `'round_completed'` or **`'round_not_in_progress'`** (new in v2.1: an `upcoming` round) ⇒ `'invalid'`. B6b-1's mapping already sends every `22023` that isn't `round_already_ended` to `'invalid'`, so no client code changes; only its comment should list the new hint.
    - `P0002` ⇒ `'not_found'` (spec R14: treat as done). `42501` ⇒ `'forbidden'` (not authenticated, competition round, or not owner/accepted participant).
    - Same N again ⇒ success (`RETURN` before any write, whatever the status).
-3. **Deviation from v1:** a competition round now raises `42501` (header), not v1's `22023`.
-4. **Same-N retry is a pure no-op.** It does not re-run the trims or the differential nulling (the first call did both; the trigger keeps differentials NULL). Contract: "the same N again is a no-op success".
-5. **Verify-script name:** `supabase/tests/end_round_early_verify.sql` follows the repo's `*_verify.sql` convention (the header names A7's script `full_scorecards_only_handicap.verify.sql`; either works, B11 should list the real names).
-6. **`fetchSkinsHoleCounts` location (reconciled with `D3-skins.md`).** A5a-2 puts it in `src/services/skins/roundHoleCounts.ts` (selecting `nine_type` with `.maybeSingle()`); the pure `SkinsHoleCounts` / `getSkinsHoleCounts` stay in `src/utils/skins/holeCounts.ts`. B1b changes the select to `'nine_type, holes_played'`, widens the cast's row type, updates A5a-2's `roundHoleCounts.test.ts` select assertion, and adds `src/__tests__/services/skins/fetchSkinsHoleCounts.holesPlayed.test.ts` (imports `@/services/skins/roundHoleCounts`).
-7. **`RoundMetadata.holesPlayed` is the server value only.** Its doc comment no longer mentions a "local end-early record" (R15). B3c merges it with the SQLite cards via `resolveRoundShape`.
-8. **`resolveRoundShape(server, local)`** takes `local = { nineType?, holesPlayed? }` (header), not v1's `EndedEarlyRecord`. Server `holes_played` wins when positive; otherwise local; non-positive on either side = not set. nineType: server → local → `'full'`.
-9. **`isHoleAfterEarlyEnd` returns `false` for a hole *before* the round's first hole** (hole 5 of a back 9). B3b's closed-holes guard must also check the hole is in the planned `holes` list (header: "null … when the hole is after the early end OR not in `holes`").
-10. **`EndRoundEarlyPlan` has no `convertToFront9`** (R12). An 18-hole round with 9 complete holes yields `{ holesPlayed: 9, plannedHoles: 18, lastHoleNumber: 9 }`, and `rounds_holes_played_check` accepts 9 on a `'full'` round.
-11. **Copy hand-off to B6a:** "End round after hole {lastHoleNumber}?" uses the internal hole number. Combo courses with `course.start_hole ≠ 1` display holes via `displayHoleNumber` (`src/utils/holeTransformers.ts:39`); B6a should render `displayHoleNumber(plan.lastHoleNumber, startHole)` (the sheet already takes `startHole`).
-12. **Review finding "Feed RPC drop/recreate verified correct"**: re-verified. The two bodies were regenerated from `20260905000150_ugc_moderation_feed.sql:23-198` by script, and a `diff` shows only the appended columns, the CTE `SELECT`/`GROUP BY` lines and the COMMENT/GRANT/DROP lines. The catalog check in `activity_feed_verify.sql` is now at lines 26-32 (v1 said 25-32).
-13. **Shared files:** `src/utils/holeTransformers.ts` (B2 adds after line 28; no other task edits these lines). `src/utils/endRoundEarly.ts` is created here; B6a appends `describeEndRoundEarlyResult`. `src/services/skins/roundHoleCounts.ts` (A5a-2 creates; B1b edits the select, row type and doc comment only). `src/hooks/scorecard/useRoundMetadata.ts` (B1b adds one field; B3c reads it).
-14. **Rollout dependency (for B11):** from B1b on, the app selects `rounds.holes_played` in `ROUND_METADATA_SELECT` and `fetchSkinsHoleCounts`. Against a database without the column both fail (PostgREST `42703`): no round opens for scoring and skins settlement throws. Deploy A7 then B1a-1 to staging, then prod, before shipping the build.
-15. **B1a is split** into **B1a-1** (migration + catalog check, ~580 plan lines) and **B1a-2** (verification script, ~680 plan lines): together they were ~1,200 lines. Run them in that order; nothing else depends on B1a-2. The Task Index row "B1a" maps to both.
-16. **Verification status.** The B2 suites (44 tests), B1b's `fetchSkinsHoleCounts` test (red with `select('nine_type')`, green after) and B1b's `useRoundMetadata` test (4 red → 5 green) were run in a scratch harness against the current worktree sources, and type-checked with `tsc`. The SQL was **not** executed (no database was available to the drafter); the static checks and the feed-body `diff` were run.
+4. **Order of the RPC checks:** authenticated → round exists (`P0002`) → standalone (`42501`) → owner/accepted (`42501`) → N in range (`invalid_holes_played`) → already ended (same N: no-op; else `round_already_ended`) → status must be `in-progress` (`completed` ⇒ `round_completed`, anything else ⇒ `round_not_in_progress`). The same-N no-op comes before the status check, so a queued retry after the round completed still succeeds.
+5. **Same-N retry is a pure no-op.** It does not re-run the trims, the score-key strip or the differential nulling (the first call did them; A7's trigger keeps differentials NULL).
+6. **Score keys after N are stripped server-side; `revision` is NOT bumped.** The RPC removes hole keys `> last` from every card's `scores` JSON for the round (non-numeric keys and `{}` cards are left alone). Totals (`total_gross` / `total_net` / `total_points` / `total_par_score`) are **not** recomputed: they are client-owned and arrive with the ending device's next snapshot (B3b-2's `endRoundEarly(n)` recomputes and schedules it). `write_scorecard_snapshot` (`20260714000000`) applies a snapshot only when `p_expected_revision = scorecards.revision`, and it is the only writer that bumps `revision`. The ending device's `endRoundEarly(n)` (B3b-2) strips its cards locally and syncs them with the revision it already holds; bumping `revision` in the RPC would make that snapshot a stale write and raise the false "changed on another device" banner (the self-conflict bug fixed in `9609f1ee`). Leaving `revision` alone means: the ending device's snapshot applies cleanly (it carries the same stripped scores); a second device that hasn't adopted the end yet can still write a snapshot that re-adds holes after N, but every reader slices with `filterPlayableHoles`, A7's trigger keeps the differential NULL, and that device strips them on its next init/adoption (B3c reconcile). A server-side strip on every later snapshot is a follow-up.
+7. **`holes_played` is RPC-only.** A `BEFORE UPDATE` trigger `trigger_guard_rounds_holes_played` on `rounds` raises `42501` when `holes_played` changes unless the transaction-local flag `app.ending_round` is `'on'` (only `end_round_early` sets it, around its one `UPDATE`, then sets it back to `'off'`), and raises `42501` when `nine_type` changes on a round whose `OLD.holes_played` is set. There is no service-role exemption: an admin fix runs `SELECT set_config('app.ending_round','on',true);` in the same transaction. The flag is transaction-local, so it never leaks across pooled connections, and clients cannot set it (PostgREST exposes no `set_config`). Consumers: B9g's nine-type lock is now also enforced by the server (a direct `nine_type` update on an ended round fails with `42501`); no client writes `holes_played` directly (all round updates are partial: `useUpdateRoundField`, `updateRound`, status flips).
+8. **Deviation from v1:** a competition round raises `42501` (header), not v1's `22023`.
+9. **Verify-script name:** `supabase/tests/end_round_early_verify.sql` follows the repo's `*_verify.sql` convention (the header names A7's script `full_scorecards_only_handicap.verify.sql`; B11 should list the real names).
+10. **`fetchSkinsHoleCounts` location.** A5a-2 puts it in `src/services/skins/roundHoleCounts.ts` (selecting `nine_type` with `.maybeSingle()`); the pure `SkinsHoleCounts` / `getSkinsHoleCounts` stay in `src/utils/skins/holeCounts.ts`. B1b changes the select to `'nine_type, holes_played'`, widens the cast's row type, updates A5a-2's `roundHoleCounts.test.ts` select assertion, and adds `src/__tests__/services/skins/fetchSkinsHoleCounts.holesPlayed.test.ts` (imports `@/services/skins/roundHoleCounts`).
+11. **`RoundMetadata.holesPlayed` is the server value only** (R15). B3c merges it with the SQLite cards via `resolveRoundShape`.
+12. **`resolveRoundShape(server, local)`** takes `local = { nineType?, holesPlayed? }` (header), not v1's `EndedEarlyRecord`. Server `holes_played` wins when it is a positive integer; otherwise local; a non-positive or non-integer value on either side = not set (the same rule as `filterPlayableHoles`). nineType: server → local → `'full'`.
+13. **`isHoleAfterEarlyEnd` returns `false` for a hole *before* the round's first hole** (hole 5 of a back 9). B3b's closed-holes guard must also check the hole is in the planned `holes` list (header: "null … when the hole is after the early end OR not in `holes`").
+14. **`EndRoundEarlyPlan` has no `convertToFront9`** (R12). An 18-hole round with 9 complete holes yields `{ holesPlayed: 9, plannedHoles: 18, lastHoleNumber: 9 }`, and `rounds_holes_played_check` accepts 9 on a `'full'` round.
+15. **Copy hand-off to B6a:** "End round after hole {lastHoleNumber}?" uses the internal hole number. Combo courses with `course.start_hole ≠ 1` display holes via `displayHoleNumber` (`src/utils/holeTransformers.ts:39`); B6a renders `displayHoleNumber(plan.lastHoleNumber, startHole)` (the sheet already takes `startHole`).
+16. **Feed RPC drop/recreate re-verified.** The two bodies were regenerated from `20260905000150_ugc_moderation_feed.sql:23-198` by script, and a `diff` shows only the appended columns, the CTE `SELECT`/`GROUP BY` lines and the COMMENT/GRANT/DROP lines. The catalog check in `activity_feed_verify.sql` is at lines 26-32.
+17. **Shared files:** `src/utils/holeTransformers.ts` (B2 adds after line 28; no other task edits these lines). `src/utils/endRoundEarly.ts` is created here; B6a appends `describeEndRoundEarlyResult`. `src/services/skins/roundHoleCounts.ts` (A5a-2 creates; B1b edits the select, row type and doc comment only). `src/hooks/scorecard/useRoundMetadata.ts` (B1b adds one field; B3c reads it).
+18. **Rollout dependency (for B11):** from B1b on, the app selects `rounds.holes_played` in `ROUND_METADATA_SELECT` and `fetchSkinsHoleCounts`. Against a database without the column both fail (PostgREST `42703`): no round opens for scoring and skins settlement throws. Deploy A7 then B1a-1 to staging, then prod, before shipping the build (and see note 2 on re-applying).
+19. **The typed RPC entry documents the shape only.** `createClient<Database>` (`src/services/supabase/client.ts:37`) resolves its schema to `never`, because the hand-written `Database` in `src/types/database/schema.ts` doesn't satisfy supabase-js 2.80's `GenericSchema` (checked with `tsc`: even the existing typed `supabase.rpc('get_player_scorer', {…})` fails with "not assignable to parameter of type 'undefined'" and returns `PostgrestSingleResponse<never>`). Every `.rpc` call in the app is cast (`scorecardSync.ts:261` `(supabase.rpc as any)('write_scorecard_snapshot', …)`, `permissions.ts:29` `'…' as unknown as never`). **B6b-1 must call it as:**
+    ```ts
+    type EndRoundEarlyArgs = Database['public']['Functions']['end_round_early']['Args'];
+    const args: EndRoundEarlyArgs = { p_round_id: roundId, p_holes_played: holesPlayed };
+    // createClient<Database> resolves rpc() to never (hand-written schema); the args stay typed above.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    result = await (supabase.rpc as any)('end_round_early', args);
+    ```
+    (Call it inline: `(supabase.rpc as any)(…)` compiles to `supabase.rpc(…)`, keeping `this`; never assign `supabase.rpc` to a variable first.)
+20. **B1a is split** into **B1a-1** (migration + catalog check) and **B1a-2** (verification script). Run them in that order; nothing else depends on B1a-2.
+21. **Verification status.** The B2 suites, B1b's `fetchSkinsHoleCounts` test (red with `select('nine_type')`, green after) and B1b's `useRoundMetadata` test (4 red → 5 green) were run in a scratch harness against the worktree sources at v2, and type-checked with `tsc`; the v2.1 `Number.isInteger` cases were hand-checked. The SQL was **not** executed (no database was available); the feed-body `diff` was run at v2, B1a-1's and B1a-2's v2.1 static checks were run against the SQL extracted from this plan (all counts as stated), and v2.1's fixture INSERTs were re-checked by hand against every NOT NULL / CHECK in the migrations (see B1a-2).
 
 ### Store end-early (B3a–B3c)
 
-1. **SQLite migration number (B3a).** Per `D2-handicap.md` (Contract note 7 there), A3b takes local migrations 19–21 (`sync_nine_type`, `sync_game_type`, `sync_holes`). B3a adds **`version: 22`, `add_scorecard_holes_played`**. The B3a test finds the `ALTER` by its SQL, not by its version number.
-2. **`ScorecardDAO` column order (B3a).** A3b leaves the INSERT ending `…, server_revision, sync_nine_type, sync_game_type, sync_holes)` with 23 placeholders. B3a appends `holes_played` last (24 placeholders), and its value goes after A3b's `sync_holes` value. A3b's round-trip test reads `slice(-3)`, so B3a deliberately updates it to `slice(-4, -1)`. B3a's own test finds the bound value by column name.
+1. **SQLite migration number (B3a).** Task A3b takes ONE local migration, version 19 (`add_scorecard_sync_metadata`, which adds `sync_nine_type`, `sync_game_type` and `sync_holes` in one `up`). B3a adds **`version: 20`, `add_scorecard_holes_played`**. The B3a test finds the `ALTER` by its SQL, not by its version number.
+2. **`ScorecardDAO` column order (B3a).** A3b leaves the INSERT ending `…, server_revision, sync_nine_type, sync_game_type, sync_holes)` with 23 placeholders. B3a appends `holes_played` last (24 placeholders), and its value goes after A3b's `sync_holes` value. A3b's round-trip tests read `slice(-3)` and assert `toHaveLength(23)`, so B3a deliberately updates them to `slice(-4, -1)` and `toHaveLength(24)`. B3a's own test finds the bound value by column name.
 3. **`endRoundEarly(n)` signature.** The store action is exactly `endRoundEarly: (n: number) => Promise<void>` (contract). Internally, `endRoundEarlySlice.endRoundEarly(get, set, n, options?)` takes `{ reconcile?: boolean }`, which B3c-1 adds. Init reconcile passes `reconcile: true` and skips the "device scores every player" check, for these reasons:
    - The check guards the scorer's **decision** to end, and it still applies to confirm and to conflict adoption (B6c), which both call the public action.
    - Reconcile only **adopts** an end that is already recorded, on the server or on this device's own SQLite cards. A device that scores only some players must also drop its cards' scores after N.
-   - In reconcile mode, snapshot syncs are scheduled only for cards this device may write (`allowedPlayerIds` empty or containing the player).
+   - In reconcile mode, a snapshot sync is scheduled only for a card that actually lost scores. A card that only needed its `holesPlayed` / tee re-stamped is persisted locally and not synced: the server already holds those scores, and the marker is local-only. (There is no `allowedPlayerIds` filter: every init path runs after `resetRound`, which empties it, so such a filter would never fire.)
+   - After the SQLite delete's `await`, the action re-checks `get().currentRoundId`. If the store was reset or re-initialised for another round meanwhile, it throws `EndRoundEarlyRoundChangedError` and changes no state.
+   - `scoresEveryPlayer(state)` is exported, so B6c's gate and the store's refusal use the same rule.
 
    Reconcile failures are logged and never fail the load.
-4. **Reconcile trigger is slightly wider than the header.** The header calls `endRoundEarly(N)` "when any card holds a score after N". B3c-1 also calls it when any card's `holesPlayed` differs from the resolved N. Example: phone A ended offline at 6, the server already says 8 (phone B was first), and A's cards still say 6. Without this, the SQLite marker would disagree with the store forever. Both conditions live in one exported helper, `needsEndRoundEarlyReconcile(state)`.
+4. **Reconcile trigger is slightly wider than the first draft of the contract**, which called `endRoundEarly(N)` only "when any card holds a score after N" (the Interface Contract now has both conditions). B3c-1 also calls it when any card's `holesPlayed` differs from the resolved N. Example: phone A ended offline at 6, the server already says 8 (phone B was first), and A's cards still say 6. Without this, the SQLite marker would disagree with the store forever. Both conditions live in one exported helper, `needsEndRoundEarlyReconcile(state)`.
 5. **"Not in `holes`" is checked in `applyScoreUpdate` (B3b-3).** The review was right: `updatePlayerHoleScore` (`scoreUpdateSlice.ts:168-210`), `updateShotContributions` (`:212-262`) and `updateLocalScore` (`:264-323`) write to any hole number. `applyScoreUpdate` now returns `null` when the hole is not in `holes` **or** `isHoleAfterEarlyEnd(...)` is true. This applies to every round, ended or not, so a write to hole 12 of a front-9 round is now a no-op. B3b-3 locks this with a test.
 6. **Watch (B3b-3).** `useWatchBridge` builds played holes with `filterPlayableHoles(holes, nineType, holesPlayed)` inside a `useMemo`. That is the same value as `getPlayedHoles()`, but a zustand selector that returns `getPlayedHoles()` would hand back a fresh array on every render and loop. The inbound write path calls `useScorecardStore.getState().getPlayedHoles()`. A write the guard would drop reports **`'error'`**, an existing `WatchWriteStatus`. The watch already shows `'error'` as a save failure (`ConnectivityClient.swift:106-108`), so no Swift change and no new status are needed.
 7. **`submitScorecards` stamps `holesPlayed` only when the round is ended.** It uses `...(holesPlayed != null && { holesPlayed })`, so the payload of a round played as planned is unchanged, and so are existing exact-match tests. `initializeRound` stamps new cards the same way. B4 reads `scorecard.holesPlayed` on both sync paths:
@@ -42794,6 +46418,8 @@ The reasoning behind each group's contract amendments and hand-offs. Read your g
    - `rowToScorecard`, through B3a.
 8. **`initializeRound` reads the local SQLite cards (B3c-1).** It calls `getScorecardsByRound(roundId)` before it overwrites the rows, so a local end this device recorded is kept. It does this per the contract's `resolveRoundShape(serverRow, { nineType, holesPlayed: max(cards' holesPlayed) })`. A read failure is logged and treated as "no local marker".
 9. **TeamMatchPlayScoringScreen (B3c-2)** is the line swap to `resolveRoundShape(roundData)`, plus passing `roundShape.holesPlayed` as `initializeRound`'s new 12th argument (with `undefined` for `startHole`) and adding it to the effect's deps. Without that argument, a fresh device opening an ended team match would start unended. It assumes A2a declared `const roundNineType: NineType = roundData?.nine_type ?? 'full';` and passes `new Map(), roundNineType` to `initializeRound`.
+   - The init effect used to `return` as soon as the store was initialised for the round, so an end recorded on the server by another device was never picked up. B3c-2 adds the same divergence check as `useMatchPlayData`: when the server's `holes_played` is set and differs from the store's, it calls `resetRound()` once per `(round, holes_played)` (a one-shot ref), then `loadFromOffline`.
+   - It reads the store's value with `useScorecardStore.getState()` inside the effect, not with a new hook-level selector, because B5b-1 later adds `const storeHolesPlayed = useScorecardStore((s) => s.holesPlayed)` to this screen and the names must not collide.
 10. **Shared files, by task:**
     - `src/store/scorecardStore.ts`: B3b-1, B3b-2 and B3c-1 here. B6d is likely to clamp `setCurrentHole`, and none of these tasks touch `setCurrentHole` (lines 237-243).
     - `src/store/initializeRoundSlice.ts`: B3b-1 and B3c-1.
@@ -42807,16 +46433,16 @@ The reasoning behind each group's contract amendments and hand-offs. Read your g
     - **Atomic removal across players:** fixed. There is one `deleteHoleScoresForCards` call, before any state change, and the test asserts that the store was untouched at call time.
     - **Unknown holes:** see note 5.
     - **TeamMatchPlay duplication:** see note 9.
-    - **Tee lost on relaunch:** fixed by stamping `teeData`. Review Focus #1 asserts that the net is still 21 (tee kept) and not 18 (tee lost).
+    - **Tee lost on relaunch:** fixed by stamping `teeData`. Review Focus #1 asserts that the net is still 21 (tee kept) and not 18 (tee lost). That test models a relaunch **online** before the queued `end_early` drains; a true offline cold start is out of scope (R15).
     - **`initializeRound` `holesPlayed`, guards comparing `holesPlayed`, reconcile, Watch:** done.
-    - **"Scores can't reappear":** I kept the v1 reasoning for devices that already hold scores. I found one remaining window, on a fresh device; it is listed in Follow-ups.
+    - **"Scores can't reappear":** devices that already hold scores are covered by the SQLite delete and the snapshot sync. The fresh-device window (`hydrateFromSupabase` pulling holes after N from a not-yet-trimmed server snapshot) is closed in B3c-2: both merges skip keys where `isHoleAfterEarlyEnd(nineType, holesPlayed, hole)`.
 
 13. **Split for size.** The redesigned B3b and B3c each ran past 1,300 plan lines, so they are split along natural seams. Run order: B3a → B3b-1 → B3b-2 → B3b-3 → B3c-1 → B3c-2. Later tasks that cite "B3b" or "B3c" mean the whole group.
-    - **B3b-1:** store `holesPlayed` state, `getPlayedHoles`, the submit payload, the test harness and the store mock.
+    - **B3b-1:** store `holesPlayed` state, `getPlayedHoles`, the submit payload and the test harness.
     - **B3b-2:** `endRoundEarly(n)`.
     - **B3b-3:** the closed-holes guard and the Watch.
     - **B3c-1:** store init paths and reconcile.
-    - **B3c-2:** the `useRoundData` / `useMatchPlayData` guards and the team screen.
+    - **B3c-2:** the `useRoundData` / `useMatchPlayData` guards and hydrate filters, and the team screen.
 
 ### Net over holes played + end-early client (B4, B6b)
 
@@ -42841,24 +46467,36 @@ The reasoning behind each group's contract amendments and hand-offs. Read your g
 
    The golden file is not edited.
 7. **B4: the ended-early belt in `calculateHandicapData`** is keyed on `scorecard.holesPlayed != null`. It goes immediately before the function's final `return {`, after A3's completeness gate, which it doesn't touch. B10c owns the other `holes_played` belts.
-8. **B6b: entity keys follow A6a's per-action scheme (reconciled with `D4-finalise-sync.md`).** `SyncQueueDAO.getEntityKey` would key every `round` item `round:<id>`, and `addPendingSync` upserts on `entity_key`, so A6a-2's `queueRoundFinalize` passes `round:<id>:finalize` and B6b's `queueRoundEndEarly` passes `roundEndEarlyEntityKey(roundId)` = `round:<id>:end_early`. Both then call `requestSyncDrain(...)`.
+8. **B6b: entity keys follow A6a's per-action scheme.** `SyncQueueDAO.getEntityKey` would key every `round` item `round:<id>`, and `addPendingSync` upserts on `entity_key`, so A6a-2's `queueRoundFinalize` passes `round:<id>:finalize` and B6b's `queueRoundEndEarly` passes `roundEndEarlyEntityKey(roundId)` = `round:<id>:end_early`. Both then call `requestSyncDrain(...)`.
 9. **B6b: two exports beyond the contract**, both in `applyEndRoundEarly.ts`: `roundEndEarlyEntityKey(roundId)` and `hasQueuedRoundEndEarly(roundId): Promise<boolean>` (reads `getQueuedEntityKeys()`; pending or retained rows).
    - The `EndRoundEarlyError` constructor is `(code, message, options?: { serverHolesPlayed?: number | null })`.
    - **Code mapping (B1a-1's error contract):**
      - `22023` with `hint === 'round_already_ended'` → `'conflict'`. `serverHolesPlayed` = `Number(details)` when that is a positive integer; otherwise `fetchRoundHolesPlayed` (a number, `null` when the server has none, `undefined` when the read failed).
-     - any other `22023` (`hint` `'invalid_holes_played'` / `'round_completed'` / none) → `'invalid'`.
+     - any other `22023` (`hint` `'invalid_holes_played'` / `'round_completed'` / `'round_not_in_progress'` (an `upcoming` round) / none) → `'invalid'`.
      - `P0002` → `'not_found'`. `42501` → `'forbidden'` (not authenticated, competition round, not owner/accepted participant).
      - `22P02` / `23514` and client-side argument checks (empty id; N not a positive integer) → `'invalid'`.
-     - Everything else → `'network'`: a thrown fetch, an empty code, a timeout, a 5xx, or `PGRST202` (RPC missing because the migration isn't deployed). **`'network'` means "transient; safe to retry".**
+     - Everything else → `'network'`: a thrown fetch, an empty code, a statement timeout, a 5xx, or `PGRST202` (RPC missing because the migration isn't deployed). **`'network'` means "transient; safe to retry".**
+     - `round_not_in_progress` (B1a-1) and any future `22023` hint fall into "any other `22023`" → `'invalid'` with no code change; a test pins it.
+   - **Client timeout:** the RPC gets `END_ROUND_EARLY_TIMEOUT_MS` (8 s). postgrest-js 2.80.0 (installed) supports `.abortSignal(signal)` on the `rpc` builder (`PostgrestTransformBuilder`), and an aborted fetch resolves as an error with an empty code. The call also races a timer, so a hung request rejects at 8 s even if the abort is never honoured. Both map to `'network'`.
+   - **Typing:** the arguments are typed from B1b's entry (`const args: EndRoundEarlyArgs = …`, `EndRoundEarlyArgs = Database['public']['Functions']['end_round_early']['Args']`), and the call is inline `(supabase.rpc as any)('end_round_early', args)` with `// eslint-disable-next-line @typescript-eslint/no-explicit-any`, as at `scorecardSync.ts:260-261`. `createClient<Database>` resolves the rpc Schema to `never`, so the call itself can't be typed. Never assign `supabase.rpc` to a variable first (it loses `this`).
 10. **B6b: a `'finalize'` must not overtake a queued `'end_early'`.**
     - The RPC refuses a completed round whose `holes_played` is NULL (`22023 round_completed`). If finalize ran first, the early end would be lost for good.
-    - B6b-1 therefore adds a guard as the **first statement of `finalizeSubmittedRound`** (A6a-2's file): `if (await hasQueuedRoundEndEarly(roundId)) throw new RoundNotReadyError(roundId)`. This is the one exception to A6a's "never rejects".
+    - B6b-1 therefore adds a guard as the **first statement of A6a-2's private `runFinalizeSteps`** (not of `finalizeSubmittedRound`, which only wraps `runFinalizeSteps` with the in-flight mark): `if (await hasQueuedRoundEndEarly(roundId)) throw new RoundNotReadyError(roundId)`. The throw passes through `finalizeSubmittedRound`'s `try/finally`, so the in-flight mark (`isRoundFinalizeInFlight`) is always released. This is the one exception to A6a's "never rejects".
+    - **No deadlock.** The guard only reads the queue. The online path (A6c's `finalizeOrQueueRound`) has already written its durable `'finalize'` row, catches the throw and requests a drain; the drain runs `'end_early'` first (it never waits for cards or the in-flight mark), then the `'finalize'` item, whose `isRoundFinalizeInFlight` check is false by then because the mark was released in `finally`.
     - **Queue path:** A6a-3's `processRoundSyncs` keeps a `RoundNotReadyError` item pending, with no retry spent. `orderRoundSyncs` already runs `'end_early'` before `'finalize'`.
-    - **Online path:** A6c's `finalizeOrQueueRound` wraps `finalizeSubmittedRound` in `try/catch` and queues a `'finalize'` item on any throw (reconciled in `D4-finalise-sync.md` A6c). `queueRoundFinalize`'s `requestSyncDrain` then runs both in order.
-    - **If the end-early row is retained as `failed`,** finalize keeps waiting. The user retries it (which revives it, then the finalize runs) or discards it (finalize proceeds). This is deliberate (see Follow-ups).
+    - **Online path:** A6c's `finalizeOrQueueRound` writes its `'finalize'` row first, wraps `finalizeSubmittedRound` in `try/catch`, keeps the row on any throw and requests a drain, which runs both in order.
+    - **If the end-early row is retained as `failed`** (only `'forbidden'` / `'invalid'` / malformed get there; `'network'` never does, see note 12), B6b-2 makes A6a-3's `processRoundFinalize` throw `RoundSyncPermanentError` too, at A6a-3's `// Step 3 (B6b-2): end_early gate` marker (after the retained-failed-cards check, before the `finalizeSubmittedRound` call), so both rows fail together and Retry revives both (the drain then runs the end first). If the user discards the end-early row instead, the finalize proceeds on its next run.
     - **Hand-off to anyone testing the real `finalizeSubmittedRound`** with a factory mock of `@/services/offline/database`: that mock must include `getQueuedEntityKeys`, or `@/services/rounds/applyEndRoundEarly` must be mocked. B6b-1 adds that mock to A6a-2's `finalizeSubmittedRound.test.ts`.
 11. **B6b: `'end_early'` items skip the `hasUnsyncedScorecardsForRound` wait.** A6a-3 already puts that wait in `processRoundFinalize`, not the dispatcher, so B6b-2's `case 'end_early'` in `processRoundSync` never reaches it. The RPC doesn't depend on this device's card uploads, and running it early is what R14/R16 want.
-12. **B6b-2 uses A6a-3's extension point as written:** one `case 'end_early'` in `processRoundSync`'s switch, plus `processRoundEndEarlySync`, which throws A6a-3's module-private `RoundSyncPermanentError` for `'forbidden'` / `'invalid'` / a malformed item (retained `failed`, no retries), returns normally for `'conflict'` / `'not_found'` (item removed), and rethrows `'network'` (normal retry path). `orderRoundSyncs` and the drain `catch` are unchanged.
+12. **B6b-2 uses A6a-3's extension point:** one `case 'end_early'` in `processRoundSync`'s switch, plus `processRoundEndEarlySync`:
+    - `'forbidden'` / `'invalid'` / a malformed item → A6a-3's module-private `RoundSyncPermanentError` (retained `failed`, no retries);
+    - `'conflict'` / `'not_found'` → returns normally (item removed). On `'conflict'` with a numeric `serverHolesPlayed`, when the scoring store has this round open (`useScorecardStore.getState().currentRoundId === roundId`), it adopts the server's N with the store action `endRoundEarly(serverN)`; otherwise the next load's init reconcile (B3c-1) adopts it;
+    - `'network'` → a new module-private `RoundSyncDeferredError`: the item stays pending **without spending a retry**, like `RoundNotReadyError`. The RPC is idempotent, so retrying forever is safe.
+    - After an applied or conflict-adopted end it invalidates `skinsKeys.holeCounts(id)` and `roundKeys.detail(id)` through the `queryClient` singleton, as B6c-1 does online.
+
+    B6b-2 edits A6a-3's code in three places: `processRoundSyncs`' catch also keeps a `RoundSyncDeferredError` pending; `processRoundFinalize`'s step 3 marker becomes a check that throws `RoundSyncPermanentError` while the round's `end_early` row is retained `failed` (note 10); and the dispatch case. `orderRoundSyncs` is unchanged.
+    - **Store option name:** the store action is exactly `endRoundEarly: (n: number) => Promise<void>` (B3b-2); the `{ reconcile: true }` option exists only on the slice function `endRoundEarlySlice.endRoundEarly(get, set, n, options)` (B3c-1) and isn't reachable from outside the store. The queue therefore calls the plain action, like B6c-1's online conflict adoption. The device that queued the end passed its "scores every player" check; if the action throws anyway, the error is logged and the next load's reconcile adopts the N.
+    - **Circular import:** the store imports the sync barrel (`scorecardPersistence.ts`), so `syncOrchestrator.ts` reaches the store with a lazy `require` inside the conflict path, never a static import.
 13. **B6b has no UI and no store calls.** For B6c:
     - on `'network'`: end locally, then `queueRoundEndEarly`;
     - on `'conflict'`: adopt `error.serverHolesPlayed` when it is a number. Otherwise call `fetchRoundHolesPlayed`; if that is still not a number, show an error;
@@ -42867,8 +46505,8 @@ The reasoning behind each group's contract amendments and hand-offs. Read your g
 14. **B11 docs:** add the `'end_early'` item semantics to `OFFLINE_ARCHITECTURE.md`:
     - its own entity key;
     - it doesn't wait for cards;
-    - conflict / not_found are done; forbidden / invalid (incl. 22023 `invalid_holes_played` / `round_completed`) are retained; network is retried;
-    - finalize waits for it.
+    - conflict / not_found are done (a conflict is adopted into the open round, else on next load); forbidden / invalid (incl. 22023 `invalid_holes_played` / `round_completed`) are retained; network stays pending without spending retries;
+    - finalize waits for it while it is pending, and is retained `failed` with it when it is retained.
 15. **Size splits.** As single tasks, B4 ran to about 1,470 plan lines and B6b to about 940, so both are split.
     - **B4-1:** calc + sync snapshot + belt. **B4-2:** mismatch resolution + `useResolveMismatch`.
     - **B6b-1:** the `applyEndRoundEarly.ts` service + the finalize guard. **B6b-2:** the sync-queue handler.
@@ -42879,7 +46517,7 @@ The reasoning behind each group's contract amendments and hand-offs. Read your g
 0. **Split for size.** Each task is split in two along a natural seam, and each half commits on its own. Run them in this order: B6a-1 → B6a-2 → (B6b) → B6c-1 → B6c-2 → B6d-1 → B6d-2.
    - **B6a-1** is the result text; **B6a-2** is the header ⋮ action and the sheet.
    - **B6c-1** is the hook; **B6c-2** is the screen wiring.
-   - **B6d-1** is the banner, the played-hole range hook and the submit guard; **B6d-2** applies them to the screens.
+   - **B6d-1** is the banner and the played-hole range hook; **B6d-2** applies them to the screens.
 
    The notes below say B6a / B6c / B6d for both halves.
 1. **`describeEndRoundEarlyResult` input (B6a).** The contract leaves the input type open ("see B6a"). B6a defines these in `src/utils/endRoundEarly.ts`, and B6c consumes them:
@@ -42892,22 +46530,27 @@ The reasoning behind each group's contract amendments and hand-offs. Read your g
 4. **`useEndRoundEarly` (B6c) matches the header signature exactly.** Details the contract doesn't spell out:
    - **"In progress"** is judged offline from the local cards: no card in the store is `completed` / `confirmed`. A server-side `completed` round with in-progress local cards gets `22023 round_completed` from the RPC, which maps to `'invalid'` (error toast, no change).
    - **`'not_found'` (P0002) is treated as "the server step is done".** The hook ends the round locally, does **not** queue anything, and calls `onEnded(n)`. The prompt lists `not_found → done` separately from `forbidden`/`invalid → no local change`, and a round with no server row has nothing to trim there.
-   - **`'conflict'`** (B1a-1: 22023 with HINT `round_already_ended` only) adopts `EndRoundEarlyError.serverHolesPlayed` when it is a number, else calls `fetchRoundHolesPlayed(roundId)`. If that is still not a number (or the read fails), the hook shows an error toast and changes nothing locally. Other 22023s (`invalid_holes_played`, `round_completed`) arrive as `'invalid'` (error toast, no change).
-   - **After a successful RPC, or an adopted conflict,** the hook invalidates `skinsKeys.holeCounts(roundId)` and `roundKeys.detail(roundId)` via the `queryClient` singleton (D3 hand-off).
+   - **`'conflict'`** (B1a-1: 22023 with HINT `round_already_ended` only) adopts `EndRoundEarlyError.serverHolesPlayed` when it is a number, else calls `fetchRoundHolesPlayed(roundId)`. If that is still not a number (or the read fails), the hook shows an error toast and changes nothing locally. Other 22023s (`invalid_holes_played`, `round_completed`, `round_not_in_progress`) arrive as `'invalid'` (error toast, no change).
+   - **After a successful RPC, or an adopted conflict,** the hook invalidates `skinsKeys.holeCounts(roundId)` and `roundKeys.detail(roundId)` via the `queryClient` singleton (A5c-1's `useSkinsHoleCounts` reads the first key). It does this only **after** `await endRoundEarly(n)` has returned (or thrown). A refetch that lands mid-end would show the B3c-2 round-shape guard a server `holes_played` while the store's `holesPlayed` is still `null`, and the guard would reset the round under the running end.
+   - **The "scores every player" gate** is the store's exported `scoresEveryPlayer(state: { allowedPlayerIds; currentPlayers; groupScorecards }): boolean` from `src/store/endRoundEarlySlice.ts` (B3b-2), imported, never re-implemented or shadowed locally, so the hook offers the action exactly when `endRoundEarly(n)` would accept it.
+   - **A local end that throws** (`EndRoundEarlyRoundChangedError` because the store was reset or re-initialised for another round during the SQLite delete, the "scores every player" refusal, or a SQLite failure) lands in the hook's generic catch: error toast, no `onEnded`, and **no queue write**, because `queueRoundEndEarly` runs only after the local end returns. If the RPC had already succeeded, the round-shape queries are still invalidated so the next load adopts the server's N (B3c-1 reconcile); if it hadn't, nothing was sent, and the scorer can end again.
+   - **The handicap warning (R22).** `sheetProps.handicapRound` is `handicapSource !== 'none'` (store). The sheet then reads "This is a handicap round. Ending it early makes it a practice round, and it won't count towards your handicap index." instead of the generic handicap line.
+   - **The match preview's planned count** is `filterHolesByNineType(holes, nineType).length`, the same count B5b's match views pass as `totalHoles` (`holes.length` of the nine-filtered list). It is not `plan.plannedHoles` (`getHoleCount(nineType)`), which says 18 for a `'full'` round on a 9-hole course.
    - **Errors are classified with `error instanceof EndRoundEarlyError`.** B6b must export the class from `src/services/rounds/applyEndRoundEarly.ts`. The hook test mocks that module with its own class (it never relies on B6b's constructor signature). Any other thrown value goes to the generic "Could not end the round" toast.
    - **Online is checked at confirm time** with `checkIsOnline()` from `@/hooks/useOnlineStatus`.
+   - **A request timeout inside `applyEndRoundEarly`** arrives as `'network'`: B6b-1 bounds the RPC at `END_ROUND_EARLY_TIMEOUT_MS` (8 s, abort signal plus a timer race). The hook then ends locally, queues, and calls `onEnded(n)`. While the request is pending the sheet shows "Ending…" and ignores Cancel; Cancel works again as soon as the call settles (at the latest after 8 s).
    - **A queue write failure** after the local end goes to the generic error toast. The store is already ended at that point, so the banner (B6d) shows and Finish still works. See Follow-ups.
 5. **`EndedEarlyBanner` is created in B6d, not B7a.** Run order is B6a → B6b → B6c → B6d → B7a, so B6d creates `src/components/scorecard/EndedEarlyBanner.tsx` exactly to the contract (`EndedEarlyBannerProps { holesPlayed: number; nineType: NineType; onFinish?: () => void }`). It also adds the barrel export in `src/components/scorecard/index.ts`.
    - **B7a must import it** and must not recreate it. B7a-2 imports it by direct path (`@/components/scorecard/EndedEarlyBanner`), because `MatchPlayScorecardScreen.test.tsx` mocks the `@/components/scorecard` barrel. B7a's tests rely on the label being one `Text` node and on "Finish" rendering only with `onFinish` — both true of this implementation.
    - **On Review and MatchPlayScorecard**, B7a renders it **without** `onFinish`, so no Finish button shows.
    - The label comes from `formatEndedEarlyLabel` (B2): "Ended after 6 of 9".
-6. **New hook not in the contract: `usePlayedHoleRange` (B6d).** It lives at `src/hooks/scorecard/usePlayedHoleRange.ts` and is exported from `src/hooks/scorecard/index.ts`.
+6. **New hook: `usePlayedHoleRange` (B6d; now in the Interface Contract).** It lives at `src/hooks/scorecard/usePlayedHoleRange.ts` and is exported from `src/hooks/scorecard/index.ts`.
    - Signature: `usePlayedHoleRange({ roundId, holes, currentHole, setCurrentHole }): { isEnded; holesPlayed; nineType; navigableHoles; firstHoleNumber; lastHoleNumber }`.
    - **Why it exists:** the three screens keep different `currentHole` state (the store's for ScorecardEntry, `useState` on both match screens). One tested hook does the clamp for all of them instead of three hand-written effects.
    - `navigableHoles` is `filterPlayableHoles(holes, store.nineType, store.holesPlayed)` once ended. Otherwise it is the screen's `holes` unchanged (same reference), so behaviour is byte-identical for every round that isn't ended.
    - It only treats the round as ended when `store.currentRoundId === roundId`.
 7. **Submit routing:**
-   - **`ScorecardEntryScreen`:** `useScorecardSubmission` reads `useScorecardStore.getState().holesPlayed` at call time. When it is set, `handleSubmit` and `performSubmit` navigate to `ReviewScorecard` without submitting. No new hook parameter is needed. (`handleSubmit` has no caller in the screen today, but it is guarded anyway.) The footer's "Review Scores" button is forced on while ended.
+   - **`ScorecardEntryScreen`:** the footer's "Review Scores" button is forced on while ended, and the banner's Finish goes to Review. `useScorecardSubmission` is **not** changed: its `handleSubmit` has no caller in the screen, and `performSubmit` is reachable only through the incomplete-holes dialog that `handleSubmit` opens, so a guard there would protect dead code (see Follow-ups).
    - **Both match screens:** the footer's `onSubmitMatch` becomes the screen's existing `handleViewScorecard` while ended. That is MatchPlayScorecard for singles and ReviewScorecard for team. A6d's `handleConfirmSubmit` body is untouched.
 8. **Depends on B5b:** the store's `holesPlayed` reaches `useMatchPlayScoring` and `useTeamMatchPlayState`, so `isMatchComplete` turns true after the end. B6d also passes `isMatchComplete || isEnded` to the footers, so Submit/Finish is never disabled on an ended round.
 9. **Shared files:**
@@ -42917,7 +46560,7 @@ The reasoning behind each group's contract amendments and hand-offs. Read your g
    - `RoundHeader.tsx`: B6a only.
    - `ScorecardEntryScreen/index.tsx`: B6c, then B6d. No earlier task edits it.
    - `MatchPlayScoringScreen/index.tsx`: A6d changes lines 35, 53-58 and 386-423, then B6c, then B6d. B6c/B6d anchors avoid A6d's lines.
-   - `TeamMatchPlayScoringScreen/index.tsx`: A2a, B3c, B5b, then B6c, then B6d. The "Current" snippets that A2a changed are quoted "(as A2a leaves it)", from v1 A2a's text. If v2 A2a named things differently, apply the same change to the equivalent lines.
+   - `TeamMatchPlayScoringScreen/index.tsx`: A2a, B3c, B5b, then B6c, then B6d. The "Current" snippets that A2a changed are quoted "(as A2a leaves it)": A2a-2 declares `roundNineType` and `{ holes, firstHoleNumber, lastHoleNumber }` from `resolveMatchHoles(...)`, and passes `totalHoles={lastHoleNumber}` / `firstHole={firstHoleNumber}` to the navigator and `firstHoleNumber` / `lastHoleNumber` to the footer. B6d reads the played range as `playedRange.*`, so it never shadows those names.
 10. **Review findings:** all B6a and B6b/c/d findings are addressed.
     - **"Sheet needs no `SystemModalTheme`"** was verified again: `BottomSheet` has `useModal = false` by default (`BottomSheet.tsx:62`), and the sheet doesn't set it.
     - **The `nineType` preview finding is moot** (no nine-aware daily handicap). The preview passes the planned holes plus `{ holesPlayed }` (B4) and returns `null` for multi-ball rounds (`store.isMultiBall`).
@@ -42931,18 +46574,18 @@ The reasoning behind each group's contract amendments and hand-offs. Read your g
    - **B8-2:** skins preview, plus the PlayerScorecard footer.
 
    Where these notes say "B7a" or "B8", they mean both halves.
-1. **`EndedEarlyBanner` is created by B6d, not B7a.** The header's Interface Contract tags it `(B7a)`. B7a only **uses** it, on Review and MatchPlayScorecard, with no `onFinish` (these are the finish screens). B7a imports it by direct path (`@/components/scorecard/EndedEarlyBanner`), because `MatchPlayScorecardScreen.test.tsx` mocks the `@/components/scorecard` barrel. The B7a/B7b tests assume two things about B6d's component. If B6d differs, adjust the B7a/B7b test assertions, not B6d:
+1. **`EndedEarlyBanner` is created by B6d, not B7a.** (The first draft of the contract tagged it `(B7a)`; the Interface Contract now says B6d-1.) B7a only **uses** it, on Review and MatchPlayScorecard, with no `onFinish` (these are the finish screens). B7a imports it by direct path (`@/components/scorecard/EndedEarlyBanner`), because `MatchPlayScorecardScreen.test.tsx` mocks the `@/components/scorecard` barrel. The B7a/B7b tests assume two things about B6d's component. If B6d differs, adjust the B7a/B7b test assertions, not B6d:
    - it renders `formatEndedEarlyLabel(holesPlayed, nineType)` as **one** `Text` node ("Ended after 6 of 18");
    - it renders "Finish" **only** when `onFinish` is passed.
-2. **New optional props (additive, not in the header contract):**
+2. **New optional props (additive; now in the Interface Contract):**
    - `ScorecardTableProps` and `ScorecardTabContentProps` gain `nineType?: NineType` (default `'full'`) and `holesPlayed?: number | null`. The rows slice with `filterPlayableHoles(holes, nineType, holesPlayed)`, as the review finding asks, not `'full'`.
    - **Hand-off to B9b:** `RoundScorecardTab` passes `nineType={round.nine_type ?? 'full'}` and `holesPlayed={round.holes_played}` to `ScorecardTable`, keeping the planned `holes`.
 3. **`useScoreReview()` gains `playedHoles: Hole[]`, `holesPlayed: number | null` and `nineType: NineType`.** There is no `resumeRound` (R12).
 4. **`checkSubmissionReadiness` gains a 6th optional parameter, `playedHoleNumbers?: number[]`** (B8). It's additive, and every existing caller is unchanged. The verified signature (`src/services/scoreMismatch/submission.ts:35-41`) is `(roundId, userId, scoringPairsEnabled, holeCount = 18, groupPlayerIds?)`.
    - The `holeCount` count alone can't "limit to the played holes". The multi-scorer path counts **all** of another scorer's `score_entries` and **all** pending `score_mismatches`. A second phone that scored holes 7–8 before it learned of the end leaves rows after N, and those would either satisfy completeness falsely or block on a discarded hole.
    - The pairs path ignores the new parameter, because a round with scoring pairs can't be ended (Global Constraints).
-5. **Assumed state left by earlier tasks.** v2 drafts weren't available, so these come from the v1 text adjusted for v2. If a v2 draft differs, make the same change to the code as it stands:
-   - **A5c/A5d (reconciled with `D3-skins.md`):**
+5. **State left by earlier tasks** (checked against those tasks' text; if the code differs when you get here, make the same change to the code as it stands):
+   - **A5c/A5d:**
      - Review (A5d-1) declares `const skinsHoleCounts = useMemo(() => roundDetails ? getSkinsHoleCounts(roundDetails) : { plannedHoles: holeCount, holesPlayed: holeCount }, [roundDetails, holeCount]);` right after `holeCount`, and passes `holeCounts={skinsHoleCounts}` to `SkinsTabContent` / `PayoutsTabContent`. It does not import the store selector.
      - MatchPlayScorecard (A5c-2) declares `const skinsHoleCounts = useSkinsHoleCounts(roundId);` after `useSkinsResults` (above the store destructure) and passes it to `SkinsResultsCard holeCounts`. It does **not** add `nineType` to the store destructure; B7a-2 does.
    - **B5b:**
@@ -42953,21 +46596,22 @@ The reasoning behind each group's contract amendments and hand-offs. Read your g
      - MatchPlayScorecard: drops `useFinalizeSkinsForRound`, `supabase` and `updateRoundStatus`;
      - its test keeps `jest.mock('@/hooks', …)`, adds the `useFinalizeSubmittedRound` mock, and adds a `describe('Submission', …)` whose store mock returns `getPlayerScore → undefined` / `getCompletedHolesCount → 18`;
      - PlayerScorecard: swaps to `useFinalizeSubmittedRound`.
-   - **A6c's hook path** is the header's `src/hooks/rounds/useFinalizeSubmittedRound.ts`. B8's new test files mock that path. If A6c placed it elsewhere, mock that path instead.
-6. **Review finding "A6d's MatchPlayScorecard mock: `getPlayerScore` → `{ strokes: 4 }`".** B7b computes completeness with the store's `isHoleComplete` (per the brief), not `getPlayerScore`. So the mock that keeps A6d's footer visible is `isHoleComplete: jest.fn().mockReturnValue(true)`. B7b sets both: `getPlayerScore` → `{ strokes: 4 }` as the finding asks, and `isHoleComplete` → `true`, which is the one the code reads. Every other store mock in that file gains `isHoleComplete` (one `replace_all`, 8 sites, plus B5b's case and A6d's case). Without it, `isHoleComplete is not a function` would throw on every render that has holes.
+   - **A6c's hook path** is `src/hooks/rounds/useFinalizeSubmittedRound.ts` (not in the `@/hooks/rounds` barrel). B8's new test files mock that path.
+6. **Review finding "A6d's MatchPlayScorecard mock: `getPlayerScore` → `{ strokes: 4 }`".** B7b computes completeness with the store's `isHoleComplete` (per the brief), not `getPlayerScore`. So the mock that keeps A6d's footer visible is `isHoleComplete: jest.fn().mockReturnValue(true)`. B7b sets both: `getPlayerScore` → `{ strokes: 4 }` as the finding asks, and `isHoleComplete` → `true`, which is the one the code reads. Every other store mock in that file gains `isHoleComplete` (one `replace_all`, 8 sites, plus A6d's case; B5b's cases spread or call `setupSuccessfulMock`, so they inherit it). Without it, `isHoleComplete is not a function` would throw on every render that has holes.
 7. **No TDZ.** Every selector a memo reads is declared above it:
    - Review: `holesPlayed` / `nineType` / `playedHoles` come from the `useScoreReview` destructure at the top of the component, above every memo.
    - MatchPlayScorecard: `nineType` / `holesPlayed` / `groupScorecards` / `isHoleComplete` are in the store destructure. A5c-2's `useSkinsHoleCounts(roundId)` sits above it (it reads no store value); B8-2's `skinsHoleCounts` memo and B7b's completion memo go below it.
-8. **There's no `useEndRoundEarlyStore`.** B8 reads `holesPlayed` / `getPlayedHoles()` from `useScorecardStore` (B3b), both as a hook and through `getState()`.
+8. **There's no `useEndRoundEarlyStore`.** B8-2 reads `holesPlayed` from `useScorecardStore` (B3b) as a hook. B8-1 does **not** read the store: Review passes its `playedHoleNumbers` (B7b) into `useScoreSubmission` as a param, so readiness and the rendered tabs use the same slice.
 9. **Shared files and line ownership:**
-   - **`useScoreSubmission.ts`:** B8 edits only the readiness block (`// Submission readiness check.` … `const readiness = await checkSubmissionReadiness(` … `);`). B10b owns `checkRoundAchievements`.
+   - **`useScoreSubmission.ts`:** B8-1 edits only the `UseScoreSubmissionParams` interface (adds `playedHoleNumbers?`), the hook's param destructure, the readiness block (`// Submission readiness check.` … `const readiness = await checkSubmissionReadiness(` … `);`) and adds `playedHoleNumbers` to `handleSubmit`'s dependency list. B10b owns `checkRoundAchievements`.
    - **`PlayerScorecardScreen/index.tsx`:** B8 owns the store destructure (line 76), the scroll `paddingBottom` (line 252) and the footer gate (line 286). B9d must not also hide the footer.
-   - **Review `index.tsx`:** B7a-2 adds the banner and the `ScorecardTabContent` props; B7b adds the tab routing; B8-2 changes A5d-1's skins memo. These run in order.
+   - **Review `index.tsx`:** B7a-2 adds the banner and the `ScorecardTabContent` props; B7b adds the tab routing and `playedHoleNumbers`; B8-1 passes `playedHoleNumbers` to `useScoreSubmission` and filters the mismatch modal; B8-2 changes A5d-1's skins memo. These run in order.
    - **`MatchPlayScorecardScreen.test.tsx`:** B7a-2, B7b and B8-2 each add cases inside B5b's `describe('Ended early')`. B8-2 reuses B7b's `mockEndedStore` helper.
 10. **No unit test for the Review screen itself** (none exists, and its import graph is very large). The Review wiring is covered by type-check, by the `useScoreReview` / `ScorecardTabContent` / `useScoreSubmission` tests, and by B11's on-device QA:
     - Review shows "Ended after N of M" without Finish;
     - back 9 ended after 6 shows holes 10–15 in every tab, including the Shots tab;
-    - submitting needs only the played holes.
+    - submitting needs only the played holes;
+    - two phones, mismatch on a played hole: readiness blocks and the modal lists only played-hole mismatches. Run this on a Review-finished format (stroke play / Stableford); singles match play submits from `MatchPlayScorecardScreen`, which never runs `checkSubmissionReadiness`.
 
 ### Displays (B9a–B9e, B9g)
 
@@ -42979,7 +46623,7 @@ The reasoning behind each group's contract amendments and hand-offs. Read your g
    - `statsHoles`: `holesPlayed != null ? plannedHoles : courseHoles`.
 
    A round played as planned gets exactly today's stats input. An ended-early round gets the planned holes, because B4's `calculatePlayerStats(…, { holesPlayed })` slices with `filterPlayableHoles(safeHoles, 'full', N)`, i.e. the first N of whatever list it is given. Raw holes would put a back-9 round on holes 1–6. For a full round, planned = raw, so its DHC is unchanged.
-   - The match pill always uses `plannedHoles`. It replaces A1b's `matchHoles = standaloneMatchHoles(holes, round.nineType)` local, which is the same list, and drops the now-unused `standaloneMatchHoles` import from `useRoundList.ts`. The function stays exported for A1b's tests.
+   - `plannedHoles` is computed by A1b's `standaloneMatchHoles(courseHoles, round.nine_type)`, so the nine-type normalisation lives in one place. The match pill always uses `plannedHoles`. It replaces A1b's `matchHoles = standaloneMatchHoles(holes, round.nineType)` local in `useRoundList.ts` (the same list), whose `standaloneMatchHoles` import moves to `roundListMeta.ts`.
    - Completed cards carry a stored snapshot (`daily_handicap_used` / `ga_handicap_used` / `total_points`), so the fallback DHC matters only for cards without one. That case is listed under Follow-ups.
 
 3. **B9a BLOCKER fixed.** The front-9 pill fixture is now `match(range(1, 9), [8, 9])`.
@@ -42988,7 +46632,7 @@ The reasoning behind each group's contract amendments and hand-offs. Read your g
 
 4. **B9a:** `RoundListCardData.totalHoles` becomes the planned count (`plannedHoles.length || 18`). A 9-hole round's "Not submitted · 5/9 holes" no longer reads "5/18". This is display only.
 
-5. **B9b-1: `ScorecardTable`.** Per B7a-1's hand-off (`D9-finish-screens.md`), `ScorecardTableProps` gains `nineType?` and `holesPlayed?`. `RoundScorecardTab` passes both, with the planned, already nine-filtered `courseHoles`.
+5. **B9b-1: `ScorecardTable`.** B7a-1 gives `ScorecardTableProps` `nineType?` and `holesPlayed?`. `RoundScorecardTab` passes both, with the planned, already nine-filtered `courseHoles`.
 
 6. **B9c is cut to two files** (finding B9c):
    - `RoundSubMatchLeaderboard.tsx`, plus a new `RoundSubMatchLeaderboard.holes.test.tsx`;
@@ -43009,22 +46653,22 @@ The reasoning behind each group's contract amendments and hand-offs. Read your g
    - **"of N holes":** ViewRound `WolfTab` takes `holeNumbers` (N = its length; no hard-coded 18). Review's `WolfTabContent` already counts against its `totalHoles` prop, which B7b sets to the played count, so no change is needed there.
    - **Standings over played holes** apply on Review only, where an offline end has not yet trimmed the rows, or the query cache still holds them.
      - `WolfTabContent` cuts at `max(holeNumbers)`. This is prop-driven, with no store read.
-     - `PayoutsTabContent` reads the store, `lastPlayedHoleNumber(nineType, holesPlayed)`. Its props interface is A5c's (A5c adds `holeCounts`), so B9e doesn't touch it.
+     - `PayoutsTabContent` reads the store, `lastPlayedHoleNumber(nineType, holesPlayed)`. Its props interface is A5d-2's (A5d-2 adds an optional `holeCounts`), so B9e doesn't touch it.
    - **Interface:** `useWolfSummary(gameId, options?: { lastHoleNumber?: number | null })` and `buildWolfGameSummary(game, decisions, payouts, lastHoleNumber?)`.
 
-10. **B9e-2 consumes from B7b:** the v2 draft (`D9-finish-screens.md`, B7b) declares `const playedHoleNumbers = useMemo(() => playedHoles.map((h) => h.number), [playedHoles]);` right after `holeCount` in `ReviewScorecardScreen/index.tsx`. B9e-2 reuses it and only adds `holeNumbers={playedHoleNumbers}` to `WolfTabContent`.
+10. **B9e-2 consumes from B7b:** B7b declares `const playedHoleNumbers = useMemo(() => playedHoles.map((h) => h.number), [playedHoles]);` right after `holeCount` in `ReviewScorecardScreen/index.tsx`. B9e-2 reuses it and only adds `holeNumbers={playedHoleNumbers}` to `WolfTabContent`.
 
 11. **B9g has no record and no `clearRecord`.**
     - The lock is `round.holes_played != null`, applied to the Holes row (`canEditNineType`) and, as a belt, to the sheet (new prop `holesPlayed?: number | null`).
     - The skins/wolf preview cut (`lastCountedHoleNumber`, `buildSkinsGameSummary`) is dropped.
 
 12. **Shared files** (other tasks edit different lines):
-    - `ViewRoundScreen/index.tsx`: A5c edits the skins/payouts tab props and adds an import after line 66; B9b replaces line 66's import; B9e edits `WolfTab`. If A5c's added import sits next to the line B9b replaces, keep A5c's line.
+    - `ViewRoundScreen/index.tsx`: no earlier task touches it (A5d-2 edits `tabs/PayoutsTab.tsx`, not the screen). B9b-2 replaces line 66's import and wires the tabs; B9e-2 edits `WolfTab`.
     - `ReviewScorecardScreen/index.tsx`: B7b edits `holeCount` and the tab props; B9e-2 adds one prop on `WolfTabContent` (it reuses B7b's `playedHoleNumbers`).
-    - `PayoutsTabContent.tsx`: A5c edits the props and the skins hook; B9e edits only the wolf hook call and imports.
+    - `PayoutsTabContent.tsx`: A5d-2 edits line 16's import, the props (adds optional `holeCounts`) and the skins hook; B9e-2 edits only lines 14-15's imports and the wolf hook call.
     - `RoundDetailsTab/index.tsx` and its test: B9c and B9g (see note 7).
 
-13. **Review findings judged wrong:** none. v1's B9c tests used `getByTestId('pill-full-18')` / `'pill-ended-after-6-of-18'`, but `Pill` has no auto testIDs (`Pill.tsx:93-112`). They are fixed here to text queries plus an explicit `testID="round-details-ended-early"`.
+13. **Review findings judged wrong:** none. v1's B9c tests used `getByTestId('pill-full-18')` / `'pill-ended-after-6-of-18'`, but `Pill` has no auto testIDs (`Pill.tsx:93-112`). They are fixed here to text queries plus an explicit `testID="round-details-ended-early"`. `RoundDetailsTab.test.tsx`'s `Pill` mock (170-179) drops `testID`, so B9c changes it to `testID={testID ?? \`pill-…\`}`; no existing Pill there passes a `testID`, so existing queries and snapshots are unchanged.
 
 14. **Splits** (the size rule). The Task Index rows B9a, B9b and B9e each become two tasks, run in this order:
     - **B9a-1** (`roundListMeta` + `useRoundList` + the `RoundListCardData.holesPlayed` type), then **B9a-2** (the card pill and its a11y label).
@@ -43044,18 +46688,18 @@ The reasoning behind each group's contract amendments and hand-offs. Read your g
    - B10c → **B10c-1** (index, history, recalc candidates) and **B10c-2** (recalculation, combine, combinable pairs).
    The Task Index rows B9f/B10a/B10b/B10c each become two rows; B11 Step 10 check 8 expects one commit per split task.
 
-3. **B9f-2 decision: an ended-early round is a Practice round.** R20 says ended-early rows aren't "Handicap" rounds and aren't counted in `handicapRoundsPlayed`. To keep Practice + Handicap + Competition = Rounds Played (the existing partition comment at `queries.ts:324-329`), they are classified as Practice (not tracked for handicap). The same rule is applied to the My Stats tap-through filters (`useRoundFilters.ts` `practice` / `handicap` / `ninehole`, using B9a's `RoundListCardData.holesPlayed`) and to the round-list card subtitle (`RoundListCard.tsx:83-89`, "Handicap Round" → "Practice Round"). The 9-Hole filter excludes ended-early rounds to match B10a's `nineHoleRoundsPlayed`. If Sam would rather show ended-early rounds as neither Practice nor Handicap, drop `|| endedEarly` from the two `isPracticeRound` lines and the `practice` filter, and the partition assertion in `endedEarlyClassification.test.tsx`.
+3. **B9f-2: an ended-early round is a Practice round (spec R22).** It never counts toward the handicap index, so it is classified as Practice (not tracked for handicap) and Practice + Handicap + Competition still equal Rounds Played (the partition comment at `queries.ts:324-329`). The same rule applies to the My Stats tap-through filters (`useRoundFilters.ts` `practice` / `handicap` / `ninehole`, using B9a's `RoundListCardData.holesPlayed`), the round-list card subtitle (`RoundListCard.tsx:83-89`), the ViewRound header (`useViewRoundHandlers.ts:209-211`) and the round-settings title (`RoundSettingsScreen.tsx:141-143`): "Practice Round", never "Handicap Round". The 9-Hole filter excludes ended-early rounds to match B10a's `nineHoleRoundsPlayed`.
 
 4. **B10b-2: extraction for testability.** `TagPartnershipRoundScreen.tsx:85-126` runs its query inside a `useEffect`. The loader moves verbatim into a new export, `getPartnershipEligibleCards(playerIds)` + `PartnershipEligibleCard`, in `src/services/api/partnershipLeagues.ts` (a file no other task edits). The screen keeps its `EligibleCard` name as a type alias and drops its now-unused `supabase` import.
 
 5. **`hole_count` for an ended-early round is omitted (B10b-1).** With the conversion gone (R12), sending the played count would let an 18-hole round ended after exactly 9 advance `NINE_HOLE_SPECIALIST` (`src/services/achievements/progressCalculation.ts:165-167`). Ended-early rounds must count towards neither the 9- nor the 18-hole achievement, so `buildRoundAchievementEventData` sends `hole_count: undefined` when `endedEarly` (`AchievementEventData.hole_count` is optional). `18_HOLES_OF_GLORY` / `NINE_HOLE_SPECIALIST` are the only readers of `hole_count`; `ROUND_VETERAN` and `COURSE_*` still count the round. This refines spec §3 / R11 ("hole_count = holes played").
-6. **B10c and A3 / A4a share files.** A3 (drafted in parallel) adds the completeness belt to `updatePlayerHandicapIndex` and `fetchHandicapHistory` (selects `scores`, skips `!isCompleteForHandicap(...)`), and A3's gate line `const isCompleteCard = isCompleteForHandicap(scorecard.scores, nineType);` to `recalculateScorecardDifferential`. A4a adds the `'Both nines must be fully scored to combine'` check and the `isCompleteForHandicap` pair filter. B10c adds **only** the `holes_played` condition:
-   - its edits are anchored on lines A3/A4a don't rewrite (`rounds!inner(...)` column lists, `.eq('rounds.nine_type', 'full')`, the `isSharedBallRound` skip, the `RoundRecord`/`RoundLite` types) and say "keep A3's term" where both touch one expression;
-   - A3's / A4a's gate lines are quoted as their v1 text leaves them. If the v2 A3/A4a drafts word them differently, apply the same `&& !isEndedEarly(round)` / `|| isEndedEarly(…)` to the gate as written;
-   - all B10c tests live in new `*.endedEarly.test.*` files (except one `describe` appended to the existing `recalculateScorecardDifferential.test.ts`, after A3's block), so they can't collide with test files A3/A4a create;
-   - every B10c fixture card has `scores: {}`, so A3's completeness belt passes it and only `holes_played` decides — that's exactly the multi-ball / legacy case the review asked for.
+6. **B10c and A3 / A4a share files.** A3-2/A3-3 add the completeness belt to `updatePlayerHandicapIndex` and `fetchHandicapHistory` (select `scores`, skip `!isCompleteForHandicap(...)`, A3-3's `RecalculationCandidate` type and `as unknown as` casts, and the refresh query's `game_type, team_format`). A3-1 adds the gate to `recalculateScorecardDifferential`; A4a adds the `'Both nines must be fully scored to combine'` check and the `isCompleteForHandicap` pair filter. B10c adds **only** the `holes_played` condition:
+   - B10c-1 quotes every "Current" snippet from A3-2's / A3-3's replacement text, and its edits avoid the query `limit` lines (so a larger fetch window sliced after the belts composes unchanged);
+   - where both touch one expression, B10c appends `&& !isEndedEarly(…)` / `|| isEndedEarly(…)` and keeps A3's / A4a's term;
+   - all B10c tests live in new `*.endedEarly.test.*` files (except one `describe` appended to the existing `recalculateScorecardDifferential.test.ts`, after A3's block);
+   - every B10c fixture card has `scores: {}`, so A3's completeness belt passes it and only `holes_played` decides — the multi-ball / legacy case.
 
-7. **B10c-1 drive-by kept:** the history refresh query gains `game_type, team_format` (the shared-ball post-filter at `handicapHistory.ts:202` saw `undefined` there).
+7. **No B10c-1 drive-by.** A3-3 already adds `game_type, team_format` to the history refresh query; B10c-1 only adds `holes_played` there.
 
 8. **B11 owns the docs for A7 and B1a schema objects** (`DATABASE_SCHEMA.md`: `rounds.nine_type` was undocumented and is added beside `holes_played`; `scorecard_is_complete_for_handicap`, both triggers, `end_round_early`). If A7 or B1a already documented them, merge rather than duplicate. B11 also adds an "End round early (offline)" section to `OFFLINE_ARCHITECTURE.md`, placed after whatever A6b adds about `round` items and drain triggers.
 
@@ -43070,7 +46714,7 @@ The reasoning behind each group's contract amendments and hand-offs. Read your g
     - `src/services/handicap/*`, `src/hooks/player/handicapHistory.ts`: A3, A4a, then B10c (see note 6).
     - Docs: A1a (I10 rows, a blast-radius row, the `TeamMatchPlayScoreView` inventory cell), A6b (`OFFLINE_ARCHITECTURE.md`), then B11.
 
-12. **Review findings.** All findings listed for B9f, B10a, B10b, B10c and B11 are addressed; none judged wrong. B10a ("OK") was re-checked against the rebased `main`: every quoted snippet still matches. One v1 count was wrong and is fixed: the recalc test file has 16 `it` cases on `main`, so B10c-2 no longer quotes a number.
+12. **Review findings (v2.1).** Applied: B10c-1 re-quoted from A3-2/A3-3's output (no refresh-query drive-by; A3-3 owns it); B9f-2 also retitles the ViewRound header and round-settings title; B10a per-round averages show "—" when only ended-early rounds tracked the stat; B9f-1's pill uses `variant="info"`; B10b-1's store wiring is extracted to `readRoundAchievementStore` and tested; B11 covers Part B only (Part A rollout + QA moved to A6d-2) with the corrected rollout recipes and the new QA cases.
 
 ---
 
@@ -43085,55 +46729,60 @@ None of these block the feature. Record them, and ticket them after merge.
 4. **Reopening a round offline after a cold start with no cached `rounds` row** isn't supported (R15); it reopens once online. The match screens also hide "End round early" on an offline cold start until the round row loads. Fix: cache the round metadata locally on first load.
 
 **Handicap**
-5. **Competition rounds on a 9-hole course** have `nine_type 'full'` by default, so after A3/A7 their 9-hole cards are judged against 18 holes and lose their differential. Set `nine_type` on those rounds (data fix + competition setup).
+5. **Record `nine_type` for competition rounds on 9-hole courses (R22).** Competition rounds (and social rounds created before `nine_type` existed) default to `nine_type 'full'`, so after A3/A7 their 9-hole cards are judged against 18 holes and lose their differential (A7's report lists them separately). Set `nine_type` on those rounds (data fix + competition setup). Skins on such rounds also price and settle as 18 until then (`getSkinsHoleCounts` reads only `nine_type`).
 6. **Courses not numbered 1–18** (or 1–9 / 10–18) never qualify under the completeness rule.
 7. **In-progress live syncs write a NULL differential** (the card is incomplete until the last hole). Harmless, but the differential only appears at the final sync.
-8. **Combined rounds built from an incomplete card** before A7 are listed by `full_scorecards_only_report.sql`, not deleted. Sam reviews them.
+8. **Combined 9-hole pairs built from a part-filled nine are left as they are (R22).** They stay in `handicap_combined_rounds` and still feed the index; `full_scorecards_only_report.sql` lists them. A follow-up decides whether to delete them and recompute the affected players' indexes.
 9. **`findScorecardsNeedingRecalculation` has no ordering** before `limit(20)` (`handicapHistory.ts:63-70`); permanently-NULL partial cards can starve recalculable ones.
 10. **`recalculateScorecardDifferential` throws for a 0-gross card** (mid-round Change Tees before any score).
 11. **`calculateNineAwareDailyHandicap` doesn't halve the index** when a tee has dedicated 9-hole ratings (untested path). 9-hole differentials also fall back to the 18-hole CR when a tee has no 9-hole ratings.
 12. **Plus handicaps on ended-early cards.** The per-hole net gives no strokes back (`getStrokesReceived` floors at 0); complete cards subtract the negative DHC.
 13. **9-hole per-hole net allocates strokes on 18-hole stroke indexes**, so a 9-hole card gets about half the strokes. Pre-existing; not changed.
+14. **Ladder challenges trust the stored differential.** `submitChallengeRound` (`src/services/api/ladderChallenges.ts:349`) accepts any card with a non-null `handicap_differential`. The server trigger and A7's data fix keep partial / ended-early cards null, but there is no client belt (`isCompleteForHandicap` + `isEndedEarly`) as on the other handicap paths.
 
 **Side games**
-14. **Team-skins final settlement** uses the individual calculator; `calculateTeamFinalPayouts` is unused. Team skins are not zero-sum-guaranteed by I11.
-15. **Wolf finalisation is dead code.** `WolfGameSection` isn't rendered, and `useFinalizeWolfGame` reads the non-existent `pot_value_per_point` (the column is `pot_value`), so it would pay $0.
-16. **`WolfIndicator`** (`useWolfStandings`) has no played-holes cut; it relies on the RPC having deleted later decisions.
-17. **Offline pre-submit skins/wolf previews** (Review skins preview, the scoring-screen `SkinsIndicator`) can briefly include holes after N until the queued `'end_early'` item deletes those rows. Accepted (the old B9g preview cut was dropped).
-18. **Skins "Recalculate scored holes"** before submit can recreate results for removed holes if the server still holds their scores. Hide the action while `holesPlayed != null`.
-19. **Skins on holes played offline are never processed** (per-hole processing needs the network). Settle-time backfill from server scorecards would fix it.
-20. **Skins achievements are lost** when settlement runs from the sync queue (A6c): `awardSkinsAchievements` only runs on the online path.
-21. **Rounds finalised by the rollout SQL** (B11 Step 13 item 5) keep any active skins game unsettled; settle them by hand or with a one-off `finalizeSkinsGame` run.
+15. **Team-skins final settlement** uses the individual calculator; `calculateTeamFinalPayouts` is unused. Team skins are not zero-sum-guaranteed by I11.
+16. **Wolf finalisation is dead code.** `WolfGameSection` isn't rendered, and `useFinalizeWolfGame` reads the non-existent `pot_value_per_point` (the column is `pot_value`), so it would pay $0.
+17. **`WolfIndicator`** (`useWolfStandings`) has no played-holes cut; it relies on the RPC having deleted later decisions.
+18. **Offline pre-submit skins/wolf previews** (Review skins preview, the scoring-screen `SkinsIndicator`) can briefly include holes after N until the queued `'end_early'` item deletes those rows. Accepted (the old B9g preview cut was dropped).
+19. **Skins "Recalculate scored holes"** before submit can recreate results for removed holes if the server still holds their scores. Hide the action while `holesPlayed != null`.
+20. **Skins on holes played offline are never processed** (per-hole processing needs the network). Settle-time backfill from server scorecards would fix it.
+21. **Skins achievements are lost** when settlement runs from the sync queue (A6c): `awardSkinsAchievements` only runs on the online path.
 22. **Multi-group rounds settle skins on every submit**, not once the round completes — check against `finalizeSubmittedRound` after A6.
 23. **`SkinsResultsCard` always renders 18 rows.**
+24. **`SubMatchSkinsCard` prices the total at 18 holes** (`src/screens/rounds/SubMatchDetailScreen/sections/SubMatchSkinsCard.tsx:204`, `pot_value * 18`). Only wrong for a competition round on a 9-hole course; switch to `calculatePlayedPot(game, useSkinsHoleCounts(roundId))`.
+25. **Legacy settled 9-hole `total_pot` games show two hole prices.** Their stored `skins_results` were priced at pot / 18, while the `SkinsResultsCard` header, `buildSkinsSummary.per_hole_value` and the settings card now price on the planned 9. Payouts are right (they come from the stored rows); only the per-hole label drifts. Fix: for a completed game, take the per-hole price from the stored `results[0].hole_pot_value`.
 
 **Match play**
-24. **Populate `teamMatchPlayResults`.** `useTeamScoring.ts:140`'s `_setTeamMatchPlayResults` is never called, so `TeamMatchPlayScoreView`'s results map is always empty (A1a's change there has no visible effect yet).
-25. **The ViewRound singles Match tab scores gross** (no handicaps passed to `MatchPlayScorecardTable`).
-26. **Matches played as planned use the final tally**, not the first close-out (scores entered after a close-out change the margin). The pill uses the first close-out.
-27. **The round-list pill treats a pickup as a 10-stroke gross**, not a concession.
-28. **`useTeamMatchPlayState` only knows holes visited this session**, so the live status under-counts after a relaunch.
-29. **Singles `MatchPlayScoringScreen` starts back-9 rounds on hole 1** and looks hole data up by position.
-30. **Smaller items:** the `DOMINANT_VICTORY` regex vs the spaced team margin; `subMatchLeaderboard.normaliseMargin` duplicates `compactMatchMargin`; `TeamMatchPlayScoringScreen` hard-codes `isStandalone = false` at init.
+26. **Populate `teamMatchPlayResults`.** `useTeamScoring.ts:140`'s `_setTeamMatchPlayResults` is never called, so `TeamMatchPlayScoreView`'s results map is always empty (A1a's change there has no visible effect yet).
+27. **The ViewRound singles Match tab scores gross** (no handicaps passed to `MatchPlayScorecardTable`).
+28. **Matches played as planned use the final tally**, not the first close-out (scores entered after a close-out change the margin). The pill uses the first close-out.
+29. **The round-list match pill treats a pickup as a 10-stroke gross**, not a concession (`PICKUP_SCORE` is compared as strokes), so a picked-up hole can be "won" by a 9.
+30. **`useTeamMatchPlayState` only knows holes visited this session**, so the live status under-counts after a relaunch.
+31. **Singles `MatchPlayScoringScreen` starts back-9 rounds on hole 1** and looks hole data up by position.
+32. **Smaller items:** the `DOMINANT_VICTORY` regex vs the spaced team margin; `TeamMatchPlayScoringScreen` hard-codes `isStandalone = false` at init.
+33. **Singles match play has no submit-readiness check.** `MatchPlayScorecardScreen` submits from its own footer and never runs `checkSubmissionReadiness`, so scoring-pair mismatches aren't caught for singles matches (pre-existing; B8-1's played-holes limit applies to Review-finished formats only).
 
 **Rounds and sync**
-31. **A non-organiser last submitter** can't complete a competition round (RLS). Now reported as `false` rather than a swallowed throw.
+34. **A non-organiser last submitter** can't complete a competition round (RLS). Now reported as `false` rather than a swallowed throw.
 
 **Stats and achievements**
-32. **The Rounds-list `handicap` filter includes competition rounds** while the My Stats Handicap tile counts standalone rounds only (`useRoundFilters.ts:59-62` vs `queries.ts:331`).
-33. **`useCourseStatistics` doesn't exclude shared-ball rounds** (`courseQueries.ts:104`).
+35. **The Rounds-list `handicap` filter includes competition rounds** while the My Stats Handicap tile counts standalone rounds only (`useRoundFilters.ts:59-62` vs `queries.ts:331`).
+36. **`useCourseStatistics` doesn't exclude shared-ball rounds** (`courseQueries.ts:104`).
+37. **Retroactive achievements v2 ignores `holes_played`.** `calculate_retroactive_achievements_v2` (`supabase/migrations/20260401000002_retroactive_achievements_v2.sql:204-209`) counts every completed front-9 / back-9 card toward `NINE_HOLE_SPECIALIST`, including a 9-hole round ended early. A re-run would credit what B10b-1 withholds; add `AND r.holes_played IS NULL` before running it again.
+38. **Part-filled Quick Score cards are still badged "Handicap" in stats.** The stats classification (`queries.ts` / `courseQueries.ts`, B9f-2) reads only `handicap_source` (and `holes_played`), so a standalone Quick Score card with some holes empty — no differential after A3/A7 — still shows the "Handicap" pill and counts in `handicapRoundsPlayed`. Classify by `isCompleteForHandicap` as well, or by whether the card has a differential.
 
 **UI and tidy-ups**
-34. **ViewRound's `IndividualScorecardView` ignores `handicapSource`** and falls back to `'profile'`.
-35. **`EditStatsModal` can't handle back-9 hole numbers**, and offers unplayed holes.
-36. **The Home `LastRoundSection` and the RoundDetailsTab course "Holes / Par" quick stats** don't reflect early-ended rounds.
-37. **The Home carousel's `computeUserProgress` uses the course's raw holes**, so a front-9 card that finished hole 9 resumes on "hole 10". Narrow with `filterHolesByNineType`.
-38. **Dead code:** A6d-2 deletes `useSubmitScorecards` (`useSubmitScorecard.ts`, which built an achievement event without the ended-early rule), `useFinalizeSkinsForRound` and `useRoundFinalization`; nothing further is outstanding here.
-39. **Stale comments** in `scorecardSyncDebounce.ts` / `scoreUpdateSlice.ts` describe a server-side completeness check that no longer exists; `playerStatistics/types.ts:187` `nineHoleRoundsPlayed` comment.
-40. **`EditNineTypeSheet` isn't wrapped in `<SystemModalTheme>`** (CLAUDE.md modal rule), unless B9g wraps it.
-41. **The CLAUDE.md scoring test subset** misses most affected tests. Consider adopting this plan's TEST_SUBSET.
+39. **ViewRound's `IndividualScorecardView` ignores `handicapSource`** and falls back to `'profile'`.
+40. **`EditStatsModal` can't handle back-9 hole numbers**, and offers unplayed holes.
+41. **The Home `LastRoundSection` and the RoundDetailsTab course "Holes / Par" quick stats** don't reflect early-ended rounds.
+42. **The Home carousel's `computeUserProgress` uses the course's raw holes** (`src/hooks/home/useInProgressRounds.ts:248-327`), so a front-9 card that finished hole 9 resumes on "hole 10", and a round ended but not yet submitted shows "hole N+1" (the Watch's round list reads the same hook). Narrow with `filterHolesByNineType`, cap `lastHole` at `lastPlayedHoleNumber(nine_type, holes_played)` when `holes_played` is set, and pass `{ holesPlayed }` to its `calculatePlayerStats` call.
+43. **Dead code:** A6d-2 deletes `useSubmitScorecards` (`useSubmitScorecard.ts`, which built an achievement event without the ended-early rule), `useFinalizeSkinsForRound` and `useRoundFinalization`; nothing further is outstanding here.
+44. **Stale comments** in `scorecardSyncDebounce.ts` / `scoreUpdateSlice.ts` describe a server-side completeness check that no longer exists; `playerStatistics/types.ts:187` `nineHoleRoundsPlayed` comment.
+45. **`EditNineTypeSheet` isn't wrapped in `<SystemModalTheme>`** (CLAUDE.md modal rule), unless B9g wraps it.
+46. **The CLAUDE.md scoring test subset** misses most affected tests. Consider adopting this plan's TEST_SUBSET.
 
-Dropped from v1's list because v2 resolves or removes them: the converted-round skins display (no conversion; completed games display from stored payouts, A5c), "no drain on app start" (A6b), "end-early records never pruned" (no AsyncStorage record, R15), the 18-hole-ended-after-9 `NINE_HOLE_SPECIALIST` case (B10b-1 omits `hole_count` for ended-early rounds), back-9 yardages after Resume (no Resume), and the scoring-screen `SkinsIndicator` cut (folded into item 17).
+Dropped from v1's list because v2 resolves or removes them: the converted-round skins display (no conversion; completed games display from stored payouts, A5c), "no drain on app start" (A6b), "end-early records never pruned" (no AsyncStorage record, R15), the 18-hole-ended-after-9 `NINE_HOLE_SPECIALIST` case (B10b-1 omits `hole_count` for ended-early rounds), back-9 yardages after Resume (no Resume), and the scoring-screen `SkinsIndicator` cut (folded into item 18). Also dropped in v2.1: "rounds finalised by the rollout SQL keep an active skins game unsettled" (the stuck-rounds fix now runs `finalizeSubmittedRound`, which settles skins; see A6d-2), and the `subMatchLeaderboard.normaliseMargin` duplicate (A1a-1 deletes it).
 
 ### Further follow-ups found while drafting v2
 
@@ -43141,24 +46790,31 @@ Dropped from v1's list because v2 resolves or removes them: the converted-round 
 
 - `src/hooks/scorecard/useTeamScoring.ts:140` — `_setTeamMatchPlayResults` is never called, so `ScorecardScoreContent`'s `teamMatchPlayResults` (and `TeamMatchPlayScoreView`'s header) is always empty; populate it from the store scores.
 - `src/screens/scoring/ReviewScorecardScreen/components/MatchPlayLeaderboardTab.tsx:151-157`, `MatchScorecardTabContent.tsx:64-70`, `src/screens/scoring/MatchPlayScorecardScreen/index.tsx:101-121`, `src/components/leaderboard/SubMatchLeaderboardTab.tsx:87-93` — `calculatePlayingHandicap` gets nine-filtered holes without `nineType` (inflated 9-hole DHC); belongs to the split-out nine-aware branch.
-- `src/screens/scoring/ReviewScorecardScreen/components/MatchPlayLeaderboardTab.tsx:80` — `buildTeamEntry` stores the raw engine margin (`'3 & 2'`, `'2 up'`), so the Review card reads "Won 3 & 2" while other surfaces show "3&2"; consider `compactMatchMargin`.
 - `src/screens/scoring/ReviewScorecardScreen/hooks/useScoreSubmission.ts:645, 853` — read `final_margin` verbatim for notifications/achievements; legacy `'N & 0'` rows are not normalised there.
 - `src/screens/rounds/ViewRoundScreen/tabs/MatchTab.tsx:108` and `src/components/leaderboard/RoundLeaderboard.tsx:230` — `MatchPlayLeaderboard` still defaults `totalHoles` to 18 (in-progress text only); B9b may pass the planned count.
 - `src/screens/scoring/TeamMatchPlayScoringScreen/hooks/useTeamMatchPlayState.ts:71-114` — hole results are recorded only for holes the scorer visits on this mount, so a resumed team match shows status from the current hole only (pre-existing).
 - `src/screens/scoring/TeamMatchPlayScoringScreen/index.tsx:310` — with a course whose `holes` is `[]`, `currentHoleData` is `undefined` and `currentHoleData.par` throws (pre-existing; unchanged by A2a-2's `?? holes[0]` fallback).
+- `src/utils/matchPlayResult.ts` `computeStandaloneMatchResult` (round-list pill) — treats a pickup (`PICKUP_SCORE` = 10) as a gross 10 net of strokes, not as a concession. The engines (`useMatchPlayScoring`, both table utils) give the hole to the opponent when they have a score, and halve mutual pickups; the pill can disagree with them on a card with pickups. Pre-existing (moved, not introduced, by A1b); align it with the table utils' concession rule.
 - `src/utils/scoring.ts` `calculateMatchPlayStatus`, `src/utils/teamScoring/matchPlay.ts`, `MatchPlayEngine` — still produce `'1&0'`; test-only code, out of scope per the header.
 
 ### Handicap gate + server guard (A3, A3b, A4a–A4c, A7)
 
-- **The index/history belts filter after `.limit(20)`.** In `updatePlayerHandicapIndex.ts:51` and `handicapHistory.ts:129,185`, a player with recent partial cards gets fewer than 20 rounds until A7's data fix nulls them. After the fix the server filter (`handicap_differential IS NOT NULL`) does the work. Revisit only if the data fix is delayed.
+- **Over-fetch residue (A3-2, A3-3).** The index and history fetch 60 rows and keep the 20 most recent qualifying ones. A player with more than 40 recent part-filled cards still gets fewer than 20 rounds, and with 60 or more none at all, in which case A3-2 keeps the stored index rather than clearing it. After A7's data fix the server filter (`handicap_differential IS NOT NULL`) removes those rows, so this only matters before the fix is deployed.
 - **Recalc candidates can starve.** `handicapHistory.ts:70`'s `.limit(20)` on null-differential cards is unordered. Twenty permanently incomplete cards can starve legitimate missing-rating cards of recalculation (A3-3 filters after the limit).
+- **Cards that legitimately stop early lose their differential.** A match-play card closed out with the remaining holes left blank, or a card whose later holes were wiped, is incomplete under A3-1 and A7, so it no longer counts. This is the rule as Sam set it (R21: only full scorecards count); revisit if users expect closed-out match-play cards to count.
+- **Set `nine_type` for competition rounds on 9-hole courses (R22).** Competition rounds (and social rounds from before `nine_type`) default to `'full'`, so a complete 9-hole card on a 9-hole course is judged incomplete and A7 removes its differential. A7's report lists these cards (section 1c). Record `nine_type` correctly at competition round creation; then decide whether to restore those differentials (they were rated against 18-hole ratings, so not as they were).
+- **Combined 9-hole pairs built from a part-filled nine are left as is (R22).** They stay in `handicap_combined_rounds`, keep counting in the index (A7's projection includes them, as the app does), and are listed in A7's report section 4. Decide whether to delete them.
+- **League rows from incomplete cards.** `league_rounds` rows tagged from an incomplete card keep their copied differential (A7 report section 5). Decide whether to untag them.
+- **Old-client League Quick Add has no server guard.** `useLeagueQuickAddRound.ts:286-308` on 1.14.x and earlier computes a differential from a part-filled card and inserts it straight into `league_rounds.handicap_differential`. A7's trigger guards only `scorecards`, so those league rows still arrive until the force-update minimum is raised. Consider a `BEFORE INSERT` trigger on `league_rounds` that checks the source card with `scorecard_eligible_for_differential`.
+- **Ladder challenges read stored differentials with no belt.** `src/services/api/ladderChallenges.ts:337-381` copies `scorecards.handicap_differential` into `challenger_differential` / `challenged_differential` and decides the winner from them. After A7 an incomplete card has a NULL differential and is refused, but a challenge submitted before A7 keeps its copied value. Check for open challenges built from incomplete cards.
+- **A3b only helps cards saved after the upgrade.** SQLite rows written by an older app version have no `sync_nine_type` / `sync_holes`, so a complete 9-hole card still pending on the fallback sync path at upgrade time is judged as `'full'` and loses its differential. Small window; no backfill planned.
 - **9-hole differentials use 18-hole ratings.** When the tee has no dedicated 9-hole ratings, `getEffectiveTeeRatings` (`src/utils/teeResolution.ts:22-33`) returns the 18-hole CR/slope for a 9-hole round, so stored 9-hole differentials (`scorecardSync.ts:353-369`, `recalculateScorecardDifferential.ts:254-269`) are about −25. The index ignores them, but `projectCombinedDifferential` (`loadCombinedAndPairs.ts:158-174`) sums the stored ratings and projects nonsense. This is pre-existing.
 - **Appendix B (split-out nine-aware branch).** The nine-aware Quick Score daily handicap: `useQuickScoreEntry.ts:115-129` and `useQuickScoreSubmit.ts:57-75` compute the DHC from the whole course's par for 9-hole rounds.
 - **For the B11 docs:**
-  - Competition rounds on a 9-hole course stored as `nine_type 'full'` now lose their differential (client gate + A7 data fix). They previously entered the index as 18-hole rounds. Consider setting `nine_type` for those rounds.
+  - Competition rounds on a 9-hole course stored as `nine_type 'full'` now lose their differential (client gate + A7 data fix).
   - Courses whose holes aren't numbered 1–18 never qualify.
   - In-progress live syncs now write a null differential.
-- **League rows from incomplete cards.** `league_rounds` rows tagged from an incomplete card keep their copied differential (A7 report section 5). Decide whether to untag them.
+  - A7's objects: the two audit tables, `handicap_full_card_projected_index`, `handicap_full_card_data_fix` and the UNDO block.
 - **`supabase/tests/*` naming.** The contract's `full_scorecards_only_handicap.verify.sql` differs from the existing `*_verify.sql` convention. Rename both new scripts together if preferred.
 
 ### Skins (A5a–A5d)
@@ -43167,7 +46823,10 @@ Dropped from v1's list because v2 resolves or removes them: the converted-round 
 - `src/components/skins/SkinsSettlementCard/index.tsx:155-157`: the share message prices "$x/hole | $y total pot" at 18. It should use the planned per-hole value and Σ stored `buy_in` (no test harness for `Share` in `SkinsSettlementCard.test.tsx:46`).
 - `src/utils/skins/payouts.ts:255-344` (`calculateTeamFinalPayouts`) is unused. Team skins settle through the individual calculator in `finalizeSkinsGame`, so team games aren't zero-sum (pre-existing, R9).
 - `src/hooks/skins/mutations.ts` per-hole processing now makes one extra `rounds` read per processed hole. Cache it per game if backfill of 18 holes ever proves slow.
-- **B6c (done in `D8-endearly-ui.md` B6c-1):** invalidate `skinsKeys.holeCounts(roundId)` and `roundKeys.detail(roundId)` after `end_round_early` succeeds, so `useSkinsHoleCounts` consumers and Review's `roundDetails` pick up `holes_played` immediately (Contract note 8).
+- **B6c (Task B6c-1 does this):** invalidate `skinsKeys.holeCounts(roundId)` and `roundKeys.detail(roundId)` after `end_round_early` succeeds, so `useSkinsHoleCounts` consumers and Review's `roundDetails` pick up `holes_played` immediately.
+- **Legacy settled 9-hole `total_pot` games show two hole prices.** Their stored `skins_results` were priced at pot / 18, but the `SkinsResultsCard` header, `buildSkinsSummary.per_hole_value` and the `useSkinsGameState` settings card now price on the planned 9 (e.g. "$10.00/hole" over $5 rows). Money is right, because payouts come from the stored rows; only the label drifts. Cheap fix: for a completed game with results, take the per-hole price from the stored `results[0].hole_pot_value` (`processHoleResult` stores the base hole value there). `per_hole` games are unaffected.
+- `src/screens/rounds/SubMatchDetailScreen/sections/SubMatchSkinsCard.tsx:204` prices the total as `pot_value * 18`. Sub-matches are competition rounds, so it is only wrong for a competition round on a 9-hole course. Switch it to `calculatePlayedPot(game, useSkinsHoleCounts(roundId))`.
+- `getSkinsHoleCounts` reads only `nine_type`, so a `'full'` round on a 9-hole course (competition rounds, and social rounds created before `nine_type` existed) prices and settles skins as 18. This is covered by the R22 follow-up that records `nine_type` correctly for competition rounds on 9-hole courses; once that lands, skins need no change.
 
 ### Round finalisation + app-wide sync (A6a–A6d)
 
@@ -43177,17 +46836,27 @@ Dropped from v1's list because v2 resolves or removes them: the converted-round 
 - `src/screens/scoring/ReviewScorecardScreen/hooks/useScoreSubmission.ts:596-743`: `isOnline` (the NetInfo hook) and the store's `getIsOnline()` can disagree, so the "Saved Offline" vs "Success" dialog may not match what actually happened. `finalizeOrQueueRound` now covers the data side.
 - `src/hooks/scorecard/useOfflineSync.ts:61`: `const _pendingCount = await getPendingSyncCount()` is a dead read and can go.
 - `src/services/offline/sync/syncOrchestrator.ts:541-550`: `queueScorecardSync` still calls `syncAll()` directly, and skips when a drain is running. Switching it to `requestSyncDrain('scorecard-queued')` would make it wait for the running drain instead of being dropped.
-- `src/hooks/skins/mutations.ts:483` (`useFinalizeSkinsGame.onSuccess`): skins achievements for games settled by the queued round item never fire (Appendix B, owned by B11).
+- `src/hooks/skins/mutations.ts:483` (`useFinalizeSkinsGame.onSuccess`): skins achievements for games settled by the queued round item never fire. B11 records it in Appendix B.
+- `src/services/rounds/refinalizeRoundResults.ts`: it logs and swallows its own errors, so a failed competition-results write is never retried by the queue (only `statusError` and `skinsError` are). Returning a `resultsError` would need its other caller, `applyPresetToRound`, checked too.
+- `src/screens/scoring/MatchPlayScoringScreen/index.tsx` (`handleConfirmSubmit`): offline, or when the write fails, the split-singles sub-match result is not recorded (only logged), so the round stays `in-progress` until someone records it online. Consider a queued `'sub_match_result'` round action, or a visible prompt. TeamMatchPlayScoringScreen has the same gap (it alerts and stays on the screen).
+- `src/services/offline/sync/networkState.ts` (`setSyncAuthUser`): the queue isn't scoped to a user. When a different user signs in on the same device, the previous user's queued items drain under the new session (RLS retains or drops them). Consider clearing or tagging the queue per user.
+- `src/services/offline/sync/syncOrchestrator.ts` (`syncAll`): the signed-in check runs once at the start. A sign-out during a running drain lets it carry on without a session. Consider re-checking `getSyncAuthUserId()` between items.
+- `src/hooks/rounds/useFinalizeSubmittedRound.ts`: a drain that has already passed `processRoundFinalize`'s in-flight check (it is awaiting the card checks) when the online path starts can still run the steps concurrently with it. They are idempotent, but concurrent skins settlement is only as safe as `finalizeSkinsGame`'s own `active` check.
 
 ### Migration, types, pure utils (B1a, B1b, B2)
 
-- `rounds.holes_played` can be written by a direct `UPDATE` under the "Users can update rounds" RLS policy (owner or accepted invitee): `protect_round_ownership_fields` (`supabase/migrations/20260612000000_scheduled_rounds.sql:93-115`) pins only `user_id` / `competition_id` / `deleted_at`. No client does this, and the scorecard trigger still nulls later differentials, but a direct write would skip the trims and could clear an end. Consider pinning `holes_played` to RPC-only (a transaction-local flag set by `end_round_early`).
+- **Server-side strip on later snapshots.** `end_round_early` strips score keys after N once. A second device that hasn't adopted the end yet can still write a `write_scorecard_snapshot` that re-adds them (its revision still matches, by design: see the RPC's comment on `revision`). Readers slice with `filterPlayableHoles` and the differential stays NULL, so this is cosmetic, but a `BEFORE INSERT OR UPDATE` trigger on `scorecards` that drops keys after `lastPlayedHole` when the round's `holes_played` is set would keep the server JSON clean for old app versions too.
+- **Round never flipped to `in-progress` on the server.** `useRoundData` flips `upcoming → in-progress` only online. If a device starts and ends a round without that flip reaching the server, the queued `'end_early'` item gets `22023 round_not_in_progress`, which B6b maps to `'invalid'` (a retained failed item). B6c's gate should read the server status (`useRoundMetadata().roundStatus === 'in-progress'`); a later option is to let the RPC accept `upcoming` and flip it.
+- **`holes_played` on INSERT is not guarded** (the guard is `BEFORE UPDATE` only). A client could create a round that already reads "ended after N"; there is nothing to trim on a new round and the handicap helper treats it as ended, so it is harmless, but an `INSERT` guard would make the column strictly RPC-only.
+- **`supabase/tests/soft_delete_verify.sql:286-297`** inserts a competition without `end_date`, so it hits the same `event_requires_end_date` violation as v2's B1a-2 fixture did. Add `end_date` there when that script is next run.
 - `src/types/supabase.ts` (generated `Database`, used by `useEntity` / course services) is stale: its `rounds` row lacks `nine_type` (and now `holes_played`). Regenerate when convenient; nothing in this feature reads rounds through it.
 - `filterHolesByNineType` (`src/utils/holeTransformers.ts:24-28`) never sorts; `'full'` returns the input order. Anything that assumes hole order on unsorted course imports is unaffected by this plan (`filterPlayableHoles` sorts only when ended early), but a "holes in order" guarantee does not exist today.
 
 ### Store end-early (B3a–B3c)
 
-- `src/hooks/scorecard/useRoundData.ts:593-628` and `src/hooks/scorecard/useMatchPlayData.ts:363-395` have a fresh-device window. `hydrateFromSupabase` merges server `scores` into **empty** local cards without filtering to the played holes. If the ending device's trimmed snapshot hasn't synced yet (2 s debounce), a second phone opening the round can pull holes after N into memory. The guard blocks edits and displays slice to played holes, but submit would carry them until the next load reconciles. Fix: drop keys where `isHoleAfterEarlyEnd(nineType, holesPlayed, hole)` in both merges.
+- `src/hooks/scorecard/useRoundData.ts:593-628` and `src/hooks/scorecard/useMatchPlayData.ts:363-395`: after B3c-2 the hydrate merges drop score keys after N but still copy the server's `total_gross` / `total_net`, which can include those holes until the ending device's trimmed snapshot lands. Totals are recomputed on the next write to that card, and B4 recomputes the net over the played holes at sync; a recompute at merge time would close it fully.
+- `src/screens/scoring/TeamMatchPlayScoringScreen/index.tsx` init effect: B3c-2 adds only the `holes_played` divergence check. It still has no `nine_type` divergence recovery like `useMatchPlayData`'s.
+- `EndRoundEarlyRoundChangedError` (B3b-2): the SQLite rows for the later holes are already deleted when it is thrown. If the user re-opens the same round without ending it, those scores are gone from this device, and its next snapshot sync drops them from the server too. Rare: it needs a round switch during a sub-second local delete. A fix would re-check `currentRoundId` inside the transaction and roll it back.
 - `src/store/initializeRoundSlice.ts:130-153` (pre-existing): `initializeRound` overwrites existing SQLite scorecard rows with `scores: {}`, but `saveScorecard` never deletes `hole_scores` rows (`ScorecardDAO.ts:114`), so the old rows come back on the next `loadFromOffline`.
 - `src/store/scorecardSyncDebounce.ts:11-15`: the comment about a "server-side completeness check" skipping smaller cards is stale. `write_scorecard_snapshot` replaces `scores` wholesale, and end-early relies on that.
 - `src/store/initializeRoundSlice.ts:412-420` (R15 cut): a cold start with no network still bails, so a round ended offline can't be reopened until the app is online.
@@ -43196,8 +46865,9 @@ Dropped from v1's list because v2 resolves or removes them: the converted-round 
 
 ### Net over holes played + end-early client (B4, B6b)
 
-- `src/services/offline/sync/syncOrchestrator.ts` (B6b `processRoundEndEarlySync`): the queue path doesn't invalidate React Query round caches after a queued end applies. `sync.test.ts` mocks `@/services/queryClient` with three functions only. The Rounds list and ViewRound pick up `holes_played` on their next refetch or staleTime.
-- `src/services/rounds/finalizeSubmittedRound.ts` (B6b guard): if a queued `end_early` exhausts its network retries and is retained, the round's finalize waits until the user retries or discards it in Retained Uploads, and the round stays `in-progress` meanwhile. Add this to the B11 QA list ("offline end, airplane mode through 3 drains, then Retry").
+- `src/utils/scorecardCalculations.ts` (`calculatePlayerStats`, pre-existing): its per-hole gross loop reads single-ball scores only, while `calculateNetOverHolesPlayed` now reads a multi-ball hole's first ball (to match the store and the synced `total_gross`). A local multi-ball card shown through `calculatePlayerStats` with `holesPlayed` would show gross 0 beside a non-zero net. Server cards are unaffected (sync uploads single-ball scores only), and R20 already drops the stats preview for multi-ball rounds. Align `calculatePlayerStats`' gross with the store's first-ball rule in a scoring-guarded follow-up.
+- `src/services/offline/sync/syncOrchestrator.ts` (B6b-2): a queued `end_early` that keeps failing with `'network'` (e.g. `PGRST202` because the migration isn't deployed, or a persistent 5xx) stays pending forever by design, and the round's finalize waits behind it. The rollout order (migration before the store build, R20) prevents `PGRST202`. Add to the B11 QA list: "offline end, airplane mode through 3 drains, back online → end then finalize apply".
+- `src/services/rounds/applyEndRoundEarly.ts`: the conflict read-back (`fetchRoundHolesPlayed`) has no client timeout of its own. It only runs after the server has answered the RPC, so a hang there is unlikely.
 - `src/services/offline/sync/scorecardSync.ts:473-498` (`calculateTotalPoints`) and `:510-533` (`calculateTotalParScore`) score a pickup from its raw `PICKUP_SCORE`, not `getEffectiveGrossStrokes`. Both give the same 0 points / −1 as net double bogey today, so this is not a bug, but it isn't shared with I3.
 - Appendix B (pre-existing, per review): 9-hole per-hole net allocates strokes on 18-hole stroke indexes (`getStrokesReceived(dhc, hole.strokeIndex)`), so it gives roughly half the strokes. `calculateNetOverHolesPlayed` inherits this. Don't change it here.
 - `src/services/rounds/forceFinalizeRound.ts:53-63` counts `Object.keys(card.scores)` against `holeCount` (planned). That's competition-only today; if ending early is ever extended to competitions, it must use the played count.
@@ -43206,12 +46876,15 @@ Dropped from v1's list because v2 resolves or removes them: the converted-round 
 
 - `src/screens/scoring/MatchPlayScoringScreen/index.tsx:236` and `:477-479` index holes by position (`safeHoles[currentHole - 1]`), so the hole data is wrong on back-9 rounds (hole 10 is `safeHoles[0]`). This is pre-existing. The B6d clamp keeps the hole number in range but doesn't fix the lookup.
 - `src/screens/scoring/MatchPlayScoringScreen/index.tsx:88-93` clamps `initialHole` to 1–18, not to the round's hole range. This is pre-existing.
-- `src/screens/scoring/ScorecardEntryScreen/index.tsx:358-370`: `useScorecardSubmission().handleSubmit` has no caller in the screen. The incomplete-holes dialog is unreachable, and the screen's "Submit" is the footer's Review button. It is dead code to delete, or to wire up deliberately.
+- `src/screens/scoring/ScorecardEntryScreen/index.tsx:358-370` and `hooks/useScorecardSubmission.ts:65-117`: `useScorecardSubmission().handleSubmit` has no caller in the screen, so the incomplete-holes dialog (`useScorecardDialogs.openIncompleteDialog` → `ScorecardDialogs` → `performSubmit`) is unreachable. The screen's "Submit" is the footer's Review button. It is dead code to delete, or to wire up deliberately. **If it is ever wired up, it must first route an ended round (`useScorecardStore.getState().holesPlayed != null`) to `ReviewScorecard` without submitting**, or it would submit against the planned hole count. v2's B6d-1 guarded it; v2.1 dropped that guard and its tests because they only protected dead code.
+- `src/hooks/scorecard/useEndRoundEarly.ts` (B6c-1): the sheet's Cancel is ignored while a confirm is in flight, so it relies on `applyEndRoundEarly` settling. B6b-1 bounds the RPC at 8 s and rejects with `'network'`, but its conflict read-back (`fetchRoundHolesPlayed`) has no timeout of its own; a hook-side overall timeout would cover that rare case.
+- `ScorecardEntryScreen`'s `match-play-team` branch (`ScorecardScoreContent.tsx:598-610`) stores each team's score on `team.members[0]`'s card only (`useTeamScoring.ts:240-273`, `handleTeamMatchPlayScoreSelect`). `planEndRoundEarly` needs every player's card scored on a hole, so on that branch it would never find a complete hole and the action would never show. This is **unreachable for social rounds**: a `match-play-team` round is always `game_type = 'match-play'` with a team config (`useStartNewRound.ts:180`, `useStartScheduledRound.ts:165`, `roundPresets.ts:379,456`), and every route sends those to `TeamMatchPlayScoring` (`roundSession.navigateToScoring`, `HomeScreen.handleScoreRound`, `useRoundActions`, `useViewRoundHandlers.handleScoreRound`, `watch/selectRoundRoute`), whose four-ball cards hold one score per player. Scramble and alt-shot (`handleTeamScoreSelect`) write every member's card. If the branch ever becomes reachable, build the planner's `players` from the score-holding cards (`team.members[0]`).
 - `src/hooks/scorecard/useEndRoundEarly.ts` (B6c): if `queueRoundEndEarly` throws after the local end, the user sees the generic error toast while the round is already ended locally. The server only learns of the end at submit time, through finalisation, without `holes_played`. Consider retrying the queue write, or flagging it in the Developer retained-uploads list.
 
 ### Finish screens + submit (B7a, B7b, B8)
 
-- `createMismatchRecords(roundId)` is round-wide (`src/services/scoreMismatch/submission.ts:139`, `detection.ts:83`). After an end, another phone's stale entries after N can still persist `score_mismatches` rows. B8-1 filters them out of readiness, but if a real mismatch on holes 1–N also exists, Review's `MismatchResolutionModal` (fed by `usePendingMismatches`, Review `index.tsx:217`) lists the stale rows too. Fix: filter `mismatches` by `playedHoleNumbers` in Review, or delete rows after N during the B3c reconcile.
+- `createMismatchRecords(roundId)` is round-wide (`src/services/scoreMismatch/submission.ts:139`, `detection.ts:83`). After an end, another phone's stale entries after N can still persist `score_mismatches` rows. B8-1 filters them out of readiness and out of Review's `MismatchResolutionModal`, but the rows stay `pending` in the database. Deleting rows after N (in the RPC or during the B3c reconcile) would clean them up.
+- **Singles match play never runs `checkSubmissionReadiness`.** `MatchPlayScorecardScreen` submits straight from its own footer, with no readiness or mismatch check (pre-existing, for every match). So B8-1's limit applies to Review-finished formats only, and B11's two-phone mismatch QA (Review Focus 3) must use a Review-finished format (stroke play / Stableford), not singles match play.
 - `isHoleComplete` treats any `strokes !== undefined` as complete, including `0` (`src/store/scorecardStore.ts:357-359`), while `isHoleScored`/`validateScores` require `strokes > 0`. So MatchPlayScorecard's footer can show for a 0-stroke placeholder that Review would reject. This is pre-existing.
 - `getPartnerProgress` counts every entry of the scorer, whatever the hole (`src/services/scoreMismatch/submission.ts:242-248`). That's harmless today because a round with scoring pairs can't be ended early. Revisit if pairs rounds ever can.
 - Review's `ShotLogList` passed no `holeNumbers` before B7b (`ReviewScorecardScreen/index.tsx:582-600`), so planned back-9 rounds listed holes 1–9 in the Shots tab. B7b fixes it for every round. Mention it in B11's QA list.
@@ -43226,6 +46899,8 @@ Dropped from v1's list because v2 resolves or removes them: the converted-round 
 - `src/components/wolf/WolfIndicator/index.tsx` (`useWolfStandings`, `src/hooks/wolf/queries.ts:377-410`): no hole cut. That's harmless after the RPC trim, but an offline-ended round can briefly count later decisions (Appendix B).
 - `src/components/rounds/ViewRound/RoundDetailsTab/components/WolfGameSection.tsx:225`: dead code (R10) that still draws the 1–18 grid. Leave it until Wolf finalisation is wired.
 - `src/components/rounds/ViewRound/RoundDetailsTab/index.tsx:96-99` (B9g): an organiser who ended the round offline can still change `nine_type` from another online screen before the queued `'end_early'` item drains. The RPC CHECK (`holes_played < planned`) or the different-nine pairing then fails, and the item is marked failed (22023). Consider also locking on the store's `holesPlayed` when `currentRoundId === round.id`.
+- `src/hooks/home/useInProgressRounds.ts:248-327` (`computeUserProgress`): the Home "continue scoring" carousel, and the Watch's available-rounds list fed from the same in-progress rounds, show an ended-but-unsubmitted round at "hole N+1" (`currentHole = min(maxScoredHole + 1, lastHole)`, where `lastHole` is the course's last hole, not the played range). Its Stableford points also call `calculatePlayerStats` without `{ holesPlayed }`. Not clamped here, but cheap: `ROUND_SELECT` is `*`, so `holes_played` and `nine_type` are already on the row once B1b adds `holes_played` to `Round`. The fix is `lastHole = round.holes_played != null ? lastPlayedHoleNumber(round.nine_type, round.holes_played) : <today's value>`, plus `{ holesPlayed: round.holes_played }` on the `calculatePlayerStats` call and a case in `src/__tests__/hooks/home/useInProgressRounds.test.ts`. (The Watch reads the same hook via `src/watch/useWatchBridge.ts:90`.) Add it to B11's on-device QA list until then.
+- B11 QA: two display changes also hit **normal 9-hole rounds**: ViewRound's Wolf tab reads "x of 9 holes" with 9 rows (B9e-2), and a 9-hole standalone team match on ViewRound is decided over its 9 holes with playing handicaps from the 9-hole Σpar (B9c; see the `SubMatchLeaderboardTab` item above).
 - `src/components/rounds/ViewRound/RoundDetailsTab/sheets/EditNineTypeSheet.tsx:209-216`: `BottomSheet useModal` content isn't wrapped in `<SystemModalTheme>` (CLAUDE.md modal rule). This is pre-existing.
 
 ### Stats, achievements, belts, docs (B9f, B10a–B10c, B11)
@@ -43234,6 +46909,6 @@ Found while drafting these tasks; out of scope here (also folded into Appendix B
 
 - `src/screens/rounds/RoundListScreen/hooks/useRoundFilters.ts:59-62` — the `handicap` filter includes competition rounds with a non-`'none'` source, while the My Stats Handicap tile counts standalone rounds only (`src/hooks/playerStatistics/queries.ts:331`), so the tap-through list can be longer than the tile. Pre-existing.
 - `src/hooks/playerStatistics/types.ts:187` — the `nineHoleRoundsPlayed` doc comment ("fewer than 18 holes scored") no longer mentions that ended-early rounds are excluded (B10a). Comment-only.
-- `src/hooks/player/handicapHistory.ts:63-70` — `findScorecardsNeedingRecalculation` has no ordering before `limit(20)`. After A3/A7, every part-filled card keeps a permanent NULL differential and is re-picked each session (B10c-1 excludes only `holes_played` rounds), so 20 old partial cards can starve genuinely recalculable ones.
+- `src/hooks/player/handicapHistory.ts:63-70` — `findScorecardsNeedingRecalculation` has no ordering before `limit(20)`. After A3/A7, every part-filled card keeps a permanent NULL differential; A3-3 skips them only after the limit (B10c-1 filters `holes_played` rounds in SQL), so 20 old partial cards can still starve genuinely recalculable ones.
 - `src/hooks/playerStatistics/courseQueries.ts:104` — course statistics don't exclude shared-ball (scramble / alt-shot) rounds, unlike `queries.ts:160-163`.
 
