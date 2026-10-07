@@ -7,6 +7,7 @@
  */
 
 import { supabase } from '@/services/supabase/client';
+import { isCompleteForHandicap } from '@/utils/handicapEligibility';
 import type { HandicapRound, CombinableNinePair, NinePieceSummary } from '@/types';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -123,6 +124,8 @@ interface NineScorecardRow {
   daily_handicap_used: number | null;
   handicap_differential: number | null;
   submitted_at: string | null;
+  /** Hole-by-hole scores — the completeness gate (I12) reads them. */
+  scores: Record<string, unknown> | null;
   rounds: {
     id: string;
     date: string | null;
@@ -204,6 +207,7 @@ export async function fetchCombinableNinePairs(
       course_rating_used,
       slope_rating_used,
       submitted_at,
+      scores,
       rounds!inner (
         id,
         date,
@@ -232,8 +236,15 @@ export async function fetchCombinableNinePairs(
     return [];
   }
 
+  // Only a nine scored on every hole of its own nine can combine (I12). A
+  // part-filled nine is dropped BEFORE bucketing, so the most recent complete
+  // front/back pair is the one offered.
   const rows = (data as ScorecardWithRatings[]).filter(
-    (sc) => !combinedIds.has(sc.id) && sc.rounds && sc.rounds.courses,
+    (sc) =>
+      !combinedIds.has(sc.id) &&
+      sc.rounds &&
+      sc.rounds.courses &&
+      isCompleteForHandicap(sc.scores, sc.rounds.nine_type),
   );
 
   // Group by (course_id, tee_name_lower). Within each group, separate by nine_type.
