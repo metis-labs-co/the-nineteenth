@@ -36,9 +36,14 @@ export function applyRemoteScorecard(local: Scorecard, remote: RemoteScorecardRo
 
   if (isFinalStatus(remote.status)) {
     if (localFinal && localRevision >= remote.revision) return unchanged(local);
-    const scores: Scorecard['scores'] = {};
-    for (const [key, hole] of Object.entries(remote.scores ?? {})) {
-      if (hole && hole.strokes != null) scores[Number(key)] = hole;
+    // A row without scores carries no hole data: keep the local holes rather
+    // than wiping the card.
+    let scores: Scorecard['scores'] = local.scores;
+    if (remote.scores != null) {
+      scores = {};
+      for (const [key, hole] of Object.entries(remote.scores)) {
+        if (hole && hole.strokes != null) scores[Number(key)] = hole;
+      }
     }
     return {
       scorecard: {

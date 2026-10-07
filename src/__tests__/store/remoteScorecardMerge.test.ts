@@ -36,6 +36,20 @@ describe('applyRemoteScorecard', () => {
     expect(r).toMatchObject({ changed: true, needsUpload: true });
   });
 
+  it('keeps local scores when a final row arrives without scores', () => {
+    const local = card({ scores: { 1: { strokes: 3, editedAt: T2 } } });
+    const r = applyRemoteScorecard(local, row({ scores: null, revision: 9, status: 'completed' }));
+    expect(r.scorecard.scores).toEqual({ 1: { strokes: 3, editedAt: T2 } });
+    expect(r.scorecard.status).toBe('completed');
+    expect(r.scorecard.serverRevision).toBe(9);
+  });
+
+  it('keeps local scores when an in-progress row arrives without scores', () => {
+    const local = card({ scores: { 1: { strokes: 3, editedAt: T2 } } });
+    const r = applyRemoteScorecard(local, row({ scores: null, revision: 5 }));
+    expect(r.scorecard.scores).toEqual({ 1: { strokes: 3, editedAt: T2 } });
+  });
+
   it('adopts a completed server card wholesale', () => {
     const r = applyRemoteScorecard(card({ scores: { 1: { strokes: 3, editedAt: T2 } } }), row({ scores: { '1': { strokes: 6, editedAt: T1 } }, revision: 9, status: 'completed' }));
     expect(r.scorecard).toMatchObject({ status: 'completed', serverRevision: 9 });

@@ -37,6 +37,13 @@ describe('useLiveScorecardMerge', () => {
     expect(merge).not.toHaveBeenCalled();
   });
 
+  it('skips rows without a scores column (partial realtime payloads)', () => {
+    useScorecardStore.setState({ scoringMode: 'social' } as never);
+    renderHook(() => useLiveScorecardMerge('r-1'));
+    mockHandler!({ new: { player_id: 'p', revision: 2, status: 'completed', round_id: 'r-1' } });
+    expect(merge).not.toHaveBeenCalled();
+  });
+
   it('does not subscribe in a standard round', () => {
     useScorecardStore.setState({ scoringMode: 'standard' } as never);
     renderHook(() => useLiveScorecardMerge('r-1'));
