@@ -12,6 +12,7 @@
 import { Scorecard, HoleScore, Hole, GameType, HoleShotContributions, TeeBox } from '@/types';
 import type { HandicapSource } from '@/types/database';
 import type { NineType } from '@/types/database/enums';
+import type { ScoringMode } from '@/utils/scoringMode';
 import { isSingleBallScore } from '@/types/database/base';
 import { storeLogger } from '@/utils/debugLogger';
 import { persistScorecardUpdate } from './scorecardPersistence';
@@ -28,6 +29,7 @@ interface StoreState {
   playerTeeMap: Map<string, TeeBox>;
   handicapSource: HandicapSource;
   nineType: NineType;
+  scoringMode: ScoringMode;
 }
 
 type GetFn = () => StoreState;
@@ -208,6 +210,10 @@ export async function updatePlayerHoleScore(
     scorecard: { scorecardId: scorecard.id, scorecard: updatedScorecard },
     context: 'updatePlayerHoleScore',
   });
+
+  if (get().scoringMode === 'social' && get().currentRoundId && !scorecard.isStandalone) {
+    debouncedQueueScorecardSync(scorecard.id, () => get().groupScorecards.get(playerId));
+  }
 }
 
 export async function updateShotContributions(
@@ -253,6 +259,10 @@ export async function updateShotContributions(
     scorecard: { scorecardId: scorecard.id, scorecard: updatedScorecard },
     context: 'updateShotContributions',
   });
+
+  if (get().scoringMode === 'social' && get().currentRoundId && !scorecard.isStandalone) {
+    debouncedQueueScorecardSync(scorecard.id, () => get().groupScorecards.get(playerId));
+  }
 
   if (saved) {
     storeLogger.debug('Shot contributions saved', {

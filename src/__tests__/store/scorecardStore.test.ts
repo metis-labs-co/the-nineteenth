@@ -307,6 +307,26 @@ describe('ScorecardStore', () => {
       expect(queueScorecardSync).not.toHaveBeenCalled();
       jest.useRealTimers();
     });
+
+    it('stat edits queue a live upload in a social round', async () => {
+      jest.useFakeTimers();
+      await getStore().initializeRound(testRoundId, testPlayers, testHoles, 'stroke', false, [], null, 'none', new Map(), 'full', 1, 'social');
+      (queueScorecardSync as jest.Mock).mockClear();
+      await getStore().updatePlayerHoleScore(testPlayers[0].id, 1, { putts: 2 });
+      jest.advanceTimersByTime(2500);
+      expect(queueScorecardSync).toHaveBeenCalled();
+      jest.useRealTimers();
+    });
+
+    it('shot contribution edits queue a live upload in a social round', async () => {
+      jest.useFakeTimers();
+      await getStore().initializeRound(testRoundId, testPlayers, testHoles, 'stroke', false, [], null, 'none', new Map(), 'full', 1, 'social');
+      (queueScorecardSync as jest.Mock).mockClear();
+      await getStore().updateShotContributions(testPlayers[0].id, 1, { player1: 1, player2: 0 });
+      jest.advanceTimersByTime(2500);
+      expect(queueScorecardSync).toHaveBeenCalled();
+      jest.useRealTimers();
+    });
   });
 
   describe('initializeRound', () => {
