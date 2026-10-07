@@ -122,6 +122,7 @@ export const Default: Story = {
     onTeam1ScoreSelect: () => {},
     onTeam2ScoreSelect: () => {},
     holeResults: new Map(),
+    totalHoles: 18,
     disabled: false,
   },
 };
@@ -486,6 +487,7 @@ const InteractiveStory = () => {
       onTeam1ScoreSelect={handleTeam1Score}
       onTeam2ScoreSelect={handleTeam2Score}
       holeResults={holeResults}
+      totalHoles={18}
       disabled={false}
     />
   );
@@ -528,6 +530,7 @@ const MatchProgressionStory = () => {
         onTeam1ScoreSelect={(strokes) => setTeam1Score({ strokes })}
         onTeam2ScoreSelect={(strokes) => setTeam2Score({ strokes })}
         holeResults={holeResults}
+        totalHoles={18}
         disabled={false}
       />
     </View>

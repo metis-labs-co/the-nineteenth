@@ -606,6 +606,7 @@ export function ScorecardScoreContent({
         onTeam1ScoreSelect={(strokes) => handleTeamMatchPlayScoreSelect(0, strokes)}
         onTeam2ScoreSelect={(strokes) => handleTeamMatchPlayScoreSelect(1, strokes)}
         holeResults={teamMatchPlayResults}
+        totalHoles={holes.length}
       />
     );
   }

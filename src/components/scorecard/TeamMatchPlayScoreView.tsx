@@ -24,6 +24,12 @@ import type { Hole, HoleScore, MultiBallHoleScore } from '@/types';
 import { isSingleBallScore } from '@/types/database';
 import type { TeamWithMembers } from '@/types/database.types';
 import { PICKUP_SCORE } from '@/constants/scoring';
+import { compactMatchMargin } from '@/utils/matchMargin';
+import {
+  calculateTeamMatchStatus,
+  countHolesWon,
+} from '@/screens/scoring/TeamMatchPlayScoringScreen/utils/teamMatchPlayCalculations';
+import type { TeamHoleResult } from '@/screens/scoring/TeamMatchPlayScoringScreen/types';
 
 interface TeamMatchPlayScoreViewProps {
   team1: TeamWithMembers;
@@ -35,6 +41,8 @@ interface TeamMatchPlayScoreViewProps {
   onTeam2ScoreSelect: (strokes: number) => void;
   /** Map of hole number -> 'team1' | 'team2' | 'halved' */
   holeResults: Map<number, 'team1' | 'team2' | 'halved'>;
+  /** Planned holes in the match (the round's nine-filtered count: 9 or 18). */
+  totalHoles: number;
   disabled?: boolean;
 }
 
@@ -42,62 +50,57 @@ const MIN_SCORE = 1;
 const MAX_SCORE = 12;
 
 /**
- * Calculate match status from hole results
- * Returns: { status: string, team1Holes: number, team2Holes: number, halved: number }
+ * Header summary for the match. The match numbers come from the canonical
+ * `calculateTeamMatchStatus` engine against the planned hole count — this
+ * card only formats them ("Team A 2 UP", "Team A 2 UP (Dormie)",
+ * "Team A wins 3&2", "All Square").
  */
-function calculateMatchStatus(
+function describeMatchStatus(
   holeResults: Map<number, 'team1' | 'team2' | 'halved'>,
+  totalHoles: number,
   team1Name: string,
   team2Name: string
 ): { status: string; team1Holes: number; team2Holes: number; halved: number; winner: 'team1' | 'team2' | null } {
-  let team1Holes = 0;
-  let team2Holes = 0;
-  let halved = 0;
-
-  holeResults.forEach((result) => {
-    if (result === 'team1') team1Holes++;
-    else if (result === 'team2') team2Holes++;
-    else halved++;
+  const results: Record<number, TeamHoleResult> = {};
+  holeResults.forEach((winner, holeNumber) => {
+    results[holeNumber] = {
+      team1Score: null,
+      team2Score: null,
+      team1PlayerScores: {},
+      team2PlayerScores: {},
+      winner,
+    };
   });
 
-  const diff = team1Holes - team2Holes;
+  const { team1: team1Holes, team2: team2Holes, halved } = countHolesWon(results);
+  const matchStatus = calculateTeamMatchStatus(results, totalHoles);
+  const nameFor = (team: 'team1' | 'team2') => (team === 'team1' ? team1Name : team2Name);
 
-  if (diff === 0) {
+  if (matchStatus.status === 'complete') {
+    if (matchStatus.winner === 'halved') {
+      return { status: 'All Square', team1Holes, team2Holes, halved, winner: null };
+    }
+    return {
+      status: `${nameFor(matchStatus.winner)} wins ${compactMatchMargin(matchStatus.margin)}`,
+      team1Holes,
+      team2Holes,
+      halved,
+      winner: matchStatus.winner,
+    };
+  }
+
+  if (matchStatus.leader === null) {
     return { status: 'All Square', team1Holes, team2Holes, halved, winner: null };
   }
 
-  const leadingTeam = diff > 0 ? team1Name : team2Name;
-  const lead = Math.abs(diff);
-  const holesRemaining = 18 - holeResults.size;
-
-  // Check for "dormie" (lead equals holes remaining)
-  if (lead === holesRemaining && holesRemaining > 0) {
-    return {
-      status: `${leadingTeam} ${lead} UP (Dormie)`,
-      team1Holes,
-      team2Holes,
-      halved,
-      winner: diff > 0 ? 'team1' : 'team2',
-    };
-  }
-
-  // Check if match is over (lead > holes remaining)
-  if (lead > holesRemaining) {
-    return {
-      status: `${leadingTeam} wins ${lead}&${holesRemaining}`,
-      team1Holes,
-      team2Holes,
-      halved,
-      winner: diff > 0 ? 'team1' : 'team2',
-    };
-  }
-
+  // Dormie: the lead equals the holes left to play.
+  const isDormie = matchStatus.holesUp === matchStatus.holesRemaining;
   return {
-    status: `${leadingTeam} ${lead} UP`,
+    status: `${nameFor(matchStatus.leader)} ${matchStatus.holesUp} UP${isDormie ? ' (Dormie)' : ''}`,
     team1Holes,
     team2Holes,
     halved,
-    winner: diff > 0 ? 'team1' : 'team2',
+    winner: matchStatus.leader,
   };
 }
 
@@ -110,13 +113,14 @@ export const TeamMatchPlayScoreView = React.memo(function TeamMatchPlayScoreView
   onTeam1ScoreSelect,
   onTeam2ScoreSelect,
   holeResults,
+  totalHoles,
   disabled = false,
 }: TeamMatchPlayScoreViewProps) {
   const colors = useThemeColors();
 
   const matchStatus = useMemo(
-    () => calculateMatchStatus(holeResults, team1.name, team2.name),
-    [holeResults, team1.name, team2.name]
+    () => describeMatchStatus(holeResults, totalHoles, team1.name, team2.name),
+    [holeResults, totalHoles, team1.name, team2.name]
   );
 
   // Narrow to single-ball scores for accessing strokes

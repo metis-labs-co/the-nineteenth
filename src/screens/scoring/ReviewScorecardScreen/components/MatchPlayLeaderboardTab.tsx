@@ -17,6 +17,7 @@ import { useRoundTeams } from '@/hooks/scorecard/useRoundTeams';
 import { calculatePlayingHandicap } from '@/hooks/usePlayingHandicap';
 import { MatchPlayLeaderboard } from '@/components/leaderboard/MatchPlayLeaderboard';
 import { calculateTeamMatchData } from '@/components/scorecard/TeamMatchPlayScorecardTable/utils';
+import { compactMatchMargin } from '@/utils/matchMargin';
 import { toMatchTeam } from '@/screens/scoring/TeamMatchPlayScoringScreen/types';
 import { isSingleBallScore } from '@/types/database/base';
 import type {
@@ -77,7 +78,9 @@ function buildTeamEntry(
       holesUpDown = 'A/S';
     } else {
       matchResult = status.winner === perspective ? 'win' : 'loss';
-      holesUpDown = status.margin;
+      // Same compact token as the other match surfaces ('2 UP', '3&2'), so
+      // the card reads "Won 2 UP", not "Won 2 up" / "Won 3 & 2".
+      holesUpDown = compactMatchMargin(status.margin);
     }
   } else {
     // In progress — leave matchResult undefined so the shared leaderboard
@@ -212,6 +215,7 @@ export function MatchPlayLeaderboardTab({
           currentUserId={currentUserId}
           roundStatus={roundStatus}
           isTeamRound
+          totalHoles={holes.length}
         />
       ) : (
         <View style={styles.emptyContainer}>

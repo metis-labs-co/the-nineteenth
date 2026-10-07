@@ -69,6 +69,7 @@ function createDefaultProps(overrides: Partial<React.ComponentProps<typeof TeamM
     onTeam1ScoreSelect: jest.fn(),
     onTeam2ScoreSelect: jest.fn(),
     holeResults: new Map<number, 'team1' | 'team2' | 'halved'>(),
+    totalHoles: 18,
     disabled: false,
     ...overrides,
   };
@@ -227,6 +228,45 @@ describe('TeamMatchPlayScoreView', () => {
       render(<TeamMatchPlayScoreView {...props} />);
 
       expect(screen.getByText('3 halved')).toBeTruthy();
+    });
+  });
+
+  // ===========================================================================
+  // MATCH STATUS — PLANNED HOLE COUNT (canonical engine)
+  // ===========================================================================
+
+  describe('Match Status — planned hole count', () => {
+    it('shows a win decided on the last planned hole as "N UP", never "N&0" (I10)', () => {
+      const holeResults = new Map<number, 'team1' | 'team2' | 'halved'>();
+      for (let i = 1; i <= 16; i++) holeResults.set(i, 'halved');
+      holeResults.set(17, 'team1');
+      holeResults.set(18, 'team1');
+
+      render(<TeamMatchPlayScoreView {...createDefaultProps({ holeResults, totalHoles: 18 })} />);
+
+      expect(screen.getByText('Team Alpha wins 2 UP')).toBeTruthy();
+    });
+
+    it('finishes a 9-hole match after 9 decided holes', () => {
+      const holeResults = new Map<number, 'team1' | 'team2' | 'halved'>();
+      for (let i = 1; i <= 8; i++) holeResults.set(i, 'halved');
+      holeResults.set(9, 'team2');
+
+      render(<TeamMatchPlayScoreView {...createDefaultProps({ holeResults, totalHoles: 9 })} />);
+
+      expect(screen.getByText('Team Beta wins 1 UP')).toBeTruthy();
+    });
+
+    it('reads dormie against the planned 9 holes', () => {
+      // Team Alpha 2 up after 7 of 9 (wins 1-2, halves 3-7): 2 to play.
+      const holeResults = new Map<number, 'team1' | 'team2' | 'halved'>();
+      holeResults.set(1, 'team1');
+      holeResults.set(2, 'team1');
+      for (let i = 3; i <= 7; i++) holeResults.set(i, 'halved');
+
+      render(<TeamMatchPlayScoreView {...createDefaultProps({ holeResults, totalHoles: 9 })} />);
+
+      expect(screen.getByText('Team Alpha 2 UP (Dormie)')).toBeTruthy();
     });
   });
 

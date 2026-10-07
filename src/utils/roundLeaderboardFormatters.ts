@@ -213,6 +213,17 @@ export function formatParData(resultData: RoundResultData): ParScoreData {
 }
 
 /**
+ * Rows finalised before invariant I10 stored a match won on the last hole as
+ * "N & 0" (engine format, or "N&0"). There are no holes "remaining" in such a
+ * result, so show it the way the engines now write it: "N up". Real
+ * close-outs ("3 & 2") and every other value pass through unchanged.
+ */
+function normalizeFinalMargin(margin: string | null | undefined): string | undefined {
+  if (margin == null) return undefined;
+  return margin.replace(/^(\d+)\s*&\s*0$/, '$1 up');
+}
+
+/**
  * Format Match play-specific score data
  */
 export function formatMatchPlayData(
@@ -233,7 +244,7 @@ export function formatMatchPlayData(
   return {
     type: 'match-play',
     matchResult: resultData.match_result ?? 'halved',
-    holesUpDown: resultData.final_margin ?? 'A/S',
+    holesUpDown: normalizeFinalMargin(resultData.final_margin) ?? 'A/S',
     opponentId: resultData.opponent_id ?? '',
     opponentName,
     holesWon: resultData.holes_won ?? 0,

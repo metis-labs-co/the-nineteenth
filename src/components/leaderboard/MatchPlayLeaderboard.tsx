@@ -43,6 +43,11 @@ export interface MatchPlayLeaderboardProps {
   roundStatus?: string;
   /** Whether this is a team round */
   isTeamRound?: boolean;
+  /**
+   * Planned holes in the match (9 or 18). In-progress "N UP with M to play"
+   * text and completion are judged against it. Defaults to 18.
+   */
+  totalHoles?: number;
 }
 
 interface ProcessedMatch {
@@ -58,6 +63,7 @@ export const MatchPlayLeaderboard = React.memo(function MatchPlayLeaderboard({
   currentUserId,
   roundStatus = 'in-progress',
   isTeamRound = false,
+  totalHoles = 18,
 }: MatchPlayLeaderboardProps) {
   const colors = useThemeColors();
 
@@ -100,14 +106,16 @@ export const MatchPlayLeaderboard = React.memo(function MatchPlayLeaderboard({
         scoreData.matchResult,
         scoreData.holesWon,
         scoreData.holesLost,
-        scoreData.holesHalved
+        scoreData.holesHalved,
+        totalHoles
       );
       const statusText = formatMatchStatusText(
         scoreData.matchResult,
         scoreData.holesUpDown,
         scoreData.holesWon,
         scoreData.holesLost,
-        scoreData.holesHalved
+        scoreData.holesHalved,
+        totalHoles
       );
 
       matches.push({
@@ -129,7 +137,7 @@ export const MatchPlayLeaderboard = React.memo(function MatchPlayLeaderboard({
       if (a.isComplete === b.isComplete) return 0;
       return a.isComplete ? 1 : -1;
     });
-  }, [entries]);
+  }, [entries, totalHoles]);
 
   return (
     <View style={styles.matchPlayContainer}>
