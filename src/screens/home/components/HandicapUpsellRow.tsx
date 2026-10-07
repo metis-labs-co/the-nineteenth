@@ -15,6 +15,7 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, borderRadius, typography, shadows } from '@/constants/theme';
 import { formatTierName } from '@/components/subscription/tierConfig';
 import type { SubscriptionTier } from '@/types/subscription.types';
+import { SOCIAL_HANDICAP_NAME } from '@/constants/handicap';
 
 interface HandicapUpsellRowProps {
   /** Tier the feature requires; omitted when the gate doesn't name one. */
@@ -47,7 +48,7 @@ export const HandicapUpsellRow = React.memo(function HandicapUpsellRow({
         onPress={onUpgradePress}
         activeOpacity={0.85}
         accessibilityRole="button"
-        accessibilityLabel={`Social Handicap Index requires ${tierLabel}. Tap to upgrade.`}
+        accessibilityLabel={`${SOCIAL_HANDICAP_NAME} requires the ${tierLabel} plan. Tap to upgrade.`}
         style={styles.row}
       >
         <View
@@ -58,13 +59,13 @@ export const HandicapUpsellRow = React.memo(function HandicapUpsellRow({
 
         <View style={styles.textColumn}>
           <Text style={[styles.title, { color: colors.textPrimary }]} numberOfLines={1}>
-            Social Handicap Index
+            {SOCIAL_HANDICAP_NAME}
           </Text>
           <Text
             style={[styles.subtitle, { color: colors.textSecondary }]}
             numberOfLines={1}
           >
-            Track your index — upgrade to unlock
+            Your in-app handicap — upgrade to unlock
           </Text>
         </View>
 
@@ -77,7 +78,7 @@ export const HandicapUpsellRow = React.memo(function HandicapUpsellRow({
       <TouchableOpacity
         onPress={onDismiss}
         accessibilityRole="button"
-        accessibilityLabel="Hide handicap index"
+        accessibilityLabel="Hide Social Handicap"
         hitSlop={8}
         style={styles.closeButton}
       >

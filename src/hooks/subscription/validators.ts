@@ -258,7 +258,7 @@ export function validateFeatureAccess(
       return checkBooleanFeature(limits.canViewDetailedStats, 'Detailed statistics', 'social');
 
     case 'handicap_history':
-      return checkBooleanFeature(limits.canViewHandicapHistory, 'Handicap history', 'social');
+      return checkBooleanFeature(limits.canViewHandicapHistory, 'Social Handicap history', 'social');
 
     case 'achievement_leaderboard':
       return checkBooleanFeature(limits.canViewAchievementLeaderboard, 'Achievement leaderboard', 'social');

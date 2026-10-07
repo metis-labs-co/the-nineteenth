@@ -3,7 +3,7 @@
  *
  * Renders a card for each (course, tee) group where the player has both a
  * front-9 and back-9 scorecard. Tapping "Combine" pairs them into a single
- * 18-hole entry counted toward the WHS Social Handicap Index.
+ * 18-hole entry counted toward the Social Handicap.
  */
 
 import React, { useCallback } from 'react';
@@ -41,7 +41,7 @@ export function CombinablePairsSection({
     (pair: CombinableNinePair) => {
       Alert.alert(
         'Combine 9-hole rounds?',
-        `Pair your front-9 (${pair.front.totalGross}) with your back-9 (${pair.back.totalGross}) at ${pair.courseName} into a single 18-hole round for handicap tracking.`,
+        `Pair your front-9 (${pair.front.totalGross}) with your back-9 (${pair.back.totalGross}) at ${pair.courseName} into a single 18-hole round for your Social Handicap.`,
         [
           { text: 'Cancel', style: 'cancel' },
           { text: 'Combine', onPress: () => onCombine(pair) },
@@ -59,7 +59,7 @@ export function CombinablePairsSection({
         Combine 9-hole rounds
       </Text>
       <Text style={[styles.sectionHint, { color: colors.textTertiary }]}>
-        Pair a front and back 9 from the same course into an 18-hole handicap round.
+        Pair a front and back 9 from the same course into an 18-hole round for your Social Handicap.
       </Text>
 
       {pairs.map((pair) => (

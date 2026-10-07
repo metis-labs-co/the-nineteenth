@@ -29,7 +29,7 @@ When you register for an account or use our App, you may provide us with:
 | **Email Address** | Account creation, login, notifications | Yes |
 | **Name** | Display name within competitions | Yes |
 | **Profile Photo** | Profile display to other users | No |
-| **Golf Handicap (Handicap Index)** | Score calculations and competition features | Yes |
+| **Golf Handicap (as entered by you)** | Score calculations and competition features | Yes |
 | **Gender** | Used only to apply the correct course rating / slope when calculating your daily (course) handicap | No |
 | **Phone Number** | Profile contact detail | No |
 | **Home Club** | Profile display and course suggestions | No |
@@ -44,7 +44,7 @@ When you register for an account or use our App, you may provide us with:
 
 From your scores we calculate and store:
 - **Score differentials** for each eligible round (World Handicap System formula), stored with your scorecards
-- A **Social Handicap Index** (based on the best differentials from your last 20 rounds). This is an in-app figure and is **not** an official WHS Handicap Index
+- A **Social Handicap** (based on the best differentials from your last 20 rounds). It is unique to The Nineteenth and is **not** an official golf handicap
 - The daily (course) handicap used for each round, plus statistics and achievements
 
 ### 2.2 Information Collected Automatically

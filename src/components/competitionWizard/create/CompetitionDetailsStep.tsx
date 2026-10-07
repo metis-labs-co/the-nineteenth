@@ -16,6 +16,11 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { DatePicker, FormInput, FormSection, Pill, SegmentedButton, ToggleSwitch } from '@/components/common';
 import { useIsPremium, useCheckFeature } from '@/context/SubscriptionContext';
 import { IconTrophy, IconLock } from '@tabler/icons-react-native';
+import {
+  SOCIAL_HANDICAP_NAME,
+  SOCIAL_HANDICAP_SHORT_LABEL,
+  SOCIAL_HANDICAP_SHORT_DISCLAIMER,
+} from '@/constants/handicap';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -404,7 +409,7 @@ export default function CompetitionDetailsStep({
                   value={value || 'profile'}
                   onValueChange={(newValue) => onChange(newValue as HandicapSource)}
                   buttons={[
-                    { value: 'calculated', label: 'Social Index', icon: 'calculator', disabled: !isPremium },
+                    { value: 'calculated', label: SOCIAL_HANDICAP_SHORT_LABEL, icon: 'calculator', disabled: !isPremium },
                     { value: 'profile', label: 'Handicap', icon: 'card-account-details' },
                   ]}
                   size="large"
@@ -413,9 +418,9 @@ export default function CompetitionDetailsStep({
             />
             <Text style={[styles.fieldHint, { color: colors.textSecondary }]}>
               {!isPremium
-                ? 'Social Index requires a Premium subscription'
+                ? `${SOCIAL_HANDICAP_NAME} requires a Premium subscription`
                 : (handicapSource || 'profile') === 'calculated'
-                  ? "Uses Social Handicap Index (calculated from app rounds) with profile handicap fallback"
+                  ? `Uses each player's ${SOCIAL_HANDICAP_NAME} (calculated from app rounds) with profile handicap fallback. ${SOCIAL_HANDICAP_SHORT_DISCLAIMER}`
                   : "Uses player's handicap (manually entered in profile)"}
             </Text>
           </View>
