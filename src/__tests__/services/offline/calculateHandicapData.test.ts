@@ -16,6 +16,7 @@
 import { calculateHandicapData } from '@/services/offline/sync/scorecardSync';
 import type { Scorecard } from '@/types';
 import type { Hole, TeeBox } from '@/types/database/base';
+import { PICKUP_SCORE } from '@/constants/scoring';
 
 /** Flat par-72 course: 18 × par 4, stroke indexes 1..18 in hole order. */
 const PAR_72_HOLES: Hole[] = Array.from({ length: 18 }, (_, i) => ({
@@ -177,5 +178,97 @@ describe('calculateHandicapData — 9-hole daily_handicap_used', () => {
     expect(result.dailyHandicapUsed).toBe(10);
     expect(result.courseRatingUsed).toBe(35.2);
     expect(result.slopeRatingUsed).toBe(118);
+  });
+});
+
+describe('calculateHandicapData — handicap completeness gate (I12)', () => {
+  const range = (start: number, end: number): number[] =>
+    Array.from({ length: end - start + 1 }, (_, i) => start + i);
+
+  /** Level par on the listed holes only. */
+  function parScoresOn(holeNumbers: number[]): Record<number, { strokes: number }> {
+    const scores: Record<number, { strokes: number }> = {};
+    for (const n of holeNumbers) scores[n] = { strokes: PAR_72_HOLES[n - 1].par };
+    return scores;
+  }
+
+  // Scratch player, as in the cap block above: daily handicap −1, so no strokes
+  // are received and every hole caps at par + 2 = 6.
+  const scratchCard = (overrides: Partial<Scorecard>) =>
+    makeScorecard({ playerHandicap: 0, syncHoles: PAR_72_HOLES, coursePar: 72, ...overrides });
+
+  const BACK_NINE = PAR_72_HOLES.filter((h) => h.number >= 10);
+
+  it('keeps the legacy gross-only rule for a card with no per-hole data (I12 lock)', () => {
+    const result = calculateHandicapData(makeScorecard({ scores: {}, totalGross: 90 }));
+    // (113 / 122) × (90 − 71) = 17.6
+    expect(result.handicapDifferential).toBeCloseTo(17.6, 1);
+  });
+
+  it('computes a differential for a complete 18-hole card (I12 lock)', () => {
+    const result = calculateHandicapData(
+      scratchCard({ scores: parScoresOn(range(1, 18)), totalGross: 72 }),
+    );
+    // (113 / 122) × (72 − 71) = 0.9
+    expect(result.handicapDifferential).toBeCloseTo(0.9, 1);
+  });
+
+  it('counts a pickup as a scored hole (I12 lock)', () => {
+    const scores = parScoresOn(range(1, 18));
+    scores[7] = { strokes: PICKUP_SCORE };
+    // Gross 17 × 4 + 10 = 78; the pickup caps at net double bogey (6):
+    // adjusted 68 + 6 = 74 → (113 / 122) × (74 − 71) = 2.8
+    const result = calculateHandicapData(scratchCard({ scores, totalGross: 78 }));
+    expect(result.handicapDifferential).toBeCloseTo(2.8, 1);
+  });
+
+  it('computes a differential for a complete back-9 card (I12 lock)', () => {
+    const result = calculateHandicapData(
+      scratchCard({
+        syncNineType: 'back9',
+        syncHoles: BACK_NINE,
+        coursePar: 36,
+        scores: parScoresOn(range(10, 18)),
+        totalGross: 36,
+      }),
+    );
+    expect(result.handicapDifferential).not.toBeNull();
+  });
+
+  it('returns a NULL differential for an 18-hole card scored on only 6 holes', () => {
+    const result = calculateHandicapData(
+      scratchCard({ scores: parScoresOn(range(1, 6)), totalGross: 24 }),
+    );
+    // Before the gate: (113 / 122) × (24 − 71) = −43.5, straight into the index.
+    expect(result.handicapDifferential).toBeNull();
+    // Only the differential is withheld — the snapshot is still recorded.
+    expect(result.courseRatingUsed).toBe(71);
+    expect(result.slopeRatingUsed).toBe(122);
+    expect(result.dailyHandicapUsed).toBe(-1);
+  });
+
+  it('returns a NULL differential for a back-9 card scored on holes 10–15 only', () => {
+    const result = calculateHandicapData(
+      scratchCard({
+        syncNineType: 'back9',
+        syncHoles: BACK_NINE,
+        coursePar: 36,
+        scores: parScoresOn(range(10, 15)),
+        totalGross: 24,
+      }),
+    );
+    expect(result.handicapDifferential).toBeNull();
+  });
+
+  it('returns a NULL differential when completeness is judged from the nine type, not syncHoles', () => {
+    // syncHoles lists only holes 1–6, but the round is a full 18.
+    const result = calculateHandicapData(
+      scratchCard({
+        syncHoles: PAR_72_HOLES.slice(0, 6),
+        scores: parScoresOn(range(1, 6)),
+        totalGross: 24,
+      }),
+    );
+    expect(result.handicapDifferential).toBeNull();
   });
 });

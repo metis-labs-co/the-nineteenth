@@ -19,6 +19,7 @@ import { updatePlayerHandicapIndex } from '@/services/handicap/updatePlayerHandi
 import { syncLogger } from '@/utils/debugLogger';
 import { getEffectiveTeeRatings } from '@/utils/teeResolution';
 import { isSharedBallRound } from '@/utils/roundFormat';
+import { isCompleteForHandicap } from '@/utils/handicapEligibility';
 import { getStrokesReceived, calculateStablefordPointsNet } from '@/utils/scoring';
 import type { TeeBox, Hole, HoleScore } from '@/types/database/base';
 import { isSingleBallScore } from '@/types/database/base';
@@ -27,8 +28,13 @@ import type { NineType } from '@/types/database/enums';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const from = (table: string) => (supabase as any).from(table);
 
-interface RecalculationResult {
-  handicapDifferential: number;
+export interface RecalculationResult {
+  /**
+   * Null when the card is not complete for its planned nine (I12) — e.g. an
+   * early-ended round, a part-filled card, or an in-progress card
+   * recalculated by mid-round Change Tees.
+   */
+  handicapDifferential: number | null;
   dailyHandicapUsed: number | null;
   courseRatingUsed: number;
   slopeRatingUsed: number;
@@ -322,23 +328,34 @@ export async function recalculateScorecardDifferential(
   // capped at net double bogey (par + 2 + strokes received). Falls back to the
   // raw total_gross when hole data is unavailable, which is what this call site
   // used before the cap was introduced.
-  const adjustedGross =
-    effectiveHoles.length > 0 && scorecard.scores
-      ? calculateAdjustedGrossScore({
-          holes: effectiveHoles,
-          scores: scorecard.scores as AdjustedGrossParams['scores'],
-          dailyHandicap: dailyHandicapUsed ?? 0,
-        }).adjustedGross
-      : scorecard.total_gross;
+  //
+  // Handicap completeness gate (I12): an incomplete card — an early-ended or
+  // part-filled round, or an in-progress card recalculated by mid-round Change
+  // Tees — gets a NULL differential instead of an error, so the daily handicap
+  // and points snapshot below still refresh. Cards with no per-hole data keep
+  // the legacy gross-only rule.
+  const isCompleteCard = isCompleteForHandicap(scorecard.scores, nineType);
+  let handicapDifferential: number | null = null;
 
-  const handicapDifferential = calculateScoreDifferential({
-    adjustedGrossScore: adjustedGross > 0 ? adjustedGross : scorecard.total_gross,
-    courseRating: ratings.courseRating,
-    slopeRating: ratings.slopeRating,
-  });
+  if (isCompleteCard) {
+    const adjustedGross =
+      effectiveHoles.length > 0 && scorecard.scores
+        ? calculateAdjustedGrossScore({
+            holes: effectiveHoles,
+            scores: scorecard.scores as AdjustedGrossParams['scores'],
+            dailyHandicap: dailyHandicapUsed ?? 0,
+          }).adjustedGross
+        : scorecard.total_gross;
 
-  if (handicapDifferential === null) {
-    throw new Error('Failed to calculate differential from current ratings');
+    handicapDifferential = calculateScoreDifferential({
+      adjustedGrossScore: adjustedGross > 0 ? adjustedGross : scorecard.total_gross,
+      courseRating: ratings.courseRating,
+      slopeRating: ratings.slopeRating,
+    });
+
+    if (handicapDifferential === null) {
+      throw new Error('Failed to calculate differential from current ratings');
+    }
   }
 
   // 9. Recalculate total_points if this is a Stableford round with daily handicap
@@ -381,6 +398,7 @@ export async function recalculateScorecardDifferential(
   syncLogger.info('Retroactive differential recalculation successful', {
     scorecardId: scorecardId.substring(0, 8) + '...',
     handicapDifferential,
+    isCompleteCard,
     courseRatingUsed: ratings.courseRating,
     slopeRatingUsed: ratings.slopeRating,
     dailyHandicapUsed,

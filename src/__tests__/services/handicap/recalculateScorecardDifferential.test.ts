@@ -410,4 +410,92 @@ describe('recalculateScorecardDifferential', () => {
       ).rejects.toThrow('Failed to update scorecard: permission denied');
     });
   });
+
+  describe('handicap completeness gate (I12)', () => {
+    const range = (start: number, end: number): number[] =>
+      Array.from({ length: end - start + 1 }, (_, i) => start + i);
+
+    /** One over par on each listed hole of mockRound's course, JSONB-keyed. */
+    function bogeyScores(holeNumbers: number[]): Record<string, { strokes: number }> {
+      const scores: Record<string, { strokes: number }> = {};
+      for (const n of holeNumbers) {
+        scores[String(n)] = { strokes: mockRound.courses.holes[n - 1].par + 1 };
+      }
+      return scores;
+    }
+
+    const grossOf = (scores: Record<string, { strokes: number }>) =>
+      Object.values(scores).reduce((sum, s) => sum + s.strokes, 0);
+
+    // mockRound's pars repeat 5, 4, 3 → par 72. HI 18.5 on 125 / 72.5:
+    // ((18.5 × 125 / 113) + (72.5 − 72)) × 0.93 × 0.9986 = 19.47 → DHC 19.
+
+    it('computes a differential for a complete 18-hole card (I12 lock)', async () => {
+      const scores = bogeyScores(range(1, 18));
+      setupMocks({ scorecard: { ...mockScorecard, total_gross: grossOf(scores), scores } });
+
+      const result = await recalculateScorecardDifferential(SCORECARD_ID);
+
+      // Gross 90 (every hole under the cap): (113 / 125) × (90 − 72.5) = 15.8
+      expect(result.handicapDifferential).toBe(15.8);
+    });
+
+    it('computes a differential for a complete back-9 card (I12 lock)', async () => {
+      const scores = bogeyScores(range(10, 18));
+      setupMocks({
+        scorecard: { ...mockScorecard, total_gross: grossOf(scores), scores },
+        round: { ...mockRound, nine_type: 'back9' },
+      });
+
+      const result = await recalculateScorecardDifferential(SCORECARD_ID);
+
+      expect(result.handicapDifferential).not.toBeNull();
+    });
+
+    it('writes a NULL differential for an 18-hole card scored on 6 holes, without throwing', async () => {
+      const scores = bogeyScores(range(1, 6));
+      setupMocks({ scorecard: { ...mockScorecard, total_gross: grossOf(scores), scores } });
+
+      const result = await recalculateScorecardDifferential(SCORECARD_ID);
+
+      // Before the gate: gross 24 + 6 = 30 → (113 / 125) × (30 − 72.5) = −38.4
+      expect(result.handicapDifferential).toBeNull();
+      expect(result.dailyHandicapUsed).toBe(19);
+      expect(mockChains['scorecards'].update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          handicap_differential: null,
+          daily_handicap_used: 19,
+          course_rating_used: 72.5,
+          slope_rating_used: 125,
+        }),
+      );
+    });
+
+    it('writes a NULL differential but still refreshes stableford points for an in-progress card (mid-round Change Tees)', async () => {
+      const scores = bogeyScores(range(1, 6));
+      setupMocks({
+        scorecard: { ...mockScorecard, total_gross: grossOf(scores), scores },
+        round: { ...mockRound, game_type: 'stableford' },
+      });
+
+      const result = await recalculateScorecardDifferential(SCORECARD_ID);
+
+      expect(result.handicapDifferential).toBeNull();
+      expect(mockChains['scorecards'].update).toHaveBeenCalledWith(
+        expect.objectContaining({ handicap_differential: null, total_points: expect.any(Number) }),
+      );
+    });
+
+    it('writes a NULL differential for a back-9 card scored on holes 10–15 only', async () => {
+      const scores = bogeyScores(range(10, 15));
+      setupMocks({
+        scorecard: { ...mockScorecard, total_gross: grossOf(scores), scores },
+        round: { ...mockRound, nine_type: 'back9' },
+      });
+
+      const result = await recalculateScorecardDifferential(SCORECARD_ID);
+
+      expect(result.handicapDifferential).toBeNull();
+    });
+  });
 });

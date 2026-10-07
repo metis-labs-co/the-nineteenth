@@ -26,6 +26,7 @@ import { teeBoxToRatings } from '@/utils/teeTransformers';
 import { getEffectiveTeeRatings } from '@/utils/teeResolution';
 import { updatePlayerHandicapIndex } from '@/services/handicap/updatePlayerHandicapIndex';
 import { isSharedBallRound } from '@/utils/roundFormat';
+import { isCompleteForHandicap } from '@/utils/handicapEligibility';
 
 /**
  * Check if a string is a valid UUID
@@ -412,7 +413,18 @@ export function calculateHandicapData(scorecard: Scorecard): {
       // handicap history and the WHS index (both filter on a non-null value).
       const grossIsPositive =
         typeof scorecard.totalGross === 'number' && scorecard.totalGross > 0;
-      if (!isSharedBallRound({ game_type: scorecard.syncGameType }) && grossIsPositive) {
+      // Handicap completeness gate (I12): only a card that scores every planned
+      // hole — judged from the nine type, never from syncHoles — earns a
+      // differential. An early-ended, part-filled or still in-progress card
+      // gets null (ratings and daily handicap above are still recorded). Cards
+      // with no per-hole data keep the legacy gross-only rule. The server
+      // trigger scorecards_full_card_differential enforces the same rule.
+      const isCompleteCard = isCompleteForHandicap(scorecard.scores, nineType);
+      if (
+        !isSharedBallRound({ game_type: scorecard.syncGameType }) &&
+        grossIsPositive &&
+        isCompleteCard
+      ) {
         const holes = scorecard.syncHoles;
         const adjustedGross =
           holes && holes.length > 0
@@ -437,6 +449,7 @@ export function calculateHandicapData(scorecard: Scorecard): {
         courseRatingUsed,
         slopeRatingUsed,
         nineType,
+        isCompleteCard,
         totalGross: scorecard.totalGross,
         playerGender,
       });
