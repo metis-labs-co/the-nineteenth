@@ -31,6 +31,11 @@ export interface ScorecardRow {
   course_par: number | null;
   player_gender: string | null;
   player_handicap_used: number | null;
+  // Sync metadata (migrations 19-21); absent on rows written before them
+  sync_nine_type?: string | null;
+  sync_game_type?: string | null;
+  /** JSON-encoded Hole[] (the round's planned holes at submit) */
+  sync_holes?: string | null;
 }
 
 /**

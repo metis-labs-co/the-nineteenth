@@ -5,7 +5,8 @@
  */
 
 import type { Scorecard } from '@/types';
-import type { TeeBox } from '@/types/database/base';
+import type { TeeBox, Hole } from '@/types/database/base';
+import type { GameType, NineType } from '@/types/database/enums';
 import type { ScorecardRow } from '../types';
 import { getDb, isValidUUID } from '../DatabaseManager';
 import { nowSQLite, fromSQLiteDate, fromSQLiteDateOptional } from '../utils/dateUtils';
@@ -26,6 +27,17 @@ async function rowToScorecard(row: ScorecardRow): Promise<Scorecard> {
       teeData = JSON.parse(row.tee_data) as TeeBox;
     } catch {
       // Ignore parse errors — teeData stays null
+    }
+  }
+
+  // Planned holes stamped at submit (fallback sync path needs them for
+  // points, par score and the net-double-bogey cap).
+  let syncHoles: Hole[] | undefined;
+  if (row.sync_holes) {
+    try {
+      syncHoles = JSON.parse(row.sync_holes) as Hole[];
+    } catch {
+      // Ignore parse errors — syncHoles stays undefined (gross-based fallback)
     }
   }
 
@@ -56,6 +68,11 @@ async function rowToScorecard(row: ScorecardRow): Promise<Scorecard> {
     coursePar: row.course_par ?? undefined,
     playerGender: (row.player_gender as 'male' | 'female' | null) ?? null,
     playerHandicap: row.player_handicap_used ?? null,
+    // Sync metadata (for fallback sync path): without syncNineType a complete
+    // 9-hole card would be judged against 18 holes and lose its differential.
+    syncNineType: (row.sync_nine_type as NineType | null | undefined) ?? undefined,
+    syncGameType: (row.sync_game_type as GameType | null | undefined) ?? undefined,
+    syncHoles,
   };
 }
 
@@ -84,8 +101,9 @@ export async function saveScorecard(scorecard: Scorecard): Promise<void> {
         `INSERT OR REPLACE INTO ${TABLE_NAMES.SCORECARDS}
          (id, round_id, player_id, player_name, player_handicap, total_gross, total_net, total_points,
           status, submitted_at, submitted_by, created_at, updated_at, is_synced, is_standalone,
-          tee_data, course_par, player_gender, player_handicap_used, server_revision)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          tee_data, course_par, player_gender, player_handicap_used, server_revision,
+          sync_nine_type, sync_game_type, sync_holes)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           scorecard.id,
           scorecard.roundId,
@@ -107,6 +125,9 @@ export async function saveScorecard(scorecard: Scorecard): Promise<void> {
           scorecard.playerGender ?? null,
           scorecard.playerHandicap ?? null,
           scorecard.serverRevision ?? null,
+          scorecard.syncNineType ?? null,
+          scorecard.syncGameType ?? null,
+          scorecard.syncHoles ? JSON.stringify(scorecard.syncHoles) : null,
         ]
       );
 

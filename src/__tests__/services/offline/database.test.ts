@@ -625,6 +625,161 @@ describe('Scorecard Operations', () => {
       expect(query).toContain("status = 'completed'");
     });
   });
+
+  describe('sync metadata round-trip (fallback sync path)', () => {
+    it('initDatabase adds each sync column in its own migration', () => {
+      const calls = mockExecAsync.mock.calls.map((call) => String(call[0]).trim());
+      expect(calls).toContain('ALTER TABLE scorecards ADD COLUMN sync_nine_type TEXT');
+      expect(calls).toContain('ALTER TABLE scorecards ADD COLUMN sync_game_type TEXT');
+      expect(calls).toContain('ALTER TABLE scorecards ADD COLUMN sync_holes TEXT');
+    });
+
+    it('still adds the later columns when an earlier one already exists (killed first run)', async () => {
+      // A previous launch added sync_nine_type and was killed before the rest.
+      __resetDatabaseState();
+      mockExecAsync.mockClear();
+      mockExecAsync.mockImplementation(async (sql: string) => {
+        if (sql.includes('ADD COLUMN sync_nine_type')) {
+          throw new Error('duplicate column name: sync_nine_type');
+        }
+      });
+
+      await initDatabase();
+
+      const calls = mockExecAsync.mock.calls.map((call) => String(call[0]).trim());
+      expect(calls).toContain('ALTER TABLE scorecards ADD COLUMN sync_game_type TEXT');
+      expect(calls).toContain('ALTER TABLE scorecards ADD COLUMN sync_holes TEXT');
+    });
+
+    it('persists the sync nine type, game type and holes', async () => {
+      const holes = createTestHoles().filter((h) => h.number <= 9);
+      await saveScorecard(
+        createTestScorecard({
+          status: 'completed',
+          syncNineType: 'front9',
+          syncGameType: 'stroke',
+          syncHoles: holes,
+        })
+      );
+
+      const insertCall = mockRunAsync.mock.calls.find((call) =>
+        call[0].includes('INSERT OR REPLACE INTO scorecards')
+      );
+      expect(insertCall[0]).toContain('sync_nine_type, sync_game_type, sync_holes');
+      expect(insertCall[1].slice(-3)).toEqual(['front9', 'stroke', JSON.stringify(holes)]);
+    });
+
+    it('writes NULLs when the card carries no sync metadata', async () => {
+      await saveScorecard(createTestScorecard());
+
+      const insertCall = mockRunAsync.mock.calls.find((call) =>
+        call[0].includes('INSERT OR REPLACE INTO scorecards')
+      );
+      // 20 existing columns + the 3 sync columns. (Without the length check
+      // this would pass today: the last 3 values are already
+      // player_gender / player_handicap_used / server_revision = null.)
+      expect(insertCall[1]).toHaveLength(23);
+      expect(insertCall[1].slice(-3)).toEqual([null, null, null]);
+    });
+
+    it('restores them when an unsynced card is re-read', async () => {
+      const holes = createTestHoles().filter((h) => h.number <= 9);
+      mockGetAllAsync
+        .mockResolvedValueOnce([
+          {
+            id: 'scorecard-1',
+            round_id: 'round-1',
+            player_id: 'player-1',
+            player_name: 'John Smith',
+            player_handicap: 18,
+            total_gross: 45,
+            total_net: 36,
+            total_points: 0,
+            status: 'completed',
+            submitted_at: '2026-10-07T10:00:00Z',
+            submitted_by: 'user-1',
+            created_at: '2026-10-07T08:00:00Z',
+            updated_at: '2026-10-07T10:00:00Z',
+            is_synced: 0,
+            is_standalone: 0,
+            server_revision: null,
+            tee_data: null,
+            course_par: 36,
+            player_gender: 'male',
+            player_handicap_used: 18,
+            sync_nine_type: 'front9',
+            sync_game_type: 'stroke',
+            sync_holes: JSON.stringify(holes),
+          },
+        ])
+        .mockResolvedValueOnce([]); // hole scores
+
+      const [card] = await getUnsyncedScorecards();
+
+      expect(card.syncNineType).toBe('front9');
+      expect(card.syncGameType).toBe('stroke');
+      expect(card.syncHoles).toEqual(holes);
+    });
+
+    it('reads rows written before the columns existed as having no metadata', async () => {
+      mockGetAllAsync
+        .mockResolvedValueOnce([
+          {
+            id: 'scorecard-legacy',
+            round_id: 'round-1',
+            player_id: 'player-1',
+            player_name: 'Player',
+            player_handicap: 10,
+            total_gross: 90,
+            total_net: 80,
+            status: 'completed',
+            submitted_at: null,
+            submitted_by: null,
+            created_at: '2025-01-15T08:00:00Z',
+            updated_at: '2025-01-15T08:00:00Z',
+            is_synced: 0,
+            is_standalone: 0,
+          },
+        ])
+        .mockResolvedValueOnce([]);
+
+      const [card] = await getUnsyncedScorecards();
+
+      expect(card.syncNineType).toBeUndefined();
+      expect(card.syncGameType).toBeUndefined();
+      expect(card.syncHoles).toBeUndefined();
+    });
+
+    it('ignores a corrupt sync_holes value', async () => {
+      mockGetAllAsync
+        .mockResolvedValueOnce([
+          {
+            id: 'scorecard-corrupt',
+            round_id: 'round-1',
+            player_id: 'player-1',
+            player_name: 'Player',
+            player_handicap: 10,
+            total_gross: 90,
+            total_net: 80,
+            status: 'completed',
+            submitted_at: null,
+            submitted_by: null,
+            created_at: '2025-01-15T08:00:00Z',
+            updated_at: '2025-01-15T08:00:00Z',
+            is_synced: 0,
+            is_standalone: 0,
+            sync_nine_type: 'full',
+            sync_holes: '{not json',
+          },
+        ])
+        .mockResolvedValueOnce([]);
+
+      const [card] = await getUnsyncedScorecards();
+
+      expect(card.syncNineType).toBe('full');
+      expect(card.syncHoles).toBeUndefined();
+    });
+  });
 });
 
 // ============================================================================

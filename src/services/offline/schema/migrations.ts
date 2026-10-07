@@ -127,6 +127,29 @@ export const MIGRATIONS: Migration[] = [
     name: 'add_scorecard_server_revision',
     up: `ALTER TABLE scorecards ADD COLUMN server_revision INTEGER`,
   },
+  // Sync metadata stamped by submitScorecards, persisted so the fallback sync
+  // path (getUnsyncedScorecards → syncScorecard) builds the same snapshot as
+  // the queued path: nine-aware ratings / daily handicap, points, par score
+  // and the handicap completeness gate (I12).
+  // One column per migration (like 10-14): execAsync is not transactional and
+  // runMigration treats any error as "already applied", so a multi-statement
+  // up killed half-way would never add its remaining columns.
+  {
+    version: 19,
+    name: 'add_scorecard_sync_nine_type',
+    up: `ALTER TABLE scorecards ADD COLUMN sync_nine_type TEXT`,
+  },
+  {
+    version: 20,
+    name: 'add_scorecard_sync_game_type',
+    up: `ALTER TABLE scorecards ADD COLUMN sync_game_type TEXT`,
+  },
+  {
+    // JSON-encoded Hole[] (the round's planned holes at submit)
+    version: 21,
+    name: 'add_scorecard_sync_holes',
+    up: `ALTER TABLE scorecards ADD COLUMN sync_holes TEXT`,
+  },
 ];
 
 /**
