@@ -581,10 +581,12 @@ The closed-holes guard (writes after N are no-ops) also rejects holes that aren'
   3. Raise the force-update minimum once the build is live.
 - **Base:** rebase onto current `main` before execution; `main` changed `recomputeScorecardTotals` in 8ca6daec.
 
-### R21. Open question
+### R21. ★ Only full scorecards count, including existing data
 
-Partial cards that **already** have a differential (for example, part-filled Quick Score cards) keep counting today. If the index calculation also skips incomplete cards, those players' indexes move. This may be the cause of the unexplained "+60.6" index in prod.
+Sam: "only full scorecards should contribute to the social index/handicap. Part-filled quick score rounds should definitely not contribute."
 
-**Sam to decide:**
-- include the belt in the index calculation (indexes move once), or
-- leave existing data alone and only gate new cards.
+- **The server trigger (R13) checks completeness, not just `holes_played`.** It sets `handicap_differential := NULL` whenever the card's per-hole `scores` cover fewer than the planned holes for the round's `nine_type` (pickup counts as scored). This mirrors `isCompleteForHandicap`. Cards with no per-hole data at all (legacy imports, multi-ball cards, whose server `scores` are `{}`) keep today's behaviour, unless their round has `holes_played` set. This protects against old clients too.
+- **One-off data fix in the same migration:** null `handicap_differential` on every existing incomplete card, and on cards of rounds with `holes_played` set. Then list the affected players. Their index is recomputed the next time their app recomputes it. New clients exclude the cards. Old clients' retroactive recalculation is neutralised by the trigger, and they then recompute the index without the card.
+- **Combined rounds:** the `handicap_combined_rounds` trigger rejects a pair if either card is incomplete or its round ended early. Existing combined rows built from an incomplete card are listed in the rollout report for Sam to review, not deleted automatically.
+- **New clients** apply `isCompleteForHandicap` to cards wherever the index and history are computed (R13), so existing partial cards drop out even before the data fix runs.
+- **Rollout report:** before and after counts of affected cards and players, and the players whose index moves by more than 2.0.
