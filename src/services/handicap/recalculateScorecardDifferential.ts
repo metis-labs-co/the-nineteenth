@@ -14,7 +14,7 @@ import {
   calculateAdjustedGrossScore,
   type AdjustedGrossParams,
 } from '@/utils/adjustedGross';
-import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
+import { calculateNineAwareDailyHandicap } from '@/utils/dailyHandicap';
 import { updatePlayerHandicapIndex } from '@/services/handicap/updatePlayerHandicapIndex';
 import { syncLogger } from '@/utils/debugLogger';
 import { getEffectiveTeeRatings } from '@/utils/teeResolution';
@@ -250,14 +250,8 @@ export async function recalculateScorecardDifferential(
   const nineType: NineType = round.nine_type ?? 'full';
   let finalSlopeRating = baseRatings.slopeRating;
   let finalCourseRating = baseRatings.courseRating;
-  let has9HoleRatings = false;
 
   if (nineType !== 'full' && effectiveSelectedTee) {
-    const nineRatingField = nineType === 'front9'
-      ? effectiveSelectedTee.courseRatingFront9
-      : effectiveSelectedTee.courseRatingBack9;
-    has9HoleRatings = nineRatingField != null;
-
     // Build a TeeBox with gender-resolved full ratings plus 9-hole overrides
     const teeBoxForResolution: TeeBox = {
       name: effectiveSelectedTee.name,
@@ -305,27 +299,22 @@ export async function recalculateScorecardDifferential(
   if (gaHandicapUsed != null && effectiveHoles.length > 0) {
     const coursePar = effectiveHoles.reduce((sum, h) => sum + (h.par || 0), 0);
     if (coursePar > 0) {
-      if (nineType !== 'full' && !has9HoleRatings) {
-        // No 9-hole ratings: calculate 18-hole daily handicap then halve it
-        const fullPar = coursePar * 2;
-        const fullDailyResult = calculateGADailyHandicap({
-          gaHandicap: gaHandicapUsed,
-          slopeRating: baseRatings.slopeRating,
-          courseRating: baseRatings.courseRating,
-          par: fullPar,
-          gender: playerGender,
-        });
-        dailyHandicapUsed = Math.round(fullDailyResult.dailyHandicap / 2);
-      } else {
-        const dailyResult = calculateGADailyHandicap({
-          gaHandicap: gaHandicapUsed,
-          slopeRating: ratings.slopeRating,
-          courseRating: ratings.courseRating,
-          par: coursePar,
-          gender: playerGender,
-        });
-        dailyHandicapUsed = dailyResult.dailyHandicap;
-      }
+      // Same helper as the sync path (calculateHandicapData) so a recalculated
+      // daily_handicap_used always matches a freshly synced one: gender-resolved
+      // 18-hole ratings plus the tee's dedicated 9-hole ratings when present.
+      const dailyResult = calculateNineAwareDailyHandicap({
+        gaHandicap: gaHandicapUsed,
+        nineType,
+        par: coursePar,
+        slopeRating: baseRatings.slopeRating,
+        courseRating: baseRatings.courseRating,
+        slopeRatingFront9: effectiveSelectedTee?.slopeRatingFront9,
+        courseRatingFront9: effectiveSelectedTee?.courseRatingFront9,
+        slopeRatingBack9: effectiveSelectedTee?.slopeRatingBack9,
+        courseRatingBack9: effectiveSelectedTee?.courseRatingBack9,
+        gender: playerGender,
+      });
+      dailyHandicapUsed = dailyResult.dailyHandicap;
     }
   }
 

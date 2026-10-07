@@ -300,8 +300,9 @@ describe('recalculateScorecardDifferential', () => {
 
       const result = await recalculateScorecardDifferential(SCORECARD_ID);
 
-      // raw 18-hole DH 12.79 → CURRENT: round(round(12.79) / 2) = round(6.5) = 7
-      expect(result.dailyHandicapUsed).toBe(7);
+      // raw 18-hole DH 12.79 → round(12.79 / 2) = 6, rounded once, matching sync
+      // (was round(round(12.79) / 2) = round(6.5) = 7)
+      expect(result.dailyHandicapUsed).toBe(6);
     });
 
     it('no 9-hole ratings, female uses women ratings (HI 12)', async () => {
@@ -317,7 +318,7 @@ describe('recalculateScorecardDifferential', () => {
       expect(result.dailyHandicapUsed).toBe(8);
     });
 
-    it('dedicated 9-hole ratings (HI 18.5, 122 / 35.8): CURRENT uses the full index', async () => {
+    it('dedicated 9-hole ratings (HI 18.5, 122 / 35.8): uses half the index', async () => {
       setupMocks({
         round: nineRound({ slopeRatingFront9: 122, courseRatingFront9: 35.8 }),
         scorecard: { ...mockScorecard, total_gross: 45 },
@@ -325,8 +326,9 @@ describe('recalculateScorecardDifferential', () => {
 
       const result = await recalculateScorecardDifferential(SCORECARD_ID);
 
-      // ((18.5 × 122/113) + (35.8 − 36)) × 0.93 × 0.9986 = 18.36 → 18
-      expect(result.dailyHandicapUsed).toBe(18);
+      // ((18.5/2 × 122/113) + (35.8 − 36)) × 0.93 × 0.9986 = 9.09 → 9
+      // (was 18 when the full index was paired with 9-hole ratings)
+      expect(result.dailyHandicapUsed).toBe(9);
       expect(result.courseRatingUsed).toBe(35.8);
       expect(result.slopeRatingUsed).toBe(122);
     });
