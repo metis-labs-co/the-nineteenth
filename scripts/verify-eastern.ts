@@ -7,8 +7,8 @@ import { resolve } from 'path';
 
 config({ path: resolve(process.cwd(), '.env') });
 
-const GOLFAPI_URL = process.env.EXPO_PUBLIC_GOLFAPI_IO_URL || 'https://www.golfapi.io/api/v2.3';
-const GOLFAPI_KEY = process.env.EXPO_PUBLIC_GOLFAPI_IO_KEY!;
+const GOLFAPI_URL = process.env.GOLFAPI_IO_URL || 'https://www.golfapi.io/api/v2.3';
+const GOLFAPI_KEY = process.env.GOLFAPI_IO_KEY!;
 const ID_SUFFIX = '1769153723593685';
 
 const COURSES = [

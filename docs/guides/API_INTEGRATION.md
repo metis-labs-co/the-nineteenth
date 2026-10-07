@@ -73,12 +73,54 @@ interface CourseDataStrategy {
 ```
 src/services/
 ├── api/
-│   ├── golfApiClient.ts      # HTTP client for GolfAPI.io
+│   ├── golfApiClient.ts      # Client for GolfAPI.io (calls the golfapi-proxy edge function)
 │   ├── golfApiTypes.ts       # TypeScript type definitions
 │   └── golfApiTransformers.ts # Transform API responses to app types
 ├── courses/
 │   ├── courseService.ts      # Unified course service (cache + API)
 │   └── cacheService.ts       # PostgreSQL caching layer
+
+supabase/functions/
+└── golfapi-proxy/index.ts    # Server-side proxy holding the GolfAPI.io key
+```
+
+### GolfAPI Proxy (key stays server-side)
+
+The app never holds the GolfAPI.io API key and never calls GolfAPI.io directly.
+`golfApiClient` calls the `golfapi-proxy` Supabase edge function with
+`supabase.functions.invoke('golfapi-proxy', { body: { path, params } })`. The
+function:
+
+1. Requires a signed-in user (gateway `verify_jwt` stays on; the JWT is
+   re-verified with `supabase.auth.getUser()`) — otherwise **401**.
+2. Only allows the GET endpoints the client uses — otherwise **400**:
+
+   | Path | Allowed query params |
+   |------|----------------------|
+   | `/clubs` | `country`, `name`, `state`, `city`, `latitude`, `longitude`, `radius` |
+   | `/clubs/{clubId}` | none |
+   | `/courses/{courseId}` | none |
+   | `/coordinates/{courseId}` | none |
+
+3. Reads the key from the Supabase secret `GOLFAPI_IO_KEY` (optional
+   `GOLFAPI_IO_URL` override, must be https) — **503** `PROXY_NOT_CONFIGURED`
+   if unset.
+4. Forwards the request with `Authorization: Bearer <key>` and a 15s timeout
+   (**504** on timeout, **502** if GolfAPI is unreachable).
+5. Passes GolfAPI's JSON body and status through unchanged (so
+   `apiRequestsLeft` quota tracking, 404 and 429 handling work as before) and
+   forwards `Retry-After` / `X-RateLimit-*` headers.
+
+Errors produced by the proxy itself carry `X-GolfApi-Proxy-Error: true` and a
+`{ error, code }` body. The client maps every non-2xx status to the same error
+classes as before (`AuthenticationError`, `NotFoundError`, `RateLimitError`,
+`GolfApiClientError`, `NetworkError` for timeouts/network failures).
+
+**Setup / deploy**
+
+```bash
+supabase secrets set GOLFAPI_IO_KEY=your_golfapi_key_here   # per project (staging + prod)
+supabase functions deploy golfapi-proxy
 ```
 
 ### API Client
@@ -394,10 +436,16 @@ Manual entry includes fields for:
 
 ## Environment Variables
 
+The app needs **no** GolfAPI env vars. Never add an `EXPO_PUBLIC_GOLFAPI_*`
+variable: anything prefixed `EXPO_PUBLIC_` is bundled into the app binary.
+
 ```bash
-# .env
-EXPO_PUBLIC_GOLFAPI_IO_URL=https://api.golfapi.io/v1
-EXPO_PUBLIC_GOLFAPI_IO_KEY=your_golfapi_key_here
+# Supabase secret (read by the golfapi-proxy edge function)
+supabase secrets set GOLFAPI_IO_KEY=your_golfapi_key_here
+
+# .env — only for local Node scripts in scripts/ (seed-featured-courses*.ts etc.)
+GOLFAPI_IO_KEY=your_golfapi_key_here
+GOLFAPI_IO_URL=https://www.golfapi.io/api/v2.3   # optional
 ```
 
 ---

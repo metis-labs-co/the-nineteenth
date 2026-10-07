@@ -133,9 +133,11 @@ Create a `.env` file:
 EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_publishable_key_here
 
-# Golf Course API (GolfAPI.io)
-EXPO_PUBLIC_GOLFAPI_IO_URL=https://api.golfapi.io/v1
-EXPO_PUBLIC_GOLFAPI_IO_KEY=your_golfapi_key_here
+# Golf Course API (GolfAPI.io) — NOT an app env var.
+# The key lives server-side as the Supabase secret GOLFAPI_IO_KEY, read by the
+# `golfapi-proxy` edge function (the app calls the proxy, never GolfAPI):
+#   supabase secrets set GOLFAPI_IO_KEY=your_golfapi_key_here
+# Local Node scripts in scripts/ read GOLFAPI_IO_KEY from .env (never EXPO_PUBLIC_).
 
 # Environment
 NODE_ENV=development

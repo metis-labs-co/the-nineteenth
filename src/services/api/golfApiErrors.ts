@@ -85,7 +85,7 @@ export class AuthenticationError extends GolfApiClientError {
       message:
         message ||
         (status === 401
-          ? 'Invalid or missing API key. Please check your EXPO_PUBLIC_GOLFAPI_IO_KEY.'
+          ? 'Not authorised to search courses. Please sign in again.'
           : 'Access denied. Your API key may not have permission for this resource.'),
       status,
     });
