@@ -20,7 +20,7 @@
 
 **Worktree:** `/Users/samkay/Documents/MetisCo/Dev/the-nineteenth-social-multi-scorer`, branch `feature/social-round-multi-scorer`. Run every command from there. If dependencies are missing, run `pnpm install --frozen-lockfile`. **Never symlink `node_modules`.**
 
-**Open product question (doesn't block Tasks 0–3):** the Course screen's "Start Social Round" leaves `handicap_source` NULL, which means profile. So those rounds are **handicap** rounds under the definition and stay `'standard'`. If the owner decides they should be social, the only change is `deriveScoringMode` and its tests in Task 4. Confirm with the owner before Task 4.
+**Resolved product question:** the Course screen's start button used to drop the wizard's round-type choice. It was fixed on main in 008f6bef ("Score a Round" now uses `useStartNewRound`, and `useStartSocialRound` is deleted). So a practice round started anywhere is a social round, and a handicap round is standard.
 
 ## Global Constraints
 
@@ -93,8 +93,9 @@ These are the conditions most likely to bite. Each has a pinned test in the task
 
 ---
 
-### Task 0: Guardrail preflight (no code)
+### Task 0: Sync with main, then guardrail preflight (no code)
 
+- [ ] **Step 0: Bring the branch up to date.** Main has moved on since this plan was written, including 008f6bef, which deleted `useStartSocialRound`. Run `git merge main` in the worktree (there should be no conflicts, since the branch only adds docs), then `pnpm install --frozen-lockfile`. Re-check that the line numbers this plan cites still match. They're approximate; locate each edit by the code quoted in the plan.
 - [ ] **Step 1: Run the impact analysis.** Dispatch the `scoring-impact-analyst` agent on these files and paste its blast-radius summary into your task report:
   - `src/store/scoreUpdateSlice.ts`
   - `src/store/scorecardStore.ts`
@@ -509,8 +510,6 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 ### Task 4: Scoring mode (derive, store, thread through every init path)
 
-**Confirm the open product question in the header with the owner before starting.**
-
 **Files:**
 - Create: `src/utils/scoringMode.ts`; Test: `src/__tests__/utils/scoringMode.test.ts`
 - Modify:
@@ -523,7 +522,6 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - `src/screens/rounds/ScheduledRoundScreen/hooks/useStartScheduledRound.ts` (:268)
   - `src/hooks/scorecard/useMatchPlayData.ts` (:288)
   - `src/screens/scoring/TeamMatchPlayScoringScreen/index.tsx` (:197)
-  - `src/screens/courses/CourseDetailScreen/hooks/useStartSocialRound.ts` (comment only)
   - `src/__tests__/mocks/stores/scorecardStore.mock.ts`
   - `src/__tests__/store/scorecardStore.test.ts` (Supabase mock: make the rounds row overridable)
 
@@ -645,7 +643,6 @@ export function deriveScoringMode(
   - `useStartScheduledRound.ts` (:268): append `, 1, deriveScoringMode({ competition_id: round.competition_id ?? null, handicap_source: handicapSource ?? round.handicap_source ?? null, scoring_pairs_required: round.scoring_pairs_required ?? false })`. Confirm the `round` row fields at :90-170.
   - `useMatchPlayData.ts` (:288): append `, 1, deriveScoringMode(roundData)`. `roundData` comes from `useRoundDetails`, which selects `*`.
   - `TeamMatchPlayScoringScreen` (:197): fill the missing args with `new Map(), 'full', 1,` then `deriveScoringMode(roundData)`. Use the nine type the screen knows, if it has one in scope (grep `nineType` in the file).
-  - `useStartSocialRound.ts` (:153): add the comment `// handicap_source is left NULL (profile) → a handicap round → 'standard' scoring mode.`
   - `scorecardStore.mock.ts`: add `scoringMode: ScoringMode; submittedElsewhere: boolean; mergeRemoteScorecard; pullServerScorecards` to the `MockScorecardState` **interface**. Add the values `'standard'`, `false`, `jest.fn(() => Promise.resolve())` and `jest.fn(() => Promise.resolve())`.
 - [ ] **Step 7: Run the checks.**
   ```bash
