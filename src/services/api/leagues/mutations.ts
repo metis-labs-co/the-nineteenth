@@ -194,19 +194,9 @@ export async function tagRoundToLeague(
     throw new Error('Only completed scorecards can be tagged');
   }
 
-  if (sc.handicap_differential == null) {
-    // Attempt retroactive recalculation — tee data may have been updated since round was scored
-    try {
-      const result = await recalculateScorecardDifferential(scorecardId);
-      sc.handicap_differential = result.handicapDifferential;
-    } catch (recalcError) {
-      const msg = recalcError instanceof Error ? recalcError.message : 'Unknown error';
-      throw new Error(
-        `This scorecard does not have a handicap differential and recalculation failed: ${msg}`
-      );
-    }
-  }
-
+  // Validate the card BEFORE any recalculation: a partial card is rejected
+  // outright rather than sent through recalculateScorecardDifferential, which
+  // writes to the scorecard row.
   const scores = sc.scores;
   if (!scores || typeof scores !== 'object') {
     throw new Error('Invalid scorecard data');
@@ -217,6 +207,26 @@ export async function tagRoundToLeague(
   );
   if (holesWithStrokes.length < 18) {
     throw new Error('Only 18-hole rounds can be tagged to leagues');
+  }
+
+  if (sc.handicap_differential == null) {
+    // Attempt retroactive recalculation — tee data may have been updated since round was scored
+    let recalculated: number | null;
+    try {
+      const result = await recalculateScorecardDifferential(scorecardId);
+      recalculated = result.handicapDifferential;
+    } catch (recalcError) {
+      const msg = recalcError instanceof Error ? recalcError.message : 'Unknown error';
+      throw new Error(
+        `This scorecard does not have a handicap differential and recalculation failed: ${msg}`
+      );
+    }
+    // The completeness gate (I12) can legitimately withhold a differential;
+    // a league row must never be written with a null one.
+    if (recalculated == null) {
+      throw new Error('This round is not eligible for a handicap differential');
+    }
+    sc.handicap_differential = recalculated;
   }
 
   const { data: league } = await from('leagues')

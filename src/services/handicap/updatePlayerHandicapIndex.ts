@@ -14,6 +14,59 @@ import { queryClient } from '@/services/queryClient';
 import { calculateHandicapIndex } from '@/utils/handicapDifferential';
 import { isSharedBallRound } from '@/utils/roundFormat';
 import { syncLogger } from '@/utils/debugLogger';
+import { isCompleteForHandicap } from '@/utils/handicapEligibility';
+import type { NineType } from '@/types/database/enums';
+
+/** WHS uses the 20 most recent qualifying rounds. */
+const WHS_RECENT_ROUNDS = 20;
+
+/**
+ * Rows fetched before the client belts (shared-ball, completeness) run.
+ * The belts filter after the query, so fetching only 20 would let recent
+ * part-filled cards crowd complete ones out of the window — and an empty
+ * window would clear a valid index.
+ */
+const BELT_FETCH_LIMIT = 60;
+
+/**
+ * No qualifying differential remains (e.g. the player's only differentials
+ * were part-filled cards, nulled by the R21 data fix): the calculated index
+ * must not outlive its rounds. players.handicap_index is purely computed
+ * (only this service writes it); NULL is the state a new player starts in.
+ * Only a row that still holds an index is touched, so the common case (a
+ * player with no rounds, every Home load) costs no write and no invalidation.
+ */
+async function clearHandicapIndex(playerId: string): Promise<void> {
+  const { data, error } = await (supabase.from('players') as unknown as {
+    update: (values: Record<string, unknown>) => {
+      eq: (column: string, value: string) => {
+        not: (column: string, operator: string, value: null) => {
+          select: (columns: string) => Promise<{ data: { id: string }[] | null; error: PostgrestError | null }>;
+        };
+      };
+    };
+  })
+    .update({ handicap_index: null, handicap_index_updated_at: new Date().toISOString() })
+    .eq('id', playerId)
+    .not('handicap_index', 'is', null)
+    .select('id');
+
+  if (error) {
+    syncLogger.warn('Failed to clear stale player handicap index', {
+      playerId: playerId.substring(0, 8) + '...',
+      error: error.message,
+    });
+    return;
+  }
+  if (!data || data.length === 0) return;
+
+  syncLogger.info('Player handicap index cleared (no qualifying rounds remain)', {
+    playerId: playerId.substring(0, 8) + '...',
+  });
+  queryClient.invalidateQueries({ queryKey: ['player', playerId] });
+  queryClient.invalidateQueries({ queryKey: ['players'] });
+  queryClient.invalidateQueries({ queryKey: ['auth', 'user'] });
+}
 
 /**
  * Recalculate and update a player's handicap index
@@ -41,18 +94,24 @@ export async function updatePlayerHandicapIndex(playerId: string): Promise<void>
     // combined via handicap_combined_rounds.
     const { data: scorecards, error: fetchError } = await supabase
       .from('scorecards')
-      .select('handicap_differential, submitted_at, rounds!inner(nine_type, game_type, team_format)')
+      .select('handicap_differential, submitted_at, scores, rounds!inner(nine_type, game_type, team_format)')
       .eq('player_id', playerId)
       .in('status', ['completed', 'confirmed'])
       .not('handicap_differential', 'is', null)
       .is('rounds.deleted_at', null)
       .eq('rounds.nine_type', 'full')
       .order('submitted_at', { ascending: false })
-      .limit(20) as unknown as {
+      .limit(BELT_FETCH_LIMIT) as unknown as {
         data: {
           handicap_differential: number | null;
           submitted_at: string | null;
-          rounds: { game_type: string | null; team_format: string | null } | null;
+          /** Hole-by-hole scores — the completeness belt (I12) reads them. */
+          scores: Record<string, unknown> | null;
+          rounds: {
+            nine_type: NineType | null;
+            game_type: string | null;
+            team_format: string | null;
+          } | null;
         }[] | null;
         error: PostgrestError | null;
       };
@@ -86,9 +145,11 @@ export async function updatePlayerHandicapIndex(playerId: string): Promise<void>
     const haveScorecards = scorecards && scorecards.length > 0;
     const haveCombined = combinedRows && combinedRows.length > 0;
     if (!haveScorecards && !haveCombined) {
-      syncLogger.debug('No qualifying rounds found, skipping index update', {
+      syncLogger.debug('No qualifying rounds found', {
         playerId: playerId.substring(0, 8) + '...',
       });
+      // A failed combined-rounds read is not "no rounds": keep the index.
+      if (!combinedError) await clearHandicapIndex(playerId);
       return;
     }
 
@@ -97,19 +158,26 @@ export async function updatePlayerHandicapIndex(playerId: string): Promise<void>
     type DiffEntry = { differential: number; date: string };
     const entries: DiffEntry[] = [];
     if (haveScorecards) {
+      const cardEntries: DiffEntry[] = [];
       for (const sc of scorecards!) {
         // Defense-in-depth: never let a shared-ball team round (scramble,
         // alt-shot) influence the index even if a stale differential survived
         // the backfill. The canonical guard is the null differential written
         // at sync time; this is a backstop.
         if (isSharedBallRound(sc.rounds ?? {})) continue;
+        // Only full scorecards count (I12, R21): a part-filled card that still
+        // carries a stored differential (old client, or data from before the
+        // server trigger) is skipped. Legacy cards without hole data count.
+        if (!isCompleteForHandicap(sc.scores, sc.rounds?.nine_type ?? 'full')) continue;
         if (sc.handicap_differential != null) {
-          entries.push({
+          cardEntries.push({
             differential: sc.handicap_differential,
             date: sc.submitted_at ?? '',
           });
         }
       }
+      // The fetch is newest first: keep the 20 most recent qualifying cards.
+      entries.push(...cardEntries.slice(0, WHS_RECENT_ROUNDS));
     }
     if (haveCombined) {
       for (const row of combinedRows!) {
@@ -120,14 +188,20 @@ export async function updatePlayerHandicapIndex(playerId: string): Promise<void>
       }
     }
     entries.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
-    const differentials = entries.slice(0, 20).map((e) => e.differential);
+    const differentials = entries.slice(0, WHS_RECENT_ROUNDS).map((e) => e.differential);
 
     const newHandicapIndex = calculateHandicapIndex(differentials);
 
     if (newHandicapIndex === null) {
+      // Every row was skipped by a belt (shared-ball / incomplete card).
       syncLogger.debug('Could not calculate handicap index (no valid differentials)', {
         playerId: playerId.substring(0, 8) + '...',
       });
+      // A full over-fetch that held nothing qualifying may hide older
+      // qualifying cards beyond it: keep the stored index rather than wipe a
+      // valid one. Only an exhaustive fetch proves nothing qualifies.
+      const fetchWasExhaustive = (scorecards?.length ?? 0) < BELT_FETCH_LIMIT;
+      if (!combinedError && fetchWasExhaustive) await clearHandicapIndex(playerId);
       return;
     }
 
