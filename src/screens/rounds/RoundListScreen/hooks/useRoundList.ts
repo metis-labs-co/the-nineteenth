@@ -26,7 +26,11 @@ import type { WinnerInfo } from '@/components/common';
 import type { HoleScore, MultiBallHoleScore, Hole, TeeBox } from '@/types/database/base';
 import type { HandicapSource } from '@/types/database/enums';
 import { isSingleBallScore } from '@/types/database/base';
-import { getMatchPlayStrokes } from '@/utils/scoring';
+import {
+  computeStandaloneMatchResult,
+  standaloneMatchHoles,
+  type ScorecardForMatchPlay,
+} from '@/utils/matchPlayResult';
 import {
   calculatePlayerStats,
   type ScorecardPlayerData,
@@ -736,13 +740,16 @@ export function useRoundList(): UseRoundListReturn {
               // --- Winner row ---
               if (scorecards.length > 1) {
                 if (round.gameType === 'match-play') {
-                  // Match play still needs hole-by-hole walk to produce margin
+                  // Match play still needs hole-by-hole walk to produce margin.
+                  // Walk the round's own nine: the meta holes are the course's
+                  // full card, so a front-9 match judged against 18 read "1&9".
+                  const matchHoles = standaloneMatchHoles(holes, round.nineType);
                   const validScorecards = scorecards.filter((sc) => sc.player);
-                  if (validScorecards.length === 2 && holes.length > 0) {
-                    const result = computeMatchPlayResult(
+                  if (validScorecards.length === 2 && matchHoles.length > 0) {
+                    const result = computeStandaloneMatchResult(
                       validScorecards[0],
                       validScorecards[1],
-                      holes
+                      matchHoles
                     );
                     if (result) {
                       round.winner = {
@@ -756,7 +763,7 @@ export function useRoundList(): UseRoundListReturn {
                       const userResult = computeUserMatchResult(
                         validScorecards,
                         user.id,
-                        holes
+                        matchHoles
                       );
                       if (userResult) {
                         round.userScore = {
@@ -921,111 +928,6 @@ function determineWinnerFromStats(
 }
 
 /**
- * Minimal scorecard shape used by the match-play helpers below. Match
- * play computes the winner hole-by-hole rather than from totals, so it
- * keeps its own typed slice of the DB row.
- */
-interface ScorecardForMatchPlay {
-  player_id: string;
-  scores: Record<string, HoleScore | MultiBallHoleScore> | null;
-  daily_handicap_used: number | null;
-  player: { id: string; name: string } | null;
-}
-
-/**
- * Compute a two-player match play result from raw scorecards and the
- * course's hole list. Uses each scorecard's `daily_handicap_used` to
- * determine strokes given (lower-DHC player gives the absolute difference
- * to the higher-DHC player on the receiver's lowest stroke-index holes),
- * then walks holes in order tracking holes-up. Stops early when one
- * player's lead exceeds the holes remaining (dormie+).
- *
- * Returns the winner info plus the formatted margin, or null when there
- * isn't enough data to make a call (no holes played, missing scores).
- *
- * Mirrors the math in `MatchPlayEngine.calculateMatch` but is self-
- * contained so the round list can run it without pulling the full
- * scoring engine + course/tee context.
- */
-function computeMatchPlayResult(
-  p1: ScorecardForMatchPlay,
-  p2: ScorecardForMatchPlay,
-  holes: Hole[]
-): {
-  winnerId: string | null;
-  winnerName: string;
-  margin: string;
-} | null {
-  const dhc1 = p1.daily_handicap_used ?? 0;
-  const dhc2 = p2.daily_handicap_used ?? 0;
-
-  const sortedHoles = [...holes].sort((a, b) => a.number - b.number);
-  const totalHoles = sortedHoles.length;
-
-  let player1Up = 0;
-  let holesPlayed = 0;
-
-  for (const hole of sortedHoles) {
-    const score1 = p1.scores?.[String(hole.number)];
-    const score2 = p2.scores?.[String(hole.number)];
-    const gross1 =
-      score1 && isSingleBallScore(score1) && score1.strokes > 0
-        ? score1.strokes
-        : null;
-    const gross2 =
-      score2 && isSingleBallScore(score2) && score2.strokes > 0
-        ? score2.strokes
-        : null;
-    if (gross1 == null || gross2 == null) continue;
-
-    // Difference method: the lower-DHC player plays off scratch and the
-    // higher-DHC player receives the difference on this hole.
-    const { a: strokes1, b: strokes2 } = getMatchPlayStrokes(
-      dhc1,
-      dhc2,
-      hole.strokeIndex
-    );
-
-    const net1 = gross1 - strokes1;
-    const net2 = gross2 - strokes2;
-
-    holesPlayed++;
-    if (net1 < net2) player1Up++;
-    else if (net2 < net1) player1Up--;
-
-    // Early finish — match is decided when lead > holes remaining
-    const holesRemaining = totalHoles - holesPlayed;
-    if (Math.abs(player1Up) > holesRemaining) {
-      const winnerId = player1Up > 0 ? p1.player_id : p2.player_id;
-      const winnerName =
-        (player1Up > 0 ? p1.player?.name : p2.player?.name) ?? 'Unknown';
-      return {
-        winnerId,
-        winnerName,
-        margin: `${Math.abs(player1Up)}&${holesRemaining}`,
-      };
-    }
-  }
-
-  if (holesPlayed === 0) return null;
-
-  if (player1Up === 0) {
-    return { winnerId: null, winnerName: 'Halved', margin: 'A/S' };
-  }
-
-  const absLead = Math.abs(player1Up);
-  const winnerId = player1Up > 0 ? p1.player_id : p2.player_id;
-  const winnerName =
-    (player1Up > 0 ? p1.player?.name : p2.player?.name) ?? 'Unknown';
-  const margin =
-    holesPlayed === totalHoles
-      ? `${absLead}up`
-      : `${absLead}&${totalHoles - holesPlayed}`;
-
-  return { winnerId, winnerName, margin };
-}
-
-/**
  * Compute the match play outcome from the perspective of a single user,
  * for the "You: Won 4&3" pill on the round card. Returns null when the
  * user isn't one of the two match players or there isn't enough data.
@@ -1039,7 +941,7 @@ function computeUserMatchResult(
   const userIdx = scorecards.findIndex((s) => s.player_id === userId);
   if (userIdx === -1) return null;
 
-  const result = computeMatchPlayResult(
+  const result = computeStandaloneMatchResult(
     scorecards[0],
     scorecards[1],
     holes
