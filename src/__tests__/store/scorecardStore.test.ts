@@ -2200,4 +2200,106 @@ describe('ScorecardStore', () => {
       );
     });
   });
+
+  describe('scenario: phone A dies after 9 holes, phone B finishes and submits (social)', () => {
+    const at = (m: number) => new Date(Date.UTC(2026, 9, 7, 1, m)).toISOString();
+    type Row = { scores: Record<string, HoleScore>; revision: number; status: string };
+
+    // Fake timers so setPlayerScore's 2s debounce timers never fire mid-scenario;
+    // the clock is set explicitly per phase so edit stamps are ordered.
+    beforeEach(() => jest.useFakeTimers());
+    afterEach(() => {
+      jest.useRealTimers();
+      (syncScorecard as jest.Mock).mockImplementation(() => Promise.resolve({ serverRevision: 1 }));
+    });
+
+    it('both phones end with the same final cards, no hole lost, no loop', async () => {
+      const [sam, friend] = testPlayers;
+      const guest = { ...testPlayers[2], id: 'guest-1', name: 'Guest', isPlaceholder: true };
+      const players = [sam, friend, guest];
+      const server = new Map<string, Row>(players.map((pl) => [pl.id, { scores: {}, revision: 0, status: 'in-progress' }]));
+      const rows = () => [...server].map(([player_id, r]) => ({ player_id, ...r }));
+      const write = (sc: Scorecard) => {
+        const ConflictError = jest.requireMock('@/services/offline/sync').ScorecardConflictError;
+        const row = server.get(sc.playerId)!;
+        if ((sc.serverRevision ?? 0) !== row.revision || (row.status === 'completed' && sc.status !== 'completed')) {
+          throw new ConflictError({ server_revision: row.revision, server_status: row.status, server_scores: row.scores });
+        }
+        const scores = Object.fromEntries(Object.entries(sc.scores).map(([k, v]) => [k, v as HoleScore]));
+        server.set(sc.playerId, { scores, revision: row.revision + 1, status: sc.status });
+        return { serverRevision: row.revision + 1 };
+      };
+      (syncScorecard as jest.Mock).mockImplementation(async (sc: Scorecard) => write(sc));
+      const init = (store: typeof useScorecardStore) =>
+        store.getState().initializeRound(testRoundId, players, testHoles, 'stroke', false, [], null, 'none', new Map(), 'full', 1, 'social');
+
+      // ── Phone A: its own store instance. Scores holes 1–9 for everyone and uploads each card.
+      let phoneA!: typeof useScorecardStore;
+      jest.isolateModules(() => {
+        phoneA = require('@/store/scorecardStore').useScorecardStore;
+      });
+      expect(phoneA).not.toBe(useScorecardStore); // two independent stores
+      jest.setSystemTime(new Date(at(0)));
+      await init(phoneA);
+      const resolverA = mockConflictResolver!; // A registered last
+      for (let h = 1; h <= 9; h++) {
+        jest.setSystemTime(new Date(at(h)));
+        for (const pl of players) await phoneA.getState().setPlayerScore(pl.id, h, 4, sam.id);
+      }
+      for (const pl of players) {
+        const card = phoneA.getState().groupScorecards.get(pl.id)!;
+        const { serverRevision } = write(card); // the drain A completed before its battery died
+        phoneA.setState({ groupScorecards: new Map(phoneA.getState().groupScorecards).set(pl.id, { ...card, serverRevision }) });
+      }
+      // A's last edit never uploads.
+      jest.setSystemTime(new Date(at(10)));
+      await phoneA.getState().setPlayerScore(sam.id, 9, 5, sam.id);
+
+      // ── Phone B: opens the round, pulls, finishes 10–18 for everyone, submits.
+      jest.setSystemTime(new Date(at(20)));
+      await init(useScorecardStore);
+      __setScorecardsResult({ data: rows(), error: null });
+      await getStore().pullServerScorecards();
+      for (let h = 10; h <= testHoles.length; h++) {
+        jest.setSystemTime(new Date(at(h + 11)));
+        for (const pl of players) await getStore().setPlayerScore(pl.id, h, 3, friend.id);
+      }
+      jest.setSystemTime(new Date(at(40)));
+      __setScorecardsResult({ data: rows(), error: null });
+      await expect(getStore().submitScorecards()).resolves.toEqual({ alreadySubmitted: false });
+
+      for (const pl of players) {
+        expect(server.get(pl.id)!.status).toBe('completed');
+        expect(Object.keys(server.get(pl.id)!.scores)).toHaveLength(testHoles.length);
+      }
+      expect((server.get(sam.id)!.scores['9'] as HoleScore).strokes).toBe(4); // submit is final
+
+      // ── Phone A comes back. Its stale write for sam conflicts: the resolver says final.
+      jest.setSystemTime(new Date(at(50)));
+      const staleA = phoneA.getState().groupScorecards.get(sam.id)!;
+      expect((staleA.scores[9] as HoleScore).strokes).toBe(5); // A still holds its unsent edit
+      const finalSam = server.get(sam.id)!;
+      const ConflictError = jest.requireMock('@/services/offline/sync').ScorecardConflictError;
+      await expect(
+        resolverA(staleA, new ConflictError({ server_revision: finalSam.revision, server_status: 'completed', server_scores: finalSam.scores })),
+      ).resolves.toEqual({ kind: 'final' });
+      // The live merge brings A's other cards to final.
+      for (const r of rows()) await phoneA.getState().mergeRemoteScorecard(r);
+
+      // ── Both phones converge; A is told; nothing loops.
+      for (const pl of players) {
+        expect(phoneA.getState().groupScorecards.get(pl.id)!.scores).toEqual(getStore().groupScorecards.get(pl.id)!.scores);
+      }
+      expect(phoneA.getState().submittedElsewhere).toBe(true);
+      expect(getStore().submittedElsewhere).toBe(false);
+      (saveScorecard as jest.Mock).mockClear();
+      (queueScorecardSync as jest.Mock).mockClear();
+      for (const r of rows()) {
+        await phoneA.getState().mergeRemoteScorecard(r);
+        await getStore().mergeRemoteScorecard(r);
+      }
+      expect(saveScorecard).not.toHaveBeenCalled();
+      expect(queueScorecardSync).not.toHaveBeenCalled();
+    });
+  });
 });
