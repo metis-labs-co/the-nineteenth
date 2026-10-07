@@ -208,3 +208,22 @@ All tests use literal, hand-derived expectations.
 - **Clock skew:** "last edit" is judged by each phone's clock. Two edits to the same hole a few seconds apart on skewed clocks may resolve the "wrong" way. This is accepted (D2).
 - **Resolver unavailable:** a conflict for a round that isn't loaded in the store falls back to a retained failure until the round is next opened.
 - **Realtime payload:** whole-card rows arrive on every write. This is acceptable at social-round sizes, which are 2–4 cards.
+
+## 12. Amendments agreed during planning (2026-10-07)
+
+These supersede the sections they reference. The implementation plan (rev. 3) follows them.
+
+1. **§5.2: no local `scoring_mode` column.** `loadFromOffline` bails out without round metadata, and the network init it falls back to has the metadata. So the mode is always derived from the round's fetched settings, in `initializeRound` (all callers) and in `loadFromOffline`.
+2. **§5.1: multi-ball holes are not stamped or merged.** Only single-ball scores are uploaded, so multi-ball holes never conflict.
+3. **§5.1: the upload whitelist also carries `scoredBy`, `pickedUp` and `didNotAttempt`.** Other phones adopt the server's copy of a hole, so any field left off the upload would be lost on them.
+4. **§5.3: holes are compared by edit identity** (`editedAt`, or strokes when neither side is stamped), never by structure. The same edit keeps the richer local hole.
+5. **§5.4: "no upload loops".** A merged card with nothing local ahead is saved already synced at the server revision, in one write. Conflict retries never rewrite the queued row.
+6. **§5.5: one shared pull, `pullServerScorecards`, serves merge-on-open for stroke, match play and team match play, and the pre-submit merge.** A failed pull never blocks opening or submitting.
+7. **§5.6–5.7: "already submitted" is a return value (`{ alreadySubmitted }`), not an error.** Callers' normal success navigation applies. Finishing side effects (round status, results, skins, achievements) run again only if they're idempotent (plan Task 9, Step 4b).
+8. **Live updates also cover stat and contribution edits** in social rounds (D4).
+9. **The Course screen's "Score a Round"** (formerly "Score a Social Round") now honours the wizard's round-type choice (main 008f6bef). A practice round started anywhere is social.
+10. **Accepted behaviour:**
+    - **A whole-hole merge can lose a near-simultaneous edit to the same hole** on another phone (D2).
+    - **A participant with a pending invite can take over scoring**, by design.
+    - **Guests merge like any other player.**
+    - **"Round Complete" fires once** (trigger guard verified).
