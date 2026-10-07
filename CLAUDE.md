@@ -60,6 +60,10 @@ Detailed implementation guides for specific topics:
 - **[PUSH_NOTIFICATIONS.md](docs/guides/PUSH_NOTIFICATIONS.md)** - Push notification architecture, setup, testing, troubleshooting
 - **[LEAGUES.md](docs/guides/LEAGUES.md)** - Leagues feature: cross-course competition, WHS differentials, leaderboards
 
+### Legal & Privacy
+- **[PRIVACY_POLICY.md](docs/legal/PRIVACY_POLICY.md)** - Privacy policy source (hosted at thenineteenth.golf/privacy; short store copy in docs/store/legal/). Update it when data collection, processors or hosting change
+- **[DATA_BREACH_RESPONSE.md](docs/legal/DATA_BREACH_RESPONSE.md)** - Data breach runbook: contain, assess (30 days, OAIC NDB), notify, review
+
 ### Database
 - **[DATABASE_SCHEMA.md](docs/database/DATABASE_SCHEMA.md)** - Complete schema with SQL tables and TypeScript types
 
