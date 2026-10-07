@@ -590,3 +590,12 @@ Sam: "only full scorecards should contribute to the social index/handicap. Part-
 - **Combined rounds:** the `handicap_combined_rounds` trigger rejects a pair if either card is incomplete or its round ended early. Existing combined rows built from an incomplete card are listed in the rollout report for Sam to review, not deleted automatically.
 - **New clients** apply `isCompleteForHandicap` to cards wherever the index and history are computed (R13), so existing partial cards drop out even before the data fix runs.
 - **Rollout report:** before and after counts of affected cards and players, and the players whose index moves by more than 2.0.
+
+### R22. ★ Decisions after the plan v2 review (2026-10-07)
+
+- **9-hole cards on "full" rounds lose their differential.** Competition rounds, and social rounds created before `nine_type` existed, default to `nine_type = 'full'`. So a complete 9-hole card on a 9-hole course in such a round is judged incomplete, and A7's data fix nulls its differential. That differential was never valid: it rated a 9-hole score against 18-hole ratings.
+  - The rollout report lists these cards separately.
+  - A follow-up records `nine_type` correctly for competition rounds on 9-hole courses.
+- **Combined 9-hole pairs built from a part-filled nine are left as they are for now.** They stay in `handicap_combined_rounds`, and a follow-up is noted.
+- **Ended-early rounds are Practice rounds.** Stats, the round list, the ViewRound header and the round-settings title all show "Practice Round" for a round with `holes_played` set, never "Handicap Round".
+- **Warning when ending a handicap round.** When the round's `handicap_source` isn't `'none'`, the end-round confirmation sheet says: "This is a handicap round. Ending it early makes it a practice round, and it won't count towards your handicap index." This replaces the generic handicap line.
