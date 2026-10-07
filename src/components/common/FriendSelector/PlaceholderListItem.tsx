@@ -16,6 +16,7 @@ import { StatusBadge } from '@/components/common/StatusBadge';
 import { PlayerAvatar } from '@/components/common/PlayerAvatar';
 import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
 import type { PlaceholderPlayerWithStats, TeeBox } from '@/types/database.types';
+import type { HandicapSource } from '@/types/database';
 
 export interface PlaceholderListItemProps {
   placeholder: PlaceholderPlayerWithStats;
@@ -27,6 +28,8 @@ export interface PlaceholderListItemProps {
   selectedTee?: TeeBox | null;
   /** Course par for daily handicap calculation */
   coursePar?: number;
+  /** Which handicap the round uses; 'none' hides the daily handicap preview */
+  handicapSource?: HandicapSource;
 }
 
 export const PlaceholderListItem = memo(function PlaceholderListItem({
@@ -37,12 +40,14 @@ export const PlaceholderListItem = memo(function PlaceholderListItem({
   showDivider = false,
   selectedTee,
   coursePar,
+  handicapSource = 'profile',
 }: PlaceholderListItemProps) {
   const colors = useThemeColors();
 
   // Calculate daily handicap when tee info is available
   const dailyHandicap = useMemo(() => {
-    if (!selectedTee || !coursePar) return null;
+    if (!selectedTee || !coursePar || handicapSource === 'none') return null;
+    // Guests have no Social Handicap, so every other source uses their entered handicap.
     if (placeholder.handicap === null || placeholder.handicap === undefined) return null;
 
     const result = calculateGADailyHandicap({
@@ -54,7 +59,7 @@ export const PlaceholderListItem = memo(function PlaceholderListItem({
     });
 
     return result.dailyHandicap;
-  }, [placeholder.handicap, selectedTee, coursePar]);
+  }, [placeholder.handicap, selectedTee, coursePar, handicapSource]);
 
   return (
     <>

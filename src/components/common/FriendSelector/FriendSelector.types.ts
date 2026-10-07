@@ -6,6 +6,7 @@
  */
 
 import type { Friend, PlaceholderPlayerWithStats, TeeBox } from '@/types/database.types';
+import type { HandicapSource } from '@/types/database';
 
 /**
  * Unified type for selected players (works with both Friend and Player types)
@@ -125,6 +126,9 @@ export interface FriendSelectorProps {
 
   /** Course par for daily handicap calculation */
   coursePar?: number;
+
+  /** Which handicap the round uses for the daily handicap preview (default 'profile') */
+  handicapSource?: HandicapSource;
 }
 
 /**
@@ -152,4 +156,7 @@ export interface FriendListItemProps {
   selectedTee?: TeeBox | null;
   /** Course par for daily handicap calculation */
   coursePar?: number;
+
+  /** Which handicap the round uses for the daily handicap preview (default 'profile') */
+  handicapSource?: HandicapSource;
 }

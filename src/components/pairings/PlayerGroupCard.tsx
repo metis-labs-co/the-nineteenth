@@ -17,6 +17,8 @@ import { formatTeeTimeForDisplay } from '@/utils';
 import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
 import type { PairingPlayer } from '@/types';
 import type { TeeBox } from '@/types/database.types';
+import type { HandicapSource } from '@/types/database';
+import { SOCIAL_HANDICAP_SHORT_LABEL } from '@/constants/handicap';
 
 export interface PlayerGroupCardProps {
   /**
@@ -43,6 +45,10 @@ export interface PlayerGroupCardProps {
    * Course par for daily handicap calculation
    */
   coursePar?: number;
+  /**
+   * Which handicap the round uses for the daily handicap preview (default 'profile')
+   */
+  handicapSource?: HandicapSource;
   /**
    * Callback when add player button is pressed
    */
@@ -76,6 +82,7 @@ export const PlayerGroupCard = React.memo(function PlayerGroupCard({
   maxPlayers = 4,
   selectedTee,
   coursePar,
+  handicapSource = 'profile',
   onAddPlayer,
   onRemovePlayer,
   editable = false,
@@ -90,13 +97,17 @@ export const PlayerGroupCard = React.memo(function PlayerGroupCard({
 
   // Calculate daily handicaps for all players when tee info is available
   const playerDailyHandicaps = useMemo(() => {
-    if (!selectedTee || !coursePar) return new Map<string, number | null>();
+    if (!selectedTee || !coursePar || handicapSource === 'none') {
+      return new Map<string, number | null>();
+    }
 
     const dailyHandicaps = new Map<string, number | null>();
 
     players.forEach((player) => {
-      // Use handicapIndex (Social) with handicap (GA) as fallback
-      const baseHandicap = player.handicapIndex ?? player.handicap;
+      // Same rule as the scorecard: Social Handicap only when the round uses it
+      const baseHandicap = handicapSource === 'calculated'
+        ? player.handicapIndex ?? player.handicap
+        : player.handicap;
       if (baseHandicap === null || baseHandicap === undefined) {
         dailyHandicaps.set(player.id, null);
         return;
@@ -114,7 +125,7 @@ export const PlayerGroupCard = React.memo(function PlayerGroupCard({
     });
 
     return dailyHandicaps;
-  }, [players, selectedTee, coursePar]);
+  }, [players, selectedTee, coursePar, handicapSource]);
 
   return (
     <View
@@ -237,7 +248,9 @@ export const PlayerGroupCard = React.memo(function PlayerGroupCard({
                       >
                         {dailyHandicap != null
                           ? `DHC: ${dailyHandicap}`
-                          : `HC: ${player.handicapIndex ?? player.handicap}`}
+                          : player.handicap != null
+                            ? `HC: ${player.handicap}`
+                            : `${SOCIAL_HANDICAP_SHORT_LABEL}: ${player.handicapIndex}`}
                       </Text>
                     )}
                   </View>

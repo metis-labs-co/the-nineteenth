@@ -15,6 +15,7 @@ import { FriendListItem } from './FriendListItem';
 import { PlaceholderListItem } from './PlaceholderListItem';
 import { EmptyState } from './EmptyState';
 import type { Friend, PlaceholderPlayerWithStats, TeeBox } from '@/types/database.types';
+import type { HandicapSource } from '@/types/database';
 
 // ============================================================================
 // TYPES
@@ -53,6 +54,8 @@ export interface PlayerListContentProps {
   selectedTee?: TeeBox | null;
   /** Course par for daily handicap calculation */
   coursePar?: number;
+  /** Which handicap the round uses for the daily handicap preview */
+  handicapSource?: HandicapSource;
 }
 
 // ============================================================================
@@ -76,6 +79,7 @@ export const PlayerListContent = React.memo(function PlayerListContent({
   addFriendLabel,
   selectedTee,
   coursePar,
+  handicapSource,
 }: PlayerListContentProps) {
   const colors = useThemeColors();
 
@@ -111,6 +115,7 @@ export const PlayerListContent = React.memo(function PlayerListContent({
                     showDivider={index < filteredPlaceholders.length - 1}
                     selectedTee={selectedTee}
                     coursePar={coursePar}
+                    handicapSource={handicapSource}
                   />
                 );
               })}
@@ -142,6 +147,7 @@ export const PlayerListContent = React.memo(function PlayerListContent({
                     showPendingBadge={showPendingBadge}
                     selectedTee={selectedTee}
                     coursePar={coursePar}
+                    handicapSource={handicapSource}
                   />
                 );
               })}
