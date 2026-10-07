@@ -18,8 +18,9 @@
   - skins priced on holes played;
   - offline-submitted rounds finalising, with the sync service running app-wide.
 
-  It can merge on its own.
+  It can merge to local `main` first.
 - **Part B** (Tasks B1a–B11) is the feature.
+- **Release:** Part A and Part B ship together in store release **1.15.0** (one release; its force-update minimum is already 1.15.0 for another feature). No OTA.
 
 **Tech Stack:** Expo SDK 54 / React Native / TypeScript, Zustand, React Query, Expo SQLite (offline DAOs), Supabase (Postgres + RLS + RPC + triggers), Jest (`jest-expo`), pnpm.
 
@@ -85,6 +86,18 @@
   - commit after each task, and end every commit message with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`;
   - never push, and never deploy migrations (deploying is a rollout step after QA).
 - **No `node_modules` symlink.** Run `pnpm install` inside the worktree (Task 0).
+- **Release 1.15.0.** Part A and Part B ship together in store release 1.15.0; Part A may merge to local `main` before Part B. The force-update minimum (`app_version_config.minimum_version`) is already 1.15.0; no task changes it.
+- **Database writes (staging and prod rollout steps only; tasks never deploy).** Pooler sessions are read-only by default. The known-working access is port **6543**. Preflight `show transaction_read_only;` after the `SET` (it must print `off`), then apply a file like this (dry run: `ROLLBACK;` in place of `COMMIT;`). Same recipe for staging and prod:
+  ```bash
+  psql "$DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
+  SET default_transaction_read_only = off;
+  show transaction_read_only;
+  BEGIN;
+  \i supabase/migrations/<file>.sql
+  COMMIT;
+  SQL
+  ```
+  Never combine `-c 'set …'` with `--single-transaction` (the `set` then runs inside psql's own `BEGIN`). Don't use `PGOPTIONS` either; use the recipe above.
 
 ## Review Focus
 
@@ -233,7 +246,7 @@ export interface QuickScoreSubmitInput { /* existing fields */ nineType: NineTyp
 - **Combine [A4a]:** `previewCombinedDifferential` / `combineHandicapRounds` throw `'Both nines must be fully scored to combine'`; `fetchCombinableNinePairs` pairs only complete nines.
 - **Quick Score [A4b]:** the gate reads `nineType`, never `holes`; the caller keeps passing `holes: allHoles`.
 - **League Quick Add [A4c]:** alerts `('Incomplete Round', 'Enter a score for all 18 holes to add this round to a league.')` and `('Course Not Eligible', 'League rounds need an 18-hole course. Please select a different course.')`.
-- **SQLite sync metadata [A3b]:** ONE local migration, **version 19** (`add_scorecard_sync_metadata`), adds `scorecards.sync_nine_type TEXT`, `sync_game_type TEXT`, `sync_holes TEXT` (JSON `Hole[]`) in one `up`. `ScorecardDAO` round-trips `syncNineType` / `syncGameType` / `syncHoles`; the `saveScorecard` INSERT ends `…, server_revision, sync_nine_type, sync_game_type, sync_holes)` (23 values).
+- **SQLite sync metadata [A3b]:** THREE local migrations, one column each (`execAsync` is not transactional and the runner swallows any error as "already applied"): **19** `add_scorecard_sync_nine_type` (`scorecards.sync_nine_type TEXT`), **20** `add_scorecard_sync_game_type` (`sync_game_type TEXT`), **21** `add_scorecard_sync_holes` (`sync_holes TEXT`, JSON `Hole[]`). `ScorecardDAO` round-trips `syncNineType` / `syncGameType` / `syncHoles`; the `saveScorecard` INSERT ends `…, server_revision, sync_nine_type, sync_game_type, sync_holes)` (23 values).
 - **B10c** adds the `holes_played` belts: `.is('rounds.holes_played', null)` (with `holes_played` inside `rounds!inner(...)`) on the index, history and candidate queries; `recalculateScorecardDifferential` treats an ended-early round as incomplete; `combineHandicapRounds` / `previewCombinedDifferential` reject it with A4a's message; `fetchCombinableNinePairs` never offers it.
 
 **A7** — `supabase/migrations/20261007000100_full_scorecards_only_handicap.sql` (all in `public`; every definer, trigger and data-fix function sets `search_path = public, pg_temp`):
@@ -285,22 +298,25 @@ export function useSkinsSummary(gameId, holeCounts?);
 export async function finalizeRoundStatus(roundId: string): Promise<boolean>;
 
 // src/services/rounds/finalizeSubmittedRound.ts  [A6a-2]
-export type RoundSyncData =
-  | { id: string; action: 'finalize' }
-  | { id: string; action: 'end_early'; holesPlayed: number };   // [B6b-1]
+export type RoundSyncData =                                     // userId stamped from getSyncAuthUserId() when queued;
+  | { id: string; action: 'finalize'; userId?: string }          // an item owned by another user waits (RoundNotReadyError);
+  | { id: string; action: 'end_early'; holesPlayed: number; userId?: string };   // [B6b-1] legacy items without userId run
 export interface FinalizeSubmittedRoundResult {
   completed: boolean; skinsGame: SkinsGame | null; statusError: unknown; skinsError: unknown;   // errors null when fine
 }
-/** status → results → skins. Marks the round in flight, then runs the private runFinalizeSteps(roundId).
- *  Never rejects, except B6b-1's guard (first statement of runFinalizeSteps): RoundNotReadyError while an
- *  'end_early' item for the round is queued (pending or retained). The in-flight mark is released in `finally`.
+/** status → results → skins. Test-and-sets the round's in-flight mark synchronously (a second concurrent caller
+ *  gets RoundNotReadyError), then runs the private runFinalizeSteps(roundId). Otherwise never rejects, except
+ *  B6b-1's guard (first statement of runFinalizeSteps): RoundNotReadyError while an 'end_early' item for the
+ *  round is queued (pending or retained). The in-flight mark is released in `finally`.
  *  Invalidates roundKeys.all, the leaderboards, competitionKeys.all and ['home'] on every run (skinsKeys.all when settled). */
 export async function finalizeSubmittedRound(roundId: string): Promise<FinalizeSubmittedRoundResult>;
 export function isRoundFinalizeInFlight(roundId: string): boolean;
 export function roundFinalizeEntityKey(roundId: string): string;            // `round:${id}:finalize`
 export async function queueRoundFinalize(roundId: string, options?: { requestDrain?: boolean }): Promise<void>; // drain default true [A6b-1]
 export async function removeQueuedRoundFinalize(roundId: string): Promise<boolean>;
-export class RoundNotReadyError extends Error {}
+export class RoundNotReadyError extends Error {}   // optional reason
+// src/services/errors/transient.ts  [A6a-3]
+export function isTransientError(error: unknown): boolean;   // network/timeout/5xx/class-08 etc.; RLS/42501/unknown ⇒ false
 
 // src/services/offline/dao/SyncQueueDAO.ts  [A6a-2]
 export async function hasUnsyncedScorecardsForRound(roundId: string): Promise<boolean>; // pending card rows + submitted SQLite cards with no queue row; NOT retained failed rows
@@ -320,9 +336,9 @@ export function __resetSyncServiceForTests(): void;
 export function useAppSyncService(): void;
 
 // src/hooks/rounds/useFinalizeSubmittedRound.ts  [A6c, new; NOT in the @/hooks/rounds barrel]
-/** Online: writes the round:<id>:finalize row FIRST (no drain), skips its own attempt while
- *  isRoundFinalizeInFlight, then runs finalizeSubmittedRound in try/catch. Keeps the row (and requests a drain)
- *  on any throw, statusError, skinsError, or when the round isn't complete and this device has unsynced or
+/** Online: writes the round:<id>:finalize row FIRST (no drain), then runs finalizeSubmittedRound in try/catch.
+ *  Keeps the row (and requests a drain) on any throw (incl. RoundNotReadyError when already in flight),
+ *  statusError, a transient skinsError, or when the round isn't complete and this device has unsynced or
  *  retained-failed cards for it; otherwise removes it. Offline: queues. Rejects only if queueing fails. */
 export async function finalizeOrQueueRound(roundId: string): Promise<{ completed: boolean; queued: boolean; skinsGame: SkinsGame | null }>;
 /** Never rejects; awards skins achievements for a game settled online. */
@@ -334,7 +350,7 @@ export function buildSinglesSubMatchResult(subMatches, player1Id, player2Id, mat
 
 - **Import rule:** `finalizeSubmittedRound.ts`, `applyEndRoundEarly.ts` and the sync modules import `requestSyncDrain` from `@/services/offline/sync/drain` directly, never from the `@/services/offline/sync` barrel (it re-exports the orchestrator: a cycle).
 - **`syncOrchestrator.ts` internals (module-private) [A6a-3]:** `processRoundSyncs` (round items run after the card uploads and the SQLite fallback uploads); `orderRoundSyncs` (every non-`'finalize'` action first, stable); `processRoundSync` (a switch on `data.action`; B6b-2 adds `case 'end_early'`); `processRoundFinalize`; `class RoundSyncPermanentError` (retained `failed` at once, no retries). B6b-2 adds `RoundSyncDeferredError` (stays pending, no retry spent).
-- **`processRoundFinalize`, in order:** (1) wait (`RoundNotReadyError`, no retry spent) while `isRoundFinalizeInFlight` or `hasUnsyncedScorecardsForRound`; (2) `RoundSyncPermanentError` when the round has retained-failed card rows (`getFailedSyncCountForRound > 0`); (3) [B6b-2] `RoundSyncPermanentError` when the round's `end_early` row is retained failed; (4) `finalizeSubmittedRound`, throwing `statusError`, then `skinsError`, into the normal retry path.
+- **`processRoundFinalize`, in order:** (0) [in `processRoundSync`] wait (`RoundNotReadyError`) when the item's `userId` differs from `getSyncAuthUserId()`; (1) wait (`RoundNotReadyError`, no retry spent) while `hasUnsyncedScorecardsForRound` (an in-flight screen finalise makes `finalizeSubmittedRound` itself throw `RoundNotReadyError`); (2) `RoundSyncPermanentError` when the round has retained-failed card rows (`getFailedSyncCountForRound > 0`); (3) [B6b-2] `RoundSyncPermanentError` when the round's `end_early` row is retained failed; (4) `finalizeSubmittedRound`, throwing `statusError`, then a transient `skinsError` (`isTransientError`), into the normal retry path; a permanent `skinsError` (e.g. skins RLS for a non-creator) is logged and the item removed.
 - **Entity keys:** `round:<id>:finalize` and `round:<id>:end_early` (`roundEndEarlyEntityKey`).
 - **A6d-2** deletes `useFinalizeSkinsForRound`, `useRoundFinalization` and `useSubmitScorecards`.
 - **`getDb()`** [A6b-2] resolves only after tables and migrations have run.
@@ -353,14 +369,14 @@ export function buildSinglesSubMatchResult(subMatches, player1Id, player2Id, mat
 - **Guard trigger:** `guard_rounds_holes_played()` + `BEFORE UPDATE` trigger `trigger_guard_rounds_holes_played` on `rounds` raises `42501` when `holes_played` changes unless the transaction-local `app.ending_round` is `'on'` (only the RPC sets it), and when `nine_type` changes on a round whose `holes_played` is set.
 - **Handicap:** `CREATE OR REPLACE`s only A7's `scorecard_eligible_for_differential`, adding `holes_played IS NULL`. A7's trigger functions and triggers are untouched. **Never re-apply A7's migration after this one** (it would drop the clause); if A7 is re-applied, re-apply this one straight after (it is idempotent).
 - **Feed:** `get_activity_feed` / `get_round_feed_card` are dropped and recreated from `20260905000150_ugc_moderation_feed.sql` with `holes_played INT, nine_type TEXT` appended; COMMENTs and grants re-added.
-- **Apply:** `psql "$DB_URL" -v ON_ERROR_STOP=1 --single-transaction -f …`, after A7, and before any app build that includes B1b.
+- **Apply:** with the Global Constraints "Database writes" recipe (`SET default_transaction_read_only = off;` / `BEGIN;` / `\i …` / `COMMIT;`), after A7, and before any app build that includes B1b. Prerequisite: the UGC feed migration `20260905000150_ugc_moderation_feed.sql` (part of the social-compliance set) must already be on the target database (B11 Step 13 item 1).
 
 **TS [B1b]:** `Round.holes_played?: number | null`; `SupabaseRoundData.holes_played?` and `ROUND_METADATA_SELECT` includes it; `RoundMetadata.holesPlayed: number | null` (server value only); `ActivityFeedCard.holes_played?: number | null; nine_type?: NineType | null`; `Database['public']['Functions']['end_round_early']` with `Args { p_round_id: string; p_holes_played: number }`, `Returns: undefined` (documents the shape: `createClient<Database>` resolves `rpc()` to `never`, so every call is cast); `fetchSkinsHoleCounts` selects `'nine_type, holes_played'`.
 
 ### Local state and store (B3)
 
 ```ts
-// SQLite local migration [B3a]: version 20, 'add_scorecard_holes_played': scorecards.holes_played INTEGER NULL,
+// SQLite local migration [B3a]: version 22, 'add_scorecard_holes_played': scorecards.holes_played INTEGER NULL,
 // appended LAST in the saveScorecard INSERT (24 values).
 // src/types/index.ts — Scorecard (camel)
 holesPlayed?: number | null;          // stamped on every card of the round when it is ended; persisted; read by sync for net
@@ -475,7 +491,7 @@ export function usePlayedHoleRange(args: { roundId: string; holes: Hole[]; curre
 
 Nothing blocks the plan. Please check these decisions:
 - **A6d-2's stuck-round runner (Step 5, item 8)** finalises approved stuck social rounds through `finalizeSubmittedRound` with a throwaway jest runner and the service-role key. It was written without a live run. If it can't reach the database, the fallback is a plain `UPDATE rounds SET status = 'completed'` plus hand-settling the rounds with an active skins game, and that needs your explicit OK.
-- **Force-update for Part A is optional** (A6d-2 Step 5, item 7). Part A has no server dependency on the new client; raising `app_version_config.minimum_version` only stops old clients creating new stuck rounds.
+- **UGC prerequisite for B1a.** B1a rebuilds `get_activity_feed` / `get_round_feed_card` from `20260905000150_ugc_moderation_feed.sql`. The social-compliance / UGC migrations may not be applied on staging or prod yet, and that feature has its own blockers. B11 Step 13 item 1 checks; if they're missing, the rollout stops and you decide: apply the UGC set first, or defer B1a's migration (and with it the 1.15.0 build, which needs `rounds.holes_played`).
 - **A3-2 clears a stale index.** When no qualifying differential remains, `updatePlayerHandicapIndex` writes `handicap_index = NULL` (only on a row that still holds one). The playing handicap then falls back to the profile handicap and the UI shows "—".
 - **B10b-1 omits `hole_count` for an ended-early round** (refines R11): an 18-hole round ended after 9 advances neither `NINE_HOLE_SPECIALIST` nor `18_HOLES_OF_GLORY`.
 
@@ -501,7 +517,7 @@ Nothing here overrides the Interface Contract above: it is already folded in. Th
 
 ## Task Index (run in this order)
 
-Each task is red → green → commit, and is reviewable on its own. Large tasks are split into `-1`/`-2`/`-3` parts that run back to back. **Part A** can merge first (`pnpm verify:gate` at the end of A6d-2, then A6d-2's Part A rollout + QA). **B10a runs before B9f** (B9f consumes B10a's fixtures and locals).
+Each task is red → green → commit, and is reviewable on its own. Large tasks are split into `-1`/`-2`/`-3` parts that run back to back. **Part A** can merge to local `main` first (`pnpm verify:gate` at the end of A6d-2, then A6d-2's out-of-band Part A rollout checklist); Part A and Part B ship together in release 1.15.0. **B10a runs before B9f** (B9f consumes B10a's fixtures and locals).
 
 | # | Task | What it delivers |
 |---|------|------------------|
@@ -514,7 +530,7 @@ Each task is red → green → commit, and is reviewable on its own. Large tasks
 | A3-1 | Handicap gate: core | `isCompleteForHandicap`; sync and recalc write a null differential for incomplete cards (recalc no longer throws) |
 | A3-2 | Handicap gate: index | League tag order; the `updatePlayerHandicapIndex` belt (over-fetch 60, keep 20); a stale index is cleared to NULL |
 | A3-3 | Handicap gate: history | `fetchHandicapHistory` exported; belt on the main, refresh and candidate queries |
-| A3b | SQLite sync metadata | The fallback sync keeps `syncNineType`/`syncHoles`/`syncGameType` (one local migration, 19) |
+| A3b | SQLite sync metadata | The fallback sync keeps `syncNineType`/`syncHoles`/`syncGameType` (local migrations 19–21, one column each) |
 | A4a | Gate: combine | Incomplete nines can't be combined or offered as pairs |
 | A4b | Gate: Quick Score | Gated differential (submit + preview); `QuickScoreSubmitInput.nineType` |
 | A4c | Gate: League Quick Add | Partial cards blocked at review; courses with fewer than 18 holes rejected |
@@ -534,12 +550,12 @@ Each task is red → green → commit, and is reviewable on its own. Large tasks
 | A6b-2 | App-wide sync | `useAppSyncService` in `App.tsx`; `useOfflineSync` stops tearing down; `getDb` awaits init; `OFFLINE_ARCHITECTURE.md` |
 | A6c | Shared submit step + Review | `finalizeOrQueueRound` (durable item first) / `useFinalizeSubmittedRound`; Review's submit paths |
 | A6d-1 | Other submit paths | MatchPlayScorecard, MatchPlayScoring (+ split singles sub-match result) and PlayerScorecard submit through the shared step |
-| A6d-2 | Dead hooks + Part A rollout | Dead finalisation hooks deleted; `pnpm verify:gate`; Part A rollout + on-device QA (A7 dry run, Sam's go/no-go, apply, build, stuck rounds, watch) |
+| A6d-2 | Dead hooks + Part A rollout | Dead finalisation hooks deleted; `pnpm verify:gate`; Part A rollout checklist (out-of-band; ships in 1.15.0 with Part B): A7 dry run, Sam's go/no-go, apply, stuck rounds, QA, watch |
 | B1a-1 | Migration | `holes_played`, hardened `end_round_early` (strips score keys, `round_not_in_progress`), guard trigger, eligibility helper, feed RPCs |
 | B1a-2 | Migration verify script | `end_round_early_verify.sql` (`BEGIN … ROLLBACK`) |
 | B1b | Types | `holes_played` in the TS types, metadata, activity card, typed RPC entry and `fetchSkinsHoleCounts` |
 | B2 | Pure utils | `filterPlayableHoles`, `roundShape.ts`, `endRoundEarly.ts` |
-| B3a | SQLite end marker | `scorecards.holes_played` (local migration 20), `Scorecard.holesPlayed`, `deleteHoleScoresForCards` |
+| B3a | SQLite end marker | `scorecards.holes_played` (local migration 22), `Scorecard.holesPlayed`, `deleteHoleScoresForCards` |
 | B3b-1 | Store state | `holesPlayed`, `getPlayedHoles`; submit carries it |
 | B3b-2 | Store `endRoundEarly(n)` | Atomic removal, tee/marker stamping, totals, syncs; `scoresEveryPlayer`, `EndRoundEarlyRoundChangedError` |
 | B3b-3 | Closed holes | Setters reject holes after N (or holes not planned); the Watch gets played holes and failed acks |
@@ -625,6 +641,11 @@ Expected: completes without errors.
 git merge main
 ```
 Expected: a fast-forward or a clean merge (this branch holds only the spec and plan docs). Resolve any conflict before continuing, then run `pnpm install` again if `pnpm-lock.yaml` changed.
+
+Record the base commit (the last commit before A1a-1). B11 Step 10 lists the plan's commits from it, which works whether or not Part A has already merged to `main`:
+```bash
+git rev-parse HEAD   # note it as PLAN_BASE in the PR description
+```
 
 - [ ] **Step 3: Record the baseline**
 
@@ -5556,7 +5577,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ### Task A3b: SQLite sync metadata for the fallback sync path
 
 **Files:**
-- Modify: `src/services/offline/schema/migrations.ts:125-130` (local migration 19)
+- Modify: `src/services/offline/schema/migrations.ts:125-130` (local migrations 19, 20, 21)
 - Modify: `src/services/offline/types.ts:29-34` (`ScorecardRow` gains three optional columns)
 - Modify: `src/services/offline/dao/ScorecardDAO.ts`:
   - `:7-8`: imports.
@@ -5567,9 +5588,9 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 **Interfaces:**
 - Consumes: `Scorecard.syncNineType` / `syncGameType` / `syncHoles` (`src/types/index.ts:410-415`), which `submitScorecards` stamps (`src/store/scorecardStore.ts:433-436`).
 - Produces:
-  - SQLite `scorecards.sync_nine_type TEXT`, `sync_game_type TEXT`, `sync_holes TEXT` (JSON `Hole[]`), all nullable, in **one** local migration, version 19 (`add_scorecard_sync_metadata`).
+  - SQLite `scorecards.sync_nine_type TEXT`, `sync_game_type TEXT`, `sync_holes TEXT` (JSON `Hole[]`), all nullable, in **three** local migrations, one column each: 19 `add_scorecard_sync_nine_type`, 20 `add_scorecard_sync_game_type`, 21 `add_scorecard_sync_holes`.
   - `ScorecardDAO` round-trips `syncNineType` / `syncGameType` / `syncHoles` (contract).
-  - **B3a** appends `holes_played` as migration **20**, after `sync_holes` in the INSERT.
+  - **B3a** appends `holes_played` as migration **22**, after `sync_holes` in the INSERT.
 
 **Why.** There are two sync paths:
 - **The queued path** stores the whole `Scorecard` JSON in `pending_syncs`, so the stamps survive.
@@ -5583,6 +5604,30 @@ In `src/__tests__/services/offline/database.test.ts`, insert this block inside `
 
 ```ts
   describe('sync metadata round-trip (fallback sync path)', () => {
+    it('initDatabase adds each sync column in its own migration', () => {
+      const calls = mockExecAsync.mock.calls.map((call) => String(call[0]).trim());
+      expect(calls).toContain('ALTER TABLE scorecards ADD COLUMN sync_nine_type TEXT');
+      expect(calls).toContain('ALTER TABLE scorecards ADD COLUMN sync_game_type TEXT');
+      expect(calls).toContain('ALTER TABLE scorecards ADD COLUMN sync_holes TEXT');
+    });
+
+    it('still adds the later columns when an earlier one already exists (killed first run)', async () => {
+      // A previous launch added sync_nine_type and was killed before the rest.
+      __resetDatabaseState();
+      mockExecAsync.mockClear();
+      mockExecAsync.mockImplementation(async (sql: string) => {
+        if (sql.includes('ADD COLUMN sync_nine_type')) {
+          throw new Error('duplicate column name: sync_nine_type');
+        }
+      });
+
+      await initDatabase();
+
+      const calls = mockExecAsync.mock.calls.map((call) => String(call[0]).trim());
+      expect(calls).toContain('ALTER TABLE scorecards ADD COLUMN sync_game_type TEXT');
+      expect(calls).toContain('ALTER TABLE scorecards ADD COLUMN sync_holes TEXT');
+    });
+
     it('persists the sync nine type, game type and holes', async () => {
       const holes = createTestHoles().filter((h) => h.number <= 9);
       await saveScorecard(
@@ -5717,7 +5762,8 @@ In `src/__tests__/services/offline/database.test.ts`, insert this block inside `
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `pnpm test src/__tests__/services/offline/database.test.ts -t 'sync metadata round-trip'`
-Expected: FAIL (4 of 5):
+Expected: FAIL (6 of 7):
+- both migration tests: `expect(received).toContain(expected)` (no `sync_*` `ALTER` yet);
 - the persist test: the SQL lacks `sync_nine_type, sync_game_type, sync_holes`;
 - the "no metadata" test: `Expected length: 23, Received length: 20`;
 - the restore test gets `Expected: "front9", Received: undefined`;
@@ -5750,16 +5796,24 @@ Replacement:
   // path (getUnsyncedScorecards → syncScorecard) builds the same snapshot as
   // the queued path: nine-aware ratings / daily handicap, points, par score
   // and the handicap completeness gate (I12).
-  // One migration, three statements (execAsync runs them in order). The
-  // runner treats any error as "already applied", so the three columns must
-  // always be added together: never add just one of them elsewhere (e.g. to
-  // the CREATE TABLE in tables.ts) or the others would be skipped.
+  // One column per migration (like 10-14): execAsync is not transactional and
+  // runMigration treats any error as "already applied", so a multi-statement
+  // up killed half-way would never add its remaining columns.
   {
     version: 19,
-    name: 'add_scorecard_sync_metadata',
-    up: `ALTER TABLE scorecards ADD COLUMN sync_nine_type TEXT;
-         ALTER TABLE scorecards ADD COLUMN sync_game_type TEXT;
-         ALTER TABLE scorecards ADD COLUMN sync_holes TEXT;`,
+    name: 'add_scorecard_sync_nine_type',
+    up: `ALTER TABLE scorecards ADD COLUMN sync_nine_type TEXT`,
+  },
+  {
+    version: 20,
+    name: 'add_scorecard_sync_game_type',
+    up: `ALTER TABLE scorecards ADD COLUMN sync_game_type TEXT`,
+  },
+  {
+    // JSON-encoded Hole[] (the round's planned holes at submit)
+    version: 21,
+    name: 'add_scorecard_sync_holes',
+    up: `ALTER TABLE scorecards ADD COLUMN sync_holes TEXT`,
   },
 ];
 ```
@@ -5783,7 +5837,7 @@ Replacement:
   course_par: number | null;
   player_gender: string | null;
   player_handicap_used: number | null;
-  // Sync metadata (migration 19); absent on rows written before it
+  // Sync metadata (migrations 19-21); absent on rows written before them
   sync_nine_type?: string | null;
   sync_game_type?: string | null;
   /** JSON-encoded Hole[] (the round's planned holes at submit) */
@@ -5925,7 +5979,7 @@ Replacement:
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `pnpm test src/__tests__/services/offline/database.test.ts src/services/offline/dao`
-Expected: PASS. The existing "`is_synced` at index 13" and "`is_standalone` at index 14" assertions still hold, because the new values are appended at the end.
+Expected: PASS (7 new tests). The existing "`is_synced` at index 13" and "`is_standalone` at index 14" assertions still hold, because the new values are appended at the end.
 
 - [ ] **Step 5: Run the scoring subset + type-check**
 
@@ -5940,7 +5994,8 @@ git add src/services/offline/schema/migrations.ts src/services/offline/types.ts 
 git commit -m "fix(offline): persist sync metadata so the fallback sync path keeps 9-hole context
 
 SQLite scorecards gain sync_nine_type, sync_game_type and sync_holes
-(one local migration, 19). ScorecardDAO round-trips them, so a completed
+(local migrations 19-21, one column each, so a killed first run
+self-heals). ScorecardDAO round-trips them, so a completed
 card re-read by the fallback sync path is judged against its own nine
 (no lost differential for a complete front 9) and keeps its nine-aware
 ratings, points and par score.
@@ -14102,7 +14157,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 ### Task A6a-2: `finalizeSubmittedRound`, `queueRoundFinalize` and `hasUnsyncedScorecardsForRound`
 
-This task adds the shared post-submit steps, `finalizeSubmittedRound` (status → results → skins; never rejects), and `queueRoundFinalize`, which writes them as a durable `round` sync item, plus `removeQueuedRoundFinalize` to drop that item by its entity key. It also adds the DAO check that the queue handler (A6a-3) runs before anything else, and a DAO delete by entity key. Callers switch over in A6c and A6d-1.
+This task adds the shared post-submit steps, `finalizeSubmittedRound` (status → results → skins; never rejects on a step failure, only with `RoundNotReadyError` while the round is already in flight), and `queueRoundFinalize`, which writes them as a durable `round` sync item, plus `removeQueuedRoundFinalize` to drop that item by its entity key. It also adds the DAO check that the queue handler (A6a-3) runs before anything else, and a DAO delete by entity key. Callers switch over in A6c and A6d-1.
 
 **Files:**
 - Create: `src/services/rounds/finalizeSubmittedRound.ts`
@@ -14119,14 +14174,14 @@ This task adds the shared post-submit steps, `finalizeSubmittedRound` (status �
   - `addPendingSync`;
   - `roundKeys.all`, `skinsKeys.all`, `competitionKeys.all` (`@/hooks/queryKeys`); `invalidateLeaderboardCache` (`@/services/queryClient`).
 - Produces:
-  - `RoundSyncData`;
+  - `RoundSyncData` = `{ id: string; action: 'finalize'; userId?: string }`;
   - `FinalizeSubmittedRoundResult { completed: boolean; skinsGame: SkinsGame | null; statusError: unknown; skinsError: unknown }`;
-  - `finalizeSubmittedRound(roundId)` (never rejects; marks the round in flight while it runs);
-  - `isRoundFinalizeInFlight(roundId): boolean`;
+  - `finalizeSubmittedRound(roundId)`: marks the round in flight while it runs, with an atomic test-and-set. It rejects only with `RoundNotReadyError` when the round is already in flight (another caller's run), and never on a step failure;
+  - `isRoundFinalizeInFlight(roundId): boolean` (tests and diagnostics; no caller needs to pre-check it);
   - `roundFinalizeEntityKey(roundId)` = `round:<id>:finalize`;
   - `queueRoundFinalize(roundId)` (A6b-1 adds `options?: { requestDrain?: boolean }`);
   - `removeQueuedRoundFinalize(roundId): Promise<boolean>`;
-  - `class RoundNotReadyError`;
+  - `class RoundNotReadyError` (`constructor(roundId: string, reason?: string)`);
   - `hasUnsyncedScorecardsForRound(roundId): Promise<boolean>` (pending queue rows, plus submitted SQLite cards with no queue row; retained `failed` rows are not counted);
   - `removePendingSyncByEntityKey(entityKey): Promise<boolean>` (DAO; no revision guard).
 
@@ -14247,6 +14302,37 @@ describe('finalizeSubmittedRound', () => {
     expect(isRoundFinalizeInFlight(ROUND_ID)).toBe(false);
   });
 
+  // The test-and-set is atomic: no await separates the check from the mark,
+  // so a submit screen and a drain can never both run the steps.
+  it('runs the steps once when two callers race for the same round; the second gets RoundNotReadyError', async () => {
+    let release!: (value: boolean) => void;
+    mockFinalizeRoundStatus.mockReturnValue(
+      new Promise<boolean>((resolve) => {
+        release = resolve;
+      })
+    );
+
+    const first = finalizeSubmittedRound(ROUND_ID);
+    const second = finalizeSubmittedRound(ROUND_ID);
+
+    await expect(second).rejects.toBeInstanceOf(RoundNotReadyError);
+    // The loser leaves the winner's mark alone.
+    expect(isRoundFinalizeInFlight(ROUND_ID)).toBe(true);
+
+    release(true);
+    await expect(first).resolves.toEqual(expect.objectContaining({ completed: true }));
+    expect(mockFinalizeRoundStatus).toHaveBeenCalledTimes(1);
+    expect(mockRefinalize).toHaveBeenCalledTimes(1);
+    expect(mockFinalizeActiveSkins).toHaveBeenCalledTimes(1);
+    expect(isRoundFinalizeInFlight(ROUND_ID)).toBe(false);
+
+    // Once the first run has finished, the round can be finalised again.
+    mockFinalizeRoundStatus.mockResolvedValue(true);
+    await expect(finalizeSubmittedRound(ROUND_ID)).resolves.toEqual(
+      expect.objectContaining({ completed: true })
+    );
+  });
+
   it('still writes results and settles skins when the round is not complete yet', async () => {
     mockFinalizeRoundStatus.mockResolvedValue(false);
 
@@ -14296,7 +14382,7 @@ describe('finalizeSubmittedRound', () => {
     expect(mockFinalizeActiveSkins).toHaveBeenCalled();
   });
 
-  it('never rejects even if the results step throws', async () => {
+  it('does not reject even if the results step throws', async () => {
     mockRefinalize.mockRejectedValue(new Error('boom'));
 
     await expect(finalizeSubmittedRound(ROUND_ID)).resolves.toEqual(
@@ -14442,15 +14528,19 @@ Expected: FAIL.
  *      as each group submits — as the inline submit always did;
  *   3. finalizeActiveSkinsForRound — settles the round's active skins game.
  *
- * Never rejects. A failed status read/write comes back as `statusError`, and a
- * failed skins settlement as `skinsError`, after every step has still run, so
- * the caller can retry (the sync queue spends a retry; the online path keeps
- * its queued item) and still use `skinsGame`. Re-running is idempotent: the
- * status write is a no-op on a completed round, results are delete-then-insert
- * and skins settlement only picks up `active` games.
+ * Never rejects on a step failure. A failed status read/write comes back as
+ * `statusError`, and a failed skins settlement as `skinsError`, after every
+ * step has still run, so the caller can retry (the sync queue spends a retry;
+ * the online path keeps its queued item) and still use `skinsGame`.
+ * Re-running is idempotent: the status write is a no-op on a completed round,
+ * results are delete-then-insert and skins settlement only picks up `active`
+ * games.
  *
- * While it runs, the round is "in flight" (isRoundFinalizeInFlight): the
- * queued item for the same round waits instead of running the steps twice.
+ * While it runs, the round is "in flight" (isRoundFinalizeInFlight). A second
+ * call for the same round meanwhile rejects with RoundNotReadyError and runs
+ * nothing: the check and the mark happen before the first await, so they are
+ * atomic. The queue keeps its item pending on that error; the online path
+ * keeps its queued item.
  */
 
 import { finalizeRoundStatus } from './finalizeRoundStatus';
@@ -14462,8 +14552,12 @@ import { roundKeys, skinsKeys, competitionKeys } from '@/hooks/queryKeys';
 import { submitLogger } from '@/utils/debugLogger';
 import type { SkinsGame } from '@/types/database/skins.types';
 
-/** Data of a queued `round` sync item (B6b adds the 'end_early' variant). */
-export type RoundSyncData = { id: string; action: 'finalize' };
+/**
+ * Data of a queued `round` sync item (B6b adds the 'end_early' variant).
+ * `userId` is the user signed in when it was queued (A6b-1 stamps it); the
+ * queue runs the item only for that user. Older items have none.
+ */
+export type RoundSyncData = { id: string; action: 'finalize'; userId?: string };
 
 export interface FinalizeSubmittedRoundResult {
   /** True when the round is `completed` on the server — set now or already. */
@@ -14484,20 +14578,21 @@ export function roundFinalizeEntityKey(roundId: string): string {
 /** Rounds whose finalisation is running right now, from any caller. */
 const finalizeInFlight = new Set<string>();
 
-/** True while finalizeSubmittedRound is running for this round. */
+/** True while finalizeSubmittedRound is running for this round (tests, diagnostics). */
 export function isRoundFinalizeInFlight(roundId: string): boolean {
   return finalizeInFlight.has(roundId);
 }
 
 /**
- * Thrown by the sync queue's round handler while this device still holds
- * scorecards for the round that haven't uploaded, or while the round's
- * finalisation is already running (isRoundFinalizeInFlight): the item stays
- * pending, spends no retry and raises no error.
+ * "Not yet; try again on a later drain." Thrown while this device still holds
+ * scorecards for the round that haven't uploaded (the queue's round handler),
+ * or by finalizeSubmittedRound while the round's finalisation is already
+ * running. The queue keeps the item pending, spends no retry and raises no
+ * error; the online path keeps its queued item.
  */
 export class RoundNotReadyError extends Error {
-  constructor(roundId: string) {
-    super(`Round ${roundId.substring(0, 8)} is waiting for this device's scorecards to upload`);
+  constructor(roundId: string, reason = "is waiting for this device's scorecards to upload") {
+    super(`Round ${roundId.substring(0, 8)} ${reason}`);
     this.name = 'RoundNotReadyError';
   }
 }
@@ -14505,7 +14600,12 @@ export class RoundNotReadyError extends Error {
 const shortId = (roundId: string): string => roundId.substring(0, 8) + '...';
 
 export async function finalizeSubmittedRound(roundId: string): Promise<FinalizeSubmittedRoundResult> {
-  // Marked before the first await, so a drain that starts meanwhile waits.
+  // Atomic test-and-set: no await between the check and the mark, so a submit
+  // screen and a drain can never both run the steps. The loser runs nothing and
+  // leaves the winner's mark alone (it never reaches the finally below).
+  if (finalizeInFlight.has(roundId)) {
+    throw new RoundNotReadyError(roundId, 'is already being finalised');
+  }
   finalizeInFlight.add(roundId);
   try {
     return await runFinalizeSteps(roundId);
@@ -14688,7 +14788,9 @@ finalizeSubmittedRound runs status, results and skins in one place, then
 invalidates the round, leaderboard, competition and Home queries. It never
 rejects: a failed status write comes back as statusError and a failed skins
 settlement as skinsError, along with the skins game it settled. While it runs
-the round is marked in flight. queueRoundFinalize writes the same steps as a
+the round is marked in flight; the check and the mark are one synchronous
+step, so a concurrent second call rejects with RoundNotReadyError and runs
+nothing. queueRoundFinalize writes the same steps as a
 'round' sync item keyed round:<id>:finalize; removeQueuedRoundFinalize drops
 it by that key. hasUnsyncedScorecardsForRound tells whether this device still
 has the round's cards pending upload (retained failures excluded).
@@ -14706,22 +14808,89 @@ Queue semantics, from reading `syncOrchestrator.ts:163-469` and `SyncQueueDAO.ts
 - **Today:** `processPendingSync` throws "Unsupported sync type" for anything that isn't a scorecard.
 
 This task holds `round` items back until after the fallback block. It then runs each one with this order of checks:
-1. **Wait:** a submit screen is finalising the same round right now (`isRoundFinalizeInFlight`), or this device still has the round's cards pending → `RoundNotReadyError`. No server call, no retry spent.
+1. **Wait:** this device still has the round's cards pending → `RoundNotReadyError`. No server call, no retry spent.
 2. **Fail:** the only unconfirmed cards are retained failures → marked `failed` straight away, so Retry revives both.
 3. **B6b-2's step:** a marked comment where B6b-2 adds the `end_early` gate. A6a-3 adds no code there.
-4. **Run:** otherwise `finalizeSubmittedRound`. A `statusError`, then a `skinsError`, is thrown and retried through the normal retry path.
+4. **Run:** otherwise `finalizeSubmittedRound`.
+   - If a submit screen is finalising the same round right now, it rejects with `RoundNotReadyError` (its own atomic in-flight check, A6a-2) → wait, as in 1. There is no separate pre-check here, so no gap between a check and the run.
+   - A `statusError` is thrown and retried through the normal retry path.
+   - A `skinsError` is thrown (and retried) only when `isTransientError(skinsError)`. A permanent one is logged and the item is removed: `skins_payouts` is writable only by the game's creator under RLS (`supabase/migrations/20260105000000_skins_games.sql:273-280`), so a non-creator's settlement fails on the payouts insert every time, and retrying it would only end in a retained failure.
 
 `'finalize'` sorts after any other round action, which leaves room for B6b's `'end_early'`: B6b-2 adds `case 'end_early'` to `processRoundSync`, and `orderRoundSyncs` already runs it before `'finalize'`.
 
+**`isTransientError` (new, `src/services/errors/transient.ts`).** It classifies by the error shapes this code path produces:
+- `finalizeSkinsGame` / `fetchActiveSkinsGame` / `fetchSkinsHoleCounts` throw `createError(\`Failed to …: ${pgError.message}\`, 'DATABASE')`: an `AppError` whose `code` is the app code and whose message carries the PostgREST message. The Postgres code is lost, so the message is what's left to read.
+- postgrest-js 2.80 (installed) turns a failed `fetch` into `{ code: '', message: '<Name>: <message>' }` (e.g. `TypeError: Network request failed`), and a non-JSON gateway body into `{ message: body }` (e.g. an HTML `502 Bad Gateway` page).
+- `AppError.fromSupabaseError` maps codes into `AppError.code` (`TIMEOUT` for `PGRST504`, `PERMISSION` for `42501`) and keeps the Postgres code in `context.supabaseCode`.
+
+Transient: app codes `NETWORK` / `TIMEOUT` / `RATE_LIMIT`; Postgres class `08` (connection), `57014` (statement timeout), `57P01`, `53300`, `40001`, `40P01`, `PGRST504`; or a message about the network, a timeout, a dropped connection or a 5xx / gateway. Anything that names RLS or `42501` is permanent, whatever else it says. Everything unrecognised is permanent, so it is dropped rather than retained.
+
 **Files:**
+- Create: `src/services/errors/transient.ts`
+- Create: `src/__tests__/services/errors/transient.test.ts`
 - Modify: `src/services/offline/sync/syncOrchestrator.ts:8-27` (imports), `:182-184` (split out round items), `:421-426` (run round items last), after `:487` (round handlers)
 - Test: `src/__tests__/services/offline/sync.test.ts` (mocks + new describe)
 
 **Interfaces:**
-- Consumes: `finalizeSubmittedRound`, `isRoundFinalizeInFlight`, `RoundNotReadyError`, `hasUnsyncedScorecardsForRound` (A6a-2); `getFailedSyncCountForRound` (existing).
-- Produces: sync handling of `{ type: 'round', data: { id, action: 'finalize' } }`, plus the module-private `processRoundSync` / `orderRoundSyncs` / `RoundSyncPermanentError` (B6b's extension point).
+- Consumes: `finalizeSubmittedRound`, `RoundNotReadyError`, `hasUnsyncedScorecardsForRound` (A6a-2); `getFailedSyncCountForRound` (existing); `AppError` (`@/services/errors`).
+- Produces:
+  - `isTransientError(error: unknown): boolean` (`src/services/errors/transient.ts`, imported by path; not added to the `@/services/errors` barrel). A6c consumes it;
+  - sync handling of `{ type: 'round', data: { id, action: 'finalize' } }`, plus the module-private `processRoundSync` / `orderRoundSyncs` / `RoundSyncPermanentError` (B6b's extension point).
 
 - [ ] **Step 1: Write the failing tests**
+
+Create `src/__tests__/services/errors/transient.test.ts`:
+
+```ts
+/**
+ * isTransientError — which failures the sync queue retries automatically.
+ *
+ * @see src/services/errors/transient.ts
+ */
+import { isTransientError } from '@/services/errors/transient';
+import { AppError, createError } from '@/services/errors';
+
+describe('isTransientError', () => {
+  it.each([
+    ['a failed fetch wrapped by createError', createError('Failed to insert payouts: TypeError: Network request failed', 'DATABASE')],
+    ['a raw PostgREST fetch failure (empty code)', { code: '', message: 'TypeError: Network request failed' }],
+    ['a statement timeout', { code: '57014', message: 'canceling statement due to statement timeout' }],
+    ['a dropped connection (class 08)', AppError.fromSupabaseError({ code: '08006', message: 'connection failure' })],
+    ['a gateway page as the body', { message: '<html><head><title>502 Bad Gateway</title></head></html>' }],
+    ['an upstream timeout wrapped by createError', createError('Failed to update game status: upstream request timeout', 'DATABASE')],
+    ['an AppError with code NETWORK', new AppError('offline', 'NETWORK')],
+    ['an AppError with code TIMEOUT (PGRST504)', AppError.fromSupabaseError({ code: 'PGRST504', message: 'gateway' })],
+    ['a deadlock', { code: '40P01', message: 'deadlock detected' }],
+    ['a thrown TypeError', new TypeError('Network request failed')],
+  ])('is transient for %s', (_label, error) => {
+    expect(isTransientError(error)).toBe(true);
+  });
+
+  it.each([
+    [
+      'an RLS refusal on the payouts insert (non-creator)',
+      createError('Failed to insert payouts: new row violates row-level security policy for table "skins_payouts"', 'DATABASE'),
+    ],
+    ['a raw 42501', { code: '42501', message: 'permission denied for table skins_payouts' }],
+    ['an AppError PERMISSION', AppError.fromSupabaseError({ code: '42501', message: 'denied' })],
+    ['a missing game', createError('Skins game not found', 'NOT_FOUND')],
+    ['a validation error', createError('Invalid input', 'VALIDATION')],
+    ['a not-null violation', { code: '23502', message: 'null value in column "buy_in" violates not-null constraint' }],
+    ['an unrecognised error', new Error('payouts insert failed')],
+    ['a string', 'boom'],
+    ['null', null],
+    ['undefined', undefined],
+  ])('is permanent for %s', (_label, error) => {
+    expect(isTransientError(error)).toBe(false);
+  });
+
+  it('treats an RLS refusal as permanent even when the message also mentions a timeout', () => {
+    expect(
+      isTransientError({ code: '42501', message: 'new row violates row-level security policy (after timeout)' })
+    ).toBe(false);
+  });
+});
+```
 
 In `src/__tests__/services/offline/sync.test.ts`:
 - In the `jest.mock('@/services/offline/database', …)` list, after `recordScorecardServerRevision: jest.fn(),` (line 56), add:
@@ -14733,10 +14902,9 @@ In `src/__tests__/services/offline/sync.test.ts`:
 
 ```ts
 // Mock round finalisation (run by queued `round` items). The error class is a
-// stand-in the orchestrator both throws and catches.
+// stand-in the orchestrator both catches and (via the mock) receives.
 jest.mock('@/services/rounds/finalizeSubmittedRound', () => ({
   finalizeSubmittedRound: jest.fn(),
-  isRoundFinalizeInFlight: jest.fn(() => false),
   RoundNotReadyError: class RoundNotReadyError extends Error {},
 }));
 ```
@@ -14744,8 +14912,11 @@ jest.mock('@/services/rounds/finalizeSubmittedRound', () => ({
 - After `import { syncScorecard, ScorecardConflictError } from '@/services/offline/sync/scorecardSync';` (line 31), add:
 
 ```ts
-import { finalizeSubmittedRound, isRoundFinalizeInFlight } from '@/services/rounds/finalizeSubmittedRound';
+import { finalizeSubmittedRound, RoundNotReadyError } from '@/services/rounds/finalizeSubmittedRound';
+import { createError } from '@/services/errors';
 ```
+
+`isTransientError` is not mocked here: the orchestrator uses the real one.
 
 Append at the end of the file:
 
@@ -14785,7 +14956,6 @@ describe('Queued round finalisation', () => {
       statusError: null,
       skinsError: null,
     });
-    (isRoundFinalizeInFlight as jest.Mock).mockReturnValue(false);
     (database.hasUnsyncedScorecardsForRound as jest.Mock).mockResolvedValue(false);
     (database.getFailedSyncCountForRound as jest.Mock).mockResolvedValue(0);
   });
@@ -14815,17 +14985,18 @@ describe('Queued round finalisation', () => {
     expect(getSyncState().status).not.toBe('error');
   });
 
-  it('waits, without running the steps twice, while a submit screen is finalising the same round', async () => {
+  it('waits, spending no retry, when a submit screen is already finalising the same round', async () => {
     (database.getPendingSyncs as jest.Mock).mockResolvedValue([createRoundSync()]);
-    (isRoundFinalizeInFlight as jest.Mock).mockReturnValue(true);
+    // finalizeSubmittedRound's own atomic in-flight check (A6a-2) refuses.
+    (finalizeSubmittedRound as jest.Mock).mockRejectedValue(new RoundNotReadyError('already being finalised'));
 
-    await syncAll();
+    await expect(syncAll()).resolves.toBe(true);
 
-    expect(isRoundFinalizeInFlight).toHaveBeenCalledWith(ROUND_ID);
-    expect(database.hasUnsyncedScorecardsForRound).not.toHaveBeenCalled();
-    expect(finalizeSubmittedRound).not.toHaveBeenCalled();
+    expect(finalizeSubmittedRound).toHaveBeenCalledWith(ROUND_ID);
     expect(database.removePendingSync).not.toHaveBeenCalled();
     expect(database.incrementSyncRetryCount).not.toHaveBeenCalled();
+    expect(database.markPendingSyncFailed).not.toHaveBeenCalled();
+    expect(getSyncState().status).not.toBe('error');
   });
 
   it('drops the item when the round is not complete and this device has nothing left to upload', async () => {
@@ -14869,18 +15040,58 @@ describe('Queued round finalisation', () => {
     expect(database.removePendingSync).not.toHaveBeenCalled();
   });
 
-  it('spends a retry when skins settlement failed after the round completed', async () => {
+  it('skins network error → retried: spends a retry when settlement failed transiently', async () => {
     (database.getPendingSyncs as jest.Mock).mockResolvedValue([createRoundSync()]);
     (finalizeSubmittedRound as jest.Mock).mockResolvedValue({
       completed: true,
       skinsGame: null,
       statusError: null,
-      skinsError: new Error('payouts insert failed'),
+      skinsError: createError('Failed to insert payouts: TypeError: Network request failed', 'DATABASE'),
     });
 
     await syncAll();
 
-    expect(database.incrementSyncRetryCount).toHaveBeenCalledWith(7, 1, 'payouts insert failed');
+    expect(database.incrementSyncRetryCount).toHaveBeenCalledWith(
+      7,
+      1,
+      'Failed to insert payouts: TypeError: Network request failed'
+    );
+    expect(database.removePendingSync).not.toHaveBeenCalled();
+  });
+
+  it('skins RLS error → item removed: a permanent settlement failure is logged, not retried', async () => {
+    // skins_payouts is writable only by the game's creator: a non-creator's
+    // settlement fails like this on every attempt.
+    (database.getPendingSyncs as jest.Mock).mockResolvedValue([createRoundSync()]);
+    (finalizeSubmittedRound as jest.Mock).mockResolvedValue({
+      completed: true,
+      skinsGame: null,
+      statusError: null,
+      skinsError: createError(
+        'Failed to insert payouts: new row violates row-level security policy for table "skins_payouts"',
+        'DATABASE'
+      ),
+    });
+
+    await expect(syncAll()).resolves.toBe(true);
+
+    expect(database.removePendingSync).toHaveBeenCalledWith(7, 1);
+    expect(database.incrementSyncRetryCount).not.toHaveBeenCalled();
+    expect(database.markPendingSyncFailed).not.toHaveBeenCalled();
+  });
+
+  it('still retries a failed status write when skins also failed permanently', async () => {
+    (database.getPendingSyncs as jest.Mock).mockResolvedValue([createRoundSync()]);
+    (finalizeSubmittedRound as jest.Mock).mockResolvedValue({
+      completed: false,
+      skinsGame: null,
+      statusError: new Error('network down'),
+      skinsError: createError('Skins game not found', 'NOT_FOUND'),
+    });
+
+    await syncAll();
+
+    expect(database.incrementSyncRetryCount).toHaveBeenCalledWith(7, 1, 'network down');
     expect(database.removePendingSync).not.toHaveBeenCalled();
   });
 
@@ -14945,10 +15156,93 @@ describe('Queued round finalisation', () => {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `pnpm test src/__tests__/services/offline/sync.test.ts -t 'Queued round finalisation'`
-Expected: FAIL. `finalizeSubmittedRound` is never called. `processPendingSync` throws "Unsupported sync type: round", so `incrementSyncRetryCount(7, 1, 'Unsupported sync type: round')` is called instead. The two "waits" cases fail on `hasUnsyncedScorecardsForRound` / `isRoundFinalizeInFlight` having 0 calls, and the skins case on `incrementSyncRetryCount` receiving `'Unsupported sync type: round'`.
+Run: `pnpm test src/__tests__/services/errors/transient.test.ts src/__tests__/services/offline/sync.test.ts -t 'isTransientError|Queued round finalisation'`
+Expected: FAIL.
+- `transient.test.ts`: "Cannot find module '@/services/errors/transient'".
+- `sync.test.ts`: `finalizeSubmittedRound` is never called. `processPendingSync` throws "Unsupported sync type: round", so `incrementSyncRetryCount(7, 1, 'Unsupported sync type: round')` is called instead.
+  - The cards-pending "waits" case fails on `hasUnsyncedScorecardsForRound` having 0 calls; the in-flight "waits" case on `finalizeSubmittedRound` having 0 calls.
+  - The two transient-retry cases (skins network, status + permanent skins) fail on `incrementSyncRetryCount` receiving `'Unsupported sync type: round'`; the skins RLS case on `removePendingSync` having 0 calls.
 
 - [ ] **Step 3: Implement**
+
+**Create `src/services/errors/transient.ts`:**
+
+```ts
+/**
+ * isTransientError — is this failure worth retrying automatically?
+ *
+ * True only for failures a later attempt can fix: no connection, a timeout,
+ * a dropped connection, a 5xx / gateway error, a lock or serialisation clash.
+ * Everything else is permanent — an RLS refusal (42501), validation, a
+ * missing row, or anything unrecognised — and retrying it only burns the sync
+ * queue's retries into a retained failure.
+ *
+ * Reads the shapes this app produces:
+ *  - AppError from createError(`Failed to …: ${pgError.message}`, 'DATABASE'):
+ *    the Postgres code is lost, the PostgREST message is kept in the text;
+ *  - AppError.fromSupabaseError: AppError.code (NETWORK / TIMEOUT / RATE_LIMIT
+ *    are transient) plus context.supabaseCode;
+ *  - raw PostgREST errors { code, message }: postgrest-js turns a failed fetch
+ *    into code '' and message '<Name>: <message>' ("TypeError: Network request
+ *    failed"), and a non-JSON gateway body into { message: body };
+ *  - a thrown Error / TypeError.
+ */
+import { AppError } from '@/services/errors';
+
+const TRANSIENT_APP_CODES = new Set<string>(['NETWORK', 'TIMEOUT', 'RATE_LIMIT']);
+
+/** Postgres / PostgREST codes worth retrying (plus the whole 08 class). */
+const TRANSIENT_DB_CODES = new Set<string>([
+  '57014', // statement timeout
+  '57P01', // admin shutdown (failover)
+  '53300', // too many connections
+  '40001', // serialization failure
+  '40P01', // deadlock
+  'PGRST504', // gateway timeout
+]);
+
+const PERMANENT_MESSAGE = /row-level security|permission denied/i;
+
+const TRANSIENT_MESSAGE =
+  /network request failed|failed to fetch|fetch failed|networkerror|aborterror|timed? ?out|econnreset|econnrefused|etimedout|enotfound|socket hang up|bad gateway|service unavailable|gateway time-?out|upstream|too many connections|deadlock|\b50[0234]\b/i;
+
+function codeOf(error: unknown): string {
+  if (error instanceof AppError) {
+    const supabaseCode = error.context?.supabaseCode;
+    return typeof supabaseCode === 'string' ? supabaseCode : '';
+  }
+  if (typeof error === 'object' && error !== null && 'code' in error) {
+    const code = (error as { code?: unknown }).code;
+    return typeof code === 'string' ? code : '';
+  }
+  return '';
+}
+
+function messageOf(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    const message = (error as { message?: unknown }).message;
+    return typeof message === 'string' ? message : '';
+  }
+  return typeof error === 'string' ? error : '';
+}
+
+export function isTransientError(error: unknown): boolean {
+  if (error == null) return false;
+
+  const code = codeOf(error);
+  const message = messageOf(error);
+
+  // A refusal never turns into a success on retry, whatever else it says.
+  if (code === '42501' || PERMANENT_MESSAGE.test(message)) return false;
+  if (error instanceof AppError && error.code === 'PERMISSION') return false;
+
+  if (error instanceof AppError && TRANSIENT_APP_CODES.has(error.code)) return true;
+  if (code.startsWith('08') || TRANSIENT_DB_CODES.has(code)) return true;
+
+  return TRANSIENT_MESSAGE.test(message);
+}
+```
 
 **`src/services/offline/sync/syncOrchestrator.ts`.**
 
@@ -14970,9 +15264,9 @@ Replace with:
 } from '../database';
 import {
   finalizeSubmittedRound,
-  isRoundFinalizeInFlight,
   RoundNotReadyError,
 } from '@/services/rounds/finalizeSubmittedRound';
+import { isTransientError } from '@/services/errors/transient';
 ```
 
 (2) Split out round items. Current lines 182-184:
@@ -15074,9 +15368,12 @@ async function processRoundSyncs(
       const errorMessage = error instanceof Error ? error.message : String(error);
 
       if (error instanceof RoundNotReadyError) {
-        syncLogger.info("Round item waiting on this device's scorecards; leaving it queued", {
+        // This device's cards are still uploading, or the round is being
+        // finalised right now (A6a-2's in-flight check).
+        syncLogger.info('Round item not ready yet; leaving it queued', {
           id: sync.id,
           roundId: String(sync.data?.id ?? '').substring(0, 8) + '...',
+          reason: errorMessage,
         });
         continue;
       }
@@ -15134,10 +15431,9 @@ function asError(value: unknown): Error {
  * → skins steps an online submit runs (finalizeSubmittedRound).
  */
 async function processRoundFinalize(roundId: string): Promise<void> {
-  // 1. Before any server call: wait while a submit screen is finalising this
-  //    round right now (its finalizeOrQueueRound keeps or removes this item
-  //    when it finishes), and while this device's own uploads are pending.
-  if (isRoundFinalizeInFlight(roundId) || (await hasUnsyncedScorecardsForRound(roundId))) {
+  // 1. Before any server call: wait while this device's own uploads for the
+  //    round are pending.
+  if (await hasUnsyncedScorecardsForRound(roundId)) {
     throw new RoundNotReadyError(roundId);
   }
 
@@ -15154,14 +15450,26 @@ async function processRoundFinalize(roundId: string): Promise<void> {
   // 'end_early' item is retained as failed must not sit pending for ever
   // behind it. B6b-2 owns that check and adds it here, before any server call.
 
-  // 4. Run the steps. A failed status write, then a failed skins settlement,
-  //    takes the normal retry path; re-running the steps is idempotent.
+  // 4. Run the steps. If a submit screen is finalising this round right now,
+  //    finalizeSubmittedRound's atomic in-flight check rejects with
+  //    RoundNotReadyError: the item waits (its finalizeOrQueueRound keeps or
+  //    removes it when it finishes). A failed status write, then a TRANSIENT
+  //    skins failure, takes the normal retry path; re-running the steps is
+  //    idempotent.
   const { completed, statusError, skinsError } = await finalizeSubmittedRound(roundId);
   if (statusError) {
     throw asError(statusError);
   }
   if (skinsError) {
-    throw asError(skinsError);
+    if (isTransientError(skinsError)) {
+      throw asError(skinsError);
+    }
+    // Permanent (an RLS refusal — skins_payouts is creator-only — validation,
+    // a missing game): no retry can fix it, so don't let it end retained.
+    syncLogger.warn('Skins settlement failed permanently; not retrying', {
+      roundId: roundId.substring(0, 8) + '...',
+      error: asError(skinsError).message,
+    });
   }
 
   if (!completed) {
@@ -15176,8 +15484,8 @@ async function processRoundFinalize(roundId: string): Promise<void> {
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `pnpm test src/__tests__/services/offline/sync.test.ts`
-Expected: PASS (the new describe and every existing sync test)
+Run: `pnpm test src/__tests__/services/errors/transient.test.ts src/__tests__/services/offline/sync.test.ts`
+Expected: PASS (`isTransientError`'s 21 cases, the new describe and every existing sync test)
 
 - [ ] **Step 5: Run the scoring subset + type-check**
 
@@ -15187,16 +15495,19 @@ Expected: green (apart from the Task 0 baseline)
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/services/offline/sync/syncOrchestrator.ts src/__tests__/services/offline/sync.test.ts
+git add src/services/errors/transient.ts src/__tests__/services/errors/transient.test.ts src/services/offline/sync/syncOrchestrator.ts src/__tests__/services/offline/sync.test.ts
 git commit -m "feat(sync): run queued round finalisation after every scorecard upload
 
-'round' items now run after the queued uploads and the SQLite fallback. Before any
-server call a 'finalize' item waits, spending no retries, while a submit screen
-is finalising the same round or this device still has the round's cards
-pending. It is retained as failed when the only unconfirmed cards are retained
-failures, so Retry revives both in order. Otherwise it runs
-finalizeSubmittedRound; a failed status write or skins settlement takes the
-normal retry path. Offline-submitted rounds now complete.
+'round' items now run after the queued uploads and the SQLite fallback. A
+'finalize' item waits, spending no retries, while this device still has the
+round's cards pending or a submit screen is finalising the same round
+(finalizeSubmittedRound's own in-flight check). It is retained as failed when
+the only unconfirmed cards are retained failures, so Retry revives both in
+order. Otherwise it runs finalizeSubmittedRound: a failed status write takes
+the normal retry path, and so does a skins settlement failure that
+isTransientError recognises (network, timeout, 5xx). A permanent one, such as
+a non-creator's RLS refusal on skins_payouts, is logged and the item removed
+instead of ending retained. Offline-submitted rounds now complete.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
@@ -15225,7 +15536,8 @@ A6b-1 builds the service side:
 - `requestSyncDrain`;
 - `ensureSyncServiceStarted`;
 - `setSyncAuthUser` and the `syncAll` gate;
-- a drain request from `queueRoundFinalize`, which callers can turn off.
+- a drain request from `queueRoundFinalize`, which callers can turn off;
+- **round items owned by a user.** Nothing clears SQLite on sign-out, and `pending_syncs` has no owner. If user A queues a finalisation offline, signs out, and user B signs in on the same phone, B's drain would run A's item under B's session: the status write is refused (0 rows → "not completed") and the item is dropped, or skins settlement fails. So `queueRoundFinalize` stamps `data.userId = getSyncAuthUserId()` (when one is recorded), and `processRoundSync` throws `RoundNotReadyError` for an item whose `userId` differs from the signed-in user: it stays pending, with no retry spent, until A signs back in. An item without `userId` (an older build's, or one queued before the session was restored) runs as before. The check is in the dispatcher, so B6b's `'end_early'` items get it too once `queueRoundEndEarly` stamps `userId`.
 
 A6b-2 wires the app root and `useOfflineSync`.
 
@@ -15233,14 +15545,14 @@ A6b-2 wires the app root and `useOfflineSync`.
 - Create: `src/services/offline/sync/drain.ts`
 - Create: `src/__tests__/services/offline/syncDrain.test.ts`
 - Modify: `src/services/offline/sync/networkState.ts:12-14` (signed-in user id + accessors)
-- Modify: `src/services/offline/sync/syncOrchestrator.ts:37-45` (imports), `:100-121` (`initSyncService` registers the drain handler; add `ensureSyncServiceStarted` / `__resetSyncServiceForTests`), `:163-170` (`syncAll` gate)
+- Modify: `src/services/offline/sync/syncOrchestrator.ts:37-45` (imports), `:100-121` (`initSyncService` registers the drain handler; add `ensureSyncServiceStarted` / `__resetSyncServiceForTests`), `:163-170` (`syncAll` gate), A6a-3's `processRoundSync` (owner check)
 - Modify: `src/services/offline/sync/index.ts:27, 32-34` (re-exports), `src/services/offline/sync.ts:25-26, 33-34` (re-exports)
 - Test: `src/__tests__/services/offline/sync.test.ts` (drain mock + new describe)
-- Modify: `src/services/rounds/finalizeSubmittedRound.ts` (`queueRoundFinalize` requests a drain)
+- Modify: `src/services/rounds/finalizeSubmittedRound.ts` (`queueRoundFinalize` requests a drain and stamps `userId`)
 - Test: `src/__tests__/services/rounds/finalizeSubmittedRound.test.ts`
 
 **Interfaces:**
-- Consumes: `syncAll`, `initSyncService` (existing); `queueRoundFinalize` (A6a-2).
+- Consumes: `syncAll`, `initSyncService` (existing); `queueRoundFinalize`, `RoundSyncData`, `RoundNotReadyError` (A6a-2); `processRoundSync` (A6a-3, module-private).
 - Produces:
   - `requestSyncDrain(reason: string): void`;
   - `registerSyncDrainHandler(handler: () => Promise<unknown>): void`;
@@ -15249,7 +15561,8 @@ A6b-2 wires the app root and `useOfflineSync`.
   - `ensureSyncServiceStarted(): void`;
   - `__resetSyncServiceForTests()`;
   - `setSyncAuthUser(userId: string | null): void` and `getSyncAuthUserId(): string | null` (`networkState.ts`; starts `null`). `syncAll` resolves `false` at once while it is `null`;
-  - `queueRoundFinalize(roundId, options?: { requestDrain?: boolean })`: `requestDrain` defaults to `true`.
+  - `queueRoundFinalize(roundId, options?: { requestDrain?: boolean })`: `requestDrain` defaults to `true`; it stamps `data.userId` with `getSyncAuthUserId()` when that is set;
+  - the queue runs a `round` item only for the user in its `data.userId` (any other signed-in user: `RoundNotReadyError`, stays pending); no `userId` runs for anyone. B6b-1's `queueRoundEndEarly` must stamp `userId` the same way.
 
   `ensureSyncServiceStarted`, `requestSyncDrain` and `setSyncAuthUser` are also re-exported from `@/services/offline/sync`.
 
@@ -15511,6 +15824,70 @@ describe('No drain without a session', () => {
     expect(finalizeSubmittedRound).toHaveBeenCalledWith(ROUND_ID);
   });
 });
+
+// ============================================================================
+// ROUND ITEMS BELONG TO THE USER WHO QUEUED THEM
+// ============================================================================
+
+/**
+ * SQLite survives sign-out. A round item queued by one user must not run
+ * under another user's session on the same phone: it waits for its owner.
+ */
+describe('Round items and the signed-in user', () => {
+  const ROUND_ID = '550e8400-e29b-41d4-a716-446655440000';
+  const finalizeItem = (data: Record<string, unknown>): PendingSync => ({
+    id: 7,
+    type: 'round',
+    action: 'update',
+    data: { id: ROUND_ID, action: 'finalize', ...data },
+    entityKey: `round:${ROUND_ID}:finalize`,
+    timestamp: new Date('2025-01-15T09:00:00Z'),
+    retryCount: 0,
+    revision: 1,
+  });
+
+  beforeEach(async () => {
+    initSyncService();
+    await flushPromises();
+    (finalizeSubmittedRound as jest.Mock).mockResolvedValue({
+      completed: true,
+      skinsGame: null,
+      statusError: null,
+      skinsError: null,
+    });
+    (database.hasUnsyncedScorecardsForRound as jest.Mock).mockResolvedValue(false);
+    (database.getFailedSyncCountForRound as jest.Mock).mockResolvedValue(0);
+  });
+
+  it("leaves another user's item pending, with no retry spent and no server call", async () => {
+    (database.getPendingSyncs as jest.Mock).mockResolvedValue([finalizeItem({ userId: 'someone-else' })]);
+
+    await expect(syncAll()).resolves.toBe(true);
+
+    expect(finalizeSubmittedRound).not.toHaveBeenCalled();
+    expect(database.hasUnsyncedScorecardsForRound).not.toHaveBeenCalled();
+    expect(database.removePendingSync).not.toHaveBeenCalled();
+    expect(database.incrementSyncRetryCount).not.toHaveBeenCalled();
+    expect(database.markPendingSyncFailed).not.toHaveBeenCalled();
+  });
+
+  it("runs the signed-in user's own item", async () => {
+    (database.getPendingSyncs as jest.Mock).mockResolvedValue([finalizeItem({ userId: 'test-user-id' })]);
+
+    await syncAll();
+
+    expect(finalizeSubmittedRound).toHaveBeenCalledWith(ROUND_ID);
+    expect(database.removePendingSync).toHaveBeenCalledWith(7, 1);
+  });
+
+  it('runs a legacy item with no owner for whoever is signed in', async () => {
+    (database.getPendingSyncs as jest.Mock).mockResolvedValue([finalizeItem({})]);
+
+    await syncAll();
+
+    expect(finalizeSubmittedRound).toHaveBeenCalledWith(ROUND_ID);
+  });
+});
 ```
 
 In `src/__tests__/services/rounds/finalizeSubmittedRound.test.ts`, after the `jest.mock('@/services/queryClient', …)` block, add:
@@ -15519,6 +15896,12 @@ In `src/__tests__/services/rounds/finalizeSubmittedRound.test.ts`, after the `je
 const mockRequestSyncDrain = jest.fn();
 jest.mock('@/services/offline/sync/drain', () => ({
   requestSyncDrain: (...args: unknown[]) => mockRequestSyncDrain(...args),
+}));
+
+// The signed-in user stamped onto queued items (null: none recorded).
+const mockGetSyncAuthUserId = jest.fn((): string | null => null);
+jest.mock('@/services/offline/sync/networkState', () => ({
+  getSyncAuthUserId: () => mockGetSyncAuthUserId(),
 }));
 ```
 
@@ -15542,12 +15925,24 @@ and inside `describe('queueRoundFinalize', …)`, after the `'queues a round fin
     expect(mockAddPendingSync).toHaveBeenCalled();
     expect(mockRequestSyncDrain).not.toHaveBeenCalled();
   });
+
+  it('stamps the signed-in user onto the item, so only that user drains it', async () => {
+    mockGetSyncAuthUserId.mockReturnValueOnce('user-1');
+
+    await queueRoundFinalize(ROUND_ID);
+
+    expect(mockAddPendingSync).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { id: ROUND_ID, action: 'finalize', userId: 'user-1' } })
+    );
+  });
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
 
 Run: `pnpm test src/__tests__/services/offline/syncDrain.test.ts src/__tests__/services/offline/sync.test.ts src/__tests__/services/rounds/finalizeSubmittedRound.test.ts`
-Expected: FAIL. All three files fail to load with "Cannot find module '@/services/offline/sync/drain'". (Once `drain.ts` exists, `sync.test.ts` still fails: `setSyncAuthUser is not a function`, then the four "No drain without a session" cases, because `syncAll` reads the queue while signed out.)
+Expected: FAIL. All three files fail to load with "Cannot find module '@/services/offline/sync/drain'". Once `drain.ts` exists:
+- `sync.test.ts` still fails: `setSyncAuthUser is not a function`, then the four "No drain without a session" cases (`syncAll` reads the queue while signed out), then "leaves another user's item pending" (`finalizeSubmittedRound` called once, `removePendingSync(7, 1)` called). The own-item and legacy cases pass already.
+- `finalizeSubmittedRound.test.ts`: "asks for a drain" fails on `mockRequestSyncDrain` having 0 calls, and "stamps the signed-in user" fails because `data` has no `userId`. ("can queue without asking for a drain" passes already.)
 
 - [ ] **Step 3: Implement**
 
@@ -15804,6 +16199,36 @@ export function __resetSyncServiceForTests(): void {
 }
 ```
 
+In A6a-3's `processRoundSync`, current:
+
+```ts
+  const roundId: unknown = sync.data?.id;
+  if (typeof roundId !== 'string' || roundId.length === 0) {
+    throw new Error('Round sync item has no round id');
+  }
+
+  const action: unknown = sync.data?.action;
+```
+
+Replace with:
+
+```ts
+  const roundId: unknown = sync.data?.id;
+  if (typeof roundId !== 'string' || roundId.length === 0) {
+    throw new Error('Round sync item has no round id');
+  }
+
+  // SQLite survives sign-out: an item queued by another user on this phone
+  // waits for them (no retry spent) instead of running under this session.
+  // Items without an owner (older builds) run for whoever is signed in.
+  const owner: unknown = sync.data?.userId;
+  if (typeof owner === 'string' && owner.length > 0 && owner !== getSyncAuthUserId()) {
+    throw new RoundNotReadyError(roundId, 'is queued for another user');
+  }
+
+  const action: unknown = sync.data?.action;
+```
+
 **`src/services/offline/sync/index.ts:27`.** Current:
 
 ```ts
@@ -15867,18 +16292,20 @@ Replace with:
   requestSyncDrain,
 ```
 
-**`src/services/rounds/finalizeSubmittedRound.ts`** (as A6a-2 leaves it). After `import { addPendingSync } from '@/services/offline/database';` add:
+**`src/services/rounds/finalizeSubmittedRound.ts`** (as A6a-2 leaves it). After `import { addPendingSync, removePendingSyncByEntityKey } from '@/services/offline/database';` add:
 
 ```ts
 // By path, not via '@/services/offline/sync': that barrel re-exports the
 // orchestrator, which imports this module.
 import { requestSyncDrain } from '@/services/offline/sync/drain';
+import { getSyncAuthUserId } from '@/services/offline/sync/networkState';
 ```
 
 In `queueRoundFinalize`, current:
 
 ```ts
 export async function queueRoundFinalize(roundId: string): Promise<void> {
+  const data: RoundSyncData = { id: roundId, action: 'finalize' };
 ```
 
 Replace with:
@@ -15888,6 +16315,9 @@ export async function queueRoundFinalize(
   roundId: string,
   { requestDrain = true }: { requestDrain?: boolean } = {}
 ): Promise<void> {
+  // Owned by whoever is signed in now: the queue runs it only for them.
+  const userId = getSyncAuthUserId();
+  const data: RoundSyncData = { id: roundId, action: 'finalize', ...(userId ? { userId } : {}) };
 ```
 
 and current:
@@ -15933,7 +16363,10 @@ syncAll now returns at once while no user is recorded (setSyncAuthUser), so
 the network callback, queueScorecardSync and Retry can't drain signed out
 and drop a queued finalize item on a PGRST116 read.
 queueRoundFinalize requests a drain unless told not to, so an item queued
-while online runs straight away.
+while online runs straight away. It also stamps the signed-in user onto the
+item; the queue leaves another user's round item pending (no retry spent)
+instead of running it under the wrong session, since SQLite survives
+sign-out. Items without an owner run as before.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
@@ -16616,7 +17049,7 @@ Each `pending_syncs` row has:
 | Type | Entity key | Data | Handler |
 |---|---|---|---|
 | `scorecard` | `scorecard:<roundId>:<playerId>` | the scorecard snapshot | `processScorecardSync` |
-| `round` | `round:<roundId>:finalize` | `{ id, action: 'finalize' }` | `processRoundSync` → `finalizeSubmittedRound` |
+| `round` | `round:<roundId>:finalize` | `{ id, action: 'finalize', userId? }` (`userId`: who was signed in when it was queued) | `processRoundSync` → `finalizeSubmittedRound` |
 
 ### Drain order
 
@@ -16627,15 +17060,17 @@ Each `syncAll()` runs:
 
 ### `round` items: wait, drop or retry
 
-A `'finalize'` item runs the same steps an online submit runs (`finalizeSubmittedRound`): round status, then competition results, then skins settlement. Before any server call, it checks this device's own cards:
+A `'finalize'` item runs the same steps an online submit runs (`finalizeSubmittedRound`): round status, then competition results, then skins settlement. Before any server call, it checks who queued it and this device's own cards:
 
 | Situation | Outcome |
 |---|---|
-| A submit screen is finalising the same round right now (`isRoundFinalizeInFlight`), or a card for the round is still `pending` in the queue, or unsynced in SQLite with no queue row (`hasUnsyncedScorecardsForRound`) | **Wait.** It stays `pending`, spends no retry and raises no error. It runs again on the next drain. |
+| The item's `userId` is another user than the one signed in (SQLite survives sign-out) | **Wait.** It stays `pending`, spends no retry and raises no error, until its owner signs in again. An item with no `userId` (an older build's) runs for whoever is signed in. |
+| A card for the round is still `pending` in the queue, or unsynced in SQLite with no queue row (`hasUnsyncedScorecardsForRound`); or a submit screen is finalising the same round right now (`finalizeSubmittedRound`'s atomic in-flight check rejects with `RoundNotReadyError`) | **Wait.** It stays `pending`, spends no retry and raises no error. It runs again on the next drain. |
 | The round's only unconfirmed cards are retained `failed` rows | **Failed.** The round item is marked `failed` too. Retry (`retryFailedSyncs`) revives both, and the card uploads first. |
 | Steps ran and the round is `completed` | **Done.** The item is removed. |
 | Steps ran and the round is not complete (another device's cards are outstanding) | **Done.** The item is removed. The device that submits the last card completes the round. |
-| The status read or write failed, or skins settlement failed | **Retry.** Normal retry count; retained as `failed` after 3. Re-running the steps is idempotent. |
+| Skins settlement failed permanently: an RLS refusal (only the game's creator can write `skins_payouts`), validation, a missing game, anything `isTransientError` doesn't recognise | **Done.** Logged as a warning; the item is removed. No retry can fix it. |
+| The status read or write failed, or skins settlement failed transiently (`isTransientError`: no connection, a timeout, a 5xx or gateway error, a dropped connection) | **Retry.** Normal retry count; retained as `failed` after 3. Re-running the steps is idempotent. |
 ````
 
 At line 781, current:
@@ -16685,9 +17120,10 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ### Task A6c: Shared submit step (`finalizeOrQueueRound` / `useFinalizeSubmittedRound`) and the Review submit paths
 
 Every submit screen runs one step after `submitScorecards`:
-- **Online:** first write the `'finalize'` item (durable, no drain request), then finalise now. Remove the item only when the round completed with no status or skins error, or when the round is waiting only on other devices' cards. Otherwise keep it and request a drain: when finalising throws or fails, or the round isn't complete while this device still has unconfirmed cards for it (`getIsOnline()` can flip between `submitScorecards` and the finalise step). An app kill during the online attempt leaves the item behind.
+- **Online:** first write the `'finalize'` item (durable, no drain request), then finalise now. Remove the item only when the round completed with no status error and no transient skins error, or when the round is waiting only on other devices' cards. Otherwise keep it and request a drain: when finalising throws or fails, or the round isn't complete while this device still has unconfirmed cards for it (`getIsOnline()` can flip between `submitScorecards` and the finalise step). An app kill during the online attempt leaves the item behind.
+- **Permanent skins failure:** a `skinsError` that `isTransientError` (A6a-3) doesn't recognise, e.g. a non-creator's RLS refusal on `skins_payouts`, doesn't keep the item: no retry could settle it, and keeping it would only end as a retained failure.
 - **Offline:** queue it.
-- **No double run:** `finalizeSubmittedRound` marks the round in flight, and the queue's `processRoundFinalize` waits while it is (A6a-3). If a drain is already finalising the round, this step leaves it to the queue.
+- **No double run:** `finalizeSubmittedRound` does its own atomic in-flight test-and-set (A6a-2). If a drain is already finalising the round, it rejects with `RoundNotReadyError`; this step keeps its item and leaves the round to the queue. There is no separate pre-check, so there is no gap between a check and the run.
 
 The hook also fires the skins achievements for a game it settled online. They used to fire from `useFinalizeSkinsGame`'s `onSuccess`, which the service path bypasses.
 
@@ -16702,7 +17138,8 @@ This task wires Review's two submit paths (`handleSubmit`, `handleBypassSubmit`)
 
 **Interfaces:**
 - Consumes:
-  - `finalizeSubmittedRound`, `queueRoundFinalize(roundId, { requestDrain })`, `removeQueuedRoundFinalize`, `isRoundFinalizeInFlight`, `FinalizeSubmittedRoundResult` (A6a-2, A6b-1);
+  - `finalizeSubmittedRound` (rejects with `RoundNotReadyError` while the round is already in flight), `queueRoundFinalize(roundId, { requestDrain })`, `removeQueuedRoundFinalize`, `FinalizeSubmittedRoundResult` (A6a-2, A6b-1);
+  - `isTransientError` (A6a-3, `@/services/errors/transient`);
   - `hasUnsyncedScorecardsForRound`, `getFailedSyncCountForRound` (`@/services/offline/database`);
   - `getIsOnline` (`@/services/offline/sync/networkState`); `requestSyncDrain` (`@/services/offline/sync/drain`, by path);
   - `awardSkinsAchievements(game, { playerId, checkAndAward, showMultipleToasts })` (A5b-2, `@/services/skins/finalizeSkinsGame`; `ctx: SkinsAchievementContext`; never throws);
@@ -16733,13 +17170,12 @@ import {
 const mockFinalizeSubmittedRound = jest.fn();
 const mockQueueRoundFinalize = jest.fn();
 const mockRemoveQueuedRoundFinalize = jest.fn();
-const mockIsRoundFinalizeInFlight = jest.fn();
 jest.mock('@/services/rounds/finalizeSubmittedRound', () => ({
   finalizeSubmittedRound: (...args: unknown[]) => mockFinalizeSubmittedRound(...args),
   queueRoundFinalize: (...args: unknown[]) => mockQueueRoundFinalize(...args),
   removeQueuedRoundFinalize: (...args: unknown[]) => mockRemoveQueuedRoundFinalize(...args),
-  isRoundFinalizeInFlight: (...args: unknown[]) => mockIsRoundFinalizeInFlight(...args),
 }));
+// isTransientError (@/services/errors/transient) is the real one.
 
 const mockHasUnsynced = jest.fn();
 const mockFailedCount = jest.fn();
@@ -16786,7 +17222,6 @@ beforeEach(() => {
   mockFinalizeSubmittedRound.mockResolvedValue(DONE);
   mockQueueRoundFinalize.mockResolvedValue(undefined);
   mockRemoveQueuedRoundFinalize.mockResolvedValue(true);
-  mockIsRoundFinalizeInFlight.mockReturnValue(false);
   mockHasUnsynced.mockResolvedValue(false);
   mockFailedCount.mockResolvedValue(0);
   mockAwardSkinsAchievements.mockResolvedValue(undefined);
@@ -16887,8 +17322,11 @@ describe('finalizeOrQueueRound', () => {
     expect(mockRequestSyncDrain).toHaveBeenCalledWith('round-finalize-queued');
   });
 
-  it('keeps the item for a retry when skins settlement fails after the round completed', async () => {
-    mockFinalizeSubmittedRound.mockResolvedValue({ ...DONE, skinsError: new Error('payouts insert failed') });
+  it('keeps the item for a retry when skins settlement fails transiently after the round completed', async () => {
+    mockFinalizeSubmittedRound.mockResolvedValue({
+      ...DONE,
+      skinsError: new Error('Failed to insert payouts: TypeError: Network request failed'),
+    });
 
     await expect(finalizeOrQueueRound(ROUND_ID)).resolves.toEqual({
       completed: true,
@@ -16896,6 +17334,24 @@ describe('finalizeOrQueueRound', () => {
       skinsGame: null,
     });
     expect(mockRemoveQueuedRoundFinalize).not.toHaveBeenCalled();
+    expect(mockRequestSyncDrain).toHaveBeenCalledWith('round-finalize-queued');
+  });
+
+  it('removes the item when skins settlement is refused for good (RLS: not the game creator)', async () => {
+    mockFinalizeSubmittedRound.mockResolvedValue({
+      ...DONE,
+      skinsError: new Error(
+        'Failed to insert payouts: new row violates row-level security policy for table "skins_payouts"'
+      ),
+    });
+
+    await expect(finalizeOrQueueRound(ROUND_ID)).resolves.toEqual({
+      completed: true,
+      queued: false,
+      skinsGame: null,
+    });
+    expect(mockRemoveQueuedRoundFinalize).toHaveBeenCalledWith(ROUND_ID);
+    expect(mockRequestSyncDrain).not.toHaveBeenCalled();
   });
 
   it('keeps the item when finalisation throws (e.g. an early end still queued, B6b)', async () => {
@@ -16912,15 +17368,18 @@ describe('finalizeOrQueueRound', () => {
   });
 
   it('leaves the round to the queue when a drain is already finalising it', async () => {
-    mockIsRoundFinalizeInFlight.mockReturnValue(true);
+    // finalizeSubmittedRound's own atomic in-flight check refuses (A6a-2).
+    mockFinalizeSubmittedRound.mockRejectedValue(new Error('Round 550e8400 is already being finalised'));
 
     await expect(finalizeOrQueueRound(ROUND_ID)).resolves.toEqual({
       completed: false,
       queued: true,
       skinsGame: null,
     });
-    expect(mockFinalizeSubmittedRound).not.toHaveBeenCalled();
+    expect(mockQueueRoundFinalize).toHaveBeenCalledWith(ROUND_ID, { requestDrain: false });
+    expect(mockFinalizeSubmittedRound).toHaveBeenCalledTimes(1);
     expect(mockRemoveQueuedRoundFinalize).not.toHaveBeenCalled();
+    expect(mockRequestSyncDrain).toHaveBeenCalledWith('round-finalize-queued');
   });
 
   it('queues (asking for a drain) without touching the server when offline', async () => {
@@ -17177,13 +17636,17 @@ Expected: FAIL.
  *  - online: write the 'finalize' sync item FIRST (durable; no drain request,
  *    which would race this attempt), then finalise the round now
  *    (finalizeSubmittedRound — status → results → skins). Remove the item only
- *    when the round completed with no status or skins error, or when it is
- *    waiting only on other devices. Keep it (and ask for a drain) when the
- *    attempt throws (B6b's queued-end_early guard) or reports an error, or
- *    when the round isn't complete and this device still has unconfirmed cards
- *    for it (getIsOnline() can flip between submitScorecards and this step,
- *    leaving the cards queued — the server can't see them yet). If the app is
- *    killed mid-attempt, the item is already on disk;
+ *    when the round completed with no status error and no transient skins
+ *    error, or when it is waiting only on other devices. Keep it (and ask for
+ *    a drain) when the attempt throws (RoundNotReadyError: a drain is already
+ *    finalising the round, or B6b's queued-end_early guard), reports a status
+ *    error or a transient skins error (isTransientError), or when the round
+ *    isn't complete and this device still has unconfirmed cards for it
+ *    (getIsOnline() can flip between submitScorecards and this step, leaving
+ *    the cards queued — the server can't see them yet). A permanent skins
+ *    error (e.g. RLS: only the game's creator can write skins_payouts) doesn't
+ *    keep it: no retry can fix that. If the app is killed mid-attempt, the
+ *    item is already on disk;
  *  - offline: queue it. The sync queue runs it once the cards upload.
  *
  * The hook also fires the current user's skins achievements for a game it
@@ -17200,9 +17663,9 @@ import {
   finalizeSubmittedRound,
   queueRoundFinalize,
   removeQueuedRoundFinalize,
-  isRoundFinalizeInFlight,
   type FinalizeSubmittedRoundResult,
 } from '@/services/rounds/finalizeSubmittedRound';
+import { isTransientError } from '@/services/errors/transient';
 import { hasUnsyncedScorecardsForRound, getFailedSyncCountForRound } from '@/services/offline/database';
 import { getIsOnline } from '@/services/offline/sync/networkState';
 // By path, not via '@/services/offline/sync' (that barrel re-exports the orchestrator).
@@ -17239,27 +17702,32 @@ export async function finalizeOrQueueRound(roundId: string): Promise<FinalizeOrQ
   // item. No drain request: it would race this attempt.
   await queueRoundFinalize(roundId, { requestDrain: false });
 
-  // A drain is already running this round's steps: leave the item to it.
-  if (isRoundFinalizeInFlight(roundId)) {
-    leaveQueued(roundId, 'already running in the sync queue');
-    return { completed: false, queued: true, skinsGame: null };
-  }
-
   let result: FinalizeSubmittedRoundResult;
   try {
     result = await finalizeSubmittedRound(roundId);
   } catch (error) {
-    // finalizeSubmittedRound only rejects with RoundNotReadyError while an
-    // 'end_early' item for the round is still queued (B6b). The drain runs
-    // the end_early item first, then this one.
+    // finalizeSubmittedRound only rejects with RoundNotReadyError: a drain is
+    // already finalising this round (its atomic in-flight check), or an
+    // 'end_early' item for the round is still queued (B6b; the drain runs it
+    // first, then this one). Either way the item stays for the queue.
     leaveQueued(roundId, error instanceof Error ? error.message : String(error));
     return { completed: false, queued: true, skinsGame: null };
   }
   const { completed, skinsGame, statusError, skinsError } = result;
 
+  // A permanent skins failure (e.g. RLS: only the game's creator can write
+  // skins_payouts) can never succeed on retry, so it doesn't keep the item.
+  const skinsRetryable = skinsError != null && isTransientError(skinsError);
+  if (skinsError != null && !skinsRetryable) {
+    submitLogger.warn('Skins settlement failed permanently; not retrying', {
+      roundId: shortId(roundId),
+      error: String(skinsError),
+    });
+  }
+
   const keepItem =
     statusError != null ||
-    skinsError != null ||
+    skinsRetryable ||
     (!completed &&
       ((await hasUnsyncedScorecardsForRound(roundId)) ||
         (await getFailedSyncCountForRound(roundId)) > 0));
@@ -17267,7 +17735,7 @@ export async function finalizeOrQueueRound(roundId: string): Promise<FinalizeOrQ
   if (keepItem) {
     leaveQueued(
       roundId,
-      statusError != null ? 'status write failed' : skinsError != null ? 'skins settlement failed' : 'cards still uploading'
+      statusError != null ? 'status write failed' : skinsRetryable ? 'skins settlement failed' : 'cards still uploading'
     );
     return { completed, queued: true, skinsGame };
   }
@@ -17540,18 +18008,18 @@ The order is unchanged from today: finalise, then round achievements, then compe
 **`docs/guides/OFFLINE_ARCHITECTURE.md`** (as A6b-2 leaves it). Current (the last row of the "`round` items: wait, drop or retry" table):
 
 ```markdown
-| The status read or write failed | **Retry.** Normal retry count; retained as `failed` after 3. |
+| The status read or write failed, or skins settlement failed transiently (`isTransientError`: no connection, a timeout, a 5xx or gateway error, a dropped connection) | **Retry.** Normal retry count; retained as `failed` after 3. Re-running the steps is idempotent. |
 ```
 
 Replace with:
 
 ```markdown
-| The status read or write failed | **Retry.** Normal retry count; retained as `failed` after 3. |
+| The status read or write failed, or skins settlement failed transiently (`isTransientError`: no connection, a timeout, a 5xx or gateway error, a dropped connection) | **Retry.** Normal retry count; retained as `failed` after 3. Re-running the steps is idempotent. |
 
 Every submit screen calls `useFinalizeSubmittedRound()` (`src/hooks/rounds/useFinalizeSubmittedRound.ts`) after `submitScorecards`:
 - **Offline:** it queues a `'finalize'` item.
-- **Online:** it writes the `'finalize'` item first, without a drain request, then runs `finalizeSubmittedRound` straight away. It removes the item (by entity key) only when the round completed with no status or skins error, or when the round is waiting only on other devices. Otherwise the item stays and a drain is requested: when the attempt throws or reports an error, or when the round isn't complete while this device still has unconfirmed (pending or retained) cards for it. An app kill mid-finalise leaves the item behind.
-- **No double run:** while `finalizeSubmittedRound` runs, the round is in flight and the queued item waits.
+- **Online:** it writes the `'finalize'` item first, without a drain request, then runs `finalizeSubmittedRound` straight away. It removes the item (by entity key) only when the round completed with no status error and no transient skins error, or when the round is waiting only on other devices. Otherwise the item stays and a drain is requested: when the attempt throws, reports a status error or a transient skins error, or when the round isn't complete while this device still has unconfirmed (pending or retained) cards for it. A permanent skins error (e.g. the RLS refusal a non-creator gets on `skins_payouts`) is logged and doesn't keep the item. An app kill mid-finalise leaves the item behind.
+- **No double run:** `finalizeSubmittedRound` checks and marks the round in flight in one synchronous step. A second caller (the drain, or the online path) gets `RoundNotReadyError` and leaves the item queued.
 
 A skins game settled online fires the user's skins achievements; a game settled later by the queue doesn't.
 ```
@@ -17575,9 +18043,11 @@ git commit -m "feat(scoring): Review submit finalises or queues the round throug
 useFinalizeSubmittedRound replaces the inline status/results/skins calls on
 both Review submit paths. Online it writes a 'finalize' sync item first, then
 finalises now, and removes the item only once the round completed cleanly or
-waits only on other devices. It keeps the item when finalising fails (status
-or skins) or the round isn't complete while this device still has
-unconfirmed cards, so an app kill mid-finalise still leaves it queued.
+waits only on other devices. It keeps the item when finalising fails (status,
+or skins with a transient error), when a drain is already finalising the
+round, or when the round isn't complete while this device still has
+unconfirmed cards, so an app kill mid-finalise still leaves it queued. A
+permanent skins error (e.g. a non-creator's RLS refusal) is logged only.
 Offline it always queues, so offline-submitted rounds finally complete.
 
 Behaviour changes:
@@ -17602,7 +18072,13 @@ All three switch to `useFinalizeSubmittedRound`. Online, the round now completes
 
 **Split singles competition rounds.** `finalizeRoundStatus` completes a split round only once every `sub_matches` row is terminal. Only `TeamMatchPlayScoringScreen` (`index.tsx:333-354`, `handlePersistSubMatchResult` → `useUpdateSubMatchResult`), ViewRound and the organiser's force-finalise write sub-match status. `MatchPlayScoringScreen` scores a split 1v1 round's sub-match (it resolves the user's own one with `resolveSubMatchForUser`), but writes nothing to it. Once its direct status write is gone, a split singles competition round would never complete. So `handleConfirmSubmit` now mirrors the team screen: before finalising, it writes the user's sub-match as `completed`, with the result from the singles engine (`useMatchPlayScoring`'s `matchStatus` and `holeResults`). It never overwrites an organiser's `manual_result`. A new pure helper, `buildSinglesSubMatchResult`, picks the sub-match and maps the engine's winner to `a-wins` / `b-wins` / `halved`. `useUpdateSubMatchResult`'s `onSuccess` (awaited by `mutateAsync`) also refinalises results and the round status; the shared step then runs them again, which is idempotent.
 
-The write needs the network, as on the team screen. Offline, it is skipped (and a failure is logged, not shown): the scorecards are already submitted, and the round completes once someone records that sub-match online (see Follow-ups).
+**Who can actually write it.** RLS lets only the round owner or the competition organiser update `sub_matches` (`sub_matches_update_organizer`, `supabase/migrations/20260422100000_round_sub_matches.sql:154-168`), and only the organiser can set a competition round's `status`. So:
+- submitted by the organiser / round owner → their sub-match is recorded, and the round completes once every sub-match is terminal;
+- other players' submits → the sub-match write is refused (logged, not shown) and their matches are left for the organiser, as today. Today their direct `rounds.status` write was refused too, so this is not a regression.
+
+A participant-scoped server write is a Follow-up.
+
+The write needs the network, as on the team screen. Offline, it is skipped (and a failure is logged, not shown): the scorecards are already submitted, and the round completes once the organiser records that sub-match online (see Follow-ups).
 
 **Files:**
 - Modify: `src/screens/scoring/MatchPlayScorecardScreen/index.tsx:29, 34, 122-123, 173-194, 216-241` (find by text; A5c may shift lines)
@@ -18284,7 +18760,8 @@ Replace with:
           });
         } catch (subMatchError) {
           // The cards are submitted; the round completes once this sub-match
-          // is recorded (ViewRound, or the organiser).
+          // is recorded (ViewRound, or the organiser). RLS refuses this write
+          // for anyone but the organiser / round owner, as it always has.
           matchPlayLogger.error('Failed to record the sub-match result', subMatchError, {
             subMatchId: subMatchResult.subMatchId.substring(0, 8) + '...',
           });
@@ -18448,13 +18925,16 @@ queued.
 MatchPlayScoring also records the user's sub-match on a split singles round
 (completed, result from the singles engine, never over a manual result), as
 TeamMatchPlayScoring does, so the round completes once every sub-match is in.
+RLS lets only the organiser / round owner write sub_matches, so other
+players' submits leave their matches for the organiser, as today.
 
 Behaviour changes:
 - PlayerScorecard's single-card submit on a multi-player round no longer
   completes the round;
-- split singles competition rounds on MatchPlayScoring now write their
-  sub-match result and complete when the last sub-match is in (the first
-  submit used to flip the whole round to completed);
+- split singles competition rounds on MatchPlayScoring: an organiser's submit
+  now writes its sub-match result, and the round completes when the last
+  sub-match is in (the organiser's first submit used to flip the whole round
+  to completed);
 - MatchPlayScoring submits now settle skins.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
@@ -18471,7 +18951,7 @@ After A6c and A6d-1, three hooks have no production importer:
 
 This task deletes them and their barrel exports, and fixes the comments and docs that name them. No behaviour changes, so there is no failing test. `pnpm type-check` and the grep below prove nothing still imports them.
 
-Part A ships alone. Step 5 is its rollout and on-device QA: the A7 migration, the build, the stuck-rounds fix and the watch. It runs once Part A has merged, before any Part B task merges. B11 covers only Part B.
+Step 5 is Part A's rollout checklist: the A7 migration with its reports, the Part A on-device QA list, the stuck-rounds fix and Part A's watch items. It is out of band and blocks no Part B task. Part A and Part B ship together in release 1.15.0; the store build, the force-update (already covered by 1.15.0's minimum) and the 48-hour watch are part of that release, run alongside B11.
 
 **Files:**
 - Delete: `src/hooks/skins/useFinalizeSkinsForRound.ts`; modify `src/hooks/skins/index.ts:16, 77`, `src/hooks/skins/utilities.ts:9, 19`, `src/services/skins/finalizeForSubMatch.ts:5-7` (comment)
@@ -18666,16 +19146,43 @@ SKINS_GAME.md now point at finalizeSubmittedRound / finalizeActiveSkinsForRound.
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
-- [ ] **Step 5: Part A rollout + QA (after Part A merges; no code)**
+- [ ] **Step 5: Part A rollout checklist (out of band; release 1.15.0; no code)**
 
-Part A ships on its own, in the next store release, before any Part B task merges. B11 covers only Part B. Record each item's outcome in the outstanding-work note as you go.
+This step is **not** a code task and blocks nothing: Part B tasks start as soon as Step 4 is committed. Part A and Part B ship together in release **1.15.0**, one store release. Part A may merge to main first.
+- Items 1–5 can run any time after Part A merges (A7 is server-only and safe for old clients).
+- Items 6–8 belong to the 1.15.0 rollout and run alongside B11's Part B checklist.
 
-Database access: staging uses the session pooler (`aws-1-ap-southeast-1.pooler.supabase.com`, port 5432). Prod uses the same pooler with `user=postgres.bvnxfhuvocxyilhlenka`; its session is read-only by default, so prefix each **write** command with `PGOPTIONS='-c default_transaction_read_only=off'`. The Supabase CLI in this repo is linked to **prod**: never `supabase db push`. `schema_migrations` is unreliable (migrations are hand-applied), so check objects, not history.
+Record each item's outcome in the outstanding-work note as you go.
 
-1. [ ] **A7 dry-run "before" report (staging or a prod snapshot first, then prod).** The report reads A7's audit table, so it can only be produced by applying A7 inside a transaction that is rolled back. Run it at a quiet time (the migration's one-off `UPDATE` takes row locks on `scorecards` until the `ROLLBACK`). The prod pooler session is read-only by default, hence `PGOPTIONS` (harmless on staging):
+**Database access (same recipe for staging and prod).**
+- Connect through the Supabase pooler on port **6543**: host `aws-1-ap-southeast-1.pooler.supabase.com`, user `postgres.<project ref>` (prod: `postgres.bvnxfhuvocxyilhlenka`). `$STAGING_DB_URL` and `$PROD_DB_URL` below are those connection strings.
+- The pooler session is **read-only by default**. Every write runs as a heredoc that turns that off first, then an explicit transaction:
+  ```bash
+  psql "$DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
+  SET default_transaction_read_only = off;
+  BEGIN;
+  SHOW transaction_read_only;   -- must print off
+  \i <file>
+  COMMIT;                       -- ROLLBACK for a dry run
+  SQL
+  ```
+- Don't combine `-c` with `--single-transaction`. Use the heredoc above instead.
+- **Preflight**, once per database before the first write:
+  ```bash
+  psql "$DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
+  SET default_transaction_read_only = off;
+  SHOW transaction_read_only;
+  SQL
+  ```
+  Expected: `off`. If it prints `on`, stop and ask Sam.
+- The Supabase CLI in this repo is linked to **prod**: never `supabase db push`. `schema_migrations` is unreliable (migrations are hand-applied), so check objects, not history.
+
+1. [ ] **A7 dry-run "before" report (staging first, then prod).** The report reads A7's audit table, so it can only be produced by applying A7 inside a transaction that is rolled back. Run it at a quiet time: the migration's one-off `UPDATE` holds row locks on `scorecards` until the `ROLLBACK`.
    ```bash
-   PGOPTIONS='-c default_transaction_read_only=off' psql "$DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
+   psql "$DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
+   SET default_transaction_read_only = off;
    BEGIN;
+   SHOW transaction_read_only;
    \i supabase/migrations/20261007000100_full_scorecards_only_handicap.sql
    \i supabase/scripts/full_scorecards_only_report.sql
    ROLLBACK;
@@ -18683,34 +19190,39 @@ Database access: staging uses the session pooler (`aws-1-ap-southeast-1.pooler.s
    ```
    Keep the output: the affected cards and players (9-hole cards on `nine_type = 'full'` rounds listed separately, per R22), the players whose index moves by more than 2.0, and the combined rows built from an incomplete card (listed only; R22 leaves them as they are).
 2. [ ] **Sam: go / no-go.** Show Sam the dry-run report. Don't apply anything (staging or prod) without his go-ahead.
-3. [ ] **Apply A7 to staging**, in one transaction:
+3. [ ] **Apply A7 to staging**, in one transaction, then verify and report:
    ```bash
-   psql "$STAGING_DB_URL" -v ON_ERROR_STOP=1 --single-transaction -f supabase/migrations/20261007000100_full_scorecards_only_handicap.sql
-   psql "$STAGING_DB_URL" -v ON_ERROR_STOP=1 -f supabase/tests/full_scorecards_only_handicap.verify.sql
+   psql "$STAGING_DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
+   SET default_transaction_read_only = off;
+   BEGIN;
+   SHOW transaction_read_only;
+   \i supabase/migrations/20261007000100_full_scorecards_only_handicap.sql
+   COMMIT;
+   SQL
+   psql "$STAGING_DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
+   SET default_transaction_read_only = off;
+   \i supabase/tests/full_scorecards_only_handicap.verify.sql
+   SQL
    psql "$STAGING_DB_URL" -v ON_ERROR_STOP=1 -f supabase/scripts/full_scorecards_only_report.sql
    ```
-   The verify script is `BEGIN … ROLLBACK` and must pass. The **after** report must show zero incomplete cards with a differential.
-4. [ ] **Staging build + Part A on-device QA** (iOS and Android, a staging build of the merged Part A). Each item: what to do → what must happen.
+   The verify script is its own `BEGIN … ROLLBACK` and must pass. The report only reads. The **after** report must show zero incomplete cards with a differential.
+4. [ ] **Staging build + Part A on-device QA** (iOS and Android, a staging build of main with Part A merged). Each item: what to do → what must happen.
    - **Competition submit, online** (stroke play, 2 groups): the first group submits → its standings appear, the round stays `in-progress`; the second group submits → round `completed`, results written, leaderboard, competition screen and Home refresh without a pull-to-refresh.
    - **Competition submit, offline:** airplane mode, submit, see "Saved Offline"; leave the scoring screen, then reconnect → the cards upload, then the queued `'finalize'` item runs, `round_results` are written and the round completes. Developer screen: no retained items.
    - **Non-organiser last submitter** (competition round): a player who isn't the organiser submits the last card → cards and `round_results` are written. Note whether the round flips to `completed` (RLS may refuse the status write: `finalizeRoundStatus` then logs a 0-row refusal and returns `false`). Either way no `round` item is retained. Report the outcome to Sam.
    - **Singles match play submit** (social, 18 holes and a 9-hole front/back match): round completes; a 9-hole match resumes as 9 holes and its submit is not blocked.
    - **Team match play**, 9-hole: result and round completion as before.
-   - **Split singles competition round completes:** a 2-match split singles round. The first player submits from MatchPlayScoring → that sub-match shows `completed` with the right winner and margin, and the round stays `in-progress`. The second submits → round `completed`, results written. An organiser's manual sub-match result is not overwritten.
-   - **Skins, 18 holes and 9 holes**, settled from Review, MatchPlayScorecard and MatchPlayScoring: payouts appear, skins achievements fire once (online). A 9-hole game is priced for 9 holes.
+   - **Split singles competition round:** a 2-match split singles round. Submitted by the organiser / round owner from MatchPlayScoring → that sub-match shows `completed` with the right winner and margin, and the round stays `in-progress` until the other sub-match is terminal; once it is, the round is `completed` and results are written. Another player's submit leaves their sub-match for the organiser (as today): its write is refused and logged, nothing is retained. An organiser's manual sub-match result is not overwritten.
+   - **Skins, 18 holes and 9 holes**, settled from Review, MatchPlayScorecard and MatchPlayScoring by the game's creator: payouts appear, skins achievements fire once (online). A 9-hole game is priced for 9 holes.
+   - **Skins, submitted by a player who didn't create the game** (online, then offline + reconnect): the card submits; the payouts write is refused by RLS and logged ("Skins settlement failed permanently; not retrying"); the Developer screen shows **no** retained `round` item.
    - **Sync drain after leaving the scoring screen:** offline, submit; go to Home (the scoring screen unmounts); reconnect → the queue drains within a few seconds, with no scoring screen open. Also background the app and return to the foreground → a drain runs.
    - **Sign-out / sign-in:** offline, submit, then sign out (still offline); reconnect while signed out → nothing drains (Developer screen shows the items still pending, none retained). Sign back in → the queue drains and the round completes.
+   - **A different user on the same phone with a pending item:** user A submits offline (a `round:<id>:finalize` item is pending), signs out; user B signs in on the same phone and goes online → A's round item stays pending (Developer screen: pending, not retained; A's round is not touched). B signs out, A signs back in → the item drains and A's round completes.
    - **App kill mid-finalise:** online, submit and kill the app the moment the success dialog appears → on relaunch the round is `completed`, or a `round:<id>:finalize` item drains and completes it.
    - **Quick Score partial card:** a Quick Score with fewer holes than the round's nine type → no `handicap_differential`, the handicap index is unchanged, and the card isn't in handicap history.
-5. [ ] **Apply A7 to prod.** Repeat item 1 against prod (keep the report), get Sam's go-ahead again, then:
-   ```bash
-   PGOPTIONS='-c default_transaction_read_only=off' psql "$PROD_DB_URL" -v ON_ERROR_STOP=1 --single-transaction -f supabase/migrations/20261007000100_full_scorecards_only_handicap.sql
-   psql "$PROD_DB_URL" -v ON_ERROR_STOP=1 -f supabase/scripts/full_scorecards_only_report.sql
-   ```
-   A7 is server-only and safe for old clients, so it can go before the build.
-6. [ ] **Ship the store build** with a version bump (the next store release, e.g. 1.14.1). **No OTA**: the live binaries are on an older runtime, so none can take this bundle over the air. If an OTA is ever needed later for a binary on this runtime, use `pnpm update:prod` (a bare `eas update` bundles the staging `.env`).
-7. [ ] **Force-update: Sam decides.** Part A has no server dependency on the new client, so raising `app_version_config.minimum_version` is optional. Raising it stops old clients from creating new stuck rounds (their offline submits never finalise).
-8. [ ] **Stuck social rounds** (victims of the offline-submit bug A6 fixes), once the build is live; run it again later if old clients stay in use. List social rounds still `in-progress` although every card is terminal and every expected player has one:
+5. [ ] **Apply A7 to prod.** Repeat item 1 against prod (keep the report), get Sam's go-ahead again, then run item 3's apply and report commands with `$PROD_DB_URL` (skip the verify script on prod unless Sam asks for it). A7 is server-only and safe for old clients, so it can go before the 1.15.0 build.
+6. [ ] **Release 1.15.0 (with B11).** Part A rides the same store build as Part B; there is no separate Part A build. **No OTA**: the live binaries are on an older runtime, so none can take this bundle over the air. If an OTA is ever needed later for a binary on this runtime, use `pnpm update:prod` (a bare `eas update` bundles the staging `.env`). **Force-update:** covered by 1.15.0's minimum (`app_version_config.minimum_version` is already 1.15.0); nothing to change for Part A.
+7. [ ] **Stuck social rounds** (victims of the offline-submit bug A6 fixes), once 1.15.0 is live; run the listing again later if old clients stay in use. List social rounds still `in-progress` although every card is terminal and every expected player has one (read-only; no preflight needed):
    ```sql
    select r.id, r.user_id, r.updated_at, count(s.id) as cards,
           exists (select 1 from skins_games g where g.round_id = r.id and g.status = 'active') as has_active_skins
@@ -18730,11 +19242,13 @@ Database access: staging uses the session pooler (`aws-1-ap-southeast-1.pooler.s
             where sm.round_id = r.id and sm.status not in ('completed', 'forfeited'))
    order by r.updated_at desc;
    ```
-   Review the list with Sam and save the approved ids, one per line, in `stuck_rounds.txt` (outside the repo).
+   Review the list with Sam. Split it in two:
+   - **Rounds without an active skins game** (`has_active_skins = false`): a status flip is all they need. These are social rounds, and `refinalizeRoundResults` skips social rounds (`competition_id` is null), so the service path would write no results for them either. Once Sam OKs it, flip them with the item 3 recipe (heredoc, `BEGIN`, `COMMIT`) and a script holding `update rounds set status = 'completed' where id in (<approved ids>) and status = 'in-progress';`. Check the row count matches the list.
+   - **Rounds with an active skins game** (`has_active_skins = true`): these also need skins settlement, which the service path does (`finalizeActiveSkinsForRound`, priced with `fetchSkinsHoleCounts`). Save the approved ids, one per line, in `stuck_rounds.txt` (outside the repo).
 
-   **Finalise them through the service path**, not with a bare `UPDATE`: `finalizeSubmittedRound` also writes results and settles any active skins game (priced with `fetchSkinsHoleCounts`). Use a throwaway jest runner, never committed. Create `src/__oneoff__/finalizeStuckRounds.oneoff.ts`. The `.oneoff.ts` name keeps it out of the normal `testMatch`.
+   **Sam runs the skins runner himself — never an agent.** It needs the service-role key, which must never pass through an agent session. The runner is a throwaway jest file, never committed. Create `src/__oneoff__/finalizeStuckRounds.oneoff.ts` (the `.oneoff.ts` name keeps it out of the normal `testMatch`):
    ```ts
-   /* One-off, NOT committed: finalise approved stuck rounds via finalizeSubmittedRound. */
+   /* One-off, NOT committed: settle skins and complete approved stuck social rounds via finalizeSubmittedRound. */
    jest.mock('@/services/supabase/client', () => {
      const { createClient } = jest.requireActual('@supabase/supabase-js');
      const supabase = createClient(process.env.ONEOFF_SUPABASE_URL, process.env.ONEOFF_SERVICE_ROLE_KEY, {
@@ -18767,21 +19281,24 @@ Database access: staging uses the session pooler (`aws-1-ap-southeast-1.pooler.s
      }
    });
    ```
-   Run it on **staging first**, with one round, then with the full list on prod. The service-role key comes from the dashboard and is passed only on the command line: never write it to `.env` or any file.
+   Sam runs it on **staging first** with one round, then with the full list on prod. The key is read from the terminal without echo, exported only for the run, and unset straight after; it is never written to `.env`, any file, or the shell history:
    ```bash
+   read -rs ONEOFF_SERVICE_ROLE_KEY   # paste the key from the Supabase dashboard; nothing is echoed
+   export ONEOFF_SERVICE_ROLE_KEY
    STUCK_ROUND_IDS="$(paste -sd, stuck_rounds.txt)" \
    ONEOFF_SUPABASE_URL="https://<project>.supabase.co" \
-   ONEOFF_SERVICE_ROLE_KEY="<service role key>" \
    pnpm jest --runInBand --testMatch '**/__oneoff__/finalizeStuckRounds.oneoff.ts'
+   unset ONEOFF_SERVICE_ROLE_KEY
    rm -r src/__oneoff__
    ```
-   Expected: one JSON line per round with `completed: true` and both errors `null`; for rounds with `has_active_skins`, a `skinsGame` id. Re-run the listing query: the approved rounds are gone, and `select status from skins_games where round_id = any(...)` shows `completed`. `git status` must show nothing left behind.
-   This runner was written without a live run. If it can't reach the database (for example, the test environment's fetch or the global `@/services/supabase/client` mock gets in the way), stop and ask Sam. The fallback is the bare status flip plus a hand-settled list of the `has_active_skins` rounds, and it needs his explicit OK.
-9. [ ] **Watch for 48 hours.**
-   - Sentry: `Round finalisation left to the sync queue` volume; `Failed to process round sync`; `Round item retained for explicit retry` and "is waiting on a retained scorecard upload failure"; `Failed to record the sub-match result`; `Skins finalization failed; it will be retried` (from `finalizeSubmittedRound`); `getDb`/SQLite errors at app start.
+   **Rotate the service-role key if it was ever pasted into an agent session or a chat.**
+   Expected: one JSON line per round with `completed: true`, a `skinsGame` id, and both errors `null`. (It writes no `round_results`: these are social rounds.) Re-run the listing query: the approved rounds are gone, and `select status from skins_games where round_id = any(...)` shows `completed`. `git status` must show nothing left behind.
+   This runner was written without a live run. If it can't reach the database (for example, the test environment's fetch or the global `@/services/supabase/client` mock gets in the way), Sam stops it. The fallback is the status flip above plus a hand-settled list of these skins rounds, and it needs his explicit OK.
+8. [ ] **Watch for 48 hours after 1.15.0 goes live** (alongside B11's watch).
+   - Sentry: `Round finalisation left to the sync queue` volume; `Failed to process round sync`; `Round item retained for explicit retry` and "is waiting on a retained scorecard upload failure"; `Failed to record the sub-match result`; `Skins finalization failed; it will be retried` (from `finalizeSubmittedRound`) and `Skins settlement failed permanently; not retrying`; `getDb`/SQLite errors at app start.
    - Developer screen on the QA devices: Retained Uploads stays empty.
-   - Prod spot-check, daily: re-run item 8's listing query. Rounds from the new build must not appear; any that do are a bug.
-10. [ ] **Outstanding note.** Record: A7 dry-run and after-report numbers for staging and prod, Sam's go-ahead, stuck rounds finalised (ids and skins settled), QA results (including the non-organiser outcome), the build version, the force-update decision, and pushed or not.
+   - Prod spot-check, daily: re-run item 7's listing query. Rounds from 1.15.0 must not appear; any that do are a bug.
+9. [ ] **Outstanding note.** Record: A7 dry-run and after-report numbers for staging and prod, Sam's go-ahead, stuck rounds handled (ids flipped, ids settled through the runner and their skins games), QA results (including the non-organiser and different-user outcomes), the release (1.15.0) and pushed or not.
 
 
 ---
@@ -21390,7 +21907,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ### Task B3a: SQLite end marker, `Scorecard.holesPlayed`, `deleteHoleScoresForCards`
 
 **Files:**
-- Modify: `src/services/offline/schema/migrations.ts` (new last entry, `version: 20`, after A3b's migration 19)
+- Modify: `src/services/offline/schema/migrations.ts` (new last entry, `version: 22`, after A3b's migrations 19-21)
 - Modify: `src/services/offline/types.ts` (`ScorecardRow.holes_played`, after A3b's `sync_*` fields)
 - Modify: `src/types/index.ts:414-416` (`Scorecard.holesPlayed`)
 - Modify: `src/services/offline/dao/ScorecardDAO.ts` (`rowToScorecard` return object; `saveScorecard` INSERT columns, placeholders, values, as A3b leaves them)
@@ -21568,30 +22085,28 @@ Expected: FAIL.
 
 - [ ] **Step 3: Implement**
 
-`src/services/offline/schema/migrations.ts`, the end of `MIGRATIONS`. Current (as A3b leaves it):
+`src/services/offline/schema/migrations.ts`, the end of `MIGRATIONS`. Current (as A3b leaves it; its migrations 19 and 20 sit just above):
 ```ts
   {
-    version: 19,
-    name: 'add_scorecard_sync_metadata',
-    up: `ALTER TABLE scorecards ADD COLUMN sync_nine_type TEXT;
-         ALTER TABLE scorecards ADD COLUMN sync_game_type TEXT;
-         ALTER TABLE scorecards ADD COLUMN sync_holes TEXT;`,
+    // JSON-encoded Hole[] (the round's planned holes at submit)
+    version: 21,
+    name: 'add_scorecard_sync_holes',
+    up: `ALTER TABLE scorecards ADD COLUMN sync_holes TEXT`,
   },
 ];
 ```
 Replace with:
 ```ts
   {
-    version: 19,
-    name: 'add_scorecard_sync_metadata',
-    up: `ALTER TABLE scorecards ADD COLUMN sync_nine_type TEXT;
-         ALTER TABLE scorecards ADD COLUMN sync_game_type TEXT;
-         ALTER TABLE scorecards ADD COLUMN sync_holes TEXT;`,
+    // JSON-encoded Hole[] (the round's planned holes at submit)
+    version: 21,
+    name: 'add_scorecard_sync_holes',
+    up: `ALTER TABLE scorecards ADD COLUMN sync_holes TEXT`,
   },
   {
     // End round early (R15): set on every local card of a round when it is
     // ended, so a relaunch keeps the end before the server knows about it.
-    version: 20,
+    version: 22,
     name: 'add_scorecard_holes_played',
     up: `ALTER TABLE scorecards ADD COLUMN holes_played INTEGER`,
   },
@@ -21600,7 +22115,7 @@ Replace with:
 
 `src/services/offline/types.ts`, the end of `ScorecardRow`. Current (as A3b leaves it):
 ```ts
-  // Sync metadata (migration 19); absent on rows written before it
+  // Sync metadata (migrations 19-21); absent on rows written before them
   sync_nine_type?: string | null;
   sync_game_type?: string | null;
   /** JSON-encoded Hole[] (the round's planned holes at submit) */
@@ -21609,12 +22124,12 @@ Replace with:
 ```
 Replace with:
 ```ts
-  // Sync metadata (migration 19); absent on rows written before it
+  // Sync metadata (migrations 19-21); absent on rows written before them
   sync_nine_type?: string | null;
   sync_game_type?: string | null;
   /** JSON-encoded Hole[] (the round's planned holes at submit) */
   sync_holes?: string | null;
-  /** Holes played when the round was ended early (migration 20); absent on older rows */
+  /** Holes played when the round was ended early (migration 22); absent on older rows */
   holes_played?: number | null;
 }
 ```
@@ -21649,7 +22164,7 @@ Replace with:
 ```ts
     syncGameType: (row.sync_game_type as GameType | null | undefined) ?? undefined,
     syncHoles,
-    // End round early marker (local migration 20)
+    // End round early marker (local migration 22)
     holesPlayed: row.holes_played ?? null,
   };
 }
@@ -21780,7 +22295,7 @@ Expected: green (apart from the Task 0 baseline).
 git add src/services/offline/schema/migrations.ts src/services/offline/types.ts src/types/index.ts src/services/offline/dao/ScorecardDAO.ts src/services/offline/dao/HoleScoreDAO.ts src/services/offline/database.ts src/__tests__/services/offline/database.test.ts
 git commit -m "feat(offline): scorecards.holes_played end marker and atomic per-hole removal
 
-Local migration adds scorecards.holes_played; Scorecard.holesPlayed
+Local migration 22 adds scorecards.holes_played; Scorecard.holesPlayed
 round-trips through ScorecardDAO. deleteHoleScoresForCards removes
 later holes from every card of a round in one transaction.
 
@@ -24976,7 +25491,7 @@ Covers `calculatePlayerStats` / `calculateNetOverHolesPlayed`, the sync snapshot
   - A3's completeness gate inside `calculateHandicapData` is left as it is.
 - Produces:
   - `calculatePlayerStats(players, holes, selectedTee?, handicapSource = 'profile', options?: { holesPlayed?: number | null }): PlayerStats[]`;
-  - `calculateNetOverHolesPlayed(scores, playedHoles: Hole[], dailyHandicap: number): number` (B4-2 uses it);
+  - `calculateNetOverHolesPlayed(scores, playedHoles: Hole[], dailyHandicap: number): number` (the sync snapshot and B4-2 use it; reads a multi-ball hole's first ball). `calculatePlayerStats` computes its ended-early net in its own loop from single-ball scores, matching its gross;
   - B7a, B9a and B9b pass `{ holesPlayed }` to `calculatePlayerStats`.
 
 - [ ] **Step 0: Scoring guardrails**
@@ -25276,6 +25791,24 @@ Inside `describe('calculatePlayerStats — rounds ended early')`, after the char
       expect(stats.totalNet).toBe(9); // 12 − 3 strokes
     });
 
+    it('nets only the single-ball scores its gross counts (a multi-ball card reads 0 for both)', () => {
+      // The gross loop reads single-ball scores only (multi-ball uses
+      // ball_totals), so the ended-early net must too: never a non-zero net
+      // beside a zero gross. (The sync snapshot reads ball 1; see below.)
+      const scores = {} as Record<string, unknown>;
+      for (const hole of firstSix) scores[String(hole)] = { balls: [{ strokes: 5 }, { strokes: 7 }] };
+      const [stats] = calculatePlayerStats(
+        [createScorecardPlayerData('p1', 'Multi-ball', 18, scores as unknown as ScoresRecord)],
+        holes,
+        null,
+        'profile',
+        { holesPlayed: 6 }
+      );
+
+      expect(stats.totalGross).toBe(0);
+      expect(stats.totalNet).toBe(0);
+    });
+
     it('treats holesPlayed null or 0 exactly like no options', () => {
       const players = [createScorecardPlayerData('p1', 'Full', 12, createFullScores(holes, 1))];
       const baseline = calculatePlayerStats(players, holes);
@@ -25332,6 +25865,7 @@ Expected: FAIL.
 - `ignores a score recorded after` fails with "Expected: 23, Received: 27".
 - `counts a pickup` fails on net: "Expected: 20, Received: 8".
 - `slices a back-nine list` fails with "Expected: 9, Received: -6".
+- `nets only the single-ball scores` fails on net: "Expected: 0, Received: -18" (gross 0 − DHC 18).
 - The `calculateNetOverHolesPlayed` tests fail with "calculateNetOverHolesPlayed is not a function".
 - (`treats holesPlayed null or 0` passes already.)
 
@@ -25414,9 +25948,11 @@ export function calculatePlayerStats(
     : safeHoles;
 ```
 
-Per-hole loop, line 193. Current:
+Per-hole loop, lines 191-202. Current:
 
 ```ts
+    let hasScores = false;
+
     safeHoles.forEach((hole) => {
       const score = scores?.[String(hole.number)];
 ```
@@ -25424,8 +25960,26 @@ Per-hole loop, line 193. Current:
 Replacement:
 
 ```ts
+    let hasScores = false;
+    // Ended early: Σ(gross − strokes received) over the holes played, summed
+    // from the same single-ball scores the gross below reads.
+    let netOverHolesPlayed = 0;
+
     scoringHoles.forEach((hole) => {
       const score = scores?.[String(hole.number)];
+```
+
+In the same loop, current (line 202):
+
+```ts
+      if (strokes > 0) hasScores = true;
+```
+
+Replacement:
+
+```ts
+      if (strokes > 0) hasScores = true;
+      if (strokes > 0) netOverHolesPlayed += strokes - strokesReceived;
 ```
 
 Net, lines 220-222. Current:
@@ -25442,10 +25996,12 @@ Replacement:
     const totalGross = front9Gross + back9Gross;
     // Net = gross − daily handicap for a round played as planned. For a round
     // ended early the full daily handicap would credit strokes for holes never
-    // played, so net is summed per hole over the holes played instead.
-    const totalNet = isEndedEarly
-      ? calculateNetOverHolesPlayed(scores, scoringHoles, dailyHandicap)
-      : totalGross - dailyHandicap;
+    // played, so net is summed per hole over the holes played instead. It is
+    // summed in the loop above, not with calculateNetOverHolesPlayed: this
+    // loop reads single-ball scores only (a multi-ball card's gross is 0 here),
+    // while that helper reads a multi-ball hole's first ball (for the sync
+    // snapshot), which would show a non-zero net beside a zero gross.
+    const totalNet = isEndedEarly ? netOverHolesPlayed : totalGross - dailyHandicap;
 ```
 
 Add this function directly after `calculatePlayerStats`'s closing `}` (line 250), before the `/**\n * Calculate par totals for front 9, back 9, and full round` comment:
@@ -25455,8 +26011,10 @@ Add this function directly after `calculatePlayerStats`'s closing `}` (line 250)
  * Net total over the holes a player actually played: Σ(effective gross −
  * strokes received). Used for rounds ended early (`rounds.holes_played` set),
  * where gross − the full daily handicap would credit strokes for holes never
- * played. Shared by calculatePlayerStats, the sync snapshot (scorecardSync)
- * and mismatch resolution (recomputeScorecardTotals) so all three agree.
+ * played. Shared by the sync snapshot (scorecardSync) and mismatch resolution
+ * (recomputeScorecardTotals) so both agree. calculatePlayerStats sums the same
+ * Σ in its own per-hole loop, over single-ball scores only, because its gross
+ * reads only single-ball scores.
  *
  * - `playedHoles` must be the PLAYED holes; `dailyHandicap` is the planned round's.
  * - Pickups count as net double bogey (getEffectiveGrossStrokes, I3), matching
@@ -25716,10 +26274,13 @@ Expected: green, apart from the Task 0 baseline.
 git add src/utils/scorecardCalculations.ts src/services/offline/sync/scorecardSync.ts src/__tests__/utils/scorecardCalculations.test.ts src/__tests__/services/offline/scorecardSync.totalNet.test.ts src/__tests__/services/offline/calculateHandicapData.test.ts
 git commit -m "feat(scoring): net ended-early cards over the holes played (calc + sync)
 
-calculatePlayerStats (options.holesPlayed) and the sync snapshot share
-calculateNetOverHolesPlayed: net = sum(gross - strokes received) over the
-holes played. The daily handicap stays on the planned holes. Sync never
-emits a differential for a card stamped holesPlayed.
+For a round ended early, net = sum(gross - strokes received) over the holes
+played. The sync snapshot uses calculateNetOverHolesPlayed (a multi-ball hole
+counts its first ball, as the store's total_gross does). calculatePlayerStats
+(options.holesPlayed) sums the same thing in its own loop from single-ball
+scores only, matching its gross, so it never shows a non-zero net beside a
+zero gross. The daily handicap stays on the planned holes. Sync never emits a
+differential for a card stamped holesPlayed.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
@@ -29958,17 +30519,17 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - the `end_round_early(p_round_id, p_holes_played)` RPC, called inline through `(supabase.rpc as any)` with arguments typed from B1b's `Database['public']['Functions']['end_round_early']['Args']` (the `createClient<Database>` client resolves the rpc Schema to `never`, as at `scorecardSync.ts:261`). Codes (B1a-1): `22023` with `hint` `round_already_ended` (`details` = server N) / `invalid_holes_played` / `round_completed` / `round_not_in_progress`; `P0002`; `42501`; idempotent for the same N;
   - `rounds.holes_played` (B1a);
   - `addPendingSync`, `getQueuedEntityKeys` (`@/services/offline/database`);
-  - `requestSyncDrain(reason)` (A6b, `src/services/offline/sync/drain.ts`);
-  - `RoundNotReadyError`, `RoundSyncData`, `finalizeSubmittedRound`, `isRoundFinalizeInFlight` and the private `runFinalizeSteps` (A6a-2).
+  - `requestSyncDrain(reason)` (A6b, `src/services/offline/sync/drain.ts`); `getSyncAuthUserId()` (A6b-1, `src/services/offline/sync/networkState.ts`);
+  - `RoundNotReadyError`, `RoundSyncData` (with `userId?`), `finalizeSubmittedRound`, `isRoundFinalizeInFlight` and the private `runFinalizeSteps` (A6a-2).
 - Produces:
   - `EndRoundEarlyErrorCode`, `EndRoundEarlyError { code; serverHolesPlayed? }`;
   - `END_ROUND_EARLY_TIMEOUT_MS` (8000): no answer within it ⇒ `'network'`;
   - `applyEndRoundEarly(roundId, holesPlayed): Promise<void>`;
-  - `queueRoundEndEarly(roundId, holesPlayed): Promise<void>`;
+  - `queueRoundEndEarly(roundId, holesPlayed): Promise<void>` (stamps `data.userId` like `queueRoundFinalize`);
   - `fetchRoundHolesPlayed(roundId): Promise<number | null>`;
   - `roundEndEarlyEntityKey(roundId): string`;
   - `hasQueuedRoundEndEarly(roundId): Promise<boolean>`;
-  - `RoundSyncData`'s `{ id; action: 'end_early'; holesPlayed }` variant.
+  - `RoundSyncData`'s `{ id; action: 'end_early'; holesPlayed; userId? }` variant.
   - B6b-2 and B6c consume these.
 
 Two rules matter here:
@@ -30019,6 +30580,12 @@ jest.mock('@/services/offline/database', () => ({
 
 jest.mock('@/services/offline/sync/drain', () => ({
   requestSyncDrain: jest.fn(),
+}));
+
+// The signed-in user stamped onto queued items (null: none recorded).
+const mockGetSyncAuthUserId = jest.fn((): string | null => null);
+jest.mock('@/services/offline/sync/networkState', () => ({
+  getSyncAuthUserId: () => mockGetSyncAuthUserId(),
 }));
 
 const ROUND_ID = '550e8400-e29b-41d4-a716-446655440000';
@@ -30242,6 +30809,18 @@ describe('queueRoundEndEarly', () => {
     expect(queued).toBeLessThan(drained);
   });
 
+  it('stamps the signed-in user onto the item, so only that user drains it (A6b-1)', async () => {
+    mockGetSyncAuthUserId.mockReturnValueOnce('user-1');
+
+    await queueRoundEndEarly(ROUND_ID, 6);
+
+    expect(addPendingSync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { id: ROUND_ID, action: 'end_early', holesPlayed: 6, userId: 'user-1' },
+      })
+    );
+  });
+
   it('does not request a drain when queueing fails', async () => {
     (addPendingSync as jest.Mock).mockRejectedValue(new Error('disk full'));
 
@@ -30411,6 +30990,7 @@ Create `src/services/rounds/applyEndRoundEarly.ts`:
 import { supabase } from '@/services/supabase/client';
 import { addPendingSync, getQueuedEntityKeys } from '@/services/offline/database';
 import { requestSyncDrain } from '@/services/offline/sync/drain';
+import { getSyncAuthUserId } from '@/services/offline/sync/networkState';
 import { createError } from '@/services/errors';
 import { submitLogger } from '@/utils/debugLogger';
 import type { Database } from '@/types/database';
@@ -30598,7 +31178,9 @@ export async function applyEndRoundEarly(roundId: string, holesPlayed: number): 
 export async function queueRoundEndEarly(roundId: string, holesPlayed: number): Promise<void> {
   assertValidEndRequest(roundId, holesPlayed);
 
-  const data: RoundSyncData = { id: roundId, action: 'end_early', holesPlayed };
+  // Owned by whoever is signed in now: the queue runs it only for them (A6b-1).
+  const userId = getSyncAuthUserId();
+  const data: RoundSyncData = { id: roundId, action: 'end_early', holesPlayed, ...(userId ? { userId } : {}) };
   await addPendingSync({
     type: 'round',
     action: 'update',
@@ -30618,22 +31200,20 @@ export async function hasQueuedRoundEndEarly(roundId: string): Promise<boolean> 
 }
 ```
 
-In `src/services/rounds/finalizeSubmittedRound.ts` (as A6a leaves it), extend `RoundSyncData`. Current (A6a, `'finalize'` only):
+In `src/services/rounds/finalizeSubmittedRound.ts` (as A6a leaves it), extend `RoundSyncData`. Current (A6a-2, `'finalize'` only):
 
 ```ts
-export type RoundSyncData = { id: string; action: 'finalize' };
+export type RoundSyncData = { id: string; action: 'finalize'; userId?: string };
 ```
 
 Replacement:
 
 ```ts
 export type RoundSyncData =
-  | { id: string; action: 'finalize' }
+  | { id: string; action: 'finalize'; userId?: string }
   /** B6b: a social round ended early while offline (queueRoundEndEarly). */
-  | { id: string; action: 'end_early'; holesPlayed: number };
+  | { id: string; action: 'end_early'; holesPlayed: number; userId?: string };
 ```
-
-If A6a declared it as an `interface`, convert it to this union.
 
 Add an import next to A6a's other `./…` imports:
 
@@ -30668,14 +31248,15 @@ async function runFinalizeSteps(roundId: string): Promise<FinalizeSubmittedRound
 In the same file's header comment, current (A6a-2):
 
 ```ts
- * Never rejects. A failed status read/write comes back as `statusError`, and a
+ * Never rejects on a step failure. A failed status read/write comes back as
 ```
 
 Replacement:
 
 ```ts
- * Never rejects, except with RoundNotReadyError while an 'end_early' item for
- * the round is still queued (B6b). A failed status read/write comes back as `statusError`, and a
+ * Never rejects on a step failure. It also rejects with RoundNotReadyError
+ * while an 'end_early' item for the round is still queued (B6b), as well as
+ * while the round is already in flight. A failed status read/write comes back as
 ```
 
 - [ ] **Step 4: Run them to verify they pass**
@@ -30700,7 +31281,8 @@ applyEndRoundEarly calls end_round_early and keeps the server's answer:
 22023 -> invalid, P0002 -> not_found, 42501 -> forbidden, bad input ->
 invalid, anything else -> network (retryable). The call is aborted and
 mapped to network after 8s without an answer. queueRoundEndEarly queues a
-'round' item under its own entity key (round:<id>:end_early, so a later finalize can't overwrite it) and
+'round' item under its own entity key (round:<id>:end_early, so a later finalize can't overwrite it),
+stamped with the signed-in user so only that user's drain runs it, and
 requests a drain. finalizeSubmittedRound waits (RoundNotReadyError) while
 an end_early item is queued, so a round is never completed before its
 early end reaches the server.
@@ -30771,7 +31353,7 @@ jest.mock('@/services/queryClient', () => ({
 }));
 ```
 
-Leave A6a-3's `jest.mock('@/services/rounds/finalizeSubmittedRound', …)` block as it is: it already stubs `finalizeSubmittedRound`, `isRoundFinalizeInFlight` and `RoundNotReadyError`, and A6a-3's import line already brings in `finalizeSubmittedRound` and `isRoundFinalizeInFlight`, which this describe uses. After that block, add:
+Leave A6a-3's `jest.mock('@/services/rounds/finalizeSubmittedRound', …)` block as it is: it already stubs `finalizeSubmittedRound` and `RoundNotReadyError`, and A6a-3's import line already brings in `finalizeSubmittedRound` (and `RoundNotReadyError`), which this describe uses. After that block, add:
 
 ```ts
 // End-early round items (B6b): the real error class and entity key, a mocked RPC call.
@@ -30851,8 +31433,6 @@ describe('Queued end-round-early', () => {
       statusError: null,
       skinsError: null,
     });
-    // clearMocks keeps implementations: reset A6a-3's in-flight stub explicitly.
-    (isRoundFinalizeInFlight as jest.Mock).mockReturnValue(false);
     (database.hasUnsyncedScorecardsForRound as jest.Mock).mockResolvedValue(false);
     (database.getFailedSyncCountForRound as jest.Mock).mockResolvedValue(0);
     mockScorecardStoreState.currentRoundId = null;
@@ -30880,6 +31460,19 @@ describe('Queued end-round-early', () => {
     expect(applyEndRoundEarly).toHaveBeenCalledWith(ROUND_ID, 6);
     expect(database.hasUnsyncedScorecardsForRound).not.toHaveBeenCalled();
     expect(database.removePendingSync).toHaveBeenCalledWith(21, 1);
+  });
+
+  it("leaves another user's end_early item pending without calling the server (A6b-1's owner check)", async () => {
+    (database.getPendingSyncs as jest.Mock).mockResolvedValue([
+      createEndEarlySync({ data: { id: ROUND_ID, action: 'end_early', holesPlayed: 6, userId: 'someone-else' } }),
+    ]);
+
+    await syncAll();
+
+    expect(applyEndRoundEarly).not.toHaveBeenCalled();
+    expect(database.removePendingSync).not.toHaveBeenCalled();
+    expect(database.incrementSyncRetryCount).not.toHaveBeenCalled();
+    expect(database.markPendingSyncFailed).not.toHaveBeenCalled();
   });
 
   it("treats 'not_found' as done: removed, with no retry, failure or adoption", async () => {
@@ -31078,7 +31671,7 @@ Expected: FAIL. A6a-3's `processRoundSync` hits its `default` branch ("Unsupport
 - `incrementSyncRetryCount(21, 1, 'Unsupported round sync action: end_early')` is called instead of `removePendingSync` / `markPendingSyncFailed`. The network test (`retryCount: 2`) instead fails on "expected markPendingSyncFailed not to have been called": at the last retry the default branch retains the row;
 - the ordering case reports `endEarly` as `undefined`;
 - the two "retained `end_early`" finalize tests fail because `finalizeSubmittedRound` was called;
-- (`does not block another round's finalize` passes already.)
+- (`does not block another round's finalize` and "leaves another user's end_early item pending" pass already: A6b-1's owner check runs in the dispatcher before the switch.)
 
 - [ ] **Step 3: Implement in `src/services/offline/sync/syncOrchestrator.ts`**
 
@@ -31094,16 +31687,24 @@ Replacement:
 import { invalidateLeaderboardCache, invalidateScorecardCache, queryClient } from '@/services/queryClient';
 ```
 
-Current (as A6a-3 leaves it):
+Current (as A6a-3 leaves it; A6a-3 no longer imports `isRoundFinalizeInFlight`, because `finalizeSubmittedRound` does its own atomic in-flight check):
 
 ```ts
-import { finalizeSubmittedRound, RoundNotReadyError } from '@/services/rounds/finalizeSubmittedRound';
+import {
+  finalizeSubmittedRound,
+  RoundNotReadyError,
+} from '@/services/rounds/finalizeSubmittedRound';
+import { isTransientError } from '@/services/errors/transient';
 ```
 
 Replacement:
 
 ```ts
-import { finalizeSubmittedRound, RoundNotReadyError } from '@/services/rounds/finalizeSubmittedRound';
+import {
+  finalizeSubmittedRound,
+  RoundNotReadyError,
+} from '@/services/rounds/finalizeSubmittedRound';
+import { isTransientError } from '@/services/errors/transient';
 import {
   applyEndRoundEarly,
   EndRoundEarlyError,
@@ -31135,9 +31736,12 @@ class RoundSyncDeferredError extends Error {
 
 ```ts
       if (error instanceof RoundNotReadyError) {
-        syncLogger.info("Round item waiting on this device's scorecards; leaving it queued", {
+        // This device's cards are still uploading, or the round is being
+        // finalised right now (A6a-2's in-flight check).
+        syncLogger.info('Round item not ready yet; leaving it queued', {
           id: sync.id,
           roundId: String(sync.data?.id ?? '').substring(0, 8) + '...',
+          reason: errorMessage,
         });
         continue;
       }
@@ -31146,6 +31750,8 @@ class RoundSyncDeferredError extends Error {
 Replacement:
 
 ```ts
+      // RoundNotReadyError: this device's cards are still uploading, the round
+      // is being finalised right now, or the item belongs to another user.
       if (error instanceof RoundNotReadyError || error instanceof RoundSyncDeferredError) {
         syncLogger.info('Round item not ready to run; leaving it queued', {
           id: sync.id,
@@ -31193,7 +31799,7 @@ Replacement:
   }
 ```
 
-Leave A6a-3's step 4 (`const { completed, statusError, skinsError } = await finalizeSubmittedRound(roundId);` and its two throws) unchanged.
+Leave A6a-3's step 4 unchanged: the `finalizeSubmittedRound` call, the `statusError` throw, and the `skinsError` handling (thrown only when `isTransientError`, otherwise logged).
 
 **Dispatch.** In A6a-3's `processRoundSync`, current (as A6a-3 leaves it):
 
@@ -31327,7 +31933,13 @@ async function adoptServerHolesPlayed(
   }
 }
 
-/** The queries that show a round's shape (as useEndRoundEarly invalidates online). */
+/**
+ * The React Query caches that show a round's shape (as useEndRoundEarly
+ * invalidates online). ScorecardEntryScreen's round-shape guard reads
+ * useRoundMetadata (component state, not React Query), so this does not
+ * refresh it: an open round adopts the server's N via adoptServerHolesPlayed
+ * above, any other round on its next load.
+ */
 function invalidateRoundShapeQueries(roundId: string): void {
   void queryClient.invalidateQueries({ queryKey: skinsKeys.holeCounts(roundId) });
   void queryClient.invalidateQueries({ queryKey: roundKeys.detail(roundId) });
@@ -32346,8 +32958,10 @@ export function useEndRoundEarly({
       onEnded(n);
     } catch (error) {
       scoringLogger.error('End round early failed', error, logContext);
-      // The local end failed after the server took it: refresh anyway, so the
-      // round-shape guard adopts the server's holes_played on the refetch.
+      // The local end failed after the server took it: refresh the React Query
+      // round row so the match-play guards (useRoundDetails) adopt the server's
+      // holes_played. ScorecardEntryScreen's guard reads useRoundMetadata (not
+      // React Query), so there the next load's reconcile adopts it instead.
       if (serverHoldsEnd) invalidateRoundShapeQueries(roundId);
       showErrorToast(END_FAILED_TITLE, 'Please try again.');
     } finally {
@@ -44329,7 +44943,7 @@ The skip sits inside A3-2's per-card loop, before its `cardEntries.slice(0, WHS_
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `pnpm test src/__tests__/services/handicap/updatePlayerHandicapIndex.endedEarly.test.ts src/__tests__/services/handicap/updatePlayerHandicapIndex.test.ts`
-Expected: PASS (4 + A3-2's 5)
+Expected: PASS (4 + A3-2's 7)
 
 - [ ] **Step 5: Write the history tests (characterization + failing)**
 
@@ -44691,7 +45305,7 @@ The JS belt must sit inside the `.filter(…)`, before A3-3's `.slice(0, WHS_REC
 - [ ] **Step 8: Run tests to verify they pass**
 
 Run: `pnpm test src/__tests__/services/handicap/fetchHandicapHistory.endedEarly.test.ts src/__tests__/services/handicap/fetchHandicapHistory.test.ts src/__tests__/services/handicap/updatePlayerHandicapIndex.endedEarly.test.ts`
-Expected: PASS (4 + A3-3's 5 + 4)
+Expected: PASS (4 + A3-3's 6 + 4)
 
 - [ ] **Step 9: Run the scoring subset + type-check**
 
@@ -45959,34 +46573,46 @@ Run each command and check its expected result:
    Expected: no output. The last filter drops comment lines (e.g. the JSDoc example at `src/components/skins/SkinsCurrentStandingsCard/index.tsx:16`); `.stories.` is excluded because A1a gives the `TeamMatchPlayScoreView` stories `totalHoles={18}` on purpose.
 7. `git ls-files | grep -c '^node_modules/'`
    Expected: `0` (worktree `node_modules` must never be committed).
-8. `git status --porcelain && git log --oneline main..HEAD`
-   Expected: a clean tree, and one commit per task in the Task Index order (A1a … A6d, B1a … B11, with the split tasks B9f-1/-2, B10a-1/-2, B10b-1/-2, B10c-1/-2 as separate commits).
-9. Apply both migrations to a scratch database (a local `supabase start`, or a staging branch) and run the verification scripts:
+8. `git status --porcelain && git log --oneline <PLAN_BASE>..HEAD`
+   `PLAN_BASE` is the commit recorded in Task 0 Step 2 (the last commit before A1a-1). Don't use `main..HEAD`: once Part A has merged to local `main`, that range shows only Part B.
+   Expected: a clean tree, and one commit per task in the Task Index order (A1a … A6d, B1a … B11, with the split tasks B9f-1/-2, B10a-1/-2, B10b-1/-2, B10c-1/-2 as separate commits), plus any merge commits from syncing with `main`.
+9. Apply both migrations to a scratch database (a local `supabase start`, or a staging branch) and run the verification scripts. Use the Global Constraints "Database writes" recipe (it also works on a local database, where the `SET` is a no-op):
    ```bash
-   psql "$SCRATCH_DB_URL" -v ON_ERROR_STOP=1 --single-transaction -f supabase/migrations/20261007000100_full_scorecards_only_handicap.sql
-   psql "$SCRATCH_DB_URL" -v ON_ERROR_STOP=1 --single-transaction -f supabase/migrations/20261007000200_end_round_early.sql
-   psql "$SCRATCH_DB_URL" -v ON_ERROR_STOP=1 -f supabase/tests/full_scorecards_only_handicap.verify.sql
-   psql "$SCRATCH_DB_URL" -v ON_ERROR_STOP=1 -f "$(ls supabase/tests/*end_round_early*.sql | head -1)"
-   psql "$SCRATCH_DB_URL" -v ON_ERROR_STOP=1 -f supabase/tests/activity_feed_verify.sql
+   psql "$SCRATCH_DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
+   SET default_transaction_read_only = off;
+   show transaction_read_only;
+   BEGIN;
+   \i supabase/migrations/20261007000100_full_scorecards_only_handicap.sql
+   \i supabase/migrations/20261007000200_end_round_early.sql
+   COMMIT;
+   SQL
+   for f in supabase/tests/full_scorecards_only_handicap.verify.sql \
+            supabase/tests/end_round_early_verify.sql \
+            supabase/tests/activity_feed_verify.sql; do
+     psql "$SCRATCH_DB_URL" -v ON_ERROR_STOP=1 <<SQL || break
+   SET default_transaction_read_only = off;
+   \i $f
+   SQL
+   done
    ```
-   Expected: every command exits 0. The two end-early/full-card verify scripts end in `ROLLBACK` and print no failure; `activity_feed_verify.sql` runs catalog checks only (no transaction) and **every row prints `OK`** (some as `OK (n)`).
+   Expected: `show transaction_read_only` prints `off`, and every command exits 0. The two end-early/full-card verify scripts end in `ROLLBACK` and print no failure; `activity_feed_verify.sql` runs catalog checks only (no transaction) and **every row prints `OK`** (some as `OK (n)`).
    Apply the migrations in this order only. Never re-apply A7's migration after B1a's: B1a replaces `scorecard_eligible_for_differential`, and re-running A7 would drop its `holes_played` guard (re-apply B1a straight after if A7 is ever re-run).
 
 If any check fails, fix it in the task that owns the code and re-run this step. Do not paper over it here.
 
-- [ ] **Step 11: Part A QA and rollout — a pointer**
+- [ ] **Step 11: Part A rollout — a pointer**
 
-Part A ships on its own, and its rollout and on-device QA live in **A6d-2's "Part A rollout + QA" step**: the A7 migration with its before/after report, the stuck-rounds fix, the Part A build and the Part A QA list. This task covers only Part B (B1a's migration, the store build, the force-update minimum).
+Part A and Part B ship together in store release **1.15.0**. Part A may merge to local `main` first, and its out-of-band rollout checklist and on-device QA live in **A6d-2 Step 5** ("Part A rollout + QA"): the A7 dry run and report, Sam's go/no-go, A7 applied to staging and prod, the Part A QA list, and the stuck-rounds fix. This task covers Part B (B1a's migration) and the shared 1.15.0 build.
 
-Before starting Step 12, check that A6d-2's Step 5 record ("Part A rollout + QA") shows each of these. Don't redo any of them here; if one is missing, finish it in A6d-2's Step 5 first:
-- **Item 1–2:** the A7 dry-run "before" report (applied inside `BEGIN … ROLLBACK` with `PGOPTIONS='-c default_transaction_read_only=off'`, at a quiet time, staging or a prod snapshot first) and Sam's go/no-go before each real apply.
-- **Items 3 and 5:** A7 applied to staging and prod, with the after-report showing zero incomplete cards holding a differential.
-- **Item 8:** the stuck social rounds finalised through the service path (`finalizeSubmittedRound`, which also writes results and settles active skins games), not a bare status `UPDATE`, unless Sam explicitly approved that fallback.
-- **Item 4:** Part A's on-device QA results recorded in the PR description.
+Before starting Step 12, check that A6d-2 Step 5's record shows each of these. Don't redo any of them here; if one is missing, finish it in A6d-2 Step 5 first:
+- the A7 dry-run "before" report (A7 applied with the "Database writes" recipe inside `BEGIN … ROLLBACK`, at a quiet time, staging or a prod snapshot first) and Sam's go/no-go before each real apply;
+- A7 applied to staging and prod, with the after-report showing zero incomplete cards holding a differential;
+- Part A's on-device QA results recorded in the PR description;
+- the stuck social rounds: **Sam** runs A6d-2 Step 5's runner himself (never an agent), with the service-role key read via `read -rs` (and rotated if it was ever pasted anywhere). It finalises them through `finalizeSubmittedRound`, which only adds skins settlement on top of the status and results writes. Follow A6d-2 Step 5 for the details; this task doesn't touch it.
 
 - [ ] **Step 12: On-device QA — Part B (Sam; record results in the PR description)**
 
-Run on a staging build against a database that has both migrations.
+Run on a staging 1.15.0 build (Part A + Part B) against a database that has both migrations.
 
 **Stroke play, 18 holes, 2 players, ended after 6:**
 - [ ] ⋮ shows in the header once hole 1 is complete for everyone, and never before.
@@ -46028,6 +46654,9 @@ Run on a staging build against a database that has both migrations.
 - [ ] Submit offline, then reconnect → the `'end_early'` item runs before finalise: the round is `completed`, `holes_played = 6`, and side-game rows after hole 6 are gone (check in staging with SQL).
 - [ ] "Connected but no data" (Wi-Fi with no internet, or a captive portal): confirm the end → within about 8 s the sheet stops showing "Ending…", the round ends locally and the RPC is queued; it applies once the connection really works.
 
+**Shared phone:**
+- [ ] Sign in as a different user on the same phone with a pending sync item: user A ends a round after 6 in airplane mode (an `'end_early'` item and score uploads queued), then signs out; user B signs in on the same phone and reconnects → A's items don't run under B's session (the queue is owner-scoped from 1.15.0), B's own rounds sync normally, and nothing is retained as failed. A signs back in → A's items drain and the round ends and finalises.
+
 **Old client:**
 - [ ] A co-player on a 1.14.x build opens Home after the round was ended early → no crash; their card's `handicap_differential` stays NULL in the database (the trigger), and their index doesn't move.
 
@@ -46046,7 +46675,7 @@ Run on a staging build against a database that has both migrations.
 - [ ] A 9-hole standalone team match on ViewRound is decided over its 9 holes, and the board's playing handicaps match the Review screen's (B9c).
 
 **Regression on Part A paths:**
-- [ ] A split singles competition round (Ryder-cup singles) completes when its last sub-match is submitted (A6d).
+- [ ] A split singles competition round (Ryder-cup singles) completes when the **organiser / round owner** submits the last sub-match (A6d). Non-organisers can't write `sub_matches` (RLS, the same as today): when a non-organiser submits last, record what happens (the round stays `in-progress` until the organiser submits or force-submits); it isn't a regression.
 
 **Watch:**
 - [ ] After ending, the Watch shows only holes 1–6; a score entered on the Watch for hole 7 reports a failure on the Watch instead of "saved".
@@ -46057,13 +46686,23 @@ Run on a staging build against a database that has both migrations.
 - [ ] Home "continue scoring" carousel with a round ended but not yet submitted: note what it shows (it may read "hole 7"; Appendix B).
 - [ ] Dark mode and translucent surfaces: the sheet and the banner are readable on solid surfaces; touch targets ≥ 44px.
 
-- [ ] **Step 13: Rollout checklist — Part B (do NOT run any deploy in this task)**
+- [ ] **Step 13: Rollout checklist — Part B and the 1.15.0 build (do NOT run any deploy in this task)**
 
-Staging uses the session pooler (`aws-1-ap-southeast-1.pooler.supabase.com`, port 5432). The Supabase CLI in this repo is linked to **prod**: never `supabase db push` thinking it targets staging. The `schema_migrations` table is unreliable (migrations are hand-applied), so check objects, not history. The pooler session is read-only by default: prefix every write command with `PGOPTIONS='-c default_transaction_read_only=off'`.
+Database access: staging and prod both use the Supabase pooler (`aws-1-ap-southeast-1.pooler.supabase.com`; prod with `user=postgres.bvnxfhuvocxyilhlenka`). The known-working access is port **6543**. Pooler sessions are read-only by default, so every write uses the Global Constraints "Database writes" recipe, the same for staging and prod:
+```bash
+psql "$DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
+SET default_transaction_read_only = off;
+show transaction_read_only;   -- preflight: must print off
+BEGIN;
+\i <file>
+COMMIT;                       -- dry run: ROLLBACK;
+SQL
+```
+Never combine `-c 'set …'` with `--single-transaction` (the `set` then runs inside psql's own `BEGIN`). The Supabase CLI in this repo is linked to **prod**: never `supabase db push` thinking it targets staging. The `schema_migrations` table is unreliable (migrations are hand-applied), so check objects, not history.
 
 **Never re-apply A7's migration (`20261007000100_full_scorecards_only_handicap.sql`) after B1a's.** B1a replaces `scorecard_eligible_for_differential` to add the `holes_played IS NULL` condition; re-running A7 would put back A7's version and silently drop the ended-early guard. If A7 must be re-run, re-apply B1a's migration straight after it.
 
-1. [ ] **Pre-checks** on the target database. Every column must print `t`:
+1. [ ] **Pre-checks** on the target database (read-only; no recipe needed). Every column must print `t`:
    ```sql
    select to_regclass('public.age_gate_config') is not null    as age_gate,
           to_regclass('public.content_reports') is not null    as ugc_schema,
@@ -46072,14 +46711,11 @@ Staging uses the session pooler (`aws-1-ap-southeast-1.pooler.supabase.com`, por
           to_regprocedure('public.moderate_content(uuid,text)') is not null as ugc_ops,
           to_regprocedure('public.scorecard_eligible_for_differential(uuid,jsonb)') is not null as part_a_live;
    ```
-   If a UGC column is `f`, apply the missing 202609040000xx / 202609050000xx migrations first (the feed RPCs this branch rebuilds come from them). If `part_a_live` is `f`, Part A's rollout (A6d-2) hasn't run here: stop.
-2. [ ] **Staging migration**, in one transaction:
-   ```bash
-   PGOPTIONS='-c default_transaction_read_only=off' \
-     psql "$STAGING_DB_URL" -v ON_ERROR_STOP=1 --single-transaction -f supabase/migrations/20261007000200_end_round_early.sql
-   ```
-   Note the time it committed (`select now();` straight after); item 6 uses it as `migrated_at`.
-   Then run B1a's verification script and `supabase/tests/full_scorecards_only_handicap.verify.sql` (both `BEGIN … ROLLBACK`; each must print no failure), and `supabase/tests/activity_feed_verify.sql` (catalog checks, no transaction: **every row prints `OK`**, some as `OK (n)`). Confirm `rounds.holes_played` exists, `end_round_early(uuid, integer)` has `EXECUTE` for `authenticated`, and both feed functions return `holes_played` and `nine_type`.
+   - **If any UGC column (`age_gate`, `ugc_*`) is `f`: STOP — Sam decides.** B1a rebuilds the feed RPCs from `20260905000150_ugc_moderation_feed.sql`, so it needs the social-compliance / UGC migrations, and that feature has its own blockers. Sam's options: apply the UGC set first (as its own rollout), or defer B1a's migration, and with it the 1.15.0 build (the new client selects `rounds.holes_played`, item 5). Don't apply any UGC migration from this task.
+   - If `part_a_live` is `f`, Part A's rollout (A6d-2 Step 5) hasn't run here: stop.
+2. [ ] **Staging migration**, in one transaction, with the recipe against `$STAGING_DB_URL` and `\i supabase/migrations/20261007000200_end_round_early.sql`. Run it with `ROLLBACK;` first (dry run: it must finish without error), then with `COMMIT;`.
+   Note the time it committed (`select now();` straight after); item 8 uses it as `migrated_at`.
+   Then run the verification scripts, each through the recipe's first two lines (`SET default_transaction_read_only = off;` then `\i <script>`; the scripts write fixtures inside their own `BEGIN … ROLLBACK`): `supabase/tests/end_round_early_verify.sql` and `supabase/tests/full_scorecards_only_handicap.verify.sql` (each must print no failure), and `supabase/tests/activity_feed_verify.sql` (catalog checks, no transaction: **every row prints `OK`**, some as `OK (n)`). Confirm `rounds.holes_played` exists, `end_round_early(uuid, integer)` has `EXECUTE` for `authenticated`, and both feed functions return `holes_played` and `nine_type`.
 3. [ ] **After checks.** Expected: zero incomplete or ended-early cards with a differential.
    ```sql
    -- Incomplete or ended-early cards that still carry a differential (expect 0).
@@ -46100,14 +46736,14 @@ Staging uses the session pooler (`aws-1-ap-southeast-1.pooler.supabase.com`, por
    group by r.id, r.nine_type, r.holes_played
    having count(*) filter (where s.handicap_differential is not null) > 0;
    ```
-4. [ ] **Staging QA.** Run Step 12 on a staging build.
-5. [ ] **Prod migration**, **before** any build with this code can reach prod: repeat items 1–3 against prod (session pooler, `user=postgres.bvnxfhuvocxyilhlenka`, port 5432), at a quiet time and after Sam's go/no-go. The new client selects `holes_played` in the round list, `ROUND_METADATA_SELECT`, the stats hooks and the handicap queries; against a database without the column those selects fail (PostgREST `42703`) and rounds can't open.
-6. [ ] **Ship a store build** (version bump; this branch rides the next store release, e.g. 1.14.1 on runtime 1.14.1). **No OTA**: the live 1.14.0 binaries are on runtime 1.12.7, so no live binary can take this bundle over the air. If an OTA is ever needed later for a binary on this runtime, use `pnpm update:prod` (it ships the production env; a bare `eas update` bundles the staging `.env`).
-7. [ ] **Raise the force-update minimum** once the store build is live on both platforms: set `app_version_config.minimum_version` to the new version for `ios` and `android` (no deploy). Only 1.13.0+ builds see the gate.
+4. [ ] **Staging QA.** Run Step 12 on a staging 1.15.0 build (Part A + Part B).
+5. [ ] **Prod migration**, **before** the 1.15.0 build can reach prod: repeat items 1–3 against prod with the same recipe (dry run with `ROLLBACK;`, then `COMMIT;`), at a quiet time and after Sam's go/no-go. The new client selects `holes_played` in the round list, `ROUND_METADATA_SELECT`, the stats hooks and the handicap queries; against a database without the column those selects fail (PostgREST `42703`) and rounds can't open.
+6. [ ] **Ship store release 1.15.0** (Part A and Part B together; one release). **No OTA**: the live 1.14.0 binaries are on runtime 1.12.7, so no live binary can take this bundle over the air. If an OTA is ever needed later for a binary on the 1.15.0 runtime, use `pnpm update:prod` (it ships the production env; a bare `eas update` bundles the staging `.env`).
+7. [ ] **Force-update minimum: no change.** It is already 1.15.0 (set for another feature). Once 1.15.0 is live on both platforms, confirm `app_version_config.minimum_version` reads 1.15.0 for `ios` and `android`. Only 1.13.0+ builds see the gate.
 8. [ ] **Watch for 48 hours.**
    - Sentry: `end_round_early` RPC errors (`22023` / `42501`), `round` sync items retained or failing, PostgREST `42703`.
    - Spot-check prod: `select id, nine_type, holes_played, status from rounds where holes_played is not null order by updated_at desc limit 20;` and re-run item 3's queries.
-   - **Old-client rewrites.** An old client (1.14.x or earlier) doesn't know `holes_played`: it can re-upload scores for holes after N on an ended round, or rewrite a card the data fix touched. Audit the cards written since the migration (`:'migrated_at'` from item 2/5); both lists should be empty, and any row is a card to check by hand:
+   - **Old-client rewrites.** An old client (1.14.x or earlier) doesn't know `holes_played`: it can re-upload scores for holes after N on an ended round, or rewrite a card the data fix touched. Audit the cards written since the migration (`:'migrated_at'` from item 2/5); both lists should be empty, and any row is a card to check by hand (read-only queries, so no recipe):
      ```bash
      psql "$DB_URL" -v migrated_at='2026-10-08 10:00:00+11' <<'SQL'
      -- Ended rounds whose cards gained scores after hole N since the migration.
@@ -46133,7 +46769,7 @@ Staging uses the session pooler (`aws-1-ap-southeast-1.pooler.supabase.com`, por
      SQL
      ```
      (Piped on stdin because psql interpolates `:'migrated_at'` only in script input.)
-9. [ ] **Outstanding note.** Record the merge/deploy state in the outstanding-work notes: B1a migration staging/prod (with `migrated_at`), after-check results, QA done, build shipped, force-update raised, the 48-hour audit result, pushed or not.
+9. [ ] **Outstanding note.** Record the merge/deploy state in the outstanding-work notes: the UGC pre-check result (and Sam's decision if it failed), B1a migration staging/prod (with `migrated_at`), after-check results, QA done, 1.15.0 shipped, the force-update check, the 48-hour audit result, pushed or not.
 
 ---
 
@@ -46183,8 +46819,9 @@ The reasoning behind each group's contract amendments and hand-offs. Read your g
    - The gate reads `nineType`, never `holes`.
    - The nine-aware Quick Score DHC goes in Appendix B under the split-out branch (see Follow-ups).
 6. **A4b owns `useLeagueQuickAddRound.ts:257-259`** (adds `nineType: 'full'`). **A4c owns every other edit in that file** and quotes the deps line (325) as A4b leaves it (unchanged).
-7. **A3b takes ONE SQLite local migration, version 19** (`add_scorecard_sync_metadata`: three `ALTER TABLE scorecards ADD COLUMN` statements for `sync_nine_type`, `sync_game_type`, `sync_holes` in one `up`), with no `sync_holes_played` column.
-   - **B3a must use version 20** for `scorecards.holes_played`, and must append its value **after** `sync_holes` in the `saveScorecard` INSERT. A3b leaves the column list ending `…, server_revision, sync_nine_type, sync_game_type, sync_holes)` with 23 placeholders.
+7. **A3b takes THREE SQLite local migrations, versions 19, 20 and 21** (`add_scorecard_sync_nine_type`, `add_scorecard_sync_game_type`, `add_scorecard_sync_holes`: one `ALTER TABLE scorecards ADD COLUMN` each, like migrations 10-14), with no `sync_holes_played` column.
+   - **Why one column per migration:** `execAsync` is not transactional and `runMigration` (`migrations.ts:135-144`) treats ANY error as "already applied". With three `ALTER`s in one `up`, an app killed after the first on first launch would hit "duplicate column" on every later launch and never add the other two; every `saveScorecard` INSERT would then fail and offline persistence would silently die.
+   - **B3a must use version 22** for `scorecards.holes_played`, and must append its value **after** `sync_holes` in the `saveScorecard` INSERT. A3b leaves the column list ending `…, server_revision, sync_nine_type, sync_game_type, sync_holes)` with 23 placeholders.
    - The multi-scorer branch also adds SQLite migrations. Whichever lands second renumbers (R12).
 8. **A7: the extension point for B1a.** Both A7 triggers delegate the eligibility decision to one helper:
    ```sql
@@ -46271,17 +46908,20 @@ The reasoning behind each group's contract amendments and hand-offs. Read your g
 
 ### Round finalisation + app-wide sync (A6a–A6d)
 
-1. **`finalizeSubmittedRound` returns a superset: `{ completed, skinsGame, statusError, skinsError }`.** Review finding A6a says "return `skinsGame` even when the status write throws". A rejecting function can't return anything, so `finalizeSubmittedRound` never rejects. A failed status read or write comes back as `statusError`, and a failed skins settlement as `skinsError` (the raw `error` from `finalizeActiveSkinsForRound`). Both are `null` when fine, and both are reported after results and skins have run.
-   - The queue handler throws on `statusError`, then on `skinsError`, so the normal retry path runs. Re-running is idempotent: the status write is a no-op on a completed round, `refinalizeRoundResults` deletes then inserts, and `finalizeActiveSkinsForRound` only picks up `active` games.
+1. **`finalizeSubmittedRound` returns a superset: `{ completed, skinsGame, statusError, skinsError }`.** Review finding A6a says "return `skinsGame` even when the status write throws". A rejecting function can't return anything, so `finalizeSubmittedRound` doesn't reject on a step failure. A failed status read or write comes back as `statusError`, and a failed skins settlement as `skinsError` (the raw `error` from `finalizeActiveSkinsForRound`). Both are `null` when fine, and both are reported after results and skins have run.
+   - The queue handler throws on `statusError`, so the normal retry path runs. It throws on `skinsError` only when `isTransientError(skinsError)` (A6a-3, `src/services/errors/transient.ts`: no connection, a timeout, a 5xx or gateway error, a dropped connection, a lock clash). A permanent skins failure (an RLS refusal: `skins_payouts` is writable only by the game's creator; validation; a missing game) is logged and the item is dropped, because no retry can fix it. Re-running is idempotent: the status write is a no-op on a completed round, `refinalizeRoundResults` deletes then inserts, and `finalizeActiveSkinsForRound` only picks up `active` games.
    - Competition results errors are not retried: `refinalizeRoundResults` logs and swallows its own errors (see Follow-ups).
-   - The online path (`finalizeOrQueueRound`, A6c) keeps its `'finalize'` item whenever either error is set, and still hands back `skinsGame` for achievements.
-   - **B6b-1 exception:** B6b-1 makes `finalizeSubmittedRound` throw `RoundNotReadyError` (from the first statement of the private `runFinalizeSteps`, inside the in-flight mark, which `finally` releases) while an `'end_early'` item for the round is queued. A6c's `finalizeOrQueueRound` therefore wraps the call in `try/catch` and keeps its `'finalize'` item on any throw, so any online failure to complete leaves a queued item.
+   - The online path (`finalizeOrQueueRound`, A6c) keeps its `'finalize'` item when `statusError` is set or `skinsError` is transient, and still hands back `skinsGame` for achievements.
+   - **It rejects in exactly two cases, both with `RoundNotReadyError`:**
+     - **Already in flight (A6a-2).** The in-flight test-and-set is the first, synchronous statement of `finalizeSubmittedRound`: if the round is already being finalised (the other caller's run), it rejects without running a step and without touching the other run's mark. JavaScript runs that check and the `add` with no `await` between them, so two callers can never both run the steps.
+     - **B6b-1's guard:** the first statement of the private `runFinalizeSteps`, inside the in-flight mark (which `finally` releases), throws while an `'end_early'` item for the round is queued.
+   - A6c's `finalizeOrQueueRound` therefore wraps the call in `try/catch` and keeps its `'finalize'` item on any throw, so any online failure to complete leaves a queued item. The queue keeps a `RoundNotReadyError` item pending with no retry spent.
    - `{ completed, skinsGame, statusError }` consumers stay valid.
 2. **`finalizeRoundStatus` returns `false` (no throw) when the round row is missing** (PostgREST `PGRST116`: deleted or not visible). Otherwise it **throws** on every read error (round, scorecards, sub_matches, pairings), as the contract says. Without this exception, a queued item for a deleted round would burn three retries into a retained failure.
 3. **Round items use an explicit entity key, `round:<roundId>:<action>`.** The default key from `getEntityKey` (`SyncQueueDAO.ts:323`) is `round:<id>`. With it, B6b's `'end_early'` item and the `'finalize'` item for the same round would upsert over each other (`ON CONFLICT(entity_key)`).
    - `queueRoundFinalize` uses `round:<id>:finalize`.
    - **B6b hand-off:** `queueRoundEndEarly` must pass `entityKey: \`round:${roundId}:end_early\`` and then call `requestSyncDrain('round-end-early-queued')`.
-4. **`RoundSyncData` is exported from `src/services/rounds/finalizeSubmittedRound.ts`** as `{ id: string; action: 'finalize' }` only. B6b widens it to the contract union.
+4. **`RoundSyncData` is exported from `src/services/rounds/finalizeSubmittedRound.ts`** as `{ id: string; action: 'finalize'; userId?: string }` only (A6a-2 declares `userId`; A6b-1 starts stamping it, see note 8). B6b-1 widens it to the union with `{ id: string; action: 'end_early'; holesPlayed: number; userId?: string }`.
 5. **Extension point for B6b (all in `src/services/offline/sync/syncOrchestrator.ts`, written by A6a-3):**
    - `processRoundSync(sync)` switches on `sync.data.action`, with `case 'finalize': return processRoundFinalize(roundId);`. B6b adds `case 'end_early'`.
    - `orderRoundSyncs` ranks every action other than `'finalize'` first (stable sort). `'end_early'` therefore runs before `'finalize'` with no further change.
@@ -46297,6 +46937,7 @@ The reasoning behind each group's contract amendments and hand-offs. Read your g
    - `useAppSyncService` sets it from `useAuth().user?.id` on every change, before it requests the sign-in drain. On a cold start the Supabase session restores asynchronously, so the id stays `null` until it has.
    - `ensureSyncServiceStarted()` itself is idempotent and only starts the listeners and the drain handler. Start and foreground drains are requested by `useAppSyncService`.
    - Test-only exports: `__resetSyncServiceForTests` (syncOrchestrator) and `__resetSyncDrainForTests` (drain). They follow the `__resetDatabaseState` precedent and are not re-exported from barrels.
+   - **Round items belong to the user who queued them (A6b-1).** Nothing clears SQLite on sign-out, and `pending_syncs` has no owner column. So `queueRoundFinalize` (and B6b-1's `queueRoundEndEarly`) stamp `data.userId = getSyncAuthUserId()` when one is recorded. `processRoundSync` (the dispatcher, so it covers every round action) throws `RoundNotReadyError` when an item's `userId` is set and differs from `getSyncAuthUserId()`: the item stays pending with no retry spent until its owner signs back in. An item without `userId` (queued by an older build, or while no user was recorded) runs as before. Scorecard rows are existing queue shapes that A6 doesn't own; they stay unowned (see Follow-ups).
 9. **`finalizeOrQueueRound` (A6c) also queues when this device has retained-failed cards for the round.** The finding asked for `hasUnsyncedScorecardsForRound` only. Without the extra check, a card retained as failed means nothing ever finalises the round after the user retries that card. The queued item then marks itself failed (note 6), so Retry fixes both.
 10. **`awardSkinsAchievements` signature (as A5b-2 exports it).** The first draft of the contract listed `awardSkinsAchievements(game: SkinsGame)`. Awarding needs the hook-bound `checkAndAward` (`useCheckAchievements`) and `showMultipleToasts` (context). A5b-2 exports:
     ```ts
@@ -46333,18 +46974,18 @@ The reasoning behind each group's contract amendments and hand-offs. Read your g
     - Skins settlement and skins achievements are awaited before the success dialog, so submit is slower.
     - Skins achievements are not fired when settlement happens in the queue (see Follow-ups).
     - PlayerScorecard's single-card submit on a multi-player round no longer completes the round.
-    - Split singles competition rounds on MatchPlayScoringScreen now write the user's sub-match result (as TeamMatchPlayScoringScreen does), and the round completes once every sub-match is terminal. Before, the first submit flipped the whole round to `completed` and no sub-match result was written.
+    - Split singles competition rounds on MatchPlayScoringScreen now write the submitter's sub-match result (as TeamMatchPlayScoringScreen does), and the round completes once every sub-match is terminal. RLS lets only the organiser / round owner write `sub_matches` (`sub_matches_update_organizer`) and a competition round's status, so in practice the organiser's (or owner's) submit records its match; other players' submits leave their matches for the organiser, exactly as today. Before, the organiser's first submit flipped the whole round to `completed` and no sub-match result was written.
     - MatchPlayScoringScreen submits now settle skins (they didn't before).
-    - A failed skins settlement after submit is retried by the queue.
-    - No drain runs while signed out.
+    - A transient skins settlement failure after submit is retried by the queue; a permanent one (e.g. a non-creator's RLS refusal on `skins_payouts`) is logged and dropped, as today.
+    - No drain runs while signed out, and a round item queued by one user waits while another user is signed in.
     - `finalizeRoundStatus` no longer throws on an RLS 0-row refusal (it returns `false`), and throws on read errors instead of reading them as "not complete".
     - The sync service runs app-wide. It drains on sign-in/start and on foreground, and the scoring screens no longer tear down the NetInfo listener.
 17. **The online `'finalize'` item is durable from the start (A6c).** `finalizeOrQueueRound` writes the `round:<id>:finalize` row **before** the online attempt, without requesting a drain (`queueRoundFinalize(roundId, { requestDrain: false })`). It removes the row by entity key (`removeQueuedRoundFinalize`) only when the round is completed with no `statusError` and no `skinsError`, or when the round is waiting only on other devices. Otherwise it keeps the row and requests a drain. An app kill mid-finalise therefore leaves a durable item.
-    - **No double run.** `finalizeSubmittedRound` records the round as in flight for its duration (`isRoundFinalizeInFlight`). The queue's `processRoundFinalize` checks that first and waits (`RoundNotReadyError`), and `finalizeOrQueueRound` skips its own attempt (keeping the row) when the queue is already running it.
+    - **No double run.** `finalizeSubmittedRound` itself does the in-flight test-and-set, synchronously, before its first `await` (note 1): a second caller for the same round gets `RoundNotReadyError` and runs nothing. The queue's `processRoundFinalize` keeps the item pending on that error, and `finalizeOrQueueRound` keeps its row (and requests a drain). Neither caller pre-checks `isRoundFinalizeInFlight`, so there is no gap between a check and the run; `isRoundFinalizeInFlight` stays exported for tests and diagnostics.
 18. **`getDb` waits for the schema (A6b-2).** `DatabaseManager.doInitialize` assigns `db` as soon as the file opens, before tables and migrations run, and `getDb` returned it whenever it was set. App-wide sync makes a DAO call during cold-start init likelier, so `getDb` now always awaits the memoised `initDatabase()` promise.
 19. **Cache refresh on finalise (A6a-2).** Besides `roundKeys.all`, `finalizeSubmittedRound` invalidates the leaderboards (`invalidateLeaderboardCache()`, i.e. `leaderboardKeys.all`), `competitionKeys.all` (`['competitions']`) and the Home round lists (`['home']`, the prefix of `['home', 'inProgressRounds', uid]` and `['home', 'upcomingRounds', uid]`). It does so on every run, not only on completion: results are written on every run, and the queue path has no screen to refresh them.
 20. **Where B6b-2 puts the "finalize blocked behind a failed `end_early`" fix.** `processRoundFinalize` (A6a-3) has a marked step between the retained-failed-cards check and the `finalizeSubmittedRound` call: `// Step 3 (B6b-2): end_early gate`. B6b-2 owns that fix and adds it there; A6a-3 leaves only the comment.
-21. **Part A ships alone.** A6d-2 ends with a "Part A rollout + QA" step: the A7 migration, the stuck-rounds fix, the build, the Part A on-device QA list and the watch. B11 covers only Part B.
+21. **Part A and Part B ship together, in release 1.15.0.** Part A may merge to main first. A6d-2 ends with an out-of-band "Part A rollout checklist" (the A7 migration with its reports, the Part A on-device QA list, the stuck-rounds fix and Part A's watch items). It does not block any Part B task. The store build, the force-update (already covered by 1.15.0's minimum) and the 48-hour watch belong to the 1.15.0 rollout; B11 owns that release for Part B and runs the Part A checklist items alongside.
 22. **Line-number drift.** A5a/A5b/A5c run before these tasks and may touch `src/hooks/skins/*`, `MatchPlayScorecardScreen/index.tsx` (skins section) and `src/hooks/skins/index.ts`. Every edit below quotes the exact text; find it by text.
 
 23. **Tasks split for size.** v2's A6a/A6b/A6d each came to over 750 plan lines, so they are split into consecutive tasks. Each one is red → green → commit on its own. **The Task Index must list:**
@@ -46353,12 +46994,12 @@ The reasoning behind each group's contract amendments and hand-offs. Read your g
     |---|------|------------------|
     | A6a-1 | `finalizeRoundStatus` | Reports completion; throws on read errors; tests moved to the service |
     | A6a-2 | Finalise service + DAO | `finalizeSubmittedRound`, `queueRoundFinalize`, `removeQueuedRoundFinalize`, `isRoundFinalizeInFlight`, `RoundNotReadyError`, `hasUnsyncedScorecardsForRound`, `removePendingSyncByEntityKey` |
-    | A6a-3 | Queue round items | `round` items after the fallback uploads; wait / fail / retry; B6b extension point |
-    | A6b-1 | Drain + start-once | `requestSyncDrain` (`drain.ts`), `ensureSyncServiceStarted`, `queueRoundFinalize` drains, `syncAll` gated on `setSyncAuthUser` |
+    | A6a-3 | Queue round items | `round` items after the fallback uploads; wait / fail / retry (skins only when `isTransientError`); B6b extension point |
+    | A6b-1 | Drain + start-once | `requestSyncDrain` (`drain.ts`), `ensureSyncServiceStarted`, `queueRoundFinalize` drains and stamps `userId`, `syncAll` gated on `setSyncAuthUser`, round items wait for their owner |
     | A6b-2 | App root | `useAppSyncService` in `App.tsx` (sets the sync user); `useOfflineSync` stops tearing down; `getDb` awaits init; `OFFLINE_ARCHITECTURE.md` |
     | A6c | Shared submit step + Review | (unchanged) |
     | A6d-1 | Other submit paths | MatchPlayScorecard, MatchPlayScoring (+ split singles sub-match result), PlayerScorecard via the shared step |
-    | A6d-2 | Dead hooks + Part A rollout | Deletes `useFinalizeSkinsForRound`, `useRoundFinalization`, `useSubmitScorecards`; `pnpm verify:gate` (end of Part A); Part A rollout + QA |
+    | A6d-2 | Dead hooks + Part A rollout checklist | Deletes `useFinalizeSkinsForRound`, `useRoundFinalization`, `useSubmitScorecards`; `pnpm verify:gate` (end of Part A); out-of-band Part A rollout checklist for release 1.15.0 (doesn't block Part B) |
 
     A6c is about 890 lines, over the guideline. It isn't split, because its hook and the Review wiring are one reviewable change.
 
@@ -46400,7 +47041,7 @@ The reasoning behind each group's contract amendments and hand-offs. Read your g
 
 ### Store end-early (B3a–B3c)
 
-1. **SQLite migration number (B3a).** Task A3b takes ONE local migration, version 19 (`add_scorecard_sync_metadata`, which adds `sync_nine_type`, `sync_game_type` and `sync_holes` in one `up`). B3a adds **`version: 20`, `add_scorecard_holes_played`**. The B3a test finds the `ALTER` by its SQL, not by its version number.
+1. **SQLite migration number (B3a).** Task A3b takes THREE local migrations, one column each (versions 19 `sync_nine_type`, 20 `sync_game_type`, 21 `sync_holes`), because `execAsync` is not transactional and the runner swallows any error as "already applied". B3a adds **`version: 22`, `add_scorecard_holes_played`**, also a single `ALTER`. The B3a test finds the `ALTER` by its SQL, not by its version number.
 2. **`ScorecardDAO` column order (B3a).** A3b leaves the INSERT ending `…, server_revision, sync_nine_type, sync_game_type, sync_holes)` with 23 placeholders. B3a appends `holes_played` last (24 placeholders), and its value goes after A3b's `sync_holes` value. A3b's round-trip tests read `slice(-3)` and assert `toHaveLength(23)`, so B3a deliberately updates them to `slice(-4, -1)` and `toHaveLength(24)`. B3a's own test finds the bound value by column name.
 3. **`endRoundEarly(n)` signature.** The store action is exactly `endRoundEarly: (n: number) => Promise<void>` (contract). Internally, `endRoundEarlySlice.endRoundEarly(get, set, n, options?)` takes `{ reconcile?: boolean }`, which B3c-1 adds. Init reconcile passes `reconcile: true` and skips the "device scores every player" check, for these reasons:
    - The check guards the scorer's **decision** to end, and it still applies to confirm and to conflict adoption (B6c), which both call the public action.
@@ -46468,6 +47109,7 @@ The reasoning behind each group's contract amendments and hand-offs. Read your g
    The golden file is not edited.
 7. **B4: the ended-early belt in `calculateHandicapData`** is keyed on `scorecard.holesPlayed != null`. It goes immediately before the function's final `return {`, after A3's completeness gate, which it doesn't touch. B10c owns the other `holes_played` belts.
 8. **B6b: entity keys follow A6a's per-action scheme.** `SyncQueueDAO.getEntityKey` would key every `round` item `round:<id>`, and `addPendingSync` upserts on `entity_key`, so A6a-2's `queueRoundFinalize` passes `round:<id>:finalize` and B6b's `queueRoundEndEarly` passes `roundEndEarlyEntityKey(roundId)` = `round:<id>:end_early`. Both then call `requestSyncDrain(...)`.
+   - **Owner stamp.** Like `queueRoundFinalize` (A6b-1), `queueRoundEndEarly` stamps `data.userId = getSyncAuthUserId()` (from `@/services/offline/sync/networkState`, by path) when one is recorded. A6b-1's owner check sits in `processRoundSync`, the dispatcher, so B6b-2's `case 'end_early'` gets it with no extra code: another signed-in user's end-early item stays pending (`RoundNotReadyError`, no retry spent) instead of being refused as `'forbidden'` under the wrong session.
 9. **B6b: two exports beyond the contract**, both in `applyEndRoundEarly.ts`: `roundEndEarlyEntityKey(roundId)` and `hasQueuedRoundEndEarly(roundId): Promise<boolean>` (reads `getQueuedEntityKeys()`; pending or retained rows).
    - The `EndRoundEarlyError` constructor is `(code, message, options?: { serverHolesPlayed?: number | null })`.
    - **Code mapping (B1a-1's error contract):**
@@ -46481,8 +47123,8 @@ The reasoning behind each group's contract amendments and hand-offs. Read your g
    - **Typing:** the arguments are typed from B1b's entry (`const args: EndRoundEarlyArgs = …`, `EndRoundEarlyArgs = Database['public']['Functions']['end_round_early']['Args']`), and the call is inline `(supabase.rpc as any)('end_round_early', args)` with `// eslint-disable-next-line @typescript-eslint/no-explicit-any`, as at `scorecardSync.ts:260-261`. `createClient<Database>` resolves the rpc Schema to `never`, so the call itself can't be typed. Never assign `supabase.rpc` to a variable first (it loses `this`).
 10. **B6b: a `'finalize'` must not overtake a queued `'end_early'`.**
     - The RPC refuses a completed round whose `holes_played` is NULL (`22023 round_completed`). If finalize ran first, the early end would be lost for good.
-    - B6b-1 therefore adds a guard as the **first statement of A6a-2's private `runFinalizeSteps`** (not of `finalizeSubmittedRound`, which only wraps `runFinalizeSteps` with the in-flight mark): `if (await hasQueuedRoundEndEarly(roundId)) throw new RoundNotReadyError(roundId)`. The throw passes through `finalizeSubmittedRound`'s `try/finally`, so the in-flight mark (`isRoundFinalizeInFlight`) is always released. This is the one exception to A6a's "never rejects".
-    - **No deadlock.** The guard only reads the queue. The online path (A6c's `finalizeOrQueueRound`) has already written its durable `'finalize'` row, catches the throw and requests a drain; the drain runs `'end_early'` first (it never waits for cards or the in-flight mark), then the `'finalize'` item, whose `isRoundFinalizeInFlight` check is false by then because the mark was released in `finally`.
+    - B6b-1 therefore adds a guard as the **first statement of A6a-2's private `runFinalizeSteps`** (not of `finalizeSubmittedRound`, which only wraps `runFinalizeSteps` with the in-flight mark): `if (await hasQueuedRoundEndEarly(roundId)) throw new RoundNotReadyError(roundId)`. The throw passes through `finalizeSubmittedRound`'s `try/finally`, so the in-flight mark (`isRoundFinalizeInFlight`) is always released. It is the second of the two `RoundNotReadyError` rejections A6a allows (the first is A6a-2's atomic in-flight check, which runs before the mark is taken).
+    - **No deadlock.** The guard only reads the queue. The online path (A6c's `finalizeOrQueueRound`) has already written its durable `'finalize'` row, catches the throw and requests a drain; the drain runs `'end_early'` first (it never waits for cards or the in-flight mark), then the `'finalize'` item, whose `finalizeSubmittedRound` call passes the in-flight check by then because the mark was released in `finally`.
     - **Queue path:** A6a-3's `processRoundSyncs` keeps a `RoundNotReadyError` item pending, with no retry spent. `orderRoundSyncs` already runs `'end_early'` before `'finalize'`.
     - **Online path:** A6c's `finalizeOrQueueRound` writes its `'finalize'` row first, wraps `finalizeSubmittedRound` in `try/catch`, keeps the row on any throw and requests a drain, which runs both in order.
     - **If the end-early row is retained as `failed`** (only `'forbidden'` / `'invalid'` / malformed get there; `'network'` never does, see note 12), B6b-2 makes A6a-3's `processRoundFinalize` throw `RoundSyncPermanentError` too, at A6a-3's `// Step 3 (B6b-2): end_early gate` marker (after the retained-failed-cards check, before the `finalizeSubmittedRound` call), so both rows fail together and Retry revives both (the drain then runs the end first). If the user discards the end-early row instead, the finalize proceeds on its next run.
@@ -46765,6 +47407,8 @@ None of these block the feature. Record them, and ticket them after merge.
 
 **Rounds and sync**
 34. **A non-organiser last submitter** can't complete a competition round (RLS). Now reported as `false` rather than a swallowed throw.
+    - **Participant-scoped `record_sub_match_result` RPC for split singles.** Non-organisers can't write `sub_matches`, so a split singles competition round completes only when the organiser / round owner submits (or force-submits). A `SECURITY DEFINER` RPC that lets a sub-match's own players record its result would close the gap.
+    - **`pending_syncs` legacy items are unowned.** The sync queue is owner-scoped from 1.15.0; items queued by an older build carry no owner, so after an upgrade they can still drain under whoever signs in next (RLS retains or drops them). Consider dropping or quarantining unowned items on the first sign-in after upgrade.
 
 **Stats and achievements**
 35. **The Rounds-list `handicap` filter includes competition rounds** while the My Stats Handicap tile counts standalone rounds only (`useRoundFilters.ts:59-62` vs `queries.ts:331`).
@@ -46839,9 +47483,11 @@ Dropped from v1's list because v2 resolves or removes them: the converted-round 
 - `src/hooks/skins/mutations.ts:483` (`useFinalizeSkinsGame.onSuccess`): skins achievements for games settled by the queued round item never fire. B11 records it in Appendix B.
 - `src/services/rounds/refinalizeRoundResults.ts`: it logs and swallows its own errors, so a failed competition-results write is never retried by the queue (only `statusError` and `skinsError` are). Returning a `resultsError` would need its other caller, `applyPresetToRound`, checked too.
 - `src/screens/scoring/MatchPlayScoringScreen/index.tsx` (`handleConfirmSubmit`): offline, or when the write fails, the split-singles sub-match result is not recorded (only logged), so the round stays `in-progress` until someone records it online. Consider a queued `'sub_match_result'` round action, or a visible prompt. TeamMatchPlayScoringScreen has the same gap (it alerts and stays on the screen).
-- `src/services/offline/sync/networkState.ts` (`setSyncAuthUser`): the queue isn't scoped to a user. When a different user signs in on the same device, the previous user's queued items drain under the new session (RLS retains or drops them). Consider clearing or tagging the queue per user.
+- `src/services/offline/sync/syncOrchestrator.ts` (`queueScorecardSync`, existing queue shape, not changed by A6): `scorecard` rows carry no owner, so after a different user signs in on the same phone the previous user's queued cards still upload under the new session (RLS retains them as failed, or refuses them). A6b-1 scopes only `round` items (`data.userId`). Consider stamping `userId` on scorecard rows too and skipping other users' rows in `syncAll`.
+- `round` items owned by another user (A6b-1) wait for that user indefinitely. If they never sign in again on this phone, the rows stay pending for ever (harmless, but they count in `pendingCount`). Consider listing them on the Developer screen with a discard action.
+- Split singles / team match play (A6d-1, existing RLS): only the organiser / round owner can write `sub_matches` (`sub_matches_update_organizer`) or a competition round's status, so other players' submits never record their sub-match. Add a participant-scoped `SECURITY DEFINER` RPC, `record_sub_match_result(p_sub_match_id, p_result, p_final_differential)`, that lets a player in that sub-match set it to `completed` (never over a `manual_result`) and then completes the round when every sub-match is terminal; switch `useUpdateSubMatchResult` to it.
 - `src/services/offline/sync/syncOrchestrator.ts` (`syncAll`): the signed-in check runs once at the start. A sign-out during a running drain lets it carry on without a session. Consider re-checking `getSyncAuthUserId()` between items.
-- `src/hooks/rounds/useFinalizeSubmittedRound.ts`: a drain that has already passed `processRoundFinalize`'s in-flight check (it is awaiting the card checks) when the online path starts can still run the steps concurrently with it. They are idempotent, but concurrent skins settlement is only as safe as `finalizeSkinsGame`'s own `active` check.
+- `src/services/errors/transient.ts` (A6a-3): `isTransientError` treats anything it doesn't recognise as permanent (dropped, not retained). If Sentry shows skins settlements dropped with a message that is really transient, add it to `TRANSIENT_MESSAGE` / `TRANSIENT_DB_CODES`.
 
 ### Migration, types, pure utils (B1a, B1b, B2)
 
@@ -46865,7 +47511,7 @@ Dropped from v1's list because v2 resolves or removes them: the converted-round 
 
 ### Net over holes played + end-early client (B4, B6b)
 
-- `src/utils/scorecardCalculations.ts` (`calculatePlayerStats`, pre-existing): its per-hole gross loop reads single-ball scores only, while `calculateNetOverHolesPlayed` now reads a multi-ball hole's first ball (to match the store and the synced `total_gross`). A local multi-ball card shown through `calculatePlayerStats` with `holesPlayed` would show gross 0 beside a non-zero net. Server cards are unaffected (sync uploads single-ball scores only), and R20 already drops the stats preview for multi-ball rounds. Align `calculatePlayerStats`' gross with the store's first-ball rule in a scoring-guarded follow-up.
+- `src/utils/scorecardCalculations.ts` (`calculatePlayerStats`, pre-existing): its per-hole gross loop reads single-ball scores only, while the store's `calculatePlayerTotals` (and so the synced `total_gross`, and `calculateNetOverHolesPlayed`) reads a multi-ball hole's first ball. B4-1 keeps `calculatePlayerStats`' ended-early net on its own single-ball loop, so a local multi-ball card shows gross 0 and net 0 there (never a non-zero net beside a zero gross). Server cards are unaffected (sync uploads single-ball scores only), and R20 already drops the stats preview for multi-ball rounds. Aligning `calculatePlayerStats`' gross and net with the store's first-ball rule is a scoring-guarded follow-up.
 - `src/services/offline/sync/syncOrchestrator.ts` (B6b-2): a queued `end_early` that keeps failing with `'network'` (e.g. `PGRST202` because the migration isn't deployed, or a persistent 5xx) stays pending forever by design, and the round's finalize waits behind it. The rollout order (migration before the store build, R20) prevents `PGRST202`. Add to the B11 QA list: "offline end, airplane mode through 3 drains, back online → end then finalize apply".
 - `src/services/rounds/applyEndRoundEarly.ts`: the conflict read-back (`fetchRoundHolesPlayed`) has no client timeout of its own. It only runs after the server has answered the RPC, so a hang there is unlikely.
 - `src/services/offline/sync/scorecardSync.ts:473-498` (`calculateTotalPoints`) and `:510-533` (`calculateTotalParScore`) score a pickup from its raw `PICKUP_SCORE`, not `getEffectiveGrossStrokes`. Both give the same 0 points / −1 as net double bogey today, so this is not a bug, but it isn't shared with I3.
