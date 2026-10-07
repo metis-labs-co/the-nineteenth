@@ -42,9 +42,9 @@ export async function saveHoleScore(
     const ballScoresJson = JSON.stringify(score.balls);
     await database.runAsync(
       `INSERT OR REPLACE INTO ${TABLE_NAMES.HOLE_SCORES}
-       (scorecard_id, hole_number, strokes, putts, fairway_hit, green_in_regulation, penalties, ball_scores, scored_by, shot_contributions, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [scorecardId, holeNumber, 0, null, 0, 0, 0, ballScoresJson, null, null, now]
+       (scorecard_id, hole_number, strokes, putts, fairway_hit, green_in_regulation, penalties, ball_scores, scored_by, shot_contributions, edited_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [scorecardId, holeNumber, 0, null, 0, 0, 0, ballScoresJson, null, null, null, now]
     );
   } else {
     // Single-ball score: store normally with attribution and shot contributions
@@ -54,8 +54,8 @@ export async function saveHoleScore(
 
     await database.runAsync(
       `INSERT OR REPLACE INTO ${TABLE_NAMES.HOLE_SCORES}
-       (scorecard_id, hole_number, strokes, putts, fairway_hit, green_in_regulation, penalties, ball_scores, scored_by, shot_contributions, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (scorecard_id, hole_number, strokes, putts, fairway_hit, green_in_regulation, penalties, ball_scores, scored_by, shot_contributions, edited_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         scorecardId,
         holeNumber,
@@ -67,6 +67,7 @@ export async function saveHoleScore(
         null,
         score.scoredBy ?? null,
         shotContributionsJson,
+        score.editedAt ?? null,
         now,
       ]
     );
@@ -82,9 +83,9 @@ export async function getHoleScores(
   const database = await getDb();
 
   const rows = await database.getAllAsync<Pick<HoleScoreRow,
-    'hole_number' | 'strokes' | 'putts' | 'fairway_hit' | 'green_in_regulation' | 'penalties' | 'ball_scores' | 'scored_by' | 'shot_contributions'
+    'hole_number' | 'strokes' | 'putts' | 'fairway_hit' | 'green_in_regulation' | 'penalties' | 'ball_scores' | 'scored_by' | 'shot_contributions' | 'edited_at'
   >>(
-    `SELECT hole_number, strokes, putts, fairway_hit, green_in_regulation, penalties, ball_scores, scored_by, shot_contributions
+    `SELECT hole_number, strokes, putts, fairway_hit, green_in_regulation, penalties, ball_scores, scored_by, shot_contributions, edited_at
      FROM ${TABLE_NAMES.HOLE_SCORES} WHERE scorecard_id = ?`,
     [scorecardId]
   );
@@ -128,6 +129,7 @@ export async function getHoleScores(
         penalties: row.penalties,
         scoredBy: row.scored_by ?? undefined,
         shotContributions,
+        editedAt: row.edited_at ?? undefined,
       };
     }
   }

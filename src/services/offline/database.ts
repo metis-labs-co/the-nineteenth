@@ -47,6 +47,7 @@ export {
   getPendingSyncCount,
   getFailedSyncCount,
   getFailedSyncCountForRound,
+  resetFailedSyncsForRound,
   getFailedSyncs,
   discardPendingSync,
   updatePendingSyncData,

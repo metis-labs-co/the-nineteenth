@@ -11,6 +11,7 @@
  * - Returns match-specific data (player1, player2, holes, course info)
  */
 
+import { deriveScoringMode } from '@/utils/scoringMode';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { supabase } from '@/services/supabase/client';
@@ -20,6 +21,7 @@ import { getDisplayName } from '@/utils/displayHelpers';
 import { filterHolesByNineType } from '@/utils/holeTransformers';
 import { useRoundDetails, useRoundPlayers } from '@/hooks/useRoundDetails';
 import { useRoundCourse } from './useRoundCourse';
+import { pullOnOpenIfSocial } from './pullOnOpenIfSocial';
 import type { Player, Scorecard, Hole, TeeBox } from '@/types';
 import type { HandicapSource } from '@/types/database';
 import type { NineType } from '@/types/database/enums';
@@ -295,7 +297,9 @@ export function useMatchPlayData({
       roundData?.selected_tee ?? null,
       (roundData?.handicap_source as HandicapSource | undefined) ?? 'profile',
       new Map(),
-      roundNineType
+      roundNineType,
+      1,
+      deriveScoringMode(roundData)
     );
   }, [
     roundId,
@@ -340,6 +344,8 @@ export function useMatchPlayData({
       hydratedRoundRef.current = roundId;
 
       try {
+        if (await pullOnOpenIfSocial()) return;
+
         interface RemoteScorecard {
           player_id: string;
           scores: Record<string, { strokes?: number }> | null;

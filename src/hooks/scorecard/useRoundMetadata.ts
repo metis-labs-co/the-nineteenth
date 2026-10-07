@@ -22,6 +22,7 @@ import { scheduleFetchTimeout } from './fetchTimeout';
 
 export interface RoundMetadata {
   id: string;
+  competitionId: string | null;
   gameType: GameType;
   isTeamRound: boolean;
   teamFormat: TeamFormat | null;
@@ -188,6 +189,7 @@ export function useRoundMetadata(roundId: string | undefined): UseRoundMetadataR
 
       const metadata: RoundMetadata = {
         id: roundData.id,
+        competitionId: roundData.competition_id ?? null,
         gameType: (roundData.game_type || 'stableford') as GameType,
         isTeamRound: roundData.is_team_round ?? false,
         teamFormat: roundData.team_format,

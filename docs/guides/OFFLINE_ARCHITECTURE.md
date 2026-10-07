@@ -657,6 +657,56 @@ export default function App() {
 
 ---
 
+## Scorecard revisions and social-round merging
+
+### The write path: `write_scorecard_snapshot`
+
+Scorecard uploads go through the `write_scorecard_snapshot(p_round_id, p_player_id, p_expected_revision, p_snapshot)` RPC (migration `20260714000000_scorecard_optimistic_concurrency.sql`). `scorecards.revision` is server-owned and increments on every applied write. The local `pending_syncs.revision` only orders work on one device; the server revision protects against stale writes from other devices.
+
+The RPC returns `applied`, `conflict`, `server_revision`, `server_status`, `server_scores`.
+
+- **Create:** no row exists and `p_expected_revision` is NULL or 0 -> inserted at revision 1. A non-zero expected revision on a missing row is a conflict. A concurrent insert (unique violation) returns a conflict with the existing row.
+- **Update:** applied only if `p_expected_revision` equals the stored revision; revision becomes `revision + 1`.
+- **Conflict (nothing written, server row returned):** expected revision NULL or stale; the stored status is `confirmed`; or the stored status is `completed` and the snapshot is `not-started` / `in-progress` (a completed card never reverts).
+
+### Conflicts in standard rounds
+
+For competition, handicap and scoring-pair rounds a conflict is not merged. The upload is retained as a failed row (never silently dropped). It is recovered at submit, by the Retry action on the failed-sync banner, or from Developer -> Retained Uploads.
+
+### Superseded uploads
+
+If a newer local edit lands while an upload is in flight, the confirmed server revision is still recorded so the next upload is based on it (commit 9609f1ee). Otherwise the next upload would carry a stale expected revision and conflict with the device's own earlier write.
+
+### Social rounds: per-hole last-edit-wins
+
+A round is in `social` scoring mode (`deriveScoringMode`, `src/utils/scoringMode.ts`; exposed as `scoringMode` on the scorecard store) iff `competition_id` is null, `handicap_source` is `'none'` and `scoring_pairs_required` is false. Only social rounds merge; everything else keeps the retained-failure behaviour above.
+
+**Per-hole stamp.** `applyScoreUpdate` (`src/store/scoreUpdateSlice.ts`) stamps `HoleScore.editedAt`. It is stored locally in the `edited_at` column (migration 19) and uploaded with `scoredBy`, `pickedUp` and `didNotAttempt` via `scoresForDb`.
+
+**Merge rule** (`mergeScorecardScores`, `src/services/offline/sync/mergeScorecardScores.ts`), per hole:
+- Two copies of a hole are the *same edit* when their `editedAt` match (or, if both are unstamped, their strokes match); the result is that edit.
+- Otherwise the later `editedAt` wins. A missing `editedAt` counts as oldest.
+- A tie goes to the server copy.
+- Holes present on only one side are kept.
+
+**Revision adoption** (`applyRemoteScorecard`, `src/store/remoteScorecardMerge.ts`): an older server row never lowers the local base revision. A final (`completed` / `confirmed`) server row is adopted wholesale, unless the local card is already final at that revision or higher.
+
+**Mark synced after merge (no loops).** `applyRemoteToStore` (`scorecardStore`) saves a merged card that is already identical to the server in a single write, `saveScorecard(card, { syncedAtRevision })`, when nothing local is ahead of the server. Only a card that still differs from the server is queued for upload. Without this, every merge would enqueue an upload, which bumps the revision, which triggers a realtime event and another merge.
+
+**Merge points:**
+1. **Sync conflict resolver** (`setScorecardConflictResolver` in `syncOrchestrator.ts`): on a conflict the resolver merges the server row and retries *in memory only* — the queue row is never written, because a tap during the merge may already have coalesced a newer edit into it (if one did, `removePendingSync`'s revision check leaves it pending). If the server row is final, the queued row is discarded (or the fallback card marked synced). The resolver only acts for the social round currently loaded in the store; otherwise it declines and the conflict is retained as in standard rounds. (The revision-guarded `updatePendingSyncData(id, data, expectedRevision)` belongs to `refreshQueuedRevision`, the adopt-server-revision path used when a conflict is retained or by an explicit Retry — not to the resolver.)
+2. **Realtime:** `useLiveScorecardMerge` (per-mount channel) feeds `mergeRemoteScorecard`. Payloads without a `scores` column are skipped, and a final row with null `scores` keeps the local holes.
+3. **Pull on open:** `pullOnOpenIfSocial` in `useRoundData`, `useMatchPlayData` and `TeamMatchPlayScoringScreen` (`pullServerScorecards`). After a successful pull it re-queues **only this round's** retained scorecard failures (`resetFailedSyncsForRound`, same `scorecard:<roundId>:%` match as the round's failed count) and runs a normal drain (`manualSync`), so a conflict retained on a cold start — before the round was loaded and the resolver could run — is merged instead of staying failed.
+4. **Pull before submit.** Both submit pulls pass `{ queueUpload: false }`: submit uploads every in-scope card itself, so no debounced upload is scheduled that could fire mid-submit.
+
+**Retry outside a loaded round.** The banner's Retry (`retryFailedSyncs`) is device-wide and runs in adopt-server-revision mode. For a social round that is *not* loaded in the store the resolver declines, so Retry applies **local-wins** to that round's retained rows (the local snapshot is re-sent against the server's current revision) rather than a per-hole merge. Opening the round first merges them per hole instead.
+
+**Completed cards are final.** Once any scorer submits, the cards are `completed` and the server rejects reversion. When a remote row turns this phone's last open group card final, the store records `submittedElsewhereRoundId` (cleared by `initializeRound`, `loadFromOffline` and `resetRound`, so it never carries into another round). `useSubmittedElsewhereRedirect` on the focused scoring screen of that round alerts once ("This round was submitted on another phone"), clears the flag, and resets navigation to the round summary. The scoring screens are not made read-only; leaving them is what stops further edits, and any local edit the server's final card does not hold is not uploaded (the server rejects reverting a completed card). `submitScorecards` returns `{ alreadySubmitted }` so a second submitter exits cleanly, and a `submitting` guard stops merges applying mid-submit. Social rounds skip `checkMultiScorerReadiness`; there is no scorer-consensus step.
+
+**Accepted risk:** "last edit" is judged by each phone's clock, so skewed clocks can resolve a near-simultaneous same-hole edit the "wrong" way.
+
+---
+
 ## Conflict Resolution
 
 **Strategy for MVP: Last-write-wins**

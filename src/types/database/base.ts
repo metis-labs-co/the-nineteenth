@@ -86,6 +86,12 @@ export interface HoleScore {
   greenInRegulation?: boolean; // Phase 2 (GIR)
   penalties?: number; // Phase 2
   scoredBy?: string; // UUID of the player who entered this score (for mismatch detection)
+  /**
+   * When this hole was last edited on the device that edited it (ISO 8601).
+   * Social rounds merge per hole on it: the later edit wins. Absent on holes
+   * written before 1.14.1, which then count as the oldest edit.
+   */
+  editedAt?: string;
   /** Shot contributions for scramble format (who contributed each shot type) */
   shotContributions?: HoleShotContributions;
   /** Direction fairway was missed — only set when fairwayHit is false (par 4+ holes) */

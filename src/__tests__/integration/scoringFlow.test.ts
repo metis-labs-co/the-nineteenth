@@ -84,6 +84,7 @@ jest.mock('@/services/offline/sync', () => ({
     };
   }),
   subscribeScorecardSynced: jest.fn(() => jest.fn()),
+  setScorecardConflictResolver: jest.fn(),
   getIsOnline: jest.fn(() => mockIsOnline),
   ScorecardConflictError: class ScorecardConflictError extends Error {
     readonly serverRevision: number;

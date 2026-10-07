@@ -26,7 +26,7 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { useIsSuperAdmin } from '@/store/subscriptionStore';
-import { useMatchPlayData, useMatchPlayScoring, useOfflineSync } from '@/hooks/scorecard';
+import { useMatchPlayData, useMatchPlayScoring, useOfflineSync, useLiveScorecardMerge, useSubmittedElsewhereRedirect } from '@/hooks/scorecard';
 import { useProcessSkinsIfNeeded, useOnlineStatus, useAuth } from '@/hooks';
 import { useRoundDetails, useSubMatches } from '@/hooks/rounds';
 import { useDeleteRound } from '@/hooks/rounds/mutations';
@@ -48,6 +48,8 @@ type Props = RootStackScreenProps<'MatchPlayScoring'>;
 
 export default function MatchPlayScoringScreen({ navigation, route }: Props) {
   const { roundId, player1Id, player2Id, team1Id, team2Id, initialHole, competitionId } = route.params;
+  useLiveScorecardMerge(roundId);
+  useSubmittedElsewhereRedirect(roundId, competitionId ?? null);
   const colors = useThemeColors();
 
   // Confirmation dialog hook

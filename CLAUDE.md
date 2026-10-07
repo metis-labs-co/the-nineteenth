@@ -443,7 +443,7 @@ matchMargin,subMatches,teamHandicap,leaderboardHandicaps}.ts`), or
 4. **Cards are presentational** — do NOT re-implement scoring math inside a card.
    Numbers come from a util/selector.
 5. After the change, run the scoring subset:
-   `pnpm test --testPathPattern='(golden|services/scoring|utils/(scoring|dailyHandicap|subMatches)|components/scorecard)'`.
+   `pnpm test --testPathPattern='(golden|services/scoring|utils/(scoring|dailyHandicap|subMatches)|components/scorecard|store/scorecardStore|services/offline|services/scoreMismatch)'`.
 
 ---
 

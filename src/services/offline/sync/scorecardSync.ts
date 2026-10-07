@@ -147,6 +147,10 @@ export async function syncScorecard(scorecard: Scorecard): Promise<ScorecardSync
       greenMissDirection?: string;
       bunkerShots?: number;
       hazards?: { type: string }[];
+      editedAt?: string;
+      scoredBy?: string;
+      pickedUp?: boolean;
+      didNotAttempt?: boolean;
     }
   > = {};
   let holesWithScores = 0;
@@ -158,6 +162,10 @@ export async function syncScorecard(scorecard: Scorecard): Promise<ScorecardSync
         fairwayHit: score.fairwayHit,
         greenInRegulation: score.greenInRegulation,
         penalties: score.penalties || 0,
+        ...(score.editedAt && { editedAt: score.editedAt }),
+        ...(score.scoredBy && { scoredBy: score.scoredBy }),
+        ...(score.pickedUp && { pickedUp: true }),
+        ...(score.didNotAttempt && { didNotAttempt: true }),
         // Include shot contributions if present (scramble/shamble formats)
         ...(score.shotContributions && { shotContributions: score.shotContributions }),
         // Include detailed stats if present

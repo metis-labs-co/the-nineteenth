@@ -22,6 +22,7 @@ import {
   subscribeScorecardSynced,
   discardFailedSync,
   listFailedSyncs,
+  setScorecardConflictResolver,
 } from '@/services/offline/sync';
 import * as database from '@/services/offline/database';
 import { supabase } from '@/services/supabase/client';
@@ -561,6 +562,124 @@ describe('Sync Operations', () => {
         expect(database.recordScorecardServerRevision).toHaveBeenCalledWith(scorecard.id, 1);
         expect(database.markScorecardAsSynced).not.toHaveBeenCalled();
       });
+    });
+
+    describe('conflict resolver', () => {
+      afterEach(() => setScorecardConflictResolver(null));
+
+      const conflictRpc = (status = 'in-progress') => ({
+        data: [{ applied: false, conflict: true, server_revision: 6, server_status: status, server_scores: { '1': { strokes: 5 } } }],
+        error: null,
+      });
+
+      it('retries a resolved conflict once with the merged snapshot and keeps no failure', async () => {
+        const scorecard = createTestScorecard({ status: 'in-progress' });
+        (database.getPendingSyncs as jest.Mock).mockResolvedValue([createPendingSync({ id: 4, data: scorecard })]);
+        (supabase.rpc as jest.Mock).mockResolvedValueOnce(conflictRpc()).mockResolvedValue(successRpc(7));
+        setScorecardConflictResolver(jest.fn().mockResolvedValue({ kind: 'retry', scorecard: { ...scorecard, serverRevision: 6 } }));
+
+        await syncAll();
+
+        const writes = (supabase.rpc as jest.Mock).mock.calls.filter(([fn]) => fn === 'write_scorecard_snapshot');
+        expect(writes).toHaveLength(2);
+        expect(writes[1][1].p_expected_revision).toBe(6);
+        expect(database.markPendingSyncFailed).not.toHaveBeenCalled();
+        expect(database.removePendingSync).toHaveBeenCalledWith(4, 1);
+        // the merged snapshot is never written back over the queue row
+        expect(database.updatePendingSyncData).not.toHaveBeenCalled();
+      });
+
+      it('parks a second conflict only on the unsuperseded row revision', async () => {
+        const scorecard = createTestScorecard({ status: 'in-progress', serverRevision: 2 });
+        (database.getPendingSyncs as jest.Mock).mockResolvedValue([createPendingSync({ id: 9, revision: 3, data: scorecard })]);
+        (supabase.rpc as jest.Mock)
+          .mockResolvedValueOnce(conflictRpc())
+          .mockResolvedValueOnce({ ...conflictRpc(), data: [{ ...conflictRpc().data[0], server_revision: 8 }] });
+        setScorecardConflictResolver(jest.fn().mockResolvedValue({ kind: 'retry', scorecard: { ...scorecard, serverRevision: 6 } }));
+
+        await syncAll();
+
+        // A tap coalesced into the row during the merge bumps its revision; the
+        // revision guard makes the park a no-op so that newer edit is kept.
+        expect(database.updatePendingSyncData).toHaveBeenCalledWith(9, expect.objectContaining({ serverRevision: 8 }), 3);
+        expect(database.markPendingSyncFailed).toHaveBeenCalledWith(9, 3, expect.any(String));
+      });
+
+      it('drops the queued write when the server card is final', async () => {
+        (database.getPendingSyncs as jest.Mock).mockResolvedValue([createPendingSync({ id: 5 })]);
+        (supabase.rpc as jest.Mock).mockResolvedValue(conflictRpc('completed'));
+        setScorecardConflictResolver(jest.fn().mockResolvedValue({ kind: 'final' }));
+
+        await syncAll();
+
+        expect(database.discardPendingSync).toHaveBeenCalledWith(5);
+        expect(database.markPendingSyncFailed).not.toHaveBeenCalled();
+      });
+
+      it("keeps today's behaviour when the resolver declines", async () => {
+        (database.getPendingSyncs as jest.Mock).mockResolvedValue([createPendingSync({ id: 6 })]);
+        (supabase.rpc as jest.Mock).mockResolvedValue(conflictRpc());
+        setScorecardConflictResolver(jest.fn().mockResolvedValue(null));
+
+        await syncAll();
+
+        expect(database.markPendingSyncFailed).toHaveBeenCalledWith(6, 1, expect.any(String));
+      });
+
+      it('resolves fallback-path conflicts and records the retried write as synced', async () => {
+        const scorecard = createTestScorecard();
+        (database.getUnsyncedScorecards as jest.Mock).mockResolvedValue([scorecard]);
+        (supabase.rpc as jest.Mock).mockResolvedValueOnce(conflictRpc()).mockResolvedValue(successRpc(7));
+        setScorecardConflictResolver(jest.fn().mockResolvedValue({ kind: 'retry', scorecard: { ...scorecard, serverRevision: 6 } }));
+
+        await syncAll();
+
+        expect(database.markScorecardAsSynced).toHaveBeenCalledWith(scorecard.id, 7);
+      });
+
+      it('marks a fallback card synced when the server copy is final', async () => {
+        const scorecard = createTestScorecard();
+        (database.getUnsyncedScorecards as jest.Mock).mockResolvedValue([scorecard]);
+        (supabase.rpc as jest.Mock).mockResolvedValue(conflictRpc('completed'));
+        setScorecardConflictResolver(jest.fn().mockResolvedValue({ kind: 'final' }));
+
+        await syncAll();
+
+        expect(database.markScorecardAsSynced).toHaveBeenCalledWith(scorecard.id, 6);
+      });
+    });
+
+    describe('characterization: conflicts without a resolver', () => {
+      it('retains a conflicted queued write as failed', async () => {
+        (database.getPendingSyncs as jest.Mock).mockResolvedValue([createPendingSync({ id: 3 })]);
+        (supabase.rpc as jest.Mock).mockResolvedValue({
+          data: [{ applied: false, conflict: true, server_revision: 6, server_status: 'in-progress', server_scores: {} }],
+          error: null,
+        });
+
+        await syncAll();
+
+        expect(database.markPendingSyncFailed).toHaveBeenCalledWith(3, 1, expect.stringContaining('another device'));
+        expect(database.removePendingSync).not.toHaveBeenCalled();
+      });
+    });
+
+    it('uploads editedAt, scoredBy and pickup flags', async () => {
+      const scorecard = createTestScorecard({
+        status: 'in-progress',
+        scores: {
+          1: { strokes: 4, scoredBy: 'u1', pickedUp: true, editedAt: '2026-10-07T00:00:00.000Z' },
+          2: { strokes: 0, didNotAttempt: true },
+        },
+      });
+      (database.getPendingSyncs as jest.Mock).mockResolvedValue([createPendingSync({ data: scorecard })]);
+      (supabase.rpc as jest.Mock).mockResolvedValue(successRpc(1));
+
+      await syncAll();
+
+      const write = (supabase.rpc as jest.Mock).mock.calls.find(([fn]) => fn === 'write_scorecard_snapshot');
+      expect(write[1].p_snapshot.scores['1']).toMatchObject({ scoredBy: 'u1', pickedUp: true, editedAt: '2026-10-07T00:00:00.000Z' });
+      expect(write[1].p_snapshot.scores['2']).toMatchObject({ strokes: 0, didNotAttempt: true });
     });
   });
 
@@ -1181,7 +1300,8 @@ describe('Retained failure recovery', () => {
 
     expect(database.updatePendingSyncData).toHaveBeenCalledWith(
       55,
-      expect.objectContaining({ serverRevision: 9 })
+      expect.objectContaining({ serverRevision: 9 }),
+      1
     );
     expect(database.markPendingSyncFailed).toHaveBeenCalledWith(55, 1, expect.any(String));
   });
@@ -1240,7 +1360,8 @@ describe('Retained failure recovery', () => {
     expect(database.markPendingSyncFailed).toHaveBeenCalledWith(58, 1, expect.any(String));
     expect(database.updatePendingSyncData).toHaveBeenLastCalledWith(
       58,
-      expect.objectContaining({ serverRevision: 11 })
+      expect.objectContaining({ serverRevision: 11 }),
+      1
     );
   });
 

@@ -53,6 +53,7 @@ export const CREATE_HOLE_SCORES_TABLE = `
     ball_scores TEXT,
     scored_by TEXT,
     shot_contributions TEXT,
+    edited_at TEXT,
     updated_at TEXT NOT NULL,
     FOREIGN KEY (scorecard_id) REFERENCES ${TABLE_NAMES.SCORECARDS}(id),
     UNIQUE(scorecard_id, hole_number)

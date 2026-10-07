@@ -12,6 +12,7 @@
 import { Scorecard, HoleScore, Hole, GameType, HoleShotContributions, TeeBox } from '@/types';
 import type { HandicapSource } from '@/types/database';
 import type { NineType } from '@/types/database/enums';
+import type { ScoringMode } from '@/utils/scoringMode';
 import { isSingleBallScore } from '@/types/database/base';
 import { storeLogger } from '@/utils/debugLogger';
 import { persistScorecardUpdate } from './scorecardPersistence';
@@ -28,6 +29,7 @@ interface StoreState {
   playerTeeMap: Map<string, TeeBox>;
   handicapSource: HandicapSource;
   nineType: NineType;
+  scoringMode: ScoringMode;
 }
 
 type GetFn = () => StoreState;
@@ -45,11 +47,12 @@ function applyScoreUpdate(
   set: SetFn,
   state: Pick<StoreState, 'selectedTeeData' | 'playerTeeMap' | 'handicapSource' | 'nineType'>,
 ): Scorecard {
+  const stampedHoleScore: HoleScore = { ...holeScore, editedAt: new Date().toISOString() };
   const updatedScorecard: Scorecard = {
     ...scorecard,
     scores: {
       ...scorecard.scores,
-      [hole]: holeScore,
+      [hole]: stampedHoleScore,
     },
     updatedAt: new Date(),
   };
@@ -155,7 +158,7 @@ export async function setPlayerScore(
   // now the single writer, batching all of this player's entries into one
   // upsert ~2s after the last tap.
   await persistScorecardUpdate({
-    holeScore: { scorecardId: scorecard.id, holeNumber: hole, score: holeScore },
+    holeScore: { scorecardId: scorecard.id, holeNumber: hole, score: updatedScorecard.scores[hole] as HoleScore },
     scorecard: { scorecardId: scorecard.id, scorecard: updatedScorecard },
     context: 'setPlayerScore',
   });
@@ -203,10 +206,14 @@ export async function updatePlayerHoleScore(
   });
 
   await persistScorecardUpdate({
-    holeScore: { scorecardId: scorecard.id, holeNumber: hole, score: holeScore },
+    holeScore: { scorecardId: scorecard.id, holeNumber: hole, score: updatedScorecard.scores[hole] as HoleScore },
     scorecard: { scorecardId: scorecard.id, scorecard: updatedScorecard },
     context: 'updatePlayerHoleScore',
   });
+
+  if (get().scoringMode === 'social' && get().currentRoundId && !scorecard.isStandalone) {
+    debouncedQueueScorecardSync(scorecard.id, () => get().groupScorecards.get(playerId));
+  }
 }
 
 export async function updateShotContributions(
@@ -248,10 +255,14 @@ export async function updateShotContributions(
   });
 
   const saved = await persistScorecardUpdate({
-    holeScore: { scorecardId: scorecard.id, holeNumber: hole, score: holeScore },
+    holeScore: { scorecardId: scorecard.id, holeNumber: hole, score: updatedScorecard.scores[hole] as HoleScore },
     scorecard: { scorecardId: scorecard.id, scorecard: updatedScorecard },
     context: 'updateShotContributions',
   });
+
+  if (get().scoringMode === 'social' && get().currentRoundId && !scorecard.isStandalone) {
+    debouncedQueueScorecardSync(scorecard.id, () => get().groupScorecards.get(playerId));
+  }
 
   if (saved) {
     storeLogger.debug('Shot contributions saved', {
@@ -304,7 +315,7 @@ export async function updateLocalScore(
   });
 
   const saved = await persistScorecardUpdate({
-    holeScore: { scorecardId: scorecard.id, holeNumber, score: holeScore },
+    holeScore: { scorecardId: scorecard.id, holeNumber, score: updatedScorecard.scores[holeNumber] as HoleScore },
     scorecard: { scorecardId: scorecard.id, scorecard: updatedScorecard },
     context: 'updateLocalScore',
   });
