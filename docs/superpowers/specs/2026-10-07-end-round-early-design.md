@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-07
 **Branch:** `worktree-end-round-early`
-**Status:** Approved design — ready for implementation plan
+**Status:** Approved design. Revision 3 (end of file) supersedes earlier sections where they conflict.
 
 ## Problem
 
@@ -482,3 +482,109 @@ Wiring wolf finalisation is a separate follow-up.
   `20260616000000_activity_feed_course_id.sql`.
 - **Test subset:** the CLAUDE.md scoring subset misses most of the affected tests. The
   plan defines an extended pattern.
+
+## Revision 3 — after the plan review (2026-10-07)
+
+Twelve reviewers checked the first plan against the code. They found blockers and gaps that need design changes, and Sam made four scope decisions (★). **Where this section conflicts with anything above, this section wins.**
+
+### R12. ★ Scope decisions
+
+- **No Resume.** Once the scorer confirms, the end is final. *Supersedes* the Resume banner (§1, R6), Resume in R1/R2, and the Resume QA and tests. Removed scores and holes are never restored.
+- **No exactly-9-of-18 conversion (deferred).** An 18-hole round ended after 9 holes is an ordinary early end: `holes_played = 9`, no handicap. *Supersedes* Goal 3's exception, the "Exactly 9 of 18" decision, §1 "Exactly 9 of 18", R1's conversion and R9's `{18, 9}` settlement. The RPC loses its `p_convert_to_front9` parameter. The conversion may come back as a follow-up once this feature ships.
+- **Ending early has no handicap impact at all.** A round with `holes_played` set never yields a differential, is never combinable and never enters the index.
+- **The nine-aware live daily handicap fix is split out.** The plan's A2b–A2d (match-play playing handicap, store totals, `calculatePlayerStats`, leaderboards and views) moves to its own branch. Without the conversion, this feature doesn't depend on it. A4b's nine-aware Quick Score daily handicap goes with it; A4b keeps only the handicap gate.
+- **Release:** a new store version, then force-update by raising the minimum version once it is live (R16).
+- **Multi-scorer coordination is deferred.** The `feature/social-round-multi-scorer` work continues in parallel. Its per-hole merge must not bring back holes after `rounds.holes_played`. Whichever lands second carries that one rule and the merge conflicts (store write actions, init, sync, SQLite migration numbers).
+
+### R13. Server-side handicap guard
+
+Old app versions (1.14.x and earlier) recalculate any completed card whose differential is null when Home opens (`handicapHistory.ts` `findScorecardsNeedingRecalculation`), and they then rewrite `players.handicap_index`. A co-player still on an old build would get a 6-hole card with a differential of about −42 in their index. A client-side gate can't stop old clients, so the migration adds:
+
+- a `BEFORE INSERT OR UPDATE` trigger on `scorecards` that forces `handicap_differential := NULL` when the card's round has `holes_played IS NOT NULL`;
+- `end_round_early` nulling `handicap_differential` on that round's cards;
+- a `BEFORE INSERT` trigger on `handicap_combined_rounds` that rejects a pair when either card's round has `holes_played` set.
+
+The client-side gate (R8) stays as the first line of defence and keeps working offline. New clients also exclude these rounds where they compute the index and history (`updatePlayerHandicapIndex`, `fetchHandicapHistory`, recalc candidates, combine and pairs).
+
+### R14. The server learns of the end at confirm time
+
+*Supersedes* "no server write yet" (§1) and R4's "directly on submit".
+
+- **On confirm, online:** call `end_round_early(p_round_id, p_holes_played)` straight away. Then save locally, remove the later scores, and go to the finish screen.
+- **On confirm, offline:** queue a `round` sync item with action `'end_early'`. It runs on the next drain, before any `'finalize'` item for that round.
+- **Submit** then finalises exactly as for any round (R5).
+
+Because the server row carries `holes_played` within moments, other devices and the multi-scorer merge can see it, and there is no "pending end" state to carry until submit.
+
+**RPC hardening:**
+- **Who can call it:** `is_accepted_round_participant` (not `is_round_participant`, which lets pending and declined invitees in).
+- **Status:** a `completed` round is refused, unless it already has the same `holes_played`. In that case the call is a no-op, so retries are idempotent.
+- **Conflicts:** if `holes_played` is already set to a *different* N, the call is refused with `22023`. The client adopts the server's N.
+- **Column constraint:** `CHECK (holes_played IS NULL OR (competition_id IS NULL AND holes_played > 0 AND holes_played < planned holes))`.
+- **What it deletes:** `skins_results`, `wolf_hole_decisions`, `score_entries`, `score_mismatches` and `shot_log` after the last played hole. It also nulls the round's differentials (R13).
+- **Errors:** validation and permission errors (`22023`, `P0002`, `42501`) keep their code. The client does not retry them. It surfaces them to the user, and treats `P0002` (round deleted) as done.
+
+### R15. Local state lives on the SQLite card rows
+
+*Supersedes* R2's AsyncStorage record and `waitForEndRoundEarlyHydration`.
+
+- **Where it's stored:** confirming the end writes `holes_played` (and the player's `tee_data`) onto every local SQLite scorecard row for the round. This uses the sync-metadata columns B4 already adds.
+- **How it's read:** `loadFromOffline` reads the cards anyway. Shape: `resolveRoundShape(serverRound, localCards)` takes the server's `holes_played` when set, otherwise the cards' value.
+- **What this removes:**
+  - the second persisted store, its hydration race and its orphaned records;
+  - the "tee lost on offline relaunch" bug, because the tee is on the card.
+- **Cut from scope:** reopening a round offline after a cold start with no `rounds` row. No round can do that today; it reopens once the app is online.
+
+### R16. Multi-device and who can end
+
+- **Who can end:** the device scores every player in the round, and the round does not use scoring pairs. With pairs, `currentPlayers` is only the paired subset, so "scores everyone" would be true by mistake.
+- **Readiness:** two phones in a group of four or fewer both see every player. So the submit readiness check is **limited to the played holes**, not skipped. Mismatch detection on holes 1–N stays.
+- **Once the RPC lands:** another device sees `holes_played` on its next load or sync. Its closed-holes guard then applies, and its ⋮ action hides.
+- **Two devices end at different N:** the first wins. The second gets `22023` and adopts the server's N.
+
+### R17. After ending: the scoring screens are closed
+
+Without Resume, backing out of the finish screen must not leave a silently half-dead card. While a round is ended (`holesPlayed != null`), the three scoring screens:
+- show an "Ended after N of M" banner with **Finish**, which goes to the finish screen;
+- limit hole navigation to the played holes;
+- route Submit to the finish screen.
+
+The closed-holes guard (writes after N are no-ops) also rejects holes that aren't in the planned list. The Watch gets only the played holes, and its writes after N report failure, not `'applied'`.
+
+### R18. Offline finalisation fixes (Part A)
+
+- **The sync service starts at app root**, after `initDatabase`, and stays up. Today it is only alive while a scoring screen is mounted, so queued items wait for the next scoring session.
+- **When the queue drains:** on app start and on returning to the foreground (when online), and right after anything is queued while online.
+- **`finalizeRoundStatus` throws on read errors.** Today a network blip reads as "not complete", which silently drops the queued item.
+- **Order of checks in a `round` item:** first check "this device still has unsynced cards for the round", before any server call. A round item whose cards are retained as failed is itself marked failed, so Retry revives both in order.
+- **Ordering:** `round` items run after the SQLite fallback uploads.
+- **Online path:** when finalisation returns "not complete" and this device still has unsynced cards, it queues a `'finalize'` item.
+- **One-off check at rollout:** find social rounds left `in-progress` with every card terminal, the offline-submit bug's victims, and finalise them.
+
+### R19. Skins, simplified
+
+- **Pricing:** hole values on the planned holes; buy-in prorated by `holesPlayed / planned` (R9, minus the conversion).
+- **Completed games** are displayed from the stored `skins_payouts`. In-progress games use `calculateInProgressPayouts` with the hole counts. This replaces most of the display threading. It also fixes the 9-hole display drift for already-settled games, where the stored values were priced at 18.
+- **Every settlement path** uses `fetchSkinsHoleCounts`, including the existing `useSkinsGameState` auto-finalise. Because the server has `holes_played` from confirm time, they all agree.
+- **Zero-sum wording:** individual skins are zero-sum to within cent rounding. Team skins are a known pre-existing gap.
+
+### R20. Smaller fixes from the review
+
+- **Partnership-league tagging** excludes rounds with `holes_played` set.
+- **Ended-early rows in stats lists** don't carry the "Handicap" badge and aren't counted as handicap rounds.
+- **Back-9 hole numbers** are correct in the Review shot log and the player scorecard.
+- **The end confirmation preview** returns no stats preview for multi-ball rounds.
+- **The migration** runs with `psql -v ON_ERROR_STOP=1 --single-transaction`.
+- **Rollout order:**
+  1. Deploy the migration after the UGC / age-gate migrations it rebuilds on.
+  2. Ship the store build with a version bump. No over-the-air update: no live binary is on runtime 1.14.1.
+  3. Raise the force-update minimum once the build is live.
+- **Base:** rebase onto current `main` before execution; `main` changed `recomputeScorecardTotals` in 8ca6daec.
+
+### R21. Open question
+
+Partial cards that **already** have a differential (for example, part-filled Quick Score cards) keep counting today. If the index calculation also skips incomplete cards, those players' indexes move. This may be the cause of the unexplained "+60.6" index in prod.
+
+**Sam to decide:**
+- include the belt in the index calculation (indexes move once), or
+- leave existing data alone and only gate new cards.
