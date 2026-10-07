@@ -25,8 +25,27 @@ export async function fetchMyPlayer(): Promise<Player | null> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase.rpc as any)('get_my_player').maybeSingle();
   if (error) {
+    // Server without get_my_player yet (migration 20261008000000 not applied):
+    // the column lock can't be live either, so read the own row directly.
+    if (error.code === 'PGRST202' || error.code === '42883') {
+      return fetchMyPlayerDirect();
+    }
     throw error;
   }
+  return (data as Player | null) ?? null;
+}
+
+async function fetchMyPlayerDirect(): Promise<Player | null> {
+  const { data: auth } = await supabase.auth.getUser();
+  const userId = auth.user?.id;
+  if (!userId) return null;
+  const { data, error } = await supabase
+    .from('players')
+    // Own row only, and only on servers that predate the column lock
+    .select('*')
+    .eq('id', userId)
+    .maybeSingle();
+  if (error) throw error;
   return (data as Player | null) ?? null;
 }
 

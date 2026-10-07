@@ -16,9 +16,15 @@ const mockMaybeSingle = jest.fn();
 const mockRpc = jest.fn((_fn: string) => ({
   maybeSingle: () => mockMaybeSingle(),
 }));
+const mockDirectMaybeSingle = jest.fn();
+const mockFrom = jest.fn((_table: string) => ({
+  select: () => ({ eq: () => ({ maybeSingle: () => mockDirectMaybeSingle() }) }),
+}));
 jest.mock('@/services/supabase/client', () => ({
   supabase: {
     rpc: (fn: string) => mockRpc(fn),
+    from: (table: string) => mockFrom(table),
+    auth: { getUser: () => Promise.resolve({ data: { user: { id: 'u1' } } }) },
   },
 }));
 
@@ -31,6 +37,18 @@ describe('fetchPlayerProfile', () => {
 
     await expect(fetchPlayerProfile('u1')).resolves.toEqual(player);
     expect(mockRpc).toHaveBeenCalledWith('get_my_player');
+  });
+
+  it('falls back to a direct own-row read when get_my_player is not deployed', async () => {
+    mockMaybeSingle.mockResolvedValue({
+      data: null,
+      error: { code: 'PGRST202', message: 'Could not find the function public.get_my_player' },
+    });
+    const player = { id: 'u1', handicap: 10 };
+    mockDirectMaybeSingle.mockResolvedValue({ data: player, error: null });
+
+    await expect(fetchPlayerProfile('u1')).resolves.toEqual(player);
+    expect(mockFrom).toHaveBeenCalledWith('players');
   });
 
   it('returns null if the RPC row belongs to a different user', async () => {
