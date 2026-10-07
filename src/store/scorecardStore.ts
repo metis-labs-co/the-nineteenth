@@ -40,6 +40,9 @@ import * as multiBall from './multiBallSlice';
 import * as scoreUpdate from './scoreUpdateSlice';
 import * as initSlice from './initializeRoundSlice';
 import type { ScoringMode } from '@/utils/scoringMode';
+import { supabase } from '@/services/supabase/client';
+import { applyRemoteScorecard, isFinalStatus, type RemoteScorecardRow } from './remoteScorecardMerge';
+import { debouncedQueueScorecardSync } from './scorecardSyncDebounce';
 
 interface ScorecardState {
   // Current round data
@@ -56,6 +59,8 @@ interface ScorecardState {
    *  displayHoleNumber() in src/utils/holeTransformers.ts. */
   startHole: number;
   scoringMode: ScoringMode;
+  /** A remote row turned the last open group card final (another phone submitted). */
+  submittedElsewhere: boolean;
 
   // Multi-ball scoring (solo rounds only)
   ballCount: BallCount;
@@ -111,6 +116,10 @@ interface ScorecardState {
   getCompletedHolesCount: () => number;
   submitScorecards: (options?: { bypassed?: boolean; playerIds?: string[] }) => Promise<void>;
   resetRound: () => void;
+  /** Social rounds: apply one server scorecard row (realtime) to the local card. */
+  mergeRemoteScorecard: (row: RemoteScorecardRow) => Promise<void>;
+  /** Social rounds: fetch + apply every server card of currentRoundId; returns the rows. */
+  pullServerScorecards: () => Promise<RemoteScorecardRow[]>;
 
   // Multi-ball scoring functions
   setMultiBallConfig: (ballCount: BallCount) => void;
@@ -155,6 +164,71 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
     }
   };
 
+  /** True while this phone runs submitScorecards; remote rows are ignored meanwhile (submit pulls itself). */
+  // eslint-disable-next-line prefer-const -- reassigned by submitScorecards (later task)
+  let submitting = false;
+
+  /** Apply a remote row to the loaded social round. Returns the resulting card, or null if not applicable. */
+  const applyRemoteToStore = async (
+    row: RemoteScorecardRow,
+    opts: { queueUpload?: boolean } = {},
+  ): Promise<Scorecard | null> => {
+    // The resolver and submit paths upload the merged card themselves; queueing
+    // a debounced upload as well would write the same content twice.
+    const queueUpload = opts.queueUpload ?? true;
+    const state = get();
+    if (state.scoringMode !== 'social') return null;
+    const local = state.groupScorecards.get(row.player_id);
+    if (!local) return null;
+
+    const result = applyRemoteScorecard(local, row);
+    if (!result.changed) {
+      if (result.needsUpload && queueUpload && !local.isStandalone) {
+        debouncedQueueScorecardSync(local.id, () => get().groupScorecards.get(row.player_id));
+      }
+      return local;
+    }
+
+    const playerTee = state.playerTeeMap.get(row.player_id) ?? state.selectedTeeData;
+    const totals = calculatePlayerTotals(result.scorecard, state.holes, state.gameType, {
+      selectedTee: playerTee,
+      handicapSource: state.handicapSource,
+      nineType: state.nineType, // 9-hole rounds: nine-aware daily handicap (I4)
+    });
+    const next: Scorecard = { ...result.scorecard, totalGross: totals.gross, totalNet: totals.net, total_par_score: totals.parScore };
+
+    const cards = new Map(get().groupScorecards);
+    cards.set(row.player_id, next);
+    const allFinal = [...cards.values()].every((c) => isFinalStatus(c.status));
+    // Never while this phone submits: its own pull/echoes are not "another phone".
+    set({ groupScorecards: cards, ...(result.becameFinal && allFinal && !submitting ? { submittedElsewhere: true } : {}) });
+
+    // Nothing local is ahead → persist it as synced at the server revision in the
+    // SAME write, so no sync pass (queue or completed-card fallback) can re-upload
+    // it between two steps or after a crash — that would loop between phones.
+    const syncedAtRevision =
+      !result.needsUpload && next.serverRevision != null ? next.serverRevision : undefined;
+    await persistScorecardUpdate({
+      scorecard: { scorecardId: next.id, scorecard: next, syncedAtRevision },
+      context: 'applyRemoteScorecard',
+    });
+    if (result.needsUpload && queueUpload && !next.isStandalone) {
+      debouncedQueueScorecardSync(next.id, () => get().groupScorecards.get(row.player_id));
+    }
+    return next;
+  };
+
+  /** Fetch every server card of the current round. */
+  const fetchServerScorecards = async (roundId: string): Promise<RemoteScorecardRow[]> => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- generated types workaround
+    const { data, error } = await (supabase.from('scorecards') as any)
+      .select('player_id, scores, revision, status')
+      .eq('round_id', roundId)
+      .is('deleted_at', null);
+    if (error) throw new Error(`Could not fetch the latest scorecards: ${error.message}`);
+    return (data ?? []) as RemoteScorecardRow[];
+  };
+
   const initSyncListener = () => {
     if (unsubscribe) return;
     unsubscribe = subscribeSyncState((syncState) => {
@@ -197,6 +271,7 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
     nineType: 'full' as NineType,
     startHole: 1,
     scoringMode: 'standard' as ScoringMode,
+    submittedElsewhere: false,
     ballCount: 1,
     isMultiBall: false,
     groupScorecards: new Map(),
@@ -516,6 +591,7 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
         nineType: 'full' as NineType,
         startHole: 1,
         scoringMode: 'standard' as ScoringMode,
+        submittedElsewhere: false,
         ballCount: 1,
         isMultiBall: false,
         groupScorecards: new Map(),
@@ -526,6 +602,19 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
         // Round-scoped, so it cannot outlive the round it belongs to.
         failedSyncCount: 0,
       });
+    },
+
+    mergeRemoteScorecard: async (row) => {
+      if (submitting) return;
+      await applyRemoteToStore(row);
+    },
+
+    pullServerScorecards: async () => {
+      const { currentRoundId, scoringMode } = get();
+      if (!currentRoundId || scoringMode !== 'social') return [];
+      const rows = await fetchServerScorecards(currentRoundId);
+      for (const row of rows) await applyRemoteToStore(row);
+      return rows;
     },
 
     // Multi-ball scoring functions (delegated to multiBallSlice)

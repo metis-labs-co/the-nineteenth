@@ -59,10 +59,19 @@ async function rowToScorecard(row: ScorecardRow): Promise<Scorecard> {
   };
 }
 
+export interface SaveScorecardOptions {
+  /**
+   * Persist the card as already synced at this server revision, in the same
+   * write (is_synced = 1, server_revision = this). Used after applying a remote
+   * row when nothing local is ahead, so no sync pass can re-upload it.
+   */
+  syncedAtRevision?: number;
+}
+
 /**
  * Save or update a scorecard locally
  */
-export async function saveScorecard(scorecard: Scorecard): Promise<void> {
+export async function saveScorecard(scorecard: Scorecard, options?: SaveScorecardOptions): Promise<void> {
   dbLogger.debug('Saving scorecard', {
     id: scorecard.id.substring(0, 20) + '...',
     roundId: scorecard.roundId.substring(0, 8) + '...',
@@ -100,13 +109,13 @@ export async function saveScorecard(scorecard: Scorecard): Promise<void> {
           scorecard.submittedBy || null,
           scorecard.createdAt.toISOString(),
           now,
-          0,
+          options?.syncedAtRevision != null ? 1 : 0,
           scorecard.isStandalone ? 1 : 0,
           scorecard.teeData ? JSON.stringify(scorecard.teeData) : null,
           scorecard.coursePar ?? null,
           scorecard.playerGender ?? null,
           scorecard.playerHandicap ?? null,
-          scorecard.serverRevision ?? null,
+          options?.syncedAtRevision ?? scorecard.serverRevision ?? null,
         ]
       );
 

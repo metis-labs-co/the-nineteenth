@@ -155,6 +155,9 @@ jest.mock('@/services/supabase/client', () => {
   // terminal `.in()` reject, simulating an offline/network failure.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test mock state
   let playersResult: any = { data: null, error: null };
+  // Mutable result for the `scorecards` table pull (social rounds).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test mock state
+  let scorecardsResult: any = { data: [], error: null };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test mock chain
   const makeChain = (result: any) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- self-referential chain
@@ -166,6 +169,7 @@ jest.mock('@/services/supabase/client', () => {
           ? Promise.reject(new Error('network error'))
           : Promise.resolve(result)
       ),
+      is: jest.fn(() => Promise.resolve(result)),
       maybeSingle: jest.fn(() => Promise.resolve(result)),
       single: jest.fn(() => Promise.resolve(result)),
     };
@@ -179,7 +183,9 @@ jest.mock('@/services/supabase/client', () => {
             ? roundsResult
             : table === 'players'
               ? playersResult
-              : { data: null, error: null }
+              : table === 'scorecards'
+                ? scorecardsResult
+                : { data: null, error: null }
         )
       ),
     },
@@ -195,15 +201,20 @@ jest.mock('@/services/supabase/client', () => {
     __setRoundsResult: (r: any) => {
       roundsResult = r ?? defaultRoundsResult;
     },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
+    __setScorecardsResult: (r: any) => {
+      scorecardsResult = r ?? { data: [], error: null };
+    },
   };
 });
 
 // Test-only handles into the supabase mock above (typed loosely via requireMock
 // so they don't need to exist on the real module's exports).
-const { __setPlayersResult, __resetPlayersResult, __setRoundsResult } = jest.requireMock(
+const { __setPlayersResult, __resetPlayersResult, __setRoundsResult, __setScorecardsResult } = jest.requireMock(
   '@/services/supabase/client'
 ) as {
   __setRoundsResult: (r: unknown) => void;
+  __setScorecardsResult: (r: unknown) => void;
   __setPlayersResult: (r: unknown) => void;
   __resetPlayersResult: () => void;
 };
@@ -233,6 +244,7 @@ describe('ScorecardStore', () => {
 
   beforeEach(() => {
     __setRoundsResult(null);
+    __setScorecardsResult(null);
     // Reset the store state
     getStore().resetRound();
 
@@ -500,6 +512,125 @@ describe('ScorecardStore', () => {
       await initSocial();
       getStore().resetRound();
       expect(getStore().scoringMode).toBe('standard');
+    });
+  });
+
+  describe('applying remote rows (social)', () => {
+    const T2 = '2099-01-01T00:00:00.000Z';
+    const init = (mode: 'social' | 'standard' = 'social') =>
+      getStore().initializeRound(testRoundId, testPlayers, testHoles, 'stroke', false, [], null, 'none', new Map(), 'full', 1, mode);
+
+    beforeEach(() => jest.useFakeTimers());
+    afterEach(() => jest.useRealTimers());
+
+    it('merges a row and recomputes totals canonically (pickup = net double bogey)', async () => {
+      await init();
+      const p = testPlayers[0].id;
+      await getStore().mergeRemoteScorecard({ player_id: p, scores: { '1': { strokes: 10, editedAt: T2 } }, revision: 2, status: 'in-progress' });
+      const sc = getStore().groupScorecards.get(p)!;
+      expect(sc.serverRevision).toBe(2);
+      // handicapSource 'none' → base handicap 0 → 0 strokes; hole 1 is par 4 → pickup = 4 + 2 = 6
+      expect(sc.totalGross).toBe(6);
+    });
+
+    it('records the card as synced and queues nothing when nothing local is ahead', async () => {
+      await init();
+      const p = testPlayers[0].id;
+      (queueScorecardSync as jest.Mock).mockClear();
+      await getStore().mergeRemoteScorecard({ player_id: p, scores: { '1': { strokes: 4, editedAt: T2 } }, revision: 2, status: 'in-progress' });
+      jest.advanceTimersByTime(2500);
+      expect(saveScorecard).toHaveBeenLastCalledWith(
+        expect.objectContaining({ id: getStore().groupScorecards.get(p)!.id }),
+        { syncedAtRevision: 2 },
+      );
+      expect(queueScorecardSync).not.toHaveBeenCalled();
+    });
+
+    it('queues an upload when local holes are ahead', async () => {
+      await init();
+      const p = testPlayers[0].id;
+      await getStore().setPlayerScore(p, 2, 5, 'me');
+      (queueScorecardSync as jest.Mock).mockClear();
+      await getStore().mergeRemoteScorecard({ player_id: p, scores: { '1': { strokes: 4, editedAt: T2 } }, revision: 2, status: 'in-progress' });
+      jest.advanceTimersByTime(2500);
+      expect(queueScorecardSync).toHaveBeenCalled();
+    });
+
+    it('a completed echo arriving twice causes no upload loop', async () => {
+      await init();
+      const p = testPlayers[0].id;
+      const final = { player_id: p, scores: { '1': { strokes: 4, editedAt: T2 } }, revision: 7, status: 'completed' };
+      await getStore().mergeRemoteScorecard(final);
+      (saveScorecard as jest.Mock).mockClear();
+      (queueScorecardSync as jest.Mock).mockClear();
+      await getStore().mergeRemoteScorecard(final);
+      jest.advanceTimersByTime(2500);
+      expect(saveScorecard).not.toHaveBeenCalled();
+      expect(queueScorecardSync).not.toHaveBeenCalled();
+    });
+
+    it('sets submittedElsewhere once every group card became final remotely', async () => {
+      await init();
+      for (const player of testPlayers) {
+        await getStore().mergeRemoteScorecard({ player_id: player.id, scores: {}, revision: 3, status: 'completed' });
+      }
+      expect(getStore().submittedElsewhere).toBe(true);
+    });
+
+    it('does nothing in a standard round', async () => {
+      await init('standard');
+      const p = testPlayers[0].id;
+      await getStore().mergeRemoteScorecard({ player_id: p, scores: { '1': { strokes: 4, editedAt: T2 } }, revision: 2, status: 'in-progress' });
+      expect(getStore().groupScorecards.get(p)!.scores[1]).toBeUndefined();
+    });
+
+    it('pullServerScorecards applies every server card of the round', async () => {
+      await init();
+      __setScorecardsResult({ data: testPlayers.map((pl) => ({ player_id: pl.id, scores: { '1': { strokes: 4, editedAt: T2 } }, revision: 2, status: 'in-progress' })), error: null });
+      await getStore().pullServerScorecards();
+      for (const pl of testPlayers) expect((getStore().groupScorecards.get(pl.id)!.scores[1] as HoleScore).strokes).toBe(4);
+    });
+
+    it('merges a guest (placeholder) player row like any other player', async () => {
+      const guest = { ...testPlayers[2], id: 'guest-1', name: 'Guest', isPlaceholder: true };
+      await getStore().initializeRound(testRoundId, [testPlayers[0], guest], testHoles, 'stroke', false, [], null, 'none', new Map(), 'full', 1, 'social');
+      __setScorecardsResult({ data: [testPlayers[0], guest].map((pl) => ({ player_id: pl.id, scores: { '1': { strokes: 5, editedAt: T2 } }, revision: 2, status: 'in-progress' })), error: null });
+      await getStore().pullServerScorecards();
+      for (const pl of [testPlayers[0], guest]) {
+        const sc = getStore().groupScorecards.get(pl.id)!;
+        expect((sc.scores[1] as HoleScore).strokes).toBe(5);
+        expect(sc.serverRevision).toBe(2);
+      }
+    });
+
+    it('a 9-hole social round recomputes merged totals nine-aware', async () => {
+      // Front-9 round, profile handicap 18 (testPlayers[0]): a 9-hole DHC is ~9, not ~18.
+      // A rated tee is required: without slope/course rating calculatePlayerTotals
+      // falls back to the raw handicap and nineType has no effect.
+      const ratedTee = { tee_id: 'tee-rated', name: 'White', color: 'white', slopeRating: 113, courseRating: 72 };
+      await getStore().initializeRound(testRoundId, testPlayers, testHoles, 'stroke', false, [], ratedTee, 'profile', new Map(), 'front9', 1, 'social');
+      const p = testPlayers[0].id;
+      await getStore().mergeRemoteScorecard({ player_id: p, scores: { '1': { strokes: 5, editedAt: T2 } }, revision: 2, status: 'in-progress' });
+      const viaMerge = getStore().groupScorecards.get(p)!.totalNet;
+      // Same score entered locally goes through applyScoreUpdate (already nine-aware): totals must match.
+      expect(typeof viaMerge).toBe('number');
+      getStore().resetRound();
+      await getStore().initializeRound(testRoundId, testPlayers, testHoles, 'stroke', false, [], ratedTee, 'profile', new Map(), 'front9', 1, 'social');
+      await getStore().setPlayerScore(p, 1, 5, 'me');
+      expect(viaMerge).toBe(getStore().groupScorecards.get(p)!.totalNet);
+    });
+
+    it('no echo after this phone submitted causes a write or "submitted elsewhere"', async () => {
+      await init();
+      const p = testPlayers[0].id;
+      const sc = getStore().groupScorecards.get(p)!;
+      useScorecardStore.setState({ groupScorecards: new Map([[p, { ...sc, status: 'completed', serverRevision: 5 }]]) });
+      (saveScorecard as jest.Mock).mockClear();
+      await getStore().mergeRemoteScorecard({ player_id: p, scores: {}, revision: 5, status: 'completed' }); // equal
+      expect(saveScorecard).not.toHaveBeenCalled();
+      await getStore().mergeRemoteScorecard({ player_id: p, scores: { '1': { strokes: 4 } }, revision: 6, status: 'completed' }); // newer final
+      expect(saveScorecard).toHaveBeenCalledTimes(1);
+      expect(getStore().submittedElsewhere).toBe(false); // was already final locally
     });
   });
 
