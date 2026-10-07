@@ -2,7 +2,7 @@
  * BallCountStep - Solo round configuration
  *
  * Features:
- * - 3 radio card options: Handicap, Social Index, Practice Round
+ * - 3 radio card options: Handicap, Social Handicap, Practice Round
  * - Shows handicap values and daily HC inline on cards
  * - Practice mode: shows ball count selection (1-4, multi-ball requires Social tier)
  * - Display selected course/tee/match type info
@@ -23,6 +23,7 @@ import type { BallCount } from '@/types/multiball.types';
 import { BALL_COUNT_OPTIONS } from '@/types/multiball.types';
 import type { SelectedCourse } from '../types';
 import { GAME_TYPE_DESCRIPTIONS } from '@/constants/gameTypeDescriptions';
+import { SOCIAL_HANDICAP_NAME } from '@/constants/handicap';
 
 interface BallCountStepProps {
   selectedCourse: SelectedCourse | null;
@@ -101,7 +102,7 @@ export const BallCountStep = memo(function BallCountStep({
     },
     {
       value: 'calculated',
-      label: 'Social Index',
+      label: SOCIAL_HANDICAP_NAME,
       description: socialIndex != null
         ? `Social: ${formatHC(socialIndex)}  ·  DHC: ${dailyHC.calculated ?? 'N/A'}  ·  HC: ${gaHandicap != null ? formatHC(gaHandicap) : 'N/A'}`
         : 'No rounds recorded yet',

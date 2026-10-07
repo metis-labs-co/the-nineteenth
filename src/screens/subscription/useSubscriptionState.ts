@@ -125,7 +125,7 @@ export function buildPlanFeatures(tierLimits: {
     { label: 'Team formats', value: tierLimits.canUseTeamFormats },
     { label: 'Detailed stats', value: tierLimits.canViewDetailedStats ?? false },
     { label: 'Score distribution', value: tierLimits.canViewScoreDistribution },
-    { label: 'Handicap history', value: tierLimits.canViewHandicapHistory ?? false },
+    { label: 'Social Handicap history', value: tierLimits.canViewHandicapHistory ?? false },
     { label: 'Achievement leaderboard', value: tierLimits.canViewAchievementLeaderboard ?? false },
     { label: 'Compare stats', value: tierLimits.canCompareStats },
     { label: 'Advanced analytics', value: tierLimits.canViewAdvancedStats },
@@ -307,7 +307,7 @@ export function useSubscriptionState() {
         'Up to 12 players per competition',
         'Unlimited social rounds',
         'Stroke Play & Match Play formats',
-        'Detailed stats, handicap history & achievements',
+        'Detailed stats, Social Handicap history & achievements',
         'AI competition creation & guest management'
       );
     } else if (selectedUpgradeTier === 'premium') {

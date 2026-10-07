@@ -142,6 +142,12 @@ export interface AchievementLeaderboardEntry {
   total_points: number;
   achievements_earned: number;
   last_achievement_at: string | null;
+  /**
+   * True for players who are neither the viewer nor an accepted friend on the
+   * global board. The server then returns a pseudonym in `name`, no photo and
+   * an opaque `player_id` that doesn't match any player.
+   */
+  is_anonymous: boolean;
 }
 
 /**

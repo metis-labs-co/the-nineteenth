@@ -130,7 +130,7 @@ export const ProfileMenuSection = React.memo(function ProfileMenuSection({
           />
           <MenuItemRow
             icon="chart-timeline-variant"
-            title="Handicap History"
+            title="Social Handicap"
             onPress={onHandicapHistory}
             testID="menu-handicap-history"
           />

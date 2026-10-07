@@ -116,7 +116,7 @@ export function useRoundPlayers(
           id: cp.players!.id,
           name: getDisplayName(cp.players!.name, 'Unknown'),
           email: cp.players!.email || '',
-          phone: cp.players!.phone,
+          phone: cp.players!.phone ?? null,
           handicap: cp.players!.handicap || 0,
           handicapIndex: cp.players!.handicap_index ?? null,
           gender: cp.players!.gender ?? null, // For WHS Daily Handicap consistency factor

@@ -16,7 +16,7 @@
 - Age band from the sign-up age check (under 13 / 13 and over). Your date of birth is never stored.
 - Country (from your device region at sign-up)
 - Competition data: scores, rounds, competition participation
-- Calculated data: score differentials and an in-app Social Handicap Index (not an official WHS index)
+- Calculated data: score differentials and an in-app Social Handicap (unique to The Nineteenth; not an official golf handicap)
 - Social connections and content: friends list, comments, reactions, content reports
 - Support requests: name, email and message when you contact us
 

@@ -7,7 +7,7 @@
       "ios",
       "android"
     ],
-    "version": "1.14.1",
+    "version": "1.15.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -136,7 +136,7 @@
       "./plugins/withWearOs",
       "./plugins/withDeclaredAgeRange"
     ],
-    "runtimeVersion": "1.14.1",
+    "runtimeVersion": "1.15.0",
     "owner": "sam-metislabs",
     "extra": {
       "eas": {

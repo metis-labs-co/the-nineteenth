@@ -23,6 +23,7 @@ import type {
   Player,
 } from '@/types/database.types';
 import type { Player as AppPlayer, ScoringPairCreateInput } from '@/types';
+import { PUBLIC_PLAYER_COLUMNS } from '@/services/api/playerColumns';
 
 // =====================================================
 // SUPABASE QUERY RESPONSE TYPES
@@ -100,8 +101,8 @@ export async function getRoundScoringPairs(
     .select(
       `
       *,
-      scorer:players!scoring_pairs_scorer_id_fkey (*),
-      player:players!scoring_pairs_player_id_fkey (*)
+      scorer:players!scoring_pairs_scorer_id_fkey(${PUBLIC_PLAYER_COLUMNS}),
+      player:players!scoring_pairs_player_id_fkey(${PUBLIC_PLAYER_COLUMNS})
     `
     )
     .eq('round_id', roundId)
@@ -164,7 +165,7 @@ export async function getPlayersToScore(
   // Fetch the scorer's own player record (self)
   const { data: selfPlayer, error: selfError } = await supabase
     .from('players')
-    .select('*')
+    .select(PUBLIC_PLAYER_COLUMNS)
     .eq('id', scorerId)
     .single();
 
@@ -181,7 +182,7 @@ export async function getPlayersToScore(
     .from('scoring_pairs')
     .select(
       `
-      player:players!scoring_pairs_player_id_fkey (*)
+      player:players!scoring_pairs_player_id_fkey(${PUBLIC_PLAYER_COLUMNS})
     `
     )
     .eq('round_id', roundId)
@@ -241,7 +242,7 @@ export async function getScoringPartner(
     .from('scoring_pairs')
     .select(
       `
-      scorer:players!scoring_pairs_scorer_id_fkey (*)
+      scorer:players!scoring_pairs_scorer_id_fkey(${PUBLIC_PLAYER_COLUMNS})
     `
     )
     .eq('round_id', roundId)

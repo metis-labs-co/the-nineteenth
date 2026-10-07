@@ -89,7 +89,6 @@ export const ExpandablePlayerCard = React.memo(function ExpandablePlayerCard({
         player={player}
         badge={badge}
         variant={variant}
-        showEmail={false}
         showHandicap={false}
         rightAction={statusIndicator}
       />
@@ -102,7 +101,6 @@ export const ExpandablePlayerCard = React.memo(function ExpandablePlayerCard({
         player={player}
         badge={badge}
         variant={variant}
-        showEmail={false}
         showHandicap={false}
         navigateToProfile={false}
         onPress={handleToggle}

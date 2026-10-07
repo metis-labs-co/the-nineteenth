@@ -364,11 +364,11 @@ describe('PlayerSelector', () => {
       expect(screen.queryByTestId('player-item-player-2')).toBeNull();
     });
 
-    it('filters players by email', () => {
+    it('does not match or show email addresses (email is private)', () => {
       render(<PlayerSelector {...defaultProps} />);
       fireEvent.changeText(screen.getByTestId('search-bar'), 'jane@');
-      expect(screen.getByTestId('player-item-player-2')).toBeTruthy();
-      expect(screen.queryByTestId('player-item-player-1')).toBeNull();
+      expect(screen.queryByTestId('player-item-player-2')).toBeNull();
+      expect(screen.queryByText('jane@example.com')).toBeNull();
     });
 
     it('search is case insensitive', () => {

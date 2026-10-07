@@ -64,18 +64,6 @@ export const PlayerListItem = memo(function PlayerListItem({
               {player.name}
               {isLocked && ' (You)'}
             </Text>
-            {player.email && (
-              <Text
-                style={[
-                  styles.email,
-                  { color: colors.textSecondary },
-                  effectiveDisabled && !isLocked && { color: colors.textDisabled },
-                ]}
-                numberOfLines={1}
-              >
-                {player.email}
-              </Text>
-            )}
             {showHandicap && player.handicap !== null && player.handicap !== undefined && (
               <Text
                 style={[
@@ -138,10 +126,6 @@ const styles = StyleSheet.create({
   name: {
     ...typography.bodyBold,
     flexShrink: 1,
-  },
-  email: {
-    ...typography.small,
-    marginTop: spacing.xs,
   },
   handicap: {
     ...typography.small,

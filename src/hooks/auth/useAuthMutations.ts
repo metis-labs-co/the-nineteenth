@@ -14,7 +14,7 @@ import { supabase } from '@/services/supabase/client';
 import { pushService } from '@/services/notifications';
 import { getDeviceCountry } from '@/utils/locale';
 import { authKeys } from '../queryKeys';
-import { ensurePlayerProfile } from './utils';
+import { ensurePlayerProfile, fetchMyPlayer } from './utils';
 import type { AuthError } from '@supabase/supabase-js';
 import type { Player } from '@/types/database.types';
 import type {
@@ -119,13 +119,15 @@ export function useAuthMutations() {
       // Wait for database trigger to create player profile
       await new Promise(resolve => setTimeout(resolve, 500));
 
-      const { data: playerData, error: playerError } = await supabase
-        .from('players')
-        .select('*')
-        .eq('id', data.user.id)
-        .single();
-
-      // playerError is expected during signup race condition - trigger may not have fired yet
+      // Own row via get_my_player (private columns aren't selectable directly).
+      // Fails or returns null during the signup race / before email
+      // confirmation (no session yet) - that's expected.
+      let playerData: Player | null = null;
+      try {
+        playerData = await fetchMyPlayer();
+      } catch {
+        playerData = null;
+      }
 
       return {
         user: data.user,

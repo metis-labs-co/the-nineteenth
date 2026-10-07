@@ -38,7 +38,7 @@ interface PlayerRow {
   id: string;
   name: string;
   handicap?: number | null;
-  avatar_url?: string | null;
+  photo_url?: string | null;
 }
 
 /** Row shape for round queries */
@@ -193,13 +193,13 @@ export function useSkinsLeaderboard(options: SkinsLeaderboardOptions = {}) {
       const playerIds = entries.map((entry) => entry.player_id);
       const { data: rawPlayers } = await supabase
         .from('players')
-        .select('id, name, avatar_url')
+        .select('id, name, photo_url')
         .in('id', playerIds);
 
       const players = (rawPlayers ?? []) as unknown as PlayerRow[];
 
       const playerMap = new Map(
-        players.map((p) => [p.id, { id: p.id, name: p.name, avatar_url: p.avatar_url }])
+        players.map((p) => [p.id, { id: p.id, name: p.name, avatar_url: p.photo_url }])
       );
 
       return entries.map((entry) => ({

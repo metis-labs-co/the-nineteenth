@@ -641,18 +641,11 @@ describe('ReviewStep', () => {
       expect(screen.getByText('Alice Brown')).toBeTruthy();
     });
 
-    it('displays player emails when provided', () => {
+    it('does not display player emails', () => {
       render(<ReviewStep {...defaultProps} />);
 
-      expect(screen.getByText(/john@example\.com/)).toBeTruthy();
-      expect(screen.getByText(/jane@example\.com/)).toBeTruthy();
-    });
-
-    it('displays "No email" when email not provided', () => {
-      render(<ReviewStep {...defaultProps} />);
-
-      // Alice has no email
-      expect(screen.getByText(/No email/)).toBeTruthy();
+      expect(screen.queryByText(/john@example\.com/)).toBeNull();
+      expect(screen.queryByText(/jane@example\.com/)).toBeNull();
     });
 
     it('displays player handicaps when provided', () => {
@@ -672,6 +665,7 @@ describe('ReviewStep', () => {
       );
 
       expect(screen.queryByText(/HC:/)).toBeNull();
+      expect(screen.getAllByText('No handicap').length).toBeGreaterThan(0);
     });
 
     it('displays player avatar with first letter', () => {

@@ -3,7 +3,7 @@
  *
  * Displays clear explanations for:
  * - Handicap (HC) - Player's handicap from profile
- * - Social Handicap Index - Calculated from app rounds
+ * - Social Handicap - Calculated from app rounds; unique to The Nineteenth
  * - Daily Handicap (DHC) - Strokes received for a specific round
  */
 
@@ -13,6 +13,11 @@ import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { BottomSheet } from './BottomSheet';
+import {
+  SOCIAL_HANDICAP_NAME,
+  SOCIAL_HANDICAP_SHORT_LABEL,
+  SOCIAL_HANDICAP_DISCLAIMER,
+} from '@/constants/handicap';
 
 export interface HandicapInfoSheetProps {
   visible: boolean;
@@ -85,9 +90,9 @@ export function HandicapInfoSheet({ visible, onClose }: HandicapInfoSheetProps) 
 
         <InfoSection
           icon="calculator"
-          title="Social Handicap Index"
-          abbreviation="Social"
-          description="An unofficial index calculated from your last 20 rounds played in The Nineteenth. It isn't your official golf handicap."
+          title={SOCIAL_HANDICAP_NAME}
+          abbreviation={SOCIAL_HANDICAP_SHORT_LABEL}
+          description={`Calculated from your last 20 rounds played in The Nineteenth. ${SOCIAL_HANDICAP_DISCLAIMER}`}
           formula="Average of best 8 differentials × 0.96"
         />
 
@@ -102,7 +107,7 @@ export function HandicapInfoSheet({ visible, onClose }: HandicapInfoSheetProps) 
         <View style={[styles.tipContainer, { backgroundColor: colors.infoLight }]}>
           <Icon source="lightbulb-outline" size={20} color={colors.infoDark} />
           <Text style={[styles.tipText, { color: colors.infoDark }]}>
-            Competition organizers can choose whether to use your profile Handicap or Social Handicap Index for daily handicap calculations.
+            Competition organizers can choose whether to use your profile Handicap or Social Handicap for daily handicap calculations.
           </Text>
         </View>
       </ScrollView>

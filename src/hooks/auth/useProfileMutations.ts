@@ -9,9 +9,19 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import { authKeys, clubKeys } from '../queryKeys';
+import { fetchMyPlayer } from './utils';
 import type { User } from '@supabase/supabase-js';
 import type { Player } from '@/types/database.types';
 import type { ProfileUpdateInput } from '@/types/auth';
+
+/** Re-read the caller's full player row after a write. */
+async function requireMyPlayer(): Promise<Player> {
+  const player = await fetchMyPlayer();
+  if (!player) {
+    throw new Error('Player profile not found after update');
+  }
+  return player;
+}
 
 /**
  * Hook for profile update mutations
@@ -63,41 +73,54 @@ export function useProfileMutations(user: User | null) {
         throw new Error('No fields to update');
       }
 
-      // Try update first (normal case)
-      const { data, error } = await supabase
+      // Try update first (normal case). Only `id` is returned: private
+      // columns can't be selected directly, so the full row is re-read
+      // through get_my_player below.
+      const { error } = await supabase
         .from('players')
         .update(updateData as unknown as never)
         .eq('id', user.id)
-        .select()
+        .select('id')
         .single();
 
       if (error) {
         // If no player record found, create one via upsert (trigger may have failed)
         if (error.code === 'PGRST116') {
           console.warn('[useProfileMutations] No player record found, creating via upsert');
-          const { data: upsertData, error: upsertError } = await supabase
+          // Create-if-missing (ON CONFLICT DO NOTHING), then apply the
+          // update. A DO UPDATE upsert that sets private columns is rejected
+          // under the players column grants; plain UPDATEs of them are fine.
+          const { error: insertError } = await supabase
             .from('players')
             .upsert({
               id: user.id,
               email: user.email || '',
               name: updateData.name || user.user_metadata?.name || 'Player',
               ...updateData,
-            } as unknown as never, { onConflict: 'id' })
-            .select()
-            .single();
+            } as unknown as never, { onConflict: 'id', ignoreDuplicates: true });
 
-          if (upsertError) {
-            console.error('[useProfileMutations] Upsert failed:', upsertError);
-            throw upsertError;
+          if (insertError) {
+            console.error('[useProfileMutations] Upsert failed:', insertError);
+            throw insertError;
           }
-          return upsertData as Player;
+
+          const { error: retryError } = await supabase
+            .from('players')
+            .update(updateData as unknown as never)
+            .eq('id', user.id);
+
+          if (retryError) {
+            console.error('[useProfileMutations] Update after insert failed:', retryError);
+            throw retryError;
+          }
+          return requireMyPlayer();
         }
 
         console.error('[useProfileMutations] Update failed:', error);
         throw error;
       }
 
-      return data as Player;
+      return requireMyPlayer();
     },
     onSuccess: (updatedPlayer, updates) => {
       if (user?.id) {

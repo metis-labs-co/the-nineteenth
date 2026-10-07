@@ -59,7 +59,7 @@
 - 25 friends
 - Export results
 - Detailed statistics (par type, putting, short game)
-- Handicap history
+- Social Handicap history
 - Achievement leaderboard
 - AI competition creation
 - Guest player management
@@ -119,7 +119,7 @@
 | Priority support | | | ✓ |
 | **Statistics & Analytics** | | | |
 | Detailed stats (par type, putting, short game) | | ✓ | ✓ |
-| Handicap history | | ✓ | ✓ |
+| Social Handicap history | | ✓ | ✓ |
 | Achievement leaderboard | | ✓ | ✓ |
 | **Tools & AI** | | | |
 | AI competition creation | | ✓ | ✓ |
@@ -168,7 +168,7 @@ A: No! Only organizers need a paid tier if they want premium features. Players c
 A: Yes. Offline scorecard entry is available on every tier, including Free. It's core to what we do.
 
 **Q: What's the difference between Social and Premium formats?**
-A: Social adds Stroke Play and Match Play formats, plus detailed statistics, handicap history, achievement leaderboards, AI competition creation, guest management, and GPS distance. Premium adds team formats (Ambrose, Best Ball, Scramble), advanced analytics, and side-games (Skins, Wolf, Prize pools).
+A: Social adds Stroke Play and Match Play formats, plus detailed statistics, Social Handicap history, achievement leaderboards, AI competition creation, guest management, and GPS distance. Premium adds team formats (Ambrose, Best Ball, Scramble), advanced analytics, and side-games (Skins, Wolf, Prize pools).
 
 ---
 

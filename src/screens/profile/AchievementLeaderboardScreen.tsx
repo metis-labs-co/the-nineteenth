@@ -168,7 +168,7 @@ const LeaderboardRow = React.memo(function LeaderboardRow({
       <View style={styles.avatarContainer}>
         <ProfileFrame frame={null} size={48}>
           <PlayerAvatar
-            photoUrl={entry.photo_url}
+            photoUrl={entry.is_anonymous ? null : entry.photo_url}
             name={entry.name}
             size={44}
           />
@@ -318,6 +318,7 @@ export default function AchievementLeaderboardScreen({ navigation, route }: Prop
 
   const handlePlayerPress = useCallback(
     (playerId: string) => {
+      // Anonymous rows carry an opaque id that never matches a friend.
       if (playerId !== user?.id && friendIds.has(playerId)) {
         navigation.navigate('PlayerDetail', { id: playerId });
       }
@@ -332,7 +333,7 @@ export default function AchievementLeaderboardScreen({ navigation, route }: Prop
         entry={item}
         isCurrentUser={item.player_id === user?.id}
         onPress={
-          item.player_id !== user?.id && friendIds.has(item.player_id)
+          !item.is_anonymous && item.player_id !== user?.id && friendIds.has(item.player_id)
             ? () => handlePlayerPress(item.player_id)
             : undefined
         }
@@ -416,16 +417,24 @@ export default function AchievementLeaderboardScreen({ navigation, route }: Prop
             />
           }
           ListHeaderComponent={
-            /* Scope Tabs */
-            <View style={styles.scopeTabsContainer}>
-              {scopeTabs.map((tab) => (
-                <ScopeTabItem
-                  key={tab.key}
-                  tab={tab}
-                  isActive={selectedScope === tab.key}
-                  onPress={() => handleScopeChange(tab.key)}
-                />
-              ))}
+            <View>
+              {/* Scope Tabs */}
+              <View style={styles.scopeTabsContainer}>
+                {scopeTabs.map((tab) => (
+                  <ScopeTabItem
+                    key={tab.key}
+                    tab={tab}
+                    isActive={selectedScope === tab.key}
+                    onPress={() => handleScopeChange(tab.key)}
+                  />
+                ))}
+              </View>
+              {selectedScope === 'global' && (
+                <Text style={[styles.privacyNote, { color: colors.textSecondary }]}>
+                  To protect privacy, only your friends show by name. Other players
+                  appear under a nickname.
+                </Text>
+              )}
             </View>
           }
           ListEmptyComponent={
@@ -478,6 +487,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.sm,
     marginBottom: spacing.lg,
+  },
+  privacyNote: {
+    ...typography.caption,
+    textAlign: 'center',
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.lg,
   },
   scopeTab: {
     flex: 1,

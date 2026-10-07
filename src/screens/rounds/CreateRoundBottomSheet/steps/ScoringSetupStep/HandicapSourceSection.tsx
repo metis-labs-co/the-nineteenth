@@ -1,11 +1,11 @@
 /**
  * HandicapSourceSection - Handicap mode selector for round creation
  *
- * Allows Premium users to choose between profile Handicap and Social Handicap Index
+ * Allows Premium users to choose between profile Handicap and Social Handicap
  * for daily handicap calculations.
  *
  * When tee and course data is provided, also displays:
- * - The selected handicap value (profile or Social Index)
+ * - The selected handicap value (profile or Social Handicap)
  * - The calculated Daily Handicap based on the selected course/tee
  */
 
@@ -23,6 +23,11 @@ import type { TeeBox } from '@/types/database.types';
 import type { HandicapSource, Hole } from '@/types/database';
 import type { NineType } from '@/types/database/enums';
 import type { PlayingPartner } from '../../types';
+import {
+  SOCIAL_HANDICAP_NAME,
+  SOCIAL_HANDICAP_SHORT_LABEL,
+  SOCIAL_HANDICAP_SHORT_DISCLAIMER,
+} from '@/constants/handicap';
 
 interface HandicapSourceSectionProps {
   handicapSource: HandicapSource;
@@ -144,7 +149,7 @@ export const HandicapSourceSection = memo(function HandicapSourceSection({
   }, [player, selectedPartners, handicapSource, selectedTee, holes, nineType]);
 
   const hintText = handicapSource === 'calculated'
-    ? 'Uses Social Handicap Index from your app rounds (profile handicap fallback)'
+    ? `Uses your ${SOCIAL_HANDICAP_NAME} from app rounds (profile handicap fallback). ${SOCIAL_HANDICAP_SHORT_DISCLAIMER}`
     : 'Uses your handicap as entered in your profile';
 
   // Whether tee data is missing for daily handicap calculation
@@ -179,7 +184,7 @@ export const HandicapSourceSection = memo(function HandicapSourceSection({
               },
               {
                 value: 'calculated',
-                label: `Social Index${handicapInfo?.socialIndex != null ? ` (${formatHandicap(handicapInfo.socialIndex)})` : ''}`,
+                label: `${SOCIAL_HANDICAP_SHORT_LABEL}${handicapInfo?.socialIndex != null ? ` (${formatHandicap(handicapInfo.socialIndex)})` : ''}`,
                 icon: 'calculator',
               },
             ]}

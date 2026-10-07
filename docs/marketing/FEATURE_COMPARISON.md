@@ -17,7 +17,7 @@
 | **Team formats (Ambrose, etc.)** | ✅ | ❌ | ⚠️ | ⚠️ | ❌ |
 | **Invite via code** | ✅ | ❌ | ❌ | ❌ | ❌ |
 | **Free tier available** | ✅ Generous | ⚠️ Limited | ⚠️ Limited | ⚠️ Limited | N/A |
-| **WHS handicap system** | ✅ Native | ⚠️ | ⚠️ | ⚠️ | ❌ |
+| **Handicap-based scoring** | ✅ Native | ⚠️ | ⚠️ | ⚠️ | ❌ |
 | **GPS/shot tracking** | ❌ Phase 3 | ✅ | ✅ | ✅ | ⚠️ |
 | **Course booking** | ❌ Not focus | ❌ | ❌ | ⚠️ | ✅ Core |
 | **Privacy-first (no social login)** | ✅ | ⚠️ | ❌ | ❌ | ❌ |
@@ -40,7 +40,7 @@ If you're organizing competitions for your regular group, mates league, or work 
 | **True offline** - Full functionality without signal | Requires connection or loses data |
 | **Auto-pairing algorithm** - Fair, rotating groups calculated for you | Manual pairing or none at all |
 | **Simple setup** - 4 steps to first competition | Complex configuration, steep learning curve |
-| **Australian-built** - WHS handicaps, local formats, AUD pricing | US-centric, adapted for Australia |
+| **Australian-built** - local courses and formats, AUD pricing | US-centric, adapted for Australia |
 
 ---
 
@@ -79,7 +79,7 @@ If you're organizing competitions for your regular group, mates league, or work 
 | | | | |
 | **STATISTICS & ANALYTICS** | | | |
 | Detailed stats (par type, putting, short game) | ❌ | ✅ | ✅ |
-| Handicap history | ❌ | ✅ | ✅ |
+| Social Handicap history | ❌ | ✅ | ✅ |
 | Achievement leaderboard | ❌ | ✅ | ✅ |
 | Advanced analytics | ❌ | ❌ | ✅ |
 | | | | |
@@ -136,10 +136,10 @@ If you're organizing competitions for your regular group, mates league, or work 
 | Personal stats | Your scoring history | ✅ | ✅ | ✅ |
 | Friend comparison | Compare stats with friends | ❌ | ✅ | ✅ |
 | Detailed stats | Par type, putting, short game breakdowns | ❌ | ✅ | ✅ |
-| Handicap history | Track handicap changes over time | ❌ | ✅ | ✅ |
+| Social Handicap history | Track your in-app Social Handicap over time | ❌ | ✅ | ✅ |
 | Achievement leaderboard | Compete with friends on achievements | ❌ | ✅ | ✅ |
 | Advanced analytics | Trends, insights, detailed breakdowns | ❌ | ❌ | ✅ |
-| Handicap trends | Track handicap over time | ❌ | ✅ | ✅ |
+| Social Handicap trends | Track your in-app Social Handicap over time | ❌ | ✅ | ✅ |
 
 ### Side-Games & Competitive Features
 
@@ -176,7 +176,7 @@ If you're organizing competitions for your regular group, mates league, or work 
 
 | From | To | What You Gain |
 |------|-----|---------------|
-| Free → Social | Social | +5 comps, +8 players/comp, +3 rounds/comp, Stroke Play, Match Play, Friend comparison, Detailed stats, Handicap history, Achievement leaderboard, AI competition, Guest management, GPS distance |
+| Free → Social | Social | +5 comps, +8 players/comp, +3 rounds/comp, Stroke Play, Match Play, Friend comparison, Detailed stats, Social Handicap history, Achievement leaderboard, AI competition, Guest management, GPS distance |
 | Social → Premium | Premium | Unlimited comps, +24 players/comp, +5 rounds/comp, Team formats, Analytics, Priority support, Skins, Wolf, Prize pools |
 
 ### Downgrading

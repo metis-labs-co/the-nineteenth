@@ -18,6 +18,7 @@ import type {
   Player,
   PlaceholderPlayerWithStats,
 } from '@/types/database.types';
+import { PUBLIC_PLAYER_COLUMNS } from '@/services/api/playerColumns';
 
 const logger = createModuleLogger('PlaceholderPlayers');
 
@@ -99,7 +100,7 @@ export function usePlaceholderPlayer(id: string) {
 
       const { data, error } = await supabase
         .from('players')
-        .select('*')
+        .select(PUBLIC_PLAYER_COLUMNS)
         .eq('id', id)
         .eq('is_placeholder', true)
         .eq('created_by', user.id)

@@ -47,6 +47,7 @@ export const FriendSelector = memo(function FriendSelector({
   // Daily handicap props
   selectedTee,
   coursePar,
+  handicapSource,
 }: FriendSelectorProps) {
   const colors = useThemeColors();
 
@@ -59,11 +60,7 @@ export const FriendSelector = memo(function FriendSelector({
   const filteredFriends = useMemo(() => {
     if (!searchQuery.trim()) return friends;
     const query = searchQuery.toLowerCase();
-    return friends.filter(
-      (friend) =>
-        friend.name.toLowerCase().includes(query) ||
-        friend.email?.toLowerCase().includes(query)
-    );
+    return friends.filter((friend) => friend.name.toLowerCase().includes(query));
   }, [friends, searchQuery]);
 
   // Filter placeholder players by search query
@@ -180,6 +177,7 @@ export const FriendSelector = memo(function FriendSelector({
     addFriendLabel,
     selectedTee,
     coursePar,
+    handicapSource,
   };
 
   return (

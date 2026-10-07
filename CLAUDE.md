@@ -63,6 +63,7 @@ Detailed implementation guides for specific topics:
 ### Legal & Privacy
 - **[PRIVACY_POLICY.md](docs/legal/PRIVACY_POLICY.md)** - Privacy policy source (hosted at thenineteenth.golf/privacy; short store copy in docs/store/legal/). Update it when data collection, processors or hosting change
 - **[DATA_BREACH_RESPONSE.md](docs/legal/DATA_BREACH_RESPONSE.md)** - Data breach runbook: contain, assess (30 days, OAIC NDB), notify, review
+- **[GA_CONNECT_COMPLIANCE.md](docs/compliance/GA_CONNECT_COMPLIANCE.md)** - Running tracker against Golf Australia's GA CONNECT licence requirements. Update it when a change touches handicaps, data location, privacy or security
 
 ### Database
 - **[DATABASE_SCHEMA.md](docs/database/DATABASE_SCHEMA.md)** - Complete schema with SQL tables and TypeScript types

@@ -13,6 +13,7 @@ import { supabase } from '@/services/supabase/client';
 import { CACHE_TIMES, GC_TIMES } from '@/constants/cacheConfig';
 import { playerKeys } from '../queryKeys';
 import type { Player } from '@/types/database.types';
+import { PUBLIC_PLAYER_COLUMNS } from '@/services/api/playerColumns';
 
 interface UsePlayerOptions {
   enabled?: boolean;
@@ -30,7 +31,7 @@ export function usePlayer(playerId: string | undefined, options: UsePlayerOption
 
       const { data, error } = await supabase
         .from('players')
-        .select('*')
+        .select(PUBLIC_PLAYER_COLUMNS)
         .eq('id', playerId)
         .single();
 

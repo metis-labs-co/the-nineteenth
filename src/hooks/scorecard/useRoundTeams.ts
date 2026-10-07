@@ -101,7 +101,7 @@ export function useRoundTeams(
 
         const { data: playersData, error: playersErr } = await supabase
           .from('players')
-          .select('id, name, email, phone, handicap, handicap_index, gender, photo_url')
+          .select('id, name, handicap, handicap_index, gender, photo_url')
           .in('id', allMemberIds) as {
             data: SupabasePlayerData[] | null;
             error: { message: string } | null;

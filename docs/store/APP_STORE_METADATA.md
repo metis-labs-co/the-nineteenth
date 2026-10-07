@@ -57,7 +57,7 @@ SCORE ON THE COURSE
 Enter scores for your entire group from one device. Works offline so you never lose a score, even in the middle of the course. Large buttons and simple interface designed for on-course use.
 
 AUTOMATIC HANDICAP SCORING
-Let us handle the maths. Enter gross scores and we'll calculate net scores, Stableford points, and handicap adjustments automatically. Supports Australian handicap system.
+Let us handle the maths. Enter gross scores and we'll calculate net scores, Stableford points, and handicap adjustments automatically, using the handicap each player enters.
 
 LIVE LEADERBOARDS
 See where you stand in real-time. Watch the leaderboard update as scores come in. Compare your performance across rounds and track your progress over the season.
@@ -81,7 +81,7 @@ MORE FEATURES
 - Dark mode support
 
 DESIGNED FOR AUSTRALIA
-Built for Australian golfers, with local courses, Australian handicap calculations, and date formats that make sense.
+Built for Australian golfers, with local courses, Australian golf formats, and date formats that make sense.
 
 PERFECT FOR
 - Weekend golf groups

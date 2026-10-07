@@ -1,7 +1,7 @@
 /**
  * InputtedHandicapInfoSheet - Small info bottom sheet explaining the handicap
  * value a user has manually entered on their profile (the `players.handicap`
- * field), as opposed to the app-computed Social Handicap Index.
+ * field), as opposed to the app-computed Social Handicap.
  *
  * For the fuller explainer covering all handicap types, see HandicapInfoSheet.
  */
@@ -25,7 +25,7 @@ export function InputtedHandicapInfoSheet({ visible, onClose }: InputtedHandicap
     <BottomSheet
       visible={visible}
       onClose={onClose}
-      height={0.32}
+      height={0.38}
       title="Handicap"
       showCloseButton
     >
@@ -38,8 +38,10 @@ export function InputtedHandicapInfoSheet({ visible, onClose }: InputtedHandicap
           manually, and it stays fixed until you change it.
         </Text>
         <Text style={[styles.body, { color: colors.textSecondary }]}>
-          It&apos;s separate from your Social Handicap Index, which The
-          Nineteenth calculates automatically from your completed rounds.
+          It&apos;s separate from your Social Handicap, which The Nineteenth
+          calculates automatically from your completed rounds. The Social
+          Handicap is unique to The Nineteenth and is not an official golf
+          handicap.
         </Text>
       </View>
     </BottomSheet>

@@ -18,6 +18,7 @@ import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import type { SelectedPlayer } from '@/components/common/FriendSelector';
 import type { Friend, PlaceholderPlayerWithStats, TeeBox } from '@/types/database.types';
+import type { HandicapSource } from '@/types/database';
 
 interface FriendSelectorBottomSheetProps {
   visible: boolean;
@@ -33,6 +34,7 @@ interface FriendSelectorBottomSheetProps {
   onAddPlaceholderPress: () => void;
   selectedTee?: TeeBox | null;
   coursePar?: number;
+  handicapSource?: HandicapSource;
 }
 
 export function FriendSelectorBottomSheet({
@@ -49,6 +51,7 @@ export function FriendSelectorBottomSheet({
   onAddPlaceholderPress,
   selectedTee,
   coursePar,
+  handicapSource,
 }: FriendSelectorBottomSheetProps) {
   const colors = useThemeColors();
 
@@ -77,6 +80,7 @@ export function FriendSelectorBottomSheet({
         addPlaceholderLabel="Create Guest"
         selectedTee={selectedTee}
         coursePar={coursePar}
+        handicapSource={handicapSource}
       />
 
       {/* Done Button */}
