@@ -562,6 +562,36 @@ describe('Sync Operations', () => {
         expect(database.markScorecardAsSynced).not.toHaveBeenCalled();
       });
     });
+
+    describe('characterization: conflicts without a resolver', () => {
+      it('retains a conflicted queued write as failed', async () => {
+        (database.getPendingSyncs as jest.Mock).mockResolvedValue([createPendingSync({ id: 3 })]);
+        (supabase.rpc as jest.Mock).mockResolvedValue({
+          data: [{ applied: false, conflict: true, server_revision: 6, server_status: 'in-progress', server_scores: {} }],
+          error: null,
+        });
+
+        await syncAll();
+
+        expect(database.markPendingSyncFailed).toHaveBeenCalledWith(3, 1, expect.stringContaining('another device'));
+        expect(database.removePendingSync).not.toHaveBeenCalled();
+      });
+    });
+
+    it('uploads only the whitelisted hole fields today', async () => {
+      const scorecard = createTestScorecard({
+        status: 'in-progress',
+        scores: { 1: { strokes: 4, scoredBy: 'u1', pickedUp: true } },
+      });
+      (database.getPendingSyncs as jest.Mock).mockResolvedValue([createPendingSync({ data: scorecard })]);
+      (supabase.rpc as jest.Mock).mockResolvedValue(successRpc(1));
+
+      await syncAll();
+
+      const write = (supabase.rpc as jest.Mock).mock.calls.find(([fn]) => fn === 'write_scorecard_snapshot');
+      expect(write[1].p_snapshot.scores['1']).not.toHaveProperty('scoredBy');
+      expect(write[1].p_snapshot.scores['1']).not.toHaveProperty('pickedUp');
+    });
   });
 
   describe('manualSync()', () => {

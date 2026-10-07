@@ -258,6 +258,37 @@ describe('ScorecardStore', () => {
   // INITIALIZATION TESTS
   // ==========================================================================
 
+  describe('characterization: standard-round behaviour', () => {
+    it('resetRound clears the round-scoped state', () => {
+      useScorecardStore.setState({ currentRoundId: testRoundId, allowedPlayerIds: ['x'], failedSyncCount: 3 });
+      getStore().resetRound();
+      const s = getStore();
+      expect(s.currentRoundId).toBeNull();
+      expect(s.allowedPlayerIds).toEqual([]);
+      expect(s.failedSyncCount).toBe(0);
+      expect(s.groupScorecards.size).toBe(0);
+    });
+
+    it('setPlayerScore keeps existing putts and records the scorer', async () => {
+      await getStore().initializeRound(testRoundId, testPlayers, testHoles, 'stroke');
+      const playerId = testPlayers[0].id;
+      await getStore().updatePlayerHoleScore(playerId, 1, { strokes: 4, putts: 2 });
+      await getStore().setPlayerScore(playerId, 1, 5, 'scorer-1');
+      const hole = getStore().groupScorecards.get(playerId)!.scores[1] as HoleScore;
+      expect(hole).toMatchObject({ strokes: 5, putts: 2, scoredBy: 'scorer-1' });
+    });
+
+    it('updatePlayerHoleScore does not queue a live sync today', async () => {
+      jest.useFakeTimers();
+      await getStore().initializeRound(testRoundId, testPlayers, testHoles, 'stroke');
+      (queueScorecardSync as jest.Mock).mockClear();
+      await getStore().updatePlayerHoleScore(testPlayers[0].id, 1, { putts: 2 });
+      jest.advanceTimersByTime(2500);
+      expect(queueScorecardSync).not.toHaveBeenCalled();
+      jest.useRealTimers();
+    });
+  });
+
   describe('initializeRound', () => {
     it('creates scorecards for all players', async () => {
       const store = getStore();
