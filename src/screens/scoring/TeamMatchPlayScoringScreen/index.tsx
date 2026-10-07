@@ -33,7 +33,7 @@ import { useCompetitionInfo } from '@/hooks/competitions';
 import { useAuth } from '@/hooks/useAuth';
 import { calculatePlayingHandicap } from '@/hooks/usePlayingHandicap';
 import { useProcessSkinsIfNeeded, useOnlineStatus } from '@/hooks';
-import { useOfflineSync } from '@/hooks/scorecard';
+import { useOfflineSync, useLiveScorecardMerge } from '@/hooks/scorecard';
 import { teamMatchPlayLogger } from '@/utils/debugLogger';
 import type { RootStackScreenProps } from '@/navigation/types';
 import type { Player, TeeBox } from '@/types';
@@ -52,6 +52,7 @@ type Props = RootStackScreenProps<'MatchPlayScoring'>;
 
 export default function TeamMatchPlayScoringScreen({ navigation, route }: Props) {
   const { roundId, team1Id, team2Id } = route.params;
+  useLiveScorecardMerge(roundId);
   const colors = useThemeColors();
 
   // Super admin check

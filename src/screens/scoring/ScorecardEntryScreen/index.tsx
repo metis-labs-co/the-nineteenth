@@ -26,7 +26,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { useStatsVisibilityWithTier } from '@/hooks/useStatsVisibilityWithTier';
 import { useIsSuperAdmin } from '@/store/subscriptionStore';
-import { useOfflineSync, useRoundData, useTeamScoring, useBuildAsYouPlay, useGroupFilter, useActiveSubMatch } from '@/hooks/scorecard';
+import { useOfflineSync, useRoundData, useTeamScoring, useBuildAsYouPlay, useGroupFilter, useActiveSubMatch, useLiveScorecardMerge } from '@/hooks/scorecard';
 import { usePairings, useTeams as useCompetitionTeams, useRoundDetails } from '@/hooks/rounds';
 import { useCompetitionInfo } from '@/hooks/competitions';
 import {
@@ -72,6 +72,7 @@ type Props = RootStackScreenProps<'Scorecard'>;
 
 export default function ScorecardEntryScreen({ navigation, route }: Props) {
   const { roundId, competitionId, isBuildAsYouPlay: isBuildAsYouPlayParam } = route.params;
+  useLiveScorecardMerge(roundId);
   const colors = useThemeColors();
   const { user } = useAuth();
   const { showSuccessToast, showErrorToast } = useToast();
