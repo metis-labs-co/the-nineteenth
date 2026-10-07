@@ -12,6 +12,8 @@ import { supabase } from '@/services/supabase/client';
 import { calculateHandicapIndex, getQualifyingCount } from '@/utils/handicapDifferential';
 import { recalculateScorecardDifferential } from '@/services/handicap/recalculateScorecardDifferential';
 import { isSharedBallRound } from '@/utils/roundFormat';
+import { isCompleteForHandicap } from '@/utils/handicapEligibility';
+import type { NineType } from '@/types/database/enums';
 import { updatePlayerHandicapIndex } from '@/services/handicap/updatePlayerHandicapIndex';
 import {
   fetchCombinedHandicapRounds,
@@ -23,6 +25,16 @@ import type { HandicapSummary, HandicapRound } from '@/types';
 // Track scorecards we've already attempted to recalculate this session
 // to avoid redundant recalculation on every screen visit
 const attemptedRecalculations = new Set<string>();
+
+/** WHS uses the 20 most recent qualifying rounds. */
+const WHS_RECENT_ROUNDS = 20;
+
+/**
+ * Rows fetched before the client filters (shared-ball, completeness) run.
+ * They filter after the query, so fetching only 20 would let recent
+ * part-filled cards crowd complete ones out of the history.
+ */
+const BELT_FETCH_LIMIT = 60;
 
 // Query key factory for handicap-related queries
 export const handicapKeys = {
@@ -40,9 +52,12 @@ interface ScorecardWithRound {
   course_rating_used: number | null;
   slope_rating_used: number | null;
   submitted_at: string | null;
+  /** Hole-by-hole scores — the completeness belt (I12) reads them. */
+  scores: Record<string, unknown> | null;
   rounds: {
     id: string;
     date: string;
+    nine_type: NineType | null;
     game_type: string | null;
     team_format: string | null;
     courses: {
@@ -56,6 +71,13 @@ interface ScorecardWithRound {
   } | null;
 }
 
+/** A completed scorecard with no differential — a candidate for recalculation. */
+interface RecalculationCandidate {
+  id: string;
+  scores: Record<string, unknown> | null;
+  rounds: { nine_type: NineType | null } | null;
+}
+
 /**
  * Find completed scorecards that have null differentials and haven't been
  * attempted for recalculation yet this session.
@@ -63,7 +85,7 @@ interface ScorecardWithRound {
 async function findScorecardsNeedingRecalculation(playerId: string): Promise<string[]> {
   const { data, error } = await supabase
     .from('scorecards')
-    .select('id')
+    .select('id, scores, rounds!inner(nine_type)')
     .eq('player_id', playerId)
     .in('status', ['completed', 'confirmed'])
     .is('handicap_differential', null)
@@ -71,8 +93,11 @@ async function findScorecardsNeedingRecalculation(playerId: string): Promise<str
 
   if (error || !data) return [];
 
-  const ids = data
-    .map((sc: { id: string }) => sc.id)
+  const ids = (data as unknown as RecalculationCandidate[])
+    // An incomplete card can never earn a differential (I12) — the recalc
+    // would only write null again, so don't spend a round-trip on it.
+    .filter((sc) => isCompleteForHandicap(sc.scores, sc.rounds?.nine_type ?? 'full'))
+    .map((sc) => sc.id)
     .filter((id: string) => !attemptedRecalculations.has(id));
 
   // Mark all as attempted regardless of outcome
@@ -89,7 +114,7 @@ async function findScorecardsNeedingRecalculation(playerId: string): Promise<str
  * @param playerId - UUID of the player
  * @returns HandicapSummary with calculated index and round history
  */
-async function fetchHandicapHistory(playerId: string): Promise<HandicapSummary> {
+export async function fetchHandicapHistory(playerId: string): Promise<HandicapSummary> {
   // Fetch last 20 completed scorecards with differentials
   // eslint-disable-next-line prefer-const -- scorecards is reassigned on refresh
   let { data: scorecards, error } = await supabase
@@ -104,6 +129,7 @@ async function fetchHandicapHistory(playerId: string): Promise<HandicapSummary> 
       course_rating_used,
       slope_rating_used,
       submitted_at,
+      scores,
       rounds!inner (
         id,
         date,
@@ -126,7 +152,7 @@ async function fetchHandicapHistory(playerId: string): Promise<HandicapSummary> 
     .is('rounds.deleted_at', null)
     .eq('rounds.nine_type', 'full')
     .order('submitted_at', { ascending: false })
-    .limit(20);
+    .limit(BELT_FETCH_LIMIT);
 
   if (error) {
     console.error('[useHandicapHistory] Failed to fetch handicap history:', error);
@@ -162,10 +188,13 @@ async function fetchHandicapHistory(playerId: string): Promise<HandicapSummary> 
           course_rating_used,
           slope_rating_used,
           submitted_at,
+          scores,
           rounds!inner (
             id,
             date,
             nine_type,
+            game_type,
+            team_format,
             courses (
               id,
               name,
@@ -182,7 +211,7 @@ async function fetchHandicapHistory(playerId: string): Promise<HandicapSummary> 
         .is('rounds.deleted_at', null)
         .eq('rounds.nine_type', 'full')
         .order('submitted_at', { ascending: false })
-        .limit(20);
+        .limit(BELT_FETCH_LIMIT);
 
       if (!refreshError && refreshed) {
         scorecards = refreshed;
@@ -192,15 +221,21 @@ async function fetchHandicapHistory(playerId: string): Promise<HandicapSummary> 
 
   // Filter out any rows with missing required data, plus any shared-ball team
   // round (scramble, alt-shot) that may have retained a stale differential
-  // before the backfill ran — those are never handicap eligible.
-  const validScorecards = (scorecards as ScorecardWithRound[]).filter(
-    (sc) =>
-      sc.handicap_differential !== null &&
-      sc.daily_handicap_used !== null &&
-      sc.course_rating_used !== null &&
-      sc.slope_rating_used !== null &&
-      !isSharedBallRound(sc.rounds ?? {})
-  );
+  // before the backfill ran — those are never handicap eligible. Only full
+  // scorecards count (I12, R21): a part-filled card that still carries a
+  // stored differential is dropped from both the list and the index.
+  const validScorecards = (scorecards as unknown as ScorecardWithRound[])
+    .filter(
+      (sc) =>
+        sc.handicap_differential !== null &&
+        sc.daily_handicap_used !== null &&
+        sc.course_rating_used !== null &&
+        sc.slope_rating_used !== null &&
+        !isSharedBallRound(sc.rounds ?? {}) &&
+        isCompleteForHandicap(sc.scores, sc.rounds?.nine_type ?? 'full')
+    )
+    // The fetch is newest first: keep the 20 most recent that pass.
+    .slice(0, WHS_RECENT_ROUNDS);
 
   // Fetch combined rounds and combinable 9-hole pairs in parallel
   const [combinedRounds, combinablePairs] = await Promise.all([
