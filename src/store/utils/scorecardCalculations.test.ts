@@ -1,6 +1,9 @@
 // src/store/utils/scorecardCalculations.test.ts
 import { calculatePlayerTotals } from './scorecardCalculations';
-import type { Scorecard, Hole } from '@/types';
+import type { Scorecard, Hole, TeeBox } from '@/types';
+import type { NineType } from '@/types/database/enums';
+import { calculateHandicapData } from '@/services/offline/sync/scorecardSync';
+import { getStrokesReceived } from '@/utils/scoring';
 
 function hole(number: number, par: number, strokeIndex: number): Hole {
   return { number, par, strokeIndex } as Hole;
@@ -78,14 +81,71 @@ describe('calculatePlayerTotals — daily handicap from the selected tee', () =>
     expect(totals.net).toBe(71);
   });
 
-  it('9 holes: CURRENT behaviour pairs the 18-hole CR with the 9-hole par (inflated DHC 52)', () => {
+  it('9 holes: uses the nine-aware DHC (9), not the inflated 18-CR-vs-9-par value (52)', () => {
     const totals = calculatePlayerTotals(hcCard(allBogeys(FRONT_NINE)), FRONT_NINE, 'stroke', {
       selectedTee: DHC_TEE,
       handicapSource: 'profile',
+      nineType: 'front9',
     });
-    // Observed: DHC = round(((20 × 120/113) + (71 − 36)) × 0.93 × 0.9986) = 52
-    // → 3 strokes on SI 1..15, 2 on SI 17 = 26 strokes. Gross 45, net 19.
+    // DHC = round(((20/2 × 120/113) + (71/2 − 36)) × 0.93 × 0.9986) = round(9.40) = 9
+    // → 1 stroke on SI 1, 3, 5, 7, 9 = 5 strokes. Gross 45, net 40.
+    // (Previously 52 → 26 strokes → net 19.)
     expect(totals.gross).toBe(45);
-    expect(totals.net).toBe(19);
+    expect(totals.net).toBe(40);
+  });
+});
+
+describe('calculatePlayerTotals — store DHC == sync DHC on 9-hole rounds (I4 parity)', () => {
+  const BACK_NINE = Array.from({ length: 9 }, (_, i) => hole(i + 10, 4, i * 2 + 2));
+
+  const cases: { label: string; nineType: NineType; holes: Hole[]; tee: TeeBox }[] = [
+    { label: 'front9, no 9-hole ratings', nineType: 'front9', holes: FRONT_NINE, tee: DHC_TEE },
+    {
+      label: 'front9, dedicated 9-hole ratings',
+      nineType: 'front9',
+      holes: FRONT_NINE,
+      tee: { ...DHC_TEE, slopeRatingFront9: 118, courseRatingFront9: 35.2 },
+    },
+    {
+      label: 'back9, dedicated 9-hole ratings',
+      nineType: 'back9',
+      holes: BACK_NINE,
+      tee: { ...DHC_TEE, slopeRatingBack9: 131, courseRatingBack9: 36.4 },
+    },
+  ];
+
+  it.each(cases)('$label', ({ nineType, holes, tee }) => {
+    const scores = allBogeys(holes);
+    const coursePar = holes.reduce((sum, h) => sum + h.par, 0);
+
+    const { dailyHandicapUsed } = calculateHandicapData({
+      id: 'sc-1',
+      roundId: '550e8400-e29b-41d4-a716-446655440000',
+      playerId: 'p1',
+      scores,
+      totalGross: 45,
+      totalNet: 0,
+      status: 'completed',
+      teeData: tee,
+      coursePar,
+      playerGender: 'male',
+      playerHandicap: 20,
+      syncGameType: 'stroke',
+      syncNineType: nineType,
+      syncHoles: holes,
+    } as unknown as Scorecard);
+    expect(dailyHandicapUsed).not.toBeNull();
+
+    const totals = calculatePlayerTotals(hcCard(scores), holes, 'stroke', {
+      selectedTee: tee,
+      handicapSource: 'profile',
+      nineType,
+    });
+
+    const syncStrokes = holes.reduce(
+      (sum, h) => sum + getStrokesReceived(dailyHandicapUsed as number, h.strokeIndex),
+      0,
+    );
+    expect(totals.net).toBe(totals.gross - syncStrokes);
   });
 });

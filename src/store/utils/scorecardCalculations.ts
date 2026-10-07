@@ -5,6 +5,7 @@
 
 import type { Scorecard, Hole, GameType, TeeBox } from '@/types';
 import type { HandicapSource } from '@/types/database';
+import type { NineType } from '@/types/database/enums';
 import { isSingleBallScore } from '@/types/database/base';
 import {
   getStrokesReceived,
@@ -12,7 +13,7 @@ import {
   calculateParScore,
   getEffectiveGrossStrokes,
 } from '@/utils/scoring';
-import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
+import { calculateNineAwareDailyHandicap } from '@/utils/dailyHandicap';
 import { getBaseHandicap } from '@/utils/scorecardCalculations';
 
 /**
@@ -26,6 +27,11 @@ export interface PlayerTotalsContext {
   selectedTee?: TeeBox | null;
   /** Whether to read profile HC, social HC, or no HC for the player. */
   handicapSource?: HandicapSource;
+  /**
+   * Which holes the round plays. `holes` is already filtered to the nine for
+   * 9-hole rounds, so the DHC must be the 9-hole value (default: 'full').
+   */
+  nineType?: NineType;
 }
 
 /**
@@ -33,7 +39,8 @@ export interface PlayerTotalsContext {
  *
  * When `context.selectedTee` is provided AND has valid slope/course
  * ratings, the WHS Daily Handicap is computed via
- * `calculateGADailyHandicap` and used for strokes received. Otherwise
+ * `calculateNineAwareDailyHandicap` (the same helper the sync pipeline uses,
+ * honouring `context.nineType`) and used for strokes received. Otherwise
  * the function falls back to the player's raw profile handicap, which
  * preserves behaviour for legacy callers that don't pass context.
  */
@@ -44,7 +51,7 @@ export function calculatePlayerTotals(
   context?: PlayerTotalsContext
 ): { gross: number; net: number; points: number; parScore: number } {
   // Resolve the effective handicap for scoring. Prefer WHS DHC from the
-  // selected tee (via calculateGADailyHandicap) so totals match the sync
+  // selected tee (via calculateNineAwareDailyHandicap) so totals match the sync
   // pipeline and the scorecard view. Fall back to the raw profile HC only
   // when tee data or course par isn't available.
   const rawHandicap = getBaseHandicap(
@@ -69,11 +76,19 @@ export function calculatePlayerTotals(
     context?.selectedTee?.courseRating &&
     coursePar > 0
   ) {
-    const result = calculateGADailyHandicap({
+    // coursePar is summed over `holes`, which the store has already filtered to
+    // the nine being played, so it is the 9-hole par on a 9-hole round.
+    const tee = context.selectedTee;
+    const result = calculateNineAwareDailyHandicap({
       gaHandicap: rawHandicap,
-      slopeRating: context.selectedTee.slopeRating,
-      courseRating: context.selectedTee.courseRating,
+      nineType: context.nineType ?? 'full',
       par: coursePar,
+      slopeRating: tee.slopeRating,
+      courseRating: tee.courseRating,
+      slopeRatingFront9: tee.slopeRatingFront9,
+      courseRatingFront9: tee.courseRatingFront9,
+      slopeRatingBack9: tee.slopeRatingBack9,
+      courseRatingBack9: tee.courseRatingBack9,
       gender: scorecard.player?.gender ?? null,
     });
     effectiveHandicap = result.dailyHandicap;
