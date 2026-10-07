@@ -256,6 +256,8 @@ export function useLeagueQuickAddRound({ leagueId }: UseLeagueQuickAddRoundParam
         player: selectedPlayer,
         selectedTee,
         holes,
+        // League quick-add always creates a full 18 (nine_type: 'full' above).
+        nineType: 'full',
         handicapSource: 'profile',
       });
 

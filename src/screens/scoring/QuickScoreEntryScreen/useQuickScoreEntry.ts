@@ -16,6 +16,7 @@ import {
 import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
 import { calculateScoreDifferential } from '@/utils/handicapDifferential';
 import { calculateAdjustedGrossScore } from '@/utils/adjustedGross';
+import { isCompleteForHandicap } from '@/utils/handicapEligibility';
 import { getBaseHandicap, type ScorecardPlayerInfo } from '@/utils/scorecardCalculations';
 import type { Hole, TeeBox } from '@/types/database.types';
 import type { HandicapSource } from '@/types/database/enums';
@@ -166,9 +167,12 @@ export function useQuickScoreEntry({ roundId, playerId }: UseQuickScoreEntryPara
   // Handicap differential for review. Uses the WHS ADJUSTED gross (every hole
   // capped at net double bogey) so this preview matches what the submit path
   // persists — quick entry accepts up to 12 strokes on a hole, well above the
-  // cap on most holes.
+  // cap on most holes. Like the submit, no differential until the card scores
+  // every planned hole of the round's nine (I12); the review modal hides the
+  // stat when it is null.
   const handicapDifferential = useMemo(() => {
     if (!selectedTee?.courseRating || !selectedTee?.slopeRating || totals.totalGross <= 0) return null;
+    if (!isCompleteForHandicap(scores, nineType)) return null;
     const { adjustedGross } = calculateAdjustedGrossScore({
       holes,
       scores,
@@ -179,7 +183,7 @@ export function useQuickScoreEntry({ roundId, playerId }: UseQuickScoreEntryPara
       courseRating: selectedTee.courseRating,
       slopeRating: selectedTee.slopeRating,
     });
-  }, [selectedTee, totals.totalGross, holes, scores, dailyHandicap]);
+  }, [selectedTee, totals.totalGross, holes, scores, dailyHandicap, nineType]);
 
   // Score manipulation
   const incrementScore = useCallback((holeNumber: number) => {
@@ -231,6 +235,9 @@ export function useQuickScoreEntry({ roundId, playerId }: UseQuickScoreEntryPara
         player,
         selectedTee,
         holes: allHoles,
+        // The round's planned nine — the submit's completeness gate (I12)
+        // judges the card against it.
+        nineType,
         handicapSource,
       });
       setShowReview(false);
@@ -239,7 +246,7 @@ export function useQuickScoreEntry({ roundId, playerId }: UseQuickScoreEntryPara
       setShowReview(false);
       showAlert('Error', error instanceof Error ? error.message : 'Failed to save scores');
     }
-  }, [player, scores, roundId, playerId, totals, selectedTee, allHoles, handicapSource, submitMutation, navigation]);
+  }, [player, scores, roundId, playerId, totals, selectedTee, allHoles, nineType, handicapSource, submitMutation, navigation]);
 
   return {
     // Data

@@ -13,10 +13,11 @@ import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
 import { refinalizeRoundResults } from '@/services/rounds/refinalizeRoundResults';
 import { scorecardKeys } from '@/hooks/queryKeys';
 import type { TeeBox, Hole } from '@/types/database.types';
-import type { HandicapSource } from '@/types/database/enums';
+import type { HandicapSource, NineType } from '@/types/database/enums';
+import { isCompleteForHandicap } from '@/utils/handicapEligibility';
 import { getBaseHandicap, type ScorecardPlayerInfo } from '@/utils/scorecardCalculations';
 
-interface QuickScoreSubmitInput {
+export interface QuickScoreSubmitInput {
   roundId: string;
   playerId: string;
   scores: Record<string, { strokes: number }>;
@@ -32,6 +33,11 @@ interface QuickScoreSubmitInput {
   player: ScorecardPlayerInfo;
   selectedTee: TeeBox | null;
   holes: Hole[];
+  /**
+   * The round's planned nine. The handicap completeness gate (I12) judges the
+   * card against getHoleRange(nineType) — never against `holes`.
+   */
+  nineType: NineType;
   handicapSource: HandicapSource;
 }
 
@@ -50,7 +56,7 @@ export function useQuickScoreSubmit() {
 
       const {
         roundId, playerId, scores, totalGross, totalNet, totalPoints, totalParScore,
-        player, selectedTee, holes, handicapSource,
+        player, selectedTee, holes, nineType, handicapSource,
       } = input;
 
       // Calculate handicap snapshot
@@ -77,8 +83,15 @@ export function useQuickScoreSubmit() {
       // Calculate handicap differential from the WHS ADJUSTED gross score —
       // every hole capped at net double bogey (par + 2 + strokes received).
       // Falls back to the raw gross if the card carries no hole data.
+      // Only a full scorecard earns one (I12): a part-filled Quick Score card
+      // keeps its ratings / daily handicap snapshot but no differential.
       let handicapDifferential: number | null = null;
-      if (courseRatingUsed && slopeRatingUsed && totalGross > 0) {
+      if (
+        courseRatingUsed &&
+        slopeRatingUsed &&
+        totalGross > 0 &&
+        isCompleteForHandicap(scores, nineType)
+      ) {
         const { adjustedGross } = calculateAdjustedGrossScore({
           holes,
           scores,
