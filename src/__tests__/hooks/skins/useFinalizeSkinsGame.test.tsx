@@ -54,4 +54,18 @@ describe('useFinalizeSkinsGame', () => {
     expect(mockFinalizeSkinsGame.mock.calls[0]).toEqual(['g1']);
     expect(settled).toBe(SETTLED);
   });
+
+  it("fires the current player's skins achievements after settling", async () => {
+    const { result } = renderHook(() => useFinalizeSkinsGame(), { wrapper: makeWrapper() });
+
+    await act(async () => {
+      await result.current.mutateAsync({ gameId: 'g1' });
+    });
+
+    expect(mockAwardSkinsAchievements).toHaveBeenCalledWith(SETTLED, {
+      playerId: 'p1',
+      checkAndAward: mockCheckAndAward,
+      showMultipleToasts: mockShowMultipleToasts,
+    });
+  });
 });

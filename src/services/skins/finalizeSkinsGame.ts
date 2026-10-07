@@ -17,6 +17,12 @@ import { calculateFinalPayoutsWithCarryover } from '@/utils/skins';
 import { fetchActiveSkinsGame } from './activeGame';
 import { fetchSkinsHoleCounts } from './roundHoleCounts';
 import type { SkinsGame, SkinsResult } from '@/types/database/skins.types';
+import type {
+  AchievementDefinition,
+  AchievementEventData,
+  AchievementEventType,
+} from '@/types/database/achievement.types';
+import type { CosmeticDefinition } from '@/types/database/cosmetic.types';
 
 /**
  * Settle one skins game. Hole counts are always read from the game's round
@@ -127,5 +133,81 @@ export async function finalizeActiveSkinsForRound(roundId: string): Promise<Fina
   } catch (error) {
     console.error('[finalizeActiveSkinsForRound] Error finalizing skins:', error);
     return { finalized: false, error };
+  }
+}
+
+/** What awardSkinsAchievements needs from the React side (useAuth / useCheckAchievements / toasts). */
+export interface SkinsAchievementContext {
+  playerId: string;
+  checkAndAward: (
+    eventType: AchievementEventType,
+    eventData: AchievementEventData
+  ) => Promise<{
+    hasNewRewards: boolean;
+    newAchievements: AchievementDefinition[];
+    newCosmetics: CosmeticDefinition[];
+  }>;
+  showMultipleToasts: (
+    achievements: AchievementDefinition[],
+    cosmetics?: (CosmeticDefinition | null)[]
+  ) => void;
+}
+
+/**
+ * Skins achievement events for one player after a game settles. Shared by
+ * useFinalizeSkinsGame.onSuccess and the round-submit hook (A6c), which
+ * settles through finalizeActiveSkinsForRound and so never runs onSuccess.
+ * Non-blocking: failures are logged, never thrown.
+ */
+export async function awardSkinsAchievements(
+  game: Pick<SkinsGame, 'id' | 'pot_value'>,
+  { playerId, checkAndAward, showMultipleToasts }: SkinsAchievementContext
+): Promise<void> {
+  try {
+    // Query the player's payout to get holes won data
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
+    const { data: payout } = await (supabase as any)
+      .from('skins_payouts')
+      .select('holes_won, holes_tied')
+      .eq('skins_game_id', game.id)
+      .eq('player_id', playerId)
+      .single();
+
+    const holesWon = (payout?.holes_won as number) ?? 0;
+
+    // Count carryover wins: holes the player won where previous hole(s) had carryovers
+    // A hole with payout_amount > pot_value indicates accumulated carryovers
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
+    const { data: carryoverWins } = await (supabase as any)
+      .from('skins_results')
+      .select('id, payout_amount')
+      .eq('skins_game_id', game.id)
+      .eq('winner_id', playerId)
+      .eq('is_carryover', false)
+      .not('payout_amount', 'is', null);
+
+    // Filter to holes where payout exceeded the base hole value (indicating carryovers)
+    const baseHoleValue = game.pot_value ?? 0;
+    const carryoverHolesWon =
+      (carryoverWins as { payout_amount: number }[] | null)?.filter(
+        (r) => r.payout_amount > baseHoleValue
+      ).length ?? 0;
+
+    // skins_game_completed
+    const r1 = await checkAndAward('skins_game_completed', {
+      skins_holes_won: holesWon,
+    });
+    if (r1.hasNewRewards) showMultipleToasts(r1.newAchievements, r1.newCosmetics);
+
+    // skins_hole_won (with counts)
+    if (holesWon > 0) {
+      const r2 = await checkAndAward('skins_hole_won', {
+        skins_holes_won: holesWon,
+        skins_carryover_holes_won: carryoverHolesWon,
+      });
+      if (r2.hasNewRewards) showMultipleToasts(r2.newAchievements, r2.newCosmetics);
+    }
+  } catch (error) {
+    console.warn('[awardSkinsAchievements] Achievement check failed (non-blocking):', error);
   }
 }

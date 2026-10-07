@@ -4,6 +4,7 @@
  * "finalise round" sync item.
  */
 import {
+  awardSkinsAchievements,
   finalizeActiveSkinsForRound,
   finalizeSkinsGame,
 } from '@/services/skins/finalizeSkinsGame';
@@ -229,5 +230,79 @@ describe('finalizeActiveSkinsForRound', () => {
     expect(outcome.finalized).toBe(false);
     expect((outcome.error as Error).message).toBe('Failed to load round for skins pricing: timeout');
     expect(tables.skins_payouts.insert).not.toHaveBeenCalled();
+  });
+});
+
+describe('awardSkinsAchievements', () => {
+  const NO_REWARDS = { hasNewRewards: false, newAchievements: [], newCosmetics: [], progressUpdates: [] };
+
+  function wireAchievements(holesWon: number, wins: { payout_amount: number }[]) {
+    const payouts = makeTable({ single: [{ data: { holes_won: holesWon, holes_tied: 0 }, error: null }] });
+    const results = makeTable({ awaited: { data: wins, error: null } });
+    mockFrom.mockImplementation((table: string) => (table === 'skins_payouts' ? payouts : results));
+    return { payouts, results };
+  }
+
+  beforeEach(() => {
+    mockFrom.mockReset();
+  });
+
+  it("fires game-completed and hole-won events with the player's holes and carryover wins", async () => {
+    // pot_value $5: the $10 win carried a hole over, the $5 win did not → 1 carryover win
+    const { payouts } = wireAchievements(2, [{ payout_amount: 10 }, { payout_amount: 5 }]);
+    const checkAndAward = jest.fn().mockResolvedValue(NO_REWARDS);
+    const showMultipleToasts = jest.fn();
+
+    await awardSkinsAchievements(GAME, { playerId: 'p1', checkAndAward, showMultipleToasts });
+
+    expect(payouts.eq).toHaveBeenCalledWith('skins_game_id', 'g1');
+    expect(payouts.eq).toHaveBeenCalledWith('player_id', 'p1');
+    expect(checkAndAward).toHaveBeenCalledWith('skins_game_completed', { skins_holes_won: 2 });
+    expect(checkAndAward).toHaveBeenCalledWith('skins_hole_won', {
+      skins_holes_won: 2,
+      skins_carryover_holes_won: 1,
+    });
+    expect(showMultipleToasts).not.toHaveBeenCalled();
+  });
+
+  it('skips the hole-won event when the player won no holes', async () => {
+    wireAchievements(0, []);
+    const checkAndAward = jest.fn().mockResolvedValue(NO_REWARDS);
+
+    await awardSkinsAchievements(GAME, { playerId: 'p1', checkAndAward, showMultipleToasts: jest.fn() });
+
+    expect(checkAndAward).toHaveBeenCalledTimes(1);
+    expect(checkAndAward).toHaveBeenCalledWith('skins_game_completed', { skins_holes_won: 0 });
+  });
+
+  it('shows toasts for new rewards', async () => {
+    wireAchievements(1, []);
+    const achievement = { code: 'skins_rookie' };
+    const checkAndAward = jest.fn().mockResolvedValue({
+      ...NO_REWARDS,
+      hasNewRewards: true,
+      newAchievements: [achievement],
+    });
+    const showMultipleToasts = jest.fn();
+
+    await awardSkinsAchievements(GAME, { playerId: 'p1', checkAndAward, showMultipleToasts });
+
+    expect(showMultipleToasts).toHaveBeenCalledWith([achievement], []);
+  });
+
+  it('never throws when the lookup fails', async () => {
+    mockFrom.mockImplementation(() => {
+      throw new Error('offline');
+    });
+    const consoleWarn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    await expect(
+      awardSkinsAchievements(GAME, {
+        playerId: 'p1',
+        checkAndAward: jest.fn(),
+        showMultipleToasts: jest.fn(),
+      })
+    ).resolves.toBeUndefined();
+    consoleWarn.mockRestore();
   });
 });

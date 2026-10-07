@@ -13,7 +13,7 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
-import { finalizeSkinsGame } from '@/services/skins/finalizeSkinsGame';
+import { awardSkinsAchievements, finalizeSkinsGame } from '@/services/skins/finalizeSkinsGame';
 import { skinsKeys } from '@/hooks/queryKeys';
 import {
   calculateHoleValue,
@@ -433,53 +433,13 @@ export function useFinalizeSkinsGame() {
         });
       }
 
-      // Fire skins achievement events
+      // Fire skins achievement events (shared with the round-submit hook)
       if (!user?.id || !isAchievementReady) return;
-      try {
-        // Query current player's payout to get holes won data
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
-        const { data: payout } = await (supabase as any)
-          .from('skins_payouts')
-          .select('holes_won, holes_tied')
-          .eq('skins_game_id', data.id)
-          .eq('player_id', user.id)
-          .single();
-
-        const holesWon = (payout?.holes_won as number) ?? 0;
-
-        // Count carryover wins: holes the player won where previous hole(s) had carryovers
-        // A hole with payout_amount > pot_value indicates accumulated carryovers
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
-        const { data: carryoverWins } = await (supabase as any)
-          .from('skins_results')
-          .select('id, payout_amount')
-          .eq('skins_game_id', data.id)
-          .eq('winner_id', user.id)
-          .eq('is_carryover', false)
-          .not('payout_amount', 'is', null);
-
-        // Filter to holes where payout exceeded the base hole value (indicating carryovers)
-        const baseHoleValue = (data as unknown as { pot_value?: number }).pot_value ?? 0;
-        const carryoverHolesWon = (carryoverWins as Array<{ payout_amount: number }> | null)
-          ?.filter((r) => r.payout_amount > baseHoleValue).length ?? 0;
-
-        // skins_game_completed
-        const r1 = await checkAndAward('skins_game_completed', {
-          skins_holes_won: holesWon,
-        });
-        if (r1.hasNewRewards) showMultipleToasts(r1.newAchievements, r1.newCosmetics);
-
-        // skins_hole_won (with counts)
-        if (holesWon > 0) {
-          const r2 = await checkAndAward('skins_hole_won', {
-            skins_holes_won: holesWon,
-            skins_carryover_holes_won: carryoverHolesWon,
-          });
-          if (r2.hasNewRewards) showMultipleToasts(r2.newAchievements, r2.newCosmetics);
-        }
-      } catch (error) {
-        console.warn('[useFinalizeSkinsGame] Achievement check failed (non-blocking):', error);
-      }
+      await awardSkinsAchievements(data, {
+        playerId: user.id,
+        checkAndAward,
+        showMultipleToasts,
+      });
     },
 
     onError: (error) => {
