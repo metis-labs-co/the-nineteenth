@@ -20,6 +20,7 @@ import { usePlaceholderPlayers } from '@/hooks/usePlaceholderPlayers';
 import { useAuth } from '@/hooks/useAuth';
 import type { Friend, TeeBox, GameType, Player } from '@/types/database.types';
 import type { RoundPresetId } from '@/constants/roundPresets';
+import type { HandicapSource } from '@/types/database';
 import { checkPresetPlayerCount } from '@/utils/presetPlayers';
 import type { SelectedCourse, PlayingPartner } from '../types';
 import { MAX_PARTNERS, getTeeColor } from '../types';
@@ -38,6 +39,8 @@ interface PartnersStepProps {
   selectedTee: TeeBox | null;
   selectedMatchType: GameType;
   selectedPartners: PlayingPartner[];
+  /** Round handicap source, for the partner daily handicap preview */
+  handicapSource?: HandicapSource;
   selectedPresetId: RoundPresetId | null;
   friendSearchQuery: string;
   onFriendSearchQueryChange: (query: string) => void;
@@ -73,6 +76,7 @@ export const PartnersStep = memo(function PartnersStep({
   selectedTee,
   selectedMatchType,
   selectedPartners,
+  handicapSource,
   selectedPresetId,
   friendSearchQuery,
   onFriendSearchQueryChange,
@@ -552,6 +556,7 @@ export const PartnersStep = memo(function PartnersStep({
         }}
         selectedTee={selectedTee}
         coursePar={coursePar}
+        handicapSource={handicapSource}
       />
 
       {/* Add Guest Modal */}
