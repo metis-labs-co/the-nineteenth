@@ -12,3 +12,6 @@ export {
   getBestPlayerScore,
   getBestContributor,
 } from './teamMatchPlayCalculations';
+
+export { resolveMatchHoles } from './matchHoles';
+export type { MatchHoles } from './matchHoles';

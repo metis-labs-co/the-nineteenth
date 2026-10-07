@@ -29,6 +29,8 @@ interface UseTeamMatchPlayStateParams {
   team2BestScore: number | null;
   currentHoleWinner: 'team1' | 'team2' | 'halved' | null;
   getPlayerScoreValue: (playerId: string) => number | null;
+  /** Planned holes in the match — the round's nine-filtered count (9 or 18). */
+  totalHoles: number;
   onSubmitSuccess: () => void;
   /**
    * Optional persistence callback invoked on match submission.
@@ -53,6 +55,7 @@ export function useTeamMatchPlayState({
   team2BestScore,
   currentHoleWinner,
   getPlayerScoreValue,
+  totalHoles,
   onSubmitSuccess,
   onPersistResult,
 }: UseTeamMatchPlayStateParams) {
@@ -113,10 +116,10 @@ export function useTeamMatchPlayState({
     getPlayerScoreValue,
   ]);
 
-  // Calculate match status
+  // Calculate match status against the planned holes (never a default 18).
   const matchStatus: TeamMatchStatus = useMemo(
-    () => calculateTeamMatchStatus(holeResults),
-    [holeResults]
+    () => calculateTeamMatchStatus(holeResults, totalHoles),
+    [holeResults, totalHoles]
   );
   const isMatchComplete = matchStatus.status === 'complete';
   const matchStatusText = useMemo(

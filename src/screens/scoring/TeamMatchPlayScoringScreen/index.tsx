@@ -36,14 +36,16 @@ import { useOfflineSync } from '@/hooks/scorecard';
 import { teamMatchPlayLogger } from '@/utils/debugLogger';
 import type { RootStackScreenProps } from '@/navigation/types';
 import type { Player, TeeBox } from '@/types';
+import type { NineType } from '@/types/database/enums';
 
 import {
   TeamMatchPlayFooter,
   TeamScorePanel,
   TeamMatchProgress,
 } from './components';
-import { DEFAULT_HOLES, MIN_SCORE, MAX_SCORE } from './constants';
+import { MIN_SCORE, MAX_SCORE } from './constants';
 import { useTeamMatchPlayScores, useTeamMatchPlayState, useTeamMatchPlayNavigation } from './hooks';
+import { resolveMatchHoles } from './utils';
 import type { MatchTeam } from './types';
 import { toMatchTeam } from './types';
 
@@ -150,13 +152,24 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
   const [showChangeTeesSheet, setShowChangeTeesSheet] = useState(false);
   const availableTees = roundData?.course?.tees ?? [];
 
-  // Use course holes if available, otherwise default
-  const holes = useMemo(() => {
-    if (roundData?.course?.holes && Array.isArray(roundData.course.holes)) {
-      return roundData.course.holes;
+  // The round's planned nine. Team match play rounds can be front9/back9 —
+  // scoring against the raw 18-hole course meant a 9-hole match could never
+  // complete.
+  const roundNineType: NineType = roundData?.nine_type ?? 'full';
+
+  // Planned holes for that nine (course holes, or the default card) plus the
+  // navigation bounds — back-9 rounds run 10..18.
+  const { holes, firstHoleNumber, lastHoleNumber } = useMemo(
+    () => resolveMatchHoles(roundData?.course?.holes, roundNineType),
+    [roundData?.course?.holes, roundNineType]
+  );
+
+  // Start on — and stay within — the round's holes (back-9 starts at 10).
+  useEffect(() => {
+    if (currentHole < firstHoleNumber || currentHole > lastHoleNumber) {
+      setCurrentHole(firstHoleNumber);
     }
-    return DEFAULT_HOLES;
-  }, [roundData]);
+  }, [currentHole, firstHoleNumber, lastHoleNumber]);
 
   // Ensure the scorecard store is initialized for this round.
   // The initial call from `useStartNewRound` can silently fail (errors are
@@ -202,7 +215,9 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
         false,
         [],
         selectedTeeBox ?? null,
-        handicapSource
+        handicapSource,
+        new Map(),
+        roundNineType
       );
     })();
 
@@ -218,6 +233,7 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
     currentPlayers.length,
     selectedTeeBox,
     handicapSource,
+    roundNineType,
     initializeRound,
     loadFromOffline,
     resetRound,
@@ -238,13 +254,17 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
             holes,
             handicapSource,
             gameType: 'match-play',
+            // `holes` is nine-filtered — pair it with the nine so a 9-hole
+            // match gets a nine-aware daily handicap (I4), not an 18-hole
+            // course rating against a 9-hole par.
+            nineType: roundNineType,
           });
           map.set(member.player_id, playingHandicap);
         }
       }
     }
     return map;
-  }, [teamsData, selectedTeeBox, holes, handicapSource]);
+  }, [teamsData, selectedTeeBox, holes, handicapSource, roundNineType]);
 
   // Find team data based on IDs. For split rounds, synthesize the two "teams"
   // from the active sub-match's sides so the existing best-ball scoring UI
@@ -307,7 +327,9 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
     return { id: team2Id || '2', name: 'Team B', members: [], handicap: 0 };
   }, [isSplitRound, activeSubMatch, team2Id, teamsData, handicapMap]);
 
-  const currentHoleData = holes[currentHole - 1];
+  // Look holes up by number — the list is nine-filtered (10..18 on back-9),
+  // so positional indexing would return the wrong hole.
+  const currentHoleData = holes.find((h) => h.number === currentHole) ?? holes[0];
 
   // Score management hook
   const {
@@ -374,6 +396,7 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
     team2BestScore,
     currentHoleWinner,
     getPlayerScoreValue,
+    totalHoles: holes.length || 18,
     onSubmitSuccess: () => navigation.goBack(),
     onPersistResult: isSplitRound && activeSubMatch ? handlePersistSubMatchResult : undefined,
   });
@@ -387,8 +410,8 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
   } = useTeamMatchPlayNavigation({
     currentHole,
     setCurrentHole,
-    firstHoleNumber: holes[0]?.number ?? 1,
-    lastHoleNumber: holes[holes.length - 1]?.number ?? 18,
+    firstHoleNumber,
+    lastHoleNumber,
     isMatchComplete,
     roundId,
     navigation,
@@ -551,9 +574,7 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
 
   // Get hole data for any hole number (used by SwipeableHoleNavigator)
   const getHoleData = useCallback(
-    (holeNumber: number) => {
-      return holes[holeNumber - 1];
-    },
+    (holeNumber: number) => holes.find((h) => h.number === holeNumber),
     [holes]
   );
 
@@ -572,8 +593,6 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
 
       // Bound to the round's actual hole range so back-9 / combo rounds
       // don't fall off the end.
-      const firstHoleNumber = holes[0]?.number ?? 1;
-      const lastHoleNumber = holes[holes.length - 1]?.number ?? 18;
       const canGoPrev = holeNumber > firstHoleNumber;
       const canGoNext = holeNumber < lastHoleNumber && !isMatchComplete;
 
@@ -685,6 +704,8 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
       holeResults,
       handleHolePress,
       holes,
+      firstHoleNumber,
+      lastHoleNumber,
       startHole,
     ]
   );
@@ -811,7 +832,8 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
 
       <SwipeableHoleNavigator
         currentHole={currentHole}
-        totalHoles={18}
+        totalHoles={lastHoleNumber}
+        firstHole={firstHoleNumber}
         onHoleChange={setCurrentHole}
         enabled={!isSubmitting && !isMatchComplete}
         renderHole={renderHoleContent}
@@ -819,8 +841,8 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
 
       <TeamMatchPlayFooter
         currentHole={currentHole}
-        firstHoleNumber={holes[0]?.number ?? 1}
-        lastHoleNumber={holes[holes.length - 1]?.number ?? 18}
+        firstHoleNumber={firstHoleNumber}
+        lastHoleNumber={lastHoleNumber}
         isMatchComplete={isMatchComplete}
         isSubmitting={isSubmitting}
         onPreviousHole={handlePreviousHole}
