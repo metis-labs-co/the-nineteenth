@@ -388,14 +388,12 @@ export interface GolfApiRateLimitError extends GolfApiError {
 // =====================================================
 
 /**
- * GolfAPI.io client configuration
+ * GolfAPI.io client configuration.
+ * The API key is not client config: it lives server-side in the
+ * `golfapi-proxy` edge function (Supabase secret GOLFAPI_IO_KEY).
  */
 export interface GolfApiClientConfig {
-  /** Base URL for the API (default: GOLFAPI_BASE_URL) */
-  baseUrl?: string;
-  /** API key for authentication (Bearer token) */
-  apiKey: string;
-  /** Request timeout in milliseconds (default: 10000) */
+  /** Request timeout in milliseconds (default: 20000) */
   timeout?: number;
   /** Enable debug logging (default: false) */
   debug?: boolean;

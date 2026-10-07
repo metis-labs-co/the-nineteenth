@@ -340,7 +340,7 @@ describe('ReviewStep', () => {
       expect(screen.getByText('Honour System')).toBeTruthy();
     });
 
-    it('displays WHS Verified handicap system', () => {
+    it('displays Profile Handicaps handicap system', () => {
       render(
         <ReviewStep
           {...defaultProps}
@@ -348,7 +348,7 @@ describe('ReviewStep', () => {
         />
       );
 
-      expect(screen.getByText('WHS Verified')).toBeTruthy();
+      expect(screen.getByText('Profile Handicaps')).toBeTruthy();
     });
 
     it('displays Gross Scores Only handicap system', () => {

@@ -104,27 +104,53 @@ serve(async (req: Request) => {
       skinsPayoutsResult,
       wolfPayoutsResult,
       preferencesResult,
+      shotLogResult,
+      roundPlayersResult,
+      ownedRoundsResult,
+      customHoleTeesResult,
     ] = await Promise.all([
       safeQuery(() => supabaseAdmin.from('players').select('*').eq('id', userId).single()),
       safeQuery(() => supabaseAdmin.from('scorecards').select('*').eq('player_id', userId)),
       safeQuery(() => supabaseAdmin.from('score_entries').select('*').eq('player_id', userId)),
       safeQuery(() => supabaseAdmin.from('competition_players').select('*, competitions(name, status)').eq('player_id', userId)),
-      safeQuery(() => supabaseAdmin.from('friendships').select('*').or(`user_id.eq.${userId},friend_id.eq.${userId}`)),
+      safeQuery(() => supabaseAdmin.from('friendships').select('*').or(`requester_id.eq.${userId},addressee_id.eq.${userId}`)),
       safeQuery(() => supabaseAdmin.from('user_subscriptions').select('*').eq('user_id', userId).maybeSingle()),
       safeQuery(() => supabaseAdmin.from('notifications').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(100)),
-      safeQuery(() => supabaseAdmin.from('favorite_courses').select('*, courses(name)').eq('user_id', userId)),
+      safeQuery(() => supabaseAdmin.from('favorite_courses').select('*, courses(name)').eq('player_id', userId)),
       safeQuery(() => supabaseAdmin.from('player_achievements').select('*').eq('player_id', userId)),
       safeQuery(() => supabaseAdmin.from('skins_payouts').select('*').eq('player_id', userId)),
       safeQuery(() => supabaseAdmin.from('wolf_payouts').select('*').eq('player_id', userId)),
       safeQuery(() => supabaseAdmin.from('user_preferences').select('*').eq('user_id', userId).maybeSingle()),
+      // GPS position of every shot the user logged (shot tracking)
+      safeQuery(() => supabaseAdmin.from('shot_log').select('round_id, hole_number, sequence, latitude, longitude, club_used, shot_type, created_at, updated_at').eq('player_id', userId).order('created_at', { ascending: true })),
+      // Standalone (social) rounds the user played in
+      safeQuery(() => supabaseAdmin.from('round_players').select('*, rounds(*)').eq('player_id', userId)),
+      // Standalone rounds the user created/owns (rounds.user_id)
+      safeQuery(() => supabaseAdmin.from('rounds').select('*').eq('user_id', userId)),
+      // User-placed tee box GPS points
+      safeQuery(() => supabaseAdmin.from('custom_hole_tees').select('*').eq('user_id', userId)),
     ]);
+
+    // Handicap differentials are stored per scorecard (there is no separate
+    // table); surface them explicitly alongside the profile's handicap_index.
+    const scorecards = (scorecardsResult.data ?? []) as Array<Record<string, unknown>>;
+    const handicapDifferentials = scorecards
+      .filter((sc) => sc.handicap_differential !== null && sc.handicap_differential !== undefined)
+      .map((sc) => ({
+        scorecard_id: sc.id,
+        round_id: sc.round_id,
+        handicap_differential: sc.handicap_differential,
+        daily_handicap_used: sc.daily_handicap_used ?? null,
+        created_at: sc.created_at ?? null,
+      }));
 
     const exportData = {
       exported_at: new Date().toISOString(),
       user_id: userId,
       email: user.email,
       profile: playerResult.data,
-      scorecards: scorecardsResult.data ?? [],
+      scorecards,
+      handicap_differentials: handicapDifferentials,
       score_entries: scoreEntriesResult.data ?? [],
       competitions: competitionPlayersResult.data ?? [],
       friendships: friendshipsResult.data ?? [],
@@ -135,6 +161,10 @@ serve(async (req: Request) => {
       skins_payouts: skinsPayoutsResult.data ?? [],
       wolf_payouts: wolfPayoutsResult.data ?? [],
       preferences: preferencesResult.data,
+      shot_log: shotLogResult.data ?? [],
+      round_participation: roundPlayersResult.data ?? [],
+      owned_rounds: ownedRoundsResult.data ?? [],
+      custom_hole_tees: customHoleTeesResult.data ?? [],
     };
 
     const filename = `the-nineteenth-data-export-${new Date().toISOString().split('T')[0]}.json`;

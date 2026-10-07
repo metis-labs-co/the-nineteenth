@@ -17,8 +17,8 @@ const SUPABASE_KEY =
   process.env.SUPABASE_SERVICE_ROLE_KEY ??
   process.env.SUPABASE_SECRET_KEY ??
   process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
-const GOLFAPI_URL = process.env.EXPO_PUBLIC_GOLFAPI_IO_URL!;
-const GOLFAPI_KEY = process.env.EXPO_PUBLIC_GOLFAPI_IO_KEY!;
+const GOLFAPI_URL = process.env.GOLFAPI_IO_URL!;
+const GOLFAPI_KEY = process.env.GOLFAPI_IO_KEY!;
 
 if (!SUPABASE_URL || !SUPABASE_KEY || !GOLFAPI_URL || !GOLFAPI_KEY) {
   console.error('Missing env vars — need SUPABASE_URL/KEY and GOLFAPI_URL/KEY');

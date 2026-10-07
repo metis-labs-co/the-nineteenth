@@ -60,6 +60,10 @@ Detailed implementation guides for specific topics:
 - **[PUSH_NOTIFICATIONS.md](docs/guides/PUSH_NOTIFICATIONS.md)** - Push notification architecture, setup, testing, troubleshooting
 - **[LEAGUES.md](docs/guides/LEAGUES.md)** - Leagues feature: cross-course competition, WHS differentials, leaderboards
 
+### Legal & Privacy
+- **[PRIVACY_POLICY.md](docs/legal/PRIVACY_POLICY.md)** - Privacy policy source (hosted at thenineteenth.golf/privacy; short store copy in docs/store/legal/). Update it when data collection, processors or hosting change
+- **[DATA_BREACH_RESPONSE.md](docs/legal/DATA_BREACH_RESPONSE.md)** - Data breach runbook: contain, assess (30 days, OAIC NDB), notify, review
+
 ### Database
 - **[DATABASE_SCHEMA.md](docs/database/DATABASE_SCHEMA.md)** - Complete schema with SQL tables and TypeScript types
 
@@ -554,9 +558,11 @@ npx expo start --android
 EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_publishable_key_here
 
-# Golf Course API (GolfAPI.io)
-EXPO_PUBLIC_GOLFAPI_IO_URL=https://api.golfapi.io/v1
-EXPO_PUBLIC_GOLFAPI_IO_KEY=your_golfapi_key_here
+# Golf Course API (GolfAPI.io) — NOT an app env var.
+# The key lives server-side as the Supabase secret GOLFAPI_IO_KEY, read by the
+# `golfapi-proxy` edge function (the app calls the proxy, never GolfAPI):
+#   supabase secrets set GOLFAPI_IO_KEY=your_golfapi_key_here
+# Local Node scripts in scripts/ read GOLFAPI_IO_KEY from .env (never EXPO_PUBLIC_).
 
 # Environment
 NODE_ENV=development

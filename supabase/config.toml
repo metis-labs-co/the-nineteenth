@@ -32,3 +32,9 @@ verify_jwt = false
 
 [functions.revenuecat-webhook]
 verify_jwt = false
+
+# `golfapi-proxy` keeps the GolfAPI.io key server-side (secret GOLFAPI_IO_KEY).
+# It is only for signed-in app users, so gateway JWT verification stays ON
+# (declared explicitly so nobody flips it off by copying the entries above).
+[functions.golfapi-proxy]
+verify_jwt = true

@@ -40,7 +40,7 @@ import type { TeeBox, Club } from '@/types/database.types';
 import { hydrateHolesWithTeeYardages, resolveTeeYardageKey } from '@/utils/holeTransformers';
 import { teeToTeeBox } from '@/utils/teeTransformers';
 
-import { useStartSocialRound } from './hooks/useStartSocialRound';
+import { useStartNewRound } from '@/screens/rounds/RoundListScreen/hooks/useStartNewRound';
 import { useCourseAdminActions } from './hooks/useCourseAdminActions';
 import { HoleTable } from './components';
 import { TeeSelector, getTeeColor } from '@/components/common';
@@ -111,19 +111,15 @@ export default function CourseScreen({ route, navigation }: Props) {
   // Auto-backfill GPS coordinates from GolfAPI.io if missing
   useCoordinateBackfill(courseId);
 
-  // Round creation
+  // Round creation: the same start path as the Rounds tab, so every wizard
+  // choice (round type, nine type, scoring pairs, side games…) is honoured.
+  const [isBottomSheetVisible, setIsBottomSheetVisible] = useState(false);
   const {
-    isBottomSheetVisible,
+    handleStartNewRound: handleStartRound,
     isStartingRound,
-    openBottomSheet,
-    closeBottomSheet,
-    startRound: handleStartRound,
-  } = useStartSocialRound({
-    courseId: course?.id ?? courseId,
-    holesWithYardages,
-    navigation,
-    onError: showAlert,
-  });
+    dialogConfig: startRoundDialogConfig,
+    dismissDialog: dismissStartRoundDialog,
+  } = useStartNewRound(() => setIsBottomSheetVisible(false));
 
   // Super admin actions
   const {
@@ -191,10 +187,8 @@ export default function CourseScreen({ route, navigation }: Props) {
     }
   }, [course?.club, navigation]);
 
-  // Handle opening social round bottom sheet
-  const handleOpenSocialRound = openBottomSheet;
-
-  const handleCloseBottomSheet = closeBottomSheet;
+  const handleOpenRoundSheet = useCallback(() => setIsBottomSheetVisible(true), []);
+  const handleCloseBottomSheet = useCallback(() => setIsBottomSheetVisible(false), []);
 
   // Prepare initial course data for bottom sheet
   const initialCourseData = useMemo(() => {
@@ -463,15 +457,15 @@ export default function CourseScreen({ route, navigation }: Props) {
         </View>
       </ScrollView>
 
-      {/* Score Social Round Feature Button */}
+      {/* Score a Round Feature Button */}
       <View style={styles.featureButtonContainer}>
         <FeatureButton
-          title="Score a Social Round"
+          title="Score a Round"
           subtitle={`Start scoring at ${course.name}`}
           icon={<IconGolf size={24} color={colors.white} strokeWidth={2} />}
-          onPress={handleOpenSocialRound}
+          onPress={handleOpenRoundSheet}
           disabled={isStartingRound}
-          accessibilityLabel="Score a social round at this course"
+          accessibilityLabel="Score a round at this course"
         />
       </View>
 
@@ -521,6 +515,7 @@ export default function CourseScreen({ route, navigation }: Props) {
 
       {/* Confirmation/Alert Dialog */}
       <ConfirmationDialog {...dialogConfig} onCancel={dismissDialog} />
+      <ConfirmationDialog {...startRoundDialogConfig} onCancel={dismissStartRoundDialog} />
     </View>
   );
 }

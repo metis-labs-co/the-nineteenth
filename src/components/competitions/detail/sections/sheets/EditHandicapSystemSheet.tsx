@@ -18,7 +18,7 @@ export interface EditHandicapSystemSheetProps {
 
 const HANDICAP_DESCRIPTIONS: Record<HandicapSystem, string> = {
   honor: 'Players enter their own handicap — trust-based',
-  whs: 'Official World Handicap System index',
+  whs: "Uses each player's profile handicap — not officially verified",
   'gross-only': 'No handicap adjustment — raw scores only',
 };
 
