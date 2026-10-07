@@ -1,6 +1,8 @@
 # Privacy Policy
 
-**Last Updated:** February 2026
+**Last Updated:** October 2026
+
+**Operator:** [TODO: legal entity name, ABN, address]
 
 **The Nineteenth** ("we", "our", or "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, and safeguard your information when you use our mobile application.
 
@@ -9,15 +11,19 @@
 ## What We Collect
 
 **Information you provide:**
-- Account information: email address, name, profile photo
-- Golf profile: handicap, National Golf ID (optional), home club (optional)
+- Account information: email address, name, profile photo (optional), phone number (optional)
+- Golf profile: handicap, gender (optional, used for daily handicap calculation), golf ID (optional, entered by you), home club (optional)
+- Age band from the sign-up age check (under 13 / 13 and over). Your date of birth is never stored.
+- Country (from your device region at sign-up)
 - Competition data: scores, rounds, competition participation
-- Social connections: friends list and player comparisons
+- Calculated data: score differentials and an in-app Social Handicap Index (not an official WHS index)
+- Social connections and content: friends list, comments, reactions, content reports
+- Support requests: name, email and message when you contact us
 
 **Information collected automatically:**
 - Device information: device type, operating system, unique device identifiers
 - Usage data: features used, screens viewed, interactions with the app
-- Location data: only when you grant permission, to find nearby golf courses. Location data is processed locally on your device and is not stored on our servers.
+- Location data: only when you grant permission, to find nearby courses and show on-course distances; this is processed on your device. If you use shot tracking, the GPS position of each logged shot is stored on our servers; if you place custom tee markers, their GPS positions are stored too.
 
 ---
 
@@ -52,11 +58,18 @@ We do **not** sell your personal information. We share data with these service p
 
 | Provider | Purpose | Data Shared |
 |----------|---------|-------------|
-| **Supabase** | Database hosting, authentication | Account data, competition data |
-| **Expo/EAS** | App updates, crash reporting | Device info, error logs |
-| **RevenueCat** | Subscription management | User ID, purchase history |
+| **Supabase** (AWS Singapore) | Database hosting, authentication, storage | All account, scoring, social and shot-tracking data |
+| **Expo/EAS** (US) | App updates, push delivery, crash reporting | Device info, push token, error logs |
+| **Apple / Google push services** | Push notification delivery | Push token, notification content |
+| **RevenueCat** (US) | Subscription management | User ID, purchase history |
+| **Anthropic** (US) | AI competition generator (when used) | Your prompt; names and handicaps of you and friends/guests who could be added |
+| **Resend** (US) | Support and content-report emails | Name, email, message, reported content |
+| **GolfAPI.io** | Course search and course data | Search terms (no account data) |
+| **Google** (Sign-In, Maps) | Optional sign-in; maps | Google account name/email/ID; map tile requests |
+| **Apple** (Sign in with Apple, Maps) | Optional sign-in; maps on iOS | Apple ID identifier, optional email/name |
+| **Open-Meteo**, **OpenStreetMap (Overpass)** | Course weather; hazard outlines | Course coordinates only |
 
-All providers are contractually obligated to protect your information and use it only for the purposes we specify.
+Service providers may use your information only to provide their services to us.
 
 We may also share data with other players in your competitions (scores, handicaps, display name -- never your email), when required by law, in connection with business transfers, or with your consent.
 
@@ -64,10 +77,11 @@ We may also share data with other players in your competitions (scores, handicap
 
 ## International Data Transfers
 
-Your data is primarily stored in **Australia** by Supabase (AWS Sydney). Some processing occurs in the **United States** by Expo/EAS and RevenueCat.
+Your data is primarily stored in **Singapore** by Supabase (AWS ap-southeast-1), not in Australia. Some processing occurs in the **United States** by the providers listed above.
 
-- **EU/EEA transfers:** Australia has been recognised by the European Commission as providing adequate data protection. For US transfers, we rely on Standard Contractual Clauses (SCCs).
-- **UK transfers:** Australia is recognised as providing adequate data protection under UK law. For US transfers, we rely on the UK International Data Transfer Agreement (IDTA) or the UK Addendum to the EU SCCs.
+- **Australian users (APP 8):** using the app means your personal information is disclosed to overseas recipients in Singapore and the United States. We take reasonable steps to ensure they handle it consistently with the Australian Privacy Principles and remain accountable for it under the Privacy Act 1988 (Cth).
+- **EU/EEA transfers:** we rely on Standard Contractual Clauses (SCCs) or, for certified US recipients, the EU-US Data Privacy Framework.
+- **UK transfers:** we rely on the UK International Data Transfer Agreement (IDTA), the UK Addendum to the EU SCCs, or the UK Extension to the Data Privacy Framework.
 
 ---
 
@@ -85,6 +99,7 @@ Your data is primarily stored in **Australia** by Supabase (AWS Sydney). Some pr
 - Deleted accounts are permanently removed within 30 days
 - Historical scores may be retained in anonymised form for competition records
 - Some data may be retained where required by law
+- Automated database backups and server logs are kept for a limited period (typically up to 30 days) and deleted data may persist there until they expire
 
 ---
 
@@ -98,7 +113,9 @@ To exercise your rights or delete your account: Profile > Privacy & Data > Delet
 
 ### Australian Users
 
-Under the Privacy Act 1988 (Cth) and the Australian Privacy Principles, you may request access to and correction of your personal information, and lodge complaints about privacy breaches. Complaints may also be directed to the Office of the Australian Information Commissioner (OAIC): https://www.oaic.gov.au
+Under the Privacy Act 1988 (Cth) and the Australian Privacy Principles, you may request access to and correction of your personal information, and lodge complaints about privacy breaches.
+
+To complain, email support@thenineteenth.golf (subject "Privacy complaint"). We will acknowledge it within 7 days and aim to respond in writing within 30 days. If you are not satisfied, or we have not responded within 30 days, you can complain to the Office of the Australian Information Commissioner (OAIC): https://www.oaic.gov.au, 1300 363 992.
 
 ### EU/EEA Users
 
