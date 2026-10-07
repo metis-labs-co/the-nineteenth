@@ -21,9 +21,14 @@ import { calculateScoreDifferential } from '@/utils/handicapDifferential';
 import { calculateAdjustedGrossScore } from '@/utils/adjustedGross';
 import { getBaseHandicap, type ScorecardPlayerInfo } from '@/utils/scorecardCalculations';
 import { getLocalDateString } from '@/utils/formatting';
+import { isCompleteForHandicap } from '@/utils/handicapEligibility';
 import type { Hole, TeeBox } from '@/types/database.types';
 
 export type WizardStep = 'player' | 'course' | 'tee' | 'scores' | 'review';
+
+/** League rounds count on the WHS differential, which only a complete 18 earns (I12). */
+const INCOMPLETE_ROUND_MESSAGE = 'Enter a score for all 18 holes to add this round to a league.';
+const SHORT_COURSE_MESSAGE = 'League rounds need an 18-hole course. Please select a different course.';
 
 /** Course data stored directly from the club search result (includes tees and holes) */
 interface SelectedCourseData {
@@ -127,6 +132,8 @@ export function useLeagueQuickAddRound({ leagueId }: UseLeagueQuickAddRoundParam
   // must share a basis with the player's handicap index.
   const handicapDifferential = useMemo(() => {
     if (!selectedTee?.courseRating || !selectedTee?.slopeRating || totals.totalGross <= 0) return null;
+    // No differential until every hole is scored (I12) — league rounds are full 18s.
+    if (!isCompleteForHandicap(scores, 'full')) return null;
     const { adjustedGross } = calculateAdjustedGrossScore({
       holes,
       scores,
@@ -168,6 +175,12 @@ export function useLeagueQuickAddRound({ leagueId }: UseLeagueQuickAddRoundParam
 
   /** Called from the screen when a course is selected from club search results */
   const handleSelectCourse = useCallback((courseData: SelectedCourseData) => {
+    // A league round is always a full 18 (nine_type 'full'); a shorter course
+    // could never produce a complete card, so stop here rather than at review.
+    if (courseData.holes.length < 18) {
+      showAlert('Course Not Eligible', SHORT_COURSE_MESSAGE);
+      return;
+    }
     // Check if any tees have valid CR/SR (required for league differential calculation)
     const validTees = courseData.tees.filter((t) => t.courseRating && t.slopeRating);
     if (validTees.length === 0) {
@@ -201,12 +214,23 @@ export function useLeagueQuickAddRound({ leagueId }: UseLeagueQuickAddRoundParam
       showAlert('No Scores', 'Please enter at least one hole score.');
       return;
     }
+    // Block a partial card HERE, before handleConfirmSave creates any rows,
+    // rather than failing on the differential after the round is written.
+    if (!isCompleteForHandicap(scores, 'full')) {
+      showAlert('Incomplete Round', INCOMPLETE_ROUND_MESSAGE);
+      return;
+    }
     setStep('review');
-  }, [totals.holesEntered]);
+  }, [totals.holesEntered, scores, showAlert]);
 
   // Save: create round + scorecard + league tag
   const handleConfirmSave = useCallback(async () => {
     if (!selectedPlayer || !selectedCourse || !selectedTee) return;
+    // Belt: never create a round or scorecard for a partial card.
+    if (!isCompleteForHandicap(scores, 'full')) {
+      showAlert('Incomplete Round', INCOMPLETE_ROUND_MESSAGE);
+      return;
+    }
     setIsSaving(true);
 
     try {
@@ -324,7 +348,7 @@ export function useLeagueQuickAddRound({ leagueId }: UseLeagueQuickAddRoundParam
     } finally {
       setIsSaving(false);
     }
-  }, [selectedPlayer, selectedCourse, selectedTee, scores, totals, roundDate, handicapDifferential, dailyHandicap, leagueId, holes, submitScorecard, queryClient, navigation]);
+  }, [selectedPlayer, selectedCourse, selectedTee, scores, totals, roundDate, handicapDifferential, dailyHandicap, leagueId, holes, submitScorecard, queryClient, navigation, showAlert]);
 
   return {
     // Wizard
