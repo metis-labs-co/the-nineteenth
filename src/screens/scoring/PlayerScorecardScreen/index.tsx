@@ -28,7 +28,7 @@ import { spacing, borderRadius, shadows, typography } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useStatsVisibilityWithTier } from '@/hooks/useStatsVisibilityWithTier';
 import { useScorecardStore } from '@/store/scorecardStore';
-import { useFinalizeSkinsForRound } from '@/hooks';
+import { useFinalizeSubmittedRound } from '@/hooks/rounds/useFinalizeSubmittedRound';
 import { scoringLogger } from '@/utils/debugLogger';
 
 import { usePlayerScorecard } from './hooks';
@@ -75,8 +75,8 @@ export default function PlayerScorecardScreen({ navigation, route }: Props) {
   // Get submission methods from store (only used in the live-scoring context)
   const { holes, getCompletedHolesCount, submitScorecards, setCurrentHole, groupScorecards } = useScorecardStore();
 
-  // Skins finalization hook
-  const { finalizeSkinsForRound } = useFinalizeSkinsForRound();
+  // Finalise the round (status → results → skins), or queue it when offline
+  const finalizeRound = useFinalizeSubmittedRound();
 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState<ScorecardViewMode>('standard');
@@ -111,27 +111,6 @@ export default function PlayerScorecardScreen({ navigation, route }: Props) {
     return completedCount === holes.length;
   }, [holes.length, getCompletedHolesCount, groupScorecards]);
 
-  // Update round status to completed in database
-  const updateRoundStatus = useCallback(async (rId: string): Promise<void> => {
-    try {
-      scoringLogger.info('SUBMIT: Updating round status to completed', { roundId: rId.substring(0, 8) });
-      const { supabase } = await import('@/services/supabase/client');
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
-      const { error } = await (supabase as any)
-        .from('rounds')
-        .update({ status: 'completed' })
-        .eq('id', rId);
-
-      if (error) {
-        scoringLogger.error('SUBMIT: Failed to update round status', error);
-        throw error;
-      }
-      scoringLogger.info('SUBMIT: Round status updated successfully');
-    } catch (error) {
-      scoringLogger.error('SUBMIT: Error updating round status', error);
-    }
-  }, []);
-
   // Perform the actual submission
   const performSubmit = useCallback(async () => {
     setShowIncompleteDialog(false);
@@ -144,18 +123,10 @@ export default function PlayerScorecardScreen({ navigation, route }: Props) {
       await submitScorecards({ playerIds: [playerId] });
       scoringLogger.info('SUBMIT: Scorecard submission successful');
 
-      // Update round status to completed
+      // Completes the round only once every card is terminal (this screen
+      // submits a single player's card), or queues that when offline.
       if (roundId) {
-        await updateRoundStatus(roundId);
-
-        // Finalize skins game if applicable (non-blocking)
-        finalizeSkinsForRound(roundId).then((result) => {
-          if (result.finalized) {
-            scoringLogger.info('SUBMIT: Skins game finalized', { roundId: roundId?.substring(0, 8) });
-          }
-        }).catch((error) => {
-          scoringLogger.warn('SUBMIT: Skins finalization failed (non-blocking)', { error });
-        });
+        await finalizeRound(roundId);
       }
 
       // Reset scorecard store
@@ -183,7 +154,7 @@ export default function PlayerScorecardScreen({ navigation, route }: Props) {
     } finally {
       setIsSubmitting(false);
     }
-  }, [submitScorecards, navigation, roundId, playerId, finalizeSkinsForRound, updateRoundStatus]);
+  }, [submitScorecards, navigation, roundId, playerId, finalizeRound]);
 
   // Handle submit button press
   const handleSubmit = useCallback(async () => {

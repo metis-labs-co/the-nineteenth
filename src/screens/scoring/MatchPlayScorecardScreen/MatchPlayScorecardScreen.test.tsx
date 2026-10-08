@@ -11,7 +11,8 @@
  */
 
 import React from 'react';
-import { render, screen, fireEvent } from '@/__tests__/utils/renderHelpers';
+import { render, screen, fireEvent, act } from '@/__tests__/utils/renderHelpers';
+import { supabase } from '@/services/supabase/client';
 import MatchPlayScorecardScreen from './index';
 import { useMatchPlayData } from '@/hooks/scorecard';
 import { useScorecardStore } from '@/store/scorecardStore';
@@ -72,9 +73,16 @@ jest.mock('@/hooks/useSkins', () => ({
   useSkinsHoleCounts: jest.fn().mockReturnValue({ plannedHoles: 18, holesPlayed: 18 }),
 }));
 
-// Mock useFinalizeSkinsForRound
+// Keep the @/hooks barrel mocked: the pre-change screen imported from it, and
+// the real barrel pulls in every hook in the app.
 jest.mock('@/hooks', () => ({
   useFinalizeSkinsForRound: jest.fn().mockReturnValue({ finalizeSkinsForRound: jest.fn().mockResolvedValue({ finalized: false }) }),
+}));
+
+// The shared submit step (finalise the round, or queue it offline)
+const mockFinalizeRound = jest.fn();
+jest.mock('@/hooks/rounds/useFinalizeSubmittedRound', () => ({
+  useFinalizeSubmittedRound: () => mockFinalizeRound,
 }));
 
 // Mock skins component
@@ -620,6 +628,32 @@ describe('MatchPlayScorecardScreen', () => {
         <MatchPlayScorecardScreen navigation={mockNavigation} route={mockRoute} />
       );
       expect(screen.getByText('Match Scorecard')).toBeTruthy();
+    });
+  });
+
+  describe('Submission', () => {
+    it('finalises the round through the shared submit step instead of writing the status itself', async () => {
+      setupSuccessfulMock();
+      const submitScorecards = jest.fn().mockResolvedValue(undefined);
+      mockedUseScorecardStore.mockReturnValue({
+        getPlayerScore: jest.fn().mockReturnValue({ strokes: 4 }),
+        getCompletedHolesCount: jest.fn().mockReturnValue(18),
+        submitScorecards,
+        resetRound: jest.fn(),
+      } as any);
+      mockFinalizeRound.mockResolvedValue({ completed: true, queued: false });
+
+      render(<MatchPlayScorecardScreen navigation={mockNavigation} route={mockRoute} />);
+
+      fireEvent.press(screen.getByText('Review & Submit'));
+      await act(async () => {
+        fireEvent.press(screen.getByLabelText('Submit'));
+      });
+
+      expect(submitScorecards).toHaveBeenCalled();
+      expect(mockFinalizeRound).toHaveBeenCalledWith('round-123');
+      expect(supabase.from).not.toHaveBeenCalledWith('rounds');
+      expect(screen.getByText('Match scorecard has been submitted successfully!')).toBeTruthy();
     });
   });
 });

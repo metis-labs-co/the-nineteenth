@@ -28,11 +28,11 @@ import { useScorecardStore } from '@/store/scorecardStore';
 import { useIsSuperAdmin } from '@/store/subscriptionStore';
 import { useMatchPlayData, useMatchPlayScoring, useOfflineSync } from '@/hooks/scorecard';
 import { useProcessSkinsIfNeeded, useOnlineStatus, useAuth } from '@/hooks';
-import { useRoundDetails, useSubMatches } from '@/hooks/rounds';
+import { useRoundDetails, useSubMatches, useUpdateSubMatchResult } from '@/hooks/rounds';
 import { useDeleteRound } from '@/hooks/rounds/mutations';
 import { useCompetitionInfo } from '@/hooks/competitions';
 import { resolveSubMatchForUser } from '@/utils/subMatches';
-import { supabase } from '@/services/supabase/client';
+import { useFinalizeSubmittedRound } from '@/hooks/rounds/useFinalizeSubmittedRound';
 import { matchPlayLogger } from '@/utils/debugLogger';
 import { getMatchPlayStrokes } from '@/utils/scoring';
 import { resolvePlayerTee } from '@/utils/teeResolution';
@@ -43,6 +43,7 @@ import type { RootStackScreenProps } from '@/navigation/types';
 import { MatchPlayFooter, PlayerScoreCard, MatchProgress } from './components';
 import { DEFAULT_HOLES } from './constants';
 import type { HoleResult } from './types';
+import { buildSinglesSubMatchResult } from './utils/subMatchResult';
 
 type Props = RootStackScreenProps<'MatchPlayScoring'>;
 
@@ -53,8 +54,12 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
   // Confirmation dialog hook
   const { dialogConfig, showDialog, showAlert, dismissDialog } = useConfirmationDialog();
   const deleteRoundMutation = useDeleteRound();
+  // Finalise the round (status → results → skins), or queue it when offline
+  const finalizeRound = useFinalizeSubmittedRound();
+  // Split singles rounds: record this match's result on its sub-match
+  const { mutateAsync: updateSubMatchResult } = useUpdateSubMatchResult(roundId);
 
-  // Online status for round status update
+  // Online status (header sync indicator; the sub-match result write)
   const isOnline = useOnlineStatus();
 
   const { handicapSource, selectedTeeData: storeTeeData, playerTeeMap, startHole, currentPlayers } = useScorecardStore();
@@ -170,7 +175,7 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
     handlePickUp: storeHandlePickUp,
     getHoleResult,
     holeResults,
-    matchStatus: _matchStatus,
+    matchStatus,
     matchStatusText,
     isMatchComplete,
     player1MatchStatus,
@@ -390,25 +395,44 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
       // Submit scorecards via the store (handles sync and persistence)
       await submitScorecards();
 
-      // Update round status to completed in database (if online)
-      if (roundId && isOnline) {
+      // Split singles (competition) round: record this match on its
+      // sub-match first, as TeamMatchPlayScoringScreen does. The round only
+      // completes once every sub-match is terminal (finalizeRoundStatus).
+      const subMatchResult = buildSinglesSubMatchResult(
+        subMatches,
+        player1.id,
+        player2.id,
+        matchStatus,
+        holeResults
+      );
+      if (subMatchResult && isOnline) {
         try {
-          matchPlayLogger.info('Updating round status to completed', { roundId: roundId.substring(0, 8) + '...' });
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
-          const { error } = await (supabase as any)
-            .from('rounds')
-            .update({ status: 'completed' })
-            .eq('id', roundId);
-
-          if (error) {
-            matchPlayLogger.error('Failed to update round status', error, { roundId: roundId.substring(0, 8) + '...' });
-          } else {
-            matchPlayLogger.info('Round status updated successfully', { roundId: roundId.substring(0, 8) + '...' });
-          }
-        } catch (statusError) {
-          // Non-blocking - log error but don't fail submission
-          matchPlayLogger.error('Error updating round status', statusError);
+          await updateSubMatchResult({
+            subMatchId: subMatchResult.subMatchId,
+            status: 'completed',
+            result: subMatchResult.result,
+            finalDifferential: subMatchResult.finalDifferential,
+          });
+        } catch (subMatchError) {
+          // The cards are submitted; the round completes once this sub-match
+          // is recorded (ViewRound, or the organiser). RLS refuses this write
+          // for anyone but the organiser / round owner, as it always has.
+          matchPlayLogger.error('Failed to record the sub-match result', subMatchError, {
+            subMatchId: subMatchResult.subMatchId.substring(0, 8) + '...',
+          });
         }
+      }
+
+      // Complete the round once every card (and, for a split round, every
+      // sub-match) is terminal — results + skins — or queue that for the next
+      // sync when offline. Never throws.
+      if (roundId) {
+        const finalized = await finalizeRound(roundId);
+        matchPlayLogger.info('Round finalisation', {
+          roundId: roundId.substring(0, 8) + '...',
+          completed: finalized.completed,
+          queued: finalized.queued,
+        });
       }
 
       // Close dialog and navigate to round details
@@ -420,7 +444,20 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
     } finally {
       setIsSubmitting(false);
     }
-  }, [navigation, roundId, submitScorecards, isOnline, showAlert]);
+  }, [
+    navigation,
+    roundId,
+    submitScorecards,
+    subMatches,
+    player1.id,
+    player2.id,
+    matchStatus,
+    holeResults,
+    isOnline,
+    updateSubMatchResult,
+    finalizeRound,
+    showAlert,
+  ]);
 
   // Cancel submit dialog
   const handleCancelSubmit = useCallback(() => {
