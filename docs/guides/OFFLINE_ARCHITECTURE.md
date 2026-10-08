@@ -621,39 +621,79 @@ function ScorecardScreen() {
 
 ## App Initialization
 
-**Set up offline support when app starts.**
+The offline layer starts once, at the app root, and stays up for the app's lifetime.
 
-```typescript
-// App.tsx
-import { useEffect } from 'react';
-import { initializeDatabase, registerBackgroundSync } from '@services/offline';
-import { useNetworkStatus } from '@hooks/useNetworkStatus';
-import { useOfflineStore } from '@store/offlineStore';
+`useAppSyncService()` (`src/hooks/useAppSyncService.ts`) is mounted in `App.tsx` (`AppContent`). It:
+1. records the signed-in user for the queue (`setSyncAuthUser(user?.id ?? null)`) on every auth change;
+2. opens the SQLite database (`initDatabase`);
+3. starts the sync service with `ensureSyncServiceStarted()` (idempotent). This installs the NetInfo listener, loads the queue counts and registers the drain handler;
+4. once a user is signed in, requests a drain, and requests another every time the app returns to the foreground.
 
-export default function App() {
-  const { isOffline } = useNetworkStatus();
-  const { setOnlineStatus } = useOfflineStore();
+**No drain runs without a signed-in user.** `syncAll` returns `false` at once while the recorded user is `null`, whatever triggered it: the network callback, `queueScorecardSync`, a drain request, Sync or Retry. The service is up while signed out, and a signed-out drain would upload as anon (RLS retains every card as `failed`) and read a queued round as missing (`PGRST116`), dropping its `'finalize'` item. On a cold start the user stays `null` until the Supabase session has been restored.
 
-  useEffect(() => {
-    // Initialize SQLite database
-    initializeDatabase();
+`getDb()` always awaits the memoised `initDatabase()`, so a DAO call made during start-up waits for the tables and migrations.
 
-    // Register background sync
-    registerBackgroundSync();
-  }, []);
+**Nothing tears the service down.** `useOfflineSync` (the scoring screens) calls `ensureSyncServiceStarted()` only as a fallback and subscribes to the sync state. On unmount it drops just its own subscription.
 
-  useEffect(() => {
-    // Update offline store when network status changes
-    setOnlineStatus(!isOffline);
-  }, [isOffline]);
+Before this, the network listener lived only while a scoring screen was mounted:
+- every submit's `navigation.reset` removed it;
+- anything queued then waited for the next scoring session;
+- `getIsOnline()` went stale.
 
-  return (
-    <NavigationContainer>
-      {/* Your app content */}
-    </NavigationContainer>
-  );
-}
-```
+### When the queue drains
+
+Every trigger ends in `syncAll()`, which does nothing while signed out.
+
+| Trigger | How |
+|---|---|
+| App start, once signed in | `useAppSyncService` → `requestSyncDrain('app-start')` |
+| App returns to the foreground (signed in) | `useAppSyncService` → `requestSyncDrain('foreground')` |
+| Network comes back | `networkState` → `syncAll()` |
+| A scorecard is queued while online | `queueScorecardSync` → `syncAll()` |
+| A round item is queued while online | `queueRoundFinalize` → `requestSyncDrain('round-finalize-queued')` (the online submit path asks only if its item is still needed after its own attempt) |
+| The user taps Sync / Retry | `manualSync()` / `retryFailedSyncs()` |
+
+`requestSyncDrain(reason)` (`src/services/offline/sync/drain.ts`):
+- is debounced (500 ms) and coalesces requests;
+- does nothing offline or before the service has started;
+- during a running drain, waits for it to finish.
+
+It never imports the orchestrator: `initSyncService` registers `syncAll` as its handler. Import it by path, not through the `@/services/offline/sync` barrel, which re-exports the orchestrator.
+
+---
+
+## Sync Queue Items
+
+Each `pending_syncs` row has:
+- a `type`;
+- an `entity_key`: one row per entity. Re-queueing replaces the row and resets its retries;
+- a `status`: `pending` or `failed`. `failed` rows wait for an explicit Retry.
+
+| Type | Entity key | Data | Handler |
+|---|---|---|---|
+| `scorecard` | `scorecard:<roundId>:<playerId>` | the scorecard snapshot | `processScorecardSync` |
+| `round` | `round:<roundId>:finalize` | `{ id, action: 'finalize', userId? }` (`userId`: who was signed in when it was queued) | `processRoundSync` → `finalizeSubmittedRound` |
+
+### Drain order
+
+Each `syncAll()` runs:
+1. queued `scorecard` uploads, in timestamp order;
+2. the SQLite fallback: submitted cards with `is_synced = 0` and no queue row;
+3. `round` items, after every upload above. A round action other than `'finalize'` runs before `'finalize'`.
+
+### `round` items: wait, drop or retry
+
+A `'finalize'` item runs the same steps an online submit runs (`finalizeSubmittedRound`): round status, then competition results, then skins settlement. Before any server call, it checks who queued it and this device's own cards:
+
+| Situation | Outcome |
+|---|---|
+| The item's `userId` is another user than the one signed in (SQLite survives sign-out) | **Wait.** It stays `pending`, spends no retry and raises no error, until its owner signs in again. An item with no `userId` (an older build's) runs for whoever is signed in. |
+| A card for the round is still `pending` in the queue, or unsynced in SQLite with no queue row (`hasUnsyncedScorecardsForRound`); or a submit screen is finalising the same round right now (`finalizeSubmittedRound`'s atomic in-flight check rejects with `RoundNotReadyError`) | **Wait.** It stays `pending`, spends no retry and raises no error. It runs again on the next drain. |
+| The round's only unconfirmed cards are retained `failed` rows | **Failed.** The round item is marked `failed` too. Retry (`retryFailedSyncs`) revives both, and the card uploads first. |
+| Steps ran and the round is `completed` | **Done.** The item is removed. |
+| Steps ran and the round is not complete (another device's cards are outstanding) | **Done.** The item is removed. The device that submits the last card completes the round. |
+| Skins settlement failed permanently: an RLS refusal (only the game's creator can write `skins_payouts`), validation, a missing game, anything `isTransientError` doesn't recognise | **Done.** Logged as a warning; the item is removed. No retry can fix it. |
+| The status read or write failed, or skins settlement failed transiently (`isTransientError`: no connection, a timeout, a 5xx or gateway error, a dropped connection) | **Retry.** Normal retry count; retained as `failed` after 3. Re-running the steps is idempotent. |
 
 ---
 
@@ -778,4 +818,4 @@ const handleScoreChange = async (score: number) => {
 
 ---
 
-*Last Updated: February 2026*
+*Last Updated: October 2026*

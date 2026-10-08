@@ -3,6 +3,10 @@
  *
  * Provides sync status and manual sync trigger for components.
  *
+ * The sync service itself is app-wide: useAppSyncService starts it at the app
+ * root and nothing tears it down. This hook only makes sure it is running and
+ * subscribes to its state; on unmount it drops its own subscription.
+ *
  * Note: For simple online/offline status checks, prefer using
  * useOnlineStatus from '@/hooks/useOnlineStatus' directly.
  */
@@ -14,7 +18,7 @@ import {
   getIsOnline,
   manualSync,
   retryFailedSyncs,
-  initSyncService,
+  ensureSyncServiceStarted,
 } from '@/services/offline/sync';
 import { initDatabase, getPendingSyncCount } from '@/services/offline/database';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
@@ -47,21 +51,24 @@ export function useOfflineSync() {
   const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
-    let unsubscribe: (() => void) | undefined;
+    let cancelled = false;
+    let syncUnsubscribe: (() => void) | undefined;
 
     const init = async () => {
       try {
         // Initialize database
         await initDatabase();
 
-        // Initialize sync service
-        unsubscribe = initSyncService();
+        // App-wide service (started at the app root); a no-op when running.
+        // Never torn down here.
+        ensureSyncServiceStarted();
 
         // Get initial pending count
         const _pendingCount = await getPendingSyncCount();
+        if (cancelled) return;
 
-        // Subscribe to sync state changes
-        const syncUnsubscribe = subscribeSyncState((syncState) => {
+        // Subscribe to sync state changes (this hook's view only)
+        syncUnsubscribe = subscribeSyncState((syncState) => {
           setState({
             status: syncState.status as SyncStatus,
             isOnline: getIsOnline(),
@@ -73,13 +80,9 @@ export function useOfflineSync() {
         });
 
         setIsInitialized(true);
-
-        return () => {
-          unsubscribe?.();
-          syncUnsubscribe();
-        };
       } catch (error) {
         console.error('[useOfflineSync] Initialization failed:', error);
+        if (cancelled) return;
         setState((prev) => ({
           ...prev,
           status: 'error',
@@ -91,7 +94,8 @@ export function useOfflineSync() {
     init();
 
     return () => {
-      unsubscribe?.();
+      cancelled = true;
+      syncUnsubscribe?.();
     };
   }, []);
 

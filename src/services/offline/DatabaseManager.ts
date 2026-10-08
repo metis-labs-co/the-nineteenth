@@ -54,11 +54,13 @@ async function doInitialize(): Promise<void> {
 
 /**
  * Get database instance (initialize if needed)
+ *
+ * Always awaits the memoised initialisation: doInitialize assigns `db` as soon
+ * as the file opens, before tables and migrations run, so `db` being set does
+ * not mean the schema is ready. Once init has resolved this is one microtask.
  */
 export async function getDb(): Promise<DatabaseInstance> {
-  if (!db) {
-    await initDatabase();
-  }
+  await initDatabase();
   return db!;
 }
 

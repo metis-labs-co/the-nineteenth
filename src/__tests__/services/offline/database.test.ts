@@ -217,6 +217,33 @@ describe('Database Initialization', () => {
   });
 });
 
+describe('getDb during initialisation', () => {
+  // doInitialize assigns `db` as soon as the file opens, before the tables and
+  // migrations run. A DAO call in that window must wait for the schema.
+  it('waits for tables and migrations before running a query', async () => {
+    let releaseSchema!: () => void;
+    mockExecAsync.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          releaseSchema = resolve;
+        })
+    );
+    mockGetFirstAsync.mockResolvedValue({ count: 3 });
+
+    const init = initDatabase();
+    // Let openDatabaseAsync resolve: `db` is assigned, the first CREATE TABLE is pending.
+    await new Promise((resolve) => setImmediate(resolve));
+
+    const count = getPendingSyncCount();
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(mockGetFirstAsync).not.toHaveBeenCalled();
+
+    releaseSchema();
+    await init;
+    await expect(count).resolves.toBe(3);
+  });
+});
+
 // ============================================================================
 // SCORECARD OPERATIONS TESTS
 // ============================================================================

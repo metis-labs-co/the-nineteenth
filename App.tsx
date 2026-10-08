@@ -40,6 +40,7 @@ import { ForceUpdateModal } from '@/components/common';
 import { lightColors, darkColors } from '@/constants/theme';
 import { activeBrand } from '@/config/brands';
 import { useWatchBridge } from '@/watch/useWatchBridge';
+import { useAppSyncService } from '@/hooks/useAppSyncService';
 
 // React Native resolves static image assets through require().
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -176,6 +177,10 @@ function AppContent() {
   // Apple Watch companion bridge. No-op on Android / when no watch is paired
   // (transport.isSupported() === false). Mounted once below all providers.
   useWatchBridge({});
+
+  // Offline sync service, app-wide: opens SQLite, starts the sync service and
+  // drains the queue on sign-in and on every return to the foreground.
+  useAppSyncService();
   const showBackgroundImage = backdropStyle === 'image';
   const backdropSource = isDark ? darkBackdrop : lightBackdrop;
   const fallbackBackground = isDark

@@ -19,6 +19,7 @@ import * as offlineDatabase from '@/services/offline/database';
 // Mock the offline sync service
 jest.mock('@/services/offline/sync', () => ({
   initSyncService: jest.fn(() => jest.fn()),
+  ensureSyncServiceStarted: jest.fn(),
   subscribeSyncState: jest.fn((callback) => {
     // Immediately call callback with initial state
     callback({
@@ -63,12 +64,13 @@ describe('useOfflineSync', () => {
       });
     });
 
-    it('should initialize sync service on mount', async () => {
+    it('makes sure the app-wide sync service is running, without starting its own', async () => {
       renderHook(() => useOfflineSync());
 
       await waitFor(() => {
-        expect(offlineSync.initSyncService).toHaveBeenCalled();
+        expect(offlineSync.ensureSyncServiceStarted).toHaveBeenCalled();
       });
+      expect(offlineSync.initSyncService).not.toHaveBeenCalled();
     });
 
     it('should return initial sync state', async () => {
@@ -224,19 +226,26 @@ describe('useOfflineSync', () => {
   });
 
   describe('Cleanup', () => {
-    it('should unsubscribe on unmount', async () => {
-      const unsubscribeMock = jest.fn();
-      (offlineSync.initSyncService as jest.Mock).mockReturnValue(unsubscribeMock);
+    // The sync service is app-wide: unmounting a scoring screen must not tear
+    // down its network listener (it used to — queued items then never drained
+    // after a submit). The hook drops only its own state subscription.
+    it('drops its own sync-state subscription on unmount and leaves the service running', async () => {
+      const syncUnsubscribe = jest.fn();
+      (offlineSync.subscribeSyncState as jest.Mock).mockImplementation((callback) => {
+        callback({ status: 'idle', pendingCount: 0, failedCount: 0, lastSyncAt: null, error: null });
+        return syncUnsubscribe;
+      });
 
-      const { unmount } = renderHook(() => useOfflineSync());
+      const { result, unmount } = renderHook(() => useOfflineSync());
 
       await waitFor(() => {
-        expect(offlineSync.initSyncService).toHaveBeenCalled();
+        expect(result.current.isInitialized).toBe(true);
       });
 
       unmount();
 
-      expect(unsubscribeMock).toHaveBeenCalled();
+      expect(syncUnsubscribe).toHaveBeenCalledTimes(1);
+      expect(offlineSync.initSyncService).not.toHaveBeenCalled();
     });
   });
 
