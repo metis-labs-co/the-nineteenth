@@ -14,6 +14,7 @@ import { createTestPlayer, create18Holes } from '../utils/testFixtures';
 import type { Player, Scorecard, TeeBox } from '@/types';
 import {
   saveScorecard,
+  saveHoleScore,
   saveHoles,
   persistRoundEarlyEnd,
   getHoles,
@@ -565,5 +566,110 @@ describe('endRoundEarly while initialization is pending', () => {
 
     expect(persistRoundEarlyEnd).not.toHaveBeenCalled();
     expect(getStore().holesPlayed).toBeNull();
+  });
+});
+
+describe('closed holes after an early end', () => {
+  beforeEach(async () => {
+    await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes());
+    await score(P1.id, range(1, 6));
+    await score(P2.id, range(1, 6));
+    await getStore().endRoundEarly(6);
+    jest.clearAllMocks();
+  });
+
+  it('ignores every single-ball write after the last played hole', async () => {
+    await getStore().setPlayerScore(P1.id, 8, 5);
+    await getStore().updatePlayerHoleScore(P1.id, 7, { strokes: 5, putts: 2 });
+    await getStore().updateShotContributions(P1.id, 9, { teeShot: P1.id });
+    await getStore().updateLocalScore(ROUND_ID, P1.id, 10, 4);
+
+    expect(scoredHoles(P1.id)).toEqual(range(1, 6));
+    expect(saveHoleScore).not.toHaveBeenCalled();
+    expect(saveScorecard).not.toHaveBeenCalled();
+    expect(debouncedQueueScorecardSync).not.toHaveBeenCalled();
+  });
+
+  it('ignores multi-ball writes after the last played hole', async () => {
+    getStore().setMultiBallConfig(2);
+
+    await getStore().setMultiBallScore(P1.id, 8, 0, 4);
+    await getStore().updateMultiBallStats(P1.id, 8, 1, { putts: 2 });
+
+    expect(scoredHoles(P1.id)).toEqual(range(1, 6));
+    expect(saveHoleScore).not.toHaveBeenCalled();
+    expect(saveScorecard).not.toHaveBeenCalled();
+    expect(debouncedQueueScorecardSync).not.toHaveBeenCalled();
+  });
+
+  it('still accepts a correction on a played hole', async () => {
+    await getStore().setPlayerScore(P1.id, 6, 3);
+
+    const hole6 = getStore().groupScorecards.get(P1.id)?.scores[6];
+    expect(hole6 && 'strokes' in hole6 ? hole6.strokes : undefined).toBe(3);
+    expect(saveHoleScore).toHaveBeenCalled();
+  });
+});
+
+// Exercise each public setter independently, including a retained-hole write.
+const holeWrites = [
+  { name: 'setPlayerScore', apply: (hole: number) => getStore().setPlayerScore(P1.id, hole, 3), expected: { strokes: 3 }, multiBall: false },
+  { name: 'updatePlayerHoleScore', apply: (hole: number) => getStore().updatePlayerHoleScore(P1.id, hole, { strokes: 3, putts: 1 }), expected: { strokes: 3, putts: 1 }, multiBall: false },
+  { name: 'updateShotContributions', apply: (hole: number) => getStore().updateShotContributions(P1.id, hole, { teeShot: P1.id }), expected: { shotContributions: { teeShot: P1.id } }, multiBall: false },
+  { name: 'updateLocalScore', apply: (hole: number) => getStore().updateLocalScore(ROUND_ID, P1.id, hole, 3), expected: { strokes: 3 }, multiBall: false },
+  { name: 'setMultiBallScore', apply: (hole: number) => getStore().setMultiBallScore(P1.id, hole, 0, 3), expected: { strokes: 3 }, multiBall: true },
+  { name: 'updateMultiBallStats', apply: (hole: number) => getStore().updateMultiBallStats(P1.id, hole, 0, { putts: 1 }), expected: { strokes: 4, putts: 1 }, multiBall: true },
+];
+
+describe('writes to a hole outside the planned list', () => {
+  it.each(holeWrites)('$name ignores hole 12 of an open front nine', async ({ apply }) => {
+    await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes(), 'stableford', false, [], null, 'profile', new Map(), 'front9');
+    getStore().setMultiBallConfig(2);
+    const before = getStore().groupScorecards;
+    jest.clearAllMocks();
+
+    await apply(12);
+
+    expect(getStore().groupScorecards).toBe(before);
+    expect(scoredHoles(P1.id)).toEqual([]);
+    expect(saveHoleScore).not.toHaveBeenCalled();
+    expect(saveScorecard).not.toHaveBeenCalled();
+    expect(debouncedQueueScorecardSync).not.toHaveBeenCalled();
+  });
+});
+
+describe('closed holes on a back nine ended after six', () => {
+  it.each(holeWrites)('$name accepts hole 15 corrections and refuses hole 16', async ({ apply, expected, multiBall }) => {
+    await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes(), 'stableford', false, [], null, 'profile', new Map(), 'back9');
+    if (multiBall) {
+      getStore().setMultiBallConfig(2);
+      for (const hole of range(10, 15)) {
+        await getStore().setMultiBallScore(P1.id, hole, 0, 4);
+        await getStore().setMultiBallScore(P2.id, hole, 0, 4);
+      }
+    } else {
+      await score(P1.id, range(10, 15));
+      await score(P2.id, range(10, 15));
+    }
+    await getStore().endRoundEarly(6);
+    jest.clearAllMocks();
+
+    await apply(15);
+
+    const retained = getStore().groupScorecards.get(P1.id)?.scores[15];
+    expect(retained && 'balls' in retained ? retained.balls[0] : retained).toMatchObject(expected);
+    expect(saveScorecard).toHaveBeenCalledTimes(1);
+    expect(getStore().getPlayedHoles().map((h) => h.number)).toEqual(range(10, 15));
+    const before = getStore().groupScorecards;
+    jest.clearAllMocks();
+
+    await apply(16);
+    await apply(5); // Before the back nine starts, even though it is below N.
+
+    expect(getStore().groupScorecards).toBe(before);
+    expect(scoredHoles(P1.id)).toEqual(range(10, 15));
+    expect(saveHoleScore).not.toHaveBeenCalled();
+    expect(saveScorecard).not.toHaveBeenCalled();
+    expect(debouncedQueueScorecardSync).not.toHaveBeenCalled();
   });
 });

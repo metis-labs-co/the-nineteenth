@@ -32,6 +32,7 @@ import { useHoleCoordinates } from '@/hooks/coordinates';
 import { useWeather } from '@/hooks/weather';
 import { useAuth } from '@/hooks/useAuth';
 import type { HoleScore } from '@/types/database/base';
+import { filterPlayableHoles } from '@/utils/holeTransformers';
 import { buildWatchSnapshot } from './snapshot';
 import { applyWatchScoreWrite, type ScoreWriteContext } from './scoreWrite';
 import { createWatchTransport } from './transport';
@@ -64,6 +65,14 @@ export function useWatchBridge(opts: UseWatchBridgeOptions = {}) {
   const currentHole = useScorecardStore((s) => s.currentHole);
   const currentPlayers = useScorecardStore((s) => s.currentPlayers);
   const holes = useScorecardStore((s) => s.holes);
+  const nineType = useScorecardStore((s) => s.nineType);
+  const holesPlayed = useScorecardStore((s) => s.holesPlayed);
+  // Memoise getPlayedHoles() semantics; a selector returning a fresh array
+  // would cause repeated renders. The watch only offers played holes.
+  const playedHoles = useMemo(
+    () => filterPlayableHoles(holes, nineType, holesPlayed),
+    [holes, nineType, holesPlayed],
+  );
   const groupScorecards = useScorecardStore((s) => s.groupScorecards);
   const updatePlayerHoleScore = useScorecardStore((s) => s.updatePlayerHoleScore);
   const setCurrentHole = useScorecardStore((s) => s.setCurrentHole);
@@ -217,7 +226,7 @@ export function useWatchBridge(opts: UseWatchBridgeOptions = {}) {
         statFlags,
         currentHole,
         currentUserId: user.id,
-        holes: holes.map((h) => ({
+        holes: playedHoles.map((h) => ({
           hole: h.number,
           par: h.par,
           strokeIndex: h.strokeIndex,
@@ -249,7 +258,7 @@ export function useWatchBridge(opts: UseWatchBridgeOptions = {}) {
     unit,
     isPremium,
     currentHole,
-    holes,
+    playedHoles,
     coords,
     currentPlayers,
     groupScorecards,
@@ -286,6 +295,8 @@ export function useWatchBridge(opts: UseWatchBridgeOptions = {}) {
         markEdited: (playerId, hole, rev) =>
           lastEditedRef.current.set(`${playerId}:${hole}`, rev),
         nextRev: () => ++revRef.current,
+        isHoleOpen: (hole) =>
+          useScorecardStore.getState().getPlayedHoles().some((h) => h.number === hole),
       };
 
       const res = await applyWatchScoreWrite(msg, ctx);

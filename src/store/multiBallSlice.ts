@@ -8,6 +8,8 @@
 
 import { Scorecard, HoleScore, Hole } from '@/types';
 import type { BallCount } from '@/types/multiball.types';
+import type { NineType } from '@/types/database/enums';
+import { isHoleAfterEarlyEnd } from '@/utils/roundShape';
 import { isMultiBallScore, type MultiBallHoleScore, type BallTotals } from '@/types/database/base';
 import { saveScorecard } from '@/services/offline/database';
 
@@ -24,6 +26,8 @@ export interface MultiBallStateSlice {
   holes: Hole[];
   ballCount: BallCount;
   isMultiBall: boolean;
+  nineType: NineType;
+  holesPlayed: number | null;
 }
 
 type Get = () => MultiBallStateSlice;
@@ -69,6 +73,13 @@ export async function setMultiBallScore(
   const holeData = holes.find((h) => h.number === hole);
   if (!holeData) {
     storeLogger.warn('Hole data not found', { hole });
+    return;
+  }
+
+  // Round ended early: holes after N are closed (R17).
+  const { nineType, holesPlayed } = get();
+  if (isHoleAfterEarlyEnd(nineType, holesPlayed, hole)) {
+    storeLogger.warn('Ignoring a multi-ball score after the last played hole', { hole, holesPlayed });
     return;
   }
 
@@ -141,6 +152,13 @@ export async function updateMultiBallStats(
   const holeData = holes.find((h) => h.number === hole);
   if (!holeData) {
     storeLogger.warn('Hole data not found', { hole });
+    return;
+  }
+
+  // Round ended early: holes after N are closed (R17).
+  const { nineType, holesPlayed } = get();
+  if (isHoleAfterEarlyEnd(nineType, holesPlayed, hole)) {
+    storeLogger.warn('Ignoring a multi-ball score after the last played hole', { hole, holesPlayed });
     return;
   }
 

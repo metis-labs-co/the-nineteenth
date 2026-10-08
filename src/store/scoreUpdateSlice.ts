@@ -14,6 +14,7 @@ import type { HandicapSource } from '@/types/database';
 import type { NineType } from '@/types/database/enums';
 import { isSingleBallScore } from '@/types/database/base';
 import { storeLogger } from '@/utils/debugLogger';
+import { isHoleAfterEarlyEnd } from '@/utils/roundShape';
 import { persistScorecardUpdate } from './scorecardPersistence';
 import { debouncedQueueScorecardSync } from './scorecardSyncDebounce';
 import { calculatePlayerTotals } from './utils/scorecardCalculations';
@@ -28,12 +29,20 @@ interface StoreState {
   playerTeeMap: Map<string, TeeBox>;
   handicapSource: HandicapSource;
   nineType: NineType;
+  /** Set once the round is ended early; null otherwise. */
+  holesPlayed: number | null;
 }
 
 type GetFn = () => StoreState;
 type SetFn = (partial: { groupScorecards: Map<string, Scorecard> }) => void;
 
-/** Common pattern: update scorecard with new hole score, recalculate totals, persist */
+/**
+ * Common pattern: update scorecard with new hole score, recalculate totals, persist.
+ *
+ * Returns null without changing state for an unplanned hole or one after an
+ * early end (R17). Every single-ball write funnels through here; callers must
+ * stop on null before persistence or sync.
+ */
 function applyScoreUpdate(
   scorecard: Scorecard,
   playerId: string,
@@ -43,8 +52,17 @@ function applyScoreUpdate(
   holes: Hole[],
   gameType: GameType,
   set: SetFn,
-  state: Pick<StoreState, 'selectedTeeData' | 'playerTeeMap' | 'handicapSource' | 'nineType'>,
-): Scorecard {
+  state: Pick<StoreState, 'selectedTeeData' | 'playerTeeMap' | 'handicapSource' | 'nineType' | 'holesPlayed'>,
+): Scorecard | null {
+  if (!holes.some((h) => h.number === hole) || isHoleAfterEarlyEnd(state.nineType, state.holesPlayed, hole)) {
+    storeLogger.warn('Ignoring a score for a closed or unknown hole', {
+      playerId: playerId.substring(0, 8) + '...',
+      hole,
+      holesPlayed: state.holesPlayed,
+    });
+    return null;
+  }
+
   const updatedScorecard: Scorecard = {
     ...scorecard,
     scores: {
@@ -91,6 +109,7 @@ export async function setPlayerScore(
     playerTeeMap,
     handicapSource,
     nineType,
+    holesPlayed,
   } = get();
 
   storeLogger.debug('Setting player score', {
@@ -139,7 +158,9 @@ export async function setPlayerScore(
     playerTeeMap,
     handicapSource,
     nineType,
+    holesPlayed,
   });
+  if (!updatedScorecard) return;
 
   // Persist to SQLite synchronously, then debounce a Supabase sync so other
   // devices viewing the round (organisers, other players) see live in-progress
@@ -172,7 +193,7 @@ export async function updatePlayerHoleScore(
   hole: number,
   updates: Partial<HoleScore>,
 ): Promise<void> {
-  const { groupScorecards, holes, gameType, allowedPlayerIds, selectedTeeData, playerTeeMap, handicapSource, nineType } = get();
+  const { groupScorecards, holes, gameType, allowedPlayerIds, selectedTeeData, playerTeeMap, handicapSource, nineType, holesPlayed } = get();
 
   if (allowedPlayerIds.length > 0 && !allowedPlayerIds.includes(playerId)) {
     storeLogger.warn('Player not in allowed list, rejecting hole score update', { playerId });
@@ -200,7 +221,9 @@ export async function updatePlayerHoleScore(
     playerTeeMap,
     handicapSource,
     nineType,
+    holesPlayed,
   });
+  if (!updatedScorecard) return;
 
   await persistScorecardUpdate({
     holeScore: { scorecardId: scorecard.id, holeNumber: hole, score: holeScore },
@@ -216,7 +239,7 @@ export async function updateShotContributions(
   hole: number,
   contributions: HoleShotContributions,
 ): Promise<void> {
-  const { groupScorecards, holes, gameType, selectedTeeData, playerTeeMap, handicapSource, nineType } = get();
+  const { groupScorecards, holes, gameType, selectedTeeData, playerTeeMap, handicapSource, nineType, holesPlayed } = get();
 
   storeLogger.debug('Updating shot contributions', {
     playerId: playerId.substring(0, 8) + '...',
@@ -245,7 +268,9 @@ export async function updateShotContributions(
     playerTeeMap,
     handicapSource,
     nineType,
+    holesPlayed,
   });
+  if (!updatedScorecard) return;
 
   const saved = await persistScorecardUpdate({
     holeScore: { scorecardId: scorecard.id, holeNumber: hole, score: holeScore },
@@ -269,7 +294,7 @@ export async function updateLocalScore(
   holeNumber: number,
   strokes: number,
 ): Promise<void> {
-  const { groupScorecards, holes, gameType, selectedTeeData, playerTeeMap, handicapSource, nineType } = get();
+  const { groupScorecards, holes, gameType, selectedTeeData, playerTeeMap, handicapSource, nineType, holesPlayed } = get();
 
   storeLogger.debug('Updating local score after resolution', {
     roundId: roundId.substring(0, 8) + '...',
@@ -301,7 +326,9 @@ export async function updateLocalScore(
     playerTeeMap,
     handicapSource,
     nineType,
+    holesPlayed,
   });
+  if (!updatedScorecard) return;
 
   const saved = await persistScorecardUpdate({
     holeScore: { scorecardId: scorecard.id, holeNumber, score: holeScore },

@@ -12,6 +12,8 @@ export interface ScoreWriteContext {
   applyHoleScore: (playerId: string, hole: number, holeScore: HoleScore) => Promise<void>;
   markEdited: (playerId: string, hole: number, rev: number) => void;
   nextRev: () => number;
+  /** False for an unplanned hole or one after an early end. Omitted means open. */
+  isHoleOpen?: (hole: number) => boolean;
 }
 
 export async function applyWatchScoreWrite(
@@ -20,6 +22,8 @@ export async function applyWatchScoreWrite(
 ): Promise<WatchWriteResult> {
   if (ctx.seen.has(write.clientWriteId)) return { status: 'duplicate', clientWriteId: write.clientWriteId };
   if (!ctx.allowedPlayerIds.has(write.playerId)) return { status: 'unauthorized', clientWriteId: write.clientWriteId };
+  // The store would drop this write; acknowledge it as a failed save.
+  if (ctx.isHoleOpen && !ctx.isHoleOpen(write.hole)) return { status: 'error', clientWriteId: write.clientWriteId };
   if (ctx.getLastEditedRev(write.playerId, write.hole) > write.baseRev) {
     return { status: 'superseded', clientWriteId: write.clientWriteId };
   }

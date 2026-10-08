@@ -83,3 +83,27 @@ describe('applyWatchScoreWrite — guards', () => {
     expect((ctx as any)._applied).toHaveLength(1);
   });
 });
+
+describe('applyWatchScoreWrite — closed holes (round ended early)', () => {
+  it('reports an error and applies nothing for a hole the store would drop', async () => {
+    const markEdited = jest.fn();
+    const nextRev = jest.fn(() => 101);
+    const ctx = makeCtx({ isHoleOpen: (hole) => hole <= 6, markEdited, nextRev });
+
+    const res = await applyWatchScoreWrite(write({ hole: 7 }), ctx);
+
+    expect(res.status).toBe('error');
+    expect(ctx._applied).toHaveLength(0);
+    expect(ctx.seen.has('w1')).toBe(false);
+    expect(markEdited).not.toHaveBeenCalled();
+    expect(nextRev).not.toHaveBeenCalled();
+  });
+
+  it('applies a write to a played hole', async () => {
+    const ctx = makeCtx({ isHoleOpen: (hole) => hole <= 6 });
+
+    const res = await applyWatchScoreWrite(write({ hole: 6 }), ctx);
+
+    expect(res.status).toBe('applied');
+  });
+});
