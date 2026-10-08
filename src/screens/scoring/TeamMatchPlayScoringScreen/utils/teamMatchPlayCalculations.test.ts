@@ -954,3 +954,98 @@ describe('Team Match Play Scenarios', () => {
     });
   });
 });
+
+// ============================================================================
+// Ended early — holesPlayed (R7)
+// ============================================================================
+
+describe('calculateTeamMatchStatus — ended early (holesPlayed)', () => {
+  function played(winners: ('team1' | 'team2' | 'halved')[], firstHole = 1) {
+    return createMockHoleResults(winners.map((winner, i) => ({ hole: firstHole + i, winner })));
+  }
+
+  it('settles an 18-hole match ended after 6 on the lead: "2 up"', () => {
+    const results = played(['team1', 'halved', 'team1', 'halved', 'halved', 'halved']);
+    expect(calculateTeamMatchStatus(results, 18, 6)).toEqual({ status: 'complete', winner: 'team1', margin: '2 up' });
+  });
+
+  it('halves a match ended level: "All Square"', () => {
+    const results = played(['team1', 'team2', 'halved', 'halved', 'halved', 'halved']);
+    expect(calculateTeamMatchStatus(results, 18, 6)).toEqual({ status: 'complete', winner: 'halved', margin: 'All Square' });
+  });
+
+  it('keeps a real close-out against the planned holes: 9 planned, 5 up after 5, ended at 6 → "5 & 4"', () => {
+    const results = played(['team2', 'team2', 'team2', 'team2', 'team2', 'halved']);
+    expect(calculateTeamMatchStatus(results, 9, 6)).toEqual({ status: 'complete', winner: 'team2', margin: '5 & 4' });
+  });
+
+  it('9 planned, 4 up after 5, 6th lost → not closed out: "3 up"', () => {
+    const results = played(['team1', 'team1', 'team1', 'team1', 'halved', 'team2']);
+    expect(calculateTeamMatchStatus(results, 9, 6)).toEqual({ status: 'complete', winner: 'team1', margin: '3 up' });
+  });
+
+  it('ignores holes decided after the ended-after count', () => {
+    const results = played(['team1', 'halved', 'halved', 'halved', 'halved', 'halved', 'team2']);
+    expect(calculateTeamMatchStatus(results, 18, 6)).toEqual({ status: 'complete', winner: 'team1', margin: '1 up' });
+  });
+
+  it('treats holesPlayed ≥ the planned holes as played-as-planned', () => {
+    const results = played(['team1', 'halved', 'halved']);
+    expect(calculateTeamMatchStatus(results, 9, 9)).toEqual(calculateTeamMatchStatus(results, 9));
+  });
+});
+
+
+describe('calculateTeamMatchStatus — physical ended cutoff regressions', () => {
+  function planned(winners: ('team1' | 'team2' | 'halved' | null)[], total = 18, first = 1) {
+    return createMockHoleResults(Array.from({ length: total }, (_, index) => ({
+      hole: first + index,
+      winner: winners[index] ?? null,
+    })));
+  }
+
+  it.each([[18, 1], [9, 10], [18, 10]])(
+    'ignores decided N+1 with an undecided hole before N (%i planned, first %i)',
+    (total, first) => {
+      const results = planned(['team1', null, 'halved', 'halved', 'halved', 'halved', 'team2'], total, first);
+      expect(calculateTeamMatchStatus(results, total, 6)).toEqual({
+        status: 'in_progress', leader: 'team1', holesUp: 1, holesRemaining: total - 5,
+      });
+    }
+  );
+
+  it('preserves the first planned close-out despite a later reversal', () => {
+    expect(calculateTeamMatchStatus(planned(['team1', 'team1', 'team1', 'team1', 'team1', 'team2'], 9), 9, 6))
+      .toEqual({ status: 'complete', winner: 'team1', margin: '5 & 4' });
+  });
+
+  it('preserves a real close-out even with fewer than N decided holes', () => {
+    expect(calculateTeamMatchStatus(planned(['team2', 'team2', 'team2', 'team2', 'team2'], 9), 9, 6))
+      .toEqual({ status: 'complete', winner: 'team2', margin: '5 & 4' });
+  });
+
+  it('keeps empty and incomplete ended maps in progress against planned holes', () => {
+    expect(calculateTeamMatchStatus({}, 18, 6)).toEqual({ status: 'in_progress', leader: null, holesUp: 0, holesRemaining: 18 });
+    expect(calculateTeamMatchStatus(planned(['team1', 'halved']), 18, 6))
+      .toEqual({ status: 'in_progress', leader: 'team1', holesUp: 1, holesRemaining: 16 });
+  });
+
+  it.each([undefined, null, 0, -2, 6.5, 18, 19, NaN, Infinity])(
+    'preserves default aggregate behavior for invalid cutoff %s', (cutoff) => {
+      const results = planned(['team1', 'team1', 'team1', 'team1', 'team1', 'team2'], 9);
+      // Normal calculations aggregate all decisions, rather than stopping at the first close-out.
+      expect(calculateTeamMatchStatus(results, 9, cutoff)).toEqual({ status: 'complete', winner: 'team1', margin: '4 & 3' });
+    }
+  );
+});
+
+
+describe('calculateTeamMatchStatus — back-nine ended result', () => {
+  it('settles the lead on physical holes 10–15 against nine planned holes', () => {
+    const results = createMockHoleResults(Array.from({ length: 9 }, (_, index) => ({
+      hole: 10 + index,
+      winner: index < 2 ? 'team2' : index < 6 ? 'halved' : null,
+    })));
+    expect(calculateTeamMatchStatus(results, 9, 6)).toEqual({ status: 'complete', winner: 'team2', margin: '2 up' });
+  });
+});

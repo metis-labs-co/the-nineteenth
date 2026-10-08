@@ -12,7 +12,7 @@
 
 import { getMatchPlayStrokes } from '@/utils/scoring';
 import { formatMatchMargin } from '@/utils/matchMargin';
-import { filterHolesByNineType } from '@/utils/holeTransformers';
+import { filterHolesByNineType, filterPlayableHoles } from '@/utils/holeTransformers';
 import { isSingleBallScore } from '@/types/database/base';
 import type { Hole, HoleScore, MultiBallHoleScore } from '@/types/database/base';
 import type { NineType } from '@/types/database/enums';
@@ -51,27 +51,53 @@ export function standaloneMatchHoles(
 }
 
 /**
+ * The ended-early hole count to honour, or null when the round was played as
+ * planned. Only a positive whole number below the planned holes counts —
+ * `holesPlayed` ≥ planned is just a normal finish.
+ */
+export function resolveEndedAfter(
+  plannedHoles: number,
+  holesPlayed?: number | null
+): number | null {
+  if (holesPlayed == null || !Number.isInteger(holesPlayed)) return null;
+  if (holesPlayed <= 0 || holesPlayed >= plannedHoles) return null;
+  return holesPlayed;
+}
+
+/**
  * Compute a two-player match result from raw scorecards and the round's
- * holes. Returns null when no hole has a score from both players.
+ * planned (nine-filtered) holes. Returns null when no hole has a score from
+ * both players.
  *
- * A card with holes left unscored and no close-out (legacy / incomplete data)
- * still reports "N&M" against the unplayed holes.
+ * `holesPlayed` set means the round ended early after that many holes: only
+ * the first `holesPlayed` holes are walked, a close-out against the planned
+ * hole count still stands, and otherwise the leader wins "N UP" (level "A/S").
+ * Fewer than N decided retained holes returns null unless a real planned-count
+ * close-out was reached.
+ *
+ * A card with holes left unscored and no close-out, not ended early (legacy /
+ * incomplete data), still reports "N&M" against the unplayed holes.
  */
 export function computeStandaloneMatchResult(
   p1: ScorecardForMatchPlay,
   p2: ScorecardForMatchPlay,
-  holes: Hole[]
+  holes: Hole[],
+  holesPlayed?: number | null
 ): StandaloneMatchResult | null {
   const dhc1 = p1.daily_handicap_used ?? 0;
   const dhc2 = p2.daily_handicap_used ?? 0;
 
   const sortedHoles = [...holes].sort((a, b) => a.number - b.number);
   const totalHoles = sortedHoles.length;
+  // The holes are already the round's nine, so 'full' applies only the
+  // played cut (the first N holes) when the round ended early.
+  const endedAfter = resolveEndedAfter(totalHoles, holesPlayed);
+  const walkedHoles = filterPlayableHoles(sortedHoles, 'full', endedAfter);
 
   let player1Up = 0;
-  let holesPlayed = 0;
+  let decidedHoles = 0;
 
-  for (const hole of sortedHoles) {
+  for (const hole of walkedHoles) {
     const score1 = p1.scores?.[String(hole.number)];
     const score2 = p2.scores?.[String(hole.number)];
     const gross1 =
@@ -95,20 +121,22 @@ export function computeStandaloneMatchResult(
     const net1 = gross1 - strokes1;
     const net2 = gross2 - strokes2;
 
-    holesPlayed++;
+    decidedHoles++;
     if (net1 < net2) player1Up++;
     else if (net2 < net1) player1Up--;
 
-    // Early finish — match is decided when lead > holes remaining. On the
-    // last hole (0 remaining) toResult formats it "N UP", never "N&0".
-    const holesRemaining = totalHoles - holesPlayed;
+    // Early finish — decided when the lead beats the PLANNED holes left. On
+    // the last planned hole (0 remaining) toResult formats it "N UP".
+    const holesRemaining = totalHoles - decidedHoles;
     if (Math.abs(player1Up) > holesRemaining) {
       return toResult(p1, p2, player1Up, holesRemaining);
     }
   }
 
-  if (holesPlayed === 0) return null;
-  return toResult(p1, p2, player1Up, totalHoles - holesPlayed);
+  if (decidedHoles === 0 || (endedAfter !== null && decidedHoles < endedAfter)) return null;
+  // An ended-early round has nothing left to play: the leader wins "N UP".
+  const holesRemaining = endedAfter !== null ? 0 : totalHoles - decidedHoles;
+  return toResult(p1, p2, player1Up, holesRemaining);
 }
 
 /** Winner + compact margin for a final `player1Up` lead with `holesRemaining` unplayed. */

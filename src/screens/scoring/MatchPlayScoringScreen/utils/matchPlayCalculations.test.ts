@@ -948,3 +948,167 @@ describe('Match Play Scenarios', () => {
     });
   });
 });
+
+// ============================================================================
+// Ended early — holesPlayed (R7)
+// ============================================================================
+
+describe('calculateMatchStatus — ended early (holesPlayed)', () => {
+  /** Decided holes in order from `firstHole`. */
+  function played(winners: ('player1' | 'player2' | 'halved')[], firstHole = 1) {
+    return createMockHoleResults(winners.map((winner, i) => ({ hole: firstHole + i, winner })));
+  }
+
+  it('settles an 18-hole match ended after 6 on the lead: "2 up"', () => {
+    const results = played(['player1', 'halved', 'player1', 'halved', 'halved', 'halved']);
+    expect(calculateMatchStatus(results, 18, 6)).toEqual({
+      status: 'complete',
+      winner: 'player1',
+      margin: '2 up',
+    });
+  });
+
+  it('halves a match ended level: "All Square"', () => {
+    const results = played(['player1', 'player2', 'halved', 'halved', 'halved', 'halved']);
+    expect(calculateMatchStatus(results, 18, 6)).toEqual({
+      status: 'complete',
+      winner: 'halved',
+      margin: 'All Square',
+    });
+  });
+
+  it('never reports "&" for an ended-early match that was not closed out', () => {
+    for (const lead of [1, 2, 3]) {
+      const winners = [
+        ...Array<'player2'>(lead).fill('player2'),
+        ...Array<'halved'>(6 - lead).fill('halved'),
+      ];
+      const status = calculateMatchStatus(played(winners), 18, 6);
+      expect(status).toEqual({ status: 'complete', winner: 'player2', margin: `${lead} up` });
+      if (status.status === 'complete') expect(status.margin).not.toContain('&');
+    }
+  });
+
+  it('keeps a real close-out against the planned holes: 9 planned, 5 up after 5, ended at 6 → "5 & 4"', () => {
+    const results = played(['player1', 'player1', 'player1', 'player1', 'player1', 'halved']);
+    expect(calculateMatchStatus(results, 9, 6)).toEqual({
+      status: 'complete',
+      winner: 'player1',
+      margin: '5 & 4',
+    });
+  });
+
+  it('9 planned, 4 up after 5 (4 > 9 − 5 is false), 6th halved → closed out on the 6th: "4 & 3"', () => {
+    const results = played(['player1', 'player1', 'player1', 'player1', 'halved', 'halved']);
+    expect(calculateMatchStatus(results, 9, 6)).toEqual({
+      status: 'complete',
+      winner: 'player1',
+      margin: '4 & 3',
+    });
+  });
+
+  it('9 planned, 4 up after 5, 6th lost → dormie, not closed out: final lead "3 up"', () => {
+    const results = played(['player1', 'player1', 'player1', 'player1', 'halved', 'player2']);
+    expect(calculateMatchStatus(results, 9, 6)).toEqual({
+      status: 'complete',
+      winner: 'player1',
+      margin: '3 up',
+    });
+  });
+
+  it('18 planned, ended after 9: wins 1-5, halves 6-9 → "5 up" (5 > 9 left is never true)', () => {
+    // Lead after the 5th: 5 with 13 planned holes left; after the 9th: 5 with 9 left.
+    // No close-out against the planned 18, so the lead after 9 settles it.
+    const results = played([
+      'player1', 'player1', 'player1', 'player1', 'player1',
+      'halved', 'halved', 'halved', 'halved',
+    ]);
+    expect(calculateMatchStatus(results, 18, 9)).toEqual({
+      status: 'complete',
+      winner: 'player1',
+      margin: '5 up',
+    });
+  });
+
+  it('stays in progress until all holesPlayed holes are decided (running status)', () => {
+    const results = played(['player1', 'player1', 'halved']);
+    expect(calculateMatchStatus(results, 18, 6)).toEqual({
+      status: 'in_progress',
+      leader: 'player1',
+      holesUp: 2,
+      holesRemaining: 15,
+    });
+  });
+
+  it('ignores holes decided after the ended-after count', () => {
+    // A stale 7th-hole result must not count.
+    const results = played(['player1', 'halved', 'halved', 'halved', 'halved', 'halved', 'player2']);
+    expect(calculateMatchStatus(results, 18, 6)).toEqual({
+      status: 'complete',
+      winner: 'player1',
+      margin: '1 up',
+    });
+  });
+
+  it('walks back-9 hole numbers in order', () => {
+    const results = played(['player2', 'player2', 'player2', 'player2', 'player2', 'halved'], 10);
+    expect(calculateMatchStatus(results, 9, 6)).toEqual({
+      status: 'complete',
+      winner: 'player2',
+      margin: '5 & 4',
+    });
+  });
+
+  it('treats holesPlayed null, 0 or ≥ the planned holes as played-as-planned', () => {
+    const results = played(['player1', 'halved', 'halved', 'halved', 'halved', 'halved']);
+    const asPlanned = calculateMatchStatus(results, 18);
+    expect(asPlanned).toEqual({ status: 'in_progress', leader: 'player1', holesUp: 1, holesRemaining: 12 });
+    expect(calculateMatchStatus(results, 18, null)).toEqual(asPlanned);
+    expect(calculateMatchStatus(results, 18, 0)).toEqual(asPlanned);
+    expect(calculateMatchStatus(results, 18, 18)).toEqual(asPlanned);
+  });
+});
+
+
+describe('calculateMatchStatus — physical ended cutoff regressions', () => {
+  function planned(winners: ('player1' | 'player2' | 'halved' | null)[], total = 18, first = 1) {
+    return createMockHoleResults(Array.from({ length: total }, (_, index) => ({
+      hole: first + index,
+      winner: winners[index] ?? null,
+    })));
+  }
+
+  it.each([[18, 1], [9, 10], [18, 10]])(
+    'ignores decided N+1 with an undecided hole before N (%i planned, first %i)',
+    (total, first) => {
+      const results = planned(['player1', null, 'halved', 'halved', 'halved', 'halved', 'player2'], total, first);
+      expect(calculateMatchStatus(results, total, 6)).toEqual({
+        status: 'in_progress', leader: 'player1', holesUp: 1, holesRemaining: total - 5,
+      });
+    }
+  );
+
+  it('preserves the first planned close-out despite a later reversal', () => {
+    expect(calculateMatchStatus(planned(['player1', 'player1', 'player1', 'player1', 'player1', 'player2'], 9), 9, 6))
+      .toEqual({ status: 'complete', winner: 'player1', margin: '5 & 4' });
+  });
+
+  it('preserves a real close-out even with fewer than N decided holes', () => {
+    expect(calculateMatchStatus(planned(['player2', 'player2', 'player2', 'player2', 'player2'], 9), 9, 6))
+      .toEqual({ status: 'complete', winner: 'player2', margin: '5 & 4' });
+  });
+
+  it('keeps empty and incomplete ended maps in progress against planned holes', () => {
+    expect(calculateMatchStatus({}, 18, 6)).toEqual({ status: 'in_progress', leader: null, holesUp: 0, holesRemaining: 18 });
+    expect(calculateMatchStatus(planned(['player1', 'halved']), 18, 6))
+      .toEqual({ status: 'in_progress', leader: 'player1', holesUp: 1, holesRemaining: 16 });
+  });
+
+  it.each([undefined, null, 0, -2, 6.5, 18, 19, NaN, Infinity])(
+    'preserves default aggregate behavior for invalid cutoff %s', (cutoff) => {
+      const results = planned(['player1', 'player1', 'player1', 'player1', 'player1', 'player2'], 9);
+      // Normal calculations aggregate all decisions, rather than stopping at the first close-out.
+      expect(calculateMatchStatus(results, 9, cutoff)).toEqual({ status: 'complete', winner: 'player1', margin: '4 & 3' });
+    }
+  );
+});

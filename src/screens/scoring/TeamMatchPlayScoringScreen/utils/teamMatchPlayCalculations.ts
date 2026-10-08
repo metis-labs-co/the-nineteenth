@@ -11,6 +11,7 @@ import type {
   TeamMatchStatusDisplay,
   MatchTeam,
 } from '../types';
+import { resolveEndedAfter } from '@/utils/matchPlayResult';
 
 /**
  * Calculate the best score from a team's player scores
@@ -44,19 +45,32 @@ export function determineTeamHoleWinner(
  * `totalHoles` is the planned hole count (9 or 18). Margins:
  * - closed out with holes still to play → "N & M"
  * - no holes left → "N up", or "All Square" when level — never "N & 0" (I10)
+ *
+ * `holesPlayed` (a positive count below `totalHoles`) means the round ended
+ * early after that many holes: a close-out reached against the planned holes
+ * stands; otherwise, once `holesPlayed` holes are decided, the leader wins
+ * "N up" (level = "All Square"). For this ended path, callers must enumerate
+ * planned holes (or a running physical prefix) with explicit null winners for
+ * undecided holes; sparse maps cannot identify the physical cutoff.
  */
 export function calculateTeamMatchStatus(
   holeResults: Record<number, TeamHoleResult>,
-  totalHoles: number = 18
+  totalHoles: number = 18,
+  holesPlayed?: number | null
 ): TeamMatchStatus {
+  const endedAfter = resolveEndedAfter(totalHoles, holesPlayed);
+  if (endedAfter !== null) {
+    return calculateEndedEarlyTeamMatchStatus(holeResults, totalHoles, endedAfter);
+  }
+
   let team1Up = 0;
-  let holesPlayed = 0;
+  let decidedHoles = 0;
 
   // Iterate the actual hole results — keys are real hole numbers (10..18
   // on back-9), so a 1..18 counter would miss back-9 holes entirely.
   for (const result of Object.values(holeResults)) {
     if (result?.winner) {
-      holesPlayed++;
+      decidedHoles++;
       if (result.winner === 'team1') {
         team1Up++;
       } else if (result.winner === 'team2') {
@@ -65,7 +79,7 @@ export function calculateTeamMatchStatus(
     }
   }
 
-  const holesRemaining = totalHoles - holesPlayed;
+  const holesRemaining = totalHoles - decidedHoles;
   const absLead = Math.abs(team1Up);
 
   // No holes left to play: the leader wins "N up", level is halved. Must run
@@ -97,6 +111,55 @@ export function calculateTeamMatchStatus(
     holesUp: absLead,
     holesRemaining,
   };
+}
+
+/**
+ * Status of a team match ended early after `endedAfter` physical holes — see
+ * `calculateEndedEarlyMatchStatus` (singles) for the rule; mirrored here for
+ * team1 / team2.
+ */
+function calculateEndedEarlyTeamMatchStatus(
+  holeResults: Record<number, TeamHoleResult>,
+  totalHoles: number,
+  endedAfter: number
+): TeamMatchStatus {
+  const holeNumbers = Object.keys(holeResults)
+    .map(Number)
+    .sort((a, b) => a - b)
+    .slice(0, endedAfter);
+  let team1Up = 0;
+  let decidedHoles = 0;
+
+  for (const holeNumber of holeNumbers) {
+    const holeWinner = holeResults[holeNumber]?.winner;
+    if (!holeWinner) continue;
+    decidedHoles++;
+    if (holeWinner === 'team1') team1Up++;
+    else if (holeWinner === 'team2') team1Up--;
+
+    const plannedRemaining = totalHoles - decidedHoles;
+    const lead = Math.abs(team1Up);
+    if (lead > plannedRemaining) {
+      const closedOutBy = team1Up > 0 ? 'team1' : 'team2';
+      return { status: 'complete', winner: closedOutBy, margin: `${lead} & ${plannedRemaining}` };
+    }
+  }
+
+  const absLead = Math.abs(team1Up);
+  const ahead = team1Up > 0 ? 'team1' : 'team2';
+
+  if (decidedHoles < endedAfter) {
+    const holesRemaining = totalHoles - decidedHoles;
+    if (team1Up === 0) {
+      return { status: 'in_progress', leader: null, holesUp: 0, holesRemaining };
+    }
+    return { status: 'in_progress', leader: ahead, holesUp: absLead, holesRemaining };
+  }
+
+  if (team1Up === 0) {
+    return { status: 'complete', winner: 'halved', margin: 'All Square' };
+  }
+  return { status: 'complete', winner: ahead, margin: `${absLead} up` };
 }
 
 /**
