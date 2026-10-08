@@ -18,6 +18,7 @@ import { roundDataLogger } from '@/utils/debugLogger';
 import { pushDiagnostic } from '@/services/diagnostics';
 import { getDisplayName } from '@/utils/displayHelpers';
 import { filterHolesByNineType } from '@/utils/holeTransformers';
+import { isHoleAfterEarlyEnd, resolveRoundShape } from '@/utils/roundShape';
 import type { Player, Scorecard, TeamWithMembers } from '@/types';
 import type { HoleScore } from '@/types/database/base';
 import type { TeamFormat, GameType } from '@/types/database.types';
@@ -95,6 +96,7 @@ export function useRoundData({
     holes: storeHoles,
     isInitialized,
     nineType: storeNineType,
+    holesPlayed: storeHolesPlayed,
     loadFromOffline,
     initializeRound,
     ensureTeamMemberScorecards,
@@ -112,12 +114,12 @@ export function useRoundData({
   // Belt-and-suspenders against an infinite reset loop. If `useRoundMetadata`
   // and `loadFromOffline` ever read different `nine_type` values for the same
   // row (e.g. because one of their selects errors and silently defaults), the
-  // mismatch detected by the nine_type-changed guard below would cause us to
+  // mismatch detected by the round-shape guard below would cause us to
   // resetRound() → loadFromOffline → re-render → mismatch → reset … forever.
-  // Cap the reset to once per round per mount so a divergent read fails loudly
-  // (one warn) instead of pegging the CPU.
-  const nineTypeResetForRoundRef = useRef<string | null>(null);
-  const nineTypeMismatchWarnedForRoundRef = useRef<string | null>(null);
+  // Cap reset/warning attempts per target shape, allowing a later server end
+  // after nine-type recovery while preventing repeated divergent reads from looping.
+  const roundShapeResetRef = useRef<string | null>(null);
+  const roundShapeMismatchWarnedRef = useRef<string | null>(null);
 
   // Use focused hooks
   const metadata = useRoundMetadata(roundId);
@@ -158,44 +160,58 @@ export function useRoundData({
     // the store still holds the previous filtered hole set — fall through
     // to a full re-init so holes/scopes/UI all reflect the new selection.
     //
-    // Capped to one reset per round per mount via nineTypeResetForRoundRef
+    // Capped to one reset per target round shape per mount via roundShapeResetRef
     // so a divergent metadata read (e.g. a fetch silently defaulting to
     // 'full' while useRoundMetadata reads the real value) can't loop.
     const metadataNineType = metadata.data?.nineType;
-    const rawNineTypeChanged =
+    // holes_played too (R16): the server's value wins once set (another device
+    // ended the round, or our own end_early landed); a pending local end
+    // (server still NULL) resolves to the store's own value and is left alone.
+    // `?? null` on the store side: a store without the field (undefined) is
+    // "not ended", the same as null, and must not read as a change.
+    const resolvedHolesPlayed = metadata.data
+      ? resolveRoundShape(
+          { nine_type: metadataNineType, holes_played: metadata.data.holesPlayed },
+          { nineType: storeNineType, holesPlayed: storeHolesPlayed }
+        ).holesPlayed
+      : (storeHolesPlayed ?? null);
+    const rawShapeChanged =
       isInitialized &&
       currentRoundId === roundId &&
-      !!metadataNineType &&
-      metadataNineType !== storeNineType;
-    const nineTypeChanged =
-      rawNineTypeChanged && nineTypeResetForRoundRef.current !== roundId;
+      ((!!metadataNineType && metadataNineType !== storeNineType) ||
+        resolvedHolesPlayed !== (storeHolesPlayed ?? null));
+    const resetKey = `${roundId}:${metadataNineType ?? storeNineType}:${resolvedHolesPlayed ?? 'none'}`;
+    const shapeChanged =
+      rawShapeChanged && roundShapeResetRef.current !== resetKey;
 
-    // Surface a divergent read once per round so an environment problem
+    // Surface a divergent read once per target shape so an environment problem
     // (e.g. unapplied migration breaking a select) is visible without
     // spamming the log every render.
     if (
-      rawNineTypeChanged &&
-      !nineTypeChanged &&
-      nineTypeMismatchWarnedForRoundRef.current !== roundId
+      rawShapeChanged &&
+      !shapeChanged &&
+      roundShapeMismatchWarnedRef.current !== resetKey
     ) {
-      nineTypeMismatchWarnedForRoundRef.current = roundId;
+      roundShapeMismatchWarnedRef.current = resetKey;
       roundDataLogger.warn(
-        'nine_type mismatch persists after reset attempt — leaving store as-is to avoid loop',
+        'Round shape mismatch persists after reset attempt — leaving store as-is to avoid loop',
         {
           roundId: roundId?.substring(0, 8),
           metadataNineType,
           storeNineType,
+          storeHolesPlayed,
+          resolvedHolesPlayed,
         }
       );
     }
 
     // Skip full initialization if store is already initialized with THIS SPECIFIC round
-    // and its nine_type still matches the round's persisted value.
+    // and its shape still matches the round's persisted value.
     if (
       isInitialized &&
       currentPlayers.length > 0 &&
       currentRoundId === roundId &&
-      !nineTypeChanged
+      !shapeChanged
     ) {
       roundDataLogger.info('Store already initialized for this round, using hook data');
       pushDiagnostic('round_data.already_initialized', { roundId });
@@ -215,19 +231,23 @@ export function useRoundData({
       resetRound();
     }
 
-    // Reset store if the same round's nine_type changed under us.
-    if (nineTypeChanged) {
-      roundDataLogger.info('Resetting store - nine_type changed', {
+    // Reset store if the same round's shape (nine_type / holes_played) changed under us.
+    if (shapeChanged) {
+      roundDataLogger.info('Resetting store - round shape changed', {
         roundId: roundId?.substring(0, 8),
         from: storeNineType,
         to: metadataNineType,
+        holesPlayedFrom: storeHolesPlayed,
+        holesPlayedTo: resolvedHolesPlayed,
       });
       pushDiagnostic('round_data.reset_nine_type_changed', {
         roundId,
         from: storeNineType,
         to: metadataNineType,
+        holesPlayedFrom: storeHolesPlayed,
+        holesPlayedTo: resolvedHolesPlayed,
       });
-      nineTypeResetForRoundRef.current = roundId;
+      roundShapeResetRef.current = resetKey;
       resetRound();
     }
 
@@ -383,6 +403,7 @@ export function useRoundData({
       metadata.data?.playerTeeMap ?? new Map(), // per-player tee overrides
       metadata.data?.nineType ?? 'full', // nine_type — slice filters holes accordingly
       courseHook.startHole ?? 1, // start_hole — display offset for combo courses
+      metadata.data?.holesPlayed ?? null, // holes_played — round ended early (fresh device)
     );
     pushDiagnostic('round_data.initialize_round_returned', { roundId });
   }, [
@@ -393,6 +414,7 @@ export function useRoundData({
     currentRoundId,
     currentPlayers.length,
     storeNineType,
+    storeHolesPlayed,
     metadata.data,
     metadata.isLoading,
     metadata.error,
@@ -586,7 +608,7 @@ export function useRoundData({
 
         if (error || !remoteScorecards?.length) return;
 
-        const { groupScorecards } = useScorecardStore.getState();
+        const { groupScorecards, nineType, holesPlayed } = useScorecardStore.getState();
         let merged = false;
 
         for (const remote of remoteScorecards) {
@@ -609,7 +631,14 @@ export function useRoundData({
           const convertedScores: { [holeNumber: number]: HoleScore } = {};
           for (const [holeStr, scoreData] of Object.entries(remoteScores ?? {})) {
             const holeNum = parseInt(holeStr, 10);
-            if (!isNaN(holeNum) && scoreData?.strokes != null) {
+            // Round ended early: the server snapshot may not be trimmed yet
+            // (the ending device's sync is debounced), so never pull holes
+            // after N into a fresh device's card.
+            if (
+              !isNaN(holeNum) &&
+              scoreData?.strokes != null &&
+              !isHoleAfterEarlyEnd(nineType, holesPlayed, holeNum)
+            ) {
               convertedScores[holeNum] = { ...scoreData, strokes: scoreData.strokes! } as HoleScore;
             }
           }

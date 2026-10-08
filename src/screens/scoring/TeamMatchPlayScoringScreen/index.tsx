@@ -14,7 +14,7 @@
  * - Submit match result button when complete
  */
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { LoadingSpinner, ConfirmationDialog } from '@/components/common';
@@ -25,6 +25,7 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import { useIsSuperAdmin } from '@/store/subscriptionStore';
 import { useScorecardStore } from '@/store/scorecardStore';
+import { resolveRoundShape } from '@/utils/roundShape';
 import { useRoundDetails } from '@/hooks/useRoundDetails';
 import { useRoundTeams } from '@/hooks/scorecard/useRoundTeams';
 import { useSubMatches, useUpdateSubMatchResult } from '@/hooks/rounds';
@@ -155,7 +156,10 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
   // The round's planned nine. Team match play rounds can be front9/back9 —
   // scoring against the raw 18-hole course meant a 9-hole match could never
   // complete.
-  const roundNineType: NineType = roundData?.nine_type ?? 'full';
+  // The round's shape. holes_played is set once the round was ended early
+  // (here or on another device); initializeRound needs it on a fresh device.
+  const roundShape = resolveRoundShape(roundData);
+  const roundNineType: NineType = roundShape.nineType;
 
   // Planned holes for that nine (course holes, or the default card) plus the
   // navigation bounds — back-9 rounds run 10..18.
@@ -171,6 +175,10 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
     }
   }, [currentHole, firstHoleNumber, lastHoleNumber]);
 
+  // One-shot guard: recover from a server-side early end once per
+  // (round, holes_played), so a failed reload can't loop (as useMatchPlayData).
+  const holesPlayedResetRef = useRef<string | null>(null);
+
   // Ensure the scorecard store is initialized for this round.
   // The initial call from `useStartNewRound` can silently fail (errors are
   // swallowed in `initializeRoundSlice`), and the resume-from-list flow
@@ -184,7 +192,19 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
       isInitialized &&
       currentRoundId === roundId &&
       currentPlayers.length > 0;
-    if (alreadyHydrated) return;
+
+    // Another device ended the round (R16): the server's holes_played is set
+    // and the store disagrees. Same rule as useMatchPlayData's divergence
+    // check: the server wins once set; a pending local end (server still
+    // NULL) is left alone. The store is read imperatively (the effect re-runs
+    // when roundShape.holesPlayed changes; a hook-level selector would clash
+    // with the screen's later `storeHolesPlayed`).
+    const serverHolesPlayed = roundShape.holesPlayed;
+    const endedElsewhere =
+      alreadyHydrated &&
+      serverHolesPlayed != null &&
+      serverHolesPlayed !== (useScorecardStore.getState().holesPlayed ?? null);
+    if (alreadyHydrated && !endedElsewhere) return;
 
     const players: Player[] = teamsData.flatMap((team) =>
       (team.members ?? []).map((m) => ({
@@ -198,9 +218,17 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
     );
     if (players.length === 0) return;
 
+    if (endedElsewhere) {
+      const resetKey = `${roundId}:${serverHolesPlayed}`;
+      if (holesPlayedResetRef.current === resetKey) return; // already tried for this N
+      holesPlayedResetRef.current = resetKey;
+    }
+
     let cancelled = false;
     (async () => {
-      if (currentRoundId && currentRoundId !== roundId) {
+      // Different round, or ended on another device: reset, then
+      // loadFromOffline resolves the server N and reconciles the cards.
+      if (endedElsewhere || (currentRoundId && currentRoundId !== roundId)) {
         resetRound();
       }
 
@@ -217,7 +245,9 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
         selectedTeeBox ?? null,
         handicapSource,
         new Map(),
-        roundNineType
+        roundNineType,
+        undefined, // startHole → slice default (1)
+        roundShape.holesPlayed
       );
     })();
 
@@ -234,6 +264,7 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
     selectedTeeBox,
     handicapSource,
     roundNineType,
+    roundShape.holesPlayed,
     initializeRound,
     loadFromOffline,
     resetRound,

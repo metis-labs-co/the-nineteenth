@@ -11,7 +11,12 @@
 
 import { renderHook, waitFor } from '@testing-library/react-native';
 import { useMatchPlayData } from '@/hooks/scorecard/useMatchPlayData';
+import { saveScorecard } from '@/services/offline/database';
 import type { Hole } from '@/types';
+
+// What hydrateFromSupabase sees: the store's cards and the server's rows.
+let mockGroupScorecards = new Map<string, unknown>();
+let mockRemoteScorecards: unknown[] = [];
 
 // ============================================================================
 // MOCK SETUP
@@ -34,6 +39,7 @@ const mockStoreState = {
   isInitialized: false,
   holes: [] as Hole[],
   nineType: 'full',
+  holesPlayed: null as number | null,
   loadFromOffline: jest.fn(() => Promise.resolve(false)),
   initializeRound: jest.fn(() => Promise.resolve()),
   resetRound: jest.fn(),
@@ -43,7 +49,8 @@ jest.mock('@/store/scorecardStore', () => {
   const useScorecardStore = jest.fn(() => mockStoreState);
   // Used by the Supabase hydration effect
   (useScorecardStore as unknown as { getState: () => unknown }).getState = () => ({
-    groupScorecards: new Map(),
+    ...mockStoreState,
+    groupScorecards: mockGroupScorecards,
   });
   (useScorecardStore as unknown as { setState: (s: unknown) => void }).setState = jest.fn();
   return { useScorecardStore };
@@ -53,6 +60,7 @@ jest.mock('@/store/scorecardStore', () => {
 const mockRoundData = {
   id: ROUND_ID,
   nine_type: 'front9',
+  holes_played: null as number | null,
   handicap_source: 'profile',
   selected_tee: { id: 'tee-1', name: 'Blue' },
   course: { id: 'course-1', name: 'East/South Course', club: { name: 'Test GC' } },
@@ -87,7 +95,7 @@ jest.mock('@/services/supabase/client', () => ({
     from: jest.fn(() => ({
       select: jest.fn().mockReturnThis(),
       eq: jest.fn().mockReturnThis(),
-      then: jest.fn((resolve: (v: unknown) => unknown) => resolve({ data: [], error: null })),
+      then: jest.fn((resolve: (v: unknown) => unknown) => resolve({ data: mockRemoteScorecards, error: null })),
     })),
   },
 }));
@@ -123,6 +131,9 @@ describe('useMatchPlayData (nine_type awareness)', () => {
     mockStoreState.isInitialized = false;
     mockStoreState.holes = [];
     mockStoreState.nineType = 'full';
+    mockStoreState.holesPlayed = null;
+    mockGroupScorecards = new Map();
+    mockRemoteScorecards = [];
     mockStoreState.loadFromOffline.mockImplementation(() => Promise.resolve(false));
   });
 
@@ -195,5 +206,93 @@ describe('useMatchPlayData (nine_type awareness)', () => {
     await waitFor(() => {
       expect(mockStoreState.resetRound).toHaveBeenCalled();
     });
+  });
+
+  it('resets when the server says the round was ended and the store does not (another device)', async () => {
+    mockRoundDetails = { data: { ...mockRoundData, holes_played: 6 }, isLoading: false, error: null };
+    mockStoreState.currentRoundId = ROUND_ID;
+    mockStoreState.currentPlayers = [{ id: P1 }, { id: P2 }];
+    mockStoreState.isInitialized = true;
+    mockStoreState.holes = mockEighteenHoles.slice(0, 9);
+    mockStoreState.nineType = 'front9';
+
+    renderTheHook();
+
+    await waitFor(() => {
+      expect(mockStoreState.resetRound).toHaveBeenCalled();
+    });
+  });
+
+  it('adopts the authoritative server N over a different local end', async () => {
+    mockRoundDetails = { data: { ...mockRoundData, holes_played: 6 }, isLoading: false, error: null };
+    mockStoreState.currentRoundId = ROUND_ID;
+    mockStoreState.currentPlayers = [{ id: P1 }, { id: P2 }];
+    mockStoreState.isInitialized = true;
+    mockStoreState.nineType = 'front9';
+    mockStoreState.holesPlayed = 8;
+
+    renderTheHook();
+    await waitFor(() => expect(mockStoreState.resetRound).toHaveBeenCalledTimes(1));
+    expect(mockStoreState.loadFromOffline).toHaveBeenCalledWith(ROUND_ID);
+  });
+
+  it('leaves a pending local end alone while the server row is still NULL', async () => {
+    mockStoreState.currentRoundId = ROUND_ID;
+    mockStoreState.currentPlayers = [{ id: P1 }, { id: P2 }];
+    mockStoreState.isInitialized = true;
+    mockStoreState.holes = mockEighteenHoles.slice(0, 9);
+    mockStoreState.nineType = 'front9';
+    mockStoreState.holesPlayed = 6;
+
+    renderTheHook();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(mockStoreState.resetRound).not.toHaveBeenCalled();
+  });
+
+  it('passes the server holes_played into the fallback initializeRound', async () => {
+    mockRoundDetails = { data: { ...mockRoundData, holes_played: 4 }, isLoading: false, error: null };
+
+    renderTheHook();
+
+    await waitFor(() => {
+      expect(mockStoreState.initializeRound).toHaveBeenCalled();
+    });
+    const args = mockStoreState.initializeRound.mock.calls[0] as unknown[];
+    expect(args[9]).toBe('front9');
+    expect(args[10]).toBeUndefined(); // startHole → the slice default (1)
+    expect(args[11]).toBe(4);
+  });
+
+  it.each([
+    ['full', 6, [1, 2, 3, 4, 5, 6, 7, 8], [1, 2, 3, 4, 5, 6]],
+    ['back9', 6, [10, 11, 12, 13, 14, 15, 16, 17], [10, 11, 12, 13, 14, 15]],
+    ['full', null, [1, 2, 3, 4, 5, 6, 7, 8], [1, 2, 3, 4, 5, 6]],
+  ])('drops scores after a local end on %s (server marker %s)', async (nineType, serverMarker, remoteHoles, expectedHoles) => {
+    mockRoundDetails = { data: { ...mockRoundData, nine_type: nineType, holes_played: serverMarker }, isLoading: false, error: null };
+    mockStoreState.currentRoundId = ROUND_ID;
+    mockStoreState.currentPlayers = [{ id: P1 }, { id: P2 }];
+    mockStoreState.isInitialized = true;
+    mockStoreState.holes = mockEighteenHoles;
+    mockStoreState.nineType = nineType;
+    mockStoreState.holesPlayed = 6;
+    mockGroupScorecards = new Map([[P1, { id: 'scorecard-1', playerId: P1, scores: {} }]]);
+    mockRemoteScorecards = [
+      {
+        player_id: P1,
+        scores: Object.fromEntries(remoteHoles.map((h) => [String(h), { strokes: 4 }])),
+        total_gross: 32,
+        total_net: 32,
+        status: 'completed',
+      },
+    ];
+
+    renderTheHook();
+
+    await waitFor(() => {
+      expect(saveScorecard).toHaveBeenCalledTimes(1);
+    });
+    const saved = (saveScorecard as jest.Mock).mock.calls[0][0] as { scores: Record<number, unknown> };
+    expect(Object.keys(saved.scores).map(Number)).toEqual(expectedHoles);
   });
 });

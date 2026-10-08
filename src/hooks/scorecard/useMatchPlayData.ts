@@ -18,6 +18,7 @@ import { saveScorecard } from '@/services/offline/database';
 import { roundDataLogger } from '@/utils/debugLogger';
 import { getDisplayName } from '@/utils/displayHelpers';
 import { filterHolesByNineType } from '@/utils/holeTransformers';
+import { isHoleAfterEarlyEnd, resolveRoundShape } from '@/utils/roundShape';
 import { useRoundDetails, useRoundPlayers } from '@/hooks/useRoundDetails';
 import { useRoundCourse } from './useRoundCourse';
 import type { Player, Scorecard, Hole, TeeBox } from '@/types';
@@ -77,6 +78,7 @@ export function useMatchPlayData({
     isInitialized,
     holes: storeHoles,
     nineType: storeNineType,
+    holesPlayed: storeHolesPlayed,
     loadFromOffline,
     initializeRound,
     resetRound,
@@ -105,6 +107,8 @@ export function useMatchPlayData({
   // 18-hole matches with a permanently-blocked submit gate.
   const roundNineType: NineType | null =
     (roundData?.nine_type as NineType | undefined) ?? null;
+  // The server's holes_played (round ended early), null until set.
+  const serverHolesPlayed: number | null = roundData?.holes_played ?? null;
 
   // Extract player data
   const player1: MatchPlayer = useMemo(() => {
@@ -187,8 +191,18 @@ export function useMatchPlayData({
     // state, or the user changed nine_type in EditNineTypeSheet), reset and
     // rebuild. loadFromOffline below re-filters holes to the round's current
     // nine_type while preserving locally-scored scorecards.
+    // holes_played too (R16): the server's value wins once set (another
+    // device ended the round); a pending local end (server still NULL)
+    // resolves to the store's own value and is left alone.
+    const holesPlayedDiverged =
+      initializedForRound &&
+      resolveRoundShape(
+        { nine_type: roundNineType, holes_played: serverHolesPlayed },
+        { nineType: storeNineType, holesPlayed: storeHolesPlayed }
+      ).holesPlayed !== (storeHolesPlayed ?? null);
     const nineTypeDiverged =
-      initializedForRound && roundNineType !== null && storeNineType !== roundNineType;
+      (initializedForRound && roundNineType !== null && storeNineType !== roundNineType) ||
+      holesPlayedDiverged;
 
     if (initializedForRound && !nineTypeDiverged) {
       roundDataLogger.info('Store already initialized for this round');
@@ -196,15 +210,17 @@ export function useMatchPlayData({
     }
 
     if (nineTypeDiverged) {
-      const resetKey = `${roundId}:${roundNineType}`;
+      const resetKey = `${roundId}:${roundNineType}:${serverHolesPlayed ?? 'none'}`;
       if (nineTypeResetRef.current === resetKey) {
-        return; // already attempted recovery for this nine_type
+        return; // already attempted recovery for this round shape
       }
       nineTypeResetRef.current = resetKey;
-      roundDataLogger.info('Resetting store - nine_type diverged from round', {
+      roundDataLogger.info('Resetting store - round shape diverged from round', {
         roundId: roundId?.substring(0, 8),
         storeNineType,
         roundNineType,
+        storeHolesPlayed,
+        serverHolesPlayed,
       });
       resetRound();
     }
@@ -295,7 +311,9 @@ export function useMatchPlayData({
       roundData?.selected_tee ?? null,
       (roundData?.handicap_source as HandicapSource | undefined) ?? 'profile',
       new Map(),
-      roundNineType
+      roundNineType,
+      undefined, // startHole → slice default (1)
+      serverHolesPlayed
     );
   }, [
     roundId,
@@ -308,6 +326,8 @@ export function useMatchPlayData({
     currentPlayers.length,
     roundNineType,
     storeNineType,
+    serverHolesPlayed,
+    storeHolesPlayed,
     roundData?.selected_tee,
     roundData?.handicap_source,
     isRoundLoading,
@@ -356,7 +376,7 @@ export function useMatchPlayData({
 
         if (fetchError || !remoteScorecards?.length) return;
 
-        const { groupScorecards } = useScorecardStore.getState();
+        const { groupScorecards, nineType, holesPlayed } = useScorecardStore.getState();
         let merged = false;
 
         for (const remote of remoteScorecards) {
@@ -377,7 +397,13 @@ export function useMatchPlayData({
           const convertedScores: { [holeNumber: number]: HoleScore } = {};
           for (const [holeStr, scoreData] of Object.entries(remoteScores)) {
             const holeNum = parseInt(holeStr, 10);
-            if (!isNaN(holeNum) && scoreData?.strokes != null) {
+            // Round ended early: never pull holes after N from a server
+            // snapshot that hasn't been trimmed yet.
+            if (
+              !isNaN(holeNum) &&
+              scoreData?.strokes != null &&
+              !isHoleAfterEarlyEnd(nineType, holesPlayed, holeNum)
+            ) {
               convertedScores[holeNum] = { ...scoreData, strokes: scoreData.strokes! } as HoleScore;
             }
           }
