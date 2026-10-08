@@ -111,10 +111,17 @@ export function useResolveMismatch() {
       await resolveMismatch(mismatchId, resolvedScore, resolvedBy);
 
       // Update remote scorecard with resolved score
-      await applyResolvedScoreToScorecard(roundId, playerId, holeNumber, resolvedScore);
+      const applied = await applyResolvedScoreToScorecard(
+        roundId,
+        playerId,
+        holeNumber,
+        resolvedScore
+      );
 
-      // Update local SQLite to prevent drift
-      await updateLocalScore(roundId, playerId, holeNumber, resolvedScore);
+      // Mirror only scores the server accepted, including its played-hole guard.
+      if (applied) {
+        await updateLocalScore(roundId, playerId, holeNumber, resolvedScore);
+      }
 
       return { alreadyResolved: false };
     },

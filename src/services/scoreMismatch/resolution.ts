@@ -6,12 +6,17 @@
 
 import { supabase } from '@/services/supabase/client';
 import type { HoleScore, Hole } from '@/types';
+import type { NineType } from '@/types/database/enums';
+import { getHoleRange } from '@/constants/scoring';
 import { isSingleBallScore } from '@/types/database/base';
 import {
   getStrokesReceived,
   calculateStablefordPointsNet,
   getEffectiveGrossStrokes,
 } from '@/utils/scoring';
+import { filterPlayableHoles, transformHolesIfNeeded } from '@/utils/holeTransformers';
+import { calculateNetOverHolesPlayed } from '@/utils/scorecardCalculations';
+import { isEndedEarly, isHoleAfterEarlyEnd } from '@/utils/roundShape';
 import { createModuleLogger } from '@/utils/debugLogger';
 import { fromTable } from './types';
 import { createError } from '@/services/errors';
@@ -38,7 +43,7 @@ export async function resolveMismatch(
     throw createError('Mismatch ID and Resolver ID are required', 'VALIDATION');
   }
 
-  const { error } = await (fromTable('score_mismatches')
+  const { error } = (await fromTable('score_mismatches')
     .update({
       status: 'resolved',
       resolved_score: resolvedScore,
@@ -62,18 +67,23 @@ export async function resolveMismatch(
  * (round list, leaderboards, stats) stay consistent with the scorecard view
  * which live-sums from the scores JSON. Without this, the stored totals
  * drift from reality every time a mismatch is resolved or bypassed.
+ *
+ * Only the round's played holes accept corrections. Totals cover the same
+ * holes, including the cutoff when the round ended early.
+ * @returns true after a successful write; false for an out-of-play hole.
+ *   Callers must mirror the correction locally only when true.
  */
 export async function applyResolvedScoreToScorecard(
   roundId: string,
   playerId: string,
   holeNumber: number,
   resolvedScore: number
-): Promise<void> {
+): Promise<boolean> {
   if (!roundId || !playerId) {
     throw createError('Round ID and Player ID are required', 'VALIDATION');
   }
 
-  // Fetch the scorecard along with the round's game type and course holes
+  // Fetch the scorecard along with the round's game type, shape and course holes
   // so we can recompute totals in a single round trip.
   interface ScorecardFetchRow {
     id: string;
@@ -81,14 +91,17 @@ export async function applyResolvedScoreToScorecard(
     daily_handicap_used: number | null;
     round: {
       game_type: string | null;
-      courses: { holes: Hole[] | null } | null;
+      nine_type: NineType | null;
+      holes_played: number | null;
+      // Raw course JSONB may use camelCase or snake_case keys.
+      courses: { holes: unknown[] | null } | null;
     } | null;
   }
 
   const { data: scorecard, error: fetchError } = (await supabase
     .from('scorecards')
     .select(
-      'id, scores, daily_handicap_used, round:rounds(game_type, courses(holes))'
+      'id, scores, daily_handicap_used, round:rounds(game_type, nine_type, holes_played, courses(holes))'
     )
     .eq('round_id', roundId)
     .eq('player_id', playerId)
@@ -106,6 +119,29 @@ export async function applyResolvedScoreToScorecard(
     throw createError('Scorecard not found', 'NOT_FOUND');
   }
 
+  const nineType = scorecard.round?.nine_type ?? 'full';
+  const holesPlayed = scorecard.round?.holes_played ?? null;
+  const holes = transformHolesIfNeeded(scorecard.round?.courses?.holes ?? []);
+  const playableHoles = filterPlayableHoles(holes, nineType, holesPlayed);
+  const range = getHoleRange(nineType);
+  // Without metadata, enforce both the planned nine and the early-end cutoff.
+  const isPlayableHole =
+    holes.length > 0
+      ? playableHoles.some((hole) => hole.number === holeNumber)
+      : Number.isInteger(holeNumber) &&
+        holeNumber >= range.start &&
+        holeNumber <= range.end &&
+        !isHoleAfterEarlyEnd(nineType, holesPlayed, holeNumber);
+  if (!isPlayableHole) {
+    logger.warn('Ignoring resolved score for a hole the round did not play', {
+      roundId: roundId.substring(0, 8) + '...',
+      holeNumber,
+      nineType,
+      holesPlayed,
+    });
+    return false;
+  }
+
   // Update the specific hole score
   const scores: Record<string, HoleScore> = scorecard.scores || {};
   const holeKey = holeNumber.toString();
@@ -118,11 +154,10 @@ export async function applyResolvedScoreToScorecard(
 
   // Recompute totals from the updated scores JSON. This is the single
   // source-of-truth path — matches calculatePlayerStats in the scorecard view.
-  const holes = scorecard.round?.courses?.holes ?? [];
   const gameType = scorecard.round?.game_type ?? null;
   const dhc = scorecard.daily_handicap_used;
 
-  const totals = recomputeScorecardTotals(scores, holes, gameType, dhc);
+  const totals = recomputeScorecardTotals(scores, holes, gameType, dhc, { holesPlayed, nineType });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const updatePayload: Record<string, any> = {
@@ -146,6 +181,8 @@ export async function applyResolvedScoreToScorecard(
     logger.error('Failed to update scorecard', updateError);
     throw createError(`Failed to update scorecard: ${updateError.message}`, 'DATABASE');
   }
+
+  return true;
 }
 
 /**
@@ -153,9 +190,15 @@ export async function applyResolvedScoreToScorecard(
  * `calculatePlayerStats` (scorecard view) and the sync pipeline so all three
  * writers agree on total_gross / total_net / total_points.
  *
+ * With options, totals cover the round's planned nine and played cutoff.
+ * Without options, all supplied holes count (unchanged for force-finalization).
+ * Missing hole metadata retains raw gross / gross-minus-DHC fallback, with
+ * out-of-play keys excluded when options specify the round shape.
+ *
  * - `totalGross`: sum of single-ball strokes across scored holes, with a pickup
  *   counted as net double bogey (I3) when hole data is available
- * - `totalNet`: `totalGross - daily_handicap_used` when DHC is present, else null
+ * - `totalNet`: `totalGross - daily_handicap_used` when DHC is present, else null;
+ *   a valid early end with hole metadata uses per-hole net instead.
  * - `totalPoints`: stableford per-hole sum (only when game_type === 'stableford'
  *   and holes + DHC are available), else null
  */
@@ -163,16 +206,20 @@ export function recomputeScorecardTotals(
   scores: Record<string, HoleScore>,
   holes: Hole[],
   gameType: string | null,
-  dhc: number | null
+  dhc: number | null,
+  options?: { holesPlayed?: number | null; nineType?: NineType | null }
 ): { totalGross: number; totalNet: number | null; totalPoints: number | null } {
   let totalGross = 0;
   let totalPoints = 0;
 
-  const holeList = Array.isArray(holes) ? holes : [];
-  const canComputePoints =
-    gameType === 'stableford' && dhc != null && holeList.length > 0;
+  const holesPlayed = options?.holesPlayed ?? null;
+  const nineType = options?.nineType ?? 'full';
+  const allHoles = Array.isArray(holes) ? holes : [];
+  const holeList = options ? filterPlayableHoles(allHoles, nineType, holesPlayed) : allHoles;
+  const singleBallScores: Record<string, HoleScore> = {};
+  const canComputePoints = gameType === 'stableford' && dhc != null && holeList.length > 0;
 
-  if (holeList.length > 0) {
+  if (allHoles.length > 0) {
     for (const hole of holeList) {
       const score = scores[String(hole.number)];
       if (!score || !isSingleBallScore(score) || !score.strokes || score.strokes <= 0) {
@@ -183,6 +230,9 @@ export function recomputeScorecardTotals(
       const strokes = getEffectiveGrossStrokes(score.strokes, hole.par, strokesReceived);
       if (strokes == null) continue;
       totalGross += strokes;
+      // This writer has always counted single-ball scores only. Feed the same
+      // supported entries to the shared helper, which also accepts multi-ball.
+      singleBallScores[String(hole.number)] = score;
       if (canComputePoints) {
         totalPoints += calculateStablefordPointsNet(strokes, hole.par, strokesReceived);
       }
@@ -191,7 +241,18 @@ export function recomputeScorecardTotals(
     // No hole metadata available — fall back to summing whatever single-ball
     // scores exist. This keeps total_gross fresh even when the join fails;
     // total_points can't be recomputed without holes.
+    const range = getHoleRange(nineType);
     for (const key of Object.keys(scores)) {
+      if (options) {
+        const number = Number(key);
+        if (
+          !Number.isInteger(number) ||
+          number < range.start ||
+          number > range.end ||
+          isHoleAfterEarlyEnd(nineType, holesPlayed, number)
+        )
+          continue;
+      }
       const score = scores[key];
       if (!score || !isSingleBallScore(score) || !score.strokes || score.strokes <= 0) {
         continue;
@@ -200,7 +261,13 @@ export function recomputeScorecardTotals(
     }
   }
 
-  const totalNet = dhc != null ? totalGross - dhc : null;
+  const endedEarly = isEndedEarly({ holes_played: holesPlayed }) && holeList.length > 0;
+  const totalNet =
+    dhc == null
+      ? null
+      : endedEarly
+        ? calculateNetOverHolesPlayed(singleBallScores, holeList, dhc)
+        : totalGross - dhc;
 
   return {
     totalGross,
