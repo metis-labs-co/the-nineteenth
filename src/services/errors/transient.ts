@@ -31,7 +31,7 @@ const TRANSIENT_DB_CODES = new Set<string>([
   'PGRST504', // gateway timeout
 ]);
 
-const PERMANENT_MESSAGE = /row-level security|permission denied/i;
+const PERMANENT_MESSAGE = /row-level security|permission denied|\bRLS\b|42501/i;
 
 const TRANSIENT_MESSAGE =
   /network request failed|failed to fetch|fetch failed|networkerror|aborterror|timed? ?out|econnreset|econnrefused|etimedout|enotfound|socket hang up|bad gateway|service unavailable|gateway time-?out|upstream|too many connections|deadlock|\b50[0234]\b/i;

@@ -45,4 +45,11 @@ describe('isTransientError', () => {
       isTransientError({ code: '42501', message: 'new row violates row-level security policy (after timeout)' })
     ).toBe(false);
   });
+
+  it.each(['42501: statement timeout', 'RLS refusal after timeout'])(
+    'treats a message-only permission refusal as permanent: %s',
+    (message) => {
+      expect(isTransientError({ message })).toBe(false);
+    }
+  );
 });
