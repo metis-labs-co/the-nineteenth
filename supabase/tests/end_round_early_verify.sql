@@ -1132,17 +1132,39 @@ ROLLBACK;
 --    other cards submitted so the actual notification UPDATE is reached.
 --
 -- 2. End acquires locks first:
---    A: BEGIN; valid end_round_early on a complete but in-progress target
---       card; leave its transaction open (all card locks are retained).
---    B: BEGIN; INSERT a combination referencing A's card and an eligible
---       submitted partner. A7 sees the pre-end complete payload and passes;
---       the new submission guard must wait on FOR SHARE before checking
---       status/eligibility. Confirm that B is waiting for A's card lock.
---    A: Optionally submit its ended card before COMMIT to isolate the fresh
---       eligibility check: B then sees submitted status but holes_played set.
---       COMMIT. B must re-read fresh state and reject 22023 ('Both nines must
---       be submitted and eligible for handicap to combine'). No combination
---       is stored, including when A7 passed on the old state before waiting.
+--    Seed and COMMIT disposable fixtures: a completed/confirmed target card
+--    with complete per-hole scores and no holes_played marker, plus a complete
+--    completed/confirmed companion for the other nine. Both must be eligible,
+--    belong to the same player/course and be unused by any stored combination.
+--    Keep the target round in-progress with another in-progress scorecard;
+--    no other card on that round may be completed/confirmed. Snapshot the
+--    cards, round, affected rows and existing unrelated combination history.
+--    A: BEGIN as the privileged fixture administrator; set owner JWT claims
+--       for the RPC. Directly UPDATE only the target card status to
+--       in-progress, then call end_round_early(target_round, valid_N).
+--       Before COMMIT, MUST directly UPDATE that target card back to its
+--       original completed/confirmed status. Keep A's transaction open;
+--       its end marker and card changes are uncommitted and locks retained.
+--       These fixture-only direct status updates bypass the normal monotonic
+--       write_scorecard_snapshot path to isolate the fresh-read invariant;
+--       use only disposable staging data, never an ordinary app submission.
+--    B: BEGIN; SAVEPOINT combine_attempt; INSERT the target/companion pair.
+--       B's old committed view has submitted status AND full eligibility, so
+--       stale-state validation would succeed. A7 passes on that old view;
+--       confirm the new guard waits on FOR SHARE for A's card lock.
+--    A: COMMIT only after confirming B waits and the target status was restored.
+--    B: Must re-read the committed early-end state and reject SQLSTATE 22023
+--       with the exact message:
+--       'Both nines must be submitted and eligible for handicap to combine'.
+--       Both cards now have submitted status;
+--       the target fails handicap eligibility after the end. Any other error,
+--       an INSERT success or merely observing 22023 does not pass this check.
+--       ROLLBACK TO SAVEPOINT combine_attempt; verify no pair was stored,
+--       holes_played = valid_N, the submitted target remains trimmed with a
+--       NULL differential, the other target-round card remains in-progress,
+--       and the companion/existing combination history match their snapshots.
+--       ROLLBACK B; record results and clean up the committed disposable
+--       fixtures after A's committed state and history have been verified.
 --
 -- 3. Combination acquires locks first:
 --    A: BEGIN; INSERT a valid completed/confirmed eligible pair whose target
