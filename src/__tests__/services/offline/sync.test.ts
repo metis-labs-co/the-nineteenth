@@ -28,6 +28,8 @@ import { supabase } from '@/services/supabase/client';
 import * as queryClient from '@/services/queryClient';
 import type { Scorecard, PendingSync } from '@/types';
 import { syncScorecard, ScorecardConflictError } from '@/services/offline/sync/scorecardSync';
+import { finalizeSubmittedRound, RoundNotReadyError } from '@/services/rounds/finalizeSubmittedRound';
+import { createError } from '@/services/errors';
 
 // ============================================================================
 // MOCK SETUP
@@ -54,6 +56,8 @@ jest.mock('@/services/offline/database', () => ({
   updatePendingSyncData: jest.fn(),
   raisePendingSyncServerRevision: jest.fn(),
   recordScorecardServerRevision: jest.fn(),
+  hasUnsyncedScorecardsForRound: jest.fn(),
+  getFailedSyncCountForRound: jest.fn(),
 }));
 
 // Mock query client invalidation
@@ -100,6 +104,13 @@ jest.mock('@/services/scoreMismatch', () => ({
 // Mock handicap update service
 jest.mock('@/services/handicap/updatePlayerHandicapIndex', () => ({
   updatePlayerHandicapIndex: jest.fn(() => Promise.resolve()),
+}));
+
+// Mock round finalisation (run by queued `round` items). The error class is a
+// stand-in the orchestrator both catches and (via the mock) receives.
+jest.mock('@/services/rounds/finalizeSubmittedRound', () => ({
+  finalizeSubmittedRound: jest.fn(),
+  RoundNotReadyError: class RoundNotReadyError extends Error {},
 }));
 
 // Store the network change handler for testing
@@ -1272,5 +1283,237 @@ describe('Retained failure recovery', () => {
     (database.getFailedSyncs as jest.Mock).mockResolvedValue([failure]);
 
     await expect(listFailedSyncs()).resolves.toEqual([failure]);
+  });
+});
+
+// ============================================================================
+// QUEUED ROUND FINALISATION
+// ============================================================================
+
+/**
+ * An offline-submitted round used to stay `in-progress` for ever: nothing
+ * queued or retried its finalisation. A `round` item now runs the same steps
+ * an online submit runs, after every scorecard upload in the drain.
+ */
+describe('Queued round finalisation', () => {
+  const ROUND_ID = '550e8400-e29b-41d4-a716-446655440000';
+
+  function createRoundSync(overrides: Partial<PendingSync> = {}): PendingSync {
+    return {
+      id: 7,
+      type: 'round',
+      action: 'update',
+      data: { id: ROUND_ID, action: 'finalize' },
+      entityKey: `round:${ROUND_ID}:finalize`,
+      timestamp: new Date('2025-01-15T09:00:00Z'),
+      retryCount: 0,
+      revision: 1,
+      ...overrides,
+    };
+  }
+
+  beforeEach(async () => {
+    initSyncService();
+    await flushPromises();
+    (finalizeSubmittedRound as jest.Mock).mockResolvedValue({
+      completed: true,
+      skinsGame: null,
+      statusError: null,
+      skinsError: null,
+    });
+    (database.hasUnsyncedScorecardsForRound as jest.Mock).mockResolvedValue(false);
+    (database.getFailedSyncCountForRound as jest.Mock).mockResolvedValue(0);
+  });
+
+  it('finalises the round and removes the item once complete', async () => {
+    (database.getPendingSyncs as jest.Mock).mockResolvedValue([createRoundSync()]);
+
+    await expect(syncAll()).resolves.toBe(true);
+
+    expect(finalizeSubmittedRound).toHaveBeenCalledWith(ROUND_ID);
+    expect(database.removePendingSync).toHaveBeenCalledWith(7, 1);
+    expect(database.incrementSyncRetryCount).not.toHaveBeenCalled();
+    expect(database.markPendingSyncFailed).not.toHaveBeenCalled();
+  });
+
+  it("waits — before any server call, no retry spent — while this device still has the round's cards to upload", async () => {
+    (database.getPendingSyncs as jest.Mock).mockResolvedValue([createRoundSync()]);
+    (database.hasUnsyncedScorecardsForRound as jest.Mock).mockResolvedValue(true);
+
+    await expect(syncAll()).resolves.toBe(true);
+
+    expect(database.hasUnsyncedScorecardsForRound).toHaveBeenCalledWith(ROUND_ID);
+    expect(finalizeSubmittedRound).not.toHaveBeenCalled();
+    expect(database.removePendingSync).not.toHaveBeenCalled();
+    expect(database.incrementSyncRetryCount).not.toHaveBeenCalled();
+    expect(database.markPendingSyncFailed).not.toHaveBeenCalled();
+    expect(getSyncState().status).not.toBe('error');
+  });
+
+  it('waits, spending no retry, when a submit screen is already finalising the same round', async () => {
+    (database.getPendingSyncs as jest.Mock).mockResolvedValue([createRoundSync()]);
+    // finalizeSubmittedRound's own atomic in-flight check (A6a-2) refuses.
+    (finalizeSubmittedRound as jest.Mock).mockRejectedValue(new RoundNotReadyError('already being finalised'));
+
+    await expect(syncAll()).resolves.toBe(true);
+
+    expect(finalizeSubmittedRound).toHaveBeenCalledWith(ROUND_ID);
+    expect(database.removePendingSync).not.toHaveBeenCalled();
+    expect(database.incrementSyncRetryCount).not.toHaveBeenCalled();
+    expect(database.markPendingSyncFailed).not.toHaveBeenCalled();
+    expect(getSyncState().status).not.toBe('error');
+  });
+
+  it('drops the item when the round is not complete and this device has nothing left to upload', async () => {
+    (database.getPendingSyncs as jest.Mock).mockResolvedValue([createRoundSync()]);
+    (finalizeSubmittedRound as jest.Mock).mockResolvedValue({
+      completed: false,
+      skinsGame: null,
+      statusError: null,
+      skinsError: null,
+    });
+
+    await syncAll();
+
+    expect(database.removePendingSync).toHaveBeenCalledWith(7, 1);
+  });
+
+  it("is retained as failed when the round's only unconfirmed cards are retained failures", async () => {
+    (database.getPendingSyncs as jest.Mock).mockResolvedValue([createRoundSync()]);
+    (database.getFailedSyncCountForRound as jest.Mock).mockResolvedValue(1);
+
+    await expect(syncAll()).resolves.toBe(false);
+
+    expect(finalizeSubmittedRound).not.toHaveBeenCalled();
+    expect(database.markPendingSyncFailed).toHaveBeenCalledWith(7, 1, expect.stringContaining('retained'));
+    expect(database.incrementSyncRetryCount).not.toHaveBeenCalled();
+    expect(database.removePendingSync).not.toHaveBeenCalled();
+  });
+
+  it('spends a retry when the status read or write fails', async () => {
+    (database.getPendingSyncs as jest.Mock).mockResolvedValue([createRoundSync()]);
+    (finalizeSubmittedRound as jest.Mock).mockResolvedValue({
+      completed: false,
+      skinsGame: null,
+      statusError: new Error('network down'),
+      skinsError: null,
+    });
+
+    await syncAll();
+
+    expect(database.incrementSyncRetryCount).toHaveBeenCalledWith(7, 1, 'network down');
+    expect(database.removePendingSync).not.toHaveBeenCalled();
+  });
+
+  it('skins network error → retried: spends a retry when settlement failed transiently', async () => {
+    (database.getPendingSyncs as jest.Mock).mockResolvedValue([createRoundSync()]);
+    (finalizeSubmittedRound as jest.Mock).mockResolvedValue({
+      completed: true,
+      skinsGame: null,
+      statusError: null,
+      skinsError: createError('Failed to insert payouts: TypeError: Network request failed', 'DATABASE'),
+    });
+
+    await syncAll();
+
+    expect(database.incrementSyncRetryCount).toHaveBeenCalledWith(
+      7,
+      1,
+      'Failed to insert payouts: TypeError: Network request failed'
+    );
+    expect(database.removePendingSync).not.toHaveBeenCalled();
+  });
+
+  it('skins RLS error → item removed: a permanent settlement failure is logged, not retried', async () => {
+    // skins_payouts is writable only by the game's creator: a non-creator's
+    // settlement fails like this on every attempt.
+    (database.getPendingSyncs as jest.Mock).mockResolvedValue([createRoundSync()]);
+    (finalizeSubmittedRound as jest.Mock).mockResolvedValue({
+      completed: true,
+      skinsGame: null,
+      statusError: null,
+      skinsError: createError(
+        'Failed to insert payouts: new row violates row-level security policy for table "skins_payouts"',
+        'DATABASE'
+      ),
+    });
+
+    await expect(syncAll()).resolves.toBe(true);
+
+    expect(database.removePendingSync).toHaveBeenCalledWith(7, 1);
+    expect(database.incrementSyncRetryCount).not.toHaveBeenCalled();
+    expect(database.markPendingSyncFailed).not.toHaveBeenCalled();
+  });
+
+  it('still retries a failed status write when skins also failed permanently', async () => {
+    (database.getPendingSyncs as jest.Mock).mockResolvedValue([createRoundSync()]);
+    (finalizeSubmittedRound as jest.Mock).mockResolvedValue({
+      completed: false,
+      skinsGame: null,
+      statusError: new Error('network down'),
+      skinsError: createError('Skins game not found', 'NOT_FOUND'),
+    });
+
+    await syncAll();
+
+    expect(database.incrementSyncRetryCount).toHaveBeenCalledWith(7, 1, 'network down');
+    expect(database.removePendingSync).not.toHaveBeenCalled();
+  });
+
+  it('is retained as failed after the last automatic retry', async () => {
+    (database.getPendingSyncs as jest.Mock).mockResolvedValue([createRoundSync({ retryCount: 2 })]);
+    (finalizeSubmittedRound as jest.Mock).mockResolvedValue({
+      completed: false,
+      skinsGame: null,
+      statusError: new Error('network down'),
+      skinsError: null,
+    });
+
+    await syncAll();
+
+    expect(database.markPendingSyncFailed).toHaveBeenCalledWith(7, 1, 'network down');
+    expect(database.incrementSyncRetryCount).not.toHaveBeenCalled();
+  });
+
+  it('uploads queued scorecards before finalising, whatever the queue order', async () => {
+    const roundSync = createRoundSync({ timestamp: new Date('2025-01-15T09:00:00Z') });
+    const cardSync = createPendingSync({ id: 8, timestamp: new Date('2025-01-15T10:00:00Z') });
+    // getPendingSyncs returns timestamp order: the round item first.
+    (database.getPendingSyncs as jest.Mock).mockResolvedValue([roundSync, cardSync]);
+
+    await syncAll();
+
+    const [cardUpload] = (supabase.rpc as jest.Mock).mock.invocationCallOrder;
+    const [roundFinalize] = (finalizeSubmittedRound as jest.Mock).mock.invocationCallOrder;
+    expect(cardUpload).toBeLessThan(roundFinalize);
+    expect(database.removePendingSync).toHaveBeenCalledWith(8, 1);
+    expect(database.removePendingSync).toHaveBeenCalledWith(7, 1);
+  });
+
+  it('runs after the SQLite fallback uploads', async () => {
+    (database.getPendingSyncs as jest.Mock).mockResolvedValue([createRoundSync()]);
+    // A submitted card with no queue row: uploaded by the fallback block.
+    (database.getUnsyncedScorecards as jest.Mock).mockResolvedValue([createTestScorecard()]);
+
+    await syncAll();
+
+    const [fallbackUpload] = (supabase.rpc as jest.Mock).mock.invocationCallOrder;
+    const [roundFinalize] = (finalizeSubmittedRound as jest.Mock).mock.invocationCallOrder;
+    expect(fallbackUpload).toBeLessThan(roundFinalize);
+  });
+
+  it('spends a retry on an unknown round action instead of dropping it', async () => {
+    (database.getPendingSyncs as jest.Mock).mockResolvedValue([
+      createRoundSync({ data: { id: ROUND_ID, action: 'bogus' } }),
+    ]);
+
+    await syncAll();
+
+    expect(finalizeSubmittedRound).not.toHaveBeenCalled();
+    expect(database.incrementSyncRetryCount).toHaveBeenCalledWith(
+      7,
+      1,
+      'Unsupported round sync action: bogus'
+    );
   });
 });

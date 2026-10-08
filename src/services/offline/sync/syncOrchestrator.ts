@@ -24,7 +24,14 @@ import {
   discardPendingSync,
   updatePendingSyncData,
   raisePendingSyncServerRevision,
+  hasUnsyncedScorecardsForRound,
+  getFailedSyncCountForRound,
 } from '../database';
+import {
+  finalizeSubmittedRound,
+  RoundNotReadyError,
+} from '@/services/rounds/finalizeSubmittedRound';
+import { isTransientError } from '@/services/errors/transient';
 import { invalidateLeaderboardCache, invalidateScorecardCache } from '@/services/queryClient';
 import type { Scorecard, PendingSync } from '@/types';
 import { syncLogger, logScorecardSummary } from '@/utils/debugLogger';
@@ -179,9 +186,15 @@ export async function syncAll(options: SyncAllOptions = {}): Promise<boolean> {
   syncLogger.info('Starting sync all');
 
   try {
-    // Get pending syncs
-    const pendingSyncs = await getPendingSyncs();
-    syncLogger.info('Processing pending syncs', { count: pendingSyncs.length });
+    // Get pending syncs. `round` items are held back: they run after every
+    // scorecard upload in this drain — the queue AND the SQLite fallback below.
+    const queuedSyncs = await getPendingSyncs();
+    const pendingSyncs = queuedSyncs.filter((sync) => sync.type !== 'round');
+    const roundSyncs = orderRoundSyncs(queuedSyncs.filter((sync) => sync.type === 'round'));
+    syncLogger.info('Processing pending syncs', {
+      count: pendingSyncs.length,
+      roundItems: roundSyncs.length,
+    });
 
     let successCount = 0;
     let failCount = 0;
@@ -423,6 +436,11 @@ export async function syncAll(options: SyncAllOptions = {}): Promise<boolean> {
       }
     }
 
+    // Round items last: every upload this device could make has been tried.
+    const roundOutcome = await processRoundSyncs(roundSyncs);
+    successCount += roundOutcome.successCount;
+    failCount += roundOutcome.failCount;
+
     // Invalidate caches if any scorecards were synced
     if (scorecardsWereSynced) {
       syncLogger.debug('Invalidating caches after successful sync');
@@ -483,6 +501,167 @@ async function processPendingSync(sync: PendingSync): Promise<ScorecardSyncResul
       return processScorecardSync(sync);
     default:
       throw new Error(`Unsupported sync type: ${sync.type}`);
+  }
+}
+
+/**
+ * A round item that must not be retried automatically: it is retained as
+ * `failed` at once, for an explicit Retry. Used when the round's only
+ * unconfirmed cards are retained failures (B6b also throws it for the
+ * end-early RPC's validation errors).
+ */
+class RoundSyncPermanentError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'RoundSyncPermanentError';
+  }
+}
+
+/**
+ * Order `round` items: every action other than 'finalize' (B6b's
+ * 'end_early') first, then queue order. Array.prototype.sort is stable.
+ */
+function orderRoundSyncs(syncs: PendingSync[]): PendingSync[] {
+  const rank = (sync: PendingSync): number => (sync.data?.action === 'finalize' ? 1 : 0);
+  return [...syncs].sort((a, b) => rank(a) - rank(b));
+}
+
+/**
+ * Drain the `round` items (after all scorecard uploads):
+ *  - RoundNotReadyError → stays pending: no retry spent, not a failure;
+ *  - RoundSyncPermanentError → retained as failed immediately;
+ *  - anything else → normal retry count, retained as failed at MAX_RETRY_COUNT.
+ */
+async function processRoundSyncs(
+  roundSyncs: PendingSync[]
+): Promise<{ successCount: number; failCount: number }> {
+  let successCount = 0;
+  let failCount = 0;
+
+  for (const sync of roundSyncs) {
+    try {
+      await processRoundSync(sync);
+      const acknowledged = await removePendingSync(sync.id!, sync.revision ?? 1);
+      if (acknowledged) {
+        successCount++;
+      } else {
+        // Re-queued while it ran; the newer row runs on the next drain.
+        syncLogger.info('Round item re-queued during sync; leaving the newer one pending', { id: sync.id });
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+
+      if (error instanceof RoundNotReadyError) {
+        // This device's cards are still uploading, or the round is being
+        // finalised right now (A6a-2's in-flight check).
+        syncLogger.info('Round item not ready yet; leaving it queued', {
+          id: sync.id,
+          roundId: String(sync.data?.id ?? '').substring(0, 8) + '...',
+          reason: errorMessage,
+        });
+        continue;
+      }
+
+      failCount++;
+
+      if (error instanceof RoundSyncPermanentError) {
+        syncLogger.warn('Round item retained for explicit retry', { id: sync.id, reason: errorMessage });
+        await markPendingSyncFailed(sync.id!, sync.revision ?? 1, errorMessage);
+        continue;
+      }
+
+      syncLogger.error('Failed to process round sync', error, {
+        id: sync.id,
+        action: sync.data?.action,
+        retryCount: sync.retryCount,
+      });
+      if (sync.retryCount + 1 < MAX_RETRY_COUNT) {
+        await incrementSyncRetryCount(sync.id!, sync.revision ?? 1, errorMessage);
+      } else {
+        await markPendingSyncFailed(sync.id!, sync.revision ?? 1, errorMessage);
+      }
+    }
+  }
+
+  return { successCount, failCount };
+}
+
+/**
+ * Run one queued `round` item. Extension point: B6b adds
+ * `case 'end_early'` (queueRoundEndEarly).
+ */
+async function processRoundSync(sync: PendingSync): Promise<void> {
+  const roundId: unknown = sync.data?.id;
+  if (typeof roundId !== 'string' || roundId.length === 0) {
+    throw new Error('Round sync item has no round id');
+  }
+
+  const action: unknown = sync.data?.action;
+  switch (action) {
+    case 'finalize':
+      return processRoundFinalize(roundId);
+    default:
+      throw new Error(`Unsupported round sync action: ${String(action)}`);
+  }
+}
+
+/** Rethrow a non-Error failure value as an Error (so its message is recorded). */
+function asError(value: unknown): Error {
+  return value instanceof Error ? value : new Error(String(value));
+}
+
+/**
+ * A queued "finalise round" (queueRoundFinalize): the same status → results
+ * → skins steps an online submit runs (finalizeSubmittedRound).
+ */
+async function processRoundFinalize(roundId: string): Promise<void> {
+  // 1. Before any server call: wait while this device's own uploads for the
+  //    round are pending.
+  if (await hasUnsyncedScorecardsForRound(roundId)) {
+    throw new RoundNotReadyError(roundId);
+  }
+
+  // 2. A card retained as failed never uploads on its own; finalising now
+  //    would drop this item for good. Fail it too, so Retry revives both and
+  //    the drain order uploads the card first.
+  if ((await getFailedSyncCountForRound(roundId)) > 0) {
+    throw new RoundSyncPermanentError(
+      `Round ${roundId.substring(0, 8)} is waiting on a retained scorecard upload failure; retry that upload first`
+    );
+  }
+
+  // Step 3 (B6b-2): end_early gate. A finalize item for a round whose
+  // 'end_early' item is retained as failed must not sit pending for ever
+  // behind it. B6b-2 owns that check and adds it here, before any server call.
+
+  // 4. Run the steps. If a submit screen is finalising this round right now,
+  //    finalizeSubmittedRound's atomic in-flight check rejects with
+  //    RoundNotReadyError: the item waits (its finalizeOrQueueRound keeps or
+  //    removes it when it finishes). A failed status write, then a TRANSIENT
+  //    skins failure, takes the normal retry path; re-running the steps is
+  //    idempotent.
+  const { completed, statusError, skinsError } = await finalizeSubmittedRound(roundId);
+  if (statusError) {
+    throw asError(statusError);
+  }
+  if (skinsError) {
+    if (isTransientError(skinsError)) {
+      throw asError(skinsError);
+    }
+    // Permanent (an RLS refusal — skins_payouts is creator-only — validation,
+    // a missing game): no retry can fix it, so don't let it end retained.
+    syncLogger.warn('Skins settlement failed permanently; not retrying', {
+      roundId: roundId.substring(0, 8) + '...',
+      error: asError(skinsError).message,
+    });
+  }
+
+  if (!completed) {
+    // Not every card is in yet, but none of the missing ones are on this
+    // device: whichever device submits the last card completes the round.
+    syncLogger.info('Round not complete yet; the last submitting device will complete it', {
+      roundId: roundId.substring(0, 8) + '...',
+    });
   }
 }
 
