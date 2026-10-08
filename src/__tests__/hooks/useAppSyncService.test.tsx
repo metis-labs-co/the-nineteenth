@@ -37,13 +37,30 @@ beforeEach(() => {
   removeSubscription = jest.fn();
   jest.spyOn(AppState, 'addEventListener').mockReturnValue({ remove: removeSubscription } as any);
   (initDatabase as jest.Mock).mockResolvedValue(undefined);
-  (useAuth as jest.Mock).mockReturnValue({ user: { id: 'user-1' } });
+  (useAuth as jest.Mock).mockReturnValue({
+    session: { user: { id: 'user-1' } },
+    user: { id: 'user-1' },
+  });
 });
 
 describe('useAppSyncService', () => {
   it('opens the database, then starts the sync service and drains once signed in', async () => {
+    let resolveDatabase!: () => void;
+    (initDatabase as jest.Mock).mockReturnValue(
+      new Promise<void>((resolve) => {
+        resolveDatabase = resolve;
+      })
+    );
     renderHook(() => useAppSyncService());
 
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(initDatabase).toHaveBeenCalledTimes(1);
+    expect(ensureSyncServiceStarted).not.toHaveBeenCalled();
+    expect(requestSyncDrain).not.toHaveBeenCalled();
+
+    await act(async () => resolveDatabase());
     await waitFor(() => {
       expect(requestSyncDrain).toHaveBeenCalledWith('app-start');
     });
@@ -54,7 +71,7 @@ describe('useAppSyncService', () => {
   });
 
   it('starts the service but does not drain while signed out', async () => {
-    (useAuth as jest.Mock).mockReturnValue({ user: null });
+    (useAuth as jest.Mock).mockReturnValue({ session: null, user: null });
 
     renderHook(() => useAppSyncService());
 
@@ -79,13 +96,67 @@ describe('useAppSyncService', () => {
     expect(recorded).toBeLessThan(drained);
   });
 
+  it('keeps a cached signup user gated until an authenticated session arrives', async () => {
+    // Signup caches a user while email confirmation is pending, without a session.
+    (useAuth as jest.Mock).mockReturnValue({ session: null, user: { id: 'user-1' } });
+    const { rerender } = renderHook(() => useAppSyncService());
+    await waitFor(() => {
+      expect(ensureSyncServiceStarted).toHaveBeenCalled();
+    });
+
+    expect(setSyncAuthUser).toHaveBeenLastCalledWith(null);
+    expect(requestSyncDrain).not.toHaveBeenCalled();
+    expect(AppState.addEventListener).not.toHaveBeenCalled();
+
+    (useAuth as jest.Mock).mockReturnValue({
+      session: { user: { id: 'user-1' } },
+      user: { id: 'user-1' },
+    });
+    rerender({});
+
+    expect(setSyncAuthUser).toHaveBeenLastCalledWith('user-1');
+    expect(requestSyncDrain).toHaveBeenCalledWith('app-start');
+    (requestSyncDrain as jest.Mock).mockClear();
+    act(() => lastAppStateListener()('active'));
+    expect(requestSyncDrain).toHaveBeenCalledWith('foreground');
+  });
+
+  it('uses the authenticated session identity when the cached user is stale', async () => {
+    (useAuth as jest.Mock).mockReturnValue({
+      session: { user: { id: 'session-user' } },
+      user: { id: 'cached-user' },
+    });
+    renderHook(() => useAppSyncService());
+
+    await waitFor(() => {
+      expect(requestSyncDrain).toHaveBeenCalledWith('app-start');
+    });
+    expect(setSyncAuthUser).toHaveBeenLastCalledWith('session-user');
+  });
+
+  it('closes the gate and removes the foreground listener when the session disappears with a cached user', async () => {
+    const { rerender } = renderHook(() => useAppSyncService());
+    await waitFor(() => {
+      expect(AppState.addEventListener).toHaveBeenCalled();
+    });
+    (requestSyncDrain as jest.Mock).mockClear();
+
+    (useAuth as jest.Mock).mockReturnValue({ session: null, user: { id: 'user-1' } });
+    rerender({});
+
+    expect(setSyncAuthUser).toHaveBeenLastCalledWith(null);
+    expect(removeSubscription).toHaveBeenCalledTimes(1);
+    expect(AppState.addEventListener).toHaveBeenCalledTimes(1);
+    expect(requestSyncDrain).not.toHaveBeenCalled();
+  });
+
   it('clears the user on sign-out, so nothing drains for the next session until it signs in', async () => {
     const { rerender } = renderHook(() => useAppSyncService());
     await waitFor(() => {
       expect(setSyncAuthUser).toHaveBeenCalledWith('user-1');
     });
 
-    (useAuth as jest.Mock).mockReturnValue({ user: null });
+    (useAuth as jest.Mock).mockReturnValue({ session: null, user: null });
     rerender({});
 
     expect(setSyncAuthUser).toHaveBeenLastCalledWith(null);

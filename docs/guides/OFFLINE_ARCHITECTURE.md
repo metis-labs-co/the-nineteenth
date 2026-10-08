@@ -624,12 +624,12 @@ function ScorecardScreen() {
 The offline layer starts once, at the app root, and stays up for the app's lifetime.
 
 `useAppSyncService()` (`src/hooks/useAppSyncService.ts`) is mounted in `App.tsx` (`AppContent`). It:
-1. records the signed-in user for the queue (`setSyncAuthUser(user?.id ?? null)`) on every auth change;
+1. records the authenticated session user for the queue (`setSyncAuthUser(session?.user.id ?? null)`) on every auth change;
 2. opens the SQLite database (`initDatabase`);
 3. starts the sync service with `ensureSyncServiceStarted()` (idempotent). This installs the NetInfo listener, loads the queue counts and registers the drain handler;
 4. once a user is signed in, requests a drain, and requests another every time the app returns to the foreground.
 
-**No drain runs without a signed-in user.** `syncAll` returns `false` at once while the recorded user is `null`, whatever triggered it: the network callback, `queueScorecardSync`, a drain request, Sync or Retry. The service is up while signed out, and a signed-out drain would upload as anon (RLS retains every card as `failed`) and read a queued round as missing (`PGRST116`), dropping its `'finalize'` item. On a cold start the user stays `null` until the Supabase session has been restored.
+**No drain runs without an authenticated session.** `syncAll` returns `false` at once while the recorded user is `null`, whatever triggered it: the network callback, `queueScorecardSync`, a drain request, Sync or Retry. The service is up while signed out, and a signed-out drain would upload as anon (RLS retains every card as `failed`) and read a queued round as missing (`PGRST116`), dropping its `'finalize'` item. On a cold start the sync user stays `null` until the Supabase session has been restored. Signup can cache a user while email confirmation is pending and the session is still `null`; that cached user does not open the sync gate.
 
 `getDb()` always awaits the memoised `initDatabase()`, so a DAO call made during start-up waits for the tables and migrations.
 

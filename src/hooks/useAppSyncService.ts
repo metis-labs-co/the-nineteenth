@@ -3,9 +3,10 @@
  *
  * Runs the offline sync service for the app's lifetime. Mounted once, at the
  * app root (App.tsx → AppContent):
- *  1. records the signed-in user for the sync queue (setSyncAuthUser) on every
- *     change. syncAll does nothing while it is null, whatever triggers it (the
- *     network callback, queueScorecardSync, a drain request, Retry);
+ *  1. records the authenticated session user for the sync queue
+ *     (setSyncAuthUser) on every change. syncAll does nothing while it is null,
+ *     whatever triggers it (the network callback, queueScorecardSync,
+ *     a drain request, Retry);
  *  2. opens the SQLite database, then starts the sync service
  *     (ensureSyncServiceStarted — network listener + drain handler). Nothing
  *     tears it down, so queued uploads and round finalisations keep draining
@@ -14,9 +15,10 @@
  *     left queued), and another each time the app returns to the foreground.
  *
  * On a cold start the Supabase session is restored asynchronously; until
- * useAuth has it, the user is null and nothing drains. A drain sent before
- * would upload as anon (refused by RLS, retained as failed) and read queued
- * rounds as missing.
+ * useAuth has it, the sync user is null and nothing drains. A cached signup
+ * user can exist before email confirmation, so only the session supplies the
+ * sync identity. A drain sent before would upload as anon (refused by RLS,
+ * retained as failed) and read queued rounds as missing.
  */
 
 import { useEffect, useState } from 'react';
@@ -27,8 +29,8 @@ import { ensureSyncServiceStarted, requestSyncDrain, setSyncAuthUser } from '@/s
 import { syncLogger } from '@/utils/debugLogger';
 
 export function useAppSyncService(): void {
-  const { user } = useAuth();
-  const userId = user?.id ?? null;
+  const { session } = useAuth();
+  const userId = session?.user.id ?? null;
   const [isStarted, setIsStarted] = useState(false);
 
   // First, so the user is recorded before the drain effect below asks for a drain.
