@@ -26,6 +26,7 @@ import { calculatePlayerTotals, type PlayerTotalsContext } from './utils/scoreca
 
 interface StoreState {
   currentRoundId: string | null;
+  isLoading: boolean;
   currentPlayers: Player[];
   currentHole: number;
   holes: Hole[];
@@ -133,6 +134,11 @@ export async function endRoundEarly(
 
   if (!currentRoundId) {
     throw new Error('No round ID set');
+  }
+  // Init has already advanced the generation but may still expose old holes
+  // and cards. Do not capture that transitional shape as the new session.
+  if (state.isLoading) {
+    throw new Error('Cannot end round early while round initialization or loading is pending');
   }
   if (!Number.isInteger(n) || n < 1 || n >= holes.length) {
     throw new Error(`Invalid holes played: ${n} (the round has ${holes.length} planned holes)`);

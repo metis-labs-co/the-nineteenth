@@ -14,6 +14,7 @@ import { createTestPlayer, create18Holes } from '../utils/testFixtures';
 import type { Player, Scorecard, TeeBox } from '@/types';
 import {
   saveScorecard,
+  saveHoles,
   persistRoundEarlyEnd,
   getHoles,
   getScorecardsByRound,
@@ -521,5 +522,48 @@ describe('endRoundEarly post-commit session changes', () => {
     expect(debouncedQueueScorecardSync).not.toHaveBeenCalled();
     getStore().resetRound();
     await expect(getStore().endRoundEarly(6)).rejects.toThrow('No round ID');
+  });
+});
+
+
+describe('endRoundEarly while initialization is pending', () => {
+  it('rejects when changed-nine init starts BEFORE ending, before the durable DAO is called', async () => {
+    await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes());
+    await score(P1.id, range(1, 7));
+    let releaseHoles!: () => void;
+    (saveHoles as jest.Mock).mockImplementationOnce(() => new Promise<void>((resolve) => { releaseHoles = resolve; }));
+    const initializing = getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes(), 'stroke', false, [], TEE_RED, 'profile', new Map(), 'back9');
+    expect(getStore().isLoading).toBe(true);
+    expect(getStore().nineType).toBe('full'); // old shape remains during init
+    (persistRoundEarlyEnd as jest.Mock).mockImplementationOnce(async () => { await initializing; });
+    jest.clearAllMocks();
+
+    const ending = expect(getStore().endRoundEarly(6)).rejects.toThrow(/initializ|loading/i);
+    releaseHoles();
+    await initializing;
+    await ending;
+
+    expect(persistRoundEarlyEnd).not.toHaveBeenCalled();
+    expect(debouncedQueueScorecardSync).not.toHaveBeenCalled();
+    expect(getStore().nineType).toBe('back9');
+    expect(getStore().holesPlayed).toBeNull();
+    expect(getStore().getPlayedHoles().map((h) => h.number)).toEqual(range(10, 18));
+  });
+
+  it('rejects before the durable DAO while offline loading is pending', async () => {
+    await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes());
+    let releaseCards!: () => void;
+    (getScorecardsByRound as jest.Mock).mockImplementationOnce(() => new Promise<Scorecard[]>((resolve) => { releaseCards = () => resolve([]); }));
+    const loading = getStore().loadFromOffline(ROUND_ID);
+    expect(getStore().isLoading).toBe(true);
+    jest.clearAllMocks();
+
+    const ending = expect(getStore().endRoundEarly(6)).rejects.toThrow(/initializ|loading/i);
+    releaseCards();
+    await loading;
+    await ending;
+
+    expect(persistRoundEarlyEnd).not.toHaveBeenCalled();
+    expect(getStore().holesPlayed).toBeNull();
   });
 });
