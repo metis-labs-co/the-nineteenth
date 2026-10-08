@@ -23,8 +23,14 @@
 --                                          different N (DETAIL = that N)
 --             HINT 'round_completed'       round completed, never ended
 --             HINT 'round_not_in_progress' round not started (upcoming)
+--             HINT 'round_scorecards_busy' a scorecard is being changed
+--             HINT 'round_has_submitted_scorecards' a card is submitted
+--             HINT 'round_has_combined_scorecards' a card is already combined
 --    The same N again is a no-op success (idempotent retries), whatever the
 --    round's status.
+--    Before changing anything, locks every round scorecard without waiting
+--    and rejects submitted cards or existing combinations. Existing combined
+--    handicap history is preserved rather than deleted or invalidated.
 --    scorecards.revision is NOT bumped and totals are NOT recomputed: totals
 --    are client-owned, and the ending device's next write_scorecard_snapshot
 --    (same stripped scores, the revision it already holds) must apply
@@ -39,6 +45,9 @@
 --    multi-ball cards) and its cards can't be combined. Both A7 triggers pick
 --    this up unchanged. This also neutralises old clients (1.14.x) that
 --    recalculate null differentials on Home.
+-- 3b. A separate combination guard locks both cards FOR SHARE, then checks
+--    fresh submission/eligibility state. This serializes combination inserts
+--    with ending, including callers that passed A7's earlier validation.
 -- 4. get_activity_feed / get_round_feed_card also return holes_played and
 --    nine_type, for the "Ended after N of M" label on the feed card.
 --
@@ -162,6 +171,42 @@ BEGIN
       USING ERRCODE = '22023', HINT = 'round_not_in_progress';
   END IF;
 
+  -- Submission holds a scorecard lock before notify_round_completed can
+  -- update the round. We already hold the round lock, so NOWAIT avoids that
+  -- opposite lock order becoming a deadlock. No writes precede these checks.
+  BEGIN
+    PERFORM sc.id
+      FROM public.scorecards sc
+     WHERE sc.round_id = p_round_id
+     ORDER BY sc.id
+     FOR UPDATE NOWAIT;
+  EXCEPTION WHEN lock_not_available THEN
+    RAISE EXCEPTION 'Round scores are changing; try ending the round again'
+      USING ERRCODE = '22023', HINT = 'round_scorecards_busy';
+  END;
+
+  -- Fresh statements after locking see submissions/combinations that
+  -- committed before the locks were acquired. Keep existing history intact.
+  IF EXISTS (
+    SELECT 1 FROM public.scorecards sc
+     WHERE sc.round_id = p_round_id
+       AND sc.status IN ('completed', 'confirmed')
+  ) THEN
+    RAISE EXCEPTION 'A round with submitted scorecards cannot be ended early'
+      USING ERRCODE = '22023', HINT = 'round_has_submitted_scorecards';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+      FROM public.handicap_combined_rounds hcr
+      JOIN public.scorecards sc
+        ON sc.id = hcr.front_scorecard_id OR sc.id = hcr.back_scorecard_id
+     WHERE sc.round_id = p_round_id
+  ) THEN
+    RAISE EXCEPTION 'A round with combined scorecards cannot be ended early'
+      USING ERRCODE = '22023', HINT = 'round_has_combined_scorecards';
+  END IF;
+
   v_last_hole := (CASE WHEN v_nine_type = 'back9' THEN 9 ELSE 0 END) + p_holes_played;
 
   -- guard_rounds_holes_played (below) refuses any holes_played change unless
@@ -234,7 +279,7 @@ REVOKE ALL ON FUNCTION end_round_early(UUID, INT) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION end_round_early(UUID, INT) TO authenticated;
 
 COMMENT ON FUNCTION end_round_early(UUID, INT) IS
-  'End an in-progress standalone round early (owner or accepted participant). Sets holes_played = N; deletes skins_results / wolf_hole_decisions / score_entries / score_mismatches / shot_log after the last played hole; strips those hole keys from the round''s scorecards.scores (revision and totals untouched: totals are client-owned); nulls the round''s handicap differentials. Same N again = no-op, any status. Errors: 42501 auth/competition, P0002 missing/deleted, 22023 with HINT invalid_holes_played | round_already_ended (DETAIL = existing N) | round_completed | round_not_in_progress. SECURITY DEFINER (skins_results RLS is creator-only).';
+  'End an in-progress standalone round early (owner or accepted participant). Locks all round scorecards NOWAIT and refuses submitted or combined cards before any writes, preserving combination history. Sets holes_played = N; deletes skins_results / wolf_hole_decisions / score_entries / score_mismatches / shot_log after the last played hole; strips those hole keys from the round''s scorecards.scores (revision and totals untouched: totals are client-owned); nulls the round''s handicap differentials. Same N again = no-op, any status. Errors: 42501 auth/competition, P0002 missing/deleted, 22023 with HINT invalid_holes_played | round_already_ended (DETAIL = existing N) | round_completed | round_not_in_progress | round_scorecards_busy | round_has_submitted_scorecards | round_has_combined_scorecards. SECURITY DEFINER (skins_results RLS is creator-only).';
 
 -- =====================================================
 -- 2b. holes_played is written only by end_round_early
@@ -317,6 +362,71 @@ COMMENT ON FUNCTION public.scorecard_eligible_for_differential(UUID, JSONB) IS
 
 -- No data fix is needed here: holes_played is a new column, so no existing
 -- card belongs to an ended-early round. A7 nulls existing incomplete cards.
+
+-- =====================================================
+-- 3b. Serialize new combinations with submission and ending
+-- =====================================================
+-- A7's existing completeness trigger remains unchanged. This additional
+-- trigger runs after it (alphabetical trigger order), takes shared locks in
+-- id order, then rechecks in a fresh statement. A7 may have validated before
+-- an end committed while this INSERT waited for a card lock. VOLATILE gives
+-- the post-lock statements fresh snapshots at READ COMMITTED.
+CREATE OR REPLACE FUNCTION public.guard_handicap_combined_round_submission()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+VOLATILE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_front_status TEXT;
+  v_front_round UUID;
+  v_front_scores JSONB;
+  v_back_status TEXT;
+  v_back_round UUID;
+  v_back_scores JSONB;
+BEGIN
+  PERFORM sc.id
+    FROM public.scorecards sc
+   WHERE sc.id IN (NEW.front_scorecard_id, NEW.back_scorecard_id)
+   ORDER BY sc.id
+   FOR SHARE;
+
+  -- Do not combine this read with the locking statement: after a wait,
+  -- eligibility must be evaluated against the newly committed round state.
+  SELECT f.status, f.round_id, f.scores, b.status, b.round_id, b.scores
+    INTO v_front_status, v_front_round, v_front_scores,
+         v_back_status, v_back_round, v_back_scores
+    FROM public.scorecards f
+    JOIN public.scorecards b ON b.id = NEW.back_scorecard_id
+   WHERE f.id = NEW.front_scorecard_id;
+
+  -- As in A7, missing cards are left to the foreign keys to report.
+  IF NOT FOUND THEN
+    RETURN NEW;
+  END IF;
+
+  IF v_front_status IS NULL OR v_front_status NOT IN ('completed', 'confirmed')
+     OR v_back_status IS NULL OR v_back_status NOT IN ('completed', 'confirmed')
+     OR NOT public.scorecard_eligible_for_differential(v_front_round, v_front_scores)
+     OR NOT public.scorecard_eligible_for_differential(v_back_round, v_back_scores) THEN
+    RAISE EXCEPTION 'Both nines must be submitted and eligible for handicap to combine'
+      USING ERRCODE = '22023';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.guard_handicap_combined_round_submission() FROM PUBLIC, anon, authenticated;
+
+COMMENT ON FUNCTION public.guard_handicap_combined_round_submission() IS
+  'BEFORE INSERT guard: locks both scorecards FOR SHARE in id order, then checks fresh submitted status and handicap eligibility; serializes combination inserts with ending a round without altering stored combinations. Missing cards are left to the foreign keys. Raises 22023.';
+
+DROP TRIGGER IF EXISTS handicap_combined_rounds_submitted_cards ON public.handicap_combined_rounds;
+CREATE TRIGGER handicap_combined_rounds_submitted_cards
+  BEFORE INSERT ON public.handicap_combined_rounds
+  FOR EACH ROW EXECUTE FUNCTION public.guard_handicap_combined_round_submission();
 
 -- =====================================================
 -- 4. Activity feed RPCs: add holes_played + nine_type
