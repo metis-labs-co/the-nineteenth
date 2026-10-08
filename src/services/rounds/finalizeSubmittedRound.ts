@@ -32,6 +32,10 @@ import { finalizeRoundStatus } from './finalizeRoundStatus';
 import { refinalizeRoundResults } from './refinalizeRoundResults';
 import { finalizeActiveSkinsForRound } from '@/services/skins/finalizeSkinsGame';
 import { addPendingSync, removePendingSyncByEntityKey } from '@/services/offline/database';
+// By path, not via '@/services/offline/sync': that barrel re-exports the
+// orchestrator, which imports this module.
+import { requestSyncDrain } from '@/services/offline/sync/drain';
+import { getSyncAuthUserId } from '@/services/offline/sync/networkState';
 import { queryClient, invalidateLeaderboardCache } from '@/services/queryClient';
 import { roundKeys, skinsKeys, competitionKeys } from '@/hooks/queryKeys';
 import { submitLogger } from '@/utils/debugLogger';
@@ -151,8 +155,13 @@ async function runFinalizeSteps(roundId: string): Promise<FinalizeSubmittedRound
  * no scorecards for the round left to upload. Keyed per action so a later
  * 'end_early' item for the same round never overwrites it.
  */
-export async function queueRoundFinalize(roundId: string): Promise<void> {
-  const data: RoundSyncData = { id: roundId, action: 'finalize' };
+export async function queueRoundFinalize(
+  roundId: string,
+  { requestDrain = true }: { requestDrain?: boolean } = {}
+): Promise<void> {
+  // Owned by whoever is signed in now: the queue runs it only for them.
+  const userId = getSyncAuthUserId();
+  const data: RoundSyncData = { id: roundId, action: 'finalize', ...(userId ? { userId } : {}) };
   await addPendingSync({
     type: 'round',
     action: 'update',
@@ -162,6 +171,11 @@ export async function queueRoundFinalize(roundId: string): Promise<void> {
     retryCount: 0,
   });
   submitLogger.info('Round finalisation queued for sync', { roundId: shortId(roundId) });
+  // Online (e.g. the network came back between submit and finalise), drain
+  // now rather than on the next trigger. A no-op offline. The online submit
+  // path turns this off: it writes the item before its own attempt and asks
+  // for a drain only if the item is still needed afterwards.
+  if (requestDrain) requestSyncDrain('round-finalize-queued');
 }
 
 /**

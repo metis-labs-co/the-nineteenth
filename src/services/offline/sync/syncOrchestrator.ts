@@ -48,8 +48,10 @@ import {
   setOnOnlineCallback,
   setOnStatusChangeCallback,
   initNetworkState,
+  getSyncAuthUserId,
 } from './networkState';
 import { processScorecardSync, syncScorecard, isValidUUID, ScorecardConflictError, type ScorecardSyncResult } from './scorecardSync';
+import { registerSyncDrainHandler } from './drain';
 
 // Re-export types for consumers
 export type { SyncState, SyncStatus, SyncListener } from './types';
@@ -118,6 +120,10 @@ export function initSyncService(): () => void {
     });
   });
 
+  // requestSyncDrain (drain.ts) runs this; registering it here keeps that
+  // module free of an import of the orchestrator.
+  registerSyncDrainHandler(() => syncAll());
+
   // Initialize network state monitoring
   const unsubscribe = initNetworkState();
 
@@ -125,6 +131,27 @@ export function initSyncService(): () => void {
   updateSyncCounts();
 
   return unsubscribe;
+}
+
+let syncServiceStarted = false;
+
+/**
+ * Start the sync service for the app's lifetime. Idempotent. The app root
+ * calls it once the SQLite database is open (useAppSyncService), and
+ * useOfflineSync calls it as a fallback. Its network listener is never torn
+ * down: queued uploads and round finalisations must keep draining after the
+ * scoring screens unmount. Draining itself is requested separately
+ * (requestSyncDrain), once a user is signed in.
+ */
+export function ensureSyncServiceStarted(): void {
+  if (syncServiceStarted) return;
+  syncServiceStarted = true;
+  initSyncService();
+}
+
+/** Test-only: let ensureSyncServiceStarted start the service again. */
+export function __resetSyncServiceForTests(): void {
+  syncServiceStarted = false;
 }
 
 /**
@@ -169,6 +196,14 @@ interface SyncAllOptions {
  */
 export async function syncAll(options: SyncAllOptions = {}): Promise<boolean> {
   const { adoptServerRevisionOnConflict = false } = options;
+
+  // No drain while signed out, whatever triggered it (network callback,
+  // queueScorecardSync, a drain request, Retry). useAppSyncService records
+  // the user and requests a drain on sign-in.
+  if (!getSyncAuthUserId()) {
+    syncLogger.debug('No signed-in user, skipping sync');
+    return false;
+  }
 
   if (getIsSyncing()) {
     syncLogger.debug('Already syncing, skipping');
@@ -594,6 +629,14 @@ async function processRoundSync(sync: PendingSync): Promise<void> {
   const roundId: unknown = sync.data?.id;
   if (typeof roundId !== 'string' || roundId.length === 0) {
     throw new Error('Round sync item has no round id');
+  }
+
+  // SQLite survives sign-out: an item queued by another user on this phone
+  // waits for them (no retry spent) instead of running under this session.
+  // Items without an owner (older builds) run for whoever is signed in.
+  const owner: unknown = sync.data?.userId;
+  if (typeof owner === 'string' && owner.length > 0 && owner !== getSyncAuthUserId()) {
+    throw new RoundNotReadyError(roundId, 'is queued for another user');
   }
 
   const action: unknown = sync.data?.action;

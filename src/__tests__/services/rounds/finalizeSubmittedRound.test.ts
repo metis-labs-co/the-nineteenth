@@ -40,6 +40,17 @@ jest.mock('@/services/queryClient', () => ({
   invalidateLeaderboardCache: (...args: unknown[]) => mockInvalidateLeaderboardCache(...args),
 }));
 
+const mockRequestSyncDrain = jest.fn();
+jest.mock('@/services/offline/sync/drain', () => ({
+  requestSyncDrain: (...args: unknown[]) => mockRequestSyncDrain(...args),
+}));
+
+// The signed-in user stamped onto queued items (null: none recorded).
+const mockGetSyncAuthUserId = jest.fn((): string | null => null);
+jest.mock('@/services/offline/sync/networkState', () => ({
+  getSyncAuthUserId: () => mockGetSyncAuthUserId(),
+}));
+
 const ROUND_ID = '550e8400-e29b-41d4-a716-446655440000';
 const SETTLED_GAME = { id: 'g1', round_id: ROUND_ID, status: 'completed', pot_value: 5 };
 
@@ -216,6 +227,34 @@ describe('queueRoundFinalize', () => {
       timestamp: expect.any(Date),
       retryCount: 0,
     });
+  });
+
+  it('asks for a drain once the item is queued (a no-op offline)', async () => {
+    await queueRoundFinalize(ROUND_ID);
+
+    expect(mockRequestSyncDrain).toHaveBeenCalledWith('round-finalize-queued');
+    const [queued] = mockAddPendingSync.mock.invocationCallOrder;
+    const [drain] = mockRequestSyncDrain.mock.invocationCallOrder;
+    expect(queued).toBeLessThan(drain);
+  });
+
+  it('can queue without asking for a drain (the online submit path writes it first)', async () => {
+    mockRequestSyncDrain.mockClear();
+
+    await queueRoundFinalize(ROUND_ID, { requestDrain: false });
+
+    expect(mockAddPendingSync).toHaveBeenCalled();
+    expect(mockRequestSyncDrain).not.toHaveBeenCalled();
+  });
+
+  it('stamps the signed-in user onto the item, so only that user drains it', async () => {
+    mockGetSyncAuthUserId.mockReturnValueOnce('user-1');
+
+    await queueRoundFinalize(ROUND_ID);
+
+    expect(mockAddPendingSync).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { id: ROUND_ID, action: 'finalize', userId: 'user-1' } })
+    );
   });
 
   it('rejects when the queue write fails', async () => {

@@ -13,6 +13,23 @@ import { syncLogger } from '@/utils/debugLogger';
 let isOnline = true;
 let isSyncing = false;
 
+// The signed-in user the queue drains for; null while signed out (and until
+// the app root has seen the restored session). Set by useAppSyncService.
+let syncAuthUserId: string | null = null;
+
+/**
+ * Record who is signed in (null when signed out). syncAll does nothing while
+ * it is null: a signed-out drain uploads as anon (RLS retains every card as
+ * failed) and reads a queued round as missing, dropping its finalize item.
+ */
+export function setSyncAuthUser(userId: string | null): void {
+  syncAuthUserId = userId;
+}
+
+export function getSyncAuthUserId(): string | null {
+  return syncAuthUserId;
+}
+
 // Callback for when network comes online
 let onOnlineCallback: (() => Promise<boolean | void>) | null = null;
 // Callback for when network status changes

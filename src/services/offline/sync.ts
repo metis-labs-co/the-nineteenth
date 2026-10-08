@@ -25,6 +25,7 @@ export {
   // Network state
   getIsOnline,
   getIsSyncing,
+  setSyncAuthUser,
   // Scorecard sync
   isValidUUID,
   syncScorecard,
@@ -32,6 +33,8 @@ export {
   ScorecardConflictError,
   // Orchestrator (main API)
   initSyncService,
+  ensureSyncServiceStarted,
+  requestSyncDrain,
   subscribeSyncState,
   subscribeScorecardSynced,
   type ScorecardSyncedEvent,

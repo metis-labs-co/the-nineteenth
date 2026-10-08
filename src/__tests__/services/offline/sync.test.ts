@@ -24,11 +24,14 @@ import {
   listFailedSyncs,
 } from '@/services/offline/sync';
 import * as database from '@/services/offline/database';
+import { setSyncAuthUser } from '@/services/offline/sync/networkState';
 import { supabase } from '@/services/supabase/client';
 import * as queryClient from '@/services/queryClient';
 import type { Scorecard, PendingSync } from '@/types';
 import { syncScorecard, ScorecardConflictError } from '@/services/offline/sync/scorecardSync';
 import { finalizeSubmittedRound, RoundNotReadyError } from '@/services/rounds/finalizeSubmittedRound';
+import { registerSyncDrainHandler } from '@/services/offline/sync/drain';
+import { ensureSyncServiceStarted, __resetSyncServiceForTests } from '@/services/offline/sync/syncOrchestrator';
 import { createError } from '@/services/errors';
 
 // ============================================================================
@@ -113,6 +116,13 @@ jest.mock('@/services/rounds/finalizeSubmittedRound', () => ({
   RoundNotReadyError: class RoundNotReadyError extends Error {},
 }));
 
+// Drain requests are unit-tested in syncDrain.test.ts; here we only check the
+// orchestrator registers its handler.
+jest.mock('@/services/offline/sync/drain', () => ({
+  registerSyncDrainHandler: jest.fn(),
+  requestSyncDrain: jest.fn(),
+}));
+
 // Store the network change handler for testing
 let _networkChangeHandler: ((state: { isConnected: boolean | null; type: string; isInternetReachable: boolean | null }) => Promise<void>) | null = null;
 const mockUnsubscribe = jest.fn();
@@ -121,6 +131,7 @@ const mockUnsubscribe = jest.fn();
 beforeEach(() => {
   jest.clearAllMocks();
   _networkChangeHandler = null;
+  setSyncAuthUser('test-user-id');
 
   // Reset NetInfo mock
   (NetInfo.addEventListener as jest.Mock).mockImplementation((_handler) => {
@@ -1515,5 +1526,179 @@ describe('Queued round finalisation', () => {
       1,
       'Unsupported round sync action: bogus'
     );
+  });
+});
+
+// ============================================================================
+// APP-WIDE SYNC SERVICE
+// ============================================================================
+
+/**
+ * The service used to live only while a scoring screen was mounted; its
+ * cleanup tore the network listener down on every submit. It now starts once
+ * at the app root and is never torn down.
+ */
+describe('App-wide sync service', () => {
+  beforeEach(() => {
+    __resetSyncServiceForTests();
+  });
+
+  it('starts once, however often it is asked', () => {
+    ensureSyncServiceStarted();
+    ensureSyncServiceStarted();
+
+    expect(NetInfo.addEventListener).toHaveBeenCalledTimes(1);
+  });
+
+  it('registers syncAll as the drain handler', async () => {
+    ensureSyncServiceStarted();
+    await flushPromises();
+
+    const calls = (registerSyncDrainHandler as jest.Mock).mock.calls;
+    expect(calls.length).toBeGreaterThan(0);
+    const handler = calls[calls.length - 1][0] as () => Promise<unknown>;
+    await handler();
+
+    expect(database.getPendingSyncs).toHaveBeenCalled();
+  });
+});
+
+// ============================================================================
+// NO DRAIN WITHOUT A SESSION
+// ============================================================================
+
+/**
+ * The service now runs while signed out. A signed-out drain would upload as
+ * anon (every card retained as failed) and read a queued round as missing
+ * (PGRST116 → "not complete"), dropping its finalize item. syncAll refuses to
+ * start until the app root records a signed-in user.
+ */
+describe('No drain without a session', () => {
+  const ROUND_ID = '550e8400-e29b-41d4-a716-446655440000';
+  const roundItem: PendingSync = {
+    id: 7,
+    type: 'round',
+    action: 'update',
+    data: { id: ROUND_ID, action: 'finalize' },
+    entityKey: `round:${ROUND_ID}:finalize`,
+    timestamp: new Date('2025-01-15T09:00:00Z'),
+    retryCount: 0,
+    revision: 1,
+  };
+
+  beforeEach(async () => {
+    initSyncService();
+    await flushPromises();
+    (database.getPendingSyncs as jest.Mock).mockResolvedValue([roundItem]);
+    setSyncAuthUser(null);
+  });
+
+  afterEach(() => {
+    setSyncAuthUser('test-user-id');
+  });
+
+  it('syncAll reads nothing and keeps the queued finalize item while signed out', async () => {
+    await expect(syncAll()).resolves.toBe(false);
+
+    expect(database.getPendingSyncs).not.toHaveBeenCalled();
+    expect(finalizeSubmittedRound).not.toHaveBeenCalled();
+    expect(database.removePendingSync).not.toHaveBeenCalled();
+    expect(database.markPendingSyncFailed).not.toHaveBeenCalled();
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it('the network-restored callback does not drain while signed out', async () => {
+    await _networkChangeHandler!({ isConnected: false, type: 'none', isInternetReachable: false });
+    await _networkChangeHandler!({ isConnected: true, type: 'wifi', isInternetReachable: true });
+    await flushPromises();
+
+    expect(database.getPendingSyncs).not.toHaveBeenCalled();
+  });
+
+  it('queueing a scorecard while signed out queues it without draining', async () => {
+    await queueScorecardSync(createTestScorecard());
+    await flushPromises();
+
+    expect(database.addPendingSync).toHaveBeenCalled();
+    expect(database.getPendingSyncs).not.toHaveBeenCalled();
+  });
+
+  it('drains again once a user is signed in', async () => {
+    setSyncAuthUser('user-2');
+    (finalizeSubmittedRound as jest.Mock).mockResolvedValue({
+      completed: true,
+      skinsGame: null,
+      statusError: null,
+      skinsError: null,
+    });
+
+    await syncAll();
+
+    expect(database.getPendingSyncs).toHaveBeenCalled();
+    expect(finalizeSubmittedRound).toHaveBeenCalledWith(ROUND_ID);
+  });
+});
+
+// ============================================================================
+// ROUND ITEMS BELONG TO THE USER WHO QUEUED THEM
+// ============================================================================
+
+/**
+ * SQLite survives sign-out. A round item queued by one user must not run
+ * under another user's session on the same phone: it waits for its owner.
+ */
+describe('Round items and the signed-in user', () => {
+  const ROUND_ID = '550e8400-e29b-41d4-a716-446655440000';
+  const finalizeItem = (data: Record<string, unknown>): PendingSync => ({
+    id: 7,
+    type: 'round',
+    action: 'update',
+    data: { id: ROUND_ID, action: 'finalize', ...data },
+    entityKey: `round:${ROUND_ID}:finalize`,
+    timestamp: new Date('2025-01-15T09:00:00Z'),
+    retryCount: 0,
+    revision: 1,
+  });
+
+  beforeEach(async () => {
+    initSyncService();
+    await flushPromises();
+    (finalizeSubmittedRound as jest.Mock).mockResolvedValue({
+      completed: true,
+      skinsGame: null,
+      statusError: null,
+      skinsError: null,
+    });
+    (database.hasUnsyncedScorecardsForRound as jest.Mock).mockResolvedValue(false);
+    (database.getFailedSyncCountForRound as jest.Mock).mockResolvedValue(0);
+  });
+
+  it("leaves another user's item pending, with no retry spent and no server call", async () => {
+    (database.getPendingSyncs as jest.Mock).mockResolvedValue([finalizeItem({ userId: 'someone-else' })]);
+
+    await expect(syncAll()).resolves.toBe(true);
+
+    expect(finalizeSubmittedRound).not.toHaveBeenCalled();
+    expect(database.hasUnsyncedScorecardsForRound).not.toHaveBeenCalled();
+    expect(database.removePendingSync).not.toHaveBeenCalled();
+    expect(database.incrementSyncRetryCount).not.toHaveBeenCalled();
+    expect(database.markPendingSyncFailed).not.toHaveBeenCalled();
+  });
+
+  it("runs the signed-in user's own item", async () => {
+    (database.getPendingSyncs as jest.Mock).mockResolvedValue([finalizeItem({ userId: 'test-user-id' })]);
+
+    await syncAll();
+
+    expect(finalizeSubmittedRound).toHaveBeenCalledWith(ROUND_ID);
+    expect(database.removePendingSync).toHaveBeenCalledWith(7, 1);
+  });
+
+  it('runs a legacy item with no owner for whoever is signed in', async () => {
+    (database.getPendingSyncs as jest.Mock).mockResolvedValue([finalizeItem({})]);
+
+    await syncAll();
+
+    expect(finalizeSubmittedRound).toHaveBeenCalledWith(ROUND_ID);
   });
 });
