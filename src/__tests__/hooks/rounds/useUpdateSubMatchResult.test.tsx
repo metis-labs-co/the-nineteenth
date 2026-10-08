@@ -47,7 +47,7 @@ describe('useUpdateSubMatchResult', () => {
 
   it('re-finalizes results and completes the round when a sub-match is forfeited', async () => {
     const refSpy = jest.spyOn(refinalize, 'refinalizeRoundResults').mockResolvedValue(undefined);
-    const statusSpy = jest.spyOn(finalizeStatus, 'finalizeRoundStatus').mockResolvedValue(undefined);
+    const statusSpy = jest.spyOn(finalizeStatus, 'finalizeRoundStatus').mockResolvedValue(true);
     const client = makeClient();
     const invalidateSpy = jest.spyOn(client, 'invalidateQueries');
 
@@ -72,7 +72,7 @@ describe('useUpdateSubMatchResult', () => {
 
   it('does NOT re-finalize or complete the round for a non-terminal update', async () => {
     const refSpy = jest.spyOn(refinalize, 'refinalizeRoundResults').mockResolvedValue(undefined);
-    const statusSpy = jest.spyOn(finalizeStatus, 'finalizeRoundStatus').mockResolvedValue(undefined);
+    const statusSpy = jest.spyOn(finalizeStatus, 'finalizeRoundStatus').mockResolvedValue(true);
     const client = makeClient();
 
     const { result } = renderHook(() => useUpdateSubMatchResult(ROUND_ID), {

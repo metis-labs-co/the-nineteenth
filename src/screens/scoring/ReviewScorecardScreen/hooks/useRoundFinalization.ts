@@ -11,7 +11,7 @@ export function useRoundFinalization() {
   // Review-submit flow and the sub-match result/forfeit flow agree on exactly
   // when a round is done (see finalizeRoundStatus for the split vs non-split rules).
   const updateRoundStatus = useCallback(
-    (roundId: string): Promise<void> => finalizeRoundStatus(roundId),
+    (roundId: string): Promise<boolean> => finalizeRoundStatus(roundId),
     []
   );
 
