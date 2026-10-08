@@ -115,6 +115,24 @@ export async function removePendingSync(id: number, revision?: number): Promise<
 }
 
 /**
+ * Remove the row with this entity key, whatever its revision or status.
+ *
+ * For an item its own writer has made unnecessary (a round finalisation that
+ * an online run completed). Queue handlers use removePendingSync, whose
+ * revision guard keeps a row re-queued while it ran.
+ */
+export async function removePendingSyncByEntityKey(entityKey: string): Promise<boolean> {
+  const database = await getDb();
+  const result = await database.runAsync(
+    `DELETE FROM ${TABLE_NAMES.PENDING_SYNCS} WHERE entity_key = ?`,
+    [entityKey]
+  );
+  const removed = result.changes > 0;
+  dbLogger.debug('Removed pending sync by entity key', { entityKey, removed });
+  return removed;
+}
+
+/**
  * Increment retry count for a pending sync
  */
 export async function incrementSyncRetryCount(
@@ -201,6 +219,42 @@ export async function getFailedSyncCountForRound(roundId: string): Promise<numbe
     [`scorecard:${roundId}:%`]
   );
   return result?.count ?? 0;
+}
+
+/**
+ * Whether this device still has scorecards for a round waiting to upload: a
+ * queued scorecard upload that is still pending, or a submitted card in
+ * SQLite that was never marked synced and has no queue row at all (the
+ * fallback upload in syncAll hasn't reached it).
+ *
+ * Retained failures (`status = 'failed'`) are NOT counted: they never upload
+ * on their own (see getFailedSyncCountForRound). A queued round finalisation
+ * waits on this before it makes any server call.
+ */
+export async function hasUnsyncedScorecardsForRound(roundId: string): Promise<boolean> {
+  if (!roundId) return false;
+
+  const database = await getDb();
+  const queued = await database.getFirstAsync<{ count: number }>(
+    `SELECT COUNT(*) as count FROM ${TABLE_NAMES.PENDING_SYNCS}
+     WHERE type = 'scorecard' AND status = 'pending' AND entity_key LIKE ?`,
+    [`scorecard:${roundId}:%`]
+  );
+  if ((queued?.count ?? 0) > 0) return true;
+
+  const unqueued = await database.getFirstAsync<{ count: number }>(
+    `SELECT COUNT(*) as count FROM ${TABLE_NAMES.SCORECARDS} s
+     WHERE s.round_id = ?
+       AND s.is_synced = 0
+       AND (s.is_standalone = 0 OR s.is_standalone IS NULL)
+       AND s.status = 'completed'
+       AND NOT EXISTS (
+         SELECT 1 FROM ${TABLE_NAMES.PENDING_SYNCS} p
+         WHERE p.entity_key = 'scorecard:' || s.round_id || ':' || s.player_id
+       )`,
+    [roundId]
+  );
+  return (unqueued?.count ?? 0) > 0;
 }
 
 /**

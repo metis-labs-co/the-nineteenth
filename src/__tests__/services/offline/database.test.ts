@@ -24,6 +24,8 @@ import {
   incrementSyncRetryCount,
   getPendingSyncCount,
   getFailedSyncCountForRound,
+  hasUnsyncedScorecardsForRound,
+  removePendingSyncByEntityKey,
   getFailedSyncs,
   discardPendingSync,
   updatePendingSyncData,
@@ -1066,6 +1068,65 @@ describe('Pending Sync Operations', () => {
       const result = await getFailedSyncCountForRound('');
 
       expect(result).toBe(0);
+      expect(mockGetFirstAsync).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('removePendingSyncByEntityKey()', () => {
+    it('deletes the row with that entity key, whatever its revision or status', async () => {
+      mockRunAsync.mockResolvedValueOnce({ lastInsertRowId: 0, changes: 1 });
+
+      await expect(removePendingSyncByEntityKey('round:round-abc:finalize')).resolves.toBe(true);
+
+      const [sql, params] = mockRunAsync.mock.calls[0];
+      expect(sql).toContain('DELETE FROM pending_syncs');
+      expect(sql).toContain('WHERE entity_key = ?');
+      expect(sql).not.toContain('revision');
+      expect(params).toEqual(['round:round-abc:finalize']);
+    });
+
+    it('is false when no row has that key', async () => {
+      mockRunAsync.mockResolvedValueOnce({ lastInsertRowId: 0, changes: 0 });
+
+      await expect(removePendingSyncByEntityKey('round:round-abc:finalize')).resolves.toBe(false);
+    });
+  });
+
+  describe('hasUnsyncedScorecardsForRound()', () => {
+    it('is true while a scorecard upload for the round is still pending in the queue', async () => {
+      mockGetFirstAsync.mockResolvedValueOnce({ count: 1 });
+
+      await expect(hasUnsyncedScorecardsForRound('round-abc')).resolves.toBe(true);
+
+      const [sql, params] = mockGetFirstAsync.mock.calls[0];
+      expect(sql).toContain("type = 'scorecard'");
+      // Retained failures never upload on their own — they are not "waiting".
+      expect(sql).toContain("status = 'pending'");
+      expect(sql).toContain('entity_key LIKE');
+      expect(params).toEqual(['scorecard:round-abc:%']);
+      expect(mockGetFirstAsync).toHaveBeenCalledTimes(1);
+    });
+
+    it('is true for a submitted card in SQLite that was never synced and has no queue row', async () => {
+      mockGetFirstAsync.mockResolvedValueOnce({ count: 0 }).mockResolvedValueOnce({ count: 2 });
+
+      await expect(hasUnsyncedScorecardsForRound('round-abc')).resolves.toBe(true);
+
+      const [sql, params] = mockGetFirstAsync.mock.calls[1];
+      expect(sql).toContain('is_synced = 0');
+      expect(sql).toContain("status = 'completed'");
+      expect(sql).toContain('NOT EXISTS');
+      expect(params).toEqual(['round-abc']);
+    });
+
+    it('is false when nothing for the round is left to upload', async () => {
+      mockGetFirstAsync.mockResolvedValueOnce({ count: 0 }).mockResolvedValueOnce({ count: 0 });
+
+      await expect(hasUnsyncedScorecardsForRound('round-abc')).resolves.toBe(false);
+    });
+
+    it('is false without a round id', async () => {
+      await expect(hasUnsyncedScorecardsForRound('')).resolves.toBe(false);
       expect(mockGetFirstAsync).not.toHaveBeenCalled();
     });
   });
