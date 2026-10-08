@@ -36,6 +36,8 @@ export interface ScorecardRow {
   sync_game_type?: string | null;
   /** JSON-encoded Hole[] (the round's planned holes at submit) */
   sync_holes?: string | null;
+  /** Holes played when the round was ended early (migration 22); absent on older rows */
+  holes_played?: number | null;
 }
 
 /**

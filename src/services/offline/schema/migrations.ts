@@ -150,6 +150,13 @@ export const MIGRATIONS: Migration[] = [
     name: 'add_scorecard_sync_holes',
     up: `ALTER TABLE scorecards ADD COLUMN sync_holes TEXT`,
   },
+  {
+    // End round early (R15): set on every local card of a round when it is
+    // ended, so a relaunch keeps the end before the server knows about it.
+    version: 22,
+    name: 'add_scorecard_holes_played',
+    up: `ALTER TABLE scorecards ADD COLUMN holes_played INTEGER`,
+  },
 ];
 
 /**

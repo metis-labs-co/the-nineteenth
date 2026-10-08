@@ -33,7 +33,7 @@ export {
 } from './dao/ScorecardDAO';
 
 // Hole score operations
-export { saveHoleScore, getHoleScores } from './dao/HoleScoreDAO';
+export { saveHoleScore, getHoleScores, deleteHoleScoresForCards } from './dao/HoleScoreDAO';
 
 // Holes operations
 export { saveHoles, getHoles, deleteHoles } from './dao/HolesDAO';

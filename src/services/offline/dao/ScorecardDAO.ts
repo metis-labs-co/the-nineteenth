@@ -73,6 +73,8 @@ async function rowToScorecard(row: ScorecardRow): Promise<Scorecard> {
     syncNineType: (row.sync_nine_type as NineType | null | undefined) ?? undefined,
     syncGameType: (row.sync_game_type as GameType | null | undefined) ?? undefined,
     syncHoles,
+    // End round early marker (local migration 22)
+    holesPlayed: row.holes_played ?? null,
   };
 }
 
@@ -102,8 +104,8 @@ export async function saveScorecard(scorecard: Scorecard): Promise<void> {
          (id, round_id, player_id, player_name, player_handicap, total_gross, total_net, total_points,
           status, submitted_at, submitted_by, created_at, updated_at, is_synced, is_standalone,
           tee_data, course_par, player_gender, player_handicap_used, server_revision,
-          sync_nine_type, sync_game_type, sync_holes)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          sync_nine_type, sync_game_type, sync_holes, holes_played)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           scorecard.id,
           scorecard.roundId,
@@ -128,6 +130,7 @@ export async function saveScorecard(scorecard: Scorecard): Promise<void> {
           scorecard.syncNineType ?? null,
           scorecard.syncGameType ?? null,
           scorecard.syncHoles ? JSON.stringify(scorecard.syncHoles) : null,
+          scorecard.holesPlayed ?? null,
         ]
       );
 

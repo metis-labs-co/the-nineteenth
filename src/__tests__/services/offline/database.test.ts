@@ -35,6 +35,7 @@ import {
   closeDatabase,
   markAllScorecardsAsSynced,
   deleteOrphanedScorecards,
+  deleteHoleScoresForCards,
   __resetDatabaseState,
 } from '@/services/offline/database';
 import type { Scorecard, Hole, HoleScore, PendingSync } from '@/types';
@@ -695,7 +696,8 @@ describe('Scorecard Operations', () => {
         call[0].includes('INSERT OR REPLACE INTO scorecards')
       );
       expect(insertCall[0]).toContain('sync_nine_type, sync_game_type, sync_holes');
-      expect(insertCall[1].slice(-3)).toEqual(['front9', 'stroke', JSON.stringify(holes)]);
+      // holes_played (B3a) is bound after the three sync_* values.
+      expect(insertCall[1].slice(-4, -1)).toEqual(['front9', 'stroke', JSON.stringify(holes)]);
     });
 
     it('writes NULLs when the card carries no sync metadata', async () => {
@@ -704,11 +706,9 @@ describe('Scorecard Operations', () => {
       const insertCall = mockRunAsync.mock.calls.find((call) =>
         call[0].includes('INSERT OR REPLACE INTO scorecards')
       );
-      // 20 existing columns + the 3 sync columns. (Without the length check
-      // this would pass today: the last 3 values are already
-      // player_gender / player_handicap_used / server_revision = null.)
-      expect(insertCall[1]).toHaveLength(23);
-      expect(insertCall[1].slice(-3)).toEqual([null, null, null]);
+      // A3b's 23 values + holes_played (B3a).
+      expect(insertCall[1]).toHaveLength(24);
+      expect(insertCall[1].slice(-4, -1)).toEqual([null, null, null]);
     });
 
     it('restores them when an unsynced card is re-read', async () => {
@@ -1409,6 +1409,132 @@ describe('Utility Functions', () => {
       expect(mockGetAllAsync).not.toHaveBeenCalledWith(
         expect.stringContaining('SELECT DISTINCT round_id')
       );
+    });
+  });
+});
+
+// ============================================================================
+// END ROUND EARLY — LOCAL MARKER + ATOMIC HOLE REMOVAL
+// ============================================================================
+
+describe('End round early: SQLite marker and hole removal', () => {
+  beforeEach(async () => {
+    await initDatabase();
+    mockRunAsync.mockClear();
+    mockWithTransactionAsync.mockClear();
+  });
+
+  // The value bound to `column` in the scorecards INSERT. Located by column
+  // name so the test doesn't depend on where other tasks appended columns.
+  const insertedValue = (column: string): unknown => {
+    const call = mockRunAsync.mock.calls.find((c) =>
+      String(c[0]).includes('INSERT OR REPLACE INTO scorecards')
+    );
+    expect(call).toBeDefined();
+    const columnList = String(call[0]).match(/\(([^)]*)\)\s*VALUES/);
+    expect(columnList).not.toBeNull();
+    const columns = (columnList as RegExpMatchArray)[1].split(',').map((c) => c.trim());
+    const index = columns.indexOf(column);
+    expect(index).toBeGreaterThanOrEqual(0);
+    return call[1][index];
+  };
+
+  const baseRow = {
+    id: 'scorecard-1',
+    round_id: 'round-1',
+    player_id: 'player-1',
+    player_name: 'John Smith',
+    player_handicap: 18,
+    total_gross: 24,
+    total_net: 24,
+    total_points: 0,
+    status: 'in-progress',
+    submitted_at: null,
+    submitted_by: null,
+    created_at: '2026-10-07T08:00:00Z',
+    updated_at: '2026-10-07T09:00:00Z',
+    is_synced: 0,
+    is_standalone: 0,
+  };
+
+  it('initDatabase adds the scorecards.holes_played column', () => {
+    const calls = mockExecAsync.mock.calls.map((call) => call[0]);
+    expect(calls).toContain('ALTER TABLE scorecards ADD COLUMN holes_played INTEGER');
+  });
+
+  it('saveScorecard persists holesPlayed', async () => {
+    await saveScorecard(createTestScorecard({ holesPlayed: 6 }));
+
+    expect(insertedValue('holes_played')).toBe(6);
+  });
+
+  it('saveScorecard writes NULL holes_played for a round played as planned', async () => {
+    await saveScorecard(createTestScorecard());
+
+    expect(insertedValue('holes_played')).toBeNull();
+  });
+
+  it('getScorecardsByRound restores holesPlayed', async () => {
+    mockGetAllAsync
+      .mockResolvedValueOnce([{ ...baseRow, holes_played: 6 }])
+      .mockResolvedValueOnce([]);
+
+    const [card] = await getScorecardsByRound('round-1');
+
+    expect(card.holesPlayed).toBe(6);
+  });
+
+  it('reads a row written before the column existed as not ended', async () => {
+    mockGetAllAsync.mockResolvedValueOnce([baseRow]).mockResolvedValueOnce([]);
+
+    const [card] = await getScorecardsByRound('round-1');
+
+    expect(card.holesPlayed).toBeNull();
+  });
+
+  describe('deleteHoleScoresForCards()', () => {
+    it("deletes each card's listed holes inside ONE transaction", async () => {
+      let inTransaction = false;
+      const ranInsideTransaction: boolean[] = [];
+      mockWithTransactionAsync.mockImplementationOnce(async (callback: () => Promise<void>) => {
+        inTransaction = true;
+        try {
+          await callback();
+        } finally {
+          inTransaction = false;
+        }
+      });
+      mockRunAsync.mockImplementation(async () => {
+        ranInsideTransaction.push(inTransaction);
+        return { lastInsertRowId: 1, changes: 1 };
+      });
+
+      await deleteHoleScoresForCards([
+        { scorecardId: 'card-1', holeNumbers: [7, 8] },
+        { scorecardId: 'card-2', holeNumbers: [8] },
+      ]);
+
+      expect(mockWithTransactionAsync).toHaveBeenCalledTimes(1);
+      expect(mockRunAsync.mock.calls).toEqual([
+        ['DELETE FROM hole_scores WHERE scorecard_id = ? AND hole_number IN (?, ?)', ['card-1', 7, 8]],
+        ['DELETE FROM hole_scores WHERE scorecard_id = ? AND hole_number IN (?)', ['card-2', 8]],
+      ]);
+      expect(ranInsideTransaction).toEqual([true, true]);
+    });
+
+    it('skips cards with nothing to remove and opens no transaction when no card has any', async () => {
+      await deleteHoleScoresForCards([{ scorecardId: 'card-1', holeNumbers: [] }]);
+
+      expect(mockWithTransactionAsync).not.toHaveBeenCalled();
+      expect(mockRunAsync).not.toHaveBeenCalled();
+    });
+
+    it('rejects when a delete fails, so the caller can abort before changing state', async () => {
+      mockRunAsync.mockRejectedValueOnce(new Error('disk I/O error'));
+
+      await expect(
+        deleteHoleScoresForCards([{ scorecardId: 'card-1', holeNumbers: [7] }])
+      ).rejects.toThrow('disk I/O error');
     });
   });
 });

@@ -413,6 +413,12 @@ export interface Scorecard {
   syncGameType?: GameType;
   /** Nine type for correct 9-hole rating selection during sync */
   syncNineType?: NineType;
+  /** Holes played when the round was ended early, counted from the round's
+   *  first hole (back 9 ended after 6 = holes 10–15). null/undefined = played
+   *  as planned. Stamped on every card of the round by endRoundEarly and
+   *  persisted (SQLite holes_played), so a relaunch keeps the end; read by
+   *  sync for the per-hole net (B4). */
+  holesPlayed?: number | null;
 }
 
 // HoleScore is re-exported from database.types.ts above

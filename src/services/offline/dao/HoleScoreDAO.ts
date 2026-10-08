@@ -147,6 +147,34 @@ export async function deleteHoleScores(scorecardId: string): Promise<void> {
 }
 
 /**
+ * Delete given holes' scores from several scorecards in ONE transaction.
+ *
+ * Ending a round early removes every score after the last played hole from
+ * every card of the round. `saveScorecard` only upserts hole rows and
+ * `getScorecardsByRound` rebuilds `scores` from them, so a removed score must
+ * be deleted here or it comes back on the next load. One transaction: either
+ * every card loses its later holes or none does — never a half-ended round.
+ * Rejects on failure so the caller can abort before changing any state.
+ */
+export async function deleteHoleScoresForCards(
+  entries: { scorecardId: string; holeNumbers: number[] }[]
+): Promise<void> {
+  const work = entries.filter((entry) => entry.holeNumbers.length > 0);
+  if (work.length === 0) return;
+
+  const database = await getDb();
+  await database.withTransactionAsync(async () => {
+    for (const { scorecardId, holeNumbers } of work) {
+      const placeholders = holeNumbers.map(() => '?').join(', ');
+      await database.runAsync(
+        `DELETE FROM ${TABLE_NAMES.HOLE_SCORES} WHERE scorecard_id = ? AND hole_number IN (${placeholders})`,
+        [scorecardId, ...holeNumbers]
+      );
+    }
+  });
+}
+
+/**
  * Bulk save hole scores for a scorecard
  */
 export async function bulkSaveHoleScores(
