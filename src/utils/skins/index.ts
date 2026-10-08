@@ -49,6 +49,7 @@ export type {
   TeamPayoutParticipant,
   CalculatedTeamPayout,
   FinalTeamPayoutResult,
+  SkinsNetResult,
 } from './payouts';
 export {
   calculateFinalPayouts,
@@ -57,6 +58,7 @@ export {
   calculatePlayedPot,
   calculateSettledPot,
   calculateTeamFinalPayouts,
+  resolveSkinsNetResults,
 } from './payouts';
 
 // Debt calculation functions

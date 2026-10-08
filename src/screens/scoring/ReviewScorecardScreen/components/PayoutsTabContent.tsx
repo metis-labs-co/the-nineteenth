@@ -13,7 +13,8 @@ import { spacing, borderRadius, typography, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useSkinsSummary } from '@/hooks/useSkins';
 import { useWolfSummary } from '@/hooks/wolf';
-import { calculateFinalPayouts } from '@/utils/skins/payouts';
+import { resolveSkinsNetResults } from '@/utils/skins/payouts';
+import type { SkinsHoleCounts } from '@/utils/skins';
 import { calculateWolfPayouts } from '@/utils/wolf/payouts';
 import { getNetResultColor } from '@/utils/displayHelpers';
 import {
@@ -29,17 +30,19 @@ interface PayoutsTabContentProps {
   mode: PayoutsMode;
   skinsGameId?: string;
   wolfGameId?: string;
+  /** Holes planned / played for the skins preview; defaults to 18/18 */
+  holeCounts?: SkinsHoleCounts;
   isRefreshing: boolean;
   onRefresh: () => void;
   bottomInset: number;
 }
 
-export function PayoutsTabContent({ mode, skinsGameId, wolfGameId, isRefreshing, onRefresh, bottomInset }: PayoutsTabContentProps) {
+export function PayoutsTabContent({ mode, skinsGameId, wolfGameId, holeCounts, isRefreshing, onRefresh, bottomInset }: PayoutsTabContentProps) {
   const {
     data: skinsSummary,
     isLoading: isLoadingSkins,
     refetch: refetchSkins,
-  } = useSkinsSummary(mode !== 'wolf-only' ? skinsGameId : undefined);
+  } = useSkinsSummary(mode !== 'wolf-only' ? skinsGameId : undefined, holeCounts);
   const {
     data: wolfSummary,
     isLoading: isLoadingWolf,
@@ -72,6 +75,7 @@ export function PayoutsTabContent({ mode, skinsGameId, wolfGameId, isRefreshing,
       mode={mode}
       skinsSummary={skinsSummary ?? null}
       wolfSummary={wolfSummary ?? null}
+      holeCounts={holeCounts}
       isRefreshing={isRefreshing}
       onRefresh={handleRefresh}
       bottomInset={bottomInset}
@@ -84,6 +88,7 @@ function PayoutsTabContentLoaded({
   mode,
   skinsSummary,
   wolfSummary,
+  holeCounts,
   isRefreshing,
   onRefresh,
   bottomInset,
@@ -91,6 +96,7 @@ function PayoutsTabContentLoaded({
   mode: PayoutsMode;
   skinsSummary: SkinsGameSummary | null;
   wolfSummary: WolfGameSummary | null;
+  holeCounts?: SkinsHoleCounts;
   isRefreshing: boolean;
   onRefresh: () => void;
   bottomInset: number;
@@ -110,16 +116,17 @@ function PayoutsTabContentLoaded({
     return map;
   }, [skinsSummary, wolfSummary]);
 
-  // Compute skins net results (skip if wolf-only)
+  // Skins net results (skip if wolf-only): stored payouts once settled,
+  // otherwise a settlement preview on the round's hole counts
   const skinsEntries = useMemo(() => {
     if (!skinsSummary || mode === 'wolf-only') return [];
-    const participants = skinsSummary.game.participant_ids.map((id) => ({ id }));
-    const payouts = calculateFinalPayouts(skinsSummary.game, skinsSummary.results, participants);
-    return payouts.map((p) => ({
-      player_id: p.player_id,
-      net_result: p.net_result,
-    }));
-  }, [skinsSummary, mode]);
+    return resolveSkinsNetResults(
+      skinsSummary.game,
+      skinsSummary.results,
+      skinsSummary.payouts,
+      holeCounts
+    );
+  }, [skinsSummary, mode, holeCounts]);
 
   // Extract wolf net results (skip if skins-only)
   const wolfEntries = useMemo(() => {

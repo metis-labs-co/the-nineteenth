@@ -25,6 +25,7 @@ import {
   calculateFinalPayoutsWithCarryover,
   calculateInProgressPayouts,
   calculatePlayedPot,
+  resolveSkinsNetResults,
   calculateSettledPot,
   validateSkinsGame,
   validateHoleScores,
@@ -1703,5 +1704,126 @@ describe('Skins in-progress standings on hole counts', () => {
 
     expect(payouts.map((p) => p.buy_in)).toEqual([15, 15]);
     expect(payouts.map((p) => p.net_result)).toEqual([-10, -15]); // 5 - 15, 0 - 15
+  });
+});
+
+// ============================================================================
+// Payouts tabs: stored payouts once settled, else a preview on hole counts
+// ============================================================================
+
+describe('resolveSkinsNetResults', () => {
+  const scores = createMockHoleScores([
+    { playerId: 'p1', gross: 4, net: 4, strokes_received: 0 },
+    { playerId: 'p2', gross: 4, net: 4, strokes_received: 0 },
+  ]);
+  const won = (hole: number, winner: string, payout: number) => ({
+    hole_number: hole,
+    winner_id: winner as string | null,
+    is_carryover: false,
+    payout_amount: payout,
+    carryover_to_next: 0,
+    hole_scores: scores,
+  });
+  const tied = (hole: number, carryover: number) => ({
+    hole_number: hole,
+    winner_id: null as string | null,
+    is_carryover: true,
+    payout_amount: 0,
+    carryover_to_next: carryover,
+    hole_scores: scores,
+  });
+  // Ann (p1) wins holes 1–5 ($25), Bob (p2) holes 6–9 ($20)
+  const nineHoles = createMockResults(
+    Array.from({ length: 9 }, (_, i) => won(i + 1, i < 5 ? 'p1' : 'p2', 5))
+  );
+  const baseGame = createMockGame({ participant_ids: ['p1', 'p2'] });
+
+  it('shows the stored payouts of a settled game', () => {
+    // Settled before this fix at 18 holes: buy-in $45 → Ann -20, Bob -25
+    const stored = [
+      { player_id: 'p1', buy_in: 45, net_result: -20 },
+      { player_id: 'p2', buy_in: 45, net_result: -25 },
+    ];
+
+    expect(
+      resolveSkinsNetResults({ ...baseGame, status: 'completed' }, nineHoles, stored, {
+        plannedHoles: 9,
+        holesPlayed: 9,
+      })
+    ).toEqual([
+      { player_id: 'p1', net_result: -20 },
+      { player_id: 'p2', net_result: -25 },
+    ]);
+  });
+
+  it('previews an unsettled game with every played hole in on the hole counts', () => {
+    // $5 × 9 / 2 = $22.50 → Ann +2.50, Bob -2.50
+    expect(
+      resolveSkinsNetResults({ ...baseGame, status: 'active' }, nineHoles, undefined, {
+        plannedHoles: 9,
+        holesPlayed: 9,
+      })
+    ).toEqual([
+      { player_id: 'p1', net_result: 2.5 },
+      { player_id: 'p2', net_result: -2.5 },
+    ]);
+  });
+
+  it('previews a completed game whose payouts are not written yet', () => {
+    expect(
+      resolveSkinsNetResults({ ...baseGame, status: 'completed' }, nineHoles, [], {
+        plannedHoles: 9,
+        holesPlayed: 9,
+      })
+    ).toEqual([
+      { player_id: 'p1', net_result: 2.5 },
+      { player_id: 'p2', net_result: -2.5 },
+    ]);
+  });
+
+  it('keeps the 18-hole buy-in without hole counts (unchanged values)', () => {
+    // 9 of 18 holes in, no carryover: $5 × 18 / 2 = $45 → Ann 25 - 45, Bob 20 - 45
+    expect(resolveSkinsNetResults({ ...baseGame, status: 'active' }, nineHoles, undefined)).toEqual([
+      { player_id: 'p1', net_result: -20 },
+      { player_id: 'p2', net_result: -25 },
+    ]);
+  });
+
+  it('mid-round, leaves an open carryover unsplit, like the Skins tab live standings', () => {
+    // Ann wins hole 1 ($5); hole 2 ties, $5 carries into hole 3 (not played yet).
+    // Buy-in $5 × 18 / 2 = $45. Live standings: Ann 5 - 45, Bob 0 - 45.
+    // (Splitting the carryover would read Ann -37.50, Bob -42.50.)
+    const results = createMockResults([won(1, 'p1', 5), tied(2, 5)]);
+    const holeCounts = { plannedHoles: 18, holesPlayed: 18 };
+    const participants = [{ id: 'p1' }, { id: 'p2' }];
+
+    const netResults = resolveSkinsNetResults({ ...baseGame, status: 'active' }, results, undefined, holeCounts);
+
+    expect(netResults).toEqual([
+      { player_id: 'p1', net_result: -40 },
+      { player_id: 'p2', net_result: -45 },
+    ]);
+    expect(netResults).toEqual(
+      calculateInProgressPayouts(baseGame, results, participants, holeCounts).payouts.map((p) => ({
+        player_id: p.player_id,
+        net_result: p.net_result,
+      }))
+    );
+  });
+
+  it('splits a carryover left on the last hole played once every played hole is in', () => {
+    // Ended after 2 of 18: Ann wins hole 1 ($5), hole 2 ties ($5 left over).
+    // Buy-in $5 × 2 / 2 = $5; the $5 splits $2.50 each → Ann 7.50 - 5, Bob 2.50 - 5
+    const results = createMockResults([won(1, 'p1', 5), tied(2, 5)]);
+
+    expect(
+      resolveSkinsNetResults({ ...baseGame, status: 'active' }, results, undefined, {
+        plannedHoles: 18,
+        holesPlayed: 2,
+      })
+    ).toEqual([
+      { player_id: 'p1', net_result: 2.5 },
+      { player_id: 'p2', net_result: -2.5 },
+    ]);
   });
 });

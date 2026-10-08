@@ -300,6 +300,46 @@ export function calculateInProgressPayouts(
   };
 }
 
+/** One participant's skins net result, for the payouts tabs. */
+export interface SkinsNetResult {
+  player_id: string;
+  net_result: number;
+}
+
+/**
+ * Net results for a payouts display.
+ * - Settled (calculateSettledPot non-null): the stored skins_payouts.
+ * - Unsettled, played holes still to come: the live standings
+ *   (calculateInProgressPayouts) — the pending carryover is NOT split, exactly
+ *   as Review's Skins tab shows it, so the two tabs agree mid-round.
+ * - Unsettled, every played hole in: the settlement preview
+ *   (calculateFinalPayouts), which splits a carryover left on the last hole.
+ */
+export function resolveSkinsNetResults(
+  game: Pick<SkinsGame, 'status' | 'pot_type' | 'pot_value' | 'participant_ids'>,
+  results: Pick<SkinsResult, 'hole_number' | 'winner_id' | 'is_carryover' | 'payout_amount' | 'carryover_to_next' | 'hole_scores'>[],
+  storedPayouts: Pick<SkinsPayout, 'player_id' | 'net_result' | 'buy_in'>[] | null | undefined,
+  holeCounts: SkinsHoleCounts = DEFAULT_SKINS_HOLE_COUNTS
+): SkinsNetResult[] {
+  if (storedPayouts && calculateSettledPot(game, storedPayouts) !== null) {
+    return storedPayouts
+      .filter(
+        (p): p is Pick<SkinsPayout, 'net_result' | 'buy_in'> & { player_id: string } => p.player_id !== null
+      )
+      .map((p) => ({ player_id: p.player_id, net_result: p.net_result }));
+  }
+
+  const participants = game.participant_ids.map((id) => ({ id }));
+  const stillPlaying = game.status !== 'completed' && results.length < holeCounts.holesPlayed;
+  const payouts = stillPlaying
+    ? calculateInProgressPayouts(game, results, participants, holeCounts).payouts
+    : calculateFinalPayouts(game, results, participants, holeCounts);
+  return payouts.map((p) => ({
+    player_id: p.player_id,
+    net_result: p.net_result,
+  }));
+}
+
 /**
  * Calculate final payouts for all teams in a completed team skins game.
  *

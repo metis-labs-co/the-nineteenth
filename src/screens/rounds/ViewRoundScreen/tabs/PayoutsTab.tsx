@@ -15,7 +15,8 @@ import { spacing, borderRadius, typography, shadows, medalColors } from '@/const
 import { formatCurrency, formatNetResult } from '@/utils/currency';
 import { getNetResultColor } from '@/utils/displayHelpers';
 import { getRankMedal } from '@/utils/formatting';
-import { calculateFinalPayouts } from '@/utils/skins/payouts';
+import { resolveSkinsNetResults } from '@/utils/skins/payouts';
+import { useSkinsHoleCounts, useSkinsPayouts } from '@/hooks/useSkins';
 import { calculateWolfPayouts } from '@/utils/wolf/payouts';
 import {
   calculateCombinedPayouts,
@@ -185,16 +186,18 @@ export function PayoutsTab({
   const { dialogConfig, showAlert, dismissDialog } = useConfirmationDialog();
   const isCombined = mode === 'combined';
 
+  // Skins: a settled game shows its stored payouts; an unsettled one previews
+  // the settlement on the round's hole counts.
+  const skinsHoleCounts = useSkinsHoleCounts(activeSkinsGame?.round_id);
+  const { data: storedSkinsPayouts } = useSkinsPayouts(
+    activeSkinsGame?.status === 'completed' ? activeSkinsGame.id : undefined
+  );
+
   // 1. Compute skins net results (skip if wolf-only)
   const skinsEntries = useMemo(() => {
     if (!activeSkinsGame || mode === 'wolf-only') return [];
-    const participants = activeSkinsGame.participant_ids.map((id) => ({ id }));
-    const payouts = calculateFinalPayouts(activeSkinsGame, skinsResults, participants);
-    return payouts.map((p) => ({
-      player_id: p.player_id,
-      net_result: p.net_result,
-    }));
-  }, [activeSkinsGame, skinsResults, mode]);
+    return resolveSkinsNetResults(activeSkinsGame, skinsResults, storedSkinsPayouts, skinsHoleCounts);
+  }, [activeSkinsGame, skinsResults, storedSkinsPayouts, skinsHoleCounts, mode]);
 
   // 2. Extract wolf net results (skip if skins-only)
   const wolfEntries = useMemo(() => {

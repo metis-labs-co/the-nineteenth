@@ -585,6 +585,7 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
           mode={payoutsMode}
           skinsGameId={skinsGame?.id}
           wolfGameId={wolfGame?.id}
+          holeCounts={skinsHoleCounts}
           isRefreshing={isRefreshing}
           onRefresh={handleRefresh}
           bottomInset={insets.bottom}
