@@ -28,6 +28,31 @@ export function filterHolesByNineType(holes: Hole[], nineType: NineType): Hole[]
 }
 
 /**
+ * The holes a round actually used: `filterHolesByNineType`, then, when the
+ * round was ended early (`holesPlayed` is a positive integer), sorted by hole
+ * number and cut to the first `holesPlayed`. A back-9 round ended after 6 →
+ * holes 10–15.
+ *
+ * null / undefined / non-positive / non-integer ⇒ identical to
+ * `filterHolesByNineType` (same array for 'full', no sort).
+ *
+ * Rendering, validation and "holes remaining" use this. Daily-handicap maths
+ * must keep using the PLANNED holes (Σpar of the holes passed in) — see
+ * docs/guides/SCORING_ARCHITECTURE.md.
+ */
+export function filterPlayableHoles(
+  holes: Hole[],
+  nineType: NineType,
+  holesPlayed?: number | null
+): Hole[] {
+  const planned = filterHolesByNineType(holes, nineType);
+  if (holesPlayed == null || !Number.isInteger(holesPlayed) || holesPlayed <= 0) {
+    return planned;
+  }
+  return [...planned].sort((a, b) => a.number - b.number).slice(0, holesPlayed);
+}
+
+/**
  * Convert an internal hole index (1..18) to the number the player sees on
  * the course. Combo / cross-nine courses (e.g. Valley at Yering Meadows)
  * use a non-1 `course.start_hole` so internal hole 1 displays as 10, hole
