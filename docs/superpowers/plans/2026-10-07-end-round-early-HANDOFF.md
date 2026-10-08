@@ -1,6 +1,6 @@
 # End Round Early: build handoff
 
-**Checkpoint:** 2026-10-09, Part A complete; Part B reviewed through B3a.
+**Checkpoint:** 2026-10-09, Part A complete; Part B reviewed through B3c-2 (39 of 76 tasks complete).
 **Worktree:** `.claude/worktrees/end-round-early`, branch `worktree-end-round-early`.
 **Plan:** `docs/superpowers/plans/2026-10-07-end-round-early.md`, 76 tasks run in Task Index order.
 **Spec:** `docs/superpowers/specs/2026-10-07-end-round-early-design.md`. Revision 3 and R22 override everything earlier in the spec.
@@ -9,8 +9,8 @@
 - **Task 0 is done.** Local `main` was merged at `ee923d79` and `pnpm install` has run. Baseline: type-check clean; TEST_SUBSET 160 suites, 3327 passed, 15 skipped, 0 failed.
 - **All 29 Part A tasks are complete and reviewed**, through A6d-2 at `90aba372`. A5c-2's previously pending review passed. The resumed tasks each passed separate spec and code-quality reviews; review corrections have their own commits. See `git log 935760c9..HEAD` and the ledger for details.
 - **Part A verification passed:** TEST_SUBSET 193 suites, 3629 passed, 15 skipped; `pnpm type-check`; changed-file ESLint; and `pnpm verify:gate`. The subset count dropped after the two obsolete hook test suites were deleted. Existing Jest worker-exit warnings and nonblocking lint warnings remain.
-- **Part B is complete and reviewed through B3a** at `8dbb9bb8`: migration and verification script, metadata/types/skins fetch, pure planning/round-shape helpers, and SQLite marker/removal support. **Next task: B3b-1.** Continue in Task Index order through B11. Store actions and UI remain to be implemented.
-- **Latest validation:** TEST_SUBSET 198 suites, 3700 passed, 15 skipped, 30 snapshots; type-check and changed-file ESLint passed. SQL has only been statically reviewed; runtime and concurrency verification are deferred.
+- **Part B is complete and reviewed through B3c-2** at `2e4ed836`: migration and verification script, metadata/types/skins fetch, pure planning helpers, SQLite persistence, durable store end action, closed-hole/Watch guards, init recovery and screen-hook shape/hydration guards. **Next task: B4-1.** Continue in Task Index order through B11. Net/match-result changes, feature UI and remaining display integrations are still ahead.
+- **Latest validation:** TEST_SUBSET 203 suites, 3804 passed, 15 skipped, 30 snapshots; type-check and changed-file ESLint passed. Existing lint/Jest warnings remain. SQL has only been statically reviewed; runtime and concurrency verification are deferred.
 - **No database has been touched.** The A7 SQL files exist but are not applied. All apply, verify and dry-run steps are deferred to the rollout checklists in A6d-2 Step 5 and B11. Never apply migrations during the build.
 
 ## Corrections made during Part A review
@@ -24,7 +24,11 @@
 - `638200d6`: ending locks all scorecards without waiting and refuses submitted cards or existing handicap combinations. A separate combination trigger locks and rechecks submission/eligibility after waiting. Existing combination history is preserved. See `B1a-review-ruling.md` in the ignored working notes; B11 must document the added guard and three refusal hints.
 - `2eb6d5eb`: the manual two-session verification fixture now distinguishes stale eligible state from freshly committed ended state. Executable verification SQL remains rollback-only; manual concurrency checks require separate disposable staging fixtures at rollout.
 - `7a78869a`: the planner stops at missing leading/interior course-hole numbers rather than counting later array entries as a contiguous prefix. Existing hole-filter behavior is unchanged; nonmutation tests were added.
-- Before **B3b-2 / B3c-1**, read `impact-B3.md` and **`B3-durability-ruling.md`** in the working notes. The preflight identified concrete durability and fallback issues in the snippets. The authorized correction requires an atomic durable marker/tee/removal boundary, preservation of markers across stale saves, a same-session guard, retained cached scores during ended-round fallback initialization, and safe in-memory reconciliation when disk cleanup fails. B3b-1 remains as planned. These corrections still require focused failing tests and separate reviews.
+- `102232bc` / `802c0788`: the end-specific DAO commits marker, tee, nine context and removals together; stale full-card saves preserve authoritative shape. Session generation and loading guards prevent an older action from changing a reopened round. This boundary uses native exclusive SQLite transactions and explicitly rejects web; iOS/Android crash/interleaving QA is still required.
+- `fcb6b32b` / `54386b35`: init resolves server/local shape, retains cached ended scores/tees/revisions, safely rebuilds memory when cleanup fails, and always recomputes ended totals even when persisted marker/keys already agree. Metadata-save failure can leave stale stored totals after the atomic end; recovery tests cover that case.
+- `2e4ed836`: hook hydration drops post-end keys; shape guards adopt server ends. The existing round-only reset cap now keys by shape so an earlier nine-type recovery cannot suppress a later end update.
+- **Required upcoming corrections:** read **`B4-consistency-ruling.md`** and `impact-B4.md` before B4. They cover valid-marker consistency, stale display/snapshot totals and cutoff filtering, including queued sync that bypasses store init, and missing-metadata mismatch guards. Read **`B5-cutoff-ruling.md`** and `impact-B5.md` before B5: truncate physical holes before counting decisions, and normalize sparse team result maps from planned holes at caller boundaries.
+- **B6 recovery remains required:** a crash between durable local ending and queueing `end_early`, or a session change after durable commit, can leave local N without queued intent. Add narrow idempotent recovery and regression coverage during B6. See **`B3-durability-ruling.md`**; do not claim the atomic marker/removal transaction alone closes this window.
 
 ## How to run each task (the process used so far)
 1. Read the plan header first: the Global Constraints, Interface Contract and Task Index, i.e. everything above `## Task 0`. Then read only the task's own `### Task <ID>:` section.
@@ -48,7 +52,7 @@
 - `brief.py`: extracts one task with `python3 brief.py <plan> <TaskID>`;
 - `impl-common.md` and `review-common.md`: the implementer and reviewer instructions;
 - per-task brief, report and review-diff files.
-- `impact-B2.md`, `impact-B3.md`, `B1a-review-ruling.md`, and `B3-durability-ruling.md`: preflight findings and approved corrections beyond sample snippets.
+- `impact-B2.md` through `impact-B5.md`, `B1a-review-ruling.md`, `B3-durability-ruling.md`, `B4-consistency-ruling.md`, and `B5-cutoff-ruling.md`: preflight findings and approved corrections beyond sample snippets.
 
 ## Rulings so far (decisions made on Sam's behalf)
 - **Brief extraction:** briefs are extracted by `brief.py`, because the plan's task IDs aren't numeric.
