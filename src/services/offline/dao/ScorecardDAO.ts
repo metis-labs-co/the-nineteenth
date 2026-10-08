@@ -4,6 +4,8 @@
  * Data access operations for scorecards in SQLite.
  */
 
+import { Platform } from 'react-native';
+import { getHoleRange } from '@/constants/scoring';
 import type { Scorecard } from '@/types';
 import type { TeeBox, Hole } from '@/types/database/base';
 import type { GameType, NineType } from '@/types/database/enums';
@@ -99,13 +101,40 @@ export async function saveScorecard(scorecard: Scorecard): Promise<void> {
     // together. Without this, a failure mid-way through hole saves would leave
     // a scorecard with incomplete hole data in SQLite.
     await database.withTransactionAsync(async () => {
+      // Resolve conflicts in SQL, not a pre-read: a stale asynchronous save
+      // cannot clear/change committed N, its tee or its nine. A matching N
+      // may correct the tee normally. Non-ended saves retain their old behavior.
       await database.runAsync(
         `INSERT OR REPLACE INTO ${TABLE_NAMES.SCORECARDS}
          (id, round_id, player_id, player_name, player_handicap, total_gross, total_net, total_points,
           status, submitted_at, submitted_by, created_at, updated_at, is_synced, is_standalone,
           tee_data, course_par, player_gender, player_handicap_used, server_revision,
           sync_nine_type, sync_game_type, sync_holes, holes_played)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+          round_id = excluded.round_id,
+          player_id = excluded.player_id,
+          player_name = excluded.player_name,
+          player_handicap = excluded.player_handicap,
+          total_gross = excluded.total_gross,
+          total_net = excluded.total_net,
+          total_points = excluded.total_points,
+          status = excluded.status,
+          submitted_at = excluded.submitted_at,
+          submitted_by = excluded.submitted_by,
+          created_at = excluded.created_at,
+          updated_at = excluded.updated_at,
+          is_synced = excluded.is_synced,
+          is_standalone = excluded.is_standalone,
+          course_par = excluded.course_par,
+          player_gender = excluded.player_gender,
+          player_handicap_used = excluded.player_handicap_used,
+          server_revision = excluded.server_revision,
+          sync_game_type = excluded.sync_game_type,
+          sync_holes = excluded.sync_holes,
+          holes_played = COALESCE(scorecards.holes_played, excluded.holes_played),
+          tee_data = CASE WHEN scorecards.holes_played IS NOT NULL AND scorecards.holes_played IS NOT excluded.holes_played THEN scorecards.tee_data ELSE excluded.tee_data END,
+          sync_nine_type = CASE WHEN scorecards.holes_played IS NOT NULL AND scorecards.holes_played IS NOT excluded.holes_played THEN scorecards.sync_nine_type WHEN scorecards.holes_played IS NOT NULL THEN COALESCE(excluded.sync_nine_type, scorecards.sync_nine_type) ELSE excluded.sync_nine_type END`,
         [
           scorecard.id,
           scorecard.roundId,
@@ -134,8 +163,22 @@ export async function saveScorecard(scorecard: Scorecard): Promise<void> {
         ]
       );
 
-      // Save individual hole scores within the same transaction
-      await bulkSaveHoleScores(scorecard.id, scorecard.scores);
+      // Read AFTER the atomic row upsert, inside this transaction: a delayed
+      // pre-end full-card save must not resurrect scores outside durable N.
+      const shape = await database.getFirstAsync<Pick<ScorecardRow, 'holes_played' | 'sync_nine_type'>>(
+        `SELECT holes_played, sync_nine_type FROM ${TABLE_NAMES.SCORECARDS} WHERE id = ?`,
+        [scorecard.id]
+      );
+      let scores = scorecard.scores;
+      if (shape?.holes_played != null && shape.holes_played > 0) {
+        const { start } = getHoleRange((shape.sync_nine_type as NineType | null) ?? 'full');
+        const end = start + shape.holes_played;
+        scores = Object.fromEntries(Object.entries(scores).filter(([key]) => {
+          const hole = Number(key);
+          return hole >= start && hole < end;
+        }));
+      }
+      await bulkSaveHoleScores(scorecard.id, scores);
     });
 
     dbLogger.debug('Scorecard saved successfully', {
@@ -148,6 +191,46 @@ export async function saveScorecard(scorecard: Scorecard): Promise<void> {
     });
     throw error;
   }
+}
+
+/**
+ * Commit the local end marker, effective tee, nine and score removals together.
+ * Only this operation replaces an existing authoritative N (in either direction).
+ *
+ * Expo SQLite 16's ordinary async transactions admit unrelated statements.
+ * The isolated txn connection is required here, and is unsupported on web.
+ * This iOS/Android feature explicitly rejects web instead of weakening atomicity.
+ * Never call saveScorecard/deleteHoleScoresForCards inside this transaction.
+ */
+export async function persistRoundEarlyEnd(
+  roundId: string,
+  holesPlayed: number,
+  nineType: NineType,
+  playedHoleNumbers: readonly number[],
+  cards: readonly { scorecardId: string; teeData: TeeBox | null }[],
+): Promise<void> {
+  if (Platform.OS === 'web') {
+    throw new Error('Durable early ending requires native SQLite; web is unsupported');
+  }
+  if (!Number.isInteger(holesPlayed) || holesPlayed < 1 || playedHoleNumbers.length !== holesPlayed) {
+    throw new Error('Invalid durable early-end played holes');
+  }
+  const database = await getDb();
+  const now = nowSQLite();
+  await database.withExclusiveTransactionAsync(async (txn) => {
+    for (const { scorecardId, teeData } of cards) {
+      const result = await txn.runAsync(
+        `UPDATE ${TABLE_NAMES.SCORECARDS} SET holes_played = ?, tee_data = ?, sync_nine_type = ?, updated_at = ?, is_synced = 0 WHERE id = ? AND round_id = ?`,
+        [holesPlayed, teeData ? JSON.stringify(teeData) : null, nineType, now, scorecardId, roundId]
+      );
+      if (result.changes !== 1) throw new Error(`Missing expected scorecard ${scorecardId} for early end`);
+      const placeholders = playedHoleNumbers.map(() => '?').join(', ');
+      await txn.runAsync(
+        `DELETE FROM ${TABLE_NAMES.HOLE_SCORES} WHERE scorecard_id = ? AND hole_number NOT IN (${placeholders})`,
+        [scorecardId, ...playedHoleNumbers]
+      );
+    }
+  });
 }
 
 /**

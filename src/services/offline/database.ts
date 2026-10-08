@@ -18,6 +18,7 @@ export { initDatabase, closeDatabase, clearAllData, __resetDatabaseState } from 
 // Scorecard operations
 export {
   saveScorecard,
+  persistRoundEarlyEnd,
   getScorecardsByRound,
   deleteScorecard,
   deleteScorecardsByRound,

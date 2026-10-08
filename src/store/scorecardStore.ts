@@ -40,6 +40,7 @@ import { persistScorecardUpdate } from './scorecardPersistence';
 import * as multiBall from './multiBallSlice';
 import * as scoreUpdate from './scoreUpdateSlice';
 import * as initSlice from './initializeRoundSlice';
+import * as endEarly from './endRoundEarlySlice';
 
 interface ScorecardState {
   // Current round data
@@ -113,6 +114,8 @@ interface ScorecardState {
   getCompletedHolesCount: () => number;
   /** filterPlayableHoles(holes, nineType, holesPlayed): the holes to render, validate and count. */
   getPlayedHoles: () => Hole[];
+  /** Durably end after n holes locally; the caller tells the server. */
+  endRoundEarly: (n: number) => Promise<void>;
   submitScorecards: (options?: { bypassed?: boolean; playerIds?: string[] }) => Promise<void>;
   resetRound: () => void;
 
@@ -128,6 +131,9 @@ interface ScorecardState {
 }
 
 export const useScorecardStore = create<ScorecardState>((set, get) => {
+  // Invalidates asynchronous end actions even when the same round is reopened.
+  let roundSession = 0;
+
   // Subscribe to sync state changes
   let unsubscribe: (() => void) | null = null;
 
@@ -217,11 +223,13 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
     // The failure recount runs after the slice resolves: it is scoped to
     // `currentRoundId`, which the slice only sets once the round has loaded.
     initializeRound: async (roundId, players, holes, gameType, isStandalone, allowedPlayerIds, selectedTeeData, handicapSource, playerTeeMap, nineType, startHole) => {
+      roundSession += 1;
       await initSlice.initializeRound(set, initSyncListener, roundId, players, holes, gameType, isStandalone, allowedPlayerIds, selectedTeeData, handicapSource, playerTeeMap, nineType, startHole);
       await refreshRoundFailedSyncCount();
     },
 
     loadFromOffline: async (roundId) => {
+      roundSession += 1;
       const loaded = await initSlice.loadFromOffline(set, initSyncListener, roundId);
       await refreshRoundFailedSyncCount();
       return loaded;
@@ -383,6 +391,8 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
       return filterPlayableHoles(holes, nineType, holesPlayed);
     },
 
+    endRoundEarly: (n) => endEarly.endRoundEarly(get, set, n, { getSessionGeneration: () => roundSession }),
+
     submitScorecards: async (options) => {
       const { groupScorecards, currentRoundId, selectedTeeData, holes, gameType, nineType, holesPlayed } = get();
       const scopeIds = options?.playerIds;
@@ -518,6 +528,7 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
     },
 
     resetRound: () => {
+      roundSession += 1;
       set({
         currentRoundId: null,
         currentPlayers: [],
