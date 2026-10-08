@@ -33,7 +33,7 @@ describe('fetchSkinsHoleCounts', () => {
 
     await expect(fetchSkinsHoleCounts('r1')).resolves.toEqual({ plannedHoles: 9, holesPlayed: 9 });
     expect(mockFrom).toHaveBeenCalledWith('rounds');
-    expect(builder.select).toHaveBeenCalledWith('nine_type');
+    expect(builder.select).toHaveBeenCalledWith('nine_type, holes_played');
     expect(builder.eq).toHaveBeenCalledWith('id', 'r1');
   });
 

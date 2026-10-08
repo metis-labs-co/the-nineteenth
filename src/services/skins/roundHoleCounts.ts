@@ -4,8 +4,8 @@
  * planned holes), by settlement (finalizeSkinsGame, finalizeSkinsForSubMatch)
  * and by useSkinsHoleCounts.
  *
- * Part A reads nine_type only; B1b adds holes_played to the select once the
- * column exists.
+ * Reads nine_type and holes_played (B1b), so an ended-early round settles on
+ * the holes played.
  */
 
 import { supabase } from '@/services/supabase/client';
@@ -21,10 +21,10 @@ import type { NineType } from '@/types/database/enums';
 export async function fetchSkinsHoleCounts(roundId: string): Promise<SkinsHoleCounts> {
   const { data, error } = (await supabase
     .from('rounds')
-    .select('nine_type')
+    .select('nine_type, holes_played')
     .eq('id', roundId)
     .maybeSingle()) as unknown as {
-    data: { nine_type?: NineType | null } | null;
+    data: { nine_type?: NineType | null; holes_played?: number | null } | null;
     error: { message: string } | null;
   };
 

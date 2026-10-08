@@ -44,6 +44,10 @@ export interface Round {
   // Game Configuration
   game_type: GameType; // 'stableford' for MVP
   nine_type: NineType; // 'full' | 'front9' | 'back9' — standalone only
+  // Holes played when a standalone round was ended early, counted from the
+  // round's first hole (back9 + 6 = holes 10–15). NULL/absent = played as
+  // planned. Written only by the end_round_early RPC.
+  holes_played?: number | null;
   selected_tee: TeeBox | null; // Selected tee box for this round (JSONB)
 
   // Team round settings (added for team support)

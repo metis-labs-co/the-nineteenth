@@ -75,6 +75,8 @@ export interface SupabaseRoundData {
   ball_count: number | null;
   handicap_source: string | null;
   nine_type: string | null;
+  /** Holes played when the round was ended early (NULL = as planned). Absent on rows selected without it. */
+  holes_played?: number | null;
   selected_tee: TeeBox | null;
   team_config: StandaloneTeamConfig | null;
   courses: SupabaseCourseData | null;
@@ -130,6 +132,7 @@ export const ROUND_METADATA_SELECT = `
   ball_count,
   handicap_source,
   nine_type,
+  holes_played,
   selected_tee,
   team_config,
   courses!course_id (

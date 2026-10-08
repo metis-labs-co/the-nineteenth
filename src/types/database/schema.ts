@@ -436,6 +436,16 @@ export interface Database {
         };
         Returns: string | null; // UUID of scorer, or null
       };
+      // Shape only: createClient<Database> resolves rpc() to never with this
+      // hand-written schema, so callers type their args from this entry and
+      // cast the call: (supabase.rpc as any)('end_round_early', args).
+      end_round_early: {
+        Args: {
+          p_round_id: string; // UUID
+          p_holes_played: number; // N, counted from the round's first hole (1..planned-1)
+        };
+        Returns: undefined; // VOID
+      };
       validate_scoring_pairs: {
         Args: {
           p_round_id: string; // UUID

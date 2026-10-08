@@ -5,6 +5,8 @@
  * columns and the round_comments / round_photos tables.
  */
 
+import type { NineType } from '@/types/database/enums';
+
 /** A player who appears within a feed card (one per submitted scorecard). */
 export interface FeedParticipant {
   player_id: string;
@@ -45,6 +47,11 @@ export interface ActivityFeedCard {
   like_count: number;
   comment_count: number;
   viewer_has_liked: boolean;
+  /** Holes played when the round was ended early (NULL = as planned). Absent
+   *  on cards cached before 20261007000200 added it to the feed RPCs. */
+  holes_played?: number | null;
+  /** The round's nine type, for the "Ended after N of M" label (M = 18 or 9). */
+  nine_type?: NineType | null;
 }
 
 /** A comment on a round, with author profile joined in. */

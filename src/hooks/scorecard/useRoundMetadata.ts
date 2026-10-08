@@ -45,6 +45,10 @@ export interface RoundMetadata {
   handicapSource: HandicapSource;
   /** Whether this is a 9-hole or full round, controls which holes are scored. */
   nineType: NineType;
+  /** Holes played when the round was ended early (rounds.holes_played), counted from the
+   *  round's first hole. null = played as planned. An offline end that hasn't synced yet
+   *  lives on the local SQLite cards instead; init paths merge both via resolveRoundShape. */
+  holesPlayed: number | null;
   /** Per-player tee overrides: playerId -> TeeBox. Round overrides take precedence over competition defaults. */
   playerTeeMap: Map<string, TeeBox>;
 }
@@ -204,6 +208,7 @@ export function useRoundMetadata(roundId: string | undefined): UseRoundMetadataR
         teamConfig: roundData.team_config ?? null,
         handicapSource: (roundData.handicap_source as HandicapSource) ?? 'profile',
         nineType: (roundData.nine_type as NineType) ?? 'full',
+        holesPlayed: roundData.holes_played ?? null,
         playerTeeMap,
       };
 
