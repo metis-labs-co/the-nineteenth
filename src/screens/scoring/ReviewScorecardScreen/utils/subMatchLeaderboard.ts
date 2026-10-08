@@ -107,14 +107,16 @@ function toMatchSide(players: SubMatchPlayer[], id: string): MatchTeam {
 export function computeMatchPlaySubMatch(
   sides: SubMatchSides,
   holes: Hole[],
-  getStrokes: GetStrokes
+  getStrokes: GetStrokes,
+  holesPlayed: number | null = null
 ): MatchPlayRowData {
   const team1 = toMatchSide(sides.a, 'a');
   const team2 = toMatchSide(sides.b, 'b');
-  const calc = calculateTeamMatchData(holes, team1, team2, getStrokes);
+  const calc = calculateTeamMatchData(holes, team1, team2, getStrokes, holesPlayed);
   // Pass holes.length as totalHoles so dormie/close-out is detected for the
-  // round's actual hole count (the engine otherwise defaults to 18).
-  const status = calculateMatchStatus(calc.holeResults, holes.length);
+  // round's planned hole count (the engine otherwise defaults to 18); an
+  // early end settles the lead only after all retained holes are decided.
+  const status = calculateMatchStatus(calc.holeResults, holes.length, holesPlayed);
   const hasScores = Object.values(calc.holeResults).some((r) => r.winner !== null);
 
   if (status.status === 'complete') {

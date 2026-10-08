@@ -83,6 +83,50 @@ describe('computeMatchPlaySubMatch', () => {
     expect(r.leaderSide).toBe('a');
     expect(r.statusText).toBe('1 UP');
   });
+  it('settles an ended-early match on the lead after holesPlayed holes ("2 UP", complete)', () => {
+    // Sam wins 1 & 2, halves 3-6; round ended after 6 of 9.
+    const getStrokes = (pid: string, h: number) => {
+      if (h > 6) return undefined;
+      if (h <= 2) return pid === 'a1' ? 4 : 5;
+      return 4;
+    };
+    expect(computeMatchPlaySubMatch(sides, NINE, getStrokes, 6)).toEqual({
+      statusText: '2 UP',
+      leaderSide: 'a',
+      isComplete: true,
+      hasScores: true,
+    });
+  });
+
+  it('keeps a real close-out against the planned 9: 5 up after 5, ended at 6 → "5&4"', () => {
+    const getStrokes = (pid: string, h: number) => {
+      if (h > 6) return undefined;
+      if (h <= 5) return pid === 'a1' ? 3 : 5;
+      return 4;
+    };
+    expect(computeMatchPlaySubMatch(sides, NINE, getStrokes, 6).statusText).toBe('5&4');
+  });
+
+  it('settles all square at N even with a stale later winner', () => {
+    expect(computeMatchPlaySubMatch(sides, NINE, (pid, h) =>
+      h > 6 && pid === 'b1' ? 3 : 4, 6)).toEqual({
+      statusText: 'A/S', leaderSide: null, isComplete: true, hasScores: true,
+    });
+  });
+
+  it('keeps partial ended scores in progress without using later decisions', () => {
+    expect(computeMatchPlaySubMatch(sides, NINE, (pid, h) => {
+      if (h === 2) return undefined;
+      return pid === 'a1' && (h === 1 || h > 6) ? 3 : 4;
+    }, 6)).toEqual({ statusText: '1 UP', leaderSide: 'a', isComplete: false, hasScores: true });
+  });
+
+  it.each([null, undefined, 0, -1, 1.5, NaN, Infinity, 9, 10])('keeps default display for cutoff %s', (cutoff) => {
+    const scores = (pid: string, h: number) => h <= 2 ? (pid === 'a1' ? 3 : 4) : undefined;
+    expect(computeMatchPlaySubMatch(sides, NINE, scores, cutoff))
+      .toEqual(computeMatchPlaySubMatch(sides, NINE, scores));
+  });
+
 });
 
 describe('computeNetSubMatch', () => {

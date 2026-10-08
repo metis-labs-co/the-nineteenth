@@ -7,6 +7,8 @@
 import { getMatchPlayStrokes } from '@/utils/scoring';
 import { getInitials } from '@/utils/displayHelpers';
 import { PICKUP_SCORE } from '@/constants/scoring';
+import { filterPlayableHoles } from '@/utils/holeTransformers';
+import { resolveEndedAfter } from '@/utils/matchPlayResult';
 import {
   determineHoleWinner,
   calculateMatchStatus,
@@ -28,7 +30,8 @@ export function calculateAllData(
   player2Id: string,
   getPlayerScore: (playerId: string, holeNumber: number) => number | undefined,
   player1Handicap = 0,
-  player2Handicap = 0
+  player2Handicap = 0,
+  holesPlayed: number | null = null
 ): CalculatedData {
   const holeResults: Record<number, HoleResult> = {};
   const runningStatus: Record<number, MatchStatus> = {};
@@ -46,12 +49,16 @@ export function calculateAllData(
   // Dormie / close-out are judged against the holes this table was given —
   // the round's planned, nine-filtered list (9 for front9/back9) — never a
   // hard-coded 18. An empty list keeps 18, so it never reads as a finished,
-  // halved match.
+  // halved match. Early ends walk and total only the played holes; 'full'
+  // preserves this already nine-filtered planned list.
   const plannedHoleCount = holes.length || 18;
+  // Share the engine’s validity rule so invalid cutoffs preserve default order.
+  const endedAfter = resolveEndedAfter(plannedHoleCount, holesPlayed);
+  const playedHoles = filterPlayableHoles(holes, 'full', endedAfter);
 
   // Iterate the round's actual holes — back-9 / combo rounds carry numbers
   // 10..18 (or 10..27), so a 1..18 counter would skip them entirely.
-  for (const hole of holes) {
+  for (const hole of playedHoles) {
     const holeNum = hole.number;
 
     const p1Score = getPlayerScore(player1Id, holeNum) ?? null;
@@ -102,7 +109,7 @@ export function calculateAllData(
     };
 
     // Calculate running status up to this hole
-    runningStatus[holeNum] = calculateMatchStatus(holeResults, plannedHoleCount);
+    runningStatus[holeNum] = calculateMatchStatus(holeResults, plannedHoleCount, endedAfter);
 
     // Accumulate totals (gross).
     // Count the hole as played if either player has a non-pickup score.
@@ -144,7 +151,7 @@ export function calculateAllData(
       player2: front9P2 + back9P2,
       holesPlayed: front9Played + back9Played,
     },
-    finalStatus: calculateMatchStatus(holeResults, plannedHoleCount),
+    finalStatus: calculateMatchStatus(holeResults, plannedHoleCount, endedAfter),
   };
 }
 

@@ -13,6 +13,8 @@
 
 import { getFourBallStrokes } from '@/utils/scoring';
 import { PICKUP_SCORE } from '@/constants/scoring';
+import { filterPlayableHoles } from '@/utils/holeTransformers';
+import { resolveEndedAfter } from '@/utils/matchPlayResult';
 import {
   determineHoleWinner,
   calculateMatchStatus,
@@ -80,7 +82,8 @@ export function calculateTeamMatchData(
   holes: Hole[],
   team1: MatchTeam,
   team2: MatchTeam,
-  getPlayerScore: (playerId: string, holeNumber: number) => number | undefined
+  getPlayerScore: (playerId: string, holeNumber: number) => number | undefined,
+  holesPlayed: number | null = null
 ): TeamCalculatedData {
   const holeResults: Record<number, HoleResult> = {};
   // All players in the match (both teams), for relative-to-lowest allocation.
@@ -103,12 +106,16 @@ export function calculateTeamMatchData(
   // Dormie / close-out are judged against the holes this table was given —
   // the round's planned, nine-filtered list (9 for front9/back9) — never a
   // hard-coded 18. An empty list keeps 18, so it never reads as a finished,
-  // halved match.
+  // halved match. Early ends walk and total only the played holes; 'full'
+  // preserves this already nine-filtered planned list.
   const plannedHoleCount = holes.length || 18;
+  // Share the engine’s validity rule so invalid cutoffs preserve default order.
+  const endedAfter = resolveEndedAfter(plannedHoleCount, holesPlayed);
+  const playedHoles = filterPlayableHoles(holes, 'full', endedAfter);
 
   // Iterate the round's actual holes — back-9 / combo rounds carry numbers
   // 10..18 (or 10..27), so a 1..18 counter would skip them entirely.
-  for (const hole of holes) {
+  for (const hole of playedHoles) {
     const holeNum = hole.number;
 
     const getGrossForHole = (playerId: string) => getPlayerScore(playerId, holeNum);
@@ -143,7 +150,7 @@ export function calculateTeamMatchData(
       winner,
     };
 
-    runningStatus[holeNum] = calculateMatchStatus(holeResults, plannedHoleCount);
+    runningStatus[holeNum] = calculateMatchStatus(holeResults, plannedHoleCount, endedAfter);
 
     const t1Counts = t1Best !== null;
     const t2Counts = t2Best !== null;
@@ -182,6 +189,6 @@ export function calculateTeamMatchData(
       player2: front9T2 + back9T2,
       holesPlayed: front9Played + back9Played,
     },
-    finalStatus: calculateMatchStatus(holeResults, plannedHoleCount),
+    finalStatus: calculateMatchStatus(holeResults, plannedHoleCount, endedAfter),
   };
 }
