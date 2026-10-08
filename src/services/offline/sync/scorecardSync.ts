@@ -17,10 +17,14 @@ import {
   type AdjustedGrossParams,
 } from '@/utils/adjustedGross';
 import { calculateNineAwareDailyHandicap } from '@/utils/dailyHandicap';
+import { calculateNetOverHolesPlayed } from '@/utils/scorecardCalculations';
+import { filterPlayableHoles } from '@/utils/holeTransformers';
+import { isEndedEarly } from '@/utils/roundShape';
 import {
   getStrokesReceived,
   calculateStablefordPointsNet,
   calculateParScore,
+  getEffectiveGrossStrokes,
 } from '@/utils/scoring';
 import { teeBoxToRatings } from '@/utils/teeTransformers';
 import { getEffectiveTeeRatings } from '@/utils/teeResolution';
@@ -133,6 +137,10 @@ export async function syncScorecard(scorecard: Scorecard): Promise<ScorecardSync
     );
   }
 
+  // Resolve handicap from the original PLANNED context before filtering scores.
+  const handicapData = calculateHandicapData(scorecard);
+  const snapshotCard = prepareEndedSnapshot(scorecard, handicapData.dailyHandicapUsed);
+
   // Transform scores object to ensure string keys (Supabase JSONB compatibility)
   // Include all tracked stats: putts, FIR, GIR, penalties, shotContributions
   const scoresForDb: Record<
@@ -151,7 +159,7 @@ export async function syncScorecard(scorecard: Scorecard): Promise<ScorecardSync
     }
   > = {};
   let holesWithScores = 0;
-  for (const [holeNum, score] of Object.entries(scorecard.scores)) {
+  for (const [holeNum, score] of Object.entries(snapshotCard.scores)) {
     if (score && isSingleBallScore(score) && score.strokes !== undefined) {
       scoresForDb[String(holeNum)] = {
         strokes: score.strokes,
@@ -205,27 +213,19 @@ export async function syncScorecard(scorecard: Scorecard): Promise<ScorecardSync
     });
   }
 
-  // Calculate handicap data
-  const handicapData = calculateHandicapData(scorecard);
-
   // Calculate correct Stableford points using daily handicap and hole data
-  const totalPoints = calculateTotalPoints(scorecard, handicapData.dailyHandicapUsed);
+  const totalPoints = calculateTotalPoints(snapshotCard, handicapData.dailyHandicapUsed);
 
   // Calculate Par-game score (+1/0/-1 per hole) using the same DHC + hole
   // data. Without this, Par-format rounds would sync with total_par_score
   // null/0 and the round-results pipeline (which reads total_par_score
   // for the rawScore on Par rounds) would treat every player as a 0.
-  const totalParScore = calculateTotalParScore(scorecard, handicapData.dailyHandicapUsed);
+  const totalParScore = calculateTotalParScore(snapshotCard, handicapData.dailyHandicapUsed);
 
-  // total_net must equal gross - daily_handicap_used to stay consistent with
-  // calculatePlayerStats (the scorecard view). When the sync pipeline has a
-  // daily handicap, derive it here rather than trusting the store's live total,
-  // which can drift if tee/handicap context was missing during score entry.
-  // (For Stableford the store also overloads totalNet = totalPoints, so this
-  // correction was already required there — now it applies to all game types.)
-  const totalNet = handicapData.dailyHandicapUsed != null
-    ? (scorecard.totalGross || 0) - handicapData.dailyHandicapUsed
-    : scorecard.totalNet || 0;
+  // total_net mirrors calculatePlayerStats (the scorecard view): gross −
+  // daily_handicap_used, or — for a round ended early — the per-hole net over
+  // the holes played. See calculateSnapshotTotalNet.
+  const totalNet = calculateSnapshotTotalNet(snapshotCard, handicapData.dailyHandicapUsed);
 
   // Prepare data for Supabase upsert
   // Don't send 'id' - let Supabase generate it or use the unique constraint (round_id, player_id)
@@ -233,7 +233,7 @@ export async function syncScorecard(scorecard: Scorecard): Promise<ScorecardSync
     round_id: scorecard.roundId,
     player_id: scorecard.playerId,
     scores: scoresForDb,
-    total_gross: scorecard.totalGross || 0,
+    total_gross: snapshotCard.totalGross || 0,
     total_net: totalNet,
     total_points: totalPoints,
     total_par_score: totalParScore,
@@ -310,7 +310,7 @@ export async function syncScorecard(scorecard: Scorecard): Promise<ScorecardSync
   }
 
   // Sync score entries for mismatch detection
-  await syncScoreEntries(scorecard);
+  await syncScoreEntries(snapshotCard);
   return { serverRevision: result.server_revision };
 }
 
@@ -466,6 +466,14 @@ export function calculateHandicapData(scorecard: Scorecard): {
     });
   }
 
+  // Belt alongside the per-card completeness gate (A3): a card stamped as
+  // ended early never gets a differential, whatever its hole data looks like
+  // (e.g. a legacy card synced without per-hole scores). The server trigger
+  // enforces the same rule (B1a).
+  if (isEndedEarly({ holes_played: scorecard.holesPlayed })) {
+    handicapDifferential = null;
+  }
+
   return {
     gaHandicapUsed,
     dailyHandicapUsed,
@@ -491,11 +499,14 @@ function calculateTotalPoints(
     let totalPoints = 0;
 
     for (const hole of holes) {
-      const score = scorecard.scores[hole.number];
-      if (!score || !isSingleBallScore(score) || !score.strokes || score.strokes <= 0) continue;
-
+      const rawStrokes = readSnapshotStrokes(scorecard, hole.number);
       const strokesReceived = getStrokesReceived(dailyHandicap, hole.strokeIndex);
-      totalPoints += calculateStablefordPointsNet(score.strokes, hole.par, strokesReceived);
+      const strokes = isEndedEarly({ holes_played: scorecard.holesPlayed })
+        ? getEffectiveGrossStrokes(rawStrokes, hole.par, strokesReceived)
+        : rawStrokes;
+      if (strokes == null || strokes <= 0) continue;
+
+      totalPoints += calculateStablefordPointsNet(strokes, hole.par, strokesReceived);
     }
 
     syncLogger.debug('Calculated Stableford points with daily handicap', {
@@ -534,10 +545,13 @@ function calculateTotalParScore(
   if (Array.isArray(holes) && holes.length > 0 && dailyHandicap != null) {
     let totalParScore = 0;
     for (const hole of holes) {
-      const score = scorecard.scores[hole.number];
-      if (!score || !isSingleBallScore(score) || !score.strokes || score.strokes <= 0) continue;
+      const rawStrokes = readSnapshotStrokes(scorecard, hole.number);
       const strokesReceived = getStrokesReceived(dailyHandicap, hole.strokeIndex);
-      totalParScore += calculateParScore(score.strokes, hole.par, strokesReceived);
+      const strokes = isEndedEarly({ holes_played: scorecard.holesPlayed })
+        ? getEffectiveGrossStrokes(rawStrokes, hole.par, strokesReceived)
+        : rawStrokes;
+      if (strokes == null || strokes <= 0) continue;
+      totalParScore += calculateParScore(strokes, hole.par, strokesReceived);
     }
     return totalParScore;
   }
@@ -545,6 +559,83 @@ function calculateTotalParScore(
   // Fallback to whatever the store wrote (which used DHC if context was
   // available at score entry time).
   return scorecard.total_par_score ?? 0;
+}
+
+/**
+ * Queued cards may have a durable end marker and trimmed scores but stale
+ * cached totals after a failed metadata save. Prepare one played-score view
+ * for both snapshot and score-entry writes, without mutating the local card.
+ * Keep planned syncHoles/coursePar for handicap context. With no hole data or
+ * no daily handicap, preserve cached totals rather than inventing pars/strokes.
+ */
+function prepareEndedSnapshot(scorecard: Scorecard, dailyHandicap: number | null): Scorecard {
+  const holes = scorecard.syncHoles;
+  if (
+    !isEndedEarly({ holes_played: scorecard.holesPlayed }) ||
+    !Array.isArray(holes) ||
+    holes.length === 0
+  ) {
+    return scorecard;
+  }
+
+  const playedHoles = filterPlayableHoles(
+    holes,
+    scorecard.syncNineType ?? 'full',
+    scorecard.holesPlayed
+  );
+  const playedNumbers = new Set<number>(playedHoles.map((hole) => hole.number));
+  const scores = Object.fromEntries(
+    Object.entries(scorecard.scores).filter(([number]) => playedNumbers.has(Number(number)))
+  );
+  const snapshotCard = { ...scorecard, scores };
+  if (dailyHandicap == null) return snapshotCard;
+
+  let gross = 0;
+  for (const hole of playedHoles) {
+    const strokesReceived = getStrokesReceived(dailyHandicap, hole.strokeIndex);
+    gross += getEffectiveGrossStrokes(
+      readSnapshotStrokes(snapshotCard, hole.number),
+      hole.par,
+      strokesReceived
+    ) ?? 0;
+  }
+  return { ...snapshotCard, totalGross: gross };
+}
+
+/** Normal cards retain their single-ball points/Par behavior; ended cards use ball 1 like gross/net. */
+function readSnapshotStrokes(scorecard: Scorecard, holeNumber: number): number | undefined {
+  const score = scorecard.scores[holeNumber];
+  if (!score) return undefined;
+  if (isSingleBallScore(score)) return score.strokes;
+  return isEndedEarly({ holes_played: scorecard.holesPlayed }) ? score.balls?.[0]?.strokes : undefined;
+}
+
+/**
+ * total_net for the scorecard snapshot.
+ *
+ * - With a daily handicap: gross − daily_handicap_used, matching
+ *   calculatePlayerStats. Derived here rather than trusting the store's live
+ *   total, which can drift if tee/handicap context was missing during score
+ *   entry — and for Stableford the store overloads totalNet = points.
+ * - Ended early (`holesPlayed`, stamped by the store's endRoundEarly): Σ(gross −
+ *   strokes received) over the holes played, from the per-hole scores and the
+ *   planned holes stamped at submit; daily_handicap_used stays the planned
+ *   round's value.
+ * - No daily handicap: the store's totalNet, as before.
+ */
+function calculateSnapshotTotalNet(scorecard: Scorecard, dailyHandicap: number | null): number {
+  if (dailyHandicap == null) {
+    return scorecard.totalNet || 0;
+  }
+
+  const holesPlayed = scorecard.holesPlayed;
+  const holes = scorecard.syncHoles;
+  if (isEndedEarly({ holes_played: holesPlayed }) && Array.isArray(holes) && holes.length > 0) {
+    const playedHoles = filterPlayableHoles(holes, scorecard.syncNineType ?? 'full', holesPlayed);
+    return calculateNetOverHolesPlayed(scorecard.scores, playedHoles, dailyHandicap);
+  }
+
+  return (scorecard.totalGross || 0) - dailyHandicap;
 }
 
 /**

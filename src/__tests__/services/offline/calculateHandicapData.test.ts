@@ -272,3 +272,29 @@ describe('calculateHandicapData — handicap completeness gate (I12)', () => {
     expect(result.handicapDifferential).toBeNull();
   });
 });
+
+describe('calculateHandicapData — ended-early belt', () => {
+  it('never returns a differential for a card stamped as ended early, even a legacy card with no hole data', () => {
+    // scores {} is the legacy gross-only shape the completeness gate (A3) lets
+    // through. The holesPlayed stamp alone must keep it out of the index.
+    const result = calculateHandicapData(makeScorecard({ totalGross: 30, holesPlayed: 6 }));
+
+    expect(result.handicapDifferential).toBeNull();
+    // The rest of the snapshot is still written.
+    expect(result.courseRatingUsed).toBe(71);
+    expect(result.slopeRatingUsed).toBe(122);
+    expect(result.dailyHandicapUsed).not.toBeNull();
+  });
+
+  it('leaves a card with holesPlayed null unchanged', () => {
+    const result = calculateHandicapData(makeScorecard({ totalGross: 90, holesPlayed: null }));
+    expect(result.handicapDifferential).toBeCloseTo(17.6, 1);
+  });
+});
+
+describe('calculateHandicapData — invalid ended markers', () => {
+  it.each([null, 0, -1, 2.5, NaN])('treats %s as absent', (holesPlayed) => {
+    expect(calculateHandicapData(makeScorecard({ holesPlayed })))
+      .toEqual(calculateHandicapData(makeScorecard()));
+  });
+});

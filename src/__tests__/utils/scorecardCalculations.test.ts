@@ -12,11 +12,13 @@ import {
   splitHolesByNine,
   generateDefaultHoles,
   calculateHoleStableford,
+  calculateNetOverHolesPlayed,
   type ScorecardPlayerData,
   type ScoresRecord,
 } from '@/utils/scorecardCalculations';
 import { create18Holes } from './testFixtures';
-import type { Hole } from '@/types/database.types';
+import { PICKUP_SCORE } from '@/constants/scoring';
+import type { Hole, TeeBox } from '@/types/database.types';
 
 // ============================================================================
 // Test Fixtures
@@ -867,5 +869,206 @@ describe('scorecardCalculations integration', () => {
     const directCalc = calculateHoleStableford(hole.par + 1, hole.par, 18, hole.strokeIndex);
 
     expect(stats[0].totalStableford).toBe(directCalc);
+  });
+});
+
+// ============================================================================
+// calculatePlayerStats — rounds ended early
+// ============================================================================
+
+describe('calculatePlayerStats — rounds ended early', () => {
+  const holes = create18Holes();
+  const firstSix = [1, 2, 3, 4, 5, 6];
+
+  describe('characterization (locks current behaviour)', () => {
+    it('prefers a complete stored Stableford snapshot when no end marker exists', () => {
+      const player = {
+        ...createScorecardPlayerData('p1', 'Stored', 18, createPartialScores(holes, firstSix, 0)),
+        storedGaHandicap: 18,
+        storedDailyHandicap: 18,
+        storedTotalPoints: 40,
+      };
+      const [stats] = calculatePlayerStats([player], holes);
+      expect(stats.totalStableford).toBe(40);
+      expect(stats.front9Stableford).toBe(18);
+    });
+
+    it('nets a partial card as gross − the full daily handicap when holesPlayed is not given', () => {
+      const scores = createPartialScores(holes, firstSix, 0);
+      const [stats] = calculatePlayerStats(
+        [createScorecardPlayerData('p1', 'Partial', 18, scores)],
+        holes
+      );
+
+      // No tee ⇒ daily handicap = handicap 18. Gross 23 − 18 = 5.
+      expect(stats.dailyHandicap).toBe(18);
+      expect(stats.totalGross).toBe(23);
+      expect(stats.totalNet).toBe(5);
+    });
+  });
+  describe('with options.holesPlayed', () => {
+    it('nets over the holes played: Σ(gross − strokes received)', () => {
+      const scores = createPartialScores(holes, firstSix, 0);
+      const [stats] = calculatePlayerStats(
+        [createScorecardPlayerData('p1', 'Ended', 18, scores)],
+        holes,
+        null,
+        'profile',
+        { holesPlayed: 6 }
+      );
+
+      // DHC 18 ⇒ one stroke on every hole ⇒ 23 − 6 = 17 (not 23 − 18 = 5).
+      expect(stats.dailyHandicap).toBe(18);
+      expect(stats.totalGross).toBe(23);
+      expect(stats.totalNet).toBe(17);
+    });
+
+    it('still derives the daily handicap from the PLANNED holes', () => {
+      const tee = { name: 'Members', color: 'white', courseRating: 72, slopeRating: 113 } as TeeBox;
+      const scores = createPartialScores(holes, firstSix, 0);
+      const [stats] = calculatePlayerStats(
+        [createScorecardPlayerData('p1', 'Ended', 18, scores)],
+        holes,
+        tee,
+        'profile',
+        { holesPlayed: 6 }
+      );
+
+      // Planned par 72: round((18 × 113/113 + (72 − 72)) × 0.93 × 0.9986) = round(16.72) = 17.
+      // Had par come from the 6 played holes (23) the DHC would be ~62.
+      expect(stats.dailyHandicap).toBe(17);
+      // SIs 7,15,1,11,5,17 are all ≤ 17 ⇒ one stroke each ⇒ 23 − 6.
+      expect(stats.totalNet).toBe(17);
+    });
+
+    it('ignores a score recorded after the holes played', () => {
+      // Hole 7 is par 4: today it would add 4 to gross (27).
+      const scores = createPartialScores(holes, [...firstSix, 7], 0);
+      const [stats] = calculatePlayerStats(
+        [createScorecardPlayerData('p1', 'Ended', 18, scores)],
+        holes,
+        null,
+        'profile',
+        { holesPlayed: 6 }
+      );
+
+      expect(stats.totalGross).toBe(23);
+      expect(stats.front9Gross).toBe(23);
+      expect(stats.totalNet).toBe(17);
+    });
+
+    it('counts a pickup on a played hole as net double bogey (I3)', () => {
+      const scores = createPartialScores(holes, [1, 2, 3, 4, 5], 0); // pars 4,3,5,4,4 = 20
+      scores['6'] = { strokes: PICKUP_SCORE };
+      const [stats] = calculatePlayerStats(
+        [createScorecardPlayerData('p1', 'Ended', 18, scores)],
+        holes,
+        null,
+        'profile',
+        { holesPlayed: 6 }
+      );
+
+      // Hole 6: par 3, one stroke ⇒ NDB 3 + 2 + 1 = 6. Gross 20 + 6 = 26.
+      expect(stats.totalGross).toBe(26);
+      // Net (20 − 5) + (6 − 1) = 20.
+      expect(stats.totalNet).toBe(20);
+    });
+
+    it('slices a back-nine list from hole 10', () => {
+      const back9 = holes.filter((h) => h.number >= 10);
+      // Holes 10–12: pars 4,3,5 (Σ 12).
+      const scores = createPartialScores(holes, [10, 11, 12], 0);
+      const [stats] = calculatePlayerStats(
+        [createScorecardPlayerData('p1', 'Back nine', 18, scores)],
+        back9,
+        null,
+        'profile',
+        { holesPlayed: 3 }
+      );
+
+      expect(stats.back9Gross).toBe(12);
+      expect(stats.totalNet).toBe(9); // 12 − 3 strokes
+    });
+
+    it('nets only the single-ball scores its gross counts (a multi-ball card reads 0 for both)', () => {
+      // The gross loop reads single-ball scores only (multi-ball uses
+      // ball_totals), so the ended-early net must too: never a non-zero net
+      // beside a zero gross. (The sync snapshot reads ball 1; see below.)
+      const scores = {} as Record<string, unknown>;
+      for (const hole of firstSix) scores[String(hole)] = { balls: [{ strokes: 5 }, { strokes: 7 }] };
+      const [stats] = calculatePlayerStats(
+        [createScorecardPlayerData('p1', 'Multi-ball', 18, scores as unknown as ScoresRecord)],
+        holes,
+        null,
+        'profile',
+        { holesPlayed: 6 }
+      );
+
+      expect(stats.totalGross).toBe(0);
+      expect(stats.totalNet).toBe(0);
+    });
+
+    it('treats holesPlayed null or 0 exactly like no options', () => {
+      const players = [createScorecardPlayerData('p1', 'Full', 12, createFullScores(holes, 1))];
+      const baseline = calculatePlayerStats(players, holes);
+
+      expect(calculatePlayerStats(players, holes, null, 'profile', { holesPlayed: null })).toEqual(baseline);
+      expect(calculatePlayerStats(players, holes, null, 'profile', { holesPlayed: 0 })).toEqual(baseline);
+    });
+  });
+
+});
+describe('calculateNetOverHolesPlayed', () => {
+  it('sums gross − strokes received over the given holes, skipping unscored holes', () => {
+    const [h1, h2, h3] = create18Holes(); // par 4 SI 7, par 3 SI 15, par 5 SI 1
+    const scores = { 1: { strokes: 5 }, 3: { strokes: 6 } } as unknown as ScoresRecord;
+
+    // DHC 18 ⇒ one stroke on every hole ⇒ (5 − 1) + (6 − 1) = 9. Hole 2 unscored.
+    expect(calculateNetOverHolesPlayed(scores, [h1, h2, h3], 18)).toBe(9);
+  });
+
+  it("reads a multi-ball hole's first ball, as the store's calculatePlayerTotals does", () => {
+    const [h1, h2, h3] = create18Holes();
+    const scores = {
+      1: { balls: [{ strokes: 5 }, { strokes: 7 }] },
+      2: { balls: [] },
+      3: { balls: [{ strokes: 6 }, { strokes: 4 }] },
+    } as unknown as ScoresRecord;
+
+    // Hole 1: 5 − 1 = 4. Hole 2: no first ball ⇒ skipped. Hole 3: 6 − 1 = 5.
+    // (Skipping multi-ball holes would give 0.)
+    expect(calculateNetOverHolesPlayed(scores, [h1, h2, h3], 18)).toBe(9);
+  });
+
+  it('gives a plus handicap no strokes back, as in the store — even on SI 17 and 18', () => {
+    const holes = create18Holes();
+    const played = [holes[5], holes[14]]; // hole 6 par 3 SI 17; hole 15 par 3 SI 18
+    const scores = { 6: { strokes: 4 }, 15: { strokes: 4 } } as unknown as ScoresRecord;
+
+    // A WHS +2 would give a stroke back on SI 17 and 18 (net 10). The app's
+    // getStrokesReceived floors at 0 for every round, so net = gross = 8.
+    expect(calculateNetOverHolesPlayed(scores, played, -2)).toBe(8);
+  });
+});
+
+describe('calculatePlayerStats — ended marker consistency', () => {
+  const holes = create18Holes();
+  const player = {
+    ...createScorecardPlayerData('p1', 'Stored', 18, createFullScores(holes)),
+    storedGaHandicap: 18,
+    storedDailyHandicap: 18,
+    storedTotalPoints: 54,
+  };
+
+  it('recomputes retained-hole Stableford rather than a stale completed snapshot', () => {
+    const [stats] = calculatePlayerStats([player], holes, null, 'profile', { holesPlayed: 6 });
+    expect(stats.dailyHandicap).toBe(18);
+    expect(stats.totalStableford).toBe(18);
+    expect(stats.front9Stableford + stats.back9Stableford).toBe(stats.totalStableford);
+  });
+
+  it.each([null, 0, -1, 2.5, NaN])('ignores invalid marker %s including snapshot policy', (holesPlayed) => {
+    expect(calculatePlayerStats([player], holes, null, 'profile', { holesPlayed }))
+      .toEqual(calculatePlayerStats([player], holes));
   });
 });

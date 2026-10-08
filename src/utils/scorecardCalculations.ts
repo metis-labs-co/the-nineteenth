@@ -17,6 +17,8 @@ import {
   getEffectiveGrossStrokes,
 } from './scoring';
 import { calculateGADailyHandicap } from './dailyHandicap';
+import { filterPlayableHoles } from './holeTransformers';
+import { isEndedEarly } from './roundShape';
 
 // =====================================================
 // TYPES
@@ -122,22 +124,36 @@ export function getBaseHandicap(
  * Calculate statistics for all players in a scorecard display
  *
  * @param players Array of player data with scores
- * @param holes Array of hole data
+ * @param holes The round's PLANNED holes (already nine-filtered). The daily
+ *   handicap is derived from their Σpar, so never pass a played-only slice.
  * @param selectedTee Optional tee data with slope/course ratings for daily handicap calculation
  * @param handicapSource Which handicap value to use ('profile' = profile handicap, 'calculated' = Social Index, 'none' = no handicap)
+ * @param options.holesPlayed Set when the round was ended early (`rounds.holes_played`):
+ *   totals count only the first N of `holes` (in hole order), and net is
+ *   Σ(gross − strokes received) over them instead of gross − the full daily handicap.
  * @returns Array of player statistics
  */
 export function calculatePlayerStats(
   players: ScorecardPlayerData[],
   holes: Hole[],
   selectedTee?: TeeBox | null,
-  handicapSource: HandicapSource = 'profile'
+  handicapSource: HandicapSource = 'profile',
+  options?: { holesPlayed?: number | null }
 ): PlayerStats[] {
   // Guard against non-array holes data
   const safeHoles = Array.isArray(holes) ? holes : [];
 
-  // Calculate course par once for daily handicap calculations
+  // Course par for the daily handicap — always over the PLANNED holes, even
+  // for a round ended early.
   const coursePar = safeHoles.reduce((sum, hole) => sum + hole.par, 0);
+
+  // Ended early: only the first N planned holes count toward totals. The list
+  // is already the round's nine, so 'full' just sorts it and keeps the first N.
+  const holesPlayed = options?.holesPlayed ?? null;
+  const endedEarly = isEndedEarly({ holes_played: holesPlayed });
+  const scoringHoles = endedEarly
+    ? filterPlayableHoles(safeHoles, 'full', holesPlayed)
+    : safeHoles;
 
   return players.map((playerData) => {
     const player = playerData.player;
@@ -189,8 +205,11 @@ export function calculatePlayerStats(
     let front9ParScore = 0;
     let back9ParScore = 0;
     let hasScores = false;
+    // Ended early: Σ(gross − strokes received) over the holes played, summed
+    // from the same single-ball scores the gross below reads.
+    let netOverHolesPlayed = 0;
 
-    safeHoles.forEach((hole) => {
+    scoringHoles.forEach((hole) => {
       const score = scores?.[String(hole.number)];
       // Only process single-ball scores (for multi-ball, we'd use ball_totals)
       const rawStrokes = score && isSingleBallScore(score) ? score.strokes : 0;
@@ -200,6 +219,7 @@ export function calculatePlayerStats(
       // score"), matching the stored gross/differential and the scorecard view.
       const strokes = getEffectiveGrossStrokes(rawStrokes, hole.par, strokesReceived) ?? 0;
       if (strokes > 0) hasScores = true;
+      if (strokes > 0) netOverHolesPlayed += strokes - strokesReceived;
       const stablefordPoints =
         strokes > 0 ? calculateStablefordPointsNet(strokes, hole.par, strokesReceived) : 0;
       // Calculate par score (+1, 0, -1) for this hole
@@ -218,13 +238,20 @@ export function calculatePlayerStats(
     });
 
     const totalGross = front9Gross + back9Gross;
-    // Use daily handicap for net score calculation
-    const totalNet = totalGross - dailyHandicap;
+    // Net = gross − daily handicap for a round played as planned. For a round
+    // ended early the full daily handicap would credit strokes for holes never
+    // played, so net is summed per hole over the holes played instead. It is
+    // summed in the loop above, not with calculateNetOverHolesPlayed: this
+    // loop reads single-ball scores only (a multi-ball card's gross is 0 here),
+    // while that helper reads a multi-ball hole's first ball (for the sync
+    // snapshot), which would show a non-zero net beside a zero gross.
+    const totalNet = endedEarly ? netOverHolesPlayed : totalGross - dailyHandicap;
     const computedTotalStableford = front9Stableford + back9Stableford;
-    // Use the stored total_points only when we also trusted the stored
-    // snapshot DHC above. Otherwise use the per-hole sum computed with
-    // the live DHC — this guarantees F9 + B9 = grand total on the UI.
-    const totalStableford = hasFullSnapshot
+    // Ended cards recompute retained-hole points with the trusted DHC: a
+    // completed snapshot may still include holes beyond the end. Otherwise
+    // use stored total_points only when we trusted the snapshot DHC above.
+    // Without a full snapshot, use the sum computed with the live DHC.
+    const totalStableford = hasFullSnapshot && !endedEarly
       ? (playerData.storedTotalPoints as number)
       : computedTotalStableford;
     const totalParScore = front9ParScore + back9ParScore;
@@ -247,6 +274,49 @@ export function calculatePlayerStats(
       hasScores,
     };
   });
+}
+
+/**
+ * Net total over the holes a player actually played: Σ(effective gross −
+ * strokes received). Used for rounds ended early (`rounds.holes_played` set),
+ * where gross − the full daily handicap would credit strokes for holes never
+ * played. Shared by the sync snapshot (scorecardSync) and mismatch resolution
+ * (recomputeScorecardTotals) so both agree. calculatePlayerStats sums the same
+ * Σ in its own per-hole loop, over single-ball scores only, because its gross
+ * reads only single-ball scores.
+ *
+ * - `playedHoles` must be the PLAYED holes; `dailyHandicap` is the planned round's.
+ * - Pickups count as net double bogey (getEffectiveGrossStrokes, I3), matching
+ *   the stored gross.
+ * - Unscored holes are skipped. A multi-ball hole counts its FIRST ball, as
+ *   the store's calculatePlayerTotals (src/store/utils/scorecardCalculations.ts)
+ *   does — that is how the synced total_gross is summed, so net must match it.
+ * - Plus handicaps: no strokes given back, as in the store (getStrokesReceived
+ *   floors at 0 for a handicap ≤ 0, on every stroke index).
+ */
+export function calculateNetOverHolesPlayed(
+  scores:
+    | Record<string, HoleScore | MultiBallHoleScore>
+    | Record<number, HoleScore | MultiBallHoleScore>
+    | null
+    | undefined,
+  playedHoles: Hole[],
+  dailyHandicap: number
+): number {
+  // JSON keys are strings at runtime whichever key type the caller declares.
+  const byHole = scores as Record<string, HoleScore | MultiBallHoleScore> | null | undefined;
+  let net = 0;
+  for (const hole of playedHoles) {
+    const score = byHole?.[String(hole.number)];
+    if (!score) continue;
+    // Same read as calculatePlayerTotals: single-ball strokes, else ball 1.
+    const rawStrokes = isSingleBallScore(score) ? score.strokes : score.balls?.[0]?.strokes;
+    const strokesReceived = getStrokesReceived(dailyHandicap, hole.strokeIndex);
+    const strokes = getEffectiveGrossStrokes(rawStrokes, hole.par, strokesReceived);
+    if (strokes == null) continue;
+    net += strokes - strokesReceived;
+  }
+  return net;
 }
 
 /**
