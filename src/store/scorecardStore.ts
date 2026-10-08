@@ -34,6 +34,7 @@ import {
   ScorecardConflictError,
 } from '@/services/offline/sync';
 import { storeLogger, logScorecardSummary } from '@/utils/debugLogger';
+import { filterPlayableHoles } from '@/utils/holeTransformers';
 import { calculatePlayerTotals } from './utils/scorecardCalculations';
 import { persistScorecardUpdate } from './scorecardPersistence';
 import * as multiBall from './multiBallSlice';
@@ -51,6 +52,10 @@ interface ScorecardState {
   selectedTeeData: TeeBox | null;
   playerTeeMap: Map<string, TeeBox>;
   nineType: NineType;
+  /** Holes played when the round was ended early, counted from the round's
+   *  first hole. null = played as planned. `holes` stays the PLANNED list
+   *  (daily handicap derives from Σpar of it); slice with getPlayedHoles(). */
+  holesPlayed: number | null;
   /** Display offset for hole numbers (1 = standard 1..18). See
    *  displayHoleNumber() in src/utils/holeTransformers.ts. */
   startHole: number;
@@ -106,6 +111,8 @@ interface ScorecardState {
   getHoleInfo: (holeNumber: number) => Hole | undefined;
   isHoleComplete: (hole: number) => boolean;
   getCompletedHolesCount: () => number;
+  /** filterPlayableHoles(holes, nineType, holesPlayed): the holes to render, validate and count. */
+  getPlayedHoles: () => Hole[];
   submitScorecards: (options?: { bypassed?: boolean; playerIds?: string[] }) => Promise<void>;
   resetRound: () => void;
 
@@ -192,6 +199,7 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
     selectedTeeData: null,
     playerTeeMap: new Map(),
     nineType: 'full' as NineType,
+    holesPlayed: null,
     startHole: 1,
     ballCount: 1,
     isMultiBall: false,
@@ -370,8 +378,13 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
       return count;
     },
 
+    getPlayedHoles: () => {
+      const { holes, nineType, holesPlayed } = get();
+      return filterPlayableHoles(holes, nineType, holesPlayed);
+    },
+
     submitScorecards: async (options) => {
-      const { groupScorecards, currentRoundId, selectedTeeData, holes, gameType, nineType } = get();
+      const { groupScorecards, currentRoundId, selectedTeeData, holes, gameType, nineType, holesPlayed } = get();
       const scopeIds = options?.playerIds;
       const targetIds =
         scopeIds && scopeIds.length > 0 ? new Set(scopeIds) : null;
@@ -405,7 +418,7 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
         storeLogger.info('Submission hole count check', {
           playerId: playerId.substring(0, 8) + '...',
           scoredHoles,
-          expectedHoles: safeHoles.length,
+          expectedHoles: filterPlayableHoles(safeHoles, nineType, holesPlayed).length,
         });
       }
 
@@ -434,6 +447,10 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
             syncHoles: safeHoles,
             syncGameType: gameType,
             syncNineType: nineType,
+            // Ended early: sync nets over the played holes (B4). The card
+            // already carries it (endRoundEarly stamps it); restated so a card
+            // created after the end (team backfill) carries it too.
+            ...(holesPlayed != null && { holesPlayed }),
           };
 
           storeLogger.debug('Submitting scorecard', logScorecardSummary(updatedScorecard));
@@ -510,6 +527,7 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
         selectedTeeData: null,
         playerTeeMap: new Map(),
         nineType: 'full' as NineType,
+        holesPlayed: null,
         startHole: 1,
         ballCount: 1,
         isMultiBall: false,
