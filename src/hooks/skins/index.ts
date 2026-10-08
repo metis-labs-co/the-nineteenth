@@ -13,7 +13,6 @@
  * - useCanUseSkins.ts: Subscription feature check hook
  * - useActiveSkinsGameForRound.ts: Active skins game query hook
  * - useProcessSkinsIfNeeded.ts: Hole completion processing hook
- * - useFinalizeSkinsForRound.ts: Round finalization hook
  * - statistics.ts: Statistics and leaderboard hooks
  *
  * @example
@@ -76,7 +75,6 @@ export {
   type CompetitionSkinsCard,
 } from './useCompetitionSkinsGames';
 export { useProcessSkinsIfNeeded } from './useProcessSkinsIfNeeded';
-export { useFinalizeSkinsForRound } from './useFinalizeSkinsForRound';
 export { useFinalizeSkinsForSubMatch } from './useFinalizeSkinsForSubMatch';
 
 // Re-export statistics hooks

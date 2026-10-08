@@ -14,19 +14,6 @@ jest.mock('@/hooks/rounds/useFinalizeSubmittedRound', () => ({
   useFinalizeSubmittedRound: () => mockFinalizeRound,
 }));
 
-// Pre-change dependencies, mocked so the red step renders (A6d-2 removes both).
-jest.mock('@/hooks/useSkins', () => ({
-  useFinalizeSkinsForRound: () => ({
-    finalizeSkinsForRound: jest.fn().mockResolvedValue({ finalized: false }),
-  }),
-}));
-jest.mock('./useRoundFinalization', () => ({
-  useRoundFinalization: () => ({
-    updateRoundStatus: jest.fn().mockResolvedValue(undefined),
-    finalizeRoundResults: jest.fn().mockResolvedValue(undefined),
-  }),
-}));
-
 const mockShowDialog = jest.fn();
 jest.mock('@/hooks/useConfirmationDialog', () => ({
   useConfirmationDialog: () => ({

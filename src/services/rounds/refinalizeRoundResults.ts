@@ -5,7 +5,8 @@
  * `rules_override` and the competition's `per_round_rules_enabled` flag.
  *
  * Used in two places:
- * - Scorecard submission (via `useRoundFinalization`) — first-time finalize.
+ * - Scorecard submission (via `finalizeSubmittedRound`, online or from the
+ *   queued "finalise round" sync item) — first-time finalize.
  * - Per-round rule edits (via `applyPresetToRound`) — re-finalize after the
  *   override changes so stored `competition_points` match the new rules.
  *

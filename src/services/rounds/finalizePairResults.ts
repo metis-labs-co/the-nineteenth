@@ -145,7 +145,7 @@ export interface FinalizePairResultsInput {
 
 /**
  * Should this input be handled by finalizePairResults? Keeps the wiring in
- * useRoundFinalization readable.
+ * refinalizeRoundResults readable.
  */
 export function isPairPointsOverride(
   roundFormat: string | null | undefined,

@@ -3,8 +3,8 @@
  *
  * Resolves the active skins game for the given sub-match and runs the
  * full finalize sequence (compute payouts, write skins_payouts, mark the
- * game completed). Mirrors the round-level finalize path used in
- * `useFinalizeSkinsForRound`, but narrowed to a sub-match scope.
+ * game completed). Mirrors the round-level `finalizeActiveSkinsForRound`
+ * (services/skins/finalizeSkinsGame), but narrowed to a sub-match scope.
  *
  * Used as a service helper so it can be invoked from a non-hook context
  * (e.g. inside another mutation's onSuccess).

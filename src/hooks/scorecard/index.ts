@@ -4,7 +4,6 @@
 
 export * from './useScorecards';
 export * from './useScorecardsRealtime';
-export * from './useSubmitScorecard';
 export * from './useOfflineSync';
 export * from './useRoundData';
 export * from './useRoundMetadata';

@@ -296,7 +296,6 @@ import {
   useCanUseSkins,
   useActiveSkinsGameForRound,
   useProcessSkinsIfNeeded,
-  useFinalizeSkinsForRound,
 } from '@/hooks/useSkins';
 ```
 
@@ -326,7 +325,7 @@ import {
 | Hook | Description | When to Use |
 |------|-------------|-------------|
 | `useProcessSkinsIfNeeded(roundId)` | Process skins when all scores in | After score entry |
-| `useFinalizeSkinsForRound(roundId)` | Finalize on scorecard submit | On scorecard submission |
+| `useFinalizeSubmittedRound()` (`@/hooks/rounds/useFinalizeSubmittedRound`) | Finalises the round after submit (status → results → skins via `finalizeActiveSkinsForRound`), or queues it offline | On scorecard submission |
 
 ---
 
