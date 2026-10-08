@@ -695,6 +695,13 @@ A `'finalize'` item runs the same steps an online submit runs (`finalizeSubmitte
 | Skins settlement failed permanently: an RLS refusal (only the game's creator can write `skins_payouts`), validation, a missing game, anything `isTransientError` doesn't recognise | **Done.** Logged as a warning; the item is removed. No retry can fix it. |
 | The status read or write failed, or skins settlement failed transiently (`isTransientError`: no connection, a timeout, a 5xx or gateway error, a dropped connection) | **Retry.** Normal retry count; retained as `failed` after 3. Re-running the steps is idempotent. |
 
+Every submit screen calls `useFinalizeSubmittedRound()` (`src/hooks/rounds/useFinalizeSubmittedRound.ts`) after `submitScorecards`:
+- **Offline:** it queues a `'finalize'` item.
+- **Online:** it writes the `'finalize'` item first, without a drain request, then runs `finalizeSubmittedRound` straight away. It removes the item (by entity key) only when the round completed with no status error and no transient skins error, or when the round is waiting only on other devices. Otherwise the item stays and a drain is requested: when the attempt throws, reports a status error or a transient skins error, or when the round isn't complete while this device still has unconfirmed (pending or retained) cards for it. A permanent skins error (e.g. the RLS refusal a non-creator gets on `skins_payouts`) is logged and doesn't keep the item. Local card-state read errors or queue-removal errors also leave the item queued and request a drain. An app kill mid-finalise leaves the item behind.
+- **No double run:** `finalizeSubmittedRound` checks and marks the round in flight in one synchronous step. A second caller (the drain, or the online path) gets `RoundNotReadyError` and leaves the item queued.
+
+A skins game settled online fires the user's skins achievements; a game settled later by the queue doesn't.
+
 ---
 
 ## Conflict Resolution

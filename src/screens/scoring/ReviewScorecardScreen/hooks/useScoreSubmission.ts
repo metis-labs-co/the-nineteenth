@@ -12,7 +12,7 @@ import { supabase } from '@/services/supabase/client';
 import { activeRoundSession } from '@/services/activeRoundSession';
 import { useConfirmationDialog } from '@/hooks/useConfirmationDialog';
 import type { DialogConfig } from '@/hooks/useConfirmationDialog';
-import { useFinalizeSkinsForRound } from '@/hooks/useSkins';
+import { useFinalizeSubmittedRound } from '@/hooks/rounds/useFinalizeSubmittedRound';
 import {
   checkSubmissionReadiness,
   createMismatchRecords,
@@ -43,7 +43,6 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import { buildPostSubmitResetState } from '@/navigation/postSubmitNavigation';
 import type { IncompleteHole } from './useScoreReview';
-import { useRoundFinalization } from './useRoundFinalization';
 import { usePairings } from '@/hooks/rounds';
 import { resolveGroupScopeIds } from './resolveGroupScope';
 
@@ -211,12 +210,10 @@ export function useScoreSubmission({
     });
   }, [roundPairings, currentUserId]);
 
-  // Round finalization (extracted hook)
-  const { updateRoundStatus, finalizeRoundResults } = useRoundFinalization();
+  // Round finalisation — status → results → skins now, or a queued sync item
+  // when offline (shared with the match-play and player-scorecard submits).
+  const finalizeRound = useFinalizeSubmittedRound();
   const queryClient = useQueryClient();
-
-  // Skins finalization hook
-  const { finalizeSkinsForRound } = useFinalizeSkinsForRound();
 
   // Achievement checking for competition/match play events (fired after finalization)
   const { user } = useAuth();
@@ -593,19 +590,19 @@ export function useScoreSubmission({
         await submitScorecards({ playerIds: submitScopeIds });
         submitLogger.info('submitScorecards completed successfully');
 
+        if (roundId) {
+          // Status → results → skins now, or — offline, or while this
+          // device's cards are still uploading — a queued "finalise round"
+          // sync item that runs the same steps once they have. Never throws.
+          const finalized = await finalizeRound(roundId);
+          submitLogger.info('Round finalisation', {
+            roundId: roundId.substring(0, 8) + '...',
+            completed: finalized.completed,
+            queued: finalized.queued,
+          });
+        }
+
         if (roundId && isOnline) {
-          try {
-            await updateRoundStatus(roundId);
-            submitLogger.info('Round status update succeeded', { roundId: roundId.substring(0, 8) + '...' });
-          } catch (statusError) {
-            submitLogger.error('Round status update failed - round may not appear in correct tab', statusError, {
-              roundId: roundId.substring(0, 8) + '...',
-            });
-          }
-
-          // Finalize round results (calculate positions and competition points)
-          await finalizeRoundResults(roundId);
-
           // Round / scorecard / score-type achievement check (fires for both
           // standalone and competition rounds). Non-blocking.
           await checkRoundAchievements(roundId);
@@ -653,18 +650,6 @@ export function useScoreSubmission({
               submitLogger.warn('Competition achievement check failed (non-blocking)', { error });
             }
           }
-
-          // Finalize skins game if applicable (non-blocking)
-          finalizeSkinsForRound(roundId).then((result) => {
-            if (result.finalized) {
-              submitLogger.info('Skins game finalized', { roundId: roundId?.substring(0, 8) + '...' });
-            } else if (result.error) {
-              submitLogger.warn('Skins finalization error (non-blocking)', { error: result.error });
-            }
-          }).catch((error) => {
-            // Non-blocking - log error but don't fail submission
-            submitLogger.warn('Skins finalization failed (non-blocking)', { error });
-          });
         }
 
         // Invalidate round list query so the round appears in the correct tab
@@ -763,10 +748,8 @@ export function useScoreSubmission({
     validateScores,
     setShowIncompleteModal,
     submitScorecards,
-    updateRoundStatus,
-    finalizeRoundResults,
+    finalizeRound,
     navigateAfterSubmit,
-    finalizeSkinsForRound,
     scoringPairsEnabled,
     currentUserId,
     holeCount,
@@ -814,12 +797,10 @@ export function useScoreSubmission({
         await submitScorecards({ bypassed: true, playerIds: submitScopeIds });
         submitLogger.info('Bypassed submission completed');
 
+        // Same finalisation as a normal submit (see handleSubmit).
+        await finalizeRound(roundId);
+
         if (isOnline) {
-          await updateRoundStatus(roundId);
-
-          // Finalize round results (calculate positions and competition points)
-          await finalizeRoundResults(roundId);
-
           // Round / scorecard / score-type achievement check (fires for both
           // standalone and competition rounds). Non-blocking.
           await checkRoundAchievements(roundId);
@@ -859,11 +840,6 @@ export function useScoreSubmission({
               submitLogger.warn('Competition achievement check failed (non-blocking)', { error });
             }
           }
-
-          // Finalize skins (non-blocking)
-          finalizeSkinsForRound(roundId).catch((error) => {
-            submitLogger.warn('Skins finalization failed (non-blocking)', { error });
-          });
         }
 
         // Invalidate round list query so the round appears in the correct tab
@@ -924,10 +900,8 @@ export function useScoreSubmission({
     currentUserId,
     isOnline,
     submitScorecards,
-    updateRoundStatus,
-    finalizeRoundResults,
+    finalizeRound,
     navigateAfterSubmit,
-    finalizeSkinsForRound,
     showDialog,
     showAlert,
     dismissDialog,
