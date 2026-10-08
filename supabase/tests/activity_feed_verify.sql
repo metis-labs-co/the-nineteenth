@@ -31,6 +31,16 @@ WHERE proname IN (
   'get_activity_feed', 'get_round_feed_card'
 );
 
+-- 20261007000200_end_round_early: both feed RPCs also return holes_played
+-- and nine_type (the "Ended after N of M" label on the card).
+SELECT 'feed_end_round_early_columns' AS check,
+  CASE WHEN COUNT(*) = 2 THEN 'OK'
+       ELSE 'MISSING ON ' || (2 - COUNT(*))::text || ' FUNCTION(S)' END AS result
+FROM pg_proc
+WHERE proname IN ('get_activity_feed', 'get_round_feed_card')
+  AND 'holes_played' = ANY (proargnames)
+  AND 'nine_type' = ANY (proargnames);
+
 SELECT 'triggers' AS check,
   CASE WHEN COUNT(*) = 2 THEN 'OK' ELSE 'MISSING' END AS result
 FROM pg_trigger
