@@ -1,18 +1,22 @@
 # End Round Early: build handoff
 
-**Paused:** 2026-10-08, at 82% of the weekly Claude limit.
+**Checkpoint:** 2026-10-08, Part A complete; the build is continuing into Part B.
 **Worktree:** `.claude/worktrees/end-round-early`, branch `worktree-end-round-early`.
 **Plan:** `docs/superpowers/plans/2026-10-07-end-round-early.md`, 76 tasks run in Task Index order.
 **Spec:** `docs/superpowers/specs/2026-10-07-end-round-early-design.md`. Revision 3 and R22 override everything earlier in the spec.
 
 ## Where it stands
 - **Task 0 is done.** Local `main` was merged at `ee923d79` and `pnpm install` has run. Baseline: type-check clean; TEST_SUBSET 160 suites, 3327 passed, 15 skipped, 0 failed.
-- **18 tasks are complete and reviewed:** A1a-1, A1a-2, A1b, A2a-1, A2a-2, A3-1, A3-2, A3-3, A3b, A4a, A4b, A4c, A7, A5a-1, A5a-2, A5b-1, A5b-2, A5c-1. Each one is a single commit; see `git log 935760c9..HEAD`.
-- **A5c-2 (skins results card):** it was dispatched just before the pause. Check `git log -1`.
-  - If its commit (`fix(skins): skins results card …`) is there, it is implemented but **not yet reviewed**. Review its diff against its plan section before continuing.
-  - If it isn't there, implement A5c-2 from scratch.
-- **Next tasks:** A5d-1, A5d-2, A6a-1, A6a-2, A6a-3, A6b-1, A6b-2, A6c, A6d-1, A6d-2 (Part A ends here; run `pnpm verify:gate`), then Part B, B1a-1 through B11.
+- **All 29 Part A tasks are complete and reviewed**, through A6d-2 at `90aba372`. A5c-2's previously pending review passed. The resumed tasks each passed separate spec and code-quality reviews; review corrections have their own commits. See `git log 935760c9..HEAD` and the ledger for details.
+- **Part A verification passed:** TEST_SUBSET 193 suites, 3629 passed, 15 skipped; `pnpm type-check`; changed-file ESLint; and `pnpm verify:gate`. The subset count dropped after the two obsolete hook test suites were deleted. Existing Jest worker-exit warnings and nonblocking lint warnings remain.
+- **Next task: B1a-1.** Continue Part B in Task Index order through B11 (47 tasks). Do not restart Part A. The actual early-end migration, store actions and UI are Part B and have not been implemented at this checkpoint.
 - **No database has been touched.** The A7 SQL files exist but are not applied. All apply, verify and dry-run steps are deferred to the rollout checklists in A6d-2 Step 5 and B11. Never apply migrations during the build.
+
+## Corrections made during Part A review
+
+- `ab770740`: message-only `42501` and `RLS` refusals remain permanent even when they mention a timeout; regression tests cover both.
+- `89ff505c`: app-wide sync uses `session.user.id`, not the cached auth user. Signup can cache a user before email confirmation creates a session. Tests cover this state, stale cached identity and session removal, and prove startup waits for database initialization.
+- `1acd6744`: after a finalisation queue entry is persisted, failures reading local card state or removing the queue entry preserve the queued work and settled skins result, request a drain, and do not reject submission. This follows the interface contract where the sample implementation was narrower.
 
 ## How to run each task (the process used so far)
 1. Read the plan header first: the Global Constraints, Interface Contract and Task Index, i.e. everything above `## Task 0`. Then read only the task's own `### Task <ID>:` section.
@@ -27,9 +31,9 @@
    - `pnpm type-check`;
    - `pnpm exec eslint <changed files>`.
 4. Commit with the task's commit message. End it with a `Co-Authored-By:` line for the authoring model. Never push. Never deploy migrations.
-5. Review the diff against the task section: is anything missing, extra, or misunderstood? Are the tests real, and is there no swallowed error?
+5. Review the diff against the task section: is anything missing, extra, or misunderstood? Are the tests real, and is there no swallowed error? Finish the spec review before the separate code-quality review; fix important findings and re-review before continuing.
 
-## Workspace and ledger (git-ignored; Claude's working notes)
+## Workspace and ledger (git-ignored working notes)
 `.superpowers/sdd/2026-10-07-end-round-early/` contains:
 - `progress.md`: the ledger, with completions, rulings and deferred minor findings;
 - `header.md`: the plan header extract;
