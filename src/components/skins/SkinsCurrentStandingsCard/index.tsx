@@ -13,7 +13,7 @@
  * <SkinsCurrentStandingsCard
  *   game={skinsGame}
  *   results={results}
- *   totalHoles={18}
+ *   holeCounts={{ plannedHoles: 18, holesPlayed: 18 }}
  *   holesCompleted={12}
  * />
  * ```
@@ -24,7 +24,7 @@ import { View, StyleSheet } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, borderRadius, typography, shadows, skinsColor } from '@/constants/theme';
-import { calculateInProgressPayouts, formatCurrency } from '@/utils/skins';
+import { calculateInProgressPayouts, formatCurrency, type SkinsHoleCounts } from '@/utils/skins';
 import { getNetResultColor as getNetResultColorUtil } from '@/utils/displayHelpers';
 import type { SkinsGameWithParticipants, SkinsResult, SkinsPayoutWithPlayer } from '@/types/database';
 import { SettlementTotalsTable } from '../SkinsSettlementCard/SettlementTotalsTable';
@@ -41,8 +41,8 @@ export interface SkinsCurrentStandingsCardProps {
     SkinsResult,
     'hole_number' | 'winner_id' | 'is_carryover' | 'payout_amount' | 'carryover_to_next' | 'hole_scores'
   >[];
-  /** Holes the round actually plays (9 or 18) — prices the buy-in */
-  totalHoles: number;
+  /** Holes planned (prices the pot) and played (sizes it; the progress copy) */
+  holeCounts: SkinsHoleCounts;
   /** Holes with a skins result so far */
   holesCompleted: number;
   testID?: string;
@@ -55,7 +55,7 @@ export interface SkinsCurrentStandingsCardProps {
 export function SkinsCurrentStandingsCard({
   game,
   results,
-  totalHoles,
+  holeCounts,
   holesCompleted,
   testID,
 }: SkinsCurrentStandingsCardProps) {
@@ -63,7 +63,7 @@ export function SkinsCurrentStandingsCard({
 
   const { sortedPayouts, unsettledCarryover } = useMemo(() => {
     const participants = game.participants.map((p) => ({ id: p.id }));
-    const standing = calculateInProgressPayouts(game, results, participants, totalHoles);
+    const standing = calculateInProgressPayouts(game, results, participants, holeCounts);
 
     const nameById = new Map(game.participants.map((p) => [p.id, p.name]));
     const payoutsWithPlayer: SkinsPayoutWithPlayer[] = standing.payouts.map((payout) => ({
@@ -91,7 +91,7 @@ export function SkinsCurrentStandingsCard({
       sortedPayouts: payoutsWithPlayer,
       unsettledCarryover: standing.unsettledCarryover,
     };
-  }, [game, results, totalHoles]);
+  }, [game, results, holeCounts]);
 
   const getNetResultColor = useCallback(
     (value: number): string => getNetResultColorUtil(value, colors),
@@ -110,7 +110,7 @@ export function SkinsCurrentStandingsCard({
         </Text>
       </View>
       <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.xs }]}>
-        {holesCompleted} of {totalHoles} holes completed
+        {holesCompleted} of {holeCounts.holesPlayed} holes completed
         {unsettledCarryover > 0 &&
           ` • ${formatCurrency(unsettledCarryover)} carryover still to be won`}
       </Text>

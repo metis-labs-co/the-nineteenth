@@ -11,28 +11,31 @@ import {
   useProcessSkinsHole,
   useProcessTeamSkinsHole,
 } from '@/hooks/skins';
+import type { SkinsHoleCounts } from '@/utils/skins';
 
 // Amber/gold color for skins
 const SKINS_COLOR = skinsColor;
 
 interface SkinsTabContentProps {
   skinsGameId: string;
-  /** Holes the round actually plays (9 for front/back nine, 18 for full).
-   *  Drives the "x of N holes" copy and the "still has carryover" gate so
-   *  9-hole rounds don't get treated as incomplete 18-hole rounds. */
-  totalHoles: number;
+  /** Holes the round is priced on (planned) and played over (9 for a
+   *  front/back nine, N after an early end). Holes played drive the "x of N
+   *  holes" copy and the "still has carryover" gate, so 9-hole and
+   *  ended-early rounds aren't treated as unfinished 18s. */
+  holeCounts: SkinsHoleCounts;
   isRefreshing: boolean;
   onRefresh: () => void;
   bottomInset: number;
 }
 
-export function SkinsTabContent({ skinsGameId, totalHoles, isRefreshing, onRefresh, bottomInset }: SkinsTabContentProps) {
+export function SkinsTabContent({ skinsGameId, holeCounts, isRefreshing, onRefresh, bottomInset }: SkinsTabContentProps) {
   const colors = useThemeColors();
   const {
     data: summary,
     isLoading: isSummaryLoading,
     refetch: refetchSummary,
-  } = useSkinsSummary(skinsGameId);
+  } = useSkinsSummary(skinsGameId, holeCounts);
+  const { holesPlayed } = holeCounts;
 
   const processSkinsHoleMutation = useProcessSkinsHole();
   const processTeamSkinsHoleMutation = useProcessTeamSkinsHole();
@@ -141,7 +144,7 @@ export function SkinsTabContent({ skinsGameId, totalHoles, isRefreshing, onRefre
   }
 
   // Carryover only "unsettled" if the round still has holes left to play.
-  const unsettledCarryover = holes_completed < totalHoles ? current_carryover : 0;
+  const unsettledCarryover = holes_completed < holesPlayed ? current_carryover : 0;
 
   return (
     <ScrollView
@@ -182,6 +185,7 @@ export function SkinsTabContent({ skinsGameId, totalHoles, isRefreshing, onRefre
         potType={game.pot_type}
         potValue={game.pot_value}
         scoringType={game.scoring_type}
+        holeCounts={holeCounts}
         testID="skins-results-card"
       />
 
@@ -199,7 +203,7 @@ export function SkinsTabContent({ skinsGameId, totalHoles, isRefreshing, onRefre
 
       {/* In-Progress Info: live standings for individual games, plain copy for team games
           (the summary doesn't carry team member data, so no team standings yet) */}
-      {game.status === 'active' && holes_completed < totalHoles && (
+      {game.status === 'active' && holes_completed < holesPlayed && (
         game.is_team_skins ? (
           <View style={[styles.inProgressCard, { backgroundColor: colors.surface }]}>
             <View style={styles.inProgressHeader}>
@@ -209,7 +213,7 @@ export function SkinsTabContent({ skinsGameId, totalHoles, isRefreshing, onRefre
               </Text>
             </View>
             <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.sm }]}>
-              {holes_completed} of {totalHoles} holes completed
+              {holes_completed} of {holesPlayed} holes completed
               {current_carryover > 0 && ` • $${current_carryover.toFixed(2)} carryover`}
             </Text>
           </View>
@@ -218,7 +222,7 @@ export function SkinsTabContent({ skinsGameId, totalHoles, isRefreshing, onRefre
             <SkinsCurrentStandingsCard
               game={game}
               results={results}
-              totalHoles={totalHoles}
+              holeCounts={holeCounts}
               holesCompleted={holes_completed}
               testID="skins-current-standings-card"
             />

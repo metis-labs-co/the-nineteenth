@@ -85,7 +85,7 @@ describe('SkinsCurrentStandingsCard', () => {
       <SkinsCurrentStandingsCard
         game={createMockGame()}
         results={[winResult(1, 'player-1', 5)]}
-        totalHoles={18}
+        holeCounts={{ plannedHoles: 18, holesPlayed: 18 }}
         holesCompleted={1}
         testID="standings-card"
       />
@@ -100,7 +100,7 @@ describe('SkinsCurrentStandingsCard', () => {
       <SkinsCurrentStandingsCard
         game={createMockGame()}
         results={[winResult(1, 'player-1', 60), winResult(2, 'player-2', 35)]}
-        totalHoles={18}
+        holeCounts={{ plannedHoles: 18, holesPlayed: 18 }}
         holesCompleted={2}
       />
     );
@@ -117,7 +117,7 @@ describe('SkinsCurrentStandingsCard', () => {
       <SkinsCurrentStandingsCard
         game={createMockGame()}
         results={[tieResult(1, 5), tieResult(2, 10)]}
-        totalHoles={18}
+        holeCounts={{ plannedHoles: 18, holesPlayed: 18 }}
         holesCompleted={2}
       />
     );
@@ -132,7 +132,7 @@ describe('SkinsCurrentStandingsCard', () => {
       <SkinsCurrentStandingsCard
         game={createMockGame()}
         results={[winResult(1, 'player-1', 5)]}
-        totalHoles={18}
+        holeCounts={{ plannedHoles: 18, holesPlayed: 18 }}
         holesCompleted={12}
       />
     );
@@ -145,12 +145,27 @@ describe('SkinsCurrentStandingsCard', () => {
       <SkinsCurrentStandingsCard
         game={createMockGame()}
         results={[]}
-        totalHoles={9}
+        holeCounts={{ plannedHoles: 9, holesPlayed: 9 }}
         holesCompleted={0}
       />
     );
 
     // $5 × 9 holes / 2 players = $22.50
     expect(screen.getByText(/Buy-in \$22\.50 per player/)).toBeTruthy();
+  });
+
+  it('prices the buy-in and progress over the holes played after an early end', () => {
+    render(
+      <SkinsCurrentStandingsCard
+        game={createMockGame()}
+        results={[]}
+        holeCounts={{ plannedHoles: 18, holesPlayed: 6 }}
+        holesCompleted={4}
+      />
+    );
+
+    // $5 × 18 × 6/18 / 2 players = $15.00
+    expect(screen.getByText(/Buy-in \$15\.00 per player/)).toBeTruthy();
+    expect(screen.getByText(/4 of 6 holes completed/)).toBeTruthy();
   });
 });

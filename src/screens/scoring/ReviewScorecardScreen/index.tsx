@@ -33,6 +33,7 @@ import { clubLabel, type ClubKey } from '@/constants/clubs';
 import type { ShotLogEntry } from '@/types/database/shotLog.types';
 
 import { buildDailyHandicapMap } from '@/utils/leaderboardHandicaps';
+import { getSkinsHoleCounts } from '@/utils/skins';
 import { SubMatchLeaderboardTab } from '@/components/leaderboard';
 import { useRoundScorecards } from '@/hooks/rounds';
 import { createMergedGetStrokes, resolveSplitMatchDisplayPoints } from './utils/subMatchLeaderboard';
@@ -137,6 +138,17 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
   });
 
   const holeCount = holes.length || 18;
+
+  // Skins: holes priced on the round's planned count, the pot over the holes
+  // played (rounds.holes_played once B1 adds it). Until the round row loads,
+  // the store's hole list stands in, as totalHoles did before.
+  const skinsHoleCounts = useMemo(
+    () =>
+      roundDetails
+        ? getSkinsHoleCounts(roundDetails)
+        : { plannedHoles: holeCount, holesPlayed: holeCount },
+    [roundDetails, holeCount]
+  );
 
   // Scoring pairs hook for mismatch detection
   const { scoringPairsEnabled, myScorer } = useRoundScoringPairs(
@@ -551,7 +563,7 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
       {activeTab === 'skins' && skinsGame && (
         <SkinsTabContent
           skinsGameId={skinsGame.id}
-          totalHoles={holeCount}
+          holeCounts={skinsHoleCounts}
           isRefreshing={isRefreshing}
           onRefresh={handleRefresh}
           bottomInset={insets.bottom}

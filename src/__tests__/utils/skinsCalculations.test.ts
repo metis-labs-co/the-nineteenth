@@ -823,7 +823,10 @@ describe('Final Payout Calculations', () => {
     });
 
     it('prices the buy-in off the actual round length for 9-hole rounds', () => {
-      const { payouts } = calculateInProgressPayouts(game, [], participants, 9);
+      const { payouts } = calculateInProgressPayouts(game, [], participants, {
+        plannedHoles: 9,
+        holesPlayed: 9,
+      });
 
       for (const payout of payouts) {
         expect(payout.buy_in).toBe(22.5); // $5 × 9 holes / 2 players
@@ -1668,5 +1671,37 @@ describe('Skins pricing on the holes played', () => {
     expect(result.payouts.find((p) => p.player_id === 'p1')!.net_result).toBe(15); // 22.5 - 7.5
     expect(result.payouts.find((p) => p.player_id === 'p2')!.net_result).toBe(-5); // 2.5 - 7.5
     expect(netSum(result.payouts)).toBeCloseTo(0, 2); // 15 - 5 - 5 - 5
+  });
+});
+
+// ============================================================================
+// In-progress standings on the round's hole counts
+// ============================================================================
+
+describe('Skins in-progress standings on hole counts', () => {
+  const twoPlayers = [{ id: 'p1' }, { id: 'p2' }];
+  const scores = createMockHoleScores([
+    { playerId: 'p1', gross: 4, net: 4, strokes_received: 0 },
+    { playerId: 'p2', gross: 4, net: 4, strokes_received: 0 },
+  ]);
+  const won = (hole: number, winner: string, payout: number) => ({
+    hole_number: hole,
+    winner_id: winner as string | null,
+    is_carryover: false,
+    payout_amount: payout,
+    carryover_to_next: 0,
+    hole_scores: scores,
+  });
+
+  it('prices the in-progress buy-in over the holes played after an early end', () => {
+    // per_hole $5, 2 players, ended after 6 of 18: $90 × 6/18 / 2 = $15
+    const game = createMockGame({ participant_ids: ['p1', 'p2'] });
+    const { payouts } = calculateInProgressPayouts(game, [won(1, 'p1', 5)], twoPlayers, {
+      plannedHoles: 18,
+      holesPlayed: 6,
+    });
+
+    expect(payouts.map((p) => p.buy_in)).toEqual([15, 15]);
+    expect(payouts.map((p) => p.net_result)).toEqual([-10, -15]); // 5 - 15, 0 - 15
   });
 });

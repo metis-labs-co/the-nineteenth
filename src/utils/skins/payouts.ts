@@ -275,16 +275,17 @@ export interface InProgressPayoutResult {
  * @param game - The skins game configuration
  * @param results - Hole results so far (partial round)
  * @param participants - List of participants
- * @param totalHoles - Holes the round actually plays (9 or 18); prices the buy-in
+ * @param holeCounts - Holes planned and played; prices the buy-in exactly as
+ *   the settlement will. Defaults to a full 18 played as planned.
  * @returns Standing per participant plus the undistributed carryover
  */
 export function calculateInProgressPayouts(
   game: Pick<SkinsGame, 'pot_type' | 'pot_value' | 'participant_ids'>,
   results: Pick<SkinsResult, 'hole_number' | 'winner_id' | 'is_carryover' | 'payout_amount' | 'carryover_to_next' | 'hole_scores'>[],
   participants: PayoutParticipant[],
-  totalHoles?: number
+  holeCounts: SkinsHoleCounts = DEFAULT_SKINS_HOLE_COUNTS
 ): InProgressPayoutResult {
-  const buyIn = calculateBuyIn(game.pot_type, game.pot_value, participants.length, totalHoles);
+  const buyIn = calculateSettlementBuyIn(game, participants.length, holeCounts);
   const payoutMap = accumulateHoleOutcomes(results, participants, buyIn);
 
   const payouts: CalculatedPayout[] = [];
