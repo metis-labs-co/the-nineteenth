@@ -257,29 +257,34 @@ export async function reconcileEndedEarly(
 ): Promise<void> {
   const state = get();
   const n = state.holesPlayed;
-  if (n == null || !needsEndRoundEarlyReconcile(state)) return;
+  if (n == null) return;
   const session = options.getSessionGeneration?.();
-  try {
-    await endRoundEarly(get, set, n, { ...options, reconcile: true });
-    storeLogger.info('Reconciled a round ended early', { roundId: state.currentRoundId, holesPlayed: n });
-  } catch (error) {
-    storeLogger.error('Failed to reconcile a round ended early', error, { roundId: state.currentRoundId, holesPlayed: n });
-    if (options.getSessionGeneration?.() !== session || get().currentRoundId !== state.currentRoundId) return;
-    const current = get();
-    const played = new Set<number>(filterPlayableHoles(current.holes, current.nineType, n).map((hole) => hole.number));
-    // Deliberately do not save this fallback: disk retains its disagreement so
-    // the next load retries the authoritative cleanup transaction.
-    const cards = new Map<string, Scorecard>();
-    for (const [playerId, card] of current.groupScorecards) {
-      cards.set(playerId, rebuildEndedScorecard(card, played, n, current.holes, current.gameType, {
-        selectedTee: current.playerTeeMap.get(playerId) ?? current.selectedTeeData,
-        handicapSource: current.handicapSource,
-        nineType: current.nineType,
-      }));
+  if (needsEndRoundEarlyReconcile(state)) {
+    try {
+      await endRoundEarly(get, set, n, { ...options, reconcile: true });
+      storeLogger.info('Reconciled a round ended early', { roundId: state.currentRoundId, holesPlayed: n });
+      return;
+    } catch (error) {
+      storeLogger.error('Failed to reconcile a round ended early', error, { roundId: state.currentRoundId, holesPlayed: n });
     }
-    set({
-      groupScorecards: cards,
-      currentHole: played.has(current.currentHole) ? current.currentHole : lastPlayedHoleNumber(current.nineType, n),
-    });
   }
+  if (options.getSessionGeneration?.() !== session || get().currentRoundId !== state.currentRoundId) return;
+  const current = get();
+  const played = new Set<number>(filterPlayableHoles(current.holes, current.nineType, n).map((hole) => hole.number));
+  // Matching markers/keys do not guarantee fresh totals: the durable end can
+  // commit before the best-effort metadata save. Always rebuild loaded ended
+  // cards. This memory-only repair never schedules a metadata-only snapshot,
+  // and after cleanup failure disk keeps its disagreement for the next load.
+  const cards = new Map<string, Scorecard>();
+  for (const [playerId, card] of current.groupScorecards) {
+    cards.set(playerId, rebuildEndedScorecard(card, played, n, current.holes, current.gameType, {
+      selectedTee: current.playerTeeMap.get(playerId) ?? current.selectedTeeData,
+      handicapSource: current.handicapSource,
+      nineType: current.nineType,
+    }, card.updatedAt));
+  }
+  set({
+    groupScorecards: cards,
+    currentHole: played.has(current.currentHole) ? current.currentHole : lastPlayedHoleNumber(current.nineType, n),
+  });
 }

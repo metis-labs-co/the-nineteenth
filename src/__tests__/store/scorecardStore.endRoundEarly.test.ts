@@ -1003,3 +1003,45 @@ describe('init paths session isolation', () => {
     expect(getStore().currentPlayers.map((player) => player.id)).toEqual([P2.id]);
   });
 });
+
+describe('init paths repair stale ended totals without cleanup', () => {
+  it.each([
+    ['loadFromOffline', 'memory'],
+    ['loadFromOffline', 'submission'],
+    ['initializeRound', 'memory'],
+    ['initializeRound', 'submission'],
+  ] as const)('%s repairs stale totals in %s when markers and score keys already agree', async (action, target) => {
+    const player = { ...P1, handicap: 18 };
+    const tee: TeeBox = { name: 'Short', color: 'yellow', slopeRating: 70, courseRating: 72 };
+    // The exclusive end transaction committed N and trimmed rows, but the
+    // later best-effort metadata save failed or the app died before it ran.
+    const cached = {
+      ...cachedCard(player, range(1, 6), 6),
+      teeData: tee,
+      serverRevision: 13,
+      totalGross: 32,
+      totalNet: 28,
+      total_par_score: 99,
+    };
+    (getHoles as jest.Mock).mockResolvedValue(create18Holes());
+    (getScorecardsByRound as jest.Mock).mockResolvedValue([cached]);
+    supabaseMock.__setRoundsResult(roundsRow());
+    if (action === 'loadFromOffline') {
+      expect(await getStore().loadFromOffline(ROUND_ID)).toBe(true);
+    } else {
+      await getStore().initializeRound(ROUND_ID, [player], create18Holes(), 'stroke');
+    }
+
+    expect(persistRoundEarlyEnd).not.toHaveBeenCalled();
+    expect(debouncedQueueScorecardSync).not.toHaveBeenCalled();
+    expect(getStore().holes).toHaveLength(18);
+    expect(scoredHoles(P1.id)).toEqual(range(1, 6));
+    expect(getStore().groupScorecards.get(P1.id)?.serverRevision).toBe(13);
+    if (target === 'submission') {
+      await getStore().submitScorecards();
+      expect(submittedPayload(P1.id)).toMatchObject({ totalGross: 24, totalNet: 21, total_par_score: 0, teeData: tee });
+    } else {
+      expect(getStore().groupScorecards.get(P1.id)).toMatchObject({ totalGross: 24, totalNet: 21, total_par_score: 0, teeData: tee });
+    }
+  });
+});
