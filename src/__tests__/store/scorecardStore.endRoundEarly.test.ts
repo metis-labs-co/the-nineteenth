@@ -22,6 +22,8 @@ import {
   deleteHoleScoresForCards,
 } from '@/services/offline/database';
 import { syncScorecard } from '@/services/offline/sync';
+import { supabase } from '@/services/supabase/client';
+import { storeLogger } from '@/utils/debugLogger';
 
 jest.mock('@/services/offline/database', () => ({
   saveScorecard: jest.fn(() => Promise.resolve()),
@@ -532,7 +534,9 @@ describe('endRoundEarly while initialization is pending', () => {
     await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes());
     await score(P1.id, range(1, 7));
     let releaseHoles!: () => void;
-    (saveHoles as jest.Mock).mockImplementationOnce(() => new Promise<void>((resolve) => { releaseHoles = resolve; }));
+    let holesStarted!: () => void;
+    const savingHoles = new Promise<void>((resolve) => { holesStarted = resolve; });
+    (saveHoles as jest.Mock).mockImplementationOnce(() => { holesStarted(); return new Promise<void>((resolve) => { releaseHoles = resolve; }); });
     const initializing = getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes(), 'stroke', false, [], TEE_RED, 'profile', new Map(), 'back9');
     expect(getStore().isLoading).toBe(true);
     expect(getStore().nineType).toBe('full'); // old shape remains during init
@@ -540,6 +544,7 @@ describe('endRoundEarly while initialization is pending', () => {
     jest.clearAllMocks();
 
     const ending = expect(getStore().endRoundEarly(6)).rejects.toThrow(/initializ|loading/i);
+    await savingHoles;
     releaseHoles();
     await initializing;
     await ending;
@@ -671,5 +676,330 @@ describe('closed holes on a back nine ended after six', () => {
     expect(saveHoleScore).not.toHaveBeenCalled();
     expect(saveScorecard).not.toHaveBeenCalled();
     expect(debouncedQueueScorecardSync).not.toHaveBeenCalled();
+  });
+});
+
+// A scorecard as SQLite returns it after an app restart.
+const cachedCard = (player: Player, holeNumbers: number[], holesPlayed?: number | null): Scorecard => ({
+  id: cardId(player.id),
+  roundId: ROUND_ID,
+  playerId: player.id,
+  player,
+  scores: Object.fromEntries(holeNumbers.map((h) => [h, { strokes: 4 }])),
+  totalGross: holeNumbers.length * 4,
+  totalNet: 0,
+  status: 'in-progress',
+  createdAt: new Date(),
+  updatedAt: new Date(),
+  ...(holesPlayed != null && { holesPlayed }),
+});
+
+const roundsRow = (overrides: Record<string, unknown> = {}) => ({
+  data: {
+    game_type: 'stroke',
+    handicap_source: 'profile',
+    nine_type: 'full',
+    holes_played: null,
+    selected_tee: null,
+    course_id: null,
+    ...overrides,
+  },
+  error: null,
+});
+
+describe('characterization (pre round-shape init)', () => {
+  beforeEach(() => {
+    (getHoles as jest.Mock).mockResolvedValue(create18Holes());
+  });
+
+  it('loadFromOffline filters a back-9 round to holes 10–18 and resumes on the first incomplete hole', async () => {
+    supabaseMock.__setRoundsResult(roundsRow({ nine_type: 'back9' }));
+    (getScorecardsByRound as jest.Mock).mockResolvedValue([cachedCard(P1, [10, 11]), cachedCard(P2, [10, 11])]);
+
+    const loaded = await getStore().loadFromOffline(ROUND_ID);
+
+    expect(loaded).toBe(true);
+    expect(getStore().nineType).toBe('back9');
+    expect(getStore().holes.map((h) => h.number)).toEqual(range(10, 18));
+    expect(getStore().currentHole).toBe(12);
+  });
+
+  it('loadFromOffline loads a cached round that was not ended without touching its cards', async () => {
+    supabaseMock.__setRoundsResult(roundsRow());
+    (getScorecardsByRound as jest.Mock).mockResolvedValue([cachedCard(P1, range(1, 3)), cachedCard(P2, range(1, 3))]);
+
+    await getStore().loadFromOffline(ROUND_ID);
+
+    expect(getStore().holesPlayed).toBeNull();
+    expect(getStore().getPlayedHoles()).toHaveLength(18);
+    expect(persistRoundEarlyEnd).not.toHaveBeenCalled();
+    expect(saveScorecard).not.toHaveBeenCalled();
+  });
+
+  it('loadFromOffline still bails when the round row cannot be fetched (offline cold start is out of scope, R15)', async () => {
+    supabaseMock.__setRoundsResult({ __reject: true });
+    (getScorecardsByRound as jest.Mock).mockResolvedValue([cachedCard(P1, range(1, 6), 6), cachedCard(P2, range(1, 6), 6)]);
+
+    const loaded = await getStore().loadFromOffline(ROUND_ID);
+
+    expect(loaded).toBe(false);
+    expect(getStore().isInitialized).toBe(false);
+  });
+});
+
+describe('init paths resolve the round shape and reconcile', () => {
+  beforeEach(() => {
+    (getHoles as jest.Mock).mockResolvedValue(create18Holes());
+  });
+
+  // Relaunch ONLINE before the queued end_early drains (the server row is
+  // still NULL). A true offline cold start is out of scope (R15): see the
+  // characterization test that loadFromOffline bails without the round row.
+  it('relaunched online before the queued end_early drains: still ended, tee and net intact (Review Focus #1)', async () => {
+    const SAM18: Player = createTestPlayer({ id: P1.id, name: 'Sam', handicap: 18 });
+    const TEE_SHORT: TeeBox = { name: 'Short', color: 'yellow', slopeRating: 70, courseRating: 72 };
+    // The queued end_early item has not reached the server yet.
+    supabaseMock.__setRoundsResult(roundsRow({ holes_played: null }));
+    await getStore().initializeRound(ROUND_ID, [SAM18, P2], create18Holes(), 'stroke', false, [], TEE_SHORT);
+    await score(SAM18.id, range(1, 7));
+    await score(P2.id, range(1, 6));
+    await getStore().endRoundEarly(6);
+    const before = getStore().getPlayerTotals(SAM18.id);
+
+    // App killed: memory is gone; SQLite holds each card as last saved.
+    const saved = new Map<string, Scorecard>();
+    for (const [card] of (saveScorecard as jest.Mock).mock.calls as [Scorecard][]) saved.set(card.id, card);
+    getStore().resetRound();
+    jest.clearAllMocks();
+    (getScorecardsByRound as jest.Mock).mockResolvedValue([...saved.values()]);
+
+    const loaded = await getStore().loadFromOffline(ROUND_ID);
+
+    expect(loaded).toBe(true);
+    const state = getStore();
+    expect(state.holesPlayed).toBe(6);
+    expect(state.holes).toHaveLength(18); // planned holes: the DHC is unchanged
+    expect(state.getPlayedHoles().map((h) => h.number)).toEqual(range(1, 6));
+    expect(scoredHoles(SAM18.id)).toEqual(range(1, 6)); // removed hole 7 stays gone
+    expect(state.currentHole).toBe(6);
+    expect(state.selectedTeeData).toEqual(TEE_SHORT);
+    expect(state.playerTeeMap.get(SAM18.id)).toEqual(TEE_SHORT);
+    // DHC = round((18 × 70 / 113 + (72 − 72)) × 0.93 × 0.9986) = round(10.36) = 10.
+    // Holes 1–6 have SI 7, 15, 1, 11, 5, 17 → strokes on SI ≤ 10 = 3 → net 24 − 3 = 21.
+    // A lost tee would fall back to HC 18 (one stroke a hole) → 18.
+    expect(before).toMatchObject({ gross: 24, net: 21 });
+    expect(state.getPlayerTotals(SAM18.id)).toMatchObject({ gross: 24, net: 21 });
+    expect(persistRoundEarlyEnd).not.toHaveBeenCalled(); // nothing to reconcile
+
+    await state.setPlayerScore(SAM18.id, 7, 5);
+    expect(scoredHoles(SAM18.id)).toEqual(range(1, 6)); // holes after N stay closed
+  });
+
+  it('another device ended the round: loads holes_played from the server and removes later scores', async () => {
+    supabaseMock.__setRoundsResult(roundsRow({ holes_played: 6 }));
+    (getScorecardsByRound as jest.Mock).mockResolvedValue([cachedCard(P1, range(1, 8)), cachedCard(P2, range(1, 7))]);
+
+    const loaded = await getStore().loadFromOffline(ROUND_ID);
+
+    expect(loaded).toBe(true);
+    expect(getStore().holesPlayed).toBe(6);
+    expect(persistRoundEarlyEnd).toHaveBeenCalledTimes(1);
+    expect(persistRoundEarlyEnd).toHaveBeenCalledWith(ROUND_ID, 6, 'full', range(1, 6), [
+      { scorecardId: cardId(P1.id), teeData: null },
+      { scorecardId: cardId(P2.id), teeData: null },
+    ]);
+    expect(scoredHoles(P1.id)).toEqual(range(1, 6));
+    expect(scoredHoles(P2.id)).toEqual(range(1, 6));
+    expect(saveScorecard).toHaveBeenCalledWith(expect.objectContaining({ id: cardId(P1.id), holesPlayed: 6 }));
+    expect(debouncedQueueScorecardSync).toHaveBeenCalledWith(cardId(P2.id), expect.any(Function));
+
+    const fromMock = supabase.from as jest.Mock;
+    const roundsSelects = fromMock.mock.calls
+      .map(([table], i) => [table, fromMock.mock.results[i]?.value] as const)
+      .filter(([table]) => table === 'rounds')
+      .map(([, chain]) => String((chain as { select: jest.Mock }).select.mock.calls[0]?.[0] ?? ''));
+    expect(roundsSelects.some((columns) => /\bholes_played\b/.test(columns))).toBe(true);
+  });
+
+  it('reconcile syncs only the cards that lost scores; a re-stamp alone stays local', async () => {
+    supabaseMock.__setRoundsResult(roundsRow({ holes_played: 6 }));
+    // P1: holes 1–6 and no marker yet (re-stamp only). P2: a stray hole 7.
+    (getScorecardsByRound as jest.Mock).mockResolvedValue([cachedCard(P1, range(1, 6)), cachedCard(P2, range(1, 7))]);
+
+    await getStore().loadFromOffline(ROUND_ID);
+
+    expect(persistRoundEarlyEnd).toHaveBeenCalledWith(ROUND_ID, 6, 'full', range(1, 6), expect.any(Array));
+    expect(scoredHoles(P2.id)).toEqual(range(1, 6));
+    expect(saveScorecard).toHaveBeenCalledWith(expect.objectContaining({ id: cardId(P1.id), holesPlayed: 6 }));
+    expect(saveScorecard).toHaveBeenCalledWith(expect.objectContaining({ id: cardId(P2.id), holesPlayed: 6 }));
+    expect(debouncedQueueScorecardSync).toHaveBeenCalledTimes(1);
+    expect(debouncedQueueScorecardSync).toHaveBeenCalledWith(cardId(P2.id), expect.any(Function));
+  });
+
+  it('the server N wins over a different local N (first device to end wins — Review Focus #3)', async () => {
+    supabaseMock.__setRoundsResult(roundsRow({ holes_played: 4 }));
+    (getScorecardsByRound as jest.Mock).mockResolvedValue([cachedCard(P1, range(1, 6), 6), cachedCard(P2, range(1, 6), 6)]);
+
+    await getStore().loadFromOffline(ROUND_ID);
+
+    expect(getStore().holesPlayed).toBe(4);
+    expect(getStore().currentHole).toBe(4);
+    expect(persistRoundEarlyEnd).toHaveBeenCalledWith(ROUND_ID, 4, 'full', range(1, 4), expect.any(Array));
+    expect(scoredHoles(P1.id)).toEqual(range(1, 4));
+    expect(scoredHoles(P2.id)).toEqual(range(1, 4));
+    expect(getStore().groupScorecards.get(P1.id)?.holesPlayed).toBe(4);
+  });
+
+  it('a back-9 round ended after 6 reopens on holes 10–15 (Review Focus #1, #2)', async () => {
+    supabaseMock.__setRoundsResult(roundsRow({ nine_type: 'back9' }));
+    (getScorecardsByRound as jest.Mock).mockResolvedValue([cachedCard(P1, range(10, 15), 6), cachedCard(P2, range(10, 15), 6)]);
+
+    await getStore().loadFromOffline(ROUND_ID);
+
+    expect(getStore().nineType).toBe('back9');
+    expect(getStore().holesPlayed).toBe(6);
+    expect(getStore().getPlayedHoles().map((h) => h.number)).toEqual(range(10, 15));
+    expect(getStore().currentHole).toBe(15);
+    expect(persistRoundEarlyEnd).not.toHaveBeenCalled();
+  });
+
+  it('initializeRound takes the server holes_played and stamps the new cards', async () => {
+    await getStore().initializeRound(
+      ROUND_ID, [P1, P2], create18Holes(), 'stroke', false, [], null, 'profile', new Map(), 'full', 1, 6
+    );
+
+    expect(getStore().holesPlayed).toBe(6);
+    expect(getStore().holes).toHaveLength(18);
+    expect(saveScorecard).toHaveBeenCalledWith(expect.objectContaining({ id: cardId(P1.id), holesPlayed: 6 }));
+    expect(persistRoundEarlyEnd).not.toHaveBeenCalled();
+  });
+
+  it("initializeRound keeps a local end recorded on this device's SQLite cards", async () => {
+    (getScorecardsByRound as jest.Mock).mockResolvedValue([cachedCard(P1, range(1, 6), 6), cachedCard(P2, range(1, 6), 6)]);
+
+    await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes());
+
+    expect(getStore().holesPlayed).toBe(6);
+  });
+});
+
+describe('init paths durability corrections', () => {
+  beforeEach(() => { (getHoles as jest.Mock).mockResolvedValue(create18Holes()); });
+
+  it('fallback init preserves cached populated scores, effective tee and server revision with server NULL', async () => {
+    const sam = { ...P1, handicap: 18 };
+    const tee: TeeBox = { name: 'Short', color: 'yellow', slopeRating: 70, courseRating: 72 };
+    const cards = [
+      { ...cachedCard(sam, range(1, 7), 6), teeData: tee, serverRevision: 13 },
+      { ...cachedCard(P2, range(1, 6), 6), teeData: TEE_RED, serverRevision: 8 },
+    ];
+    (getScorecardsByRound as jest.Mock).mockResolvedValue(cards);
+
+    await getStore().initializeRound(ROUND_ID, [sam, P2], create18Holes(), 'stroke', false, [], TEE_WHITE);
+
+    expect(scoredHoles(P1.id)).toEqual(range(1, 6));
+    expect(getStore().holesPlayed).toBe(6);
+    expect(getStore().selectedTeeData).toEqual(tee);
+    expect(getStore().playerTeeMap.get(P1.id)).toEqual(tee);
+    expect(getStore().groupScorecards.get(P1.id)).toMatchObject({ teeData: tee, serverRevision: 13, totalGross: 24, totalNet: 21 });
+    expect(getStore().groupScorecards.get(P2.id)?.serverRevision).toBe(8);
+    (syncScorecard as jest.Mock).mockImplementationOnce(async (card: Scorecard) => {
+      expect(card.serverRevision).toBe(13);
+      return { serverRevision: 14 };
+    });
+    await getStore().submitScorecards();
+    expect(submittedPayload(P1.id)).toMatchObject({ totalGross: 24, totalNet: 21, teeData: tee });
+    expect(Object.keys(submittedPayload(P1.id).scores).map(Number)).toEqual(range(1, 6));
+  });
+
+  it('failed disk reconcile loads safely, excludes later scores from totals/submission, and retries on next load', async () => {
+    const cards = [cachedCard(P1, range(1, 8)), cachedCard(P2, range(1, 7))];
+    supabaseMock.__setRoundsResult(roundsRow({ holes_played: 6 }));
+    (getScorecardsByRound as jest.Mock).mockResolvedValue(cards);
+    (persistRoundEarlyEnd as jest.Mock).mockRejectedValueOnce(new Error('disk cleanup failed'));
+
+    expect(await getStore().loadFromOffline(ROUND_ID)).toBe(true);
+    expect(scoredHoles(P1.id)).toEqual(range(1, 6));
+    expect(getStore().getPlayerTotals(P1.id)).toMatchObject({ gross: 24, net: 24 });
+    expect(getStore().groupScorecards.get(P1.id)).toMatchObject({ totalGross: 24, totalNet: 24 });
+    expect(saveScorecard).not.toHaveBeenCalled();
+    expect(debouncedQueueScorecardSync).not.toHaveBeenCalled();
+    expect(storeLogger.error).toHaveBeenCalledWith('Failed to reconcile a round ended early', expect.any(Error), expect.objectContaining({ holesPlayed: 6 }));
+    await getStore().submitScorecards();
+    expect(Object.keys(submittedPayload(P1.id).scores).map(Number)).toEqual(range(1, 6));
+    expect(submittedPayload(P1.id).totalGross).toBe(24);
+    getStore().resetRound();
+    jest.clearAllMocks();
+    expect(await getStore().loadFromOffline(ROUND_ID)).toBe(true);
+    expect(persistRoundEarlyEnd).toHaveBeenCalledTimes(1);
+    expect(debouncedQueueScorecardSync).toHaveBeenCalledTimes(2);
+  });
+
+  it('adopts a larger server N as well as a smaller N without inventing lost scores', async () => {
+    supabaseMock.__setRoundsResult(roundsRow({ holes_played: 8 }));
+    (getScorecardsByRound as jest.Mock).mockResolvedValue([cachedCard(P1, range(1, 6), 6), cachedCard(P2, range(1, 6), 6)]);
+    await getStore().loadFromOffline(ROUND_ID);
+    expect(getStore().holesPlayed).toBe(8);
+    expect(getStore().currentHole).toBe(7);
+    expect(scoredHoles(P1.id)).toEqual(range(1, 6));
+    expect(persistRoundEarlyEnd).toHaveBeenCalledWith(ROUND_ID, 8, 'full', range(1, 8), expect.any(Array));
+    expect(saveScorecard).toHaveBeenCalledWith(expect.objectContaining({ holesPlayed: 8 }));
+    expect(debouncedQueueScorecardSync).not.toHaveBeenCalled();
+  });
+
+  it('sets loading before awaiting cached cards and refuses an end during that await', async () => {
+    await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes());
+    let release!: (cards: Scorecard[]) => void;
+    (getScorecardsByRound as jest.Mock).mockImplementationOnce(() => new Promise<Scorecard[]>((resolve) => { release = resolve; }));
+    const initializing = getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes());
+    expect(getStore().isLoading).toBe(true);
+    await expect(getStore().endRoundEarly(6)).rejects.toThrow(/initializ|loading/i);
+    expect(persistRoundEarlyEnd).not.toHaveBeenCalled();
+    release([]);
+    await initializing;
+  });
+
+  it('does not apply failed reconcile fallback to a new session of the same round', async () => {
+    supabaseMock.__setRoundsResult(roundsRow({ holes_played: 6 }));
+    (getScorecardsByRound as jest.Mock).mockResolvedValueOnce([cachedCard(P1, range(1, 8))]);
+    let rejectCleanup!: (error: Error) => void;
+    let started!: () => void;
+    const cleanupStarted = new Promise<void>((resolve) => { started = resolve; });
+    (persistRoundEarlyEnd as jest.Mock).mockImplementationOnce(() => { started(); return new Promise<void>((_, reject) => { rejectCleanup = reject; }); });
+    const loading = getStore().loadFromOffline(ROUND_ID);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(persistRoundEarlyEnd).toHaveBeenCalledTimes(1);
+    await cleanupStarted;
+    await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes(), 'stroke', false, [], null, 'profile', new Map(), 'back9');
+    rejectCleanup(new Error('disk cleanup failed'));
+    await loading;
+    expect(getStore().nineType).toBe('back9');
+    expect(getStore().holesPlayed).toBeNull();
+    expect(scoredHoles(P1.id)).toEqual([]);
+    expect(debouncedQueueScorecardSync).not.toHaveBeenCalled();
+  });
+});
+
+describe('init paths session isolation', () => {
+  it.each(['initializeRound', 'loadFromOffline'] as const)('%s cannot clear a newer init loading flag after an old cache read rejects', async (action) => {
+    let rejectOld!: (error: Error) => void;
+    let releaseNew!: (cards: Scorecard[]) => void;
+    (getScorecardsByRound as jest.Mock)
+      .mockImplementationOnce(() => new Promise<Scorecard[]>((_, reject) => { rejectOld = reject; }))
+      .mockImplementationOnce(() => new Promise<Scorecard[]>((resolve) => { releaseNew = resolve; }));
+    const old = action === 'initializeRound'
+      ? getStore().initializeRound(ROUND_ID, [P1], create18Holes())
+      : getStore().loadFromOffline(ROUND_ID);
+    const newer = getStore().initializeRound(ROUND_ID, [P2], create18Holes(), 'stroke', false, [], null, 'profile', new Map(), 'back9');
+    rejectOld(new Error('stale cache read failed'));
+    await old;
+    expect(getStore().isLoading).toBe(true);
+    expect(saveScorecard).not.toHaveBeenCalled();
+    expect(persistRoundEarlyEnd).not.toHaveBeenCalled();
+    releaseNew([]);
+    await newer;
+    expect(getStore().isLoading).toBe(false);
+    expect(getStore().nineType).toBe('back9');
+    expect(getStore().currentPlayers.map((player) => player.id)).toEqual([P2.id]);
   });
 });

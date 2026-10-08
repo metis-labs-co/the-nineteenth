@@ -94,7 +94,9 @@ interface ScorecardState {
     handicapSource?: HandicapSource,
     playerTeeMap?: Map<string, TeeBox>,
     nineType?: NineType,
-    startHole?: number
+    startHole?: number,
+    /** Server rounds.holes_played; local durable markers survive server NULL. */
+    holesPlayed?: number | null
   ) => Promise<void>;
   setAllowedPlayers: (playerIds: string[]) => void;
   setSelectedTeeData: (teeData: TeeBox | null) => void;
@@ -222,15 +224,19 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
     // Initialization (delegated to initializeRoundSlice)
     // The failure recount runs after the slice resolves: it is scoped to
     // `currentRoundId`, which the slice only sets once the round has loaded.
-    initializeRound: async (roundId, players, holes, gameType, isStandalone, allowedPlayerIds, selectedTeeData, handicapSource, playerTeeMap, nineType, startHole) => {
-      roundSession += 1;
-      await initSlice.initializeRound(set, initSyncListener, roundId, players, holes, gameType, isStandalone, allowedPlayerIds, selectedTeeData, handicapSource, playerTeeMap, nineType, startHole);
+    initializeRound: async (roundId, players, holes, gameType, isStandalone, allowedPlayerIds, selectedTeeData, handicapSource, playerTeeMap, nineType, startHole, holesPlayed) => {
+      const session = ++roundSession;
+      await initSlice.initializeRound(set, initSyncListener, roundId, players, holes, gameType, isStandalone, allowedPlayerIds, selectedTeeData, handicapSource, playerTeeMap, nineType, startHole, holesPlayed, { getSessionGeneration: () => roundSession });
+      if (roundSession !== session) return;
+      await endEarly.reconcileEndedEarly(get, set, { getSessionGeneration: () => roundSession });
       await refreshRoundFailedSyncCount();
     },
 
     loadFromOffline: async (roundId) => {
-      roundSession += 1;
-      const loaded = await initSlice.loadFromOffline(set, initSyncListener, roundId);
+      const session = ++roundSession;
+      const loaded = await initSlice.loadFromOffline(set, initSyncListener, roundId, { getSessionGeneration: () => roundSession });
+      if (roundSession !== session) return loaded;
+      if (loaded) await endEarly.reconcileEndedEarly(get, set, { getSessionGeneration: () => roundSession });
       await refreshRoundFailedSyncCount();
       return loaded;
     },

@@ -15,7 +15,12 @@ import {
 import { supabase } from '@/services/supabase/client';
 import { storeLogger } from '@/utils/debugLogger';
 import { pushDiagnostic } from '@/services/diagnostics';
-import { filterHolesByNineType, transformHolesIfNeeded } from '@/utils/holeTransformers';
+import {
+  filterHolesByNineType,
+  filterPlayableHoles,
+  transformHolesIfNeeded,
+} from '@/utils/holeTransformers';
+import { resolveRoundShape } from '@/utils/roundShape';
 import { isValidUUID } from './utils/scorecardCalculations';
 
 type SetFn = (partial: Record<string, unknown>) => void;
@@ -80,6 +85,18 @@ async function fetchCourseHolesForRound(roundId: string): Promise<Hole[] | null>
   }
 }
 
+/** Largest locally durable early-end marker; server metadata takes precedence. */
+function localHolesPlayedFromCards(cards: Scorecard[]): number | null {
+  let max: number | null = null;
+  for (const card of cards) {
+    const n = card.holesPlayed;
+    if (typeof n === 'number' && Number.isInteger(n) && n > 0 && (max === null || n > max)) max = n;
+  }
+  return max;
+}
+
+type InitSessionOptions = { getSessionGeneration?: () => number };
+
 export async function initializeRound(
   set: SetFn,
   initSyncListener: () => void,
@@ -94,7 +111,13 @@ export async function initializeRound(
   playerTeeMap: Map<string, TeeBox> = new Map(),
   nineType: NineType = 'full',
   startHole: number = 1,
+  holesPlayed: number | null = null,
+  options: InitSessionOptions = {},
 ): Promise<void> {
+  // Refuse end actions throughout the cached-marker read as well as writes.
+  set({ isLoading: true, selectedTeeData });
+  const session = options.getSessionGeneration?.();
+  const isCurrentSession = () => options.getSessionGeneration?.() === session;
   // Defensive filter: callers may pass the full course holes (18) regardless
   // of the round's nine_type. Filtering here keeps the in-memory state, the
   // SQLite snapshot, and downstream count/par/sync logic in sync with what
@@ -118,17 +141,40 @@ export async function initializeRound(
     gameType,
     nineType,
   });
-  set({ isLoading: true, selectedTeeData });
   initSyncListener();
 
   try {
+    let cachedCards: Scorecard[] = [];
+    try {
+      cachedCards = (await getScorecardsByRound(roundId)) ?? [];
+    } catch (error) {
+      storeLogger.warn('Could not read local scorecards for the end-early marker', {
+        roundId, error: error instanceof Error ? error.message : String(error),
+      });
+    }
+    if (!isCurrentSession()) return;
+    const shape = resolveRoundShape(
+      { nine_type: nineType, holes_played: holesPlayed },
+      { nineType, holesPlayed: localHolesPlayedFromCards(cachedCards) }
+    );
+    const cachedByPlayer = new Map(cachedCards.map((card) => [card.playerId, card]));
+    const effectivePlayerTees = new Map(playerTeeMap);
+    let effectiveSelectedTee = selectedTeeData;
+    if (shape.holesPlayed != null) {
+      for (const card of cachedCards) {
+        if (card.teeData) effectivePlayerTees.set(card.playerId, card.teeData);
+      }
+      effectiveSelectedTee = cachedCards.find((card) => card.teeData)?.teeData ?? selectedTeeData;
+    }
     storeLogger.debug('Saving holes to SQLite', { roundId, holeCount: filteredHoles.length });
     await saveHoles(roundId, filteredHoles);
+    if (!isCurrentSession()) return;
 
     const newScorecards = new Map<string, Scorecard>();
 
     for (const player of players) {
-      const scorecard: Scorecard = {
+      const cached = shape.holesPlayed != null ? cachedByPlayer.get(player.id) : undefined;
+      const scorecard: Scorecard = cached ? { ...cached, player, isStandalone } : {
         id: `scorecard-${roundId}-${player.id}`,
         roundId,
         playerId: player.id,
@@ -140,6 +186,10 @@ export async function initializeRound(
         createdAt: new Date(),
         updatedAt: new Date(),
         isStandalone,
+        ...(shape.holesPlayed != null && {
+          holesPlayed: shape.holesPlayed,
+          teeData: effectivePlayerTees.get(player.id) ?? effectiveSelectedTee,
+        }),
       };
 
       newScorecards.set(player.id, scorecard);
@@ -149,21 +199,25 @@ export async function initializeRound(
         playerId: player.id,
         playerName: player.name,
       });
-      await saveScorecard(scorecard);
+      // Keep cached keys/markers intact until reconcile detects removals and
+      // crosses the durable cleanup boundary. Fresh cards have no lost scores.
+      if (!cached) await saveScorecard(scorecard);
+      if (!isCurrentSession()) return;
     }
 
     set({
       currentRoundId: roundId,
       currentPlayers: players,
-      currentHole: filteredHoles[0]?.number ?? 1,
+      currentHole: filterPlayableHoles(filteredHoles, nineType, shape.holesPlayed)[0]?.number ?? 1,
       holes: filteredHoles,
       gameType,
       handicapSource,
       groupScorecards: newScorecards,
       allowedPlayerIds,
-      playerTeeMap,
+      selectedTeeData: effectiveSelectedTee,
+      playerTeeMap: effectivePlayerTees,
       nineType,
-      holesPlayed: null,
+      holesPlayed: shape.holesPlayed,
       startHole,
       isLoading: false,
       isInitialized: true,
@@ -185,7 +239,7 @@ export async function initializeRound(
       roundId,
       error: error instanceof Error ? error.message : String(error),
     }, 'error');
-    set({ isLoading: false });
+    if (isCurrentSession()) set({ isLoading: false });
     throw error;
   }
 }
@@ -194,7 +248,10 @@ export async function loadFromOffline(
   set: SetFn,
   initSyncListener: () => void,
   roundId: string,
+  options: InitSessionOptions = {},
 ): Promise<boolean> {
+  const session = options.getSessionGeneration?.();
+  const isCurrentSession = () => options.getSessionGeneration?.() === session;
   storeLogger.info('Loading round from offline storage', { roundId });
   pushDiagnostic('offline_load.entered', { roundId });
   set({ isLoading: true });
@@ -214,7 +271,7 @@ export async function loadFromOffline(
     if (scorecards.length === 0) {
       storeLogger.info('No cached scorecards found', { roundId });
       pushDiagnostic('offline_load.no_cached_scorecards', { roundId });
-      set({ isLoading: false });
+      if (isCurrentSession()) set({ isLoading: false });
       return false;
     }
 
@@ -225,7 +282,7 @@ export async function loadFromOffline(
     if (hasInvalidData) {
       storeLogger.warn('Cached data has invalid UUIDs (mock data), ignoring', { roundId });
       pushDiagnostic('offline_load.invalid_uuids', { roundId }, 'warn');
-      set({ isLoading: false });
+      if (isCurrentSession()) set({ isLoading: false });
       return false;
     }
 
@@ -249,7 +306,7 @@ export async function loadFromOffline(
       if (!remoteHoles || remoteHoles.length === 0) {
         storeLogger.warn('Holes recovery fetch failed, will fetch from network', { roundId });
         pushDiagnostic('offline_load.no_cached_holes', { roundId }, 'warn');
-        set({ isLoading: false });
+        if (isCurrentSession()) set({ isLoading: false });
         return false;
       }
       await saveHoles(roundId, remoteHoles);
@@ -354,6 +411,7 @@ export async function loadFromOffline(
     let handicapSource: HandicapSource = 'profile';
     let nineType: NineType = 'full';
     let nineTypeKnown = false;
+    let serverHolesPlayed: number | null = null;
     let startHole = 1;
 
     let courseId: string | null = null;
@@ -372,7 +430,7 @@ export async function loadFromOffline(
       // useRoundData's hook-driven init use useRoundMetadata's value.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase typed query workaround
       const fetchMetadata = (supabase.from('rounds') as any)
-        .select('game_type, handicap_source, nine_type, selected_tee, course_id')
+        .select('game_type, handicap_source, nine_type, holes_played, selected_tee, course_id')
         .eq('id', roundId)
         .maybeSingle();
 
@@ -391,6 +449,7 @@ export async function loadFromOffline(
           nineType = roundData.nine_type as NineType;
           nineTypeKnown = true;
         }
+        if (typeof roundData.holes_played === 'number') serverHolesPlayed = roundData.holes_played;
         // If no scorecard had persisted teeData, fall back to the round's default
         if (!selectedTeeData && roundData.selected_tee) {
           selectedTeeData = roundData.selected_tee as TeeBox;
@@ -416,7 +475,7 @@ export async function loadFromOffline(
         { roundId }
       );
       pushDiagnostic('offline_load.nine_type_unknown', { roundId }, 'warn');
-      set({ isLoading: false });
+      if (isCurrentSession()) set({ isLoading: false });
       return false;
     }
 
@@ -447,7 +506,12 @@ export async function loadFromOffline(
     // the player is actually scoring.
     const holes = filterHolesByNineType(cachedHoles, nineType);
 
-    const holeNumbers = holes.map((h: any) => h.number ?? h.hole_number);
+    const shape = resolveRoundShape(
+      { nine_type: nineType, holes_played: serverHolesPlayed },
+      { nineType, holesPlayed: localHolesPlayedFromCards(scorecards) }
+    );
+    const playedHoles = filterPlayableHoles(holes, nineType, shape.holesPlayed);
+    const holeNumbers = playedHoles.map((h: any) => h.number ?? h.hole_number);
     let currentHole = holeNumbers[0] ?? 1;
     for (const h of holeNumbers) {
       const allComplete = players.every((player) => {
@@ -464,6 +528,7 @@ export async function loadFromOffline(
       }
     }
 
+    if (!isCurrentSession()) return false;
     set({
       currentRoundId: roundId,
       currentPlayers: players,
@@ -475,7 +540,7 @@ export async function loadFromOffline(
       gameType,
       handicapSource,
       nineType,
-      holesPlayed: null,
+      holesPlayed: shape.holesPlayed,
       startHole,
       isLoading: false,
       isInitialized: true,
@@ -488,6 +553,7 @@ export async function loadFromOffline(
       hasTeeData: !!selectedTeeData,
       gameType,
       nineType,
+      holesPlayed: shape.holesPlayed,
     });
     pushDiagnostic('offline_load.success', {
       roundId,
@@ -505,7 +571,7 @@ export async function loadFromOffline(
       roundId,
       error: error instanceof Error ? error.message : String(error),
     }, 'error');
-    set({ isLoading: false });
+    if (isCurrentSession()) set({ isLoading: false });
     return false;
   }
 }

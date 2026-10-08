@@ -114,6 +114,12 @@ export function rebuildEndedScorecard(
   };
 }
 
+interface EndRoundEarlyOptions {
+  getSessionGeneration?: () => number;
+  /** Adopt an existing end, regardless of which players this device scores. */
+  reconcile?: boolean;
+}
+
 /**
  * End the round after `n` holes. Idempotent. Durably stamp and trim every
  * card together, then rebuild store cards, save metadata and schedule sync.
@@ -125,7 +131,7 @@ export async function endRoundEarly(
   get: GetFn,
   set: SetFn,
   n: number,
-  options: { getSessionGeneration?: () => number } = {}
+  options: EndRoundEarlyOptions = {}
 ): Promise<void> {
   const getSessionGeneration = options.getSessionGeneration ?? (() => 0);
   const session = getSessionGeneration();
@@ -143,7 +149,7 @@ export async function endRoundEarly(
   if (!Number.isInteger(n) || n < 1 || n >= holes.length) {
     throw new Error(`Invalid holes played: ${n} (the round has ${holes.length} planned holes)`);
   }
-  if (!scoresEveryPlayer(state)) {
+  if (!options.reconcile && !scoresEveryPlayer(state)) {
     throw new Error('A round can only be ended early from a device that scores every player');
   }
 
@@ -215,19 +221,65 @@ export async function endRoundEarly(
 
   // Best-effort full-card metadata/totals saves follow the durable boundary.
   // Snapshot sync replaces server scores wholesale, propagating removals.
+  const cardsThatLostScores = new Set(removals.map((entry) => entry.scorecardId));
   for (const [playerId, scorecard] of nextScorecards) {
     assertSession();
     await persistScorecardUpdate({
       scorecard: { scorecardId: scorecard.id, scorecard },
-      context: 'endRoundEarly',
+      context: options.reconcile ? 'endRoundEarly:reconcile' : 'endRoundEarly',
     });
     assertSession();
-    if (!scorecard.isStandalone) {
+    if (!scorecard.isStandalone && (!options.reconcile || cardsThatLostScores.has(scorecard.id))) {
       debouncedQueueScorecardSync(scorecard.id, () =>
         getSessionGeneration() === session && get().currentRoundId === currentRoundId
           ? get().groupScorecards.get(playerId)
           : undefined
       );
     }
+  }
+}
+
+/** An authoritative end disagrees with local keys or a cached card marker. */
+export function needsEndRoundEarlyReconcile(state: StoreState): boolean {
+  const n = state.holesPlayed;
+  if (n == null) return false;
+  const played = new Set<number>(filterPlayableHoles(state.holes, state.nineType, n).map((hole) => hole.number));
+  return [...state.groupScorecards.values()].some(
+    (card) => card.holesPlayed !== n || keysOutside(card, played).length > 0
+  );
+}
+
+/** Keep load successful and memory safe even if disk cleanup needs a retry. */
+export async function reconcileEndedEarly(
+  get: GetFn,
+  set: SetFn,
+  options: Pick<EndRoundEarlyOptions, 'getSessionGeneration'> = {}
+): Promise<void> {
+  const state = get();
+  const n = state.holesPlayed;
+  if (n == null || !needsEndRoundEarlyReconcile(state)) return;
+  const session = options.getSessionGeneration?.();
+  try {
+    await endRoundEarly(get, set, n, { ...options, reconcile: true });
+    storeLogger.info('Reconciled a round ended early', { roundId: state.currentRoundId, holesPlayed: n });
+  } catch (error) {
+    storeLogger.error('Failed to reconcile a round ended early', error, { roundId: state.currentRoundId, holesPlayed: n });
+    if (options.getSessionGeneration?.() !== session || get().currentRoundId !== state.currentRoundId) return;
+    const current = get();
+    const played = new Set<number>(filterPlayableHoles(current.holes, current.nineType, n).map((hole) => hole.number));
+    // Deliberately do not save this fallback: disk retains its disagreement so
+    // the next load retries the authoritative cleanup transaction.
+    const cards = new Map<string, Scorecard>();
+    for (const [playerId, card] of current.groupScorecards) {
+      cards.set(playerId, rebuildEndedScorecard(card, played, n, current.holes, current.gameType, {
+        selectedTee: current.playerTeeMap.get(playerId) ?? current.selectedTeeData,
+        handicapSource: current.handicapSource,
+        nineType: current.nineType,
+      }));
+    }
+    set({
+      groupScorecards: cards,
+      currentHole: played.has(current.currentHole) ? current.currentHole : lastPlayedHoleNumber(current.nineType, n),
+    });
   }
 }
