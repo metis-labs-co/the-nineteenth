@@ -110,12 +110,14 @@ export function roundEndEarlyEntityKey(roundId: string): string {
 }
 
 /** The round's `holes_played` on the server (null when it was played as planned). */
-export async function fetchRoundHolesPlayed(roundId: string): Promise<number | null> {
-  const { data, error } = (await supabase
-    .from('rounds')
-    .select('holes_played')
-    .eq('id', roundId)
-    .maybeSingle()) as unknown as {
+export function fetchRoundHolesPlayed(roundId: string): Promise<number | null> {
+  return readRoundHolesPlayed(roundId);
+}
+
+async function readRoundHolesPlayed(roundId: string, signal?: AbortSignal): Promise<number | null> {
+  const query = supabase.from('rounds').select('holes_played').eq('id', roundId);
+  const request = signal ? query.abortSignal(signal) : query;
+  const { data, error } = (await request.maybeSingle()) as unknown as {
     data: { holes_played?: number | null } | null;
     error: { message: string } | null;
   };
@@ -124,6 +126,31 @@ export async function fetchRoundHolesPlayed(roundId: string): Promise<number | n
     throw createError(`Failed to read the round's holes played: ${error.message}`, 'DATABASE');
   }
   return data?.holes_played ?? null;
+}
+
+/**
+ * A conflict is already known. Bound its best-effort read separately and leave
+ * N unknown on failure/expiry; neither outcome makes the end safe to discard.
+ * Abort requests HTTP cancellation only. The race releases the caller even if
+ * the read ignores abort or finishes later.
+ */
+async function readConflictHolesPlayed(roundId: string): Promise<number | null | undefined> {
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<undefined>((resolve) => {
+    timer = setTimeout(() => {
+      resolve(undefined);
+      controller.abort();
+    }, END_ROUND_EARLY_TIMEOUT_MS);
+  });
+  try {
+    return await Promise.race([
+      readRoundHolesPlayed(roundId, controller.signal).catch(() => undefined),
+      timeout,
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /**
@@ -205,7 +232,7 @@ export async function applyEndRoundEarly(roundId: string, holesPlayed: number): 
       const serverHolesPlayed =
         error.details != null && Number.isInteger(fromDetail) && fromDetail > 0
           ? fromDetail
-          : await fetchRoundHolesPlayed(roundId).catch(() => undefined);
+          : await readConflictHolesPlayed(roundId);
       throw new EndRoundEarlyError(
         'conflict',
         `Could not end the round after ${holesPlayed} holes: ${error.message}`,

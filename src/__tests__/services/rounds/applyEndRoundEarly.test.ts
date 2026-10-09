@@ -20,7 +20,8 @@ const mockRpcResult = jest.fn();
 const mockAbortSignal = jest.fn((_signal: AbortSignal) => mockRpcResult());
 const mockRpc = jest.fn((..._args: unknown[]) => ({ abortSignal: mockAbortSignal }));
 const mockMaybeSingle = jest.fn();
-const mockEq = jest.fn(() => ({ maybeSingle: mockMaybeSingle }));
+const mockReadAbortSignal = jest.fn((_signal: AbortSignal) => ({ maybeSingle: mockMaybeSingle }));
+const mockEq = jest.fn(() => ({ maybeSingle: mockMaybeSingle, abortSignal: mockReadAbortSignal }));
 const mockSelect = jest.fn(() => ({ eq: mockEq }));
 const mockFrom = jest.fn((..._args: unknown[]) => ({ select: mockSelect }));
 jest.mock('@/services/supabase/client', () => ({
@@ -223,6 +224,68 @@ describe('applyEndRoundEarly', () => {
     expect(mockAbortSignal).toHaveBeenCalledTimes(1);
     const [signal] = mockAbortSignal.mock.calls[0];
     expect(signal.aborted).toBe(false);
+  });
+
+  describe('with missing conflict details', () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+      mockRpcResult.mockResolvedValue({
+        data: null,
+        error: { code: '22023', message: 'already ended', hint: 'round_already_ended' },
+      });
+    });
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('bounds a never-settling fallback read while preserving conflict with unknown server N', async () => {
+      mockMaybeSingle.mockReturnValueOnce(new Promise(() => {}));
+      let result: EndRoundEarlyError | undefined;
+      void rejectionOf(applyEndRoundEarly(ROUND_ID, 8)).then((error) => {
+        result = error;
+      });
+      await jest.advanceTimersByTimeAsync(END_ROUND_EARLY_TIMEOUT_MS - 1);
+      expect(mockMaybeSingle).toHaveBeenCalledTimes(1);
+      expect(result).toBeUndefined();
+      await jest.advanceTimersByTimeAsync(1);
+      expect(result).toBeInstanceOf(EndRoundEarlyError);
+      expect(result?.code).toBe('conflict');
+      expect(result?.serverHolesPlayed).toBeUndefined();
+      expect(result?.message).toContain('already ended');
+      expect(mockReadAbortSignal.mock.calls[0][0].aborted).toBe(true);
+      expect(jest.getTimerCount()).toBe(0);
+    });
+
+    it('keeps the unknown conflict result when the read settles after its timeout', async () => {
+      let settle!: (value: { data: { holes_played: number }; error: null }) => void;
+      mockMaybeSingle.mockReturnValueOnce(
+        new Promise((resolve) => {
+          settle = resolve;
+        })
+      );
+      let result: EndRoundEarlyError | undefined;
+      const outcome = rejectionOf(applyEndRoundEarly(ROUND_ID, 8)).then((error) => {
+        result = error;
+        return error;
+      });
+      await jest.advanceTimersByTimeAsync(END_ROUND_EARLY_TIMEOUT_MS);
+      expect(result).toMatchObject({ code: 'conflict' });
+      expect(result?.serverHolesPlayed).toBeUndefined();
+      settle({ data: { holes_played: 6 }, error: null });
+      await jest.advanceTimersByTimeAsync(0);
+      expect(await outcome).toBe(result);
+      expect(result?.serverHolesPlayed).toBeUndefined();
+      expect(jest.getTimerCount()).toBe(0);
+    });
+
+    it('clears the fallback timer when the read returns before its deadline', async () => {
+      mockMaybeSingle.mockResolvedValueOnce({ data: { holes_played: 6 }, error: null });
+      const result = await rejectionOf(applyEndRoundEarly(ROUND_ID, 8));
+      expect(result).toMatchObject({ code: 'conflict', serverHolesPlayed: 6 });
+      expect(jest.getTimerCount()).toBe(0);
+      await jest.advanceTimersByTimeAsync(END_ROUND_EARLY_TIMEOUT_MS);
+      expect(mockReadAbortSignal.mock.calls[0][0].aborted).toBe(false);
+    });
   });
 
   describe('with no answer from the server', () => {
