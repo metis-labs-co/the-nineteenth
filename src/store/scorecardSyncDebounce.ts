@@ -19,7 +19,7 @@
  * raced by a trailing in-progress one.
  */
 
-import { captureRoundPersistenceSource, RoundPersistenceSourceChangedError } from '@/services/offline/roundPersistenceBarrier';
+import { captureRoundPersistenceSource, withRoundPersistence, RoundPersistenceSourceChangedError, type RoundPersistenceSource } from '@/services/offline/roundPersistenceBarrier';
 import type { Scorecard } from '@/types';
 import {
   queueScorecardSync,
@@ -55,17 +55,31 @@ export function debouncedQueueScorecardSync(
     // tail.
     if (scorecard.status === 'completed') return;
 
+    const queueCurrent = (source: RoundPersistenceSource) =>
+      withRoundPersistence(source, async (lease) => {
+        // Admission may have waited through a rollback, leaving the epoch unchanged.
+        // Recheck the original session getter before any local queue work starts.
+        const current = getScorecard();
+        if (
+          !current || current.status === 'completed' ||
+          current.id !== scorecardId || current.roundId !== source.roundId
+        ) return false;
+        await queueScorecardSync(current, 'update', { lease });
+        return true;
+      });
     let source = captureRoundPersistenceSource(scorecard.roundId);
     try {
+      let queued: boolean;
       try {
-        await queueScorecardSync(scorecard, 'update', { source });
+        queued = await queueCurrent(source);
       } catch (error) {
         if (!(error instanceof RoundPersistenceSourceChangedError)) throw error;
         scorecard = getScorecard();
         if (!scorecard || scorecard.status === 'completed') return;
         source = captureRoundPersistenceSource(scorecard.roundId);
-        await queueScorecardSync(scorecard, 'update', { source });
+        queued = await queueCurrent(source);
       }
+      if (!queued) return;
       if (getIsOnline()) {
         manualSync().catch((err) => {
           storeLogger.warn('Live scorecard sync failed', {

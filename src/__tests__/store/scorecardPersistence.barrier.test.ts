@@ -1,6 +1,9 @@
 import {
   captureRoundPersistenceSource as capture,
   withRoundPersistenceTransition as transition,
+  runRoundPersistence,
+  roundPersistenceLeaseRoundId,
+  type RoundPersistenceLease,
 } from '@/services/offline/roundPersistenceBarrier';
 import type { Scorecard } from '@/types';
 import { persistScorecardUpdate } from '@/store/scorecardPersistence';
@@ -9,7 +12,7 @@ import {
   flushPendingScorecardSyncs,
 } from '@/store/scorecardSyncDebounce';
 import { saveScorecard, saveHoleScore } from '@/services/offline/database';
-import { queueScorecardSync } from '@/services/offline/sync';
+import { queueScorecardSync, getIsOnline, manualSync } from '@/services/offline/sync';
 
 jest.mock('@/services/offline/database', () => ({
   saveScorecard: jest.fn(),
@@ -17,7 +20,7 @@ jest.mock('@/services/offline/database', () => ({
 }));
 jest.mock('@/services/offline/sync', () => ({
   queueScorecardSync: jest.fn(),
-  getIsOnline: () => false,
+  getIsOnline: jest.fn(() => false),
   manualSync: jest.fn(),
 }));
 
@@ -73,7 +76,7 @@ it('characterizes debounce coalescing, getter at fire, and completed skip', asyn
   debouncedQueueScorecardSync(current.id, getter);
   current = { ...current, scores: { 3: { strokes: 6 } } };
   await jest.advanceTimersByTimeAsync(2000);
-  expect(getter).toHaveBeenCalledTimes(1);
+  expect(getter).toHaveBeenCalledTimes(2);
   expect(queueScorecardSync).toHaveBeenCalledWith(current, 'update', expect.any(Object));
   current = { ...current, status: 'completed' };
   debouncedQueueScorecardSync(current.id, getter);
@@ -188,9 +191,8 @@ it('debounce rereads its guarded getter after stale queue admission', async () =
   const old = current;
   const commit = deferred();
   const getter = jest.fn(() => current);
-  const { withRoundPersistence } = jest.requireActual('@/services/offline/roundPersistenceBarrier');
   (queueScorecardSync as jest.Mock).mockImplementation((queued, _action, options) =>
-    withRoundPersistence(options.source, async () => {
+    runRoundPersistence(queued.roundId, options, async () => {
       expect(queued).toBe(current);
     })
   );
@@ -207,7 +209,7 @@ it('debounce rereads its guarded getter after stale queue admission', async () =
   commit.resolve();
   await ending;
   await jest.advanceTimersByTimeAsync(0);
-  expect(getter).toHaveBeenCalledTimes(2);
+  expect(getter).toHaveBeenCalledTimes(3);
   expect(queueScorecardSync).toHaveBeenLastCalledWith(current, 'update', expect.any(Object));
 });
 
@@ -247,4 +249,38 @@ it('refuses a fresh-token stale advertised card before writing its individual ho
   ).resolves.toBe(false);
   expect(saveHoleScore).not.toHaveBeenCalled();
   expect(saveScorecard).not.toHaveBeenCalled();
+});
+
+it('debounce queue reuses its admitted lease while closing and releases it before manual sync', async () => {
+  jest.useFakeTimers();
+  const current = card('debounce-nested-lease');
+  const network = deferred();
+  let lease: RoundPersistenceLease | undefined;
+  let ending: Promise<void> | undefined;
+  let leaseWasInactiveAtManualSync = false;
+  (getIsOnline as jest.Mock).mockReturnValue(true);
+  (queueScorecardSync as jest.Mock).mockImplementation((queued, _action, proof) => {
+    lease = proof.lease;
+    ending = transition(current.roundId, shape, async () => {}, () => {});
+    return runRoundPersistence(queued.roundId, proof, async () => {
+      expect(roundPersistenceLeaseRoundId(proof.lease)).toBe(current.roundId);
+    });
+  });
+  (manualSync as jest.Mock).mockImplementation(() => {
+    try {
+      roundPersistenceLeaseRoundId(lease!);
+    } catch {
+      leaseWasInactiveAtManualSync = true;
+    }
+    return network.promise;
+  });
+  debouncedQueueScorecardSync(current.id, () => current);
+  await jest.advanceTimersByTimeAsync(2000);
+  expect(queueScorecardSync).toHaveBeenCalledTimes(1);
+  expect(manualSync).toHaveBeenCalledTimes(1);
+  expect(lease).toBeDefined();
+  expect(leaseWasInactiveAtManualSync).toBe(true);
+  expect(ending).toBeDefined();
+  await ending;
+  network.resolve();
 });

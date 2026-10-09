@@ -9,7 +9,7 @@
  * - Offline support integration
  */
 
-import { withRoundPersistenceTransition } from '@/services/offline/roundPersistenceBarrier';
+import { runRoundPersistence, withRoundPersistenceTransition } from '@/services/offline/roundPersistenceBarrier';
 import { flushPendingScorecardSyncs } from '@/store/scorecardSyncDebounce';
 import { useScorecardStore } from '@/store/scorecardStore';
 import {
@@ -2047,6 +2047,32 @@ describe('C1 debounce session ownership', () => {
     expect(queueScorecardSync).toHaveBeenCalledTimes(1);
     expect(queueScorecardSync).toHaveBeenCalledWith(current, 'update', expect.any(Object));
     expect(getStrokes(current.scores[3])).toBe(6);
+  });
+
+  it('does not admit a captured timer card from a replaced session after transition rollback', async () => {
+    const roundId = 'c1-debounce-session-rollback';
+    installC1Round(roundId);
+    await edit('setPlayerScore', roundId, 6);
+    const paused = c1Deferred();
+    const ending = withRoundPersistenceTransition(roundId, { nine_type: 'full', holes_played: 6 }, async () => {
+      await paused.promise;
+      throw new Error('rollback');
+    }, () => {});
+    const failed = expect(ending).rejects.toThrow('rollback');
+    const admitted: Scorecard[] = [];
+    (queueScorecardSync as jest.Mock).mockImplementation((queued, _action, proof) =>
+      runRoundPersistence(queued.roundId, proof, async () => { admitted.push(queued); })
+    );
+    await jest.advanceTimersByTimeAsync(2000);
+    expect(admitted).toEqual([]);
+
+    getStore().resetRound();
+    const replacement = installC1Round(roundId, { 3: { strokes: 9 } });
+    paused.resolve();
+    await failed;
+    await jest.advanceTimersByTimeAsync(0);
+    expect(admitted).toEqual([]);
+    expect(getStore().groupScorecards.get(c1Player.id)).toBe(replacement);
   });
 
   it.each(actions)('%s still schedules live sync after an ordinary save failure in its current session', async (action) => {
