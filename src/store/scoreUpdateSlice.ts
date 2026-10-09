@@ -185,8 +185,10 @@ export async function setPlayerScore(
     context: 'setPlayerScore',
   });
 
-  if (currentRoundId && !scorecard.isStandalone) {
-    debouncedQueueScorecardSync(scorecard.id, persistence?.resolveCurrentScorecard ?? (() => get().groupScorecards.get(playerId)));
+  const getCurrentScorecard = persistence?.resolveCurrentScorecard ?? (() => get().groupScorecards.get(playerId));
+  // A cancelled old session must not replace a new session's timer for the same card ID.
+  if (currentRoundId && !scorecard.isStandalone && getCurrentScorecard()) {
+    debouncedQueueScorecardSync(scorecard.id, getCurrentScorecard);
   }
 }
 
@@ -349,8 +351,9 @@ export async function updateLocalScore(
     context: 'updateLocalScore',
   });
 
-  if (!scorecard.isStandalone) {
-    debouncedQueueScorecardSync(scorecard.id, persistence?.resolveCurrentScorecard ?? (() => get().groupScorecards.get(playerId)));
+  const getCurrentScorecard = persistence?.resolveCurrentScorecard ?? (() => get().groupScorecards.get(playerId));
+  if (!scorecard.isStandalone && getCurrentScorecard()) {
+    debouncedQueueScorecardSync(scorecard.id, getCurrentScorecard);
   }
 
   if (saved) {

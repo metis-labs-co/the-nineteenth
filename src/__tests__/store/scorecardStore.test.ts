@@ -2002,3 +2002,61 @@ describe("C1 live persistence source/session protection", () => {
     expect(queueScorecardSync).not.toHaveBeenCalled();
   });
 });
+
+describe('C1 debounce session ownership', () => {
+  const actions = ['setPlayerScore', 'updateLocalScore'] as const;
+  const edit = (action: typeof actions[number], roundId: string, strokes: number) =>
+    action === 'setPlayerScore'
+      ? getStore().setPlayerScore(c1Player.id, 3, strokes)
+      : getStore().updateLocalScore(roundId, c1Player.id, 3, strokes);
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    flushPendingScorecardSyncs();
+    getStore().resetRound();
+    jest.clearAllMocks();
+    (saveHoleScore as jest.Mock).mockResolvedValue(undefined);
+    (saveScorecard as jest.Mock).mockResolvedValue(undefined);
+    (queueScorecardSync as jest.Mock).mockResolvedValue(undefined);
+    (getIsOnline as jest.Mock).mockReturnValue(false);
+  });
+  afterEach(() => {
+    flushPendingScorecardSyncs();
+    jest.useRealTimers();
+    (getIsOnline as jest.Mock).mockReturnValue(true);
+  });
+
+  it.each(actions)('%s cannot replace the new same-round session timer after its old save cancels', async (action) => {
+    const roundId = `c1-debounce-session-${action}`;
+    installC1Round(roundId);
+    const paused = c1Deferred();
+    (saveHoleScore as jest.Mock).mockImplementationOnce(() => paused.promise);
+    const oldEdit = edit(action, roundId, 5);
+    expect(saveHoleScore).toHaveBeenCalledTimes(1);
+
+    getStore().resetRound();
+    installC1Round(roundId);
+    await edit(action, roundId, 6);
+    const current = getStore().groupScorecards.get(c1Player.id)!;
+    expect(jest.getTimerCount()).toBe(1);
+
+    paused.resolve();
+    await oldEdit;
+    expect(saveScorecard).toHaveBeenCalledTimes(1);
+    await jest.advanceTimersByTimeAsync(2000);
+    expect(queueScorecardSync).toHaveBeenCalledTimes(1);
+    expect(queueScorecardSync).toHaveBeenCalledWith(current, 'update', expect.any(Object));
+    expect(getStrokes(current.scores[3])).toBe(6);
+  });
+
+  it.each(actions)('%s still schedules live sync after an ordinary save failure in its current session', async (action) => {
+    const roundId = `c1-debounce-save-failure-${action}`;
+    installC1Round(roundId);
+    (saveHoleScore as jest.Mock).mockRejectedValueOnce(new Error('disk unavailable'));
+    await edit(action, roundId, 6);
+    const current = getStore().groupScorecards.get(c1Player.id)!;
+    expect(saveScorecard).not.toHaveBeenCalled();
+    await jest.advanceTimersByTimeAsync(2000);
+    expect(queueScorecardSync).toHaveBeenCalledWith(current, 'update', expect.any(Object));
+  });
+});
