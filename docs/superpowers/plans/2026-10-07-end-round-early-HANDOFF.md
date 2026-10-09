@@ -1,6 +1,6 @@
 # End Round Early: build handoff
 
-**Checkpoint:** 2026-10-09, Part A complete; Part B reviewed through B6b-1 (48 of 76 tasks complete).
+**Checkpoint:** 2026-10-09, Part A complete; Part B reviewed through B6b-1 (48 of 76 tasks complete), plus correction C1.
 **Worktree:** `.claude/worktrees/end-round-early`, branch `worktree-end-round-early`.
 **Plan:** `docs/superpowers/plans/2026-10-07-end-round-early.md`, 76 tasks run in Task Index order.
 **Spec:** `docs/superpowers/specs/2026-10-07-end-round-early-design.md`. Revision 3 and R22 override everything earlier in the spec.
@@ -10,8 +10,9 @@
 - **All 29 Part A tasks are complete and reviewed**, through A6d-2 at `90aba372`. A5c-2's previously pending review passed. The resumed tasks each passed separate spec and code-quality reviews; review corrections have their own commits. See `git log 935760c9..HEAD` and the ledger for details.
 - **Part A verification passed:** TEST_SUBSET 193 suites, 3629 passed, 15 skipped; `pnpm type-check`; changed-file ESLint; and `pnpm verify:gate`. The subset count dropped after the two obsolete hook test suites were deleted. Existing Jest worker-exit warnings and nonblocking lint warnings remain.
 - **Part B is complete and reviewed through B6b-1** at `f536d69a`: the earlier persistence, scoring, match and screen work plus preview/confirmation components and passive RPC, queue, repair and coordinator foundations. Its spec and quality review fixes are `4ed8ce66` (reject inconsistent local-card/player identities before revision merging) and `f536d69a` (bound the conflict fallback read). Both independent review gates passed after correction.
-- **Next: correction C1**, the passive source/lease barrier and ordinary local persistence. Complete C1, C2a, C2b, C3, C4 and C5 as staged in `B6-persistence-controller-ruling.md` before B6b-2 activates owned intents. Continue the original Task Index through B11 afterwards. The confirmation hook, active sync integration and remaining display integrations are still ahead.
-- **Latest validation:** B6b-1 TEST_SUBSET 219 suites, 4217 passed, 15 skipped, 30 snapshots; type-check and changed-file ESLint passed. Existing lint/Jest warnings remain. SQL has only been statically reviewed; runtime and concurrency verification are deferred.
+- **Correction C1 is complete and reviewed** through `f0928410`: passive source/lease barrier, ordinary live persistence, nested DAO writes and debounce/queue admission. Review fixes prevent old sessions from replacing newer sync timers and recheck sessions after a waiting repair rolls back. Production transitions remain inactive until C2b.
+- **Next: correction C2a**, recorded context and optional handicap-source metadata. Then complete C2b, C3, C4 and C5 as staged in `B6-persistence-controller-ruling.md` before B6b-2 activates owned intents. Continue the original Task Index through B11 afterwards. The confirmation hook, active sync integration and remaining display integrations are still ahead.
+- **Latest validation:** C1 TEST_SUBSET 222 suites, 4250 passed, 15 skipped, 30 snapshots; type-check and changed-file ESLint passed. Existing lint/Jest warnings remain. SQL has only been statically reviewed; runtime and concurrency verification are deferred.
 - **No database has been touched.** The A7 SQL files exist but are not applied. All apply, verify and dry-run steps are deferred to the rollout checklists in A6d-2 Step 5 and B11. Never apply migrations during the build.
 
 ## Corrections made during Part A review
