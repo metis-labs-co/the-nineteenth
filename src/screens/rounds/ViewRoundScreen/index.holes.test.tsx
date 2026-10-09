@@ -5,6 +5,8 @@ import type { NineType } from '@/types/database/enums';
 import ViewRoundScreen from './index';
 import { useViewRoundScreen } from './useViewRoundScreen';
 import type { TabKey } from './types';
+import { useViewRoundHandlers } from './hooks/useViewRoundHandlers';
+import type { RoundWithCourse } from '@/hooks/useRoundDetails';
 
 const mockScorecardProps = jest.fn();
 const mockStatsProps = jest.fn();
@@ -283,5 +285,67 @@ describe('ViewRound Wolf played-hole routing', () => {
     setVm('wolf');
     rerender(<ViewRoundScreen {...props} />);
     expect(lastProps(mockWolfProps).holeNumbers).toEqual(fullNumbers);
+  });
+});
+
+// Exercise the real title handler at the rendered screen header boundary.
+function setHeaderVm(round: RoundWithCourse) {
+  jest.mocked(useViewRoundScreen).mockImplementation(() => {
+    const noop = jest.fn();
+    const handlers = useViewRoundHandlers({
+      roundId: round.id,
+      navigation: props.navigation,
+      isStandalone: true,
+      isMatchPlayRound: false,
+      isTeamMatchPlayRound: false,
+      hasSkinsGame: false,
+      hasWolfGame: false,
+      round,
+      scorecards: [],
+      roundPlayers: [{ id: 'p1' }],
+      refetchRound: noop,
+      refetchScorecards: noop,
+      refetchPlayers: noop,
+      refetchMatchPlay: noop,
+      refetchSkinsResults: noop,
+      refetchSkinsGame: noop,
+      refetchWolfSummary: noop,
+      setShowCourseModal: noop,
+      setCourseSearchQuery: noop,
+      setShowTagLeagueSheet: noop,
+    });
+    return { ...mockVm, round, ...handlers } as unknown as ReturnType<
+      typeof useViewRoundScreen
+    >;
+  });
+}
+
+describe('ViewRound rendered header classification', () => {
+  it('renders the real ordinary handler title', () => {
+    setHeaderVm({
+      ...mockVm.round,
+      handicap_source: 'profile',
+    } as RoundWithCourse);
+    render(<ViewRoundScreen {...props} />);
+    expect(screen.getByText('Handicap Round')).toBeTruthy();
+  });
+});
+
+describe('ViewRound rendered ended title', () => {
+  it('updates the real header when only the end marker arrives and preserves custom names', () => {
+    const round = {
+      ...mockVm.round,
+      handicap_source: 'profile',
+    } as RoundWithCourse;
+    setHeaderVm(round);
+    const ui = render(<ViewRoundScreen {...props} />);
+    expect(screen.getByText('Handicap Round')).toBeTruthy();
+    setHeaderVm({ ...round, holes_played: 6 });
+    ui.rerender(<ViewRoundScreen {...props} />);
+    expect(screen.getByText('Practice Round')).toBeTruthy();
+    expect(screen.queryByText('Handicap Round')).toBeNull();
+    setHeaderVm({ ...round, holes_played: 6, name: 'Sunday golf' });
+    ui.rerender(<ViewRoundScreen {...props} />);
+    expect(screen.getByText('Sunday golf')).toBeTruthy();
   });
 });

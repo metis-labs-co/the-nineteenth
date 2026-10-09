@@ -90,10 +90,11 @@ export const RoundListCard = React.memo(function RoundListCard<
         )
       : null;
 
+  // The validated ended label also identifies ended rounds for classification.
   const typeLabel = round.isStandalone
     ? round.players && round.players.length > 1
       ? 'Match'
-      : round.handicapSource && round.handicapSource !== 'none'
+      : round.handicapSource && round.handicapSource !== 'none' && !endedEarlyLabel
         ? 'Handicap Round'
         : 'Practice Round'
     : round.competition?.name || 'Competition';

@@ -1033,3 +1033,94 @@ describe('RoundListCard', () => {
     });
   });
 });
+
+describe('RoundListCard ordinary source compatibility', () => {
+  it.each(['profile', 'calculated', 'none', null, undefined])(
+    'keeps solo source %s subtitle',
+    (handicapSource) => {
+      render(
+        <RoundListCard
+          round={createStandaloneRound({
+            status: 'completed',
+            players: [{ id: 'p1', name: 'Sam' }],
+            handicapSource,
+            userScore: { hasScorecard: true },
+          })}
+          onPress={jest.fn()}
+        />
+      );
+      expect(
+        screen.getByText(
+          handicapSource && handicapSource !== 'none'
+            ? 'Handicap Round'
+            : 'Practice Round'
+        )
+      ).toBeTruthy();
+    }
+  );
+  it.each([0, -1, 1.5, NaN])(
+    'keeps invalid marker %s ordinary',
+    (holesPlayed) => {
+      render(
+        <RoundListCard
+          round={createStandaloneRound({
+            status: 'completed',
+            players: [{ id: 'p1', name: 'Sam' }],
+            handicapSource: 'profile',
+            holesPlayed,
+            userScore: { hasScorecard: true },
+          })}
+          onPress={jest.fn()}
+        />
+      );
+      expect(screen.getByText('Handicap Round')).toBeTruthy();
+      expect(screen.queryByTestId('round-card-ended-early')).toBeNull();
+    }
+  );
+  it('preserves multiplayer and competition subtitles with end metadata', () => {
+    const ui = render(
+      <RoundListCard
+        round={createStandaloneRound({
+          status: 'completed',
+          holesPlayed: 6,
+          userScore: { hasScorecard: true },
+        })}
+        onPress={jest.fn()}
+      />
+    );
+    expect(screen.getByText('Match')).toBeTruthy();
+    ui.rerender(
+      <RoundListCard
+        round={createCompletedRound({
+          holesPlayed: 6,
+          userScore: { hasScorecard: true },
+        })}
+        onPress={jest.fn()}
+      />
+    );
+    expect(screen.getByText('Summer Series')).toBeTruthy();
+  });
+});
+
+describe('RoundListCard ended classification', () => {
+  it.each(['profile', 'calculated', 'none', null, undefined])(
+    'shows Practice for valid ended solo source %s',
+    (handicapSource) => {
+      render(
+        <RoundListCard
+          round={createStandaloneRound({
+            status: 'completed',
+            players: [{ id: 'p1', name: 'Sam' }],
+            handicapSource,
+            holesPlayed: 6,
+            userScore: { hasScorecard: true, totalPoints: 12 },
+          })}
+          onPress={jest.fn()}
+        />
+      );
+      expect(screen.getByText('Practice Round')).toBeTruthy();
+      expect(screen.queryByText('Handicap Round')).toBeNull();
+      expect(screen.getByTestId('round-card-ended-early')).toBeTruthy();
+    }
+  );
+});

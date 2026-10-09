@@ -9,7 +9,7 @@ import {
   matchesRoundScope,
   isCompetitionRoundItem,
 } from './useRoundFilters';
-import type { RoundItem, RoundListData } from '../types';
+import type { RoundItem, RoundListData, RoundTypeFilter } from '../types';
 
 function round(overrides: Partial<RoundItem> & { id: string }): RoundItem {
   return {
@@ -133,5 +133,164 @@ describe('useRoundFilters', () => {
 
     expect(result.current.roundScope).toBe('social');
     expect(result.current.filteredHistoryRounds.map((r) => r.id)).toEqual(['social-done']);
+  });
+});
+
+function filteredIds(history: RoundItem[], filter: RoundTypeFilter): string[] {
+  const { result } = renderHook(() =>
+    useRoundFilters({ active: [], history }, filter)
+  );
+  return result.current.filteredHistoryRounds.map((r) => r.id);
+}
+
+describe('ordinary round type compatibility', () => {
+  const history = ['profile', 'calculated', 'none', null, undefined].map(
+    (source, index) =>
+      round({
+        id: `source-${index}`,
+        handicapSource: source,
+        nineType: 'back9',
+        totalHoles: 9,
+      })
+  );
+  it('preserves all source defaults and all/nine filters', () => {
+    expect(filteredIds(history, 'handicap')).toEqual([
+      'source-0',
+      'source-1',
+      'source-3',
+      'source-4',
+    ]);
+    expect(filteredIds(history, 'practice')).toEqual(['source-2']);
+    expect(filteredIds(history, 'all')).toEqual(history.map((r) => r.id));
+    expect(filteredIds(history, 'ninehole')).toEqual(history.map((r) => r.id));
+  });
+  it.each([0, -1, 1.5, NaN])('keeps invalid marker %s ordinary', (marker) => {
+    const history = [
+      round({
+        id: 'invalid',
+        handicapSource: 'profile',
+        nineType: 'back9',
+        holesPlayed: marker,
+      }),
+    ];
+    expect(filteredIds(history, 'handicap')).toEqual(['invalid']);
+    expect(filteredIds(history, 'practice')).toEqual([]);
+    expect(filteredIds(history, 'ninehole')).toEqual(['invalid']);
+  });
+});
+
+describe('useRoundFilters — rounds ended early', () => {
+  // Every round is a completed standalone round. The two `ended-*` rounds were
+  // ended after 6 holes (RoundListCardData.holesPlayed, B9a).
+  const endedData: RoundListData = {
+    active: [],
+    history: [
+      round({
+        id: 'full-handicap',
+        handicapSource: 'profile',
+        nineType: 'full',
+      }),
+      round({
+        id: 'ended-full',
+        handicapSource: 'profile',
+        nineType: 'full',
+        holesPlayed: 6,
+      }),
+      round({
+        id: 'back9',
+        handicapSource: 'profile',
+        nineType: 'back9',
+        totalHoles: 9,
+      }),
+      round({
+        id: 'ended-back9',
+        handicapSource: 'profile',
+        nineType: 'back9',
+        totalHoles: 9,
+        holesPlayed: 6,
+      }),
+      round({ id: 'practice', handicapSource: 'none', nineType: 'full' }),
+    ],
+  };
+
+  function filteredIds(filter: RoundTypeFilter): string[] {
+    const { result } = renderHook(() => useRoundFilters(endedData, filter));
+    return result.current.filteredHistoryRounds.map((r) => r.id);
+  }
+
+  it('keeps every round under "all" (locks current behaviour)', () => {
+    expect(filteredIds('all')).toEqual([
+      'full-handicap',
+      'ended-full',
+      'back9',
+      'ended-back9',
+      'practice',
+    ]);
+  });
+
+  it('lists ended-early rounds under Practice, never under Handicap', () => {
+    // Before: handicap = all four 'profile' rounds; practice = ['practice'].
+    expect(filteredIds('handicap')).toEqual(['full-handicap', 'back9']);
+    expect(filteredIds('practice')).toEqual([
+      'ended-full',
+      'ended-back9',
+      'practice',
+    ]);
+  });
+
+  it('keeps ended-early rounds out of the 9-hole filter', () => {
+    // Before: ['back9', 'ended-back9'].
+    expect(filteredIds('ninehole')).toEqual(['back9']);
+  });
+});
+
+describe('ended marker type-filter consistency', () => {
+  it.each(['profile', 'calculated', 'none', null, undefined])(
+    'makes ended source %s Practice and preserves raw metadata',
+    (handicapSource) => {
+      const history = [
+        round({
+          id: 'ended',
+          handicapSource,
+          nineType: 'back9',
+          holesPlayed: 6,
+        }),
+      ];
+      expect(filteredIds(history, 'practice')).toEqual(['ended']);
+      expect(filteredIds(history, 'handicap')).toEqual([]);
+      expect(filteredIds(history, 'ninehole')).toEqual([]);
+      expect(history[0].holesPlayed).toBe(6);
+    }
+  );
+  it('keeps full eighteen ended at nine outside the nine category', () => {
+    const history = [
+      round({
+        id: 'ended18',
+        handicapSource: 'profile',
+        nineType: 'full',
+        holesPlayed: 9,
+      }),
+    ];
+    expect(filteredIds(history, 'ninehole')).toEqual([]);
+    expect(filteredIds(history, 'practice')).toEqual(['ended18']);
+  });
+  it('keeps side-game, multiplayer and match-play filters unchanged for ended rounds', () => {
+    const history = [
+      round({ id: 'skins', hasSkins: true, holesPlayed: 6 }),
+      round({ id: 'wolf', hasWolf: true, holesPlayed: 6 }),
+      round({
+        id: 'match',
+        players: [
+          { id: 'p1', name: 'Sam' },
+          { id: 'p2', name: 'Ann' },
+        ],
+        gameType: 'match-play',
+        holesPlayed: 6,
+      }),
+    ];
+    expect(filteredIds(history, 'skins')).toEqual(['skins']);
+    expect(filteredIds(history, 'wolf')).toEqual(['wolf']);
+    expect(filteredIds(history, 'match')).toEqual(['match']);
+    expect(filteredIds(history, 'matchplay')).toEqual(['match']);
   });
 });

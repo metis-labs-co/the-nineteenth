@@ -6,6 +6,7 @@
  */
 
 import { useState, useMemo } from 'react';
+import { isEndedEarly } from '@/utils/roundShape';
 import type {
   RoundScopeFilter,
   RoundTypeFilter,
@@ -43,6 +44,8 @@ function filterByType(rounds: RoundItem[], filter: RoundTypeFilter): RoundItem[]
   if (filter === 'all') return rounds;
 
   return rounds.filter((round) => {
+    // List holesPlayed is end metadata, unlike the stats summary's scored count.
+    const endedEarly = isEndedEarly({ holes_played: round.holesPlayed });
     switch (filter) {
       case 'skins':
         return round.hasSkins === true;
@@ -53,16 +56,17 @@ function filterByType(rounds: RoundItem[], filter: RoundTypeFilter): RoundItem[]
       case 'matchplay':
         return round.gameType === 'match-play';
       case 'practice':
-        // Practice = round not tracked for handicap (source 'none'), matching the
+        // Practice = source 'none' or ended early, matching the
         // "Practice" breakdown card in My Stats.
-        return round.handicapSource === 'none';
+        return round.handicapSource === 'none' || endedEarly;
       case 'handicap':
         // Handicap = round tracked for handicap (any source other than 'none';
         // a null source defaults to 'profile'), matching the "Handicap" card.
-        return round.handicapSource !== 'none';
+        return round.handicapSource !== 'none' && !endedEarly;
       case 'ninehole':
         return (
-          round.nineType === 'front9' || round.nineType === 'back9' || round.totalHoles === 9
+          !endedEarly &&
+          (round.nineType === 'front9' || round.nineType === 'back9' || round.totalHoles === 9)
         );
       default:
         return true;

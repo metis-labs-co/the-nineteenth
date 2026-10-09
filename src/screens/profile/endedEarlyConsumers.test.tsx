@@ -96,18 +96,21 @@ describe('statistics recent activity and chart callers', () => {
     expect(courseStats.recentRounds).toEqual(original);
     expect(screen.getByText('24')).toBeTruthy();
     expect(screen.getByText('Ended after 6 of 18')).toBeTruthy();
+    expect(screen.getByText('Practice')).toBeTruthy();
+    expect(screen.getAllByText('Handicap')).toHaveLength(2);
   });
 
   it('OverviewStats and PlayerDetail retain ended activity and append its label', () => {
     render(<OverviewStats stats={mockStats} />);
     expect(screen.getByText('24')).toBeTruthy();
-    expect(screen.getAllByText('Handicap Round')).toHaveLength(3);
+    expect(screen.getAllByText('Handicap Round')).toHaveLength(2);
+    expect(screen.getByText('Practice Round')).toBeTruthy();
     expect(screen.getByText('Ended after 6 of 18')).toBeTruthy();
     cleanup();
     renderPlayerDetail();
     expect(screen.getByText('24')).toBeTruthy();
     expect(screen.getAllByText('Handicap Round')).toHaveLength(2);
-    expect(screen.getByText('Handicap Round · Ended after 6 of 18')).toBeTruthy();
+    expect(screen.getByText('Practice Round · Ended after 6 of 18')).toBeTruthy();
   });
 
   it('all chart callers keep invalid and missing markers, and all row callers label only a valid back nine', () => {

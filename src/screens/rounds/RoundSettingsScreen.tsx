@@ -49,6 +49,7 @@ import type { CourseWithFavoriteStatus } from '@/hooks/useClubs';
 import type { Club } from '@/types/database.types';
 import type { Player } from '@/types';
 import type { SkinsConfig } from '@/types/database/skins.types';
+import { isEndedEarly } from '@/utils/roundShape';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type SettingsRoute = RouteProp<RootStackParamList, 'RoundSettings'>;
@@ -138,7 +139,8 @@ export default function RoundSettingsScreen() {
     if (isStandalone) {
       const playerCount = (roundPlayers?.length ?? 0) || (scorecards?.length ?? 0);
       if (playerCount > 1) return 'Match';
-      return round.handicap_source && round.handicap_source !== 'none'
+      // Mirrors the ViewRound header for ended solo standalone rounds (R22).
+      return round.handicap_source && round.handicap_source !== 'none' && !isEndedEarly(round)
         ? 'Handicap Round'
         : 'Practice Round';
     }

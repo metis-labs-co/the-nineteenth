@@ -340,13 +340,18 @@ export function usePlayerStatistics(
 
         // Resolve effective handicap source: round > competition > default 'profile'.
         // Practice vs Handicap is a partition of standalone rounds: a round
-        // counts toward handicap when its effective source is not 'none'.
+        // counts toward handicap when its effective source is not 'none' and
+        // it was not ended early.
         // Competition rounds belong to the Competition bucket and are excluded
         // from both Practice and Handicap counts so the three categories don't
         // double-count the same round.
         const effectiveHandicapSource = round.handicap_source ?? competition?.handicap_source ?? 'profile';
-        const isHandicapRound = isStandaloneRound && effectiveHandicapSource !== 'none';
-        const isPracticeRound = isStandaloneRound && effectiveHandicapSource === 'none';
+        // Ended standalone rounds are Practice regardless of source (R21/R22).
+        // Practice + Handicap + Competition still partition rounds played.
+        const isHandicapRound =
+          isStandaloneRound && effectiveHandicapSource !== 'none' && !endedEarly;
+        const isPracticeRound =
+          isStandaloneRound && (effectiveHandicapSource === 'none' || endedEarly);
         if (isHandicapRound) {
           handicapRoundsCount++;
         }

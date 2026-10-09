@@ -198,8 +198,12 @@ export function useCourseStatistics(
         // it's a "practice round". Competition rounds fall into neither.
         const effectiveHandicapSource =
           round.handicap_source ?? competition?.handicap_source ?? 'profile';
-        const isHandicapRound = isStandaloneRound && effectiveHandicapSource !== 'none';
-        const isPracticeRound = isStandaloneRound && effectiveHandicapSource === 'none';
+        // Ended standalone rounds are Practice regardless of source (R21/R22).
+        // Practice + Handicap + Competition still partition rounds played.
+        const isHandicapRound =
+          isStandaloneRound && effectiveHandicapSource !== 'none' && !endedEarly;
+        const isPracticeRound =
+          isStandaloneRound && (effectiveHandicapSource === 'none' || endedEarly);
         const holes = parseAndTransformHoles(course.holes);
         const scores = scorecard.scores as Record<string, HoleScore>;
 

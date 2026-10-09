@@ -8,6 +8,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import { resolveCompetitionBackAction } from '@/navigation/competitionBackNavigation';
 import type { RoundWithCourse, ScorecardWithPlayer } from '@/hooks/useRoundDetails';
+import { isEndedEarly } from '@/utils/roundShape';
 
 interface UseViewRoundHandlersParams {
   roundId: string;
@@ -206,7 +207,8 @@ export function useViewRoundHandlers({
       if (hasWolfGame) return 'Wolf Game';
       const playerCount = scorecards?.length || roundPlayers?.length || 0;
       if (playerCount > 1) return 'Match';
-      return round?.handicap_source && round.handicap_source !== 'none'
+      // An ended solo standalone round is Practice regardless of source (R22).
+      return round?.handicap_source && round.handicap_source !== 'none' && !isEndedEarly(round)
         ? 'Handicap Round'
         : 'Practice Round';
     }
