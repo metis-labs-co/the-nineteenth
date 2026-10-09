@@ -111,7 +111,7 @@ function localHolesPlayedFromCards(cards: Scorecard[]): number | null {
 
 type InitSessionOptions = {
   getSessionGeneration?: () => number;
-  onLiveCardsCreated?: (cards: readonly Scorecard[]) => void;
+  onLiveCardsReady?: (cards: readonly Scorecard[]) => void;
   canUseLiveContext?: () => boolean;
 };
 
@@ -242,7 +242,7 @@ export async function initializeRound(
     }
 
     assertSource();
-    if (shape.holesPlayed == null) options.onLiveCardsCreated?.([...newScorecards.values()]);
+    if (shape.holesPlayed == null) options.onLiveCardsReady?.([...newScorecards.values()]);
     set({
       currentRoundId: roundId,
       currentPlayers: players,
@@ -585,6 +585,14 @@ export async function loadFromOffline(
 
     if (!isCurrentSession()) return false;
     assertSource();
+    if (shape.holesPlayed == null) {
+      // Resuming an ordinary active card establishes this session's live
+      // origin after current profile/round context has loaded successfully.
+      const activeCards = [...newScorecards.values()].filter(card =>
+        card.holesPlayed == null && card.status === 'in-progress' &&
+        !card.submittedAt && !card.submittedBy);
+      if (activeCards.length) options.onLiveCardsReady?.(activeCards);
+    }
     set({
       currentRoundId: roundId,
       currentPlayers: players,
@@ -705,7 +713,7 @@ export async function ensureTeamMemberScorecards(
     const latest = get();
     if (latest.groupScorecards.has(player.id)) continue;
     const cards = new Map(latest.groupScorecards); cards.set(player.id, card);
-    if (!cached) options.onLiveCardsCreated?.([card]);
+    if (!cached) options.onLiveCardsReady?.([card]);
     set({ groupScorecards: cards, currentPlayers: latest.currentPlayers.some(p => p.id === player.id) ? latest.currentPlayers : [...latest.currentPlayers, player] });
   }
 }

@@ -774,6 +774,72 @@ describe('characterization (pre round-shape init)', () => {
   });
 });
 
+describe('C2b resumed unended live provenance', () => {
+  it.each(['profile', 'calculated', 'none'] as const)('resumes a source-only active %s card, scores locally and ends with real current context', async (source) => {
+    const player = { ...P1, handicap: source === 'none' ? undefined : 24, handicapIndex: source === 'none' ? undefined : 20 };
+    const cached: Scorecard = {
+      id: cardId(P1.id), roundId: ROUND_ID, playerId: P1.id, player,
+      scores: { 1: { strokes: 5 } }, totalGross: 5, totalNet: 5,
+      status: 'in-progress', syncHandicapSource: source,
+      createdAt: new Date('2020-01-01'), updatedAt: new Date('2020-01-02'),
+    };
+    (getHoles as jest.Mock).mockResolvedValue(create18Holes());
+    (getScorecardsByRound as jest.Mock).mockResolvedValue([cached]);
+    supabaseMock.__setRoundsResult(roundsRow({ handicap_source: source, selected_tee: TEE_WHITE }));
+    const originalFrom = (supabase.from as jest.Mock).getMockImplementation()!;
+    (supabase.from as jest.Mock).mockImplementation((table: string) => {
+      if (table !== 'players') return originalFrom(table);
+      return { select: () => ({ in: async () => ({ data: [{ id: P1.id,
+        handicap: source === 'none' ? null : 14,
+        handicap_index: source === 'none' ? null : 12, gender: null }] }) }) };
+    });
+    const loaded = await getStore().loadFromOffline(ROUND_ID);
+    (supabase.from as jest.Mock).mockImplementation(originalFrom);
+    expect(loaded).toBe(true);
+    expect(getStore().groupScorecards.get(P1.id)?.playerHandicap).toBeUndefined();
+    expect(getStore().groupScorecards.get(P1.id)?.player?.handicap).toBe(source === 'none' ? undefined : 14);
+    await getStore().setPlayerScore(P1.id, 2, 6);
+    await getStore().endRoundEarly(6);
+    const expectedHI = source === 'none' ? undefined : source === 'calculated' ? 12 : 14;
+    expect(getStore().groupScorecards.get(P1.id)).toMatchObject({
+      holesPlayed: 6, syncHandicapSource: source, playerHandicap: expectedHI,
+      teeData: TEE_WHITE, syncHoles: create18Holes(), syncGameType: 'stroke',
+      scores: { 1: { strokes: 5 }, 2: { strokes: 6 } }, totalGross: 11,
+      totalNet: source === 'none' ? 11 : 10,
+    });
+    const historicalQueueSource = { ...cached, createdAt: new Date('2019-01-01') };
+    expect(getStore().captureRoundScoringSession(ROUND_ID)?.getLiveContext(historicalQueueSource)).toBeUndefined();
+  });
+
+  it.each([
+    { status: 'in-progress' as const, holesPlayed: 6 },
+    { status: 'confirmed' as const, holesPlayed: null },
+    { status: 'in-progress' as const, holesPlayed: null, submittedBy: 'historical' },
+  ])('loaded historical/terminal card remains ineligible: %j', async (fields) => {
+    const cached = { ...cachedCard(P1, [1], fields.holesPlayed), ...fields,
+      playerHandicap: undefined, playerGender: undefined, teeData: undefined,
+      syncHoles: undefined, syncGameType: undefined, syncNineType: undefined, coursePar: undefined };
+    (getHoles as jest.Mock).mockResolvedValue(create18Holes());
+    (getScorecardsByRound as jest.Mock).mockResolvedValue([cached]);
+    supabaseMock.__setRoundsResult(roundsRow({ holes_played: fields.holesPlayed }));
+    const loaded = await getStore().loadFromOffline(ROUND_ID);
+    if (fields.holesPlayed != null) {
+      expect(loaded).toBe(false);
+      expect(getStore().captureRoundScoringSession(ROUND_ID)).toBeNull();
+      expect(getStore().isInitialized).toBe(false);
+      return;
+    }
+    expect(loaded).toBe(true);
+    const current = getStore().groupScorecards.get(P1.id)!;
+    const session = getStore().captureRoundScoringSession(ROUND_ID);
+    expect(session?.getLiveContext(current)).toBeUndefined();
+    expect(() => createRoundScoringContext(ROUND_ID, { holes: create18Holes(), gameType: 'stroke', getLiveContext: session?.getLiveContext })(
+      current, new Set(range(1, 6)), { nine_type: 'full', holes_played: 6 })).toThrow(expect.objectContaining({ kind: 'context_missing' }));
+    await expect(getStore().endRoundEarly(6)).rejects.toThrow('submitted');
+    expect(persistRoundEarlyEnd).not.toHaveBeenCalled();
+  });
+});
+
 describe('init paths resolve the round shape and reconcile', () => {
   beforeEach(() => {
     (getHoles as jest.Mock).mockResolvedValue(create18Holes());

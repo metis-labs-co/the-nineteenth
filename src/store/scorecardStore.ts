@@ -164,6 +164,11 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
     return typeof card.createdAt === 'string' ? Date.parse(card.createdAt) : NaN;
   };
   let liveRoundSession = false;
+  const registerLiveOrigins = (session: number, cards: readonly Scorecard[]) => {
+    if (roundSession !== session) return;
+    liveRoundSession = true;
+    for (const card of cards) liveScorecardOrigins.set(card.id, sourceCreatedAt(card));
+  };
   const captureLivePersistence = (playerId: string) => {
     const generation = roundSession;
     const roundId = get().currentRoundId;
@@ -274,11 +279,7 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
       liveRoundSession = false;
       await initSlice.initializeRound(set, initSyncListener, roundId, players, holes, gameType, isStandalone, allowedPlayerIds, selectedTeeData, handicapSource, playerTeeMap, nineType, startHole, holesPlayed, {
         getSessionGeneration: () => roundSession,
-        onLiveCardsCreated: cards => {
-          if (roundSession !== session) return;
-          liveRoundSession = true;
-          for (const card of cards) liveScorecardOrigins.set(card.id, sourceCreatedAt(card));
-        },
+        onLiveCardsReady: cards => registerLiveOrigins(session, cards),
       });
       if (roundSession !== session) return;
       await refreshRoundFailedSyncCount();
@@ -288,7 +289,10 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
       const session = ++roundSession;
       liveScorecardOrigins.clear();
       liveRoundSession = false;
-      const loaded = await initSlice.loadFromOffline(set, initSyncListener, roundId, { getSessionGeneration: () => roundSession });
+      const loaded = await initSlice.loadFromOffline(set, initSyncListener, roundId, {
+        getSessionGeneration: () => roundSession,
+        onLiveCardsReady: cards => registerLiveOrigins(session, cards),
+      });
       if (roundSession !== session) return loaded;
       await refreshRoundFailedSyncCount();
       return loaded;
@@ -303,9 +307,8 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
         {
           getSessionGeneration: () => roundSession,
           canUseLiveContext: () => roundSession === session && liveRoundSession,
-          onLiveCardsCreated: cards => {
-            if (roundSession !== session || !liveRoundSession) return;
-            for (const card of cards) liveScorecardOrigins.set(card.id, sourceCreatedAt(card));
+          onLiveCardsReady: cards => {
+            if (liveRoundSession) registerLiveOrigins(session, cards);
           },
         }
       );

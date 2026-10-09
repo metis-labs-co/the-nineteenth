@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { useRoundData } from '@/hooks/scorecard/useRoundData';
 import { useScorecardStore } from '@/store/scorecardStore';
-import { saveScorecard } from '@/services/offline/database';
+import { saveScorecard, persistRoundEarlyEnd } from '@/services/offline/database';
 import { syncScorecard } from '@/services/offline/sync';
 import { create18Holes, createTestPlayer } from '../../utils/testFixtures';
 
@@ -176,7 +176,7 @@ it('fresh unended none remains live after an empty revision handshake, local sco
   ).toBeUndefined();
 });
 
-it('actual remote scoring replacement revokes live fallback even while its status remains in-progress', async () => {
+it('ongoing unended remote resume preserves its proven live origin through local scoring and end', async () => {
   const roundId = `remote-history-${++sequence}`;
   mockMetadata.data.holesPlayed = null;
   await useScorecardStore
@@ -192,11 +192,41 @@ it('actual remote scoring replacement revokes live fallback even while its statu
   const source = useScorecardStore.getState().groupScorecards.get(player.id)!;
   expect(
     useScorecardStore.getState().captureRoundScoringSession(roundId)?.getLiveContext(source)
+  ).toMatchObject({ handicapSource: 'calculated', player, holes, teeData: tee });
+  await act(async () => {
+    await useScorecardStore.getState().setPlayerScore(player.id, 2, 6);
+    await useScorecardStore.getState().endRoundEarly(6);
+  });
+  expect(useScorecardStore.getState().groupScorecards.get(player.id)).toMatchObject({
+    holesPlayed: 6,
+    playerHandicap: 12,
+    syncHandicapSource: 'calculated',
+    scores: { 1: { strokes: 5 }, 2: { strokes: 6 } },
+    totalGross: 11,
+    totalNet: 10,
+  });
+});
+
+it('terminal remote scoring replacement revokes its prior live origin and refuses a new user end', async () => {
+  const roundId = `remote-terminal-${++sequence}`;
+  mockMetadata.data.holesPlayed = null;
+  await useScorecardStore
+    .getState()
+    .initializeRound(roundId, [player], holes, 'stroke', false, [], tee, 'calculated');
+  mockRemote = [
+    { player_id: player.id, scores: { 1: { strokes: 5 } }, status: 'completed', revision: 3 },
+  ];
+  renderHook(() => useRoundData({ roundId, competitionId: '' }));
+  await waitFor(() =>
+    expect(useScorecardStore.getState().groupScorecards.get(player.id)?.serverRevision).toBe(3)
+  );
+  const source = useScorecardStore.getState().groupScorecards.get(player.id)!;
+  expect(
+    useScorecardStore.getState().captureRoundScoringSession(roundId)?.getLiveContext(source)
   ).toBeUndefined();
   await act(async () => {
-    await expect(useScorecardStore.getState().endRoundEarly(6)).rejects.toMatchObject({
-      kind: 'context_missing',
-    });
+    await expect(useScorecardStore.getState().endRoundEarly(6)).rejects.toThrow('submitted');
   });
+  expect(persistRoundEarlyEnd).not.toHaveBeenCalled();
   expect(useScorecardStore.getState().holesPlayed).toBeNull();
 });

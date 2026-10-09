@@ -680,7 +680,15 @@ export function useRoundData({
               await saveScorecard(updatedScorecard, { lease,
                 ...(provisionalSource && { replaceProvisionalHandicapSource: provisionalSource }),
               });
-              if (hasRemoteScores) session.invalidateLiveContext(updatedScorecard.id);
+              // Ongoing unended hydration preserves an existing proven live
+              // origin. Remote status/identity never grants a new one.
+              if (hasRemoteScores && (
+                holesPlayed != null || updatedScorecard.holesPlayed != null ||
+                updatedScorecard.status !== 'in-progress' ||
+                updatedScorecard.submittedAt || updatedScorecard.submittedBy
+              )) {
+                session.invalidateLiveContext(updatedScorecard.id);
+              }
               assertCurrent();
               if (useScorecardStore.getState().groupScorecards.get(remote.player_id) !== localScorecard) return;
               await markScorecardAsSynced(updatedScorecard.id, remote.revision);
