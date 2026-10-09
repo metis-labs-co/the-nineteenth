@@ -21,6 +21,7 @@ import { markAllForResync } from '@/services/offline/database';
 import { PageHeader } from '@/components/common/PageHeader';
 import { formatDateDisplay } from '@/utils/formatting';
 import type { PendingSync } from '@/types';
+import { roundEndIntentRoundId } from '@/services/offline/dao/pendingSyncRecovery';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -31,6 +32,10 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
  * useful than the row id when deciding whether a stuck upload still matters.
  */
 function describeFailedSync(sync: PendingSync): string {
+  if (sync.endIntentRead) {
+    const roundId = roundEndIntentRoundId(sync.entityKey);
+    return `End round · ${roundId ? `${roundId.slice(0, 8)}…` : 'unknown round'}`;
+  }
   if (sync.type !== 'scorecard' || !sync.data) return `${sync.type} · ${sync.action}`;
 
   const playerName = sync.data.player?.name;

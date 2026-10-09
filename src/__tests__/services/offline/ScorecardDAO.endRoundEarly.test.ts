@@ -302,6 +302,13 @@ describe('guarded provisional hydration replacement', () => {
     const [sql, args] = txn.runAsync.mock.calls[0];
     for (const guard of ['round_id = ?', 'player_id = ?', 'sync_handicap_source = ?', 'holes_played IS NULL', 'submitted_at IS NULL', 'submitted_by IS NULL', 'server_revision IS NULL', 'tee_data IS NULL', 'player_handicap_used IS NULL', 'player_gender IS NULL', 'course_par IS NULL', 'sync_holes IS NULL', 'sync_game_type IS NULL', 'sync_nine_type IS NULL', 'total_gross = 0', 'total_net = 0', 'total_points = 0', 'NOT EXISTS', 'hole_scores', 'pending_syncs']) expect(sql).toContain(guard);
     expect(sql).toContain('sync_handicap_source = NULL'); expect(args).toContain('none');
+    // Authored SQL protocol only: CASE keeps canonical end raw data away from json_extract.
+    // No SQLite execution is claimed by this mocked transaction test.
+    expect(sql).toMatch(/WHERE type = 'scorecard' AND CASE\s+WHEN substr\(entity_key, 1, 6\) = 'round:'/);
+    expect(sql).toContain("substr(entity_key, -10) = ':end_early'");
+    expect(sql).toContain('length(entity_key) > 16');
+    expect(sql).toContain("instr(substr(entity_key, 7, length(entity_key) - 16), ':') = 0");
+    expect(sql).toMatch(/THEN 0\s+ELSE \(entity_key = \? OR json_extract\(data, '\$\.id'\) = scorecards.id\)\s+END/);
     expect(bulkSaveHoleScores).toHaveBeenCalledWith(card.id, { 1: { strokes: 4 } }, expect.objectContaining({ lease: expect.any(Object) }), txn);
     expect(db.runAsync).not.toHaveBeenCalled();
   });

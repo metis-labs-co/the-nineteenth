@@ -25,7 +25,7 @@ import { filterPlayableHoles } from '@/utils/holeTransformers';
 import { createRoundScoringContext } from '@/services/rounds/roundScoringContext';
 import type { RoundScoringSession } from './scorecardStore';
 import { adoptAuthoritativeRoundShape } from '@/services/rounds/roundScoringAdoption';
-import { withRoundScoringWrite } from '@/services/rounds/roundScoringCoordinator';
+import { withRoundScoringWrite, getRoundEndPrerequisite } from '@/services/rounds/roundScoringCoordinator';
 import { captureRoundPersistenceSource, isRoundPersistenceSourceCurrent, RoundPersistenceSourceChangedError, withRoundPersistenceTransition } from '@/services/offline/roundPersistenceBarrier';
 import { lastPlayedHoleNumber } from '@/utils/roundShape';
 import { persistScorecardUpdate } from './scorecardPersistence';
@@ -223,6 +223,14 @@ export async function endRoundEarly(
     if (!alreadySameEnd && [...current.groupScorecards.values()].some(card => card.status === 'completed' || card.status === 'confirmed' || card.submittedAt || card.submittedBy)) {
       throw new Error('Cannot end a submitted or completed scorecard');
     }
+    if (options.intent && current.holesPlayed != null) {
+      const existing = await getRoundEndPrerequisite(currentRoundId);
+      assertSession();
+      if (!existing || existing.type !== 'round' || existing.action !== 'update' ||
+        existing.data?.id !== currentRoundId || existing.data?.action !== 'end_early' ||
+        existing.data?.holesPlayed !== n || existing.data?.userId !== options.intent.userId)
+        throw new Error('An existing local end requires its original owned end intent');
+    }
     if (!scoresEveryPlayer(current)) throw new Error('A round can only be ended early from a device that scores every player');
     // Drained writers may have changed context and scores. Prepare these CURRENT sources.
     const rebuild = createRoundScoringContext(currentRoundId, { getLiveContext: liveContext });
@@ -231,7 +239,10 @@ export async function endRoundEarly(
       scorecardId: card.id, teeData: card.teeData ?? null, syncHandicapSource: card.syncHandicapSource,
       playerHandicap: card.playerHandicap, playerGender: card.playerGender, coursePar: card.coursePar,
       syncHoles: card.syncHoles, syncGameType: card.syncGameType,
-    })), ...(options.intent ? [{ intent: options.intent }] : []));
+    })), ...(options.intent ? [{ intent: options.intent,
+      ...((state.holesPlayed != null || [...state.groupScorecards.values()].some(card => card.holesPlayed != null) || current.holesPlayed != null)
+        ? { requireExistingIntent: true } : {}),
+    }] : []));
   }, () => {
     // The owned commit must request drain even if session/application now throws.
     if (options.intent) requestSyncDrain('round-end-early');

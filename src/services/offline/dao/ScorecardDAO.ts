@@ -14,7 +14,7 @@ import { runRoundPersistence, type RoundPersistenceOptions } from '../roundPersi
 import { Platform } from 'react-native';
 import { getHoleRange } from '@/constants/scoring';
 import type { Scorecard, PendingSync } from '@/types';
-import { pendingSyncRecoveryMatches, pendingSyncRecoveryVersion } from './pendingSyncRecovery';
+import { pendingSyncRecoveryMatches, pendingSyncRecoveryVersion, roundEndIntentRoundId } from './pendingSyncRecovery';
 import type { TeeBox, Hole } from '@/types/database/base';
 import type { GameType, NineType } from '@/types/database/enums';
 import type { PendingSyncRow, ScorecardRow } from '../types';
@@ -153,7 +153,14 @@ async function saveScorecardLocal(scorecard: Scorecard, options: SaveScorecardOp
            AND total_gross = 0 AND total_net = 0 AND total_points = 0
            AND NOT EXISTS (SELECT 1 FROM ${TABLE_NAMES.HOLE_SCORES} WHERE scorecard_id = scorecards.id)
            AND NOT EXISTS (SELECT 1 FROM ${TABLE_NAMES.PENDING_SYNCS}
-             WHERE type = 'scorecard' AND (entity_key = ? OR json_extract(data, '$.id') = scorecards.id))`,
+             WHERE type = 'scorecard' AND CASE
+               WHEN substr(entity_key, 1, 6) = 'round:'
+                 AND substr(entity_key, -10) = ':end_early'
+                 AND length(entity_key) > 16
+                 AND instr(substr(entity_key, 7, length(entity_key) - 16), ':') = 0
+               THEN 0
+               ELSE (entity_key = ? OR json_extract(data, '$.id') = scorecards.id)
+             END)`,
         [scorecard.totalGross, scorecard.totalNet, 0, scorecard.status, scorecard.submittedAt?.toISOString() ?? null,
           scorecard.submittedBy ?? null, now, scorecard.serverRevision ?? null,
           scorecard.id, scorecard.roundId, scorecard.playerId, provisionalSource,
@@ -279,7 +286,7 @@ export async function persistRoundEarlyEnd(
   nineType: NineType,
   playedHoleNumbers: readonly number[],
   cards: readonly { scorecardId: string; teeData: TeeBox | null; syncHandicapSource?: HandicapSource; playerHandicap?: number | null; playerGender?: Scorecard['playerGender']; coursePar?: number; syncHoles?: Hole[]; syncGameType?: GameType }[],
-  options: { intent?: OwnedRoundEndIntent } = {},
+  options: { intent?: OwnedRoundEndIntent; requireExistingIntent?: boolean } = {},
 ): Promise<void> {
   if (Platform.OS === 'web') {
     throw new Error('Durable early ending requires native SQLite; web is unsupported');
@@ -292,6 +299,16 @@ export async function persistRoundEarlyEnd(
   const database = await getDb();
   const now = nowSQLite();
   await database.withExclusiveTransactionAsync(async (txn) => {
+    if (options.intent) {
+      // A discarded intent cannot transfer ownership from an already-final cache.
+      const marker = await txn.getFirstAsync(
+        `SELECT holes_played FROM ${TABLE_NAMES.SCORECARDS} WHERE round_id = ?
+         AND holes_played > 0 AND holes_played = CAST(holes_played AS INTEGER)
+         AND holes_played < CASE WHEN sync_nine_type IN ('front9', 'back9') THEN 9 ELSE 18 END LIMIT 1`,
+        [roundId]
+      );
+      await ensureRoundEndIntent(txn, roundId, holesPlayed, options.intent, options.requireExistingIntent || Boolean(marker));
+    }
     for (const { scorecardId, teeData, syncHandicapSource, playerHandicap, playerGender, coursePar, syncHoles, syncGameType } of cards) {
       const result = await txn.runAsync(
         `UPDATE ${TABLE_NAMES.SCORECARDS} SET holes_played = ?, tee_data = ?, sync_nine_type = ?, updated_at = ?, is_synced = 0${syncHandicapSource == null ? '' : ', sync_handicap_source = COALESCE(?, sync_handicap_source)'}${syncHoles ? ', player_handicap_used = ?, player_gender = ?, course_par = ?, sync_holes = ?, sync_game_type = ?' : ''} WHERE id = ? AND round_id = ?`,
@@ -304,7 +321,6 @@ export async function persistRoundEarlyEnd(
         [scorecardId, ...playedHoleNumbers]
       );
     }
-    if (options.intent) await ensureRoundEndIntent(txn, roundId, holesPlayed, options.intent);
   });
 }
 
@@ -668,13 +684,15 @@ export async function clearInvalidMockData(): Promise<number> {
     }
   }
 
-  const pendingSyncs = await database.getAllAsync<{ id: number; data: string }>(
-    `SELECT id, data FROM ${TABLE_NAMES.PENDING_SYNCS}`
+  const pendingSyncs = await database.getAllAsync<{ id: number; data: string; entity_key: string | null }>(
+    `SELECT id, data, entity_key FROM ${TABLE_NAMES.PENDING_SYNCS}`
   );
 
   for (const sync of pendingSyncs) {
+    if (roundEndIntentRoundId(sync.entity_key)) continue;
     try {
       const data = JSON.parse(sync.data);
+      if (data?.action === 'end_early') continue;
       const { playerId, roundId, isStandalone } = data;
       if (isStandalone) continue;
 

@@ -607,7 +607,12 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
       };
     },
 
-    endRoundEarly: (n) => endEarly.endRoundEarly(get, set, n, { getSessionGeneration: () => roundSession }),
+    endRoundEarly: (n) => {
+      // Capture ownership synchronously, before coordinator/local persistence waits.
+      const serverBacked = [...get().groupScorecards.values()].some(card => !card.isStandalone);
+      const intent = serverBacked ? { userId: getSyncAuthUserId() ?? '' } : undefined;
+      return endEarly.endRoundEarly(get, set, n, { getSessionGeneration: () => roundSession, intent });
+    },
 
     submitScorecards: async (options) => {
       const initial = get();

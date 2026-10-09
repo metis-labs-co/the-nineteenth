@@ -8,6 +8,8 @@
  * @see docs/superpowers/specs/2026-10-07-end-round-early-design.md (R14–R17)
  */
 
+import { withRoundScoringWrite } from '@/services/rounds/roundScoringCoordinator';
+import { adoptAuthoritativeRoundShape } from '@/services/rounds/roundScoringAdoption';
 import { endRoundEarly as endWithIntent } from '@/store/endRoundEarlySlice';
 import { requestSyncDrain } from '@/services/offline/sync/drain';
 import { getSyncAuthUserId } from '@/services/offline/sync/networkState';
@@ -24,6 +26,7 @@ import {
   getHoles,
   getScorecardsByRound,
   deleteHoleScoresForCards,
+  getPendingSyncByEntityKey,
 } from '@/services/offline/database';
 import { syncScorecard, queueScorecardSync } from '@/services/offline/sync';
 import { supabase } from '@/services/supabase/client';
@@ -32,7 +35,7 @@ import { calculateHandicapData } from '@/services/offline/sync/scorecardSync';
 import { shapeHoleNumbers } from '@/services/rounds/roundScoringWrite';
 import { withRoundPersistenceTransition } from '@/services/offline/roundPersistenceBarrier';
 import { Platform } from 'react-native';
-import { getScorecardsByRound as decodeNativeScorecards } from '@/services/offline/dao/ScorecardDAO';
+import { persistRoundEarlyEnd as persistNativeEarlyEnd, getScorecardsByRound as decodeNativeScorecards } from '@/services/offline/dao/ScorecardDAO';
 import { getDb } from '@/services/offline/DatabaseManager';
 import { getHoleScores } from '@/services/offline/dao/HoleScoreDAO';
 import type { ScorecardRow } from '@/services/offline/types';
@@ -46,6 +49,7 @@ jest.mock('@/services/offline/sync/drain', () => ({ requestSyncDrain: jest.fn() 
 jest.mock('@/services/offline/sync/networkState', () => ({ getSyncAuthUserId: jest.fn(() => 'owner') }));
 
 jest.mock('@/services/offline/database', () => ({
+  getPendingSyncByEntityKey: jest.fn(async () => null),
   saveScorecard: jest.fn(() => Promise.resolve()),
   saveHoleScore: jest.fn(() => Promise.resolve()),
   getScorecardsByRound: jest.fn(() => Promise.resolve([])),
@@ -153,6 +157,7 @@ const P3: Player = createTestPlayer({ id: '33333333-3333-4333-a333-333333333333'
 const TEE_WHITE: TeeBox = { name: 'White', color: 'white', slopeRating: 113, courseRating: 72 };
 const TEE_RED: TeeBox = { name: 'Red', color: 'red', slopeRating: 113, courseRating: 70 };
 
+let mockOwnedIntent: unknown = null;
 const getStore = () => useScorecardStore.getState();
 const cardId = (playerId: string) => `scorecard-${ROUND_ID}-${playerId}`;
 const range = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, i) => from + i);
@@ -182,7 +187,11 @@ beforeEach(() => {
   jest.clearAllMocks();
   (getHoles as jest.Mock).mockReset().mockResolvedValue([]);
   (getScorecardsByRound as jest.Mock).mockReset().mockResolvedValue([]);
-  (persistRoundEarlyEnd as jest.Mock).mockReset().mockResolvedValue(undefined);
+  mockOwnedIntent = null;
+  (getPendingSyncByEntityKey as jest.Mock).mockReset().mockImplementation(async () => mockOwnedIntent);
+  (persistRoundEarlyEnd as jest.Mock).mockReset().mockImplementation(async (id, n, _nine, _holes, _cards, options) => {
+    if (options?.intent) mockOwnedIntent = { type: 'round', action: 'update', data: { id, action: 'end_early', holesPlayed: n, userId: options.intent.userId } };
+  });
   (persistAuthoritativeRoundShape as jest.Mock).mockReset().mockImplementation(async (id, target, { rebuild }) => {
     const cards = await getScorecardsByRound(id);
     const prior = new Map(cards.map(card => [card.id, { nine_type: card.syncNineType ?? target.nine_type, holes_played: card.holesPlayed ?? null }]));
@@ -292,7 +301,7 @@ describe('endRoundEarly(n)', () => {
     expect(persistRoundEarlyEnd).toHaveBeenCalledWith(ROUND_ID, 6, 'full', range(1, 6), [
       expect.objectContaining({ scorecardId: cardId(P1.id), teeData: TEE_WHITE, syncHandicapSource: 'profile' }),
       expect.objectContaining({ scorecardId: cardId(P2.id), teeData: TEE_RED, syncHandicapSource: 'profile' }),
-    ]);
+    ], { intent: { userId: 'owner' } });
     expect(holesPlayedDuringDelete).toBeNull();
     expect(p1HolesDuringDelete).toEqual(range(1, 7));
     expect(scoredHoles(P1.id)).toEqual(range(1, 6));
@@ -391,15 +400,14 @@ describe('endRoundEarly(n)', () => {
     expect(debouncedQueueScorecardSync).not.toHaveBeenCalled();
   });
 
-  it('is idempotent: ending again at the same N writes nothing', async () => {
+  it('idempotently ensures the same owned intent when ending again at the same N', async () => {
     await getStore().endRoundEarly(6);
     jest.clearAllMocks();
 
     await getStore().endRoundEarly(6);
 
-    expect(persistRoundEarlyEnd).not.toHaveBeenCalled();
-    expect(saveScorecard).not.toHaveBeenCalled();
-    expect(debouncedQueueScorecardSync).not.toHaveBeenCalled();
+    expect(persistRoundEarlyEnd).toHaveBeenCalledTimes(1);
+    expect((persistRoundEarlyEnd as jest.Mock).mock.calls[0][5]).toEqual({ intent: { userId: 'owner' }, requireExistingIntent: true });
     expect(getStore().holesPlayed).toBe(6);
   });
 
@@ -407,9 +415,10 @@ describe('endRoundEarly(n)', () => {
     await getStore().endRoundEarly(6);
     jest.clearAllMocks();
 
-    await getStore().endRoundEarly(4);
+    await adoptAuthoritativeRoundShape(ROUND_ID, { nine_type: 'full', holes_played: 4 }, { ownerId: 'owner' });
 
-    expect(persistRoundEarlyEnd).toHaveBeenCalledWith(ROUND_ID, 4, 'full', range(1, 4), expect.any(Array));
+    expect(persistAuthoritativeRoundShape).toHaveBeenCalledWith(ROUND_ID, { nine_type: 'full', holes_played: 4 }, expect.any(Object));
+    expect(persistRoundEarlyEnd).not.toHaveBeenCalled();
     expect(getStore().holesPlayed).toBe(4);
     expect(scoredHoles(P1.id)).toEqual(range(1, 4));
     expect(getStore().groupScorecards.get(P1.id)?.holesPlayed).toBe(4);
@@ -437,7 +446,7 @@ describe('endRoundEarly — back 9 (Review Focus #2)', () => {
     expect(persistRoundEarlyEnd).toHaveBeenCalledWith(ROUND_ID, 6, 'back9', range(10, 15), [
       expect.objectContaining({ scorecardId: cardId(P1.id), teeData: TEE_WHITE, syncHandicapSource: 'profile' }),
       expect.objectContaining({ scorecardId: cardId(P2.id), teeData: TEE_WHITE, syncHandicapSource: 'profile' }),
-    ]);
+    ], { intent: { userId: 'owner' } });
     expect(getStore().getPlayedHoles().map((h) => h.number)).toEqual(range(10, 15));
     expect(scoredHoles(P1.id)).toEqual(range(10, 15));
     expect(getStore().currentHole).toBe(10); // init put it on hole 10, a played hole
@@ -461,7 +470,7 @@ describe('endRoundEarly durable boundary', () => {
     expect(persistRoundEarlyEnd).toHaveBeenCalledWith(ROUND_ID, 6, 'full', range(1, 6), [
       expect.objectContaining({ scorecardId: cardId(P1.id), teeData: TEE_WHITE, syncHandicapSource: 'profile' }),
       expect.objectContaining({ scorecardId: cardId(P2.id), teeData: TEE_WHITE, syncHandicapSource: 'profile' }),
-    ]);
+    ], { intent: { userId: 'owner' } });
     expect(getStore().holesPlayed).toBe(6);
     expect(getStore().groupScorecards.get(P2.id)?.holesPlayed).toBe(6);
   });
@@ -488,7 +497,7 @@ describe('endRoundEarly durable boundary', () => {
   it('supports adopting a larger authoritative N as well as a smaller N', async () => {
     await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes(), 'stableford', false, [], TEE_WHITE);
     await getStore().endRoundEarly(4);
-    await getStore().endRoundEarly(6);
+    await adoptAuthoritativeRoundShape(ROUND_ID, { nine_type: 'full', holes_played: 6 }, { ownerId: 'owner' });
     expect(getStore().holesPlayed).toBe(6);
     expect(getStore().groupScorecards.get(P1.id)?.holesPlayed).toBe(6);
   });
@@ -827,7 +836,7 @@ describe('C2b resumed unended live provenance', () => {
       totalNet: source === 'none' ? 11 : 10,
     });
     expect(persistRoundEarlyEnd).toHaveBeenCalledWith(ROUND_ID, 6, 'full', range(1, 6),
-      [expect.objectContaining({ playerGender: gender, playerHandicap: expectedHI })]);
+      [expect.objectContaining({ playerGender: gender, playerHandicap: expectedHI })], { intent: { userId: 'owner' } });
   });
 
   it.each(['profile', 'calculated', 'none'] as const)('resumes a source-only active %s card, scores locally and ends with real current context', async (source) => {
@@ -1297,7 +1306,7 @@ describe('passive captured owned-intent option', () => {
       'full',
       [1, 2, 3, 4, 5, 6],
       expect.any(Array),
-      { intent: { userId: 'owner' } }
+      { intent: { userId: 'owner' }, requireExistingIntent: true }
     );
     expect(requestSyncDrain).toHaveBeenCalled();
   });
@@ -1780,4 +1789,249 @@ it('C2b user end rechecks CURRENT submission eligibility after admitted writers 
   await expect(ending).rejects.toThrow(/submitted|completed/);
   expect(persistRoundEarlyEnd).not.toHaveBeenCalled();
   expect(getStore().holesPlayed).toBeNull();
+});
+
+
+describe('B6b-2 public owned producer', () => {
+  beforeEach(() => {
+    (getSyncAuthUserId as jest.Mock).mockReturnValue('owner');
+  });
+  it.each(['owner', 'session'])(
+    'refuses %s replacement while public end waits for coordinator',
+    async (change) => {
+      await getStore().initializeRound(
+        ROUND_ID,
+        [P1],
+        create18Holes(),
+        'stroke',
+        false,
+        [],
+        TEE_WHITE,
+        'none'
+      );
+      let entered!: () => void;
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const ready = new Promise<void>((resolve) => {
+        entered = resolve;
+      });
+      const held = withRoundScoringWrite(ROUND_ID, async () => {
+        entered();
+        await gate;
+      });
+      await ready;
+      const ending = getStore().endRoundEarly(2);
+      const refusal = expect(ending).rejects.toThrow(/account|changed|unloaded/i);
+      if (change === 'owner') (getSyncAuthUserId as jest.Mock).mockReturnValue('replacement');
+      else getStore().resetRound();
+      release();
+      await held;
+      await refusal;
+      expect(persistRoundEarlyEnd).not.toHaveBeenCalled();
+      expect(requestSyncDrain).not.toHaveBeenCalled();
+    }
+  );
+  it.each(['owner', 'session'])(
+    'requests committed owned work before postcommit %s refusal',
+    async (change) => {
+      await getStore().initializeRound(
+        ROUND_ID,
+        [P1],
+        create18Holes(),
+        'stroke',
+        false,
+        [],
+        TEE_WHITE,
+        'none'
+      );
+      (persistRoundEarlyEnd as jest.Mock).mockImplementationOnce(async () => {
+        if (change === 'owner') (getSyncAuthUserId as jest.Mock).mockReturnValue('replacement');
+        else getStore().resetRound();
+      });
+      await expect(getStore().endRoundEarly(2)).rejects.toThrow(/account|changed|unloaded/i);
+      expect(requestSyncDrain).toHaveBeenCalledWith('round-end-early');
+      expect(getStore().holesPlayed).toBeNull();
+      expect((persistRoundEarlyEnd as jest.Mock).mock.calls[0][5]).toEqual({
+        intent: { userId: 'owner' },
+      });
+    }
+  );
+  it('leaves state unchanged and requests no drain on atomic rollback', async () => {
+    await getStore().initializeRound(
+      ROUND_ID,
+      [P1],
+      create18Holes(),
+      'stroke',
+      false,
+      [],
+      TEE_WHITE,
+      'none'
+    );
+    (persistRoundEarlyEnd as jest.Mock).mockRejectedValueOnce(
+      new Error('intent collision rollback')
+    );
+    await expect(getStore().endRoundEarly(2)).rejects.toThrow('intent collision rollback');
+    expect(getStore().holesPlayed).toBeNull();
+    expect(requestSyncDrain).not.toHaveBeenCalled();
+  });
+  it('keeps local-only ends intent-free and refuses missing auth for server-backed cards', async () => {
+    await getStore().initializeRound(
+      ROUND_ID,
+      [P1],
+      create18Holes(),
+      'stroke',
+      true,
+      [],
+      TEE_WHITE,
+      'none'
+    );
+    await getStore().endRoundEarly(2);
+    expect((persistRoundEarlyEnd as jest.Mock).mock.calls[0]).toHaveLength(5);
+    getStore().resetRound();
+    (persistRoundEarlyEnd as jest.Mock).mockClear();
+    await getStore().initializeRound(
+      ROUND_ID,
+      [P1],
+      create18Holes(),
+      'stroke',
+      false,
+      [],
+      TEE_WHITE,
+      'none'
+    );
+    (getSyncAuthUserId as jest.Mock).mockReturnValue(null);
+    await expect(getStore().endRoundEarly(2)).rejects.toThrow(/owner/i);
+    expect(persistRoundEarlyEnd).not.toHaveBeenCalled();
+  });
+  it('refuses JS precheck then discard during native transaction acquisition without reinserting ownership', async () => {
+    await getStore().initializeRound(
+      ROUND_ID,
+      [P1],
+      create18Holes(),
+      'stroke',
+      false,
+      [],
+      TEE_WHITE,
+      'none'
+    );
+    await getStore().endRoundEarly(2);
+    const existing = {
+      type: 'round',
+      action: 'update',
+      data: { id: ROUND_ID, action: 'end_early', holesPlayed: 2, userId: 'owner' },
+    };
+    (getPendingSyncByEntityKey as jest.Mock).mockResolvedValue(existing);
+    let entered!: () => void;
+    let release!: () => void;
+    const ready = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const txn = {
+      getFirstAsync: jest.fn(async () => null),
+      runAsync: jest.fn(async () => ({ changes: 1 })),
+    };
+    (getDb as jest.Mock).mockImplementationOnce(async () => {
+      entered();
+      await gate;
+      return {
+        withExclusiveTransactionAsync: async (work: (transaction: typeof txn) => Promise<void>) =>
+          work(txn),
+      };
+    });
+    (persistRoundEarlyEnd as jest.Mock).mockImplementationOnce(persistNativeEarlyEnd);
+    const ending = getStore().endRoundEarly(2);
+    const refusal = expect(ending).rejects.toThrow(/owned.*intent/i);
+    await ready; // Native queue is now absent, despite the earlier successful JS precheck.
+    release();
+    await refusal;
+    expect(txn.runAsync).not.toHaveBeenCalled();
+    expect(getStore().holesPlayed).toBe(2);
+  });
+  it('preserves a matching same-owner same-N retained intent instead of creating new ownership', async () => {
+    await getStore().initializeRound(
+      ROUND_ID,
+      [P1],
+      create18Holes(),
+      'stroke',
+      false,
+      [],
+      TEE_WHITE,
+      'none'
+    );
+    await getStore().endRoundEarly(2);
+    const retained = {
+      type: 'round',
+      action: 'update',
+      status: 'failed',
+      retryCount: 2,
+      revision: 4,
+      data: { id: ROUND_ID, action: 'end_early', holesPlayed: 2, userId: 'owner' },
+    };
+    (getPendingSyncByEntityKey as jest.Mock).mockResolvedValue(retained);
+    await getStore().endRoundEarly(2);
+    expect(retained).toMatchObject({ status: 'failed', retryCount: 2, revision: 4 });
+    expect((persistRoundEarlyEnd as jest.Mock).mock.calls.at(-1)[5]).toEqual({
+      intent: { userId: 'owner' },
+      requireExistingIntent: true,
+    });
+  });
+  it('refuses marker-only ownership adoption by a later account', async () => {
+    await getStore().initializeRound(
+      ROUND_ID,
+      [P1],
+      create18Holes(),
+      'stroke',
+      false,
+      [],
+      TEE_WHITE,
+      'none'
+    );
+    await score(P1.id, [1, 2]);
+    const card = getStore().groupScorecards.get(P1.id)!;
+    useScorecardStore.setState({
+      holesPlayed: 2,
+      groupScorecards: new Map([[P1.id, { ...card, holesPlayed: 2 }]]),
+    });
+    (getPendingSyncByEntityKey as jest.Mock).mockResolvedValue(null);
+    await expect(getStore().endRoundEarly(2)).rejects.toThrow(/owned.*intent/i);
+    expect(persistRoundEarlyEnd).not.toHaveBeenCalled();
+  });
+  it('commits captured owner together with marker, trim and complete basis, then requests drain', async () => {
+    await getStore().initializeRound(
+      ROUND_ID,
+      [P1],
+      create18Holes(),
+      'stroke',
+      false,
+      [],
+      TEE_WHITE,
+      'none'
+    );
+    await score(P1.id, [1, 2]);
+    await getStore().endRoundEarly(2);
+    expect(persistRoundEarlyEnd).toHaveBeenCalledWith(
+      ROUND_ID,
+      2,
+      'full',
+      [1, 2],
+      [
+        expect.objectContaining({
+          syncHandicapSource: 'none',
+          syncHoles: expect.any(Array),
+          coursePar: 72,
+          syncGameType: 'stroke',
+        }),
+      ],
+      { intent: { userId: 'owner' } }
+    );
+    expect(requestSyncDrain).toHaveBeenCalledWith('round-end-early');
+    expect((persistRoundEarlyEnd as jest.Mock).mock.invocationCallOrder[0]).toBeLessThan(
+      (requestSyncDrain as jest.Mock).mock.invocationCallOrder[0]
+    );
+  });
 });

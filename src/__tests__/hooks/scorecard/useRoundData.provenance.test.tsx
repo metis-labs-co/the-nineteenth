@@ -28,6 +28,7 @@ jest.mock('@/services/offline/sync', () => ({
 jest.mock('@/services/offline/sync/networkState', () => ({
   getSyncAuthUserId: jest.fn(() => 'owner'),
 }));
+jest.mock('@/services/offline/sync/drain', () => ({ requestSyncDrain: jest.fn() }));
 jest.mock('@/store/scorecardSyncDebounce', () => ({
   debouncedQueueScorecardSync: jest.fn(),
   flushPendingScorecardSyncs: jest.fn(),

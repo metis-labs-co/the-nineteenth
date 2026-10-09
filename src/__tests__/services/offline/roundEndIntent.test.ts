@@ -70,3 +70,25 @@ it('refuses an explicitly empty owner', async () => {
   await expect(queueRoundEarlyEndIntent('r', 6, { userId: '' })).rejects.toThrow(/owner/i);
   expect(database.withExclusiveTransactionAsync).not.toHaveBeenCalled();
 });
+
+it.each(['captured marker', 'durable marker'])(
+  'refuses ownership reinsertion after intent disappearance with a %s',
+  async (marker) => {
+    txn.getFirstAsync.mockImplementation(async (sql: string) =>
+      sql.includes('scorecards') && marker === 'durable marker'
+        ? { holes_played: 6, sync_nine_type: 'full' }
+        : null
+    );
+    await expect(
+      persistRoundEarlyEnd(
+        'r',
+        6,
+        'full',
+        [1, 2, 3, 4, 5, 6],
+        [{ scorecardId: 'c', teeData: null }],
+        { intent: { userId: 'owner' }, requireExistingIntent: marker === 'captured marker' }
+      )
+    ).rejects.toThrow(/owned.*intent|existing.*intent/i);
+    expect(txn.runAsync).not.toHaveBeenCalled();
+  }
+);

@@ -35,7 +35,8 @@ export async function ensureRoundEndIntent(
   txn: EndTransaction,
   roundId: string,
   holesPlayed: number,
-  intent: OwnedRoundEndIntent
+  intent: OwnedRoundEndIntent,
+  requireExisting = false
 ): Promise<void> {
   assertIntentOwner(intent);
   const key = `round:${roundId}:end_early`;
@@ -47,6 +48,7 @@ export async function ensureRoundEndIntent(
     assertCompatibleEndIntent(row, roundId, intent, holesPlayed);
     return; // Includes retained failures: only explicit Retry may revive them.
   }
+  if (requireExisting) throw new Error('An existing final marker requires its original owned end intent');
   await txn.runAsync(
     `INSERT INTO ${TABLE_NAMES.PENDING_SYNCS}
     (type, action, data, timestamp, retry_count, entity_key, revision, status, last_error, last_attempt_at)

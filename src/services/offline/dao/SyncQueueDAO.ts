@@ -5,7 +5,7 @@ import { assertIntentOwner, ensureRoundEndIntent, type EndTransaction } from './
 import { RoundScoringWriteError } from '@/services/rounds/roundScoringErrors';
 import { scorecardScoringVersion } from '@/services/rounds/roundScoringWrite';
 import { rowToScorecard } from './ScorecardDAO';
-import { pendingSyncRecoveryMatches, pendingSyncRecoveryVersion } from './pendingSyncRecovery';
+import { pendingSyncRecoveryMatches, pendingSyncRecoveryVersion, roundEndIntentRoundId, capturePendingEndIntentSnapshot, pendingEndIntentSnapshotMatches, isOwnedEndIntentSnapshot } from './pendingSyncRecovery';
 /**
  * Sync Queue DAO
  *
@@ -174,15 +174,21 @@ export async function removePendingSync(
     roundId: string;
     playerId: string;
     expectedRecovery?: PendingSync;
-  }
+  },
+  expectedQueue?: { expectedRecovery: PendingSync }
 ): Promise<boolean> {
+  // Round intents require queue-only CAS, without a scorecard-absence predicate.
+  if (expectedQueue && (expectedScorecardAbsence || !isCurrent || Platform.OS === 'web')) return false;
+  const endSnapshot = expectedQueue && capturePendingEndIntentSnapshot(expectedQueue.expectedRecovery);
+  if (endSnapshot && !isOwnedEndIntentSnapshot(endSnapshot)) return false;
+  const expected = endSnapshot ?? expectedScorecardAbsence?.expectedRecovery;
   const recoveryVersion =
-    expectedScorecardAbsence?.expectedRecovery &&
-    pendingSyncRecoveryVersion(expectedScorecardAbsence.expectedRecovery);
-  const recoveryRevision = expectedScorecardAbsence?.expectedRecovery?.revision ?? 1;
+    expected && pendingSyncRecoveryVersion(expected);
+  const recoveryRevision = expected?.revision ?? 1;
   if (
     recoveryVersion &&
-    (expectedScorecardAbsence?.expectedRecovery?.id !== id || recoveryRevision !== revision)
+    (expected?.id !== id || recoveryRevision !== revision ||
+      (expectedQueue && (!Number.isInteger(revision) || (revision ?? 0) < 1)))
   )
     return false;
   const database = await getDb();
@@ -197,6 +203,7 @@ export async function removePendingSync(
           [id, recoveryRevision]
         );
         if (!queue || !pendingSyncRecoveryMatches(recoveryVersion, queue)) return;
+        if (endSnapshot && !pendingEndIntentSnapshotMatches(endSnapshot, queue)) return;
       }
       if (
         expectedScorecardAbsence &&
@@ -255,6 +262,8 @@ export async function removePendingSyncByEntityKey(entityKey: string): Promise<b
 export interface PendingSyncRecoveryGuard {
   expectedRecovery: PendingSync;
   isCurrent: () => boolean;
+  /** Exact read identity for end retention only; existing C4 recovery stays unchanged. */
+  snapshotMode?: 'end_intent';
 }
 
 async function guardPendingRecovery(
@@ -263,7 +272,12 @@ async function guardPendingRecovery(
   guard: PendingSyncRecoveryGuard,
   write: (txn: EndTransaction) => Promise<{ changes: number }>
 ): Promise<boolean> {
-  const version = pendingSyncRecoveryVersion(guard.expectedRecovery);
+  const endSnapshot = guard.snapshotMode === 'end_intent' ? capturePendingEndIntentSnapshot(guard.expectedRecovery) : undefined;
+  if (endSnapshot && !endSnapshot.endIntentRead) return false;
+  const version = pendingSyncRecoveryVersion(endSnapshot ?? guard.expectedRecovery);
+  const recoveryRoundId = endSnapshot
+    ? roundEndIntentRoundId(endSnapshot.entityKey) ?? ''
+    : String(guard.expectedRecovery.data?.roundId ?? '');
   if (revision == null) return false;
   const expectedRevision = revision;
   if (guard.expectedRecovery.id !== id || (guard.expectedRecovery.revision ?? 1) !== revision)
@@ -271,7 +285,7 @@ async function guardPendingRecovery(
   if (Platform.OS === 'web')
     throw new RoundScoringWriteError(
       'unavailable',
-      String(guard.expectedRecovery.data?.roundId ?? ''),
+      recoveryRoundId,
       'Guarded queue recovery requires native SQLite'
     );
   const database = await getDb();
@@ -283,12 +297,12 @@ async function guardPendingRecovery(
       `SELECT * FROM ${TABLE_NAMES.PENDING_SYNCS} WHERE id = ? AND revision = ?`,
       [id, expectedRevision]
     );
-    if (!row || !pendingSyncRecoveryMatches(version, row) || !guard.isCurrent()) return;
+    if (!row || !pendingSyncRecoveryMatches(version, row) || (endSnapshot && !pendingEndIntentSnapshotMatches(endSnapshot, row)) || !guard.isCurrent()) return;
     const result = await write(txn);
     if (!guard.isCurrent())
       throw new RoundScoringWriteError(
         'context_changed',
-        String(guard.expectedRecovery.data?.roundId ?? ''),
+        recoveryRoundId,
         'Queue recovery source changed during mutation'
       );
     applied = result.changes > 0;
@@ -592,8 +606,15 @@ export async function queueRoundEarlyEndIntent(
 }
 
 export function decodePendingSyncRow(row: PendingSyncRow): PendingSync {
-  const data = JSON.parse(row.data);
-  if (row.type === 'scorecard' && row.action !== 'delete') readSyncHandicapSource(data?.syncHandicapSource);
+  let data: PendingSync['data'];
+  let decode: 'decoded' | 'invalid_json' = 'decoded';
+  try { data = JSON.parse(row.data); }
+  catch (error) {
+    if (!roundEndIntentRoundId(row.entity_key)) throw error;
+    data = {}; decode = 'invalid_json';
+  }
+  const endRead = Boolean(roundEndIntentRoundId(row.entity_key)) || data?.action === 'end_early';
+  if (!endRead && row.type === 'scorecard' && row.action !== 'delete') readSyncHandicapSource(data?.syncHandicapSource);
   return {
     id: row.id,
     type: row.type as PendingSync['type'],
@@ -606,6 +627,7 @@ export function decodePendingSyncRow(row: PendingSyncRow): PendingSync {
     status: row.status,
     lastError: row.last_error,
     lastAttemptAt: row.last_attempt_at ? new Date(row.last_attempt_at) : null,
+    ...(endRead ? { endIntentRead: Object.freeze({ rawData: row.data, decode }) } : {}),
   };
 }
 

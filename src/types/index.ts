@@ -475,6 +475,8 @@ export interface PendingSync {
   status?: 'pending' | 'failed';
   lastError?: string | null;
   lastAttemptAt?: Date | null;
+  /** Queue read proof only; never persisted as payload or sent to the server. */
+  endIntentRead?: Readonly<{ rawData: string; decode: 'decoded' | 'invalid_json' }>;
 }
 
 // Form types (for react-hook-form)

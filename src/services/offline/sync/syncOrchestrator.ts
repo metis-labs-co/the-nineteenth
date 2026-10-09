@@ -32,7 +32,7 @@ import {
   RoundNotReadyError,
 } from '@/services/rounds/finalizeSubmittedRound';
 import { isTransientError } from '@/services/errors/transient';
-import { invalidateLeaderboardCache, invalidateScorecardCache } from '@/services/queryClient';
+import { invalidateLeaderboardCache, invalidateScorecardCache, queryClient } from '@/services/queryClient';
 import type { Scorecard, PendingSync } from '@/types';
 import { syncLogger, logScorecardSummary } from '@/utils/debugLogger';
 import {
@@ -54,6 +54,20 @@ import { processScorecardSync, syncScorecard, isValidUUID, ScorecardConflictErro
 import { RoundScoringWriteError } from '@/services/rounds/roundScoringErrors';
 import { scorecardScoringVersion } from '@/services/rounds/roundScoringWrite';
 import { registerSyncDrainHandler } from './drain';
+import { applyEndRoundEarly, EndRoundEarlyError, roundEndEarlyEntityKey } from '@/services/rounds/applyEndRoundEarly';
+import { withRoundScoringWrite, getRoundEndPrerequisite } from '@/services/rounds/roundScoringCoordinator';
+import { fetchRoundScoringShape } from '@/services/rounds/roundScoringShape';
+import { pendingSyncRecoveryVersion, roundEndIntentRoundId, capturePendingEndIntentSnapshot } from '../dao/pendingSyncRecovery';
+import { roundKeys, skinsKeys } from '@/hooks/queryKeys';
+
+function scoringStore() {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires -- scoring store imports the sync barrel
+  return (require('@/store/scorecardStore') as typeof import('@/store/scorecardStore')).useScorecardStore.getState();
+}
+function isEndEarlySync(sync: PendingSync): boolean {
+  return sync.data?.action === 'end_early' || roundEndIntentRoundId(sync.entityKey) !== null;
+}
+
 
 // Re-export types for consumers
 export type { SyncState, SyncStatus, SyncListener } from './types';
@@ -223,19 +237,27 @@ export async function syncAll(options: SyncAllOptions = {}): Promise<boolean> {
   syncLogger.info('Starting sync all');
 
   try {
-    // Get pending syncs. `round` items are held back: they run after every
-    // scorecard upload in this drain — the queue AND the SQLite fallback below.
+    // Capture end provenance before the device-wide read reveals round identities.
+    const endReadCapture = captureScorecardUploadRead();
+    const endSessionCurrent = scoringStore().captureRoundScoringOperation('');
+    const initialSyncs = await getPendingSyncs();
+    const endOutcome = await processRoundSyncs(
+      initialSyncs.filter(isEndEarlySync),
+      endReadCapture, endSessionCurrent
+    );
+    // A successful adoption advances the epoch and repairs queued payloads.
+    // Read CURRENT cards with fresh provenance; never relabel pre-end objects.
     const queuedReadCapture = captureScorecardUploadRead();
     const queuedSyncs = await getPendingSyncs();
-    const pendingSyncs = queuedSyncs.filter((sync) => sync.type !== 'round');
-    const roundSyncs = orderRoundSyncs(queuedSyncs.filter((sync) => sync.type === 'round'));
+    const pendingSyncs = queuedSyncs.filter((sync) => sync.type !== 'round' && !isEndEarlySync(sync));
+    const roundSyncs = orderRoundSyncs(queuedSyncs.filter((sync) => sync.type === 'round' && !isEndEarlySync(sync)));
     syncLogger.info('Processing pending syncs', {
       count: pendingSyncs.length,
       roundItems: roundSyncs.length,
     });
 
-    let successCount = 0;
-    let failCount = 0;
+    let successCount = endOutcome.successCount;
+    let failCount = endOutcome.failCount;
     let conflictCount = 0;
     let scorecardsWereSynced = false;
     // Server revisions confirmed during THIS drain, keyed by scorecard id.
@@ -532,7 +554,7 @@ export async function syncAll(options: SyncAllOptions = {}): Promise<boolean> {
       }
     }
 
-    // Round items last: every upload this device could make has been tried.
+    // Finalization and existing non-end actions follow both upload sources.
     const roundOutcome = await processRoundSyncs(roundSyncs);
     successCount += roundOutcome.successCount;
     failCount += roundOutcome.failCount;
@@ -623,18 +645,26 @@ function orderRoundSyncs(syncs: PendingSync[]): PendingSync[] {
 }
 
 /**
- * Drain the `round` items (after all scorecard uploads):
+ * Drain round items in their selected phase (ends before uploads; finalizes after):
  *  - RoundNotReadyError → stays pending: no retry spent, not a failure;
  *  - RoundSyncPermanentError → retained as failed immediately;
  *  - anything else → normal retry count, retained as failed at MAX_RETRY_COUNT.
  */
 async function processRoundSyncs(
-  roundSyncs: PendingSync[]
+  roundSyncs: PendingSync[],
+  endCapture?: ReturnType<typeof captureScorecardUploadRead>,
+  endSessionCurrent?: () => boolean
 ): Promise<{ successCount: number; failCount: number }> {
   let successCount = 0;
   let failCount = 0;
 
   for (const sync of roundSyncs) {
+    if (isEndEarlySync(sync)) {
+      const outcome = await processRoundEndEarlySync(sync, endCapture!, endSessionCurrent!);
+      successCount += outcome.successCount;
+      failCount += outcome.failCount;
+      continue;
+    }
     try {
       await processRoundSync(sync);
       const acknowledged = await removePendingSync(sync.id!, sync.revision ?? 1);
@@ -683,8 +713,7 @@ async function processRoundSyncs(
 }
 
 /**
- * Run one queued `round` item. Extension point: B6b adds
- * `case 'end_early'` (queueRoundEndEarly).
+ * Run a non-end queued round item. End intents have their own held boundary.
  */
 async function processRoundSync(sync: PendingSync): Promise<void> {
   const roundId: unknown = sync.data?.id;
@@ -709,6 +738,193 @@ async function processRoundSync(sync: PendingSync): Promise<void> {
   }
 }
 
+/** One coordinator spans end RPC, shared durable repair and exact owned acknowledgment. */
+async function processRoundEndEarlySync(
+  initial: PendingSync,
+  captureRead: ReturnType<typeof captureScorecardUploadRead>,
+  isSessionCurrent: () => boolean
+): Promise<{ successCount: number; failCount: number }> {
+  const roundId = roundEndIntentRoundId(initial.entityKey);
+  if (!roundId) {
+    // An explicitly declared end without a canonical key is invalid and unscoped.
+    // It cannot establish a C4 prerequisite, and no canonical key is synthesized.
+    const snapshot = capturePendingEndIntentSnapshot(initial);
+    const capture = captureRead(typeof initial.data?.id === 'string' ? initial.data.id : '');
+    const isCurrent = () =>
+      Boolean(
+        capture.ownerId &&
+          getSyncAuthUserId() === capture.ownerId &&
+          isSessionCurrent() &&
+          isRoundPersistenceSourceCurrent(capture.source)
+      );
+    try {
+      const retained = await markPendingSyncFailed(
+        snapshot.id!,
+        snapshot.revision ?? 1,
+        'Malformed unscoped end_early round item',
+        { expectedRecovery: snapshot, isCurrent, snapshotMode: 'end_intent' }
+      );
+      return { successCount: 0, failCount: retained ? 1 : 0 };
+    } catch (error) {
+      if (
+        error instanceof RoundScoringWriteError &&
+        ['context_changed', 'unavailable'].includes(error.kind)
+      )
+        return { successCount: 0, failCount: 0 };
+      syncLogger.error('End intent retention failed; keeping the original row', error, {
+        id: snapshot.id,
+      });
+      return { successCount: 0, failCount: 1 };
+    }
+  }
+  const capture = captureRead(roundId);
+  return withRoundScoringWrite(roundId, async () => {
+    let selected: PendingSync | null = null;
+    let expectedSource = capture.source;
+    const isCurrent = () =>
+      Boolean(
+        capture.ownerId &&
+          getSyncAuthUserId() === capture.ownerId &&
+          isSessionCurrent() &&
+          (!capture.session || capture.session.isCurrent()) &&
+          isRoundPersistenceSourceCurrent(expectedSource)
+      );
+    const assertCurrent = async () => {
+      if (!isCurrent()) throw new RoundNotReadyError(roundId, 'scoring context changed');
+      const current = await getRoundEndPrerequisite(roundId);
+      if (
+        !isCurrent() ||
+        !selected ||
+        !current ||
+        current.id !== selected.id ||
+        current.revision !== selected.revision ||
+        current.entityKey !== selected.entityKey ||
+        current.endIntentRead?.rawData !== selected.endIntentRead?.rawData ||
+        current.endIntentRead?.decode !== selected.endIntentRead?.decode ||
+        JSON.stringify(current.data) !== JSON.stringify(selected.data) ||
+        pendingSyncRecoveryVersion(current) !== pendingSyncRecoveryVersion(selected)
+      )
+        throw new RoundNotReadyError(roundId, 'end intent changed');
+    };
+    try {
+      if (!isCurrent()) return { successCount: 0, failCount: 0 };
+      const current = await getRoundEndPrerequisite(roundId);
+      if (!isCurrent() || !current || current.status === 'failed')
+        return { successCount: 0, failCount: 0 };
+      // Freeze the selected operation; recovery fields may change without a revision bump.
+      selected = capturePendingEndIntentSnapshot({
+        ...current,
+        data: JSON.parse(JSON.stringify(current.data)),
+      });
+      if (!selected.endIntentRead) return { successCount: 0, failCount: 0 };
+      if (selected.endIntentRead.decode === 'invalid_json')
+        throw new RoundSyncPermanentError(
+          `Malformed end_early JSON for ${roundId.substring(0, 8)}`
+        );
+      const owner = selected.data?.userId;
+      const n = selected.data?.holesPlayed;
+      if (
+        selected.type !== 'round' ||
+        selected.action !== 'update' ||
+        selected.entityKey !== roundEndEarlyEntityKey(roundId) ||
+        selected.data?.id !== roundId ||
+        selected.data?.action !== 'end_early' ||
+        !Number.isInteger(n) ||
+        n < 1 ||
+        typeof owner !== 'string' ||
+        !owner.trim()
+      )
+        throw new RoundSyncPermanentError(
+          `Malformed end_early round item for ${roundId.substring(0, 8)}`
+        );
+      if (owner !== capture.ownerId) return { successCount: 0, failCount: 0 };
+      await assertCurrent();
+      let missing = false;
+      try {
+        await applyEndRoundEarly(roundId, n);
+      } catch (error) {
+        if (!(error instanceof EndRoundEarlyError)) throw error;
+        if (error.code === 'not_found') missing = true;
+        else if (error.code !== 'conflict') throw error;
+      }
+      await assertCurrent();
+      if (!missing) {
+        const shape = await fetchRoundScoringShape(roundId);
+        await assertCurrent();
+        if (shape.holes_played === null)
+          throw new RoundNotReadyError(roundId, 'authoritative end is unknown');
+        // The held entry reuses the one repair core. Its own committed epoch advance is legitimate.
+        const { adoptRoundShapeWithinScoringWrite } =
+          // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires -- avoid store/sync import cycle
+          require('@/services/rounds/roundScoringAdoption') as typeof import('@/services/rounds/roundScoringAdoption');
+        await adoptRoundShapeWithinScoringWrite(roundId, shape, {
+          ownerId: capture.ownerId!,
+          originalSession: capture.session,
+          isCurrent: () =>
+            getSyncAuthUserId() === capture.ownerId &&
+            isSessionCurrent() &&
+            (!capture.session || capture.session.isCurrent()),
+        });
+        expectedSource = { ...capture.source, epoch: capture.source.epoch + 1 };
+        await assertCurrent();
+        void queryClient.invalidateQueries({ queryKey: skinsKeys.holeCounts(roundId) });
+        void queryClient.invalidateQueries({ queryKey: roundKeys.detail(roundId) });
+      }
+      // Explicit P0002 only drops matching OWNED work; unavailable reads never enter this path.
+      if (missing && owner !== capture.ownerId) return { successCount: 0, failCount: 0 };
+      const acknowledged = await removePendingSync(
+        selected.id!,
+        selected.revision ?? 1,
+        isCurrent,
+        undefined,
+        { expectedRecovery: selected }
+      );
+      return { successCount: acknowledged ? 1 : 0, failCount: 0 };
+    } catch (error) {
+      if (!selected || !isCurrent()) return { successCount: 0, failCount: 0 };
+      try {
+        await assertCurrent();
+      } catch {
+        return { successCount: 0, failCount: 0 };
+      }
+      const permanent =
+        error instanceof RoundSyncPermanentError ||
+        (error instanceof EndRoundEarlyError && ['forbidden', 'invalid'].includes(error.code));
+      if (!permanent) {
+        if (
+          error instanceof EndRoundEarlyError ||
+          error instanceof RoundNotReadyError ||
+          error instanceof RoundScoringWriteError
+        )
+          return { successCount: 0, failCount: 0 };
+        syncLogger.error('End intent repair failed; keeping dependent work blocked', error, {
+          roundId,
+        });
+        return { successCount: 0, failCount: 1 };
+      }
+      const message = error instanceof Error ? error.message : String(error);
+      try {
+        const retained = await markPendingSyncFailed(
+          selected.id!,
+          selected.revision ?? 1,
+          message,
+          { expectedRecovery: selected, isCurrent, snapshotMode: 'end_intent' }
+        );
+        return { successCount: 0, failCount: retained ? 1 : 0 };
+      } catch (recoveryError) {
+        if (
+          recoveryError instanceof RoundScoringWriteError &&
+          recoveryError.kind === 'context_changed'
+        )
+          return { successCount: 0, failCount: 0 };
+        syncLogger.error('End intent retention failed; keeping the original row', recoveryError, {
+          roundId,
+        });
+        return { successCount: 0, failCount: 1 };
+      }
+    }
+  });
+}
 /** Rethrow a non-Error failure value as an Error (so its message is recorded). */
 function asError(value: unknown): Error {
   return value instanceof Error ? value : new Error(String(value));
@@ -719,6 +935,14 @@ function asError(value: unknown): Error {
  * → skins steps an online submit runs (finalizeSubmittedRound).
  */
 async function processRoundFinalize(roundId: string): Promise<void> {
+  // A retained end must be visible before pending cards mask it, so Retry revives both.
+  const end = await getRoundEndPrerequisite(roundId);
+  if (end?.status === 'failed') {
+    throw new RoundSyncPermanentError(
+      `Round ${roundId.substring(0, 8)} is waiting on a retained end-round-early failure; retry that first`
+    );
+  }
+  if (end) throw new RoundNotReadyError(roundId, 'is waiting on end-round-early');
   // 1. Before any server call: wait while this device's own uploads for the
   //    round are pending.
   if (await hasUnsyncedScorecardsForRound(roundId)) {
@@ -733,10 +957,6 @@ async function processRoundFinalize(roundId: string): Promise<void> {
       `Round ${roundId.substring(0, 8)} is waiting on a retained scorecard upload failure; retry that upload first`
     );
   }
-
-  // Step 3 (B6b-2): end_early gate. A finalize item for a round whose
-  // 'end_early' item is retained as failed must not sit pending for ever
-  // behind it. B6b-2 owns that check and adds it here, before any server call.
 
   // 4. Run the steps. If a submit screen is finalising this round right now,
   //    finalizeSubmittedRound's atomic in-flight check rejects with

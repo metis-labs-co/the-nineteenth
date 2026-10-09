@@ -42,15 +42,23 @@ import { finalizeSubmittedRound, RoundNotReadyError } from '@/services/rounds/fi
 import { registerSyncDrainHandler } from '@/services/offline/sync/drain';
 import { ensureSyncServiceStarted, __resetSyncServiceForTests } from '@/services/offline/sync/syncOrchestrator';
 import { createError } from '@/services/errors';
+import { applyEndRoundEarly, EndRoundEarlyError } from '@/services/rounds/applyEndRoundEarly';
+import { create18Holes } from '../../utils/testFixtures';
+import { shapeHoleNumbers } from '@/services/rounds/roundScoringWrite';
 
 // ============================================================================
 // MOCK SETUP
 // ============================================================================
 
+jest.mock('@/services/rounds/applyEndRoundEarly', () => ({
+  ...jest.requireActual('@/services/rounds/applyEndRoundEarly'), applyEndRoundEarly: jest.fn(),
+}));
+
 // Mock the database module
 jest.mock('@/services/offline/DatabaseManager', () => ({ getDb: jest.fn() }));
 jest.mock('@/services/offline/database', () => ({
   saveScorecard: jest.fn(), saveHoleScore: jest.fn(),
+  getHoles: jest.fn(async () => []), persistAuthoritativeRoundShape: jest.fn(),
   getPendingSyncs: jest.fn(),
   getPendingSyncByEntityKey: jest.fn(), getScorecardsByRound: jest.fn(), recordAcceptedScorecardWrite: jest.fn(),
   removePendingSync: jest.fn(),
@@ -80,6 +88,7 @@ jest.mock('@/services/queryClient', () => ({
   invalidateLeaderboardCache: jest.fn(),
   invalidateScorecardCache: jest.fn(),
   invalidateHandicapCache: jest.fn(),
+  queryClient: { invalidateQueries: jest.fn() },
 }));
 
 // Mock getCurrentUser from supabase client (used by syncScorecard for score entry attribution)
@@ -2779,4 +2788,512 @@ it('C2b conflict after repair raises revision only and cannot write captured dis
   await syncAll();
   expect(livePayload).toMatchObject({ scores: { 1: { strokes: 8 } }, holesPlayed: 6, status: 'confirmed', serverRevision: 9 });
   expect(livePayload.scores[7]).toBeUndefined(); expect(database.updatePendingSyncData).not.toHaveBeenCalled();
+});
+
+
+describe('Queued end-round-early B6b-2', () => {
+  const roundId = '550e8400-e29b-41d4-a716-446655440000';
+  let queue: PendingSync[];
+  let failed: PendingSync[];
+  const end = (overrides: Partial<PendingSync> = {}): PendingSync => ({
+    id: 21,
+    revision: 1,
+    type: 'round',
+    action: 'update',
+    entityKey: `round:${roundId}:end_early`,
+    data: { id: roundId, action: 'end_early', holesPlayed: 6, userId: 'test-user-id' },
+    timestamp: new Date(0),
+    retryCount: 0,
+    status: 'pending',
+    ...overrides,
+  });
+  const fullCard = (overrides: Partial<Scorecard> = {}) =>
+    createTestScorecard({
+      syncNineType: 'full',
+      syncHoles: create18Holes(),
+      syncGameType: 'stroke',
+      playerHandicap: 0,
+      playerGender: null,
+      syncHandicapSource: 'none',
+      coursePar: 72,
+      teeData: { name: 'White', color: 'white', slopeRating: 113, courseRating: 72 },
+      ...overrides,
+    });
+  const cardSync = (card = fullCard(), id = 1) =>
+    createPendingSync({ id, data: card, entityKey: `scorecard:${card.roundId}:${card.playerId}` });
+  const finalize = (): PendingSync => ({
+    ...end(),
+    id: 7,
+    entityKey: `round:${roundId}:finalize`,
+    data: { id: roundId, action: 'finalize' },
+  });
+  const readEndProof = (row: PendingSync) =>
+    /^round:[^:]+:end_early$/.test(row.entityKey ?? '') || row.data?.action === 'end_early'
+      ? {
+          ...row,
+          endIntentRead: row.endIntentRead ?? {
+            rawData: JSON.stringify(row.data),
+            decode: 'decoded' as const,
+          },
+        }
+      : row;
+  beforeEach(async () => {
+    useScorecardStore.getState().resetRound();
+    queue = [];
+    failed = [];
+    initSyncService();
+    await flushPromises();
+    (applyEndRoundEarly as jest.Mock).mockReset().mockResolvedValue(undefined);
+    (database.getPendingSyncs as jest.Mock).mockImplementation(async () => queue.map(readEndProof));
+    (database.getFailedSyncs as jest.Mock).mockImplementation(async () => failed.map(readEndProof));
+    (database.getPendingSyncByEntityKey as jest.Mock).mockImplementation(async (key) => {
+      const row = [...queue, ...failed].find((row) => row.entityKey === key);
+      return row ? readEndProof(row) : null;
+    });
+    (database.removePendingSync as jest.Mock).mockImplementation(async (id, revision, current) => {
+      if (current && !current()) return false;
+      const index = queue.findIndex((row) => row.id === id && row.revision === revision);
+      if (index < 0) return false;
+      queue.splice(index, 1);
+      return true;
+    });
+    (database.markPendingSyncFailed as jest.Mock).mockImplementation(
+      async (id, revision, message) => {
+        const index = queue.findIndex((row) => row.id === id && row.revision === revision);
+        if (index < 0) return false;
+        failed.push({ ...queue.splice(index, 1)[0], status: 'failed', lastError: message });
+        return true;
+      }
+    );
+    (database.hasUnsyncedScorecardsForRound as jest.Mock).mockResolvedValue(false);
+    (database.getFailedSyncCountForRound as jest.Mock).mockResolvedValue(0);
+    (finalizeSubmittedRound as jest.Mock).mockResolvedValue({
+      completed: true,
+      statusError: null,
+      skinsError: null,
+    });
+    (supabase.from as jest.Mock).mockImplementation(() => {
+      const chain = {
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        is: jest.fn().mockReturnThis(),
+        abortSignal: jest.fn().mockReturnThis(),
+        maybeSingle: jest.fn(async () => ({
+          data: { nine_type: 'full', holes_played: 6 },
+          error: null,
+        })),
+      };
+      return chain;
+    });
+    (database.getScorecardsByRound as jest.Mock).mockImplementation(async (id) =>
+      queue
+        .filter((row) => row.type === 'scorecard' && row.data.roundId === id)
+        .map((row) => row.data)
+    );
+    (database.persistAuthoritativeRoundShape as jest.Mock).mockImplementation(async () => ({
+      cards: [],
+      priorLocalShapes: new Map(),
+    }));
+  });
+  function deferred<T>() {
+    let resolve!: (value: T) => void;
+    const promise = new Promise<T>((done) => {
+      resolve = done;
+    });
+    return { promise, resolve };
+  }
+  const otherCard = () => fullCard({ roundId: '660e8400-e29b-41d4-a716-446655440000' });
+  it('reports a native end-retention database failure while unrelated upload still progresses', async () => {
+    queue = [
+      end({ data: { id: roundId, action: 'end_early', holesPlayed: 6 } }),
+      cardSync(otherCard(), 2),
+    ];
+    (database.markPendingSyncFailed as jest.Mock).mockRejectedValueOnce(
+      new Error('SQLite disk full')
+    );
+    await expect(syncAll()).resolves.toBe(false);
+    expect((supabase.rpc as jest.Mock).mock.calls[0][1].p_round_id).toBe(otherCard().roundId);
+    expect(queue.some((row) => row.id === 21)).toBe(true);
+    expect(database.incrementSyncRetryCount).not.toHaveBeenCalled();
+  });
+  it.each([
+    'invalid_json',
+    'type',
+    'action',
+    'missing id',
+    'conflicting id',
+    'unscoped',
+    'null',
+    'array',
+    'foreign malformed',
+  ])('retains malformed %s end records visibly while unrelated work progresses', async (defect) => {
+    let row = end();
+    if (defect === 'invalid_json')
+      row = { ...row, data: {}, endIntentRead: { rawData: '{broken', decode: 'invalid_json' } };
+    if (defect === 'type') row.type = 'competition';
+    if (defect === 'action') row.data.action = 'other';
+    if (defect === 'missing id') delete row.data.id;
+    if (defect === 'conflicting id') row.data.id = 'different-round';
+    if (defect === 'unscoped') row.entityKey = 'not-a-round-end';
+    if (defect === 'foreign malformed') {
+      row.data.userId = 'foreign';
+      delete row.data.holesPlayed;
+    }
+    if (defect === 'null') row.data = null;
+    if (defect === 'array') row.data = [];
+    queue = [row, cardSync(), cardSync(otherCard(), 2)];
+    await syncAll();
+    expect(failed.map((item) => item.id)).toContain(21);
+    expect(applyEndRoundEarly).not.toHaveBeenCalled();
+    expect(database.persistAuthoritativeRoundShape).not.toHaveBeenCalled();
+    expect(database.incrementSyncRetryCount).not.toHaveBeenCalled();
+    expect(
+      (supabase.rpc as jest.Mock).mock.calls.some(
+        (call) => call[1].p_round_id === otherCard().roundId
+      )
+    ).toBe(true);
+    expect(database.markPendingSyncFailed).toHaveBeenCalledWith(
+      21,
+      1,
+      expect.stringContaining('Malformed'),
+      expect.objectContaining({ snapshotMode: 'end_intent' })
+    );
+  });
+  it.each([undefined, '', null, 42])(
+    'retains invalid owner %s without RPC/adoption/ack and allows unrelated uploads',
+    async (owner) => {
+      const invalid = end();
+      invalid.data.userId = owner;
+      queue = [invalid, cardSync(), cardSync(otherCard(), 2)];
+      await syncAll();
+      expect(applyEndRoundEarly).not.toHaveBeenCalled();
+      expect(database.persistAuthoritativeRoundShape).not.toHaveBeenCalled();
+      expect(failed.map((row) => row.id)).toContain(21);
+      expect(database.incrementSyncRetryCount).not.toHaveBeenCalled();
+      expect((supabase.rpc as jest.Mock).mock.calls[0][1].p_round_id).toBe(otherCard().roundId);
+    }
+  );
+  it.each(['network', 'busy', 'foreign', 'malformed', 'repair', 'unknown', 'shape-read'])(
+    'keeps %s end work blocking only its round without upload retry cost',
+    async (kind) => {
+      const owned = end();
+      if (kind === 'foreign') owned.data.userId = 'other-owner';
+      if (kind === 'malformed') delete owned.data.holesPlayed;
+      queue = [owned, cardSync(), cardSync(otherCard(), 2)];
+      if (kind === 'network' || kind === 'busy')
+        (applyEndRoundEarly as jest.Mock).mockRejectedValue(new EndRoundEarlyError(kind, kind));
+      if (kind === 'repair')
+        (database.persistAuthoritativeRoundShape as jest.Mock).mockRejectedValue(
+          new Error('disk full')
+        );
+      if (kind === 'unknown' || kind === 'shape-read')
+        (supabase.from as jest.Mock).mockImplementation(() => ({
+          select: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          is: jest.fn().mockReturnThis(),
+          abortSignal: jest.fn().mockReturnThis(),
+          maybeSingle: jest.fn(async () =>
+            kind === 'unknown'
+              ? { data: { nine_type: 'full', holes_played: null }, error: null }
+              : { data: null, error: { message: 'unavailable' } }
+          ),
+        }));
+      await syncAll();
+      expect(supabase.rpc).toHaveBeenCalledTimes(1);
+      expect((supabase.rpc as jest.Mock).mock.calls[0][1].p_round_id).toBe(otherCard().roundId);
+      expect(database.incrementSyncRetryCount).not.toHaveBeenCalled();
+      expect([...queue, ...failed].some((row) => row.id === 21)).toBe(true);
+      expect(queue.some((row) => row.id === 1)).toBe(true);
+    }
+  );
+  it('retains refused end and finalize BEFORE card readiness, then explicit Retry revives both', async () => {
+    queue = [end(), finalize(), cardSync()];
+    (database.hasUnsyncedScorecardsForRound as jest.Mock).mockResolvedValue(true);
+    (applyEndRoundEarly as jest.Mock).mockRejectedValue(
+      new EndRoundEarlyError('invalid', 'round completed')
+    );
+    await expect(syncAll()).resolves.toBe(false);
+    expect(failed.map((row) => row.id)).toEqual([21, 7]);
+    expect(database.hasUnsyncedScorecardsForRound).not.toHaveBeenCalled();
+    (database.resetFailedSyncs as jest.Mock).mockImplementation(async () => {
+      queue.push(...failed.map((row) => ({ ...row, status: 'pending' as const, retryCount: 0 })));
+      failed = [];
+      return 2;
+    });
+    (database.hasUnsyncedScorecardsForRound as jest.Mock).mockResolvedValue(false);
+    (applyEndRoundEarly as jest.Mock).mockResolvedValue(undefined);
+    await expect(retryFailedSyncs()).resolves.toBe(true);
+    expect(queue).toHaveLength(0);
+    expect((applyEndRoundEarly as jest.Mock).mock.invocationCallOrder.at(-1)).toBeLessThan(
+      (supabase.rpc as jest.Mock).mock.invocationCallOrder.at(-1)!
+    );
+    expect(finalizeSubmittedRound).toHaveBeenCalledTimes(1);
+  });
+  it.each(['owner', 'same-round-session', 'new-session', 'queue-revision', 'queue-recovery'])(
+    'never repairs or acknowledges stale RPC settlement after %s replacement',
+    async (change) => {
+      queue = [end()];
+      const entered = deferred<void>();
+      const rpc = deferred<void>();
+      (applyEndRoundEarly as jest.Mock).mockImplementation(async () => {
+        entered.resolve();
+        await rpc.promise;
+      });
+      const draining = syncAll();
+      await entered.promise;
+      if (change === 'owner') setSyncAuthUser('new-owner');
+      if (change === 'same-round-session' || change === 'new-session') {
+        useScorecardStore.getState().resetRound();
+        useScorecardStore.setState({ currentRoundId: roundId });
+      }
+      if (change === 'queue-revision') queue[0] = { ...end(), revision: 2 };
+      if (change === 'queue-recovery') queue[0] = { ...end(), status: 'failed', lastError: 'new' };
+      rpc.resolve();
+      await draining;
+      expect(database.persistAuthoritativeRoundShape).not.toHaveBeenCalled();
+      expect(database.removePendingSync).not.toHaveBeenCalled();
+      expect(queue).toHaveLength(1);
+    }
+  );
+  it('selects CURRENT owned queue id/revision/recovery after coordinator wait', async () => {
+    const entered = deferred<void>();
+    const release = deferred<void>();
+    const held = withRoundScoringWrite(roundId, async () => {
+      entered.resolve();
+      await release.promise;
+    });
+    await entered.promise;
+    queue = [end()];
+    const draining = syncAll();
+    await flushPromises();
+    queue = [end({ id: 42, revision: 5, retryCount: 2 })];
+    release.resolve();
+    await held;
+    await draining;
+    expect(database.removePendingSync).toHaveBeenCalledWith(
+      42,
+      5,
+      expect.any(Function),
+      undefined,
+      expect.objectContaining({
+        expectedRecovery: expect.objectContaining({ id: 42, retryCount: 2 }),
+      })
+    );
+  });
+  it('holds end coordinator through durable adoption while a waiting card rereads the prerequisite', async () => {
+    queue = [end()];
+    const entered = deferred<void>();
+    const release = deferred<void>();
+    (database.persistAuthoritativeRoundShape as jest.Mock).mockImplementation(async () => {
+      entered.resolve();
+      await release.promise;
+      return { cards: [], priorLocalShapes: new Map() };
+    });
+    const draining = syncAll();
+    await entered.promise;
+    const card = fullCard({ holesPlayed: 6 });
+    const waiting = syncScorecard(card);
+    const refusal = expect(waiting).rejects.toMatchObject({ kind: 'context_changed' });
+    await flushPromises();
+    expect(supabase.rpc).not.toHaveBeenCalled();
+    release.resolve();
+    await draining;
+    await refusal;
+    await syncScorecard(card);
+    expect(supabase.rpc).toHaveBeenCalledTimes(1);
+  });
+  it('waits for an upload through entries before beginning queued end RPC', async () => {
+    const entered = deferred<void>();
+    const release = deferred<void>();
+    (saveScoreEntries as jest.Mock).mockImplementationOnce(async () => {
+      entered.resolve();
+      await release.promise;
+    });
+    const uploading = syncScorecard(
+      fullCard({ holesPlayed: 6, scores: { 1: { strokes: 4, scoredBy: 'test-user-id' } } })
+    );
+    await entered.promise;
+    queue = [end()];
+    const draining = syncAll();
+    await flushPromises();
+    expect(applyEndRoundEarly).not.toHaveBeenCalled();
+    release.resolve();
+    await uploading;
+    await draining;
+    expect(applyEndRoundEarly).toHaveBeenCalledTimes(1);
+  });
+  it('runs end before terminal SQLite fallback uploads and finalize', async () => {
+    queue = [finalize(), end()];
+    const card = fullCard({ holesPlayed: 6 });
+    (database.getUnsyncedScorecards as jest.Mock).mockResolvedValue([card]);
+    (database.getScorecardsByRound as jest.Mock).mockResolvedValue([card]);
+    await syncAll();
+    expect((applyEndRoundEarly as jest.Mock).mock.invocationCallOrder[0]).toBeLessThan(
+      (supabase.rpc as jest.Mock).mock.invocationCallOrder[0]
+    );
+    expect((supabase.rpc as jest.Mock).mock.invocationCallOrder[0]).toBeLessThan(
+      (finalizeSubmittedRound as jest.Mock).mock.invocationCallOrder[0]
+    );
+  });
+  it('blocks malformed end-dependent fallback/finalize and explicit Retry retains the unrepaired dependency again', async () => {
+    queue = [
+      end({ data: {}, endIntentRead: { rawData: '{broken', decode: 'invalid_json' } }),
+      finalize(),
+    ];
+    (database.getUnsyncedScorecards as jest.Mock).mockResolvedValue([fullCard({ holesPlayed: 6 })]);
+    await syncAll();
+    expect(failed.map((row) => row.id)).toEqual([21, 7]);
+    expect(supabase.rpc).not.toHaveBeenCalled();
+    expect(finalizeSubmittedRound).not.toHaveBeenCalled();
+    (database.resetFailedSyncs as jest.Mock).mockImplementation(async () => {
+      queue.push(...failed.map((row) => ({ ...row, status: 'pending' as const })));
+      failed = [];
+      return 2;
+    });
+    await retryFailedSyncs();
+    expect(failed.map((row) => row.id)).toEqual([21, 7]);
+    expect(applyEndRoundEarly).not.toHaveBeenCalled();
+    expect(database.incrementSyncRetryCount).not.toHaveBeenCalled();
+  });
+  it('keeps malformed A-to-B current-row replacement from retaining an obsolete failure', async () => {
+    const invalidA = end({ data: {}, endIntentRead: { rawData: '{A', decode: 'invalid_json' } });
+    const invalidB = end({ data: {}, endIntentRead: { rawData: '{B', decode: 'invalid_json' } });
+    queue = [invalidA, cardSync(otherCard(), 2)];
+    let reads = 0;
+    (database.getPendingSyncByEntityKey as jest.Mock).mockImplementation(async (key) => {
+      if (key === invalidA.entityKey) {
+        reads++;
+        return reads === 1 ? invalidA : invalidB;
+      }
+      const row = queue.find((row) => row.entityKey === key);
+      return row ? readEndProof(row) : null;
+    });
+    await syncAll();
+    expect(database.markPendingSyncFailed).not.toHaveBeenCalled();
+    expect((supabase.rpc as jest.Mock).mock.calls[0][1].p_round_id).toBe(otherCard().roundId);
+    expect(queue.some((row) => row.id === 21)).toBe(true);
+  });
+  it('retains an eight-second uncertain RPC, ignores late success, and acknowledges only a fresh retry', async () => {
+    queue = [end()];
+    const late = deferred<{ error: null }>();
+    const realApply = jest.requireActual('@/services/rounds/applyEndRoundEarly').applyEndRoundEarly;
+    (applyEndRoundEarly as jest.Mock).mockImplementation(realApply);
+    const snapshotRPC = (supabase.rpc as jest.Mock).getMockImplementation()!;
+    const request = Object.assign(late.promise, { abortSignal: jest.fn(() => late.promise) });
+    (supabase.rpc as jest.Mock).mockImplementationOnce(() => request);
+    jest.useFakeTimers();
+    try {
+      const draining = syncAll();
+      await jest.advanceTimersByTimeAsync(0);
+      expect(supabase.rpc).toHaveBeenCalledWith('end_round_early', {
+        p_round_id: roundId,
+        p_holes_played: 6,
+      });
+      await jest.advanceTimersByTimeAsync(8000);
+      await draining;
+      expect(queue).toHaveLength(1);
+      expect(database.removePendingSync).not.toHaveBeenCalled();
+      queue = [end({ id: 42, revision: 2 })];
+      setSyncAuthUser('replacement');
+      late.resolve({ error: null });
+      await jest.advanceTimersByTimeAsync(0);
+      expect(database.removePendingSync).not.toHaveBeenCalled();
+      expect(database.persistAuthoritativeRoundShape).not.toHaveBeenCalled();
+      setSyncAuthUser('test-user-id');
+      (supabase.rpc as jest.Mock).mockImplementation(() =>
+        Object.assign(Promise.resolve({ error: null }), { abortSignal: jest.fn().mockReturnThis() })
+      );
+      await syncAll();
+      expect(queue).toHaveLength(0);
+      expect(database.removePendingSync).toHaveBeenCalledWith(
+        42,
+        2,
+        expect.any(Function),
+        undefined,
+        expect.any(Object)
+      );
+    } finally {
+      jest.useRealTimers();
+      (supabase.rpc as jest.Mock).mockImplementation(snapshotRPC);
+    }
+  });
+  it('explicit P0002 cleans matching owned intent without shape read or adoption', async () => {
+    queue = [end()];
+    (applyEndRoundEarly as jest.Mock).mockRejectedValue(
+      new EndRoundEarlyError('not_found', 'deleted')
+    );
+    await syncAll();
+    expect(queue).toHaveLength(0);
+    expect(supabase.from).not.toHaveBeenCalled();
+    expect(database.persistAuthoritativeRoundShape).not.toHaveBeenCalled();
+  });
+  it('adopts a conflict through the same closed-round service before dropping owned intent', async () => {
+    queue = [end()];
+    (applyEndRoundEarly as jest.Mock).mockRejectedValue(
+      new EndRoundEarlyError('conflict', 'other N', { serverHolesPlayed: 4 })
+    );
+    (supabase.from as jest.Mock).mockImplementation(() => ({
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      is: jest.fn().mockReturnThis(),
+      abortSignal: jest.fn().mockReturnThis(),
+      maybeSingle: jest.fn(async () => ({
+        data: { nine_type: 'full', holes_played: 4 },
+        error: null,
+      })),
+    }));
+    await syncAll();
+    expect(queue).toHaveLength(0);
+    expect(database.persistAuthoritativeRoundShape).toHaveBeenCalledWith(
+      roundId,
+      { nine_type: 'full', holes_played: 4 },
+      expect.objectContaining({ ownerId: 'test-user-id' })
+    );
+  });
+  it('durably adopts before acknowledgment, uploads CURRENT repaired cards, then finalizes', async () => {
+    const card = createTestScorecard({
+      holesPlayed: 6,
+      syncNineType: 'full',
+      syncHoles: create18Holes(),
+      syncGameType: 'stroke',
+      playerHandicap: 0,
+      playerGender: null,
+      syncHandicapSource: 'none',
+      coursePar: 72,
+      teeData: { name: 'White', color: 'white', slopeRating: 113, courseRating: 72 },
+      scores: { 1: { strokes: 4 }, 7: { strokes: 8 } },
+    });
+    const queued = createPendingSync({
+      entityKey: `scorecard:${roundId}:${card.playerId}`,
+      data: card,
+    });
+    queue = [finalize(), queued, end()];
+    (database.getScorecardsByRound as jest.Mock).mockImplementation(async () => [queued.data]);
+    (database.persistAuthoritativeRoundShape as jest.Mock).mockImplementation(
+      async (_id, shape, { rebuild }) => {
+        expect(database.removePendingSync).not.toHaveBeenCalledWith(21, 1, expect.anything());
+        queued.data = rebuild(queued.data, shapeHoleNumbers(shape), shape);
+        queued.revision = 2;
+        return { cards: [queued.data], priorLocalShapes: new Map([[card.id, shape]]) };
+      }
+    );
+    await expect(syncAll()).resolves.toBe(true);
+    expect(applyEndRoundEarly).toHaveBeenCalledWith(roundId, 6);
+    expect(database.persistAuthoritativeRoundShape).toHaveBeenCalledTimes(1);
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'write_scorecard_snapshot',
+      expect.objectContaining({
+        p_snapshot: expect.objectContaining({
+          scores: { 1: expect.objectContaining({ strokes: 4 }) },
+        }),
+      })
+    );
+    expect((applyEndRoundEarly as jest.Mock).mock.invocationCallOrder[0]).toBeLessThan(
+      (supabase.rpc as jest.Mock).mock.invocationCallOrder[0]
+    );
+    expect((supabase.rpc as jest.Mock).mock.invocationCallOrder[0]).toBeLessThan(
+      (finalizeSubmittedRound as jest.Mock).mock.invocationCallOrder[0]
+    );
+    expect(queue).toHaveLength(0);
+  });
 });

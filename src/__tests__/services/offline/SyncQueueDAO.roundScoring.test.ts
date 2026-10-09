@@ -231,3 +231,274 @@ it('rolls back conditional failure retention if ownership changes while its inse
   expect(retained).toBeNull();
   expect(database.withExclusiveTransactionAsync).toHaveBeenCalledTimes(1);
 });
+
+it.each(['unchanged', 'payload', 'entity', 'recovery', 'owner'])(
+  'acknowledges an owned round intent only when its native CAS is %s',
+  async (change) => {
+    let current = true;
+    const raw = {
+      id: 41,
+      revision: 2,
+      type: 'round',
+      action: 'update',
+      entity_key: 'round:r:end_early',
+      data: JSON.stringify({ id: 'r', action: 'end_early', holesPlayed: 6, userId: 'owner' }),
+      timestamp: '2026-10-09T00:00:00.000Z',
+      retry_count: 0,
+      status: 'pending' as const,
+      last_error: null,
+      last_attempt_at: null,
+    };
+    database.getFirstAsync.mockResolvedValue(raw);
+    const expectedRecovery = (await getPendingSyncByEntityKey(raw.entity_key))!;
+    txn.getFirstAsync.mockImplementation(async () => {
+      if (change === 'owner') current = false;
+      return {
+        ...raw,
+        ...(change === 'payload'
+          ? { data: JSON.stringify({ ...expectedRecovery.data, holesPlayed: 4 }) }
+          : {}),
+        ...(change === 'entity' ? { entity_key: 'round:other:end_early' } : {}),
+        ...(change === 'recovery' ? { status: 'failed', last_error: 'new' } : {}),
+      };
+    });
+    // New queue-only guard; keep existing scorecard-absence callers unchanged.
+    await expect(
+      removePendingSync(41, 2, () => current, undefined, { expectedRecovery })
+    ).resolves.toBe(change === 'unchanged');
+    expect(txn.runAsync).toHaveBeenCalledTimes(change === 'unchanged' ? 1 : 0);
+  }
+);
+
+it.each(['web', 'missing guard', 'mixed guards', 'invalid revision'])(
+  'refuses new queue-only guarded acknowledgment with %s before deletion',
+  async (reason) => {
+    const { Platform } = jest.requireActual('react-native');
+    const previous = Platform.OS;
+    const expectedRecovery = {
+      id: 41,
+      revision: 2,
+      type: 'round',
+      action: 'update',
+      entityKey: 'round:r:end_early',
+      data: { id: 'r', action: 'end_early', holesPlayed: 6, userId: 'owner' },
+      timestamp: new Date(0),
+      retryCount: 0,
+    } as const;
+    if (reason === 'web') Platform.OS = 'web';
+    try {
+      await expect(
+        removePendingSync(
+          41,
+          reason === 'invalid revision' ? undefined : 2,
+          reason === 'missing guard' ? undefined : () => true,
+          reason === 'mixed guards' ? { scorecardId: 'c', roundId: 'r', playerId: 'p' } : undefined,
+          { expectedRecovery }
+        )
+      ).resolves.toBe(false);
+      expect(database.runAsync).not.toHaveBeenCalled();
+      expect(txn.runAsync).not.toHaveBeenCalled();
+    } finally {
+      Platform.OS = previous;
+    }
+  }
+);
+it('rolls back owned round acknowledgment after owner changes during deletion settlement', async () => {
+  let current = true;
+  let deleted = false;
+  const raw = {
+    id: 41,
+    revision: 2,
+    type: 'round',
+    action: 'update',
+    entity_key: 'round:r:end_early',
+    data: JSON.stringify({ id: 'r', action: 'end_early', holesPlayed: 6, userId: 'owner' }),
+    timestamp: '2026-10-09T00:00:00.000Z',
+    retry_count: 0,
+    status: 'pending' as const,
+    last_error: null,
+    last_attempt_at: null,
+  };
+  database.getFirstAsync.mockResolvedValue(raw);
+  const expectedRecovery = (await getPendingSyncByEntityKey(raw.entity_key))!;
+  txn.getFirstAsync.mockResolvedValue(raw);
+  txn.runAsync.mockImplementation(async () => {
+    deleted = true;
+    current = false;
+    return { changes: 1 };
+  });
+  database.withExclusiveTransactionAsync.mockImplementation(async (work) => {
+    try {
+      await work(txn);
+    } catch (error) {
+      deleted = false;
+      throw error;
+    }
+  });
+  await expect(
+    removePendingSync(41, 2, () => current, undefined, { expectedRecovery })
+  ).rejects.toThrow(/acknowledgment changed/);
+  expect(deleted).toBe(false);
+});
+
+it('keeps malformed canonical end JSON present in pending/failed lists and keyed reads with raw proof', async () => {
+  const { getPendingSyncs, getFailedSyncs } = jest.requireActual(
+    '@/services/offline/dao/SyncQueueDAO'
+  );
+  const raw = {
+    id: 51,
+    revision: 3,
+    type: 'round',
+    action: 'update',
+    entity_key: 'round:r:end_early',
+    data: '{broken',
+    timestamp: '2026-10-09T00:00:00.000Z',
+    retry_count: 2,
+    status: 'pending',
+    last_error: null,
+    last_attempt_at: null,
+  };
+  const all = jest.fn(async () => [raw]);
+  (getDb as jest.Mock).mockResolvedValue({ ...database, getAllAsync: all });
+  database.getFirstAsync.mockResolvedValue(raw);
+  for (const read of [
+    getPendingSyncs(),
+    getFailedSyncs(),
+    getPendingSyncByEntityKey(raw.entity_key),
+  ]) {
+    const result = await read;
+    const row = Array.isArray(result) ? result[0] : result;
+    expect(row).toMatchObject({
+      id: 51,
+      revision: 3,
+      retryCount: 2,
+      entityKey: 'round:r:end_early',
+      endIntentRead: { rawData: '{broken', decode: 'invalid_json' },
+    });
+  }
+});
+
+it.each(['unchanged', 'repaired', 'other malformed', 'entity', 'recovery'])(
+  'retains exact malformed end snapshot only when CURRENT raw proof is %s',
+  async (change) => {
+    const raw = {
+      id: 51,
+      revision: 3,
+      type: 'round',
+      action: 'update',
+      entity_key: 'round:r:end_early',
+      data: '{broken',
+      timestamp: '2026-10-09T00:00:00.000Z',
+      retry_count: 2,
+      status: 'pending' as const,
+      last_error: null,
+      last_attempt_at: null,
+    };
+    database.getFirstAsync.mockResolvedValue(raw);
+    const expectedRecovery = (await getPendingSyncByEntityKey(raw.entity_key))!;
+    txn.getFirstAsync.mockResolvedValue({
+      ...raw,
+      ...(change === 'repaired'
+        ? {
+            data: JSON.stringify({ id: 'r', action: 'end_early', holesPlayed: 6, userId: 'owner' }),
+          }
+        : {}),
+      ...(change === 'other malformed' ? { data: '{different' } : {}),
+      ...(change === 'entity' ? { entity_key: 'round:other:end_early' } : {}),
+      ...(change === 'recovery' ? { retry_count: 0 } : {}),
+    });
+    await expect(
+      markPendingSyncFailed(51, 3, 'Malformed end intent', {
+        expectedRecovery,
+        isCurrent: () => true,
+        snapshotMode: 'end_intent',
+      })
+    ).resolves.toBe(change === 'unchanged');
+    expect(txn.runAsync).toHaveBeenCalledTimes(change === 'unchanged' ? 1 : 0);
+  }
+);
+
+it('never acknowledges invalid JSON or missing raw read proof, and keeps ordinary malformed JSON strict', async () => {
+  const raw = {
+    id: 51,
+    revision: 3,
+    type: 'round',
+    action: 'update',
+    entity_key: 'round:r:end_early',
+    data: '{broken',
+    timestamp: '2026-10-09T00:00:00.000Z',
+    retry_count: 0,
+    status: 'pending' as const,
+    last_error: null,
+    last_attempt_at: null,
+  };
+  const invalid = decodePendingSyncRow(raw);
+  for (const expectedRecovery of [invalid, { ...invalid, endIntentRead: undefined }]) {
+    await expect(
+      removePendingSync(51, 3, () => true, undefined, { expectedRecovery })
+    ).resolves.toBe(false);
+  }
+  expect(txn.runAsync).not.toHaveBeenCalled();
+  expect(() =>
+    decodePendingSyncRow({ ...raw, entity_key: 'scorecard:r:p', type: 'scorecard' })
+  ).toThrow();
+  expect(() =>
+    decodePendingSyncRow({
+      ...raw,
+      data: JSON.stringify({ syncHandicapSource: 'bad' }),
+      entity_key: 'scorecard:r:p',
+      type: 'scorecard',
+    })
+  ).toThrow(/handicap source/i);
+  expect(
+    decodePendingSyncRow({
+      ...raw,
+      type: 'scorecard',
+      data: JSON.stringify({ syncHandicapSource: 'bad' }),
+    })
+  ).toMatchObject({ entityKey: 'round:r:end_early', endIntentRead: { decode: 'decoded' } });
+});
+it('freezes original raw proof before awaited acquisition and refuses an equal-revision repaired payload', async () => {
+  const raw = {
+    id: 51,
+    revision: 3,
+    type: 'round',
+    action: 'update',
+    entity_key: 'round:r:end_early',
+    data: '{broken',
+    timestamp: '2026-10-09T00:00:00.000Z',
+    retry_count: 0,
+    status: 'pending' as const,
+    last_error: null,
+    last_attempt_at: null,
+  };
+  const expectedRecovery = decodePendingSyncRow(raw);
+  const repaired = {
+    ...raw,
+    data: JSON.stringify({ id: 'r', action: 'end_early', holesPlayed: 6, userId: 'owner' }),
+  };
+  let entered!: () => void;
+  let release!: () => void;
+  const ready = new Promise<void>((resolve) => {
+    entered = resolve;
+  });
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  (getDb as jest.Mock).mockImplementationOnce(async () => {
+    entered();
+    await gate;
+    return database;
+  });
+  const retaining = markPendingSyncFailed(51, 3, 'obsolete malformed', {
+    expectedRecovery,
+    isCurrent: () => true,
+    snapshotMode: 'end_intent',
+  });
+  await ready;
+  expectedRecovery.endIntentRead = { rawData: repaired.data, decode: 'decoded' };
+  txn.getFirstAsync.mockResolvedValue(repaired);
+  release();
+  await expect(retaining).resolves.toBe(false);
+  expect(txn.runAsync).not.toHaveBeenCalled();
+});

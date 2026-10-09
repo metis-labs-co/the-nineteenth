@@ -1255,6 +1255,20 @@ describe('Utility Functions', () => {
   });
 
   describe('clearInvalidMockData()', () => {
+    it('preserves canonical and declared malformed ends while clearing ordinary invalid scorecard work', async () => {
+      mockGetAllAsync
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([
+          { id: 1, entity_key: 'round:round-a:end_early', data: JSON.stringify({ roundId: 42 }) },
+          { id: 2, entity_key: 'round:round-b:end_early', data: '{' },
+          { id: 3, entity_key: null, data: JSON.stringify({ action: 'end_early', roundId: 'mock-round' }) },
+          { id: 4, entity_key: 'scorecard:mock:player', data: JSON.stringify({ roundId: 'mock-round', playerId: 'mock-player' }) },
+        ]);
+      const deleted = await clearInvalidMockData();
+      expect(deleted).toBe(1);
+      expect(mockRunAsync).toHaveBeenCalledTimes(1);
+      expect(mockRunAsync).toHaveBeenCalledWith(expect.stringContaining('DELETE FROM pending_syncs'), [4]);
+    });
     it('should delete scorecards with invalid UUIDs', async () => {
       const scorecards = [
         { id: 'sc-1', round_id: 'not-a-uuid', player_id: 'player-1', is_standalone: 0 },
