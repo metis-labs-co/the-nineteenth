@@ -86,11 +86,28 @@ DECLARE
   v_delta BOOLEAN; v_expected_trim JSONB;
 BEGIN
   -- An existing UPDATE already holds its card lock. B1 locks ALL cards
-  -- NOWAIT before ending. Missing cards / destination moves need the round
-  -- lock instead. Never infer lock safety from competition_id.
-  IF TG_OP = 'INSERT' OR NEW.round_id IS DISTINCT FROM OLD.round_id THEN
+  -- NOWAIT before ending. Missing cards / destination moves / unique-key
+  -- transfers need the round lock too. Even metadata-only player transfers
+  -- must not introduce a conflict after another INSERT's fresh card probe.
+  -- Never infer lock safety from competition_id.
+  IF TG_OP = 'INSERT' OR NEW.round_id IS DISTINCT FROM OLD.round_id
+     OR NEW.player_id IS DISTINCT FROM OLD.player_id
+     OR NEW.id IS DISTINCT FROM OLD.id THEN
     BEGIN
       PERFORM r.id FROM public.rounds r WHERE r.id = NEW.round_id FOR UPDATE NOWAIT;
+      -- BEFORE INSERT also runs for ON CONFLICT DO UPDATE. Never hold this
+      -- round while later waiting for a conflict card: a completing snapshot
+      -- may already own that card and need the round in its AFTER trigger.
+      -- Fresh after the round lock, include hidden/deleted unique rows and
+      -- both the primary key and round/player constraint. RLS still governs
+      -- the caller's subsequent INSERT/UPDATE; this helper only locks/reads.
+      -- A pair created before this lock is visible here. An uncommitted
+      -- guarded pair INSERT still owns the same round and fails NOWAIT above.
+      PERFORM sc.id FROM public.scorecards sc
+       WHERE sc.id = NEW.id
+          OR (sc.round_id = NEW.round_id AND sc.player_id = NEW.player_id)
+       ORDER BY sc.id
+       FOR UPDATE NOWAIT;
     EXCEPTION WHEN lock_not_available THEN
       RAISE EXCEPTION 'Round scoring is busy; try again'
         USING ERRCODE = '22023', HINT = 'round_scoring_busy';

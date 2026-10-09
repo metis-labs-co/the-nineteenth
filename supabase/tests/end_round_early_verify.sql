@@ -2,8 +2,15 @@
 -- End round early - verification script
 -- =====================================================
 -- Run AFTER applying 20261007000100_full_scorecards_only_handicap.sql and
--- 20261007000200_end_round_early.sql:
---   psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/tests/end_round_early_verify.sql
+-- 20261007000200_end_round_early.sql and
+-- 20261007000300_guard_round_scoring_writes.sql (shape-aware fixtures):
+-- Known pooler port 6543; human recipe, never run during authoring:
+--   psql "$DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
+--   SET default_transaction_read_only = off;
+--   show transaction_read_only; -- must print off
+--   \i supabase/tests/end_round_early_verify.sql
+--   SQL
+-- This file contains BEGIN ... ROLLBACK.
 --
 -- Authored without database access; all SQL execution is deferred to B11.
 -- The two-session checks at the end are staging instructions, not executed here.
@@ -175,17 +182,32 @@ INSERT INTO competitions (
 INSERT INTO rounds (id, competition_id, round_number, status) VALUES
   ('ee000000-0000-0000-0001-000000000003', 'ee000000-0000-0000-0004-000000000001', 1, 'in-progress');
 
--- R4: completed full round already ended after 6.
-INSERT INTO rounds (id, user_id, status, nine_type, holes_played) VALUES
-  ('ee000000-0000-0000-0001-000000000004', 'ee000000-0000-0000-0000-000000000001', 'completed', 'full', 6);
-
--- R4 submitted cards ensure the completed-round same-N retry bypasses the
--- submitted-card refusal too. Its ended-round differential trigger forces NULL.
+-- R4: completed full round already ended after 6. Construct through the
+-- normal lifecycle: unended cards -> end -> shape-aware submit -> completion.
+-- No unbound INSERT into an already-ended round or disabled trigger is used.
+INSERT INTO rounds (id, user_id, status, nine_type) VALUES
+  ('ee000000-0000-0000-0001-000000000004', 'ee000000-0000-0000-0000-000000000001', 'in-progress', 'full');
 INSERT INTO scorecards (id, round_id, player_id, status, scores, total_gross) VALUES
   ('ee000000-0000-0000-0007-000000000004', 'ee000000-0000-0000-0001-000000000004',
-   'ee000000-0000-0000-0000-000000000001', 'completed', '{}'::JSONB, 24),
+   'ee000000-0000-0000-0000-000000000001', 'in-progress', '{}'::JSONB, 24),
   ('ee000000-0000-0000-0007-000000000006', 'ee000000-0000-0000-0001-000000000004',
-   'ee000000-0000-0000-0000-000000000002', 'confirmed', '{}'::JSONB, 26);
+   'ee000000-0000-0000-0000-000000000002', 'in-progress', '{}'::JSONB, 26);
+DO $$
+DECLARE v_write RECORD;
+BEGIN
+  PERFORM set_config('request.jwt.claims', '{"sub":"ee000000-0000-0000-0000-000000000001","role":"authenticated"}', true);
+  PERFORM end_round_early('ee000000-0000-0000-0001-000000000004', 6);
+  SELECT * INTO v_write FROM write_scorecard_snapshot(
+    'ee000000-0000-0000-0001-000000000004', 'ee000000-0000-0000-0000-000000000001', 1,
+    '{"scores":{},"total_gross":24,"status":"completed","expected_round_shape":{"nine_type":"full","holes_played":6}}');
+  ASSERT v_write.applied AND NOT v_write.conflict, 'R4 completed fixture submission failed';
+  SELECT * INTO v_write FROM write_scorecard_snapshot(
+    'ee000000-0000-0000-0001-000000000004', 'ee000000-0000-0000-0000-000000000002', 1,
+    '{"scores":{},"total_gross":26,"status":"confirmed","expected_round_shape":{"nine_type":"full","holes_played":6}}');
+  ASSERT v_write.applied AND NOT v_write.conflict, 'R4 confirmed fixture submission failed';
+END $$;
+UPDATE rounds SET status = 'completed'
+ WHERE id = 'ee000000-0000-0000-0001-000000000004';
 
 -- R5: completed full round, never ended early.
 INSERT INTO rounds (id, user_id, status, nine_type) VALUES
@@ -312,36 +334,87 @@ BEGIN
 END $$;
 
 -- =====================================================
--- TEST 2: the scorecard trigger keeps an ended round's differentials NULL
---         on later writes (an old 1.14.x client recalculating on Home), for
---         a complete card, a {} card, and a new card.
+-- TEST 2: ended rounds never regain differentials for complete planned
+--         input, retained scores, {} cards or newly created cards. C3 now
+--         refuses old unbound writes before A7; valid shape-aware patches
+--         still exercise A7's ended eligibility nulling.
 -- =====================================================
--- Reintroduce a complete back-9 payload as an old client might. A7's
--- completeness gate alone would permit its differential; the early-end belt
--- must still force NULL. This also makes a later accidental retry trim visible.
-UPDATE scorecards SET scores = (
-  SELECT jsonb_object_agg(h::TEXT, jsonb_build_object('strokes', 4))
-    FROM generate_series(10, 18) AS h
-) WHERE id = 'ee000000-0000-0000-0007-000000000001';
-
-UPDATE scorecards
-   SET handicap_differential = 9.9
- WHERE id IN ('ee000000-0000-0000-0007-000000000001', 'ee000000-0000-0000-0007-000000000002');
-
-INSERT INTO scorecards (id, round_id, player_id, status, scores, total_gross, handicap_differential) VALUES
-  ('ee000000-0000-0000-0007-000000000005', 'ee000000-0000-0000-0001-000000000001',
-   'ee000000-0000-0000-0000-000000000005', 'completed', '{}'::JSONB, 30, 1.0);
-
 DO $$
 DECLARE
+  v_complete JSONB;
+  v_card UUID;
+  v_before JSONB;
+  v_raised BOOLEAN;
+  v_hint TEXT;
+  v_write RECORD;
   v_diffs INT;
 BEGIN
-  SELECT COUNT(*) INTO v_diffs
-    FROM scorecards
-   WHERE round_id = 'ee000000-0000-0000-0001-000000000001'
-     AND handicap_differential IS NOT NULL;
-  ASSERT v_diffs = 0, 'Test 2 FAILED: trigger should force NULL on an ended round, ' || v_diffs || ' non-null';
-  RAISE NOTICE 'Test 2 PASSED: ended round never regains a differential';
+  SELECT jsonb_object_agg(h::TEXT, jsonb_build_object('strokes', 4)) INTO v_complete
+    FROM generate_series(10, 18) h;
+  -- Equivalent to the old complete-card regression without restoring illegal
+  -- keys: the same full planned payload is independently complete for back9,
+  -- but the shared round-aware eligibility helper refuses it because of N6.
+  ASSERT public.scorecard_is_complete_for_handicap(v_complete, 'back9'),
+    'Test 2 FAILED: complete planned back9 input must pass the completeness gate';
+  ASSERT NOT public.scorecard_eligible_for_differential(
+    'ee000000-0000-0000-0001-000000000001', v_complete),
+    'Test 2 FAILED: ended round must exclude even complete planned input';
+  v_before := pg_temp.end_round_state('ee000000-0000-0000-0001-000000000001');
+  v_raised := FALSE;
+  BEGIN
+    UPDATE scorecards SET scores = v_complete
+     WHERE id = 'ee000000-0000-0000-0007-000000000001';
+  EXCEPTION WHEN invalid_parameter_value THEN
+    v_raised := TRUE;
+    GET STACKED DIAGNOSTICS v_hint = PG_EXCEPTION_HINT;
+  END;
+  ASSERT v_raised AND v_hint = 'round_score_out_of_play',
+    'Test 2 FAILED: old complete payload must be rejected without restoring keys';
+  ASSERT pg_temp.end_round_state('ee000000-0000-0000-0001-000000000001') = v_before,
+    'Test 2 FAILED: rejected old complete payload changed state';
+
+  FOREACH v_card IN ARRAY ARRAY[
+    'ee000000-0000-0000-0007-000000000001'::UUID,
+    'ee000000-0000-0000-0007-000000000002'::UUID
+  ] LOOP
+    v_raised := FALSE;
+    v_hint := NULL;
+    BEGIN
+      UPDATE scorecards SET handicap_differential = 9.9 WHERE id = v_card;
+    EXCEPTION WHEN invalid_parameter_value THEN
+      v_raised := TRUE;
+      GET STACKED DIAGNOSTICS v_hint = PG_EXCEPTION_HINT;
+    END;
+    ASSERT v_raised AND v_hint = 'round_shape_changed',
+      'Test 2 FAILED: old unbound differential write must be rejected';
+    ASSERT write_scorecard_handicap_patch(v_card,
+      '{"handicap_differential":9.9,"course_rating_used":null,"slope_rating_used":null,"daily_handicap_used":null,"ga_handicap_used":null,"expected_round_shape":{"nine_type":"back9","holes_played":6}}'),
+      'Test 2 FAILED: valid shape-aware differential patch must apply';
+    ASSERT (SELECT handicap_differential IS NULL FROM scorecards WHERE id = v_card),
+      'Test 2 FAILED: retained and {} cards must keep NULL after valid patch';
+  END LOOP;
+  v_raised := FALSE;
+  v_hint := NULL;
+  BEGIN
+    INSERT INTO scorecards (id, round_id, player_id, status, scores, total_gross, handicap_differential) VALUES
+      ('ee000000-0000-0000-0007-000000000005', 'ee000000-0000-0000-0001-000000000001',
+       'ee000000-0000-0000-0000-000000000005', 'completed', '{}'::JSONB, 30, 1.0);
+  EXCEPTION WHEN invalid_parameter_value THEN
+    v_raised := TRUE;
+    GET STACKED DIAGNOSTICS v_hint = PG_EXCEPTION_HINT;
+  END;
+  ASSERT v_raised AND v_hint = 'round_shape_changed',
+    'Test 2 FAILED: new ended card cannot be created by an unbound old client';
+  -- A generated UUID replaces the old fixed SC5 ID; no later case references
+  -- that ID. Round/player, {}, completed status, gross30 and NULL outcome match.
+  SELECT * INTO v_write FROM write_scorecard_snapshot(
+    'ee000000-0000-0000-0001-000000000001', 'ee000000-0000-0000-0000-000000000005', NULL,
+    '{"scores":{},"total_gross":30,"status":"completed","handicap_differential":1.0,"expected_round_shape":{"nine_type":"back9","holes_played":6}}');
+  ASSERT v_write.applied AND NOT v_write.conflict, 'Test 2 FAILED: new shape-aware card must apply';
+  SELECT COUNT(*) INTO v_diffs FROM scorecards
+   WHERE round_id = 'ee000000-0000-0000-0001-000000000001' AND handicap_differential IS NOT NULL;
+  ASSERT v_diffs = 0, 'Test 2 FAILED: ended round must never regain a differential';
+  RAISE NOTICE 'Test 2 PASSED: complete input is ineligible, stale writes refused, valid existing/new writes stay NULL';
 END $$;
 
 -- =====================================================
@@ -393,12 +466,24 @@ END $$;
 --         second phone ending at the same hole) is a no-op success even
 --         after completed/confirmed cards on a still-in-progress round.
 -- =====================================================
-UPDATE scorecards SET status = 'completed'
- WHERE id = 'ee000000-0000-0000-0007-000000000001';
-UPDATE scorecards SET status = 'confirmed'
- WHERE id = 'ee000000-0000-0000-0007-000000000002';
--- A later side-game write and the complete payload from Test 2 must survive
--- the retry, proving the RPC returns before trimming again.
+DO $$
+DECLARE v_write RECORD; v_scores JSONB;
+BEGIN
+  SELECT scores INTO v_scores FROM scorecards
+   WHERE id = 'ee000000-0000-0000-0007-000000000001';
+  SELECT * INTO v_write FROM write_scorecard_snapshot(
+    'ee000000-0000-0000-0001-000000000001', 'ee000000-0000-0000-0000-000000000001', 1,
+    jsonb_build_object('scores', v_scores, 'total_gross', 24, 'status', 'completed',
+      'expected_round_shape', jsonb_build_object('nine_type', 'back9', 'holes_played', 6)));
+  ASSERT v_write.applied AND NOT v_write.conflict, 'Test 4 completed fixture submission failed';
+  SELECT * INTO v_write FROM write_scorecard_snapshot(
+    'ee000000-0000-0000-0001-000000000001', 'ee000000-0000-0000-0000-000000000002', 1,
+    '{"scores":{},"total_gross":40,"status":"confirmed","expected_round_shape":{"nine_type":"back9","holes_played":6}}');
+  ASSERT v_write.applied AND NOT v_write.conflict, 'Test 4 confirmed fixture submission failed';
+END $$;
+-- The later out-of-play side-game row is the no-retrim sentinel; C3's Test 2
+-- now proves old complete score JSON is rejected instead of storing it.
+-- Complete state comparison below still includes every card field/revision.
 INSERT INTO skins_results (skins_game_id, hole_number, is_carryover, hole_scores, hole_pot_value)
 VALUES ('ee000000-0000-0000-0002-000000000001', 18, TRUE, '{}'::JSONB, 5.00);
 DO $$ BEGIN

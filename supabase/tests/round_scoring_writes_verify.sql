@@ -6,9 +6,9 @@
 -- \i supabase/tests/round_scoring_writes_verify.sql
 -- SQL
 -- This file contains BEGIN ... ROLLBACK. Never use production fixture data.
--- The pre-C3 end_round_early_verify.sql remains a B1 baseline; its direct
--- INSERTs into already-ended rounds need shape-aware fixture adaptation before
--- use after C3. This file covers C3-compatible submitted/combined regressions. Real lock schedules are in the companion
+-- Run the C3-adapted end_round_early_verify.sql separately for the complete
+-- preserved B1 side-game/submitted/combined/eligibility regression inventory.
+-- Its ended fixtures now use valid shape-aware writes or explicit refusals. Real lock schedules are in the companion
 -- round_scoring_writes_two_session.md; this file proves no concurrency claim.
 BEGIN;
 
@@ -215,6 +215,17 @@ BEGIN
    'ec000000-0000-0000-0001-000000000005','ec000000-0000-0000-0000-000000000001',2,
    '{"scores":{"1":{"strokes":5}},"total_gross":5,"status":"completed","expected_round_shape":{"nine_type":"full","holes_played":null}}');
  ASSERT v_result.applied;
+ -- Existing-conflict ON CONFLICT path keeps ordinary competition scorer
+ -- permissions (no round UPDATE permission), original direct revision behavior
+ -- and completion compatibility. The private guard locks the conflict NOWAIT.
+ INSERT INTO scorecards(round_id,player_id,scores,total_gross,status)
+ VALUES('ec000000-0000-0000-0001-000000000005','ec000000-0000-0000-0000-000000000001',
+   '{"1":{"strokes":5}}',5,'completed')
+ ON CONFLICT(round_id,player_id) DO UPDATE SET
+   scores=EXCLUDED.scores,total_gross=EXCLUDED.total_gross,status=EXCLUDED.status;
+ ASSERT (SELECT revision=v_result.server_revision AND status='completed' FROM scorecards
+   WHERE round_id='ec000000-0000-0000-0001-000000000005'
+     AND player_id='ec000000-0000-0000-0000-000000000001');
  -- Nonempty prior context is restored on success and ordinary revision conflict.
  v_prior := '{"sentinel":"prior setting"}';
  PERFORM set_config('app.round_scoring_write',v_prior,true);
