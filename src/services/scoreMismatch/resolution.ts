@@ -7,6 +7,12 @@
 import { supabase } from '@/services/supabase/client';
 import type { HoleScore, Hole } from '@/types';
 import type { NineType } from '@/types/database/enums';
+import type { Database, ScorecardResolutionPatch } from '@/types/database/schema';
+import {
+  RoundScoringWriteError,
+  roundScoringErrorFromSql,
+} from '@/services/rounds/roundScoringErrors';
+import { fetchRoundScoringShape } from '@/services/rounds/roundScoringShape';
 import { getHoleRange } from '@/constants/scoring';
 import { isSingleBallScore } from '@/types/database/base';
 import {
@@ -16,12 +22,20 @@ import {
 } from '@/utils/scoring';
 import { filterPlayableHoles, transformHolesIfNeeded } from '@/utils/holeTransformers';
 import { calculateNetOverHolesPlayed } from '@/utils/scorecardCalculations';
-import { isEndedEarly, isHoleAfterEarlyEnd } from '@/utils/roundShape';
+import { isEndedEarly, isHoleAfterEarlyEnd, resolveRoundShape } from '@/utils/roundShape';
 import { createModuleLogger } from '@/utils/debugLogger';
 import { fromTable } from './types';
 import { createError } from '@/services/errors';
 
 const logger = createModuleLogger('ScoreMismatchService');
+type ResolutionRpc = Database['public']['Functions']['write_scorecard_resolution'];
+type ResolutionWrite = (
+  name: 'write_scorecard_resolution',
+  args: ResolutionRpc['Args']
+) => PromiseLike<{
+  data: ResolutionRpc['Returns'] | null;
+  error: { code?: string; hint?: string; message: string } | null;
+}>;
 
 // ============================================================================
 // RESOLUTION
@@ -70,7 +84,8 @@ export async function resolveMismatch(
  *
  * Only the round's played holes accept corrections. Totals cover the same
  * holes, including the cutoff when the round ended early.
- * @returns true after a successful write; false for an out-of-play hole.
+ * @returns true after a successful write; false for an out-of-play hole or
+ *   missing/RLS-hidden card. Failed reads remain errors, never absence.
  *   Callers must mirror the correction locally only when true.
  */
 export async function applyResolvedScoreToScorecard(
@@ -98,91 +113,125 @@ export async function applyResolvedScoreToScorecard(
     } | null;
   }
 
-  const { data: scorecard, error: fetchError } = (await supabase
-    .from('scorecards')
-    .select(
-      'id, scores, daily_handicap_used, round:rounds(game_type, nine_type, holes_played, courses(holes))'
-    )
-    .eq('round_id', roundId)
-    .eq('player_id', playerId)
-    .single()) as unknown as {
-    data: ScorecardFetchRow | null;
-    error: { message: string } | null;
-  };
+  let retryingShape = false;
+  for (;;) {
+    const { data: scorecard, error: fetchError } = (await supabase
+      .from('scorecards')
+      .select(
+        'id, scores, daily_handicap_used, round:rounds(game_type, nine_type, holes_played, courses(holes))'
+      )
+      .eq('round_id', roundId)
+      .eq('player_id', playerId)
+      .maybeSingle()) as unknown as {
+      data: ScorecardFetchRow | null;
+      error: { message: string } | null;
+    };
 
-  if (fetchError) {
-    logger.error('Failed to fetch scorecard', fetchError);
-    throw createError(`Failed to fetch scorecard: ${fetchError.message}`, 'DATABASE');
-  }
+    if (fetchError) {
+      logger.error('Failed to fetch scorecard', fetchError);
+      throw createError(`Failed to fetch scorecard: ${fetchError.message}`, 'DATABASE');
+    }
 
-  if (!scorecard) {
-    throw createError('Scorecard not found', 'NOT_FOUND');
-  }
+    if (!scorecard) return false;
+    if (!scorecard.round)
+      throw new RoundScoringWriteError('unavailable', roundId, 'Round scoring shape unavailable');
 
-  const nineType = scorecard.round?.nine_type ?? 'full';
-  const holesPlayed = scorecard.round?.holes_played ?? null;
-  const holes = transformHolesIfNeeded(scorecard.round?.courses?.holes ?? []);
-  const playableHoles = filterPlayableHoles(holes, nineType, holesPlayed);
-  const range = getHoleRange(nineType);
-  // Without metadata, enforce both the planned nine and the early-end cutoff.
-  const isPlayableHole =
-    holes.length > 0
-      ? playableHoles.some((hole) => hole.number === holeNumber)
-      : Number.isInteger(holeNumber) &&
-        holeNumber >= range.start &&
-        holeNumber <= range.end &&
-        !isHoleAfterEarlyEnd(nineType, holesPlayed, holeNumber);
-  if (!isPlayableHole) {
-    logger.warn('Ignoring resolved score for a hole the round did not play', {
-      roundId: roundId.substring(0, 8) + '...',
-      holeNumber,
-      nineType,
+    const resolved = resolveRoundShape(scorecard.round);
+    const shape = retryingShape
+      ? await fetchRoundScoringShape(roundId)
+      : { nine_type: resolved.nineType, holes_played: resolved.holesPlayed };
+    const { nine_type: nineType, holes_played: holesPlayed } = shape;
+    const holes = transformHolesIfNeeded(scorecard.round?.courses?.holes ?? []);
+    const playableHoles = filterPlayableHoles(holes, nineType, holesPlayed);
+    const range = getHoleRange(nineType);
+    // Without metadata, enforce both the planned nine and the early-end cutoff.
+    const isPlayableHole =
+      holes.length > 0
+        ? playableHoles.some((hole) => hole.number === holeNumber)
+        : Number.isInteger(holeNumber) &&
+          holeNumber >= range.start &&
+          holeNumber <= range.end &&
+          !isHoleAfterEarlyEnd(nineType, holesPlayed, holeNumber);
+    if (!isPlayableHole) {
+      logger.warn('Ignoring resolved score for a hole the round did not play', {
+        roundId: roundId.substring(0, 8) + '...',
+        holeNumber,
+        nineType,
+        holesPlayed,
+      });
+      return false;
+    }
+
+    // Update the specific hole score
+    // Match the server guard's numeric-key distinction. Non-hole JSON is opaque
+    // metadata; never discard it by parsing a numeric prefix (e.g. "12-note").
+    const scores: Record<string, HoleScore> = Object.fromEntries(
+      Object.entries(scorecard.scores ?? {}).filter(([key]) => {
+        if (!/^[0-9]+$/.test(key)) return true;
+        const number = Number(key);
+        return (
+          number >= range.start &&
+          number <= range.end &&
+          !isHoleAfterEarlyEnd(nineType, holesPlayed, number)
+        );
+      })
+    );
+    const holeKey = holeNumber.toString();
+
+    if (scores[holeKey]) {
+      scores[holeKey] = { ...scores[holeKey], strokes: resolvedScore } as HoleScore;
+    } else {
+      scores[holeKey] = { strokes: resolvedScore } as HoleScore;
+    }
+
+    // Recompute totals from the updated scores JSON. This is the single
+    // source-of-truth path — matches calculatePlayerStats in the scorecard view.
+    const gameType = scorecard.round?.game_type ?? null;
+    const dhc = scorecard.daily_handicap_used;
+
+    const totals = recomputeScorecardTotals(scores, holes, gameType, dhc, {
       holesPlayed,
+      nineType,
     });
-    return false;
+
+    const updatePayload: ScorecardResolutionPatch = {
+      expected_round_shape: shape,
+      scores,
+      total_gross: totals.totalGross,
+      updated_at: new Date().toISOString(),
+    };
+    if (totals.totalNet != null) {
+      updatePayload.total_net = totals.totalNet;
+    }
+    if (totals.totalPoints != null) {
+      updatePayload.total_points = totals.totalPoints;
+    }
+
+    // The installed client's generic schema resolves RPC arguments to never.
+    // Limit the assertion to C3's exact wire contract, retaining the RPC receiver.
+    const { data: applied, error: updateError } = await (
+      supabase.rpc as unknown as ResolutionWrite
+    )('write_scorecard_resolution', { p_scorecard_id: scorecard.id, p_patch: updatePayload });
+
+    if (updateError) {
+      const guard = roundScoringErrorFromSql(roundId, updateError);
+      if (guard) {
+        if (!retryingShape && guard.kind === 'shape_changed') {
+          // Retain only the correction intent. Refetch card and authorized shape
+          // on the next attempt, then filter/recalculate from CURRENT data.
+          retryingShape = true;
+          continue;
+        }
+        throw guard;
+      }
+      logger.error('Failed to update scorecard', updateError);
+      throw createError(`Failed to update scorecard: ${updateError.message}`, 'DATABASE');
+    }
+
+    if (typeof applied !== 'boolean')
+      throw new RoundScoringWriteError('unavailable', roundId, 'Resolution response unavailable');
+    return applied;
   }
-
-  // Update the specific hole score
-  const scores: Record<string, HoleScore> = scorecard.scores || {};
-  const holeKey = holeNumber.toString();
-
-  if (scores[holeKey]) {
-    (scores[holeKey] as { strokes: number }).strokes = resolvedScore;
-  } else {
-    scores[holeKey] = { strokes: resolvedScore } as HoleScore;
-  }
-
-  // Recompute totals from the updated scores JSON. This is the single
-  // source-of-truth path — matches calculatePlayerStats in the scorecard view.
-  const gameType = scorecard.round?.game_type ?? null;
-  const dhc = scorecard.daily_handicap_used;
-
-  const totals = recomputeScorecardTotals(scores, holes, gameType, dhc, { holesPlayed, nineType });
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const updatePayload: Record<string, any> = {
-    scores,
-    total_gross: totals.totalGross,
-    updated_at: new Date().toISOString(),
-  };
-  if (totals.totalNet != null) {
-    updatePayload.total_net = totals.totalNet;
-  }
-  if (totals.totalPoints != null) {
-    updatePayload.total_points = totals.totalPoints;
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error: updateError } = await (supabase.from('scorecards') as any)
-    .update(updatePayload)
-    .eq('id', scorecard.id);
-
-  if (updateError) {
-    logger.error('Failed to update scorecard', updateError);
-    throw createError(`Failed to update scorecard: ${updateError.message}`, 'DATABASE');
-  }
-
-  return true;
 }
 
 /**

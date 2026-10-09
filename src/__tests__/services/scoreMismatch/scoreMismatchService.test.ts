@@ -788,10 +788,11 @@ describe('Mismatch Resolution', () => {
         select: jest.fn().mockReturnThis(),
         update: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
-        single: jest.fn().mockResolvedValue({ data: row, error: null }),
+        maybeSingle: jest.fn().mockResolvedValue({ data: row, error: null }),
         then: jest.fn((resolve) => resolve({ data: null, error: null })),
       };
       (supabase.from as jest.Mock).mockReturnValue(mockChain);
+      (supabase.rpc as jest.Mock).mockResolvedValue({ data: true, error: null });
       return mockChain;
     }
 
@@ -806,22 +807,26 @@ describe('Mismatch Resolution', () => {
         select: jest.fn().mockReturnThis(),
         update: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
-        single: jest.fn().mockResolvedValue({ data: existingScorecard, error: null }),
+        maybeSingle: jest.fn().mockResolvedValue({ data: existingScorecard, error: null }),
         then: jest.fn((resolve) => resolve({ data: null, error: null })),
       };
       (supabase.from as jest.Mock).mockReturnValue(mockChain);
+      (supabase.rpc as jest.Mock).mockResolvedValue({ data: true, error: null });
 
       await applyResolvedScoreToScorecard(ROUND_ID, PLAYER_A_ID, 10, 5);
 
-      expect(mockChain.update).toHaveBeenCalledWith(
+      expect(supabase.rpc).toHaveBeenCalledWith(
+        'write_scorecard_resolution',
         expect.objectContaining({
-          scores: expect.objectContaining({
-            '10': { strokes: 5, putts: 2 }, // Updated (putts preserved)
+          p_patch: expect.objectContaining({
+            scores: expect.objectContaining({
+              '10': { strokes: 5, putts: 2 }, // Updated (putts preserved)
+            }),
+            // 3 + 5 + 5 = 13
+            total_gross: 13,
+            // 13 - daily_handicap_used(10)
+            total_net: 3,
           }),
-          // 3 + 5 + 5 = 13
-          total_gross: 13,
-          // 13 - daily_handicap_used(10)
-          total_net: 3,
         })
       );
     });
@@ -835,20 +840,24 @@ describe('Mismatch Resolution', () => {
         select: jest.fn().mockReturnThis(),
         update: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
-        single: jest.fn().mockResolvedValue({ data: existingScorecard, error: null }),
+        maybeSingle: jest.fn().mockResolvedValue({ data: existingScorecard, error: null }),
         then: jest.fn((resolve) => resolve({ data: null, error: null })),
       };
       (supabase.from as jest.Mock).mockReturnValue(mockChain);
+      (supabase.rpc as jest.Mock).mockResolvedValue({ data: true, error: null });
 
       await applyResolvedScoreToScorecard(ROUND_ID, PLAYER_A_ID, 10, 5);
 
-      expect(mockChain.update).toHaveBeenCalledWith(
+      expect(supabase.rpc).toHaveBeenCalledWith(
+        'write_scorecard_resolution',
         expect.objectContaining({
-          scores: expect.objectContaining({
-            '10': { strokes: 5 },
+          p_patch: expect.objectContaining({
+            scores: expect.objectContaining({
+              '10': { strokes: 5 },
+            }),
+            total_gross: 8, // 3 + 5
+            total_net: -2, // 8 - 10
           }),
-          total_gross: 8, // 3 + 5
-          total_net: -2, // 8 - 10
         })
       );
     });
@@ -867,39 +876,44 @@ describe('Mismatch Resolution', () => {
         select: jest.fn().mockReturnThis(),
         update: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
-        single: jest.fn().mockResolvedValue({ data: existingScorecard, error: null }),
+        maybeSingle: jest.fn().mockResolvedValue({ data: existingScorecard, error: null }),
         then: jest.fn((resolve) => resolve({ data: null, error: null })),
       };
       (supabase.from as jest.Mock).mockReturnValue(mockChain);
+      (supabase.rpc as jest.Mock).mockResolvedValue({ data: true, error: null });
 
       // Resolve hole 3 to 5 (par 4, net 4 = par = 2 pts)
       await applyResolvedScoreToScorecard(ROUND_ID, PLAYER_A_ID, 3, 5);
 
-      expect(mockChain.update).toHaveBeenCalledWith(
+      expect(supabase.rpc).toHaveBeenCalledWith(
+        'write_scorecard_resolution',
         expect.objectContaining({
-          total_gross: 13, // 4 + 4 + 5
-          total_points: 8, // 3 + 3 + 2
+          p_patch: expect.objectContaining({
+            total_gross: 13, // 4 + 4 + 5
+            total_points: 8, // 3 + 3 + 2
+          }),
         })
       );
     });
 
-    it('should throw NOT_FOUND error when scorecard does not exist', async () => {
+    it('returns false when scorecard is missing or RLS-hidden', async () => {
       const mockChain = {
         select: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
-        single: jest.fn().mockResolvedValue({ data: null, error: null }),
+        maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
       };
       (supabase.from as jest.Mock).mockReturnValue(mockChain);
+      (supabase.rpc as jest.Mock).mockResolvedValue({ data: true, error: null });
 
-      await expect(
-        applyResolvedScoreToScorecard(ROUND_ID, PLAYER_A_ID, 10, 5)
-      ).rejects.toThrow('Scorecard not found');
+      await expect(applyResolvedScoreToScorecard(ROUND_ID, PLAYER_A_ID, 10, 5)).resolves.toBe(
+        false
+      );
     });
 
     it('should throw validation error for missing IDs', async () => {
-      await expect(
-        applyResolvedScoreToScorecard('', PLAYER_A_ID, 10, 5)
-      ).rejects.toThrow('Round ID and Player ID are required');
+      await expect(applyResolvedScoreToScorecard('', PLAYER_A_ID, 10, 5)).rejects.toThrow(
+        'Round ID and Player ID are required'
+      );
     });
     it("selects the round's nine type and holes played with the course holes", async () => {
       const mockChain = mockScorecardFetch(makeScorecardRow({ '1': { strokes: 4 } }));
@@ -918,52 +932,56 @@ describe('Mismatch Resolution', () => {
     });
 
     it('nets a card from a round ended early over the holes played', async () => {
-      const mockChain = mockScorecardFetch(
+      mockScorecardFetch(
         makeScorecardRow({ '1': { strokes: 4 }, '2': { strokes: 4 } }, { holes_played: 3 })
       );
 
       await expect(applyResolvedScoreToScorecard(ROUND_ID, PLAYER_A_ID, 3, 5)).resolves.toBe(true);
 
       // DHC 10 ⇒ a stroke on SI 1–10 ⇒ (4−1) + (4−1) + (5−1) = 10, not 13 − 10 = 3.
-      expect(mockChain.update).toHaveBeenCalledWith(
-        expect.objectContaining({ total_gross: 13, total_net: 10 })
+      expect(supabase.rpc).toHaveBeenCalledWith(
+        'write_scorecard_resolution',
+        expect.objectContaining({
+          p_patch: expect.objectContaining({ total_gross: 13, total_net: 10 }),
+        })
       );
     });
 
     it('does not write a resolved score onto a hole removed by an early end', async () => {
-      const mockChain = mockScorecardFetch(
-        makeScorecardRow({ '1': { strokes: 4 } }, { holes_played: 3 })
-      );
+      mockScorecardFetch(makeScorecardRow({ '1': { strokes: 4 } }, { holes_played: 3 }));
 
       await expect(applyResolvedScoreToScorecard(ROUND_ID, PLAYER_A_ID, 5, 6)).resolves.toBe(false);
 
-      expect(mockChain.update).not.toHaveBeenCalled();
+      expect(supabase.rpc).not.toHaveBeenCalled();
     });
 
     it('uses back-nine hole numbers for a back-9 round ended after 2', async () => {
-      const refused = mockScorecardFetch(
+      mockScorecardFetch(
         makeScorecardRow({ '10': { strokes: 5 } }, { nine_type: 'back9', holes_played: 2 })
       );
-      await expect(applyResolvedScoreToScorecard(ROUND_ID, PLAYER_A_ID, 12, 5)).resolves.toBe(false);
-      expect(refused.update).not.toHaveBeenCalled();
+      await expect(applyResolvedScoreToScorecard(ROUND_ID, PLAYER_A_ID, 12, 5)).resolves.toBe(
+        false
+      );
+      expect(supabase.rpc).not.toHaveBeenCalled();
 
-      const applied = mockScorecardFetch(
+      mockScorecardFetch(
         makeScorecardRow({ '10': { strokes: 5 } }, { nine_type: 'back9', holes_played: 2 })
       );
       await expect(applyResolvedScoreToScorecard(ROUND_ID, PLAYER_A_ID, 11, 5)).resolves.toBe(true);
       // Hole 10 (SI 10) gets a stroke, hole 11 (SI 11) none ⇒ net 4 + 5 = 9; gross 10.
-      expect(applied.update).toHaveBeenCalledWith(
-        expect.objectContaining({ total_gross: 10, total_net: 9 })
+      expect(supabase.rpc).toHaveBeenCalledWith(
+        'write_scorecard_resolution',
+        expect.objectContaining({
+          p_patch: expect.objectContaining({ total_gross: 10, total_net: 9 }),
+        })
       );
     });
 
     it('still refuses a hole after the end when the course holes are missing', async () => {
-      const mockChain = mockScorecardFetch(
-        makeScorecardRow({ '1': { strokes: 4 } }, { holes_played: 3, holes: [] })
-      );
+      mockScorecardFetch(makeScorecardRow({ '1': { strokes: 4 } }, { holes_played: 3, holes: [] }));
 
       await expect(applyResolvedScoreToScorecard(ROUND_ID, PLAYER_A_ID, 5, 6)).resolves.toBe(false);
-      expect(mockChain.update).not.toHaveBeenCalled();
+      expect(supabase.rpc).not.toHaveBeenCalled();
     });
 
     it('recomputes totals when the course stores holes in database (snake_case) format', async () => {
@@ -972,7 +990,7 @@ describe('Mismatch Resolution', () => {
         par: h.par,
         stroke_index: h.strokeIndex,
       }));
-      const mockChain = mockScorecardFetch(
+      mockScorecardFetch(
         makeScorecardRow(
           { '9': { strokes: 3 }, '10': { strokes: 4 }, '11': { strokes: 5 } },
           { holes: snakeHoles }
@@ -981,45 +999,78 @@ describe('Mismatch Resolution', () => {
 
       await applyResolvedScoreToScorecard(ROUND_ID, PLAYER_A_ID, 10, 5);
 
-      expect(mockChain.update).toHaveBeenCalledWith(
-        expect.objectContaining({ total_gross: 13, total_net: 3 })
+      expect(supabase.rpc).toHaveBeenCalledWith(
+        'write_scorecard_resolution',
+        expect.objectContaining({
+          p_patch: expect.objectContaining({ total_gross: 13, total_net: 3 }),
+        })
       );
     });
 
-    it.each([5, 13])('rejects out-of-play back-nine hole %s without course metadata', async (hole) => {
-      const chain = mockScorecardFetch(makeScorecardRow({ '10': { strokes: 4 } },
-        { holes: [], nine_type: 'back9', holes_played: 3 }));
-      await expect(applyResolvedScoreToScorecard(ROUND_ID, PLAYER_A_ID, hole, 5)).resolves.toBe(false);
-      expect(chain.update).not.toHaveBeenCalled();
-    });
+    it.each([5, 13])(
+      'rejects out-of-play back-nine hole %s without course metadata',
+      async (hole) => {
+        mockScorecardFetch(
+          makeScorecardRow(
+            { '10': { strokes: 4 } },
+            { holes: [], nine_type: 'back9', holes_played: 3 }
+          )
+        );
+        await expect(applyResolvedScoreToScorecard(ROUND_ID, PLAYER_A_ID, hole, 5)).resolves.toBe(
+          false
+        );
+        expect(supabase.rpc).not.toHaveBeenCalled();
+      }
+    );
 
     it('excludes preexisting out-of-play keys from allowed corrections without metadata', async () => {
-      const chain = mockScorecardFetch(makeScorecardRow(
-        { '5': { strokes: 6 }, '10': { strokes: 4 }, '11': { strokes: 4 }, '13': { strokes: 6 } },
-        { holes: [], nine_type: 'back9', holes_played: 2 }));
+      mockScorecardFetch(
+        makeScorecardRow(
+          { '5': { strokes: 6 }, '10': { strokes: 4 }, '11': { strokes: 4 }, '13': { strokes: 6 } },
+          { holes: [], nine_type: 'back9', holes_played: 2 }
+        )
+      );
       await expect(applyResolvedScoreToScorecard(ROUND_ID, PLAYER_A_ID, 11, 5)).resolves.toBe(true);
       // Metadata is absent: keep gross-minus-DHC fallback, but count only 10 and 11.
-      expect(chain.update).toHaveBeenCalledWith(expect.objectContaining({ total_gross: 9, total_net: -1 }));
+      expect(supabase.rpc).toHaveBeenCalledWith(
+        'write_scorecard_resolution',
+        expect.objectContaining({
+          p_patch: expect.objectContaining({ total_gross: 9, total_net: -1 }),
+        })
+      );
     });
 
-    it.each([0, -1, 2.5, NaN])('treats invalid server marker %s as absent', async (holes_played) => {
-      const chain = mockScorecardFetch(makeScorecardRow({ '1': { strokes: 4 } }, { holes_played }));
-      await expect(applyResolvedScoreToScorecard(ROUND_ID, PLAYER_A_ID, 5, 5)).resolves.toBe(true);
-      expect(chain.update).toHaveBeenCalledWith(expect.objectContaining({ total_gross: 9, total_net: -1 }));
-    });
+    it.each([0, -1, 2.5, NaN])(
+      'treats invalid server marker %s as absent',
+      async (holes_played) => {
+        mockScorecardFetch(makeScorecardRow({ '1': { strokes: 4 } }, { holes_played }));
+        await expect(applyResolvedScoreToScorecard(ROUND_ID, PLAYER_A_ID, 5, 5)).resolves.toBe(
+          true
+        );
+        expect(supabase.rpc).toHaveBeenCalledWith(
+          'write_scorecard_resolution',
+          expect.objectContaining({
+            p_patch: expect.objectContaining({ total_gross: 9, total_net: -1 }),
+          })
+        );
+      }
+    );
 
     it('throws when the remote scorecard update fails', async () => {
-      const chain = mockScorecardFetch(makeScorecardRow({ '1': { strokes: 4 } }));
-      chain.then.mockImplementation((resolve) => resolve({ data: null, error: { message: 'write failed' } }));
+      mockScorecardFetch(makeScorecardRow({ '1': { strokes: 4 } }));
+      (supabase.rpc as jest.Mock).mockResolvedValue({
+        data: null,
+        error: { message: 'write failed' },
+      });
       const log = jest.spyOn(console, 'error').mockImplementation(() => undefined);
       try {
-        await expect(applyResolvedScoreToScorecard(ROUND_ID, PLAYER_A_ID, 1, 5))
-          .rejects.toThrow('Failed to update scorecard: write failed');
+        await expect(applyResolvedScoreToScorecard(ROUND_ID, PLAYER_A_ID, 1, 5)).rejects.toThrow(
+          'Failed to update scorecard: write failed'
+        );
       } finally {
         log.mockRestore();
       }
     });
-
   });
 });
 
@@ -1606,29 +1657,47 @@ describe('Bypass Handling', () => {
     it('should apply bypassing player scores to all scorecards', async () => {
       // The bypassing player's entries
       const bypasserEntries = [
-        createScoreEntry({ player_id: PLAYER_A_ID, hole_number: 1, strokes: 4, scorer_id: PLAYER_A_ID }),
-        createScoreEntry({ player_id: PLAYER_B_ID, hole_number: 1, strokes: 5, scorer_id: PLAYER_A_ID }),
+        createScoreEntry({
+          player_id: PLAYER_A_ID,
+          hole_number: 1,
+          strokes: 4,
+          scorer_id: PLAYER_A_ID,
+        }),
+        createScoreEntry({
+          player_id: PLAYER_B_ID,
+          hole_number: 1,
+          strokes: 5,
+          scorer_id: PLAYER_A_ID,
+        }),
       ];
 
-      const scorecardA = { id: 'sc-a', scores: { '1': { strokes: 3 } } };
-      const scorecardB = { id: 'sc-b', scores: { '1': { strokes: 3 } } };
+      const round = {
+        game_type: 'stroke',
+        nine_type: 'full',
+        holes_played: null,
+        courses: { holes: [] },
+      };
+      const scorecardA = {
+        id: 'sc-a',
+        scores: { '1': { strokes: 3 } },
+        daily_handicap_used: null,
+        round,
+      };
+      const scorecardB = {
+        id: 'sc-b',
+        scores: { '1': { strokes: 3 } },
+        daily_handicap_used: null,
+        round,
+      };
 
       let entriesCallCount = 0;
       let scorecardCallCount = 0;
-      let updateCalled = false;
 
       (supabase.from as jest.Mock).mockImplementation((tableName: string) => ({
         select: jest.fn().mockReturnThis(),
-        update: jest.fn().mockImplementation(() => {
-          updateCalled = true;
-          return {
-            eq: jest.fn().mockReturnThis(),
-            then: jest.fn((resolve) => resolve({ data: null, error: null })),
-          };
-        }),
         eq: jest.fn().mockReturnThis(),
         order: jest.fn().mockReturnThis(),
-        single: jest.fn(() => {
+        maybeSingle: jest.fn(() => {
           if (tableName === 'scorecards') {
             scorecardCallCount++;
             if (scorecardCallCount === 1) return Promise.resolve({ data: scorecardA, error: null });
@@ -1647,10 +1716,24 @@ describe('Bypass Handling', () => {
         }),
       }));
 
+      (supabase.rpc as jest.Mock).mockResolvedValue({ data: true, error: null });
       await applyBypassScores(ROUND_ID, PLAYER_A_ID);
 
-      // Should have called update for each entry
-      expect(updateCalled).toBe(true);
+      expect(supabase.rpc).toHaveBeenCalledTimes(2);
+      expect(supabase.rpc).toHaveBeenCalledWith(
+        'write_scorecard_resolution',
+        expect.objectContaining({
+          p_scorecard_id: 'sc-a',
+          p_patch: expect.objectContaining({ total_gross: 4 }),
+        })
+      );
+      expect(supabase.rpc).toHaveBeenCalledWith(
+        'write_scorecard_resolution',
+        expect.objectContaining({
+          p_scorecard_id: 'sc-b',
+          p_patch: expect.objectContaining({ total_gross: 5 }),
+        })
+      );
     });
 
     it('should throw validation error for missing IDs', async () => {
