@@ -467,3 +467,208 @@ it('an actual ViewRound guard refreshes active round/card queries and reopening 
     '10': { strokes: 7, putts: 5 },
   });
 });
+
+describe('delayed stats save ownership', () => {
+  it.each(['success', 'guard'] as const)(
+    'a delayed %s cannot close or clear a newly opened dirty editor',
+    async (outcome) => {
+      const { wrapper, queryClient } = setup();
+      const invalidate = jest.spyOn(queryClient, 'invalidateQueries');
+      let settle!: (value: {
+        error: null | { code: string; hint: string; message: string };
+      }) => void;
+      update.mockReturnValueOnce(
+        new Promise((resolve) => {
+          settle = resolve;
+        })
+      );
+      const onClose = jest.fn();
+      const props = {
+        onClose,
+        scorecard: card,
+        holes,
+        courseName: 'Test Course',
+        roundShape: { nine_type: 'full' as const, holes_played: null },
+      };
+      const ui = render(<EditStatsModal {...props} visible />, { wrapper });
+      fireEvent.press(ui.getByText('+'));
+      fireEvent.press(ui.getByText('Save All'));
+      await waitFor(() => expect(update).toHaveBeenCalledTimes(1));
+      ui.rerender(<EditStatsModal {...props} visible={false} />);
+      ui.rerender(<EditStatsModal {...props} visible />);
+      fireEvent.press(ui.getByText('+'));
+      await act(async () => {
+        settle({
+          error:
+            outcome === 'guard'
+              ? { code: '22023', hint: 'round_shape_changed', message: 'Round changed' }
+              : null,
+        });
+      });
+      await waitFor(() => expect(ui.getByText('Save All')).toBeEnabled());
+      expect(invalidate).toHaveBeenCalledWith({ queryKey: roundKeys.detail('round-1') });
+      expect(invalidate).toHaveBeenCalledWith({
+        queryKey: scorecardKeys.list({ roundId: 'round-1' }),
+      });
+      expect(onClose).not.toHaveBeenCalled();
+      expect(Alert.alert).not.toHaveBeenCalled();
+      fireEvent.press(ui.getByLabelText('Close'));
+      expect(Alert.alert).toHaveBeenCalledWith(
+        'Unsaved Changes',
+        expect.any(String),
+        expect.any(Array)
+      );
+      expect(update).toHaveBeenCalledTimes(1);
+    }
+  );
+});
+
+it.each(['success', 'guard'] as const)(
+  'a delayed %s cannot discard a new user edit after the same opening resets to a changed cutoff',
+  async (outcome) => {
+    const { wrapper, queryClient } = setup();
+    const invalidate = jest.spyOn(queryClient, 'invalidateQueries');
+    let settle!: (value: { error: null | { code: string; hint: string; message: string } }) => void;
+    update.mockReturnValueOnce(
+      new Promise((resolve) => {
+        settle = resolve;
+      })
+    );
+    const onClose = jest.fn();
+    const props = { visible: true, onClose, holes, courseName: 'Test Course' };
+    const ui = render(
+      <EditStatsModal
+        {...props}
+        scorecard={card}
+        roundShape={{ nine_type: 'full', holes_played: null }}
+      />,
+      { wrapper }
+    );
+    fireEvent.press(ui.getByText('+'));
+    fireEvent.press(ui.getByText('Save All'));
+    await waitFor(() => expect(update).toHaveBeenCalledTimes(1));
+    const fresh = { ...card, scores: { '1': { strokes: 7, putts: 4 } } };
+    ui.rerender(
+      <EditStatsModal
+        {...props}
+        scorecard={fresh}
+        roundShape={{ nine_type: 'full', holes_played: 1 }}
+      />
+    );
+    fireEvent.press(ui.getByText('+'));
+    await act(async () => {
+      settle({
+        error:
+          outcome === 'guard'
+            ? { code: '22023', hint: 'round_score_out_of_play', message: 'Round changed' }
+            : null,
+      });
+    });
+    await waitFor(() => expect(ui.getByText('Save All')).toBeEnabled());
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: roundKeys.detail('round-1') });
+    expect(invalidate).toHaveBeenCalledWith({
+      queryKey: scorecardKeys.list({ roundId: 'round-1' }),
+    });
+    expect(onClose).not.toHaveBeenCalled();
+    expect(Alert.alert).not.toHaveBeenCalled();
+    fireEvent.press(ui.getByLabelText('Close'));
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Unsaved Changes',
+      expect.any(String),
+      expect.any(Array)
+    );
+    expect(update).toHaveBeenCalledTimes(1);
+    fireEvent.press(ui.getByText('Save All'));
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(update.mock.calls[1][0].scores).toEqual({ '1': { strokes: 7, putts: 5 } });
+  }
+);
+
+it.each(['success', 'guard'] as const)(
+  'a delayed %s cannot close a newly opened editor even when its fresh draft is untouched',
+  async (outcome) => {
+    const { wrapper } = setup();
+    let settle!: (value: { error: null | { code: string; hint: string; message: string } }) => void;
+    update.mockReturnValueOnce(
+      new Promise((resolve) => {
+        settle = resolve;
+      })
+    );
+    const onClose = jest.fn();
+    const props = {
+      onClose,
+      scorecard: card,
+      holes,
+      courseName: 'Test Course',
+      roundShape: { nine_type: 'full' as const, holes_played: null },
+    };
+    const ui = render(<EditStatsModal {...props} visible />, { wrapper });
+    fireEvent.press(ui.getByText('Save All'));
+    await waitFor(() => expect(update).toHaveBeenCalledTimes(1));
+    ui.rerender(<EditStatsModal {...props} visible={false} />);
+    ui.rerender(<EditStatsModal {...props} visible />);
+    await act(async () => {
+      settle({
+        error:
+          outcome === 'guard'
+            ? { code: '22023', hint: 'round_shape_changed', message: 'Round changed' }
+            : null,
+      });
+    });
+    await waitFor(() => expect(ui.getByText('Save All')).toBeEnabled());
+    expect(onClose).not.toHaveBeenCalled();
+    expect(Alert.alert).not.toHaveBeenCalled();
+    expect(update).toHaveBeenCalledTimes(1);
+  }
+);
+
+it.each([
+  ['success', 'card'],
+  ['guard', 'card'],
+  ['success', 'round'],
+  ['guard', 'round'],
+] as const)(
+  'a delayed %s cannot close an untouched replacement %s editor in the same opening',
+  async (outcome, identity) => {
+    const { wrapper, queryClient } = setup();
+    const invalidate = jest.spyOn(queryClient, 'invalidateQueries');
+    let settle!: (value: { error: null | { code: string; hint: string; message: string } }) => void;
+    update.mockReturnValueOnce(
+      new Promise((resolve) => {
+        settle = resolve;
+      })
+    );
+    const onClose = jest.fn();
+    const props = {
+      visible: true,
+      onClose,
+      holes,
+      courseName: 'Test Course',
+      roundShape: { nine_type: 'full' as const, holes_played: null },
+    };
+    const ui = render(<EditStatsModal {...props} scorecard={card} />, { wrapper });
+    fireEvent.press(ui.getByText('Save All'));
+    await waitFor(() => expect(update).toHaveBeenCalledTimes(1));
+    const fresh = {
+      ...card,
+      ...(identity === 'card' ? { id: 'card-2' } : { round_id: 'round-2' }),
+      scores: { '1': { strokes: 7, putts: 4 } },
+    };
+    ui.rerender(<EditStatsModal {...props} scorecard={fresh} />);
+    await act(async () => {
+      settle({
+        error:
+          outcome === 'guard'
+            ? { code: '22023', hint: 'round_shape_changed', message: 'Round changed' }
+            : null,
+      });
+    });
+    await waitFor(() => expect(ui.getByText('Save All')).toBeEnabled());
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: roundKeys.detail('round-1') });
+    expect(invalidate).not.toHaveBeenCalledWith({ queryKey: roundKeys.detail('round-2') });
+    expect(onClose).not.toHaveBeenCalled();
+    expect(Alert.alert).not.toHaveBeenCalled();
+    expect(ui.getByText(/Score: 7/)).toBeTruthy();
+    expect(update).toHaveBeenCalledTimes(1);
+  }
+);

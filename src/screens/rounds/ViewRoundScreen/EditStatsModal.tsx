@@ -98,10 +98,13 @@ export function EditStatsModal({
 
   // Track if any changes were made
   const hasChanges = useRef(false);
+  // Monotonic user intent survives automatic draft/dirty resets during refetch.
+  const userEditGeneration = useRef(0);
 
   const value = editedScores[String(currentHole)];
   const currentScore = isStatsHoleScore(value) ? value : undefined;
   const wasVisible = useRef(false);
+  const openingId = useRef(0);
   const draftContext = useRef({
     cardId: scorecard.id,
     roundId: scorecard.round_id,
@@ -109,6 +112,7 @@ export function EditStatsModal({
     shape: roundShape,
   });
   useEffect(() => {
+    if (visible && !wasVisible.current) openingId.current += 1;
     const previous = draftContext.current;
     const changed =
       previous.cardId !== scorecard.id ||
@@ -140,6 +144,7 @@ export function EditStatsModal({
   const updateCurrentHoleStats = useCallback(
     (updates: Partial<EditableHoleStats>) => {
       if (!currentScore || !holeNumbers.includes(currentHole)) return;
+      userEditGeneration.current += 1;
       hasChanges.current = true;
       setEditedScores((prev) => ({
         ...prev,
@@ -153,6 +158,14 @@ export function EditStatsModal({
   );
 
   const handleSaveAll = useCallback(async () => {
+    const savedOpening = openingId.current;
+    const savedUserEdit = userEditGeneration.current;
+    const stillOwnsEditor = () =>
+      wasVisible.current &&
+      openingId.current === savedOpening &&
+      userEditGeneration.current === savedUserEdit &&
+      draftContext.current.cardId === scorecard.id &&
+      draftContext.current.roundId === scorecard.round_id;
     try {
       await mutation.mutateAsync({
         scorecardId: scorecard.id,
@@ -161,8 +174,9 @@ export function EditStatsModal({
         originalScores,
         scores: editedScores,
       });
-      onClose();
+      if (stillOwnsEditor()) onClose();
     } catch (error) {
+      if (!stillOwnsEditor()) return;
       if (error instanceof RoundScoringWriteError) {
         hasChanges.current = false;
         onClose();
