@@ -618,6 +618,7 @@ export default function ViewRoundScreen(props: Props) {
           visible={vm.showEditStatsModal}
           onClose={vm.handleEditStatsClose}
           scorecard={userScorecard}
+          roundShape={{ nine_type: round.nine_type ?? 'full', holes_played: round.holes_played ?? null }}
           holes={round.course?.holes || []}
           courseName={round.course?.name || 'Course'}
           initialHole={vm.editStatsInitialHole}

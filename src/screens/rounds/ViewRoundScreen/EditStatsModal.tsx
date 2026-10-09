@@ -15,7 +15,7 @@
  * - Hazard chips
  */
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import { Text } from 'react-native-paper';
 import { BottomSheet } from '@/components/common';
@@ -36,9 +36,15 @@ import { spacing, borderRadius, typography, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useStatsVisibilityWithTier } from '@/hooks/useStatsVisibilityWithTier';
 import { useUpdateScorecardStats } from '@/hooks/scorecard/useUpdateScorecardStats';
-import { isSingleBallScore } from '@/types/database/base';
+import {
+  editableStatsHoleNumbers,
+  isStatsHoleScore,
+  type StatsScores,
+  type EditableHoleStats,
+} from '@/hooks/scorecard/scorecardStats';
+import { RoundScoringWriteError } from '@/services/rounds/roundScoringErrors';
+import type { RoundScoringShape } from '@/services/rounds/roundScoringWrite';
 import type {
-  HoleScore,
   FairwayMissDirection,
   GreenMissDirection,
   HazardType,
@@ -63,6 +69,7 @@ interface EditStatsModalProps {
   holes: Hole[];
   courseName: string;
   initialHole?: number;
+  roundShape: RoundScoringShape;
 }
 
 export function EditStatsModal({
@@ -72,64 +79,102 @@ export function EditStatsModal({
   holes,
   courseName,
   initialHole,
+  roundShape,
 }: EditStatsModalProps) {
   const colors = useThemeColors();
   const statsVisibility = useStatsVisibilityWithTier();
   const mutation = useUpdateScorecardStats();
 
-  const [currentHole, setCurrentHole] = useState(initialHole ?? 1);
-  const totalHoles = holes.length || 18;
-
-  // Reset to initialHole when modal opens with a new hole
-  useEffect(() => {
-    if (visible && initialHole) {
-      setCurrentHole(initialHole);
-    }
-  }, [visible, initialHole]);
-
-  // Deep clone scores into local state for editing
-  const [editedScores, setEditedScores] = useState<Record<string, HoleScore>>(() => {
-    const initial: Record<string, HoleScore> = {};
-    for (const [key, value] of Object.entries(scorecard.scores || {})) {
-      if (value && isSingleBallScore(value)) {
-        initial[key] = { ...value };
-      }
-    }
-    return initial;
-  });
+  const holeNumbers = useMemo(
+    () => editableStatsHoleNumbers(scorecard.scores || {}, roundShape),
+    [scorecard.scores, roundShape]
+  );
+  const [currentHole, setCurrentHole] = useState(() =>
+    initialHole != null && holeNumbers.includes(initialHole) ? initialHole : holeNumbers[0]
+  );
+  const [originalScores, setOriginalScores] = useState<StatsScores>(() => scorecard.scores || {});
+  const [editedScores, setEditedScores] = useState<StatsScores>(() => ({ ...originalScores }));
+  const currentIndex = holeNumbers.indexOf(currentHole);
 
   // Track if any changes were made
   const hasChanges = useRef(false);
 
-  const currentScore = editedScores[String(currentHole)];
+  const value = editedScores[String(currentHole)];
+  const currentScore = isStatsHoleScore(value) ? value : undefined;
+  const wasVisible = useRef(false);
+  const draftContext = useRef({
+    cardId: scorecard.id,
+    roundId: scorecard.round_id,
+    scores: scorecard.scores,
+    shape: roundShape,
+  });
+  useEffect(() => {
+    const previous = draftContext.current;
+    const changed =
+      previous.cardId !== scorecard.id ||
+      previous.roundId !== scorecard.round_id ||
+      previous.scores !== scorecard.scores ||
+      previous.shape.nine_type !== roundShape.nine_type ||
+      previous.shape.holes_played !== roundShape.holes_played;
+    if (visible && (!wasVisible.current || changed)) {
+      const fresh = scorecard.scores || {};
+      setOriginalScores(fresh);
+      setEditedScores({ ...fresh });
+      setCurrentHole(
+        initialHole != null && holeNumbers.includes(initialHole) ? initialHole : holeNumbers[0]
+      );
+      hasChanges.current = false;
+      draftContext.current = {
+        cardId: scorecard.id,
+        roundId: scorecard.round_id,
+        scores: scorecard.scores,
+        shape: roundShape,
+      };
+    }
+    wasVisible.current = visible;
+  }, [visible, scorecard.id, scorecard.round_id, scorecard.scores, roundShape, initialHole, holeNumbers]);
+
   const currentHoleData = holes.find((h) => h.number === currentHole);
   const par = currentHoleData?.par ?? 4;
 
   const updateCurrentHoleStats = useCallback(
-    (updates: Partial<HoleScore>) => {
+    (updates: Partial<EditableHoleStats>) => {
+      if (!currentScore || !holeNumbers.includes(currentHole)) return;
       hasChanges.current = true;
       setEditedScores((prev) => ({
         ...prev,
         [String(currentHole)]: {
-          ...prev[String(currentHole)],
+          ...currentScore,
           ...updates,
         },
       }));
     },
-    [currentHole]
+    [currentHole, currentScore, holeNumbers]
   );
 
   const handleSaveAll = useCallback(async () => {
     try {
       await mutation.mutateAsync({
         scorecardId: scorecard.id,
+        roundId: scorecard.round_id,
+        roundShape,
+        originalScores,
         scores: editedScores,
       });
       onClose();
-    } catch {
-      Alert.alert('Error', 'Failed to save stats. Please try again.');
+    } catch (error) {
+      if (error instanceof RoundScoringWriteError) {
+        hasChanges.current = false;
+        onClose();
+        Alert.alert(
+          'Stats need review',
+          'The round or scorecard changed. Please reopen stats, review the refreshed scores, and re-enter your changes.'
+        );
+      } else {
+        Alert.alert('Error', 'Failed to save stats. Please try again.');
+      }
     }
-  }, [editedScores, scorecard.id, mutation, onClose]);
+  }, [editedScores, originalScores, roundShape, scorecard.id, scorecard.round_id, mutation, onClose]);
 
   const handleClose = useCallback(() => {
     if (hasChanges.current) {
@@ -202,23 +247,33 @@ export function EditStatsModal({
     }
   }, [currentScore, updateCurrentHoleStats]);
 
+  // Read supported hazards for controls without modifying opaque legacy values in the draft.
+  const currentHazards = useMemo(
+    () => Array.isArray(currentScore?.hazards)
+      ? currentScore.hazards
+          .filter((entry) => entry && HAZARD_OPTIONS.some((option) => option.type === entry.type))
+          .map((entry) => ({ type: entry.type }))
+      : [],
+    [currentScore?.hazards]
+  );
+
   // --- Hazards ---
 
   const toggleHazard = useCallback(
     (type: HazardType) => {
-      const existing = currentScore?.hazards ?? [];
+      const existing = currentHazards;
       const hasIt = existing.some((h: HazardEntry) => h.type === type);
       const updated = hasIt ? existing.filter((h: HazardEntry) => h.type !== type) : [...existing, { type }];
       updateCurrentHoleStats({ hazards: updated.length > 0 ? updated : undefined });
     },
-    [currentScore, updateCurrentHoleStats]
+    [currentHazards, updateCurrentHoleStats]
   );
 
   // --- Section visibility ---
 
-  const showFIRSection = (statsVisibility.showFairwayHit || statsVisibility.showFairwayMissDirection) && par >= 4;
-  const showGIRSection = statsVisibility.showGreenInRegulation || statsVisibility.showGreenMissDirection;
-  const showPuttsSection = statsVisibility.showPutts;
+  const showFIRSection = !!currentScore && (statsVisibility.showFairwayHit || statsVisibility.showFairwayMissDirection) && par >= 4;
+  const showGIRSection = !!currentScore && (statsVisibility.showGreenInRegulation || statsVisibility.showGreenMissDirection);
+  const showPuttsSection = !!currentScore && statsVisibility.showPutts;
 
   // Active states for inline toggles
   const firActive = currentScore?.fairwayHit === true
@@ -245,24 +300,26 @@ export function EditStatsModal({
         {/* Hole Navigator */}
         <View style={[styles.holeNav, { backgroundColor: colors.surfaceVariant }]}>
           <TouchableOpacity
-            onPress={() => setCurrentHole((h) => Math.max(1, h - 1))}
-            disabled={currentHole <= 1}
-            style={[styles.navButton, currentHole <= 1 && styles.disabled]}
+            accessibilityLabel="Previous hole"
+            onPress={() => setCurrentHole(holeNumbers[currentIndex - 1])}
+            disabled={currentIndex <= 0}
+            style={[styles.navButton, currentIndex <= 0 && styles.disabled]}
           >
             <IconChevronLeft size={24} color={colors.textPrimary} />
           </TouchableOpacity>
           <View style={styles.holeInfo}>
             <Text style={[styles.holeNumber, { color: colors.textPrimary }]}>
-              Hole {currentHole}
+              Hole {currentHole ?? '-'}
             </Text>
             <Text style={[styles.holeMeta, { color: colors.textSecondary }]}>
               Par {par} {'\u2022'} Score: {currentScore?.strokes ?? '-'}
             </Text>
           </View>
           <TouchableOpacity
-            onPress={() => setCurrentHole((h) => Math.min(totalHoles, h + 1))}
-            disabled={currentHole >= totalHoles}
-            style={[styles.navButton, currentHole >= totalHoles && styles.disabled]}
+            accessibilityLabel="Next hole"
+            onPress={() => setCurrentHole(holeNumbers[currentIndex + 1])}
+            disabled={currentIndex < 0 || currentIndex >= holeNumbers.length - 1}
+            style={[styles.navButton, (currentIndex < 0 || currentIndex >= holeNumbers.length - 1) && styles.disabled]}
           >
             <IconChevronRight size={24} color={colors.textPrimary} />
           </TouchableOpacity>
@@ -270,18 +327,19 @@ export function EditStatsModal({
 
         {/* Hole dots indicator */}
         <View style={styles.dotsRow}>
-          {Array.from({ length: totalHoles }, (_, i) => i + 1).map((hole) => (
+          {holeNumbers.map((hole) => (
             <TouchableOpacity
               key={hole}
+              accessibilityLabel={`Edit stats for hole ${hole}`}
               onPress={() => setCurrentHole(hole)}
-              style={[
-                styles.dot,
-                { backgroundColor: hole === currentHole ? colors.primary : colors.border },
-              ]}
-            />
+              style={styles.dotTarget}
+            >
+              <View style={[styles.dot, { backgroundColor: hole === currentHole ? colors.primary : colors.border }]} />
+            </TouchableOpacity>
           ))}
         </View>
 
+        {!currentScore && <Text>No scored holes available to edit.</Text>}
         {/* Scrollable Stats Form */}
         <ScrollView
           style={styles.scrollView}
@@ -466,7 +524,7 @@ export function EditStatsModal({
           )}
 
           {/* Bunker Shots */}
-          {statsVisibility.showBunkerShots && (
+          {currentScore && statsVisibility.showBunkerShots && (
             <View style={styles.section}>
               <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
                 BUNKER SHOTS
@@ -514,12 +572,12 @@ export function EditStatsModal({
           )}
 
           {/* Hazards */}
-          {statsVisibility.showHazards && (
+          {currentScore && statsVisibility.showHazards && (
             <View style={styles.section}>
               <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>HAZARDS</Text>
               <View style={styles.hazardRow}>
                 {HAZARD_OPTIONS.map((option) => {
-                  const isSelected = (currentScore?.hazards ?? []).some(
+                  const isSelected = currentHazards.some(
                     (h: HazardEntry) => h.type === option.type
                   );
                   return (
@@ -567,7 +625,7 @@ export function EditStatsModal({
               mutation.isPending && styles.disabled,
             ]}
             onPress={handleSaveAll}
-            disabled={mutation.isPending}
+            disabled={mutation.isPending || !currentScore}
             activeOpacity={0.8}
           >
             <Text style={[styles.saveButtonText, { color: colors.white }]}>
@@ -593,6 +651,8 @@ const styles = StyleSheet.create({
   },
   navButton: {
     padding: spacing.sm,
+    minWidth: 44,
+    minHeight: 44,
   },
   holeInfo: {
     alignItems: 'center',
@@ -607,8 +667,14 @@ const styles = StyleSheet.create({
   dotsRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 4,
+    flexWrap: 'wrap',
     paddingVertical: spacing.sm,
+  },
+  dotTarget: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   dot: {
     width: 8,
