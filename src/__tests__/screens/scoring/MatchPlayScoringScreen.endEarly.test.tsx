@@ -327,6 +327,46 @@ describe.each(['general', 'singles'] as const)('%s end-early caller', (kind) => 
       expect(view.getByText('Hole 23')).toBeTruthy();
     });
 
+    it('preserves a pending combo route hole through loading without overriding later navigation', () => {
+      mockLoading = true;
+      mockHoles = [];
+      mockStore.holes = mockHoles;
+      const view = render(screen(kind, '', 23));
+      expect(view.getByText('Loading match...')).toBeTruthy();
+
+      // The route is unchanged when real planned metadata replaces fallback 1..18.
+      mockLoading = false;
+      mockHoles = create18Holes().map((hole) => ({
+        ...hole, number: (hole.number + 9) as typeof hole.number,
+      }));
+      mockStore.holes = mockHoles;
+      view.rerender(screen(kind, '', 23));
+      expect(mockSwipe.currentHole).toBe(23);
+      expect(view.getByText('Hole 23')).toBeTruthy();
+      fireEvent.press(view.getByText('Previous'));
+      expect(mockSwipe.currentHole).toBe(22);
+
+      // A subsequent metadata refresh must preserve the user's navigation.
+      mockLoading = true;
+      view.rerender(screen(kind, '', 23));
+      mockLoading = false;
+      mockHoles = [...mockHoles];
+      mockStore.holes = mockHoles;
+      view.rerender(screen(kind, '', 23));
+      expect(mockSwipe.currentHole).toBe(22);
+
+      mockStore.holesPlayed = 6;
+      view.rerender(screen(kind, '', 23));
+      expect(mockSwipe.currentHole).toBe(15);
+      view.rerender(screen(kind, '', 14));
+      expect(mockSwipe.currentHole).toBe(14);
+      fireEvent.press(view.getByText('Next Hole'));
+      expect(mockSwipe.currentHole).toBe(15);
+      view.rerender(screen(kind, '', 23));
+      expect(mockSwipe.currentHole).toBe(15);
+      expect(mockSubmit).not.toHaveBeenCalled();
+    });
+
     it('renders physical back-nine holes before effects and after an ended cutoff', () => {
       mockHoles = create18Holes().slice(9);
       mockStore.holes = mockHoles;

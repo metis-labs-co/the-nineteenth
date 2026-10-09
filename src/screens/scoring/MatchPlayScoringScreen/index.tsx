@@ -153,13 +153,21 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
     }
   }, [currentHole, plannedFirstHole, plannedLastHole]);
 
-  // Keep route jumps inside the retained range before selecting a hole.
+  // Apply each route selection once real planned holes arrive. Background
+  // refreshes must not reapply it over the user's subsequent navigation.
+  const appliedInitialHoleRef = useRef<{ roundId: string; hole: number } | null>(null);
   useEffect(() => {
-    if (initialHole) {
-      const range = playedRangeRef.current;
-      navigateToHole(Math.max(range.firstHoleNumber, Math.min(range.lastHoleNumber, initialHole)));
+    if (!initialHole) {
+      appliedInitialHoleRef.current = null;
+      return;
     }
-  }, [initialHole, navigateToHole]);
+    if (isLoading || !isInitialized || !holes?.length) return;
+    const applied = appliedInitialHoleRef.current;
+    if (applied?.roundId === roundId && applied.hole === initialHole) return;
+    appliedInitialHoleRef.current = { roundId, hole: initialHole };
+    const range = playedRangeRef.current;
+    navigateToHole(Math.max(range.firstHoleNumber, Math.min(range.lastHoleNumber, initialHole)));
+  }, [roundId, initialHole, isLoading, isInitialized, holes, navigateToHole]);
 
   const teeData = storeTeeData || selectedTeeBox;
 
