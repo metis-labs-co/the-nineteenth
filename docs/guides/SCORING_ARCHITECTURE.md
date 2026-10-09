@@ -222,8 +222,9 @@ writes as failure.
 The final server dependency order is A7 `20261007000100`, B1
 `20261007000200`, C3 `20261007000300_guard_round_scoring_writes.sql`.
 `end_round_early(uuid, integer)` authenticates owner or accepted participant,
-locks the round and all existing cards NOWAIT, and refuses submitted cards or
-existing combinations before a new end. Same-N retry is a no-op even after
+locks the round with `FOR UPDATE`, then locks all existing cards with
+`FOR UPDATE NOWAIT`, and refuses submitted cards or existing combinations before
+a new end. Same-N retry is a no-op even after
 submission. It trims later numeric score keys and side-game/entry/mismatch/
 shot-log rows, nulls differentials, and leaves revisions/totals client-owned.
 See [DATABASE_SCHEMA.md](../database/DATABASE_SCHEMA.md) for exact refusal hints,
