@@ -120,6 +120,8 @@ export interface RoundListCardData {
   selectedTeeName?: string | null;
   /** Nine-hole type ('full' | 'front9' | 'back9') */
   nineType?: string | null;
+  /** rounds.holes_played; null/undefined means played as planned. */
+  holesPlayed?: number | null;
 }
 
 export interface RoundListCardProps<T extends RoundListCardData = RoundListCardData> {

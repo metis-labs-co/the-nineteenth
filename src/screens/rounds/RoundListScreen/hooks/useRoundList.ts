@@ -15,6 +15,7 @@ import { supabase } from '@/services/supabase/client';
 import { fetchRoundIdsWithSideGame } from '@/services/api/rounds';
 import { fetchAcceptedCompetitionIds } from '@/hooks/home/roundScope';
 import { splitActiveAndHistory } from './notPlayedRounds';
+import { buildRoundListMeta, type RoundListMeta } from './roundListMeta';
 import { parseClubLocation } from '@/utils/gpsCalculations';
 import { useAuth } from '@/hooks/useAuth';
 import { useSubscriptionContext } from '@/context/SubscriptionContext';
@@ -28,7 +29,6 @@ import type { HandicapSource } from '@/types/database/enums';
 import { isSingleBallScore } from '@/types/database/base';
 import {
   computeStandaloneMatchResult,
-  standaloneMatchHoles,
   type ScorecardForMatchPlay,
 } from '@/utils/matchPlayResult';
 import {
@@ -108,16 +108,9 @@ export function useRoundList(): UseRoundListReturn {
       if (!user?.id) return { active: [], history: [] };
 
       const allRounds: RoundItem[] = [];
-      // Metadata needed to re-run calculatePlayerStats for completed rounds
-      // (keeps round list totals consistent with the scorecard view).
-      const roundMetaByRound = new Map<
-        string,
-        {
-          holes: Hole[];
-          selectedTee: TeeBox | null;
-          handicapSource: HandicapSource;
-        }
-      >();
+      // Keep planned match context separate from the stats hole list (see
+      // roundListMeta.ts) so ended rounds agree with the scorecard view.
+      const roundMetaByRound = new Map<string, RoundListMeta>();
 
       // Define types for query results
       interface StandaloneRoundRow {
@@ -129,6 +122,7 @@ export function useRoundList(): UseRoundListReturn {
         date: string | null;
         tee_time: string | null;
         nine_type: string | null;
+        holes_played: number | null;
         handicap_source: HandicapSource | null;
         selected_tee: TeeBox | null;
         courses: {
@@ -157,6 +151,7 @@ export function useRoundList(): UseRoundListReturn {
           date,
           tee_time,
           nine_type,
+          holes_played,
           handicap_source,
           selected_tee,
           courses!course_id(
@@ -190,14 +185,8 @@ export function useRoundList(): UseRoundListReturn {
         });
         for (const round of (standaloneRounds || []) as StandaloneRoundRow[]) {
           standaloneRoundIds.push(round.id);
-          const holes = Array.isArray(round.courses?.holes)
-            ? (round.courses!.holes as Hole[])
-            : [];
-          roundMetaByRound.set(round.id, {
-            holes,
-            selectedTee: round.selected_tee,
-            handicapSource: round.handicap_source ?? 'profile',
-          });
+          const meta = buildRoundListMeta(round);
+          roundMetaByRound.set(round.id, meta);
           allRounds.push({
             id: round.id,
             roundNumber: round.round_number,
@@ -223,11 +212,12 @@ export function useRoundList(): UseRoundListReturn {
                 : null,
             },
             holesCompleted: 0,
-            totalHoles: holes.length || 18,
+            totalHoles: meta.plannedHoles.length || 18,
             players: [], // Will be populated below
             handicapSource: round.handicap_source,
             selectedTeeName: round.selected_tee?.name ?? null,
             nineType: round.nine_type ?? null,
+            holesPlayed: meta.holesPlayed,
           });
         }
       }
@@ -254,6 +244,7 @@ export function useRoundList(): UseRoundListReturn {
               date,
               tee_time,
               nine_type,
+              holes_played,
               handicap_source,
               selected_tee,
               courses!course_id(
@@ -288,14 +279,8 @@ export function useRoundList(): UseRoundListReturn {
             // Check if this round is already in the list (shouldn't happen, but just in case)
             if (allRounds.some(r => r.id === round.id)) continue;
 
-            const holes = Array.isArray(round.courses?.holes)
-              ? (round.courses!.holes as Hole[])
-              : [];
-            roundMetaByRound.set(round.id, {
-              holes,
-              selectedTee: round.selected_tee,
-              handicapSource: round.handicap_source ?? 'profile',
-            });
+            const meta = buildRoundListMeta(round);
+            roundMetaByRound.set(round.id, meta);
             allRounds.push({
               id: round.id,
               roundNumber: round.round_number,
@@ -321,11 +306,12 @@ export function useRoundList(): UseRoundListReturn {
                   : null,
               },
               holesCompleted: 0,
-              totalHoles: holes.length || 18,
+              totalHoles: meta.plannedHoles.length || 18,
               players: [], // Will be populated below
               handicapSource: round.handicap_source,
               selectedTeeName: round.selected_tee?.name ?? null,
               nineType: round.nine_type ?? null,
+              holesPlayed: meta.holesPlayed,
             });
           }
         }
@@ -357,6 +343,7 @@ export function useRoundList(): UseRoundListReturn {
               date,
               tee_time,
               nine_type,
+              holes_played,
               handicap_source,
               selected_tee,
               competition_id,
@@ -401,14 +388,8 @@ export function useRoundList(): UseRoundListReturn {
             for (const round of competitionRows) {
               if (allRounds.some((r) => r.id === round.id)) continue;
 
-              const holes = Array.isArray(round.courses?.holes)
-                ? (round.courses!.holes as Hole[])
-                : [];
-              roundMetaByRound.set(round.id, {
-                holes,
-                selectedTee: round.selected_tee,
-                handicapSource: round.handicap_source ?? 'profile',
-              });
+              const meta = buildRoundListMeta(round);
+              roundMetaByRound.set(round.id, meta);
               allRounds.push({
                 id: round.id,
                 roundNumber: round.round_number,
@@ -436,11 +417,12 @@ export function useRoundList(): UseRoundListReturn {
                     : null,
                 },
                 holesCompleted: 0,
-                totalHoles: holes.length || 18,
+                totalHoles: meta.plannedHoles.length || 18,
                 players: [], // Populated from scorecards in step 8
                 handicapSource: round.handicap_source,
                 selectedTeeName: round.selected_tee?.name ?? null,
                 nineType: round.nine_type ?? null,
+                holesPlayed: meta.holesPlayed,
               });
             }
           }
@@ -675,7 +657,9 @@ export function useRoundList(): UseRoundListReturn {
               }
 
               const meta = roundMetaByRound.get(round.id);
-              const holes = meta?.holes ?? [];
+              const holes = meta?.statsHoles ?? [];
+              const plannedHoles = meta?.plannedHoles ?? [];
+              const holesPlayed = meta?.holesPlayed ?? null;
               const selectedTee = meta?.selectedTee ?? null;
               const handicapSource = meta?.handicapSource ?? 'profile';
 
@@ -701,7 +685,9 @@ export function useRoundList(): UseRoundListReturn {
 
               const stats =
                 holes.length > 0
-                  ? calculatePlayerStats(playerData, holes, selectedTee, handicapSource)
+                  ? calculatePlayerStats(playerData, holes, selectedTee, handicapSource, {
+                      holesPlayed,
+                    })
                   : [];
 
               // --- User's score pill ---
@@ -741,15 +727,15 @@ export function useRoundList(): UseRoundListReturn {
               if (scorecards.length > 1) {
                 if (round.gameType === 'match-play') {
                   // Match play still needs hole-by-hole walk to produce margin.
-                  // Walk the round's own nine: the meta holes are the course's
-                  // full card, so a front-9 match judged against 18 read "1&9".
-                  const matchHoles = standaloneMatchHoles(holes, round.nineType);
+                  // Keep the planned nine for close-outs; the cutoff settles
+                  // an ended match on its final retained lead.
                   const validScorecards = scorecards.filter((sc) => sc.player);
-                  if (validScorecards.length === 2 && matchHoles.length > 0) {
+                  if (validScorecards.length === 2 && plannedHoles.length > 0) {
                     const result = computeStandaloneMatchResult(
                       validScorecards[0],
                       validScorecards[1],
-                      matchHoles
+                      plannedHoles,
+                      holesPlayed
                     );
                     if (result) {
                       round.winner = {
@@ -763,7 +749,8 @@ export function useRoundList(): UseRoundListReturn {
                       const userResult = computeUserMatchResult(
                         validScorecards,
                         user.id,
-                        matchHoles
+                        plannedHoles,
+                        holesPlayed
                       );
                       if (userResult) {
                         round.userScore = {
@@ -935,7 +922,8 @@ function determineWinnerFromStats(
 function computeUserMatchResult(
   scorecards: ScorecardForMatchPlay[],
   userId: string,
-  holes: Hole[] | undefined
+  holes: Hole[] | undefined,
+  holesPlayed: number | null = null
 ): { won: boolean; margin: string } | null {
   if (!holes || holes.length === 0 || scorecards.length !== 2) return null;
   const userIdx = scorecards.findIndex((s) => s.player_id === userId);
@@ -944,7 +932,8 @@ function computeUserMatchResult(
   const result = computeStandaloneMatchResult(
     scorecards[0],
     scorecards[1],
-    holes
+    holes,
+    holesPlayed
   );
   if (!result || result.winnerId === null) return null;
 
