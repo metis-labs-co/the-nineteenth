@@ -11,6 +11,7 @@ import { getGameTypeLabel } from '@/constants/statusConfig';
 import { getTeeSwatch } from '@/utils/teeColors';
 import { formatTime, parseLocalDateString } from '@/utils/formatting';
 import { formatDisplayDate } from '@/utils/locale';
+import { formatEndedEarlyLabel, isEndedEarly } from '@/utils/roundShape';
 import { RoundListCardData, RoundListCardProps, getUserScoreDisplay } from './types';
 import { RoundCardScore } from './RoundCardScore';
 
@@ -80,6 +81,15 @@ export const RoundListCard = React.memo(function RoundListCard<
   const notSubmitted = isCompleted && !round.userScore?.hasScorecard;
   const companions = (round.players ?? []).filter((p) => p.id !== currentUserId);
 
+  // The label uses the planned count; a back 9 ended after 6 reads "of 9".
+  const endedEarlyLabel =
+    round.holesPlayed != null && isEndedEarly({ holes_played: round.holesPlayed })
+      ? formatEndedEarlyLabel(
+          round.holesPlayed,
+          round.nineType === 'front9' || round.nineType === 'back9' ? round.nineType : 'full'
+        )
+      : null;
+
   const typeLabel = round.isStandalone
     ? round.players && round.players.length > 1
       ? 'Match'
@@ -119,8 +129,9 @@ export const RoundListCard = React.memo(function RoundListCard<
       ? `, ${scoreDisplay.value}${scoreDisplay.label ? ` ${scoreDisplay.label}` : ''}`
       : '';
     const notPlayed = round.notPlayed ? ', not played' : '';
+    const endedEarly = endedEarlyLabel ? `, ${endedEarlyLabel.toLowerCase()}` : '';
     const deleteHint = swipeEnabled ? ', swipe left to delete' : '';
-    return `${actionLabel || status} round at ${location}${notPlayed}${result}${deleteHint}`;
+    return `${actionLabel || status} round at ${location}${notPlayed}${endedEarly}${result}${deleteHint}`;
   };
 
   return (
@@ -184,6 +195,15 @@ export const RoundListCard = React.memo(function RoundListCard<
             label={round.nineType === 'front9' ? 'Front 9' : 'Back 9'}
             size="sm"
             style={styles.formatPill}
+          />
+        )}
+        {endedEarlyLabel && (
+          <Pill
+            label={endedEarlyLabel}
+            size="sm"
+            variant="info"
+            style={styles.formatPill}
+            testID="round-card-ended-early"
           />
         )}
         {round.isStandalone && round.selectedTeeName && (

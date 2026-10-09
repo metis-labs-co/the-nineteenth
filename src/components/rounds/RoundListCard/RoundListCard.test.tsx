@@ -77,13 +77,14 @@ jest.mock('@/components/common', () => {
       label,
       testID,
       size: _size,
+      variant,
     }: {
       label: string;
       testID?: string;
       size?: string;
       variant?: string;
     }) => (
-      <View testID={testID ?? 'pill'}>
+      <View testID={testID ?? 'pill'} variant={variant}>
         <Text>{label}</Text>
       </View>
     ),
@@ -506,6 +507,78 @@ describe('RoundListCard', () => {
       expect(screen.getByText('Front 9')).toBeTruthy();
     });
 
+    it.each([
+      { nineType: 'full', expectedLabel: 'Ended after 6 of 18', nineChip: null },
+      { nineType: 'front9', expectedLabel: 'Ended after 6 of 9', nineChip: 'Front 9' },
+      { nineType: 'back9', expectedLabel: 'Ended after 6 of 9', nineChip: 'Back 9' },
+      { nineType: undefined, expectedLabel: 'Ended after 6 of 18', nineChip: null },
+      { nineType: null, expectedLabel: 'Ended after 6 of 18', nineChip: null },
+      { nineType: 'legacy-nine', expectedLabel: 'Ended after 6 of 18', nineChip: 'Back 9' },
+    ])('shows an info pill for a $nineType round ended early', ({ nineType, expectedLabel, nineChip }) => {
+      const round = createStandaloneRound({ status: 'completed', nineType, holesPlayed: 6 });
+      render(<RoundListCard round={round} onPress={defaultOnPress} />);
+
+      expect(screen.getByText(expectedLabel)).toBeTruthy();
+      expect(screen.getByTestId('round-card-ended-early').props.variant).toBe('info');
+      expect(screen.getByText('Stableford')).toBeTruthy();
+      if (nineChip) {
+        expect(screen.getByText(nineChip)).toBeTruthy();
+      } else {
+        expect(screen.queryByText(/^(Front|Back) 9$/)).toBeNull();
+      }
+    });
+
+    it('keeps an 18-hole round ended early after 9 labelled against 18 holes', () => {
+      const round = createStandaloneRound({ status: 'completed', nineType: 'full', holesPlayed: 9 });
+      render(<RoundListCard round={round} onPress={defaultOnPress} />);
+
+      expect(screen.getByText('Ended after 9 of 18')).toBeTruthy();
+      expect(screen.queryByText(/^(Front|Back) 9$/)).toBeNull();
+    });
+
+    it.each([
+      { marker: 'absent', metadata: {} },
+      { marker: 'undefined', metadata: { holesPlayed: undefined } },
+      { marker: 'null', metadata: { holesPlayed: null } },
+      { marker: 'zero', metadata: { holesPlayed: 0 } },
+      { marker: 'negative', metadata: { holesPlayed: -2 } },
+      { marker: 'fractional', metadata: { holesPlayed: 2.5 } },
+      { marker: 'NaN', metadata: { holesPlayed: NaN } },
+    ])('keeps ordinary cached cards played as planned with a $marker marker', ({ metadata }) => {
+      const round = createStandaloneRound({
+        status: 'completed',
+        nineType: 'front9',
+        players: [{ id: 'player-1', name: 'John Smith' }],
+        handicapSource: 'profile',
+        userScore: { hasScorecard: true, totalPoints: 34 },
+        ...metadata,
+      });
+      render(
+        <RoundListCard
+          round={round}
+          onPress={defaultOnPress}
+          onDelete={defaultOnDelete}
+          swipeEnabled
+          testID="round-card"
+        />
+      );
+
+      expect(screen.queryByTestId('round-card-ended-early')).toBeNull();
+      expect(screen.queryByText(/Ended after/)).toBeNull();
+      expect(screen.getByText('Handicap Round')).toBeTruthy();
+      expect(screen.getByText('Front 9')).toBeTruthy();
+      expect(screen.getByText('Stableford')).toBeTruthy();
+      const card = screen.getByTestId('round-card');
+      expect(card.props.accessibilityLabel).toBe(
+        'View round at Royal Melbourne Golf Club, 34 pts, swipe left to delete'
+      );
+      fireEvent.press(card);
+      expect(defaultOnPress).toHaveBeenCalledTimes(1);
+      expect(defaultOnPress.mock.calls[0][0]).toBe(round);
+      expect(round).toMatchObject(metadata);
+      expect(Object.hasOwn(round, 'holesPlayed')).toBe(Object.hasOwn(metadata, 'holesPlayed'));
+    });
+
     it('shows skins and wolf chips when those games are active', () => {
       const round = createStandaloneRound({ hasSkins: true, hasWolf: true });
       render(<RoundListCard round={round} onPress={defaultOnPress} />);
@@ -768,6 +841,39 @@ describe('RoundListCard', () => {
 
       const card = screen.getByTestId('round-card');
       expect(card.props.accessibilityLabel).toContain('not played');
+    });
+
+    it.each([
+      { nineType: 'full', expectedLabel: 'ended after 6 of 18' },
+      { nineType: 'front9', expectedLabel: 'ended after 6 of 9' },
+      { nineType: 'back9', expectedLabel: 'ended after 6 of 9' },
+    ])('announces a $nineType round ended early with its result and swipe hint', ({ nineType, expectedLabel }) => {
+      const round = createStandaloneRound({
+        status: 'completed',
+        nineType,
+        holesPlayed: 6,
+        userScore: { hasScorecard: true, totalPoints: 12 },
+        winner: { name: 'Jane Doe', points: 14, isTeam: false },
+      });
+      render(
+        <RoundListCard
+          round={round}
+          onPress={defaultOnPress}
+          onDelete={defaultOnDelete}
+          actionLabel="Open"
+          swipeEnabled
+          testID="round-card"
+        />
+      );
+
+      const card = screen.getByTestId('round-card');
+      expect(card.props.accessibilityLabel).toBe(
+        `Open round at Royal Melbourne Golf Club, ${expectedLabel}, 12 pts, swipe left to delete`
+      );
+      expect(screen.getByText('Winner: Jane Doe · 14 pts')).toBeTruthy();
+      fireEvent.press(card);
+      expect(defaultOnPress.mock.calls[0][0]).toBe(round);
+      expect(round.holesPlayed).toBe(6);
     });
 
     it('has appropriate accessibility label for scheduled round', () => {
