@@ -1,6 +1,6 @@
 # End Round Early: build handoff
 
-**Checkpoint:** 2026-10-09, Part A complete; Part B reviewed through B4-2 (41 of 76 tasks complete).
+**Checkpoint:** 2026-10-09, Part A complete; Part B reviewed through B5b-2 (45 of 76 tasks complete).
 **Worktree:** `.claude/worktrees/end-round-early`, branch `worktree-end-round-early`.
 **Plan:** `docs/superpowers/plans/2026-10-07-end-round-early.md`, 76 tasks run in Task Index order.
 **Spec:** `docs/superpowers/specs/2026-10-07-end-round-early-design.md`. Revision 3 and R22 override everything earlier in the spec.
@@ -9,8 +9,8 @@
 - **Task 0 is done.** Local `main` was merged at `ee923d79` and `pnpm install` has run. Baseline: type-check clean; TEST_SUBSET 160 suites, 3327 passed, 15 skipped, 0 failed.
 - **All 29 Part A tasks are complete and reviewed**, through A6d-2 at `90aba372`. A5c-2's previously pending review passed. The resumed tasks each passed separate spec and code-quality reviews; review corrections have their own commits. See `git log 935760c9..HEAD` and the ledger for details.
 - **Part A verification passed:** TEST_SUBSET 193 suites, 3629 passed, 15 skipped; `pnpm type-check`; changed-file ESLint; and `pnpm verify:gate`. The subset count dropped after the two obsolete hook test suites were deleted. Existing Jest worker-exit warnings and nonblocking lint warnings remain.
-- **Part B is complete and reviewed through B4-2** at `bda46e13`: migration and verification script, metadata/types/skins fetch, pure planning helpers, SQLite persistence, durable store end action, closed-hole/Watch guards, init recovery, screen-hook shape/hydration guards, played-hole display/snapshot totals and mismatch resolution. **Next task: B5a-1.** Continue in Task Index order through B11. Match results, feature UI and remaining display integrations are still ahead.
-- **Latest validation:** TEST_SUBSET 206 suites, 3890 passed, 15 skipped, 30 snapshots; type-check and changed-file ESLint passed. Existing lint/Jest warnings remain. SQL has only been statically reviewed; runtime and concurrency verification are deferred.
+- **Part B is complete and reviewed through B5b-2** at `105e5b79`: migration and verification script, metadata/types/skins fetch, pure planning helpers, SQLite persistence, durable store end action, closed-hole/Watch guards, init recovery, screen-hook shape/hydration guards, played-hole display/snapshot totals, mismatch resolution, match-result calculators and scoring/finish-screen cutoff wiring. **Next task: B6a-1.** Continue in Task Index order through B11. The confirmation flow, sync integration and remaining display integrations are still ahead.
+- **Latest validation:** TEST_SUBSET 210 suites, 4088 passed, 15 skipped, 30 snapshots; type-check and changed-file ESLint passed. Existing lint/Jest warnings remain. SQL has only been statically reviewed; runtime and concurrency verification are deferred.
 - **No database has been touched.** The A7 SQL files exist but are not applied. All apply, verify and dry-run steps are deferred to the rollout checklists in A6d-2 Step 5 and B11. Never apply migrations during the build.
 
 ## Corrections made during Part A review
@@ -29,8 +29,11 @@
 - `2e4ed836`: hook hydration drops post-end keys; shape guards adopt server ends. The existing round-only reset cap now keys by shape so an earlier nine-type recovery cannot suppress a later end update.
 - `0325732a`: display and sync net count played holes with planned DHC. Sync repairs stale retained gross/points/Par, filters snapshot/entry keys, and excludes ended differentials; positive-integer markers agree across paths. Normal and missing-context fallbacks remain explicit.
 - `bda46e13`: mismatch totals respect played shape; normalized course metadata and fallback planned-range guards prevent removed-hole corrections. Local mirroring follows the service's boolean result. Existing single-ball gross/points/net conventions remain coupled.
-- **Required upcoming corrections:** read **`B5-cutoff-ruling.md`** and `impact-B5.md` before B5: truncate physical holes before counting decisions, and normalize sparse team result maps from planned holes at caller boundaries.
+- `6c3763f0` / `886d7781`: match engines truncate physical holes before counting decisions, preserve genuine planned-count close-outs, and settle complete ended matches on the lead. Table utilities normalize cutoff validity consistently; default order and competition finalizers stay unchanged.
+- `abaf7753` / `105e5b79`: scoring and finish screens forward cutoff while preserving planned-hole context. Sparse live team callers share a retained-results helper with explicit missing-hole placeholders. Parent counts keep their original behavior without a valid marker. Tests cover back-nine numbering, stale later results, cutoff-only rerenders and manual-result precedence. See `B5-cutoff-ruling.md` and `impact-B5.md`.
 - **B6 integration corrections are mandatory:** read **`B6-durability-and-ordering-ruling.md`** and `impact-B6.md`, alongside B1a/B3 rulings. Persist owned end intent atomically with local ending; process ends before dependent queued/fallback/direct card uploads, then finalize. Reconcile authoritative shape into disk/queue/store with queue revision protection. The server currently accepts stale post-end snapshots/entries, so local ordering alone is insufficient: add the narrow expected-shape RPC/guard correction, including the mismatch write adapter, before activating B6. SQL/runtime concurrency checks remain deferred. These corrections supersede affected original B6 snippets; no server scoring math or database execution is authorized.
+- **B6 server contract:** `B6-server-contract-proposal.md` is accepted with the controller decisions in the ruling. Keep snapshot SECURITY INVOKER and existing-card locks; an unconditional invoker round lock would break competition scorers' permissions. Private insert/entry guards need their own interlocks. Add expected shape inside the existing snapshot payload and a dedicated mismatch patch RPC; preserve existing confirmed-card permissions and mismatch revision behavior. New entry guard errors must preserve any already-committed snapshot revision and block acknowledgment; unrelated best-effort entry errors retain their current behavior.
+- **Remaining preflight:** read `impact-B6-ui.md` for confirmation dismissal, session revalidation, ended-resume and actual-hole lookup gaps. Semantic callback insertion anchors are safe; the initial stale-line-number concern was retracted. `impact-B7-B8.md` covers subsequent display/submission work. B9/B10 impact analyses are underway at this checkpoint.
 
 ## How to run each task (the process used so far)
 1. Read the plan header first: the Global Constraints, Interface Contract and Task Index, i.e. everything above `## Task 0`. Then read only the task's own `### Task <ID>:` section.
@@ -54,7 +57,7 @@
 - `brief.py`: extracts one task with `python3 brief.py <plan> <TaskID>`;
 - `impl-common.md` and `review-common.md`: the implementer and reviewer instructions;
 - per-task brief, report and review-diff files.
-- `impact-B2.md` through `impact-B6.md`, `B1a-review-ruling.md`, `B3-durability-ruling.md`, `B4-consistency-ruling.md`, `B5-cutoff-ruling.md`, and `B6-durability-and-ordering-ruling.md`: preflight findings and approved corrections beyond sample snippets.
+- `impact-B2.md` through `impact-B6.md`, `impact-B6-ui.md`, `impact-B7-B8.md`, `B1a-review-ruling.md`, `B3-durability-ruling.md`, `B4-consistency-ruling.md`, `B5-cutoff-ruling.md`, `B6-durability-and-ordering-ruling.md`, and `B6-server-contract-proposal.md`: preflight findings and approved corrections beyond sample snippets.
 
 ## Rulings so far (decisions made on Sam's behalf)
 - **Brief extraction:** briefs are extracted by `brief.py`, because the plan's task IDs aren't numeric.
