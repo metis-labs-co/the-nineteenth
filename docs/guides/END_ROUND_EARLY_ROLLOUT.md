@@ -1,13 +1,15 @@
 # End round early — 1.15.0 QA and rollout runbook
 
-**Status: authored; all database, native/device and rollout items below are pending.**
+**Status: scope acceptance and ordinary-round compatibility review reopened; all database, native/device and rollout operations below remain pending.**
 Local checks and mocked Jest boundaries do not establish PostgreSQL compilation,
 RLS/lock behavior or SQLite device crash/interleaving guarantees. No SQL, database
 connections, scratch services, credentials, migration dry runs/applies, push,
 merge, deployment or store/OTA release ran as part of B11. Independent whole-branch
-source review of `935760c9...7918887a` passed on both Standards and Spec axes, with
-no blocking findings. See the [build handoff](../superpowers/plans/2026-10-07-end-round-early-HANDOFF.md)
-for local validation and the two optional maintainability suggestions.
+source review of `935760c9...7918887a` passed against an expanded controller
+contract. Sam’s subsequent audit reopened acceptance of C1–C5/000300 and its
+ordinary competition write behavior; those source-review results are not release
+approval. See the [build handoff](../superpowers/plans/2026-10-07-end-round-early-HANDOFF.md)
+for the confirmed round-lock exposure, scope provenance and required evidence.
 
 Use this current runbook alongside the historical
 [plan](../superpowers/plans/2026-10-07-end-round-early.md) and
@@ -26,6 +28,7 @@ evidence for any row below. Do not paste credentials into logs or notes.
 
 | Item | Staging | Production / store | Evidence / Sam decision |
 |---|---|---|---|
+| C1–C5/000300 scope decision and ordinary competition concurrency/legacy compatibility | Pending | Pending evidence review | Open after Sam’s scope audit |
 | UGC/age-gate prerequisite and go/no-go | Pending | Pending | Pending |
 | A7 dry-run report, apply and after report | Pending | Pending | Pending |
 | B1 then C3 dry run and apply, `migrated_at` | Pending | Pending | Pending |
@@ -33,7 +36,7 @@ evidence for any row below. Do not paste credentials into logs or notes.
 | Two-session disposable concurrency schedules | Pending | Pending staging evidence review | Pending |
 | Part A QA and Sam-only stuck-round procedure | Pending | Pending | Pending |
 | Native/device Part B QA and race checks | Pending | Pending staging evidence review | Pending |
-| Local whole-branch source review | Complete locally | Not a deployment check | Standards and Spec passed; see build handoff |
+| Local whole-branch source review | Historical source pass | Not release approval | Scope/compatibility review reopened; see build handoff |
 | Merge / push | Pending | Pending | Pending |
 | Store release 1.15.0 on both platforms | Pending | Pending | Pending |
 | Post-live force-update minimum check | Pending | Pending | Pending |
@@ -41,6 +44,13 @@ evidence for any row below. Do not paste credentials into logs or notes.
 
 ## Prerequisites and release order (manual)
 
+- [ ] Resolve the scope decision for C1–C5/000300. Before approving the existing
+  guard, obtain database evidence for two ordinary groups concurrently writing
+  different scorecards and entries in the same competition round, with no early
+  end involved. Cover inserts/upserts, entry updates, completion, legacy
+  payloads, rollback/retry and eventual persistence. The current guard uses the
+  parent round lock for these operations; mocked tests and end/write schedules
+  do not establish compatibility. Execution remains separately authorized.
 - [ ] Sam checks UGC/age-gate prerequisites on the target, decides go/no-go
   before each real apply, and records the decision. B1 recreates feed functions
   from `20260905000150_ugc_moderation_feed.sql`; absent/null/false results below
