@@ -97,11 +97,11 @@ function createMockCourse(overrides?: Partial<Course>): Course {
 }
 
 /**
- * Create a date X days in the past
+ * Create a timestamp X elapsed 24-hour days in the past
  */
 function daysAgo(days: number): string {
   const date = new Date();
-  date.setDate(date.getDate() - days);
+  date.setTime(date.getTime() - days * 24 * 60 * 60 * 1000);
   return date.toISOString();
 }
 
@@ -110,6 +110,15 @@ function daysAgo(days: number): string {
 // ============================================================================
 
 describe('Sync Service Utilities', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-10-10T12:00:00Z'));
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   // ==========================================================================
   // STALE_DAYS constant
   // ==========================================================================
@@ -206,8 +215,6 @@ describe('Sync Service Utilities', () => {
           golfapi_club_id: '123456789',
           last_synced: daysAgo(STALE_DAYS),
         });
-        // Note: Due to time calculation, this might be slightly over/under
-        // The function checks if elapsed time > STALE_MS, so exactly at threshold is NOT stale
         expect(isClubStale(club)).toBe(false);
       });
     });
