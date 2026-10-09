@@ -42,6 +42,7 @@ import { createError } from '@/services/errors';
 // Mock the database module
 jest.mock('@/services/offline/database', () => ({
   getPendingSyncs: jest.fn(),
+  getPendingSyncByEntityKey: jest.fn(), getScorecardsByRound: jest.fn(), recordAcceptedScorecardWrite: jest.fn(),
   removePendingSync: jest.fn(),
   incrementSyncRetryCount: jest.fn(),
   markScorecardsAsSynced: jest.fn(),
@@ -89,7 +90,8 @@ jest.mock('@/services/supabase/client', () => ({
       order: jest.fn().mockReturnThis(),
       limit: jest.fn().mockReturnThis(),
       single: jest.fn(() => Promise.resolve({ data: null, error: null })),
-      maybeSingle: jest.fn(() => Promise.resolve({ data: null, error: null })),
+      abortSignal: jest.fn().mockReturnThis(), is: jest.fn().mockReturnThis(),
+      maybeSingle: jest.fn(() => Promise.resolve({ data: { nine_type: 'full', holes_played: null }, error: null })),
       then: jest.fn((resolve) => resolve({ data: [], error: null })),
     })),
     auth: {
@@ -153,10 +155,28 @@ beforeEach(() => {
   (database.getQueuedEntityKeys as jest.Mock).mockResolvedValue(new Set());
   (database.clearInvalidMockData as jest.Mock).mockResolvedValue(0);
   (database.clearAllPendingSyncs as jest.Mock).mockResolvedValue(0);
-  (database.removePendingSync as jest.Mock).mockResolvedValue(true);
+  (database.removePendingSync as jest.Mock).mockImplementation(async (id, revision) => {
+    const pending = await (database.getPendingSyncs as jest.Mock).mock.results.at(-1)?.value ?? [];
+    const index = pending.findIndex((item: PendingSync) => item.id === id && item.revision === revision);
+    if (index >= 0) pending.splice(index, 1);
+    return true;
+  });
   (database.addPendingSync as jest.Mock).mockResolvedValue(undefined);
   (database.markScorecardsAsSynced as jest.Mock).mockResolvedValue(undefined);
-  (database.markScorecardAsSynced as jest.Mock).mockResolvedValue(undefined);
+  (database.markScorecardAsSynced as jest.Mock).mockImplementation(async (_id, _revision, options) => {
+    if (options?.queued) return database.removePendingSync(options.queued.id, options.queued.revision, options.isCurrent);
+    return true;
+  });
+  (database.recordAcceptedScorecardWrite as jest.Mock).mockResolvedValue(undefined);
+  (database.getPendingSyncByEntityKey as jest.Mock).mockImplementation(async (key: string) => {
+    const pending = await (database.getPendingSyncs as jest.Mock).mock.results.at(-1)?.value ?? [];
+    return pending.find((item: PendingSync) => item.type === 'scorecard' && key === `scorecard:${item.data.roundId}:${item.data.playerId}`) ?? null;
+  });
+  (database.getScorecardsByRound as jest.Mock).mockImplementation(async (roundId: string) => {
+    const pending = await (database.getPendingSyncs as jest.Mock).mock.results.at(-1)?.value ?? [];
+    const unsynced = await (database.getUnsyncedScorecards as jest.Mock).mock.results.at(-1)?.value ?? [];
+    return [...pending.filter((item: PendingSync) => item.type === 'scorecard').map((item: PendingSync) => item.data), ...unsynced].filter((card: Scorecard) => card.roundId === roundId);
+  });
   (database.incrementSyncRetryCount as jest.Mock).mockResolvedValue(undefined);
   (database.markPendingSyncFailed as jest.Mock).mockResolvedValue(true);
   (database.resetFailedSyncs as jest.Mock).mockResolvedValue(0);
@@ -334,7 +354,7 @@ describe('Sync Operations', () => {
       await syncAll();
 
       expect(database.getPendingSyncs).toHaveBeenCalled();
-      expect(database.removePendingSync).toHaveBeenCalledWith(pendingSync.id, pendingSync.revision);
+      expect(database.removePendingSync).toHaveBeenCalledWith(pendingSync.id, pendingSync.revision, expect.any(Function));
     });
 
     it('should mark scorecard as synced after pending queue processing to prevent double-sync overwrite', async () => {
@@ -348,7 +368,7 @@ describe('Sync Operations', () => {
 
       // After processing the pending sync, the scorecard should be marked as synced
       // so the unsynced-scorecards path doesn't re-sync with potentially incomplete SQLite data
-      expect(database.markScorecardAsSynced).toHaveBeenCalledWith(scorecard.id, 1);
+      expect(database.markScorecardAsSynced).toHaveBeenCalledWith(scorecard.id, 1, expect.objectContaining({ expected: expect.any(Object) }));
     });
 
     it('does not acknowledge an older revision when a newer edit arrives during upload', async () => {
@@ -359,8 +379,8 @@ describe('Sync Operations', () => {
 
       await syncAll();
 
-      expect(database.removePendingSync).toHaveBeenCalledWith(pendingSync.id, 4);
-      expect(database.markScorecardAsSynced).not.toHaveBeenCalled();
+      expect(database.removePendingSync).toHaveBeenCalledWith(pendingSync.id, 4, expect.any(Function));
+      expect(database.recordAcceptedScorecardWrite).toHaveBeenCalledWith(scorecard.roundId, scorecard.playerId, { scorecardId: scorecard.id, serverRevision: 1 });
     });
 
     it('should sync unsynced scorecards and mark as synced', async () => {
@@ -370,7 +390,7 @@ describe('Sync Operations', () => {
       await syncAll();
 
       expect(database.getUnsyncedScorecards).toHaveBeenCalled();
-      expect(database.markScorecardAsSynced).toHaveBeenCalledWith(unsyncedScorecard.id, 1);
+      expect(database.markScorecardAsSynced).toHaveBeenCalledWith(unsyncedScorecard.id, 1, expect.objectContaining({ expected: expect.any(Object) }));
     });
 
     it('should increment retry count on failure (not max)', async () => {
@@ -573,7 +593,7 @@ describe('Sync Operations', () => {
 
         await syncAll();
 
-        expect(database.raisePendingSyncServerRevision).toHaveBeenCalledWith(7, 1);
+        expect(database.recordAcceptedScorecardWrite).toHaveBeenCalledWith(expect.any(String), expect.any(String), { scorecardId: expect.any(String), serverRevision: 1 });
       });
 
       it('records the confirmed revision locally without marking the scorecard synced', async () => {
@@ -581,8 +601,7 @@ describe('Sync Operations', () => {
 
         await syncAll();
 
-        expect(database.recordScorecardServerRevision).toHaveBeenCalledWith(scorecard.id, 1);
-        expect(database.markScorecardAsSynced).not.toHaveBeenCalled();
+        expect(database.recordAcceptedScorecardWrite).toHaveBeenCalledWith(scorecard.roundId, scorecard.playerId, { scorecardId: scorecard.id, serverRevision: 1 });
       });
     });
   });
@@ -919,7 +938,7 @@ describe('Error Handling', () => {
       id: 2,
       data: createTestScorecard({ roundId: 'invalid-uuid' }),
     });
-    const successSync2 = createPendingSync({ id: 3 });
+    const successSync2 = createPendingSync({ id: 3, data: createTestScorecard({ playerId: "550e8400-e29b-41d4-a716-446655440003" }) });
 
     (database.getPendingSyncs as jest.Mock).mockResolvedValue([
       successSync1,
@@ -930,8 +949,8 @@ describe('Error Handling', () => {
     await syncAll();
 
     // Should have removed successful syncs
-    expect(database.removePendingSync).toHaveBeenCalledWith(1, 1);
-    expect(database.removePendingSync).toHaveBeenCalledWith(3, 1);
+    expect(database.removePendingSync).toHaveBeenCalledWith(1, 1, expect.any(Function));
+    expect(database.removePendingSync).toHaveBeenCalledWith(3, 1, expect.any(Function));
     // Should have incremented retry count for failed sync
     expect(database.incrementSyncRetryCount).toHaveBeenCalledWith(2, 1, expect.any(String));
   });
@@ -1119,7 +1138,7 @@ describe.skip('Legacy hole-count server data protection', () => {
     await syncAll();
 
     // Pending queue path should ALWAYS sync regardless of server state
-    expect(database.removePendingSync).toHaveBeenCalledWith(pendingSync.id, pendingSync.revision);
+    expect(database.removePendingSync).toHaveBeenCalledWith(pendingSync.id, pendingSync.revision, expect.any(Function));
   });
 });
 
@@ -1240,7 +1259,7 @@ describe('Retained failure recovery', () => {
       'write_scorecard_snapshot',
       expect.objectContaining({ p_expected_revision: 9 })
     );
-    expect(database.removePendingSync).toHaveBeenCalledWith(57, 1);
+    expect(database.removePendingSync).toHaveBeenCalledWith(57, 1, expect.any(Function));
     expect(database.markPendingSyncFailed).not.toHaveBeenCalled();
   });
 
@@ -1492,7 +1511,7 @@ describe('Queued round finalisation', () => {
     const [cardUpload] = (supabase.rpc as jest.Mock).mock.invocationCallOrder;
     const [roundFinalize] = (finalizeSubmittedRound as jest.Mock).mock.invocationCallOrder;
     expect(cardUpload).toBeLessThan(roundFinalize);
-    expect(database.removePendingSync).toHaveBeenCalledWith(8, 1);
+    expect(database.removePendingSync).toHaveBeenCalledWith(8, 1, expect.any(Function));
     expect(database.removePendingSync).toHaveBeenCalledWith(7, 1);
   });
 
@@ -1763,6 +1782,16 @@ describe("C1 local queue persistence admission", () => {
 
 describe('C2b fallback source retention', () => {
   beforeEach(async () => { initSyncService(); await flushPromises(); jest.clearAllMocks(); });
+  it('does not retain a failed fallback under a replacement owner at the same source epoch', async () => {
+    const card = createTestScorecard({ roundId: '550e8400-e29b-41d4-a716-446655440204' });
+    (database.getUnsyncedScorecards as jest.Mock).mockResolvedValue([card]);
+    (supabase.rpc as jest.Mock).mockImplementationOnce(async () => {
+      setSyncAuthUser('replacement-owner');
+      return { data: null, error: { message: 'network failed' } };
+    });
+    await syncAll();
+    expect(database.addPendingSync).not.toHaveBeenCalled();
+  });
   it('does not retag an old failed upload after local shape repair', async () => {
     const card = createTestScorecard({ roundId: '550e8400-e29b-41d4-a716-446655440201' });
     (database.getUnsyncedScorecards as jest.Mock).mockResolvedValue([card]);
@@ -1781,6 +1810,53 @@ describe('C2b fallback source retention', () => {
     });
     await syncAll();
     expect(supabase.rpc).not.toHaveBeenCalled(); expect(database.addPendingSync).not.toHaveBeenCalled();
+  });
+});
+
+describe('C4a orchestrator current-source schedules', () => {
+  beforeEach(async () => { initSyncService(); await flushPromises(); jest.clearAllMocks(); });
+  it.each(['pending', 'failed', 'foreign', 'malformed'])('defers only the round with a %s end prerequisite without spending retries', async status => {
+    const blocked = createTestScorecard({ roundId: '550e8400-e29b-41d4-a716-446655440210' });
+    const other = createTestScorecard({ roundId: '550e8400-e29b-41d4-a716-446655440211' });
+    const blockedItem = createPendingSync({ id: 991, data: blocked, retryCount: 2 });
+    const otherItem = createPendingSync({ id: 992, data: other });
+    (database.getPendingSyncs as jest.Mock).mockResolvedValue([blockedItem, otherItem]);
+    (database.getPendingSyncByEntityKey as jest.Mock).mockImplementation(async key => {
+      if (key === `round:${blocked.roundId}:end_early`) {
+        if (status === 'malformed') throw new SyntaxError('bad JSON');
+        return { type: 'round', status, data: { userId: status === 'foreign' ? 'other-owner' : 'test-user-id' } };
+      }
+      return key === `scorecard:${blocked.roundId}:${blocked.playerId}` ? blockedItem :
+        key === `scorecard:${other.roundId}:${other.playerId}` ? otherItem : null;
+    });
+    await syncAll();
+    expect((supabase.rpc as jest.Mock).mock.calls.map(([, args]) => args.p_round_id)).toEqual([other.roundId]);
+    expect(database.incrementSyncRetryCount).not.toHaveBeenCalled();
+    expect(database.markPendingSyncFailed).not.toHaveBeenCalled();
+    expect(database.removePendingSync).not.toHaveBeenCalledWith(blockedItem.id, expect.anything(), expect.anything());
+    expect(blockedItem.retryCount).toBe(2);
+  });
+  it('uploads a newly queued payload instead of the earlier SQLite fallback card', async () => {
+    const old = createTestScorecard({ roundId: '550e8400-e29b-41d4-a716-446655440212', totalGross: 90 });
+    const fresh = { ...old, scores: { 1: { strokes: 8 } }, totalGross: 8, serverRevision: 4 };
+    const queued = createPendingSync({ id: 993, revision: 5, data: fresh });
+    (database.getUnsyncedScorecards as jest.Mock).mockResolvedValue([old]);
+    (database.getPendingSyncByEntityKey as jest.Mock).mockImplementation(async key => key.startsWith('scorecard:') ? queued : null);
+    await syncAll();
+    expect((supabase.rpc as jest.Mock).mock.calls[0][1]).toMatchObject({ p_expected_revision: 4, p_snapshot: { total_gross: 8, scores: { 1: { strokes: 8 } } } });
+  });
+  it('cannot replace a newer failed queue payload when an older fallback upload fails', async () => {
+    const old = createTestScorecard({ roundId: '550e8400-e29b-41d4-a716-446655440213' });
+    let queue: PendingSync | null = null;
+    (database.getUnsyncedScorecards as jest.Mock).mockResolvedValue([old]);
+    (database.getPendingSyncByEntityKey as jest.Mock).mockImplementation(async key => key.startsWith('scorecard:') ? queue : null);
+    (supabase.rpc as jest.Mock).mockImplementationOnce(async () => {
+      queue = createPendingSync({ id: 994, revision: 6, status: 'failed', data: { ...old, status: 'confirmed', scores: { 1: { strokes: 8 } } } });
+      return { data: null, error: { message: 'offline' } };
+    });
+    await syncAll();
+    expect(database.addPendingSync).not.toHaveBeenCalled();
+    expect(queue).toMatchObject({ revision: 6, status: 'failed', data: { status: 'confirmed', scores: { 1: { strokes: 8 } } } });
   });
 });
 

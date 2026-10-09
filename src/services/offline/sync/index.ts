@@ -27,7 +27,7 @@ export { MAX_RETRY_COUNT, INITIAL_SYNC_STATE } from './types';
 export { getIsOnline, getIsSyncing, setSyncAuthUser } from './networkState';
 
 // Re-export scorecard sync functions
-export { isValidUUID, syncScorecard, processScorecardSync, ScorecardConflictError } from './scorecardSync';
+export { isValidUUID, syncScorecard, captureScorecardUpload, processScorecardSync, ScorecardConflictError } from './scorecardSync';
 
 // Drain requests (debounced; see drain.ts)
 export { requestSyncDrain } from './drain';

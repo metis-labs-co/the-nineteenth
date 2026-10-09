@@ -101,8 +101,29 @@ export async function getPendingSyncs(): Promise<PendingSync[]> {
 /**
  * Remove a pending sync after successful sync
  */
-export async function removePendingSync(id: number, revision?: number): Promise<boolean> {
+export async function removePendingSync(id: number, revision?: number, isCurrent?: () => boolean,
+  expectedScorecardAbsence?: { scorecardId: string; roundId: string; playerId: string },
+): Promise<boolean> {
   const database = await getDb();
+  if (isCurrent && !isCurrent()) return false;
+  if (isCurrent && Platform.OS !== 'web') {
+    let removed = false;
+    await database.withExclusiveTransactionAsync(async txn => {
+      if (!isCurrent()) return;
+      if (expectedScorecardAbsence && await txn.getFirstAsync(
+        `SELECT id FROM ${TABLE_NAMES.SCORECARDS} WHERE id = ? AND round_id = ? AND player_id = ?`,
+        [expectedScorecardAbsence.scorecardId, expectedScorecardAbsence.roundId, expectedScorecardAbsence.playerId],
+      )) return;
+      if (!isCurrent()) return;
+      const result = await txn.runAsync(
+        `DELETE FROM ${TABLE_NAMES.PENDING_SYNCS} WHERE id = ?${revision == null ? '' : ' AND revision = ?'}`,
+        revision == null ? [id] : [id, revision],
+      );
+      if (!isCurrent()) throw new Error('Scoring queue acknowledgment changed during transaction');
+      removed = result.changes > 0;
+    });
+    return removed;
+  }
   const result = await database.runAsync(
     `DELETE FROM ${TABLE_NAMES.PENDING_SYNCS}
      WHERE id = ?${revision == null ? '' : ' AND revision = ?'}`,

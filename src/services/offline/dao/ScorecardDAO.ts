@@ -8,7 +8,7 @@ import type { AcceptedScorecardWrite, RebuildRoundShapeCard, PriorLocalShapes, R
 import { RoundScoringWriteError } from '@/services/rounds/roundScoringErrors';
 import { readSyncHandicapSource } from '@/services/rounds/scorecardScoringMetadata';
 import type { HandicapSource } from '@/types/database';
-import { shapeHoleNumbers } from '@/services/rounds/roundScoringWrite';
+import { shapeHoleNumbers, scorecardScoringVersion } from '@/services/rounds/roundScoringWrite';
 import { assertCompatibleEndIntent, type EndTransaction, assertIntentOwner, ensureRoundEndIntent } from './roundEndIntent';
 import { runRoundPersistence, type RoundPersistenceOptions } from '../roundPersistenceBarrier';
 import { Platform } from 'react-native';
@@ -429,15 +429,94 @@ export async function markScorecardsAsSynced(scorecardIds: string[]): Promise<vo
 /** Mark one scorecard synced and persist the revision acknowledged by the server. */
 export async function markScorecardAsSynced(
   scorecardId: string,
-  serverRevision: number
-): Promise<void> {
+  serverRevision: number,
+  options?: RoundPersistenceOptions & {
+    expected?: Scorecard;
+    expectedVersion?: string;
+    isCurrent?: () => boolean;
+    queued?: { id: number; revision: number };
+    roundId?: string;
+    playerId?: string;
+  }
+): Promise<boolean> {
+  if (options?.expected) {
+    const expected = options.expected;
+    const version = options.expectedVersion ?? scorecardScoringVersion(expected);
+    if (expected.id !== scorecardId) return false;
+    return runRoundPersistence(expected.roundId, options, async () => {
+      if (Platform.OS === 'web')
+        throw new Error('Guarded scoring acknowledgment requires native SQLite');
+      const database = await getDb();
+      let applied = false;
+      await database.withExclusiveTransactionAsync(async (txn) => {
+        if (options.isCurrent && !options.isCurrent()) return;
+        if (
+          options.queued &&
+          !(await txn.getFirstAsync(
+            `SELECT id FROM ${TABLE_NAMES.PENDING_SYNCS} WHERE id = ? AND revision = ? AND entity_key = ?`,
+            [
+              options.queued.id,
+              options.queued.revision,
+              `scorecard:${expected.roundId}:${expected.playerId}`,
+            ]
+          ))
+        )
+          return;
+        if (!options.queued && await txn.getFirstAsync(
+          `SELECT id FROM ${TABLE_NAMES.PENDING_SYNCS} WHERE entity_key = ?`,
+          [`scorecard:${expected.roundId}:${expected.playerId}`],
+        )) return;
+        const row = await txn.getFirstAsync<ScorecardRow>(
+          `SELECT * FROM ${TABLE_NAMES.SCORECARDS} WHERE id = ? AND round_id = ? AND player_id = ?`,
+          [scorecardId, expected.roundId, expected.playerId]
+        );
+        if (
+          !row ||
+          (row.server_revision ?? 0) > serverRevision ||
+          scorecardScoringVersion(await rowToScorecard(row, txn)) !== version
+        )
+          return;
+        if (options.isCurrent && !options.isCurrent()) return;
+        const result = await txn.runAsync(
+          `UPDATE ${TABLE_NAMES.SCORECARDS} SET is_synced = 1, server_revision = MAX(COALESCE(server_revision, 0), ?) WHERE id = ? AND round_id = ? AND player_id = ?`,
+          [serverRevision, scorecardId, expected.roundId, expected.playerId]
+        );
+        if (options.isCurrent && !options.isCurrent())
+          throw new RoundScoringWriteError(
+            'context_changed',
+            expected.roundId,
+            'Scoring acknowledgment changed during transaction'
+          );
+        if (options.queued) {
+          const removed = await txn.runAsync(
+            `DELETE FROM ${TABLE_NAMES.PENDING_SYNCS} WHERE id = ? AND revision = ?`,
+            [options.queued.id, options.queued.revision]
+          );
+          if (removed.changes !== 1 || (options.isCurrent && !options.isCurrent()))
+            throw new RoundScoringWriteError(
+              'context_changed',
+              expected.roundId,
+              'Queued acknowledgment changed during transaction'
+            );
+        }
+        applied = result.changes === 1;
+      });
+      return applied;
+    });
+  }
   const database = await getDb();
-  await database.runAsync(
+  if (options?.isCurrent && !options.isCurrent()) return false;
+  const result = await database.runAsync(
     `UPDATE ${TABLE_NAMES.SCORECARDS}
-        SET is_synced = 1, server_revision = ?
-      WHERE id = ?`,
-    [serverRevision, scorecardId]
+        SET is_synced = 1, server_revision = MAX(COALESCE(server_revision, 0), ?)
+      WHERE id = ?${options?.roundId && options?.playerId ? ' AND round_id = ? AND player_id = ?' : ''}`,
+    [
+      serverRevision,
+      scorecardId,
+      ...(options?.roundId && options?.playerId ? [options.roundId, options.playerId] : []),
+    ]
   );
+  return result.changes === 1;
 }
 
 /**

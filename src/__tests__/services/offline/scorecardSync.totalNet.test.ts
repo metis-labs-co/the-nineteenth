@@ -10,11 +10,15 @@
  * 18-hole DHC = round(18 × 0.93 × 0.9986) = round(16.72) = 17 ⇒ one stroke on SI 1–17.
  */
 
+import { setSyncAuthUser } from '@/services/offline/sync/networkState';
 import { syncScorecard } from '@/services/offline/sync/scorecardSync';
 import { supabase } from '@/services/supabase/client';
 import { saveScoreEntries } from '@/services/scoreMismatch';
 import type { Scorecard } from '@/types';
 import type { Hole, TeeBox } from '@/types/database/base';
+
+jest.mock('@/services/offline/database', () => ({ getPendingSyncByEntityKey: jest.fn(async () => null), getScorecardsByRound: jest.fn(async () => []), recordAcceptedScorecardWrite: jest.fn(async () => {}) }));
+jest.mock('@/store/scorecardStore', () => ({ useScorecardStore: { getState: () => ({ captureRoundScoringSession: () => null }) } }));
 
 jest.mock('@/services/supabase/client', () => ({
   supabase: { rpc: jest.fn() },
@@ -82,6 +86,7 @@ function lastSnapshot(): Record<string, unknown> {
 }
 
 beforeEach(() => {
+  setSyncAuthUser('test-user-id');
   (supabase.rpc as jest.Mock).mockResolvedValue({
     data: [
       {
@@ -127,10 +132,8 @@ describe('syncScorecard — total_net snapshot', () => {
       expect(lastSnapshot().total_net).toBe(13); // 30 − 17
     });
 
-    it('falls back to gross − daily handicap when an ended card carries no hole data', async () => {
-      await syncScorecard(sixHoleCard({ holesPlayed: 6, syncHoles: undefined }));
-
-      expect(lastSnapshot().total_net).toBe(13);
+    it('blocks ended upload without real planned holes', async () => {
+      await expect(syncScorecard(sixHoleCard({ holesPlayed: 6, syncHoles: undefined }))).rejects.toMatchObject({ kind: 'context_missing' });
     });
   });
   describe('rounds ended early', () => {
@@ -190,11 +193,8 @@ describe('syncScorecard — total_net snapshot', () => {
 });
 
 describe('syncScorecard — ended snapshot consistency', () => {
-  it.each([null, 0, -1, 2.5, NaN])('ignores invalid marker %s', async (holesPlayed) => {
-    await syncScorecard(sixHoleCard());
-    const baseline = lastSnapshot();
-    await syncScorecard(sixHoleCard({ holesPlayed }));
-    expect(lastSnapshot()).toEqual({ ...baseline, synced_at: expect.any(String) });
+  it.each([0, -1, 2.5, NaN])('blocks invalid marker %s', async (holesPlayed) => {
+    await expect(syncScorecard(sixHoleCard({ holesPlayed }))).rejects.toMatchObject({ kind: 'invalid_shape' });
   });
 
   it('repairs stale gross after atomic end committed six fours but metadata save failed', async () => {
@@ -229,7 +229,7 @@ describe('syncScorecard — ended snapshot consistency', () => {
       expect(lastSnapshot()).toMatchObject({
         total_gross: 24,
         total_net: 18,
-        total_points: syncGameType === 'stableford' ? 18 : 24,
+        total_points: 18,
         total_par_score: syncGameType === 'par' ? 6 : null,
       });
       expect(Object.keys(lastSnapshot().scores as object)).toEqual(['1', '2', '3', '4', '5', '6']);
@@ -258,29 +258,15 @@ describe('syncScorecard — ended snapshot consistency', () => {
       expect(lastSnapshot()).toMatchObject({
         total_gross: 24,
         total_net: 18,
-        total_points: syncGameType === 'stableford' ? 18 : 24,
+        total_points: 18,
         total_par_score: syncGameType === 'par' ? 6 : null,
       });
       expect(lastSnapshot().scores).toEqual({}); // established multi-ball transport uses gross only
     }
   );
 
-  it('keeps missing-DHC fallback while filtering ended score keys', async () => {
-    await syncScorecard(
-      sixHoleCard({
-        holesPlayed: 6,
-        teeData: undefined,
-        totalGross: 32,
-        scores: fives([1, 2, 3, 4, 5, 6, 7]),
-        totalNet: 99,
-      })
-    );
-    expect(lastSnapshot()).toMatchObject({
-      total_gross: 32,
-      total_net: 99,
-      daily_handicap_used: null,
-    });
-    expect(Object.keys(lastSnapshot().scores as object)).toHaveLength(6);
+  it('blocks ended upload without a proven DHC basis', async () => {
+    await expect(syncScorecard(sixHoleCard({ holesPlayed: 6, teeData: undefined, totalNet: 99 }))).rejects.toMatchObject({ kind: 'context_missing' });
   });
 });
 
@@ -293,7 +279,7 @@ describe('syncScorecard — ended pickup snapshot', () => {
       expect(lastSnapshot()).toMatchObject({
         total_gross: 32,
         total_net: 26,
-        total_points: syncGameType === 'stableford' ? 10 : 24,
+        total_points: syncGameType === 'stableford' ? 10 : 26,
         total_par_score: syncGameType === 'par' ? -1 : null,
       });
       expect(Object.keys(lastSnapshot().scores as object)).toHaveLength(6);
@@ -315,7 +301,7 @@ describe('explicit no-handicap durable snapshot basis', () => {
         expect(lastSnapshot()).toMatchObject({ daily_handicap_used: 0, ga_handicap_used: playerHandicap,
           course_rating_used: syncNineType === 'full' ? 76 : syncNineType === 'front9' ? 39 : 40,
           slope_rating_used: syncNineType === 'full' ? 113 : syncNineType === 'front9' ? 120 : 130,
-          total_gross: 10, total_net: 10, total_points: syncGameType === 'stableford' ? 2 : 24,
+          total_gross: 10, total_net: 10, total_points: syncGameType === 'stableford' ? 2 : 10,
           total_par_score: syncGameType === 'par' ? -1 : null, handicap_differential: null });
       }
     }

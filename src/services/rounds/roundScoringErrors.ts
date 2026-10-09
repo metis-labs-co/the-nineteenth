@@ -29,3 +29,27 @@ export class RoundScoringWriteError extends Error {
     this.sqlHint = options.sqlHint;
   }
 }
+
+/** Only explicit scoring guards are new blocking entry failures. */
+export function roundScoringErrorFromSql(
+  roundId: string,
+  error: unknown
+): RoundScoringWriteError | null {
+  if (error instanceof RoundScoringWriteError) return error;
+  if (!error || typeof error !== 'object') return null;
+  const sql = error as { code?: string; hint?: string; message?: string };
+  const kinds: Record<string, RoundScoringWriteErrorKind> = {
+    round_shape_changed: 'shape_changed',
+    round_score_out_of_play: 'out_of_play',
+    round_scoring_busy: 'busy',
+    round_scorecards_busy: 'busy',
+    invalid_round_shape: 'invalid_shape',
+  };
+  const kind = sql.hint && kinds[sql.hint];
+  return kind
+    ? new RoundScoringWriteError(kind, roundId, sql.message ?? 'Round scoring write rejected', {
+        sqlCode: sql.code,
+        sqlHint: sql.hint,
+      })
+    : null;
+}

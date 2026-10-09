@@ -10,8 +10,6 @@ import {
   getPendingSyncs,
   removePendingSync,
   incrementSyncRetryCount,
-  markScorecardAsSynced,
-  recordScorecardServerRevision,
   getUnsyncedScorecards,
   addPendingSync,
   getPendingSyncCount,
@@ -26,6 +24,8 @@ import {
   raisePendingSyncServerRevision,
   hasUnsyncedScorecardsForRound,
   getFailedSyncCountForRound,
+  getPendingSyncByEntityKey,
+  getScorecardsByRound,
 } from '../database';
 import {
   finalizeSubmittedRound,
@@ -50,7 +50,9 @@ import {
   initNetworkState,
   getSyncAuthUserId,
 } from './networkState';
-import { processScorecardSync, syncScorecard, isValidUUID, ScorecardConflictError, type ScorecardSyncResult } from './scorecardSync';
+import { processScorecardSync, syncScorecard, isValidUUID, ScorecardConflictError, captureScorecardUploadRead, type ScorecardUploadOptions, type ScorecardSyncResult } from './scorecardSync';
+import { RoundScoringWriteError } from '@/services/rounds/roundScoringErrors';
+import { scorecardScoringVersion } from '@/services/rounds/roundScoringWrite';
 import { registerSyncDrainHandler } from './drain';
 
 // Re-export types for consumers
@@ -223,6 +225,7 @@ export async function syncAll(options: SyncAllOptions = {}): Promise<boolean> {
   try {
     // Get pending syncs. `round` items are held back: they run after every
     // scorecard upload in this drain — the queue AND the SQLite fallback below.
+    const queuedReadCapture = captureScorecardUploadRead();
     const queuedSyncs = await getPendingSyncs();
     const pendingSyncs = queuedSyncs.filter((sync) => sync.type !== 'round');
     const roundSyncs = orderRoundSyncs(queuedSyncs.filter((sync) => sync.type === 'round'));
@@ -271,19 +274,11 @@ export async function syncAll(options: SyncAllOptions = {}): Promise<boolean> {
     const attemptPendingSync = async (
       sync: PendingSync
     ): Promise<ScorecardSyncResult | void> => {
-      try {
-        return await processPendingSync(sync);
-      } catch (error) {
-        if (!adoptServerRevisionOnConflict) throw error;
-        if (!(error instanceof ScorecardConflictError)) throw error;
-        if (!(await refreshQueuedRevision(sync, error))) throw error;
-
-        syncLogger.warn('Retrying queued write against the server revision', {
-          id: sync.id,
-          serverRevision: error.serverRevision,
-        });
-        return await processPendingSync(sync);
-      }
+      return processPendingSync(sync, {
+        capture: queuedReadCapture(String(sync.data?.roundId ?? '')),
+        adoptServerRevisionOnConflict, markSynced: true,
+        onSynced: (card, revision) => notifyScorecardSynced(card.id, revision),
+      });
     };
 
     for (const sync of pendingSyncs) {
@@ -301,41 +296,25 @@ export async function syncAll(options: SyncAllOptions = {}): Promise<boolean> {
           }
         }
         const result = await attemptPendingSync(sync);
-        const acknowledged = await removePendingSync(sync.id!, sync.revision ?? 1);
-        if (!acknowledged) {
-          syncLogger.info('A newer queued revision arrived during sync; leaving it pending', {
-            id: sync.id,
-            revision: sync.revision,
-          });
-          // The server still accepted this write. The newer edit queued behind
-          // it was snapshotted before that revision existed, so carry the
-          // confirmed revision forward or its upload self-conflicts. Notify
-          // first so any edit queued from here on already carries it.
-          if (sync.type === 'scorecard' && sync.data?.id && result?.serverRevision !== undefined) {
-            notifyScorecardSynced(sync.data.id, result.serverRevision);
-            await raisePendingSyncServerRevision(sync.id!, result.serverRevision);
-            await recordScorecardServerRevision(sync.data.id, result.serverRevision);
-          }
-          continue;
+        if (!result) {
+          const acknowledged = await removePendingSync(sync.id!, sync.revision ?? 1);
+          if (!acknowledged) continue;
         }
         successCount++;
-        syncLogger.debug('Sync processed successfully', { id: sync.id, revision: sync.revision });
-        // Track if any scorecard syncs succeeded
         if (sync.type === 'scorecard') {
           scorecardsWereSynced = true;
-          // Mark the scorecard as synced in SQLite to prevent the unsynced-scorecards
-          // path (below) from re-syncing potentially incomplete SQLite data and
-          // overwriting the complete data we just synced from the queue.
-          if (sync.data?.id) {
-            const confirmedRevision =
-              result?.serverRevision ?? sync.data.serverRevision ?? 0;
-            await markScorecardAsSynced(sync.data.id, confirmedRevision);
-            freshestRevisions.set(sync.data.id, confirmedRevision);
-            notifyScorecardSynced(sync.data.id, confirmedRevision);
-          }
+          if (result && sync.data?.id) freshestRevisions.set(sync.data.id, result.serverRevision);
         }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
+
+        if (error instanceof RoundScoringWriteError) {
+          if (['invalid_shape', 'context_missing'].includes(error.kind)) {
+            await markPendingSyncFailed(sync.id!, sync.revision ?? 1, errorMessage);
+            failCount++;
+          }
+          continue;
+        }
 
         if (error instanceof ScorecardConflictError) {
           // Park the server's current revision on the row before retaining it,
@@ -399,6 +378,7 @@ export async function syncAll(options: SyncAllOptions = {}): Promise<boolean> {
 
     // Also sync any unsynced scorecards
     const fallbackReadSource = captureRoundPersistenceRead();
+    const fallbackCapture = captureScorecardUploadRead();
     const [allUnsyncedScorecards, queuedEntityKeys] = await Promise.all([
       getUnsyncedScorecards(),
       getQueuedEntityKeys(),
@@ -418,9 +398,9 @@ export async function syncAll(options: SyncAllOptions = {}): Promise<boolean> {
         if (!isRoundPersistenceSourceCurrent(source)) continue;
         try {
           syncLogger.debug('Syncing unsynced scorecard', logScorecardSummary(scorecard));
-          const result = await syncScorecard(scorecard);
-          await markScorecardAsSynced(scorecard.id, result.serverRevision);
-          notifyScorecardSynced(scorecard.id, result.serverRevision);
+          await syncScorecard(scorecard, { capture: fallbackCapture(scorecard.roundId), markSynced: true,
+            onSynced: (card, revision) => notifyScorecardSynced(card.id, revision),
+          });
           successCount++;
           scorecardsWereSynced = true;
           syncLogger.debug('Unsynced scorecard synced successfully', {
@@ -428,6 +408,14 @@ export async function syncAll(options: SyncAllOptions = {}): Promise<boolean> {
           });
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : String(error);
+
+          if (error instanceof RoundScoringWriteError) {
+            if (['invalid_shape', 'context_missing'].includes(error.kind)) {
+              failCount++;
+              await retainFallbackFailure(scorecard, errorMessage, true, source, fallbackCapture(scorecard.roundId).ownerId);
+            }
+            continue;
+          }
 
           // Check if this is an RLS policy error (code 42501)
           const isRlsError =
@@ -444,7 +432,8 @@ export async function syncAll(options: SyncAllOptions = {}): Promise<boolean> {
                 : scorecard,
               errorMessage,
               true,
-              source
+              source,
+              fallbackCapture(scorecard.roundId).ownerId
             );
           } else if (isRlsError) {
             syncLogger.error('RLS POLICY ERROR: Scorecard cannot be synced - round may have been deleted', undefined, {
@@ -452,7 +441,7 @@ export async function syncAll(options: SyncAllOptions = {}): Promise<boolean> {
               roundId: scorecard.roundId.substring(0, 8) + '...',
               playerId: scorecard.playerId.substring(0, 8) + '...',
             });
-            await retainFallbackFailure(scorecard, errorMessage, true, source);
+            await retainFallbackFailure(scorecard, errorMessage, true, source, fallbackCapture(scorecard.roundId).ownerId);
             rlsFailedRoundIds.add(scorecard.roundId);
             // Don't count as failure since we handled it
           } else {
@@ -461,7 +450,7 @@ export async function syncAll(options: SyncAllOptions = {}): Promise<boolean> {
               roundId: scorecard.roundId.substring(0, 8) + '...',
             });
             failCount++;
-            await retainFallbackFailure(scorecard, errorMessage, false, source);
+            await retainFallbackFailure(scorecard, errorMessage, false, source, fallbackCapture(scorecard.roundId).ownerId);
           }
         }
       }
@@ -528,7 +517,7 @@ export async function syncAll(options: SyncAllOptions = {}): Promise<boolean> {
 /**
  * Process a single pending sync
  */
-async function processPendingSync(sync: PendingSync): Promise<ScorecardSyncResult | void> {
+async function processPendingSync(sync: PendingSync, options: ScorecardUploadOptions = {}): Promise<ScorecardSyncResult | void> {
   syncLogger.debug('Processing pending sync entry', {
     id: sync.id,
     type: sync.type,
@@ -537,7 +526,7 @@ async function processPendingSync(sync: PendingSync): Promise<ScorecardSyncResul
 
   switch (sync.type) {
     case 'scorecard':
-      return processScorecardSync(sync);
+      return processScorecardSync(sync, options);
     default:
       throw new Error(`Unsupported sync type: ${sync.type}`);
   }
@@ -860,19 +849,38 @@ async function retainFallbackFailure(
   error: string,
   permanent: boolean,
   source: RoundPersistenceSource,
+  ownerId: string | null
 ): Promise<void> {
   try {
-    await runRoundPersistence(scorecard.roundId, { source }, async () => addPendingSync({
-    type: 'scorecard',
-    action: 'update',
-    data: scorecard,
-    entityKey: scorecardEntityKey(scorecard),
-    timestamp: new Date(),
-    retryCount: permanent ? MAX_RETRY_COUNT : 1,
-    status: permanent ? 'failed' : 'pending',
-    lastError: error,
-    lastAttemptAt: new Date(),
-    }), scorecard);
+    await runRoundPersistence(
+      scorecard.roundId,
+      { source },
+      async () => {
+        if (!ownerId || getSyncAuthUserId() !== ownerId) return;
+        if (await getPendingSyncByEntityKey(scorecardEntityKey(scorecard))) return;
+        const current = (await getScorecardsByRound(scorecard.roundId)).find(
+          (card) => card.id === scorecard.id && card.playerId === scorecard.playerId
+        );
+        if (
+          getSyncAuthUserId() !== ownerId ||
+          !current ||
+          scorecardScoringVersion(current) !== scorecardScoringVersion(scorecard)
+        )
+          return;
+        await addPendingSync({
+          type: 'scorecard',
+          action: 'update',
+          data: scorecard,
+          entityKey: scorecardEntityKey(scorecard),
+          timestamp: new Date(),
+          retryCount: permanent ? MAX_RETRY_COUNT : 1,
+          status: permanent ? 'failed' : 'pending',
+          lastError: error,
+          lastAttemptAt: new Date(),
+        });
+      },
+      scorecard
+    );
   } catch (error) {
     // C4 owns network recovery; an obsolete failure object cannot replace repaired local work.
     if (!(error instanceof RoundPersistenceSourceChangedError)) throw error;

@@ -29,7 +29,6 @@ import { isSingleBallScore } from '@/types/database/base';
 import {
   saveScorecard,
   saveHoles,
-  markScorecardAsSynced,
   getFailedSyncCountForRound,
 } from '@/services/offline/database';
 import {
@@ -38,7 +37,6 @@ import {
   subscribeSyncState,
   subscribeScorecardSynced,
   getIsOnline,
-  ScorecardConflictError,
 } from '@/services/offline/sync';
 import { storeLogger } from '@/utils/debugLogger';
 import { filterPlayableHoles } from '@/utils/holeTransformers';
@@ -672,24 +670,19 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
             if (!isRoundPersistenceSourceCurrent(source)) throw new RoundPersistenceSourceChangedError(currentRoundId);
             // Reprepare CURRENT retained edits before network; common post-network recovery is C4.
             prepared = prepare();
-            let result;
-            try { result = await syncScorecard(prepared); }
-            catch (error) {
-              if (!(error instanceof ScorecardConflictError)) throw error;
-              assertSession();
-              if (!isRoundPersistenceSourceCurrent(source)) throw new RoundPersistenceSourceChangedError(currentRoundId);
-              result = await syncScorecard({ ...prepare(), serverRevision: error.serverRevision });
-            }
-            assertSession();
-            if (!isRoundPersistenceSourceCurrent(source)) throw new RoundPersistenceSourceChangedError(currentRoundId);
-            await markScorecardAsSynced(prepared.id, result.serverRevision);
-            assertSession();
-            const current = get().groupScorecards.get(playerId);
-            if (current?.id === prepared.id) {
-              const next = new Map(get().groupScorecards);
-              next.set(playerId, { ...current, serverRevision: Math.max(current.serverRevision ?? 0, result.serverRevision) });
-              set({ groupScorecards: next });
-            }
+            await syncScorecard(prepared, {
+              capture: { ownerId, source, session }, readCurrent: () => prepare(),
+              adoptServerRevisionOnConflict: true, markSynced: true,
+              onSynced: (uploaded, serverRevision) => {
+                assertSession();
+                const current = get().groupScorecards.get(playerId);
+                if (current?.id === uploaded.id) {
+                  const next = new Map(get().groupScorecards);
+                  next.set(playerId, { ...current, serverRevision: Math.max(current.serverRevision ?? 0, serverRevision) });
+                  set({ groupScorecards: next });
+                }
+              },
+            });
           }
         } catch (error) {
           errorCount++;

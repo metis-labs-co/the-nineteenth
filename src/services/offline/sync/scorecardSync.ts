@@ -5,17 +5,47 @@
  * Includes handicap calculation and score entry sync.
  */
 
-import { supabase, getCurrentUser } from '@/services/supabase/client';
+import { supabase } from '@/services/supabase/client';
+import { Platform } from 'react-native';
+import {
+  getPendingSyncByEntityKey,
+  getScorecardsByRound,
+  recordAcceptedScorecardWrite,
+  markScorecardAsSynced,
+  removePendingSync,
+} from '../database';
+import {
+  captureRoundPersistenceSource,
+  captureRoundPersistenceRead,
+  isRoundPersistenceSourceCurrent,
+  withRoundPersistence,
+  type RoundPersistenceSource,
+} from '../roundPersistenceBarrier';
+import { getSyncAuthUserId } from './networkState';
+import {
+  withRoundScoringWrite,
+  getRoundEndPrerequisite,
+} from '@/services/rounds/roundScoringCoordinator';
+import {
+  RoundScoringWriteError,
+  roundScoringErrorFromSql,
+} from '@/services/rounds/roundScoringErrors';
+import { useScorecardStore, type RoundScoringSession } from '@/store/scorecardStore';
+import { fetchRoundScoringShape } from '@/services/rounds/roundScoringShape';
+import { adoptRoundShapeWithinScoringWrite } from '@/services/rounds/roundScoringAdoption';
+import { createRoundScoringContext } from '@/services/rounds/roundScoringContext';
+import {
+  shapeHoleNumbers,
+  scorecardScoringVersion,
+} from '@/services/rounds/roundScoringWrite';
 import { invalidateHandicapCache } from '@/services/queryClient';
 import { saveScoreEntries } from '@/services/scoreMismatch';
 import type { Scorecard, PendingSync, HoleScore } from '@/types';
+import type { Database, ScorecardSnapshotWrite } from '@/types/database/schema';
 import { isSingleBallScore } from '@/types/database/base';
 import { syncLogger, logScorecardSummary } from '@/utils/debugLogger';
 import { calculateScoreDifferential, getRatingsForGender } from '@/utils/handicapDifferential';
-import {
-  calculateAdjustedGrossScore,
-  type AdjustedGrossParams,
-} from '@/utils/adjustedGross';
+import { calculateAdjustedGrossScore, type AdjustedGrossParams } from '@/utils/adjustedGross';
 import { calculateNineAwareDailyHandicap } from '@/utils/dailyHandicap';
 import { calculateNetOverHolesPlayed } from '@/utils/scorecardCalculations';
 import { filterPlayableHoles } from '@/utils/holeTransformers';
@@ -43,7 +73,10 @@ export function isValidUUID(str: string): boolean {
 /**
  * Process scorecard sync action
  */
-export async function processScorecardSync(sync: PendingSync): Promise<ScorecardSyncResult | void> {
+export async function processScorecardSync(
+  sync: PendingSync,
+  options: ScorecardUploadOptions = {}
+): Promise<ScorecardSyncResult | void> {
   const { action, data } = sync;
 
   syncLogger.debug('Processing scorecard sync', { action, dataId: data?.id });
@@ -51,7 +84,7 @@ export async function processScorecardSync(sync: PendingSync): Promise<Scorecard
   switch (action) {
     case 'create':
     case 'update':
-      return syncScorecard(data as Scorecard);
+      return syncScorecard(data as Scorecard, { ...options, queued: sync });
     case 'delete':
       await deleteRemoteScorecard(data as Scorecard);
       break;
@@ -89,7 +122,9 @@ export class ScorecardConflictError extends Error {
   readonly serverScores: Record<string, unknown>;
 
   constructor(row: ScorecardWriteResult) {
-    super('This scorecard changed on another device. Your local scores were kept and were not uploaded.');
+    super(
+      'This scorecard changed on another device. Your local scores were kept and were not uploaded.'
+    );
     this.name = 'ScorecardConflictError';
     this.serverRevision = Number(row.server_revision);
     this.serverStatus = row.server_status;
@@ -97,15 +132,366 @@ export class ScorecardConflictError extends Error {
   }
 }
 
-interface ScorecardWriteResult {
-  applied: boolean;
-  conflict: boolean;
-  server_revision: number | null;
-  server_status: string | null;
-  server_scores: Record<string, unknown> | null;
+type SnapshotRpc = Database['public']['Functions']['write_scorecard_snapshot'];
+type ScorecardWriteResult = SnapshotRpc['Returns'][number];
+
+export interface ScorecardUploadCapture {
+  readonly ownerId: string | null;
+  readonly source: RoundPersistenceSource;
+  readonly session: RoundScoringSession | null;
+}
+/** Call before a caller's first source read, including device-wide/round-wide DAO reads. */
+export function captureScorecardUpload(roundId: string): ScorecardUploadCapture {
+  return {
+    ownerId: getSyncAuthUserId(),
+    source: captureRoundPersistenceSource(roundId),
+    session: useScorecardStore.getState().captureRoundScoringSession(roundId),
+  };
+}
+/** Capture device-wide read provenance before its round IDs become known. */
+export function captureScorecardUploadRead(): (roundId: string) => ScorecardUploadCapture {
+  const ownerId = getSyncAuthUserId();
+  const source = captureRoundPersistenceRead();
+  const state = useScorecardStore.getState();
+  const activeRoundId = state.currentRoundId;
+  const session = activeRoundId ? state.captureRoundScoringSession(activeRoundId) : null;
+  return (roundId) => ({
+    ownerId,
+    source: source(roundId),
+    session: activeRoundId === roundId ? session : null,
+  });
+}
+export interface ScorecardUploadOptions {
+  capture?: ScorecardUploadCapture;
+  queued?: PendingSync;
+  /** A guarded synchronous CURRENT submit source preserves its completion intent. */
+  readCurrent?: () => Scorecard;
+  adoptServerRevisionOnConflict?: boolean;
+  markSynced?: boolean;
+  onSynced?: (scorecard: Scorecard, serverRevision: number) => void;
+}
+export async function syncScorecard(
+  scorecard: Scorecard,
+  options: ScorecardUploadOptions = {}
+): Promise<ScorecardSyncResult> {
+  const proof = options.capture ?? captureScorecardUpload(scorecard.roundId);
+  const { ownerId, source, session } = proof;
+  const assertCurrent = () => {
+    if (
+      source.roundId !== scorecard.roundId ||
+      !ownerId ||
+      getSyncAuthUserId() !== ownerId ||
+      (session && !session.isCurrent())
+    )
+      throw new RoundScoringWriteError(
+        'context_changed',
+        scorecard.roundId,
+        'Scoring owner or session changed'
+      );
+  };
+  if (scorecard.isStandalone) return { serverRevision: scorecard.serverRevision ?? 0 };
+  assertCurrent();
+  return withRoundScoringWrite(scorecard.roundId, async () => {
+    let revisionOverride: number | undefined;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      assertCurrent();
+      try {
+        if (await getRoundEndPrerequisite(scorecard.roundId))
+          throw new RoundScoringWriteError(
+            'local_end_pending',
+            scorecard.roundId,
+            'Round end must settle before uploading scores'
+          );
+      } catch (error) {
+        if (error instanceof RoundScoringWriteError) throw error;
+        throw new RoundScoringWriteError(
+          'local_end_pending',
+          scorecard.roundId,
+          'Round end prerequisite could not be read'
+        );
+      }
+      assertCurrent();
+      const currentSource = captureRoundPersistenceSource(scorecard.roundId);
+      const key = `scorecard:${scorecard.roundId}:${scorecard.playerId}`;
+      let queued: PendingSync | null;
+      try {
+        queued = Platform.OS === 'web' ? null : await getPendingSyncByEntityKey(key);
+      } catch (error) {
+        throw new RoundScoringWriteError(
+          'context_missing',
+          scorecard.roundId,
+          error instanceof Error ? error.message : 'Queued scoring context is invalid'
+        );
+      }
+      assertCurrent();
+      const live = session
+        ?.getCards()
+        .find(
+          (card) =>
+            card.id === scorecard.id &&
+            card.playerId === scorecard.playerId &&
+            card.roundId === scorecard.roundId
+        );
+      const disk =
+        Platform.OS === 'web'
+          ? undefined
+          : (await getScorecardsByRound(scorecard.roundId)).find(
+              (card) =>
+                card.id === scorecard.id &&
+                card.playerId === scorecard.playerId &&
+                card.roundId === scorecard.roundId
+            );
+      assertCurrent();
+      if (!isRoundPersistenceSourceCurrent(currentSource))
+        throw new RoundScoringWriteError(
+          'context_changed',
+          scorecard.roundId,
+          'Current scoring source changed'
+        );
+      const current =
+        options.readCurrent?.() ?? (queued?.data as Scorecard | undefined) ?? live ?? disk;
+      if (!current && !isRoundPersistenceSourceCurrent(source))
+        throw new RoundScoringWriteError(
+          'context_changed',
+          scorecard.roundId,
+          'Captured scoring source changed'
+        );
+      if (options.queued && !queued)
+        throw new RoundScoringWriteError(
+          'context_changed',
+          scorecard.roundId,
+          'Queued upload was replaced or removed'
+        );
+      if (options.queued && queued) {
+        options.queued.data = queued.data;
+        options.queued.revision = queued.revision;
+      }
+      const selected = current ?? scorecard;
+      if (queued && (queued.type !== 'scorecard' || queued.action === 'delete'))
+        throw new RoundScoringWriteError(
+          'context_changed',
+          scorecard.roundId,
+          'Queued scoring work is no longer an upload'
+        );
+      if (
+        selected.id !== scorecard.id ||
+        selected.roundId !== scorecard.roundId ||
+        selected.playerId !== scorecard.playerId ||
+        !selected.scores
+      )
+        throw new RoundScoringWriteError(
+          'context_missing',
+          scorecard.roundId,
+          'Current upload identity or scores are invalid'
+        );
+      const shape = {
+        nine_type: selected.syncNineType ?? 'full',
+        holes_played: selected.holesPlayed ?? null,
+      };
+      let keep: ReadonlySet<number>;
+      try {
+        keep = shapeHoleNumbers(shape);
+      } catch {
+        throw new RoundScoringWriteError(
+          'invalid_shape',
+          scorecard.roundId,
+          'Invalid scoring preparation shape'
+        );
+      }
+      let prepared =
+        shape.holes_played != null
+          ? createRoundScoringContext(scorecard.roundId, {
+              getLiveContext: session?.getLiveContext,
+            })(selected, keep, shape)
+          : selected;
+      if (revisionOverride != null)
+        prepared = {
+          ...prepared,
+          serverRevision: Math.max(prepared.serverRevision ?? 0, revisionOverride),
+        };
+      const diskVersion = disk && scorecardScoringVersion(disk);
+      const liveVersion = live && scorecardScoringVersion(live);
+      const selectedVersion = scorecardScoringVersion(selected);
+      const queueIdentity = queued && {
+        id: queued.id,
+        revision: queued.revision ?? 1,
+        version: scorecardScoringVersion(queued.data as Scorecard),
+      };
+      const assertCurrentContent = () => {
+        assertCurrent();
+        const currentLive = session
+          ?.getCards()
+          .find(
+            (card) =>
+              card.id === scorecard.id &&
+              card.playerId === scorecard.playerId &&
+              card.roundId === scorecard.roundId
+          );
+        if (
+          !isRoundPersistenceSourceCurrent(currentSource) ||
+          scorecardScoringVersion(selected) !== selectedVersion ||
+          (currentLive && scorecardScoringVersion(currentLive)) !== liveVersion
+        )
+          throw new RoundScoringWriteError(
+            'context_changed',
+            scorecard.roundId,
+            'Live scores changed during upload'
+          );
+        return true;
+      };
+      const assertUploadedCurrent = async () => {
+        assertCurrentContent();
+        if (Platform.OS !== 'web') {
+          const currentQueue = await getPendingSyncByEntityKey(key);
+          assertCurrent();
+          const currentDisk = (await getScorecardsByRound(scorecard.roundId)).find(
+            (card) =>
+              card.id === scorecard.id &&
+              card.playerId === scorecard.playerId &&
+              card.roundId === scorecard.roundId
+          );
+          assertCurrent();
+          if (
+            currentQueue?.id !== queueIdentity?.id ||
+            (currentQueue && (currentQueue.revision ?? 1)) !==
+              (queueIdentity && queueIdentity.revision) ||
+            (currentQueue && scorecardScoringVersion(currentQueue.data as Scorecard)) !==
+              (queueIdentity && queueIdentity.version) ||
+            (currentDisk && scorecardScoringVersion(currentDisk)) !== diskVersion ||
+            !isRoundPersistenceSourceCurrent(currentSource)
+          )
+            throw new RoundScoringWriteError(
+              'context_changed',
+              scorecard.roundId,
+              'Durable scores changed during upload'
+            );
+        }
+      };
+      const preserveAccepted = async (serverRevision: number) => {
+        const acceptedWrite = { scorecardId: selected.id, serverRevision };
+        try {
+          await recordAcceptedScorecardWrite(selected.roundId, selected.playerId, acceptedWrite);
+        } catch (error) {
+          throw new RoundScoringWriteError(
+            'unavailable',
+            selected.roundId,
+            error instanceof Error
+              ? error.message
+              : 'Accepted scoring revision could not be recorded',
+            { acceptedWrite }
+          );
+        }
+        if (getSyncAuthUserId() === ownerId && (!session || session.isCurrent()))
+          options.onSynced?.(selected, serverRevision);
+      };
+      let result: ScorecardSyncResult;
+      try {
+        result = await uploadScorecardWithinBoundary(
+          prepared,
+          ownerId!,
+          assertUploadedCurrent,
+          preserveAccepted
+        );
+      } catch (error) {
+        const shapeRejected =
+          error instanceof RoundScoringWriteError &&
+          error.kind === 'shape_changed' &&
+          !error.acceptedWrite;
+        if (!shapeRejected && !(error instanceof ScorecardConflictError)) throw error;
+        if (attempt > 0) throw error;
+        assertCurrent();
+        const authoritative = await fetchRoundScoringShape(scorecard.roundId);
+        assertCurrent();
+        const changed =
+          authoritative.nine_type !== shape.nine_type ||
+          authoritative.holes_played !== shape.holes_played;
+        if (changed) {
+          await adoptRoundShapeWithinScoringWrite(scorecard.roundId, authoritative, {
+            ownerId: ownerId!,
+          });
+          assertCurrent();
+          if (error instanceof ScorecardConflictError) revisionOverride = error.serverRevision;
+          continue; // Reread repaired CURRENT queue/disk/store under the same coordinator.
+        }
+        if (error instanceof ScorecardConflictError && options.adoptServerRevisionOnConflict) {
+          assertCurrent();
+          revisionOverride = error.serverRevision;
+          continue;
+        }
+        throw error;
+      }
+      const acceptedWrite = { scorecardId: selected.id, serverRevision: result.serverRevision };
+      try {
+        await assertUploadedCurrent();
+        if (options.markSynced)
+          await withRoundPersistence(currentSource, async (lease) => {
+            await assertUploadedCurrent();
+            if (
+              disk &&
+              !(await markScorecardAsSynced(selected.id, result.serverRevision, {
+                lease,
+                expected: disk,
+                expectedVersion: diskVersion,
+                ...(queueIdentity && {
+                  queued: { id: queueIdentity.id!, revision: queueIdentity.revision },
+                }),
+                isCurrent: assertCurrentContent,
+              }))
+            )
+              throw new RoundScoringWriteError(
+                'context_changed',
+                scorecard.roundId,
+                'Current disk card refused acknowledgment'
+              );
+            if (
+              Platform.OS === 'web' &&
+              !(await markScorecardAsSynced(selected.id, result.serverRevision, {
+                roundId: selected.roundId,
+                playerId: selected.playerId,
+                isCurrent: assertCurrentContent,
+              }))
+            )
+              throw new RoundScoringWriteError(
+                'context_changed',
+                scorecard.roundId,
+                'Current web card refused acknowledgment'
+              );
+            assertCurrentContent();
+            if (queued && !disk) {
+              if (
+                !(await removePendingSync(queued.id!, queued.revision ?? 1, () => {
+                  return assertCurrentContent();
+                }, { scorecardId: selected.id, roundId: selected.roundId, playerId: selected.playerId }))
+              )
+                throw new RoundScoringWriteError(
+                  'context_changed',
+                  scorecard.roundId,
+                  'Newer queued scores kept pending'
+                );
+            }
+            assertCurrentContent();
+            options.onSynced?.(selected, result.serverRevision);
+          });
+        return result;
+      } catch (error) {
+        await preserveAccepted(result.serverRevision);
+        throw new RoundScoringWriteError(
+          'context_changed',
+          selected.roundId,
+          error instanceof Error ? error.message : 'Upload acknowledgment refused',
+          { acceptedWrite }
+        );
+      }
+    }
+    throw new RoundScoringWriteError(
+      'shape_changed',
+      scorecard.roundId,
+      'Round shape changed repeatedly'
+    );
+  });
 }
 
-export async function syncScorecard(scorecard: Scorecard): Promise<ScorecardSyncResult> {
+async function uploadScorecardWithinBoundary(scorecard: Scorecard, ownerId: string, assertCurrent: () => Promise<void>, preserveAccepted: (serverRevision: number) => Promise<void>): Promise<ScorecardSyncResult> {
   syncLogger.info('Syncing scorecard to Supabase', logScorecardSummary(scorecard));
 
   // Skip standalone rounds - they are local-only and don't sync to server
@@ -143,21 +529,7 @@ export async function syncScorecard(scorecard: Scorecard): Promise<ScorecardSync
 
   // Transform scores object to ensure string keys (Supabase JSONB compatibility)
   // Include all tracked stats: putts, FIR, GIR, penalties, shotContributions
-  const scoresForDb: Record<
-    string,
-    {
-      strokes: number;
-      putts?: number;
-      fairwayHit?: boolean;
-      greenInRegulation?: boolean;
-      penalties?: number;
-      shotContributions?: { drive?: string; approach?: string; putt?: string };
-      fairwayMissDirection?: string;
-      greenMissDirection?: string;
-      bunkerShots?: number;
-      hazards?: { type: string }[];
-    }
-  > = {};
+  const scoresForDb: Record<string, HoleScore> = {};
   let holesWithScores = 0;
   for (const [holeNum, score] of Object.entries(snapshotCard.scores)) {
     if (score && isSingleBallScore(score) && score.strokes !== undefined) {
@@ -229,9 +601,8 @@ export async function syncScorecard(scorecard: Scorecard): Promise<ScorecardSync
 
   // Prepare data for Supabase upsert
   // Don't send 'id' - let Supabase generate it or use the unique constraint (round_id, player_id)
-  const scorecardData = {
-    round_id: scorecard.roundId,
-    player_id: scorecard.playerId,
+  const scorecardData: ScorecardSnapshotWrite = {
+    expected_round_shape: { nine_type: scorecard.syncNineType ?? 'full', holes_played: scorecard.holesPlayed ?? null },
     scores: scoresForDb,
     total_gross: snapshotCard.totalGross || 0,
     total_net: totalNet,
@@ -257,9 +628,13 @@ export async function syncScorecard(scorecard: Scorecard): Promise<ScorecardSync
     hasHandicapDifferential: handicapData.handicapDifferential !== null,
   });
 
-  // Generated Supabase types lag the migration until the next schema generation.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error, data } = await (supabase.rpc as any)('write_scorecard_snapshot', {
+  // The installed client's generic schema resolves rpc to never. Keep the cast
+  // narrow to the reviewed snapshot contract rather than bypassing its payload.
+  const writeSnapshot = supabase.rpc as unknown as (name: 'write_scorecard_snapshot', args: SnapshotRpc['Args']) => PromiseLike<{
+    data: SnapshotRpc['Returns'] | null;
+    error: { code?: string; hint?: string; message: string; details?: string } | null;
+  }>;
+  const { error, data } = await writeSnapshot('write_scorecard_snapshot', {
     p_round_id: scorecard.roundId,
     p_player_id: scorecard.playerId,
     p_expected_revision: scorecard.serverRevision ?? 0,
@@ -275,18 +650,16 @@ export async function syncScorecard(scorecard: Scorecard): Promise<ScorecardSync
       roundId: scorecard.roundId.substring(0, 8) + '...',
       playerId: scorecard.playerId.substring(0, 8) + '...',
     });
-    throw new Error(`Failed to sync scorecard: ${error.message}`);
+    throw roundScoringErrorFromSql(scorecard.roundId, error) ?? new Error(`Failed to sync scorecard: ${error.code ?? ''} ${error.message}`);
   }
 
-  const result = (Array.isArray(data) ? data[0] : data) as ScorecardWriteResult | undefined;
-  if (!result) {
+  const result = Array.isArray(data) ? data[0] : data as ScorecardWriteResult | null;
+  if (!result || typeof result.applied !== 'boolean' || typeof result.conflict !== 'boolean' ||
+    typeof result.server_revision !== 'number' || !Number.isInteger(result.server_revision) || result.server_revision < 0) {
     throw new Error('Failed to sync scorecard: server returned an invalid concurrency response');
   }
   if (!result.applied || result.conflict) {
     throw new ScorecardConflictError(result);
-  }
-  if (typeof result.server_revision !== 'number') {
-    throw new Error('Failed to sync scorecard: server returned an invalid concurrency response');
   }
 
   syncLogger.info('Scorecard synced successfully', {
@@ -296,21 +669,28 @@ export async function syncScorecard(scorecard: Scorecard): Promise<ScorecardSync
     handicapDifferential: scorecardData.handicap_differential,
   });
 
-  // Update player's handicap index if we calculated a differential
-  if (scorecardData.handicap_differential !== null) {
+  // Sync score entries for mismatch detection
+  try {
+    await assertCurrent();
+    await syncScoreEntries(snapshotCard, ownerId);
+    await assertCurrent();
+  } catch (error) {
+    const acceptedWrite = { scorecardId: scorecard.id, serverRevision: result.server_revision };
+    await preserveAccepted(result.server_revision);
+    if (error instanceof RoundScoringWriteError)
+      throw new RoundScoringWriteError(error.kind, error.roundId, error.message, { acceptedWrite, sqlCode: error.sqlCode, sqlHint: error.sqlHint });
+    throw error;
+  }
+  // Start background work only after the guarded snapshot/entries continuation.
+  if (scorecardData.handicap_differential != null) {
     invalidateHandicapCache(scorecard.playerId);
-
-    // Update player's handicap index in background (fire-and-forget)
-    updatePlayerHandicapIndex(scorecard.playerId).catch((error) => {
+    updatePlayerHandicapIndex(scorecard.playerId).catch(error => {
       syncLogger.warn('Failed to update player handicap index', {
         error: error instanceof Error ? error.message : 'Unknown error',
         playerId: scorecard.playerId.substring(0, 8) + '...',
       });
     });
   }
-
-  // Sync score entries for mismatch detection
-  await syncScoreEntries(snapshotCard);
   return { serverRevision: result.server_revision };
 }
 
@@ -643,7 +1023,7 @@ function calculateSnapshotTotalNet(scorecard: Scorecard, dailyHandicap: number |
 /**
  * Sync score entries for mismatch detection
  */
-async function syncScoreEntries(scorecard: Scorecard): Promise<void> {
+async function syncScoreEntries(scorecard: Scorecard, currentUserId: string): Promise<void> {
   // Populate score_entries for mismatch detection (if scores have scoredBy attribution).
   // This ensures offline scores are available for mismatch detection after reconnect.
   // NOTE: Only sync entries where the current user is the scorer (RLS policy requires
@@ -655,8 +1035,6 @@ async function syncScoreEntries(scorecard: Scorecard): Promise<void> {
   // timeout; batching collapses them into one short transaction. This is now the sole
   // writer of score_entries — the per-keystroke write in scoreUpdateSlice was removed
   // to eliminate the foreground/background race on these rows.
-  const currentUser = await getCurrentUser();
-  const currentUserId = currentUser?.id;
 
   const entries: {
     roundId: string;
@@ -706,6 +1084,8 @@ async function syncScoreEntries(scorecard: Scorecard): Promise<void> {
       entriesSkipped, // Skipped because scorer was another user
     });
   } catch (entryError) {
+    const scoringError = roundScoringErrorFromSql(scorecard.roundId, entryError);
+    if (scoringError) throw scoringError;
     // Non-critical - log but don't fail the scorecard sync
     syncLogger.warn('Failed to save score entries during sync', {
       error: entryError instanceof Error ? entryError.message : 'Unknown error',

@@ -9,6 +9,7 @@ import { createModuleLogger } from '@/utils/debugLogger';
 import { fromTable } from './types';
 import { createError } from '@/services/errors';
 import type { ScoreEntry } from './types';
+import { roundScoringErrorFromSql } from '@/services/rounds/roundScoringErrors';
 
 const logger = createModuleLogger('ScoreMismatchService');
 
@@ -57,10 +58,12 @@ export async function saveScoreEntry(
       }
     )
     .select()
-    .single()) as { data: ScoreEntry | null; error: { message: string } | null };
+    .single()) as { data: ScoreEntry | null; error: { message: string; code?: string; hint?: string } | null };
 
   if (error) {
     logger.error('Failed to save score entry', error);
+    const scoringError = roundScoringErrorFromSql(roundId, error);
+    if (scoringError) throw scoringError;
     throw createError(`Failed to save score entry: ${error.message}`, 'DATABASE');
   }
 
@@ -123,6 +126,8 @@ export async function saveScoreEntries(
 
   if (error) {
     logger.error('Failed to save score entries (batch)', error);
+    const scoringError = roundScoringErrorFromSql(entries[0].roundId, error);
+    if (scoringError) throw scoringError;
     throw createError(`Failed to save score entries: ${error.message}`, 'DATABASE');
   }
 }

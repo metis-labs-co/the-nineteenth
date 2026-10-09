@@ -8,7 +8,7 @@ import {
 } from '@/services/offline/dao/SyncQueueDAO';
 import { getDb } from '@/services/offline/DatabaseManager';
 jest.mock('@/services/offline/DatabaseManager', () => ({ getDb: jest.fn() }));
-const txn = { runAsync: jest.fn() };
+const txn = { runAsync: jest.fn(), getFirstAsync: jest.fn() };
 const database = {
   runAsync: jest.fn(),
   getFirstAsync: jest.fn(),
@@ -19,6 +19,7 @@ beforeEach(() => {
   (getDb as jest.Mock).mockResolvedValue(database);
   database.withExclusiveTransactionAsync.mockImplementation(async (work) => work(txn));
   txn.runAsync.mockResolvedValue({ changes: 1 });
+  txn.getFirstAsync.mockResolvedValue(null);
 });
 it('includes failed rows and refuses malformed JSON rather than hiding it', async () => {
   database.getFirstAsync.mockResolvedValueOnce({
@@ -77,6 +78,19 @@ it('uses the local card identity even when the accepted server record has a diff
   });
   expect(txn.runAsync.mock.calls[0][1]).toEqual([11, localId, 'r', 'p']);
   expect(txn.runAsync.mock.calls[1][1]).toEqual([11, 'scorecard:r:p', localId, 'r', 'p', 11]);
+});
+
+it('rolls back a queue-only acknowledgment when captured ownership changes while SQL settles', async () => {
+  let current = true;
+  txn.runAsync.mockImplementationOnce(async () => { current = false; return { changes: 1 }; });
+  await expect(removePendingSync(4, 3, () => current)).rejects.toThrow(/acknowledgment changed/);
+  expect(database.withExclusiveTransactionAsync).toHaveBeenCalledTimes(1);
+  expect(database.runAsync).not.toHaveBeenCalled();
+});
+it('refuses queue-only acknowledgment when a disk card is created before deletion', async () => {
+  txn.getFirstAsync.mockResolvedValue({ id: 'local-card' });
+  await expect(removePendingSync(4, 3, () => true, { scorecardId: 'local-card', roundId: 'r', playerId: 'p' })).resolves.toBe(false);
+  expect(txn.runAsync).not.toHaveBeenCalled();
 });
 
 

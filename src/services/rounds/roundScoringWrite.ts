@@ -8,7 +8,45 @@ export type PositiveRoundScoringShape = RoundScoringShape & { holes_played: numb
 export type AcceptedScorecardWrite = Readonly<{ scorecardId: string; serverRevision: number }>;
 export type OwnedRoundEndIntent = Readonly<{ userId: string }>;
 export type PriorLocalShapes = ReadonlyMap<string, RoundScoringShape>;
-export type RebuildRoundShapeCard = (source: Scorecard, keep: ReadonlySet<number>, target: RoundScoringShape) => Scorecard;
+export type RebuildRoundShapeCard = (
+  source: Scorecard,
+  keep: ReadonlySet<number>,
+  target: RoundScoringShape
+) => Scorecard;
+
+/** Content identity for an upload acknowledgment; revisions are preserved independently. */
+export function scorecardScoringVersion(card: Scorecard): string {
+  const keys = [
+    'id',
+    'roundId',
+    'playerId',
+    'scores',
+    'totalGross',
+    'totalNet',
+    'total_par_score',
+    'status',
+    'submittedAt',
+    'submittedBy',
+    'createdAt',
+    'updatedAt',
+    'holesPlayed',
+    'syncNineType',
+    'teeData',
+    'playerHandicap',
+    'playerGender',
+    'coursePar',
+    'syncHoles',
+    'syncGameType',
+    'syncHandicapSource',
+  ] as const;
+  return JSON.stringify(
+    Object.fromEntries(keys.map((key) => [key, card[key] ?? null])),
+    (_key, value) =>
+      value && typeof value === 'object' && !Array.isArray(value)
+        ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b)))
+        : value
+  );
+}
 
 /** Pure played-number mask shared by passive disk repair and current-store repair. */
 export function shapeHoleNumbers(shape: RoundScoringShape): Set<number> {

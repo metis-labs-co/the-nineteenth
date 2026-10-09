@@ -23,8 +23,9 @@ import { upsertRoundPlayerTee } from '@/services/competitionPlayers/competitionP
 import { refinalizeRoundResults } from '@/services/rounds/refinalizeRoundResults';
 import { forceFinalizeRound } from '@/services/rounds/forceFinalizeRound';
 import { reopenRound } from '@/services/rounds/reopenRound';
-import { getScorecardsByRound, markScorecardAsSynced, deleteScorecardsByRound } from '@/services/offline/database';
-import { syncScorecard, ScorecardConflictError } from '@/services/offline/sync';
+import { getScorecardsByRound, deleteScorecardsByRound } from '@/services/offline/database';
+import { syncScorecard, captureScorecardUpload } from '@/services/offline/sync';
+import { getSyncAuthUserId } from '@/services/offline/sync/networkState';
 import { useToast } from '@/context/ToastContext';
 import type { TeeBox } from '@/types';
 import type { CompetitionData, RoundWithCourse } from '@/components/competitions/detail';
@@ -600,6 +601,7 @@ export function useForceSyncRoundScorecards() {
     mutationFn: async (
       input: ForceSyncRoundScorecardsInput
     ): Promise<ForceSyncRoundScorecardsResult> => {
+      const capture = captureScorecardUpload(input.roundId);
       const local = await getScorecardsByRound(input.roundId);
       const eligible = local.filter(
         (sc) => !sc.isStandalone && sc.status === 'completed'
@@ -611,16 +613,7 @@ export function useForceSyncRoundScorecards() {
 
       for (const sc of eligible) {
         try {
-          let result;
-          try {
-            result = await syncScorecard(sc);
-          } catch (error) {
-            if (!(error instanceof ScorecardConflictError)) throw error;
-            // Force-push means local wins: adopt the server's revision and
-            // retry once so a stale tracked revision can't block recovery.
-            result = await syncScorecard({ ...sc, serverRevision: error.serverRevision });
-          }
-          await markScorecardAsSynced(sc.id, result.serverRevision);
+          await syncScorecard(sc, { capture, adoptServerRevisionOnConflict: true, markSynced: true });
           pushed++;
         } catch (error) {
           failed++;
@@ -637,7 +630,7 @@ export function useForceSyncRoundScorecards() {
       // Re-finalize once scorecards have landed so the leaderboard /
       // round_results pipeline picks up the new data. Non-fatal: if it
       // throws, the caller can still hit "Recalculate Results" manually.
-      if (pushed > 0) {
+      if (pushed > 0 && capture.ownerId === getSyncAuthUserId() && (!capture.session || capture.session.isCurrent())) {
         try {
           await refinalizeRoundResults(input.roundId);
         } catch (error) {

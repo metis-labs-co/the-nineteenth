@@ -36,10 +36,10 @@ import type { RoundScoringShape } from '@/services/rounds/roundScoringWrite';
 
 /** Shape captured when preparing BOTH scores and aggregates; never relabel a prepared write. */
 export type ScorecardSnapshotWrite = Partial<Pick<Scorecard,
-  'scores' | 'total_gross' | 'total_net' | 'total_points' | 'total_par_score' |
+  'scores' | 'total_gross' | 'total_net' | 'total_points' |
   'status' | 'submitted_at' | 'submitted_by' | 'synced_at' | 'ga_handicap_used' |
   'daily_handicap_used' | 'handicap_differential' | 'course_rating_used' | 'slope_rating_used'
->> & { expected_round_shape: RoundScoringShape };
+>> & { total_par_score?: number | null; expected_round_shape: RoundScoringShape };
 
 export type ScorecardResolutionPatch = Pick<Scorecard, 'scores' | 'total_gross' | 'updated_at'> &
   Partial<Pick<Scorecard, 'total_net' | 'total_points'>> & {
