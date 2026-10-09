@@ -538,3 +538,57 @@ it.each(['commit', 'rollback', 'reclose during recovery', 'session change during
   hook.unmount();
   (saveScorecard as jest.Mock).mockImplementation(() => Promise.resolve());
 });
+
+
+it.each(['scores', 'empty'])('C2b recovers player1 then freshly acquires unfinished player2 after cancellation: fresh %s', async (fresh) => {
+  const { act } = require('@testing-library/react-native');
+  const { supabase } = require('@/services/supabase/client');
+  const { withRoundPersistenceTransition } = require('@/services/offline/roundPersistenceBarrier');
+  jest.clearAllMocks();
+  mockStoreState.currentRoundId = ROUND_ID; mockStoreState.isInitialized = true;
+  mockStoreState.nineType = 'front9'; mockStoreState.holesPlayed = null;
+  mockMetadata.data.nineType = 'front9'; mockMetadata.data.holesPlayed = null;
+  const blanks = ['player-1', 'player-2'].map(playerId => ({ id: `two-player-${playerId}`, roundId: ROUND_ID,
+    playerId, scores: {}, status: 'in-progress' as const, syncHandicapSource: 'none' as const }));
+  mockGroupScorecards = new Map(blanks.map(card => [card.playerId, card]));
+  const durable = new Map<string, Partial<import('@/types').Scorecard>>(blanks.map(card => [card.id, { ...card }]));
+  mockRemoteScorecards = [
+    { player_id: 'player-1', scores: { 1: { strokes: 5 } }, status: 'completed', total_gross: 5, total_net: 5, revision: 3 },
+    { player_id: 'player-2', scores: { 1: { strokes: 6 } }, status: 'completed', total_gross: 6, total_net: 6, revision: 3 },
+  ];
+  let releaseSave!: () => void; let releaseTransition!: () => void;
+  const strictSave = jest.fn(async (card, options) => {
+    const stored = durable.get(card.id)!;
+    if (options?.replaceProvisionalHandicapSource && (stored.syncHandicapSource !== options.replaceProvisionalHandicapSource || Object.keys(stored.scores ?? {}).length))
+      throw new Error('Strict native provisional predicate refused repeated replacement');
+    durable.set(card.id, { ...card });
+    if (card.playerId === 'player-1') await new Promise<void>(r => { releaseSave = r; });
+  });
+  (saveScorecard as jest.Mock).mockImplementation(strictSave);
+  (getScorecardsByRound as jest.Mock).mockImplementation(async () => [...durable.values()].map(card => ({ ...card })));
+  const hook = renderTheHook();
+  await act(async () => { for (let i = 0; i < 20; i++) await Promise.resolve(); });
+  expect(strictSave).toHaveBeenCalledTimes(1);
+  const transition = withRoundPersistenceTransition(ROUND_ID, { nine_type: 'front9', holes_played: null },
+    () => new Promise<void>(r => { releaseTransition = r; }), () => undefined);
+  await act(async () => { releaseSave(); for (let i = 0; i < 30; i++) await Promise.resolve(); });
+  expect(mockGroupScorecards.get('player-1')).toBe(blanks[0]);
+  expect(mockGroupScorecards.get('player-2')).toBe(blanks[1]);
+  expect(getScorecardsByRound).not.toHaveBeenCalled();
+  expect((supabase.from as jest.Mock).mock.calls.filter(([table]) => table === 'scorecards')).toHaveLength(1);
+  mockRemoteScorecards = fresh === 'empty' ? [] : [
+    { player_id: 'player-1', scores: { 1: { strokes: 99 } }, status: 'completed', total_gross: 99, total_net: 99, revision: 4 },
+    { player_id: 'player-2', scores: { 1: { strokes: 8 } }, status: 'completed', total_gross: 8, total_net: 8, revision: 4 },
+  ];
+  await act(async () => { releaseTransition(); await transition; for (let i = 0; i < 70; i++) await Promise.resolve(); });
+  expect(mockGroupScorecards.get('player-1')).toMatchObject({ scores: { 1: { strokes: 5 } }, status: 'completed', totalGross: 5 });
+  if (fresh === 'empty') expect(mockGroupScorecards.get('player-2')).toBe(blanks[1]);
+  else expect(mockGroupScorecards.get('player-2')).toMatchObject({ scores: { 1: { strokes: 8 } }, status: 'completed', totalGross: 8 });
+  expect((supabase.from as jest.Mock).mock.calls.filter(([table]) => table === 'scorecards')).toHaveLength(2);
+  expect(strictSave).toHaveBeenCalledTimes(fresh === 'empty' ? 1 : 2);
+  expect(strictSave.mock.calls.map(([card]) => card.scores)).toEqual(fresh === 'empty' ? [{ 1: { strokes: 5 } }] : [{ 1: { strokes: 5 } }, { 1: { strokes: 8 } }]);
+  await act(async () => { await new Promise(r => setTimeout(r, 20)); });
+  expect((supabase.from as jest.Mock).mock.calls.filter(([table]) => table === 'scorecards')).toHaveLength(2);
+  hook.unmount();
+  (saveScorecard as jest.Mock).mockImplementation(() => Promise.resolve());
+});

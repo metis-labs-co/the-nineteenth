@@ -56,11 +56,8 @@ export async function recoverHydratedScorecards(recovery: DurableHydrationRecove
     }
     assertCurrent();
     useScorecardStore.setState({ groupScorecards: merged });
-    // A current scored card needs no second remote replacement. A durable blank
-    // handshake can still acquire remote scores using its freshly decoded stamp.
-    return [...recovery.originals.keys()].some(id => {
-      const card = merged.get(id);
-      return card && !hasScores(card);
-    });
+    // Cancellation may have prevented later players' saves entirely. Check all
+    // CURRENT round cards so their remaining blanks get a fresh remote read too.
+    return [...merged.values()].some(card => card.roundId === roundId && !hasScores(card));
   });
 }
