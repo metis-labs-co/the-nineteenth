@@ -93,10 +93,12 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
   // scores already entered, and players sometimes decide to cut a round
   // short or extend it after they've started. Standalone rounds only —
   // for competition rounds, hole count is fixed by the competition.
+  // Once ended early, a new nine would pair the played count with different holes.
   const isStandalone = round.competition_id === null;
   const canEditNineType =
     isOrganizer &&
     isStandalone &&
+    round.holes_played == null &&
     (round.status === 'upcoming' || round.status === 'in-progress');
 
   // Per-field edit sheets - only one open at a time. Kept local to the tab
@@ -552,6 +554,7 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
           onDismiss={handleCloseSheet}
           roundId={round.id}
           currentNineType={round.nine_type}
+          holesPlayed={round.holes_played ?? null}
         />
       )}
       {showMatchupRow && (

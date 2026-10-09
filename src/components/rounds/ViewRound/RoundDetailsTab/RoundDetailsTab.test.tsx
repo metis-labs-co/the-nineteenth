@@ -23,6 +23,7 @@ import type { GameType, RoundStatus, AustralianState, CompetitionStatus, TeeBox 
 // Store reference to mock navigate function
 const mockNavigate = jest.fn();
 const mockEndedPillProps = jest.fn();
+const mockNineTypeSheetProps = jest.fn();
 
 // Override navigation mock to use our mockNavigate
 jest.mock('@react-navigation/native', () => {
@@ -86,8 +87,10 @@ jest.mock('./sheets', () => {
       visible ? <View testID="edit-datetime-sheet" /> : null,
     EditTeeSheet: ({ visible }: { visible: boolean }) =>
       visible ? <View testID="edit-tee-sheet" /> : null,
-    EditNineTypeSheet: ({ visible }: { visible: boolean }) =>
-      visible ? <View testID="edit-nine-type-sheet" /> : null,
+    EditNineTypeSheet: (props: { visible: boolean; holesPlayed?: number | null }) => {
+      mockNineTypeSheetProps(props);
+      return props.visible ? <View testID="edit-nine-type-sheet" /> : null;
+    },
     MatchupSheet: ({ visible }: { visible: boolean }) =>
       visible ? <View testID="matchup-sheet" /> : null,
     RoundRulesSheet: ({ visible }: { visible: boolean }) =>
@@ -1087,6 +1090,44 @@ describe('RoundDetailsTab', () => {
         expect(!!screen.queryByTestId('edit-nine-type-sheet')).toBe(editable);
       },
     );
+  });
+
+  describe('Nine-type lock', () => {
+    const playing = (overrides: Partial<RoundWithCourse> = {}) =>
+      createRoundWithCourse({
+        competition_id: null,
+        competition: null,
+        status: 'in-progress',
+        ...overrides,
+      });
+
+    it.each([null, undefined])('offers the hole-count sheet with marker %s (characterization)', (holesPlayed) => {
+      render(<RoundDetailsTab round={playing({ holes_played: holesPlayed })} isOrganizer />);
+      expect(screen.getByLabelText('Holes').props.accessibilityRole).toBe('button');
+      expect(screen.getByHintText('Change number of holes')).toBeTruthy();
+      fireEvent.press(screen.getByLabelText('Holes'));
+      expect(screen.getByTestId('edit-nine-type-sheet')).toBeTruthy();
+    });
+
+    it.each([6, 0, -3, 2.5, NaN])('freezes the hole-count row with non-null marker %s', (holesPlayed) => {
+      render(<RoundDetailsTab round={playing({ holes_played: holesPlayed })} isOrganizer />);
+      expect(screen.getByLabelText('Holes').props.accessibilityRole).not.toBe('button');
+      expect(screen.queryByHintText('Change number of holes')).toBeNull();
+      fireEvent.press(screen.getByLabelText('Holes'));
+      expect(screen.queryByTestId('edit-nine-type-sheet')).toBeNull();
+    });
+
+    it('forwards an arriving marker to the already-open sheet', () => {
+      const round = playing({ holes_played: null });
+      const { rerender } = render(<RoundDetailsTab round={round} isOrganizer />);
+      fireEvent.press(screen.getByLabelText('Holes'));
+      expect(screen.getByTestId('edit-nine-type-sheet')).toBeTruthy();
+      rerender(<RoundDetailsTab round={{ ...round, holes_played: 6 }} isOrganizer />);
+      expect(mockNineTypeSheetProps).toHaveBeenLastCalledWith(expect.objectContaining({
+        visible: true, holesPlayed: 6,
+      }));
+      expect(screen.getByLabelText('Holes').props.accessibilityRole).not.toBe('button');
+    });
   });
 
   describe('Snapshots', () => {

@@ -13,7 +13,7 @@
  * Scores aren't deleted — the dialog wording reflects that.
  */
 
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -35,6 +35,8 @@ export interface EditNineTypeSheetProps {
   onDismiss: () => void;
   roundId: string;
   currentNineType: NineType;
+  /** Any non-null rounds.holes_played marker fixes the round's hole count. */
+  holesPlayed?: number | null;
 }
 
 interface OptionMeta {
@@ -116,8 +118,13 @@ export function EditNineTypeSheet({
   onDismiss,
   roundId,
   currentNineType,
+  holesPlayed = null,
 }: EditNineTypeSheetProps) {
   const colors = useThemeColors();
+  const isEndedEarly = holesPlayed != null;
+  // A confirmation callback can outlive its render when the end marker arrives.
+  const isEndedEarlyRef = useRef(isEndedEarly);
+  isEndedEarlyRef.current = isEndedEarly;
   const queryClient = useQueryClient();
 
   // Scorecards drive the data-loss check. Cheap to share a query with the
@@ -135,6 +142,9 @@ export function EditNineTypeSheet({
 
   const { mutate, isPending } = useMutation({
     mutationFn: async (nineType: NineType) => {
+      if (isEndedEarlyRef.current) {
+        throw new Error("This round's holes can't be changed after it was ended early.");
+      }
       await updateRound(roundId, { nine_type: nineType });
     },
     onSuccess: () => {
@@ -187,7 +197,7 @@ export function EditNineTypeSheet({
 
   const handleSelect = useCallback(
     (nineType: NineType) => {
-      if (nineType === currentNineType || isPending) {
+      if (nineType === currentNineType || isPending || isEndedEarlyRef.current) {
         onDismiss();
         return;
       }
@@ -197,7 +207,7 @@ export function EditNineTypeSheet({
   );
 
   const confirmPendingChange = useCallback(() => {
-    if (!pendingChange) return;
+    if (!pendingChange || isEndedEarlyRef.current) return;
     mutate(pendingChange.nineType);
   }, [mutate, pendingChange]);
 
@@ -220,19 +230,22 @@ export function EditNineTypeSheet({
         showsVerticalScrollIndicator={false}
       >
         <Text style={[styles.helper, { color: colors.textSecondary }]}>
-          {`Change which holes count toward this round's score. Scores already entered on holes outside the new selection are kept in your records but won't appear on the scorecard.`}
+          {isEndedEarly
+            ? `This round was ended after ${holesPlayed} holes, so its holes can't be changed.`
+            : `Change which holes count toward this round's score. Scores already entered on holes outside the new selection are kept in your records but won't appear on the scorecard.`}
         </Text>
         <View style={styles.options}>
           {OPTIONS.map((opt) => {
             const selected = opt.value === currentNineType;
+            const disabled = isPending || isEndedEarly;
             return (
               <TouchableOpacity
                 key={opt.value}
                 accessibilityRole="button"
                 accessibilityLabel={`${opt.label} (${opt.description})`}
-                accessibilityState={{ selected, disabled: isPending }}
+                accessibilityState={{ selected, disabled }}
                 onPress={() => handleSelect(opt.value)}
-                disabled={isPending}
+                disabled={disabled}
                 activeOpacity={0.75}
                 style={[
                   styles.card,
@@ -241,7 +254,7 @@ export function EditNineTypeSheet({
                     backgroundColor: colors.surface,
                     borderColor: selected ? colors.primary : colors.border,
                     borderWidth: selected ? 2 : 1,
-                    opacity: isPending && !selected ? 0.5 : 1,
+                    opacity: disabled && !selected ? 0.5 : 1,
                   },
                 ]}
                 testID={`edit-nine-type-option-${opt.value}`}
