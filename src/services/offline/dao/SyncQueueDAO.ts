@@ -1,8 +1,10 @@
 import { readSyncHandicapSource } from '@/services/rounds/scorecardScoringMetadata';
 import { Platform } from 'react-native';
 import type { AcceptedScorecardWrite, OwnedRoundEndIntent } from '@/services/rounds/roundScoringWrite';
-import { assertIntentOwner, ensureRoundEndIntent } from './roundEndIntent';
+import { assertIntentOwner, ensureRoundEndIntent, type EndTransaction } from './roundEndIntent';
 import { RoundScoringWriteError } from '@/services/rounds/roundScoringErrors';
+import { scorecardScoringVersion } from '@/services/rounds/roundScoringWrite';
+import { rowToScorecard } from './ScorecardDAO';
 /**
  * Sync Queue DAO
  *
@@ -10,7 +12,7 @@ import { RoundScoringWriteError } from '@/services/rounds/roundScoringErrors';
  */
 
 import type { PendingSync } from '@/types';
-import type { PendingSyncRow } from '../types';
+import type { PendingSyncRow, ScorecardRow } from '../types';
 import { getDb } from '../DatabaseManager';
 import { TABLE_NAMES } from '../schema/tables';
 import { dbLogger } from '@/utils/debugLogger';
@@ -20,7 +22,11 @@ import { dbLogger } from '@/utils/debugLogger';
  */
 export async function addPendingSync(
   sync: Omit<PendingSync, 'id'>,
-  options: { ifAbsent?: boolean; isCurrent?: () => boolean } = {}
+  options: {
+    ifAbsent?: boolean;
+    isCurrent?: () => boolean;
+    expectedScorecard?: { scorecardId: string; roundId: string; playerId: string; version: string };
+  } = {}
 ): Promise<void> {
   dbLogger.debug('Adding pending sync', {
     type: sync.type,
@@ -43,8 +49,37 @@ export async function addPendingSync(
   const status = sync.status ?? 'pending';
 
   try {
-    const insert = async (connection: Pick<Awaited<ReturnType<typeof getDb>>, 'runAsync'>) => {
+    const insert = async (connection: EndTransaction) => {
       if (options.isCurrent && !options.isCurrent()) return;
+      let data = sync.data;
+      if (options.expectedScorecard) {
+        const expected = options.expectedScorecard;
+        if (
+          data?.id !== expected.scorecardId ||
+          data?.roundId !== expected.roundId ||
+          data?.playerId !== expected.playerId
+        )
+          throw new RoundScoringWriteError(
+            'context_changed',
+            expected.roundId,
+            'Failure retention card identity changed'
+          );
+        const row = await connection.getFirstAsync<ScorecardRow>(
+          `SELECT * FROM ${TABLE_NAMES.SCORECARDS} WHERE id = ? AND round_id = ? AND player_id = ?`,
+          [expected.scorecardId, expected.roundId, expected.playerId]
+        );
+        if (
+          !row ||
+          scorecardScoringVersion(await rowToScorecard(row, connection)) !== expected.version
+        )
+          return;
+        // Accepted metadata can rise independently of scoring content.
+        data = {
+          ...data,
+          serverRevision: Math.max(data.serverRevision ?? 0, row.server_revision ?? 0),
+        };
+        if (options.isCurrent && !options.isCurrent()) return;
+      }
       await connection.runAsync(
         `INSERT INTO ${TABLE_NAMES.PENDING_SYNCS}
          (type, action, data, timestamp, retry_count, entity_key, revision, status, last_error, last_attempt_at)
@@ -75,7 +110,7 @@ export async function addPendingSync(
         [
           sync.type,
           sync.action,
-          JSON.stringify(sync.data),
+          JSON.stringify(data),
           sync.timestamp.toISOString(),
           sync.retryCount,
           entityKey,

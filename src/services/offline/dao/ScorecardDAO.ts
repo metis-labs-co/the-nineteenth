@@ -26,7 +26,10 @@ import { dbLogger } from '@/utils/debugLogger';
 /**
  * Convert a database row to a Scorecard object
  */
-async function rowToScorecard(row: ScorecardRow, connection?: EndTransaction): Promise<Scorecard> {
+export async function rowToScorecard(
+  row: ScorecardRow,
+  connection?: EndTransaction
+): Promise<Scorecard> {
   const scores = connection ? await getHoleScores(row.id, connection) : await getHoleScores(row.id);
 
   // Parse tee data JSON if present (stored for handicap calculation in fallback sync path)

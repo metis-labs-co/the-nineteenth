@@ -900,6 +900,12 @@ async function retainFallbackFailure(
           },
           {
             ifAbsent: true,
+            expectedScorecard: {
+              scorecardId: current.id,
+              roundId: current.roundId,
+              playerId: current.playerId,
+              version: scorecardScoringVersion(current),
+            },
             isCurrent: () =>
               getSyncAuthUserId() === ownerId && isRoundPersistenceSourceCurrent(source),
           }

@@ -31,6 +31,7 @@ import { supabase } from '@/services/supabase/client';
 import * as queryClient from '@/services/queryClient';
 import { saveScoreEntries } from '@/services/scoreMismatch';
 import { addPendingSync as addActualPendingSync } from '@/services/offline/dao/SyncQueueDAO';
+import { getScorecardsByRound as getActualScorecardsByRound } from '@/services/offline/dao/ScorecardDAO';
 import { getDb } from '@/services/offline/DatabaseManager';
 import type { Scorecard, PendingSync } from '@/types';
 import { syncScorecard, ScorecardConflictError } from '@/services/offline/sync/scorecardSync';
@@ -240,6 +241,53 @@ function createPendingSync(overrides: Partial<PendingSync> = {}): PendingSync {
     retryCount: 0,
     revision: 1,
     ...overrides,
+  };
+}
+
+/** Native rows for the fallback-retention tests that exercise the real DAO decoder. */
+function nativeScorecardQueries(read: () => Scorecard) {
+  const parent = () => {
+    const card = read();
+    if (!card.player) throw new Error('Native scorecard fixture requires a player');
+    return {
+      id: card.id,
+      round_id: card.roundId,
+      player_id: card.playerId,
+      player_name: card.player.name,
+      player_handicap: card.player.handicap,
+      total_gross: card.totalGross,
+      total_net: card.totalNet,
+      status: card.status,
+      submitted_at: card.submittedAt?.toISOString(),
+      submitted_by: card.submittedBy,
+      created_at: card.createdAt.toISOString(),
+      updated_at: card.updatedAt.toISOString(),
+      server_revision: card.serverRevision,
+      is_synced: 0,
+      is_standalone: 0,
+      player_gender: card.playerGender,
+      player_handicap_used: card.playerHandicap,
+    };
+  };
+  return {
+    getFirstAsync: jest.fn(async () => parent()),
+    getAllAsync: jest.fn(async (statement: string) =>
+      statement.includes('hole_scores')
+        ? Object.entries(read().scores).map(([number, score]) => {
+            if ('balls' in score)
+              return { hole_number: Number(number), ball_scores: JSON.stringify(score.balls) };
+            return {
+              hole_number: Number(number),
+              strokes: score.strokes,
+              putts: score.putts,
+              fairway_hit: score.fairwayHit ? 1 : 0,
+              green_in_regulation: score.greenInRegulation ? 1 : 0,
+              penalties: score.penalties ?? 0,
+              scored_by: score.scoredBy,
+            };
+          })
+        : [parent()]
+    ),
   };
 }
 
@@ -1787,6 +1835,99 @@ describe("C1 local queue persistence admission", () => {
 
 describe('C2b fallback source retention', () => {
   beforeEach(async () => { initSyncService(); await flushPromises(); jest.clearAllMocks(); });
+  it.each(['acquisition-hole', 'acquisition-parent', 'transaction-hole', 'transaction-revision'])(
+    'guards fallback retention against the current disk state during %s',
+    async (boundary) => {
+      const row = {
+        id: 'local-retention-card',
+        round_id: '550e8400-e29b-41d4-a716-446655440234',
+        player_id: '550e8400-e29b-41d4-a716-446655440001',
+        player_name: 'Name',
+        player_handicap: 0,
+        total_gross: 5,
+        total_net: 5,
+        status: 'completed',
+        is_synced: 0,
+        created_at: '2026-10-09T00:00:00.000Z',
+        updated_at: '2026-10-09T00:00:00.000Z',
+        server_revision: 2,
+      };
+      let hole = { hole_number: 1, strokes: 5, penalties: 0 };
+      let queue: unknown = null;
+      const sql = jest.fn(async (_statement: string, args: unknown[]) => {
+        queue = JSON.parse(args[2] as string);
+        return { changes: 1 };
+      });
+      const db = {
+        runAsync: sql,
+        getFirstAsync: jest.fn(async (statement: string) =>
+          statement.includes('pending_syncs') ? queue : row
+        ),
+        getAllAsync: jest.fn(async (statement: string) =>
+          statement.includes('hole_scores') ? [hole] : [row]
+        ),
+        withExclusiveTransactionAsync: jest.fn(),
+      };
+      (getDb as jest.Mock).mockResolvedValue(db);
+      const [old] = await getActualScorecardsByRound(row.round_id);
+      let entered!: () => void;
+      let release!: () => void;
+      const waiting = new Promise<void>((resolve) => {
+        entered = resolve;
+      });
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      db.withExclusiveTransactionAsync.mockImplementation(async (work) => {
+        if (boundary.startsWith('transaction')) {
+          entered();
+          await gate;
+        }
+        await work(db);
+      });
+      if (!boundary.startsWith('transaction'))
+        (getDb as jest.Mock).mockImplementationOnce(async () => {
+          entered();
+          await gate;
+          return db;
+        });
+      (database.addPendingSync as jest.Mock).mockImplementation(addActualPendingSync);
+      (database.getUnsyncedScorecards as jest.Mock).mockResolvedValue([old]);
+      (database.getScorecardsByRound as jest.Mock).mockResolvedValue([old]);
+      (supabase.rpc as jest.Mock).mockResolvedValueOnce({
+        data: null,
+        error: { message: 'old upload failed' },
+      });
+      const syncing = syncAll();
+      await waiting;
+      if (boundary === 'acquisition-parent') row.status = 'in-progress';
+      else if (boundary === 'transaction-revision') row.server_revision = 11;
+      else hole = { ...hole, strokes: 8 };
+      release();
+      await syncing;
+      if (boundary === 'transaction-revision') {
+        expect(queue).toMatchObject({
+          id: old.id,
+          serverRevision: 11,
+          scores: { 1: { strokes: 5 } },
+        });
+        expect(sql).toHaveBeenCalledTimes(1);
+      } else {
+        expect(queue).toBeNull();
+        expect(sql).not.toHaveBeenCalled();
+      }
+      expect(row.is_synced).toBe(0);
+      expect(row.updated_at).toBe('2026-10-09T00:00:00.000Z');
+      expect(database.markScorecardAsSynced).not.toHaveBeenCalled();
+      const [current] = await getActualScorecardsByRound(row.round_id);
+      if (boundary === 'acquisition-parent') expect(current.status).toBe('in-progress');
+      else
+        expect(current.scores[1]).toMatchObject({
+          strokes: boundary === 'transaction-revision' ? 5 : 8,
+        });
+    }
+  );
+
   it('surfaces unsupported guarded web failure retention without queue or acknowledgment mutation', async () => {
     const previous = Platform.OS;
     Object.defineProperty(Platform, 'OS', { value: 'web', configurable: true });
@@ -1849,7 +1990,7 @@ describe('C2b fallback source retention', () => {
   it.each(['pending', 'failed'] as const)(
     'preserves a newer %s queue inserted after absence check while the disk read waits',
     async (status) => {
-      const old = createTestScorecard({ roundId: '550e8400-e29b-41d4-a716-446655440230' });
+      let old = createTestScorecard({ roundId: '550e8400-e29b-41d4-a716-446655440230' });
       let queue: PendingSync | null = null;
       let retaining = false;
       let entered!: () => void;
@@ -1875,9 +2016,10 @@ describe('C2b fallback source retention', () => {
         };
         return { changes: 1 };
       });
-      const db = { runAsync: sql, withExclusiveTransactionAsync: jest.fn() };
+      const db = { runAsync: sql, withExclusiveTransactionAsync: jest.fn(), ...nativeScorecardQueries(() => old) };
       db.withExclusiveTransactionAsync.mockImplementation(async (work) => work(db));
       (getDb as jest.Mock).mockResolvedValue(db);
+      old = (await getActualScorecardsByRound(old.roundId))[0];
       (database.addPendingSync as jest.Mock).mockImplementation(addActualPendingSync);
       (database.getUnsyncedScorecards as jest.Mock).mockResolvedValue([old]);
       (database.getPendingSyncByEntityKey as jest.Mock).mockImplementation(async (key) =>
@@ -1947,7 +2089,7 @@ describe('C4a orchestrator current-source schedules', () => {
   it.each([7, 11])(
     'retains a same-shape partial fallback failure with monotonic revision %s in the new queue',
     async (confirmedRevision) => {
-      const original = createTestScorecard({
+      let original = createTestScorecard({
         roundId: '550e8400-e29b-41d4-a716-446655440223',
         serverRevision: 2,
         scores: { 1: { strokes: 4, scoredBy: 'test-user-id' } },
@@ -1958,9 +2100,11 @@ describe('C4a orchestrator current-source schedules', () => {
         retained = { data: JSON.parse(args[2] as string), retryCount: args[4], status: args[7] };
         return { changes: 1 };
       });
-      const db = { runAsync: sql, withExclusiveTransactionAsync: jest.fn() };
+      const db = { runAsync: sql, withExclusiveTransactionAsync: jest.fn(), ...nativeScorecardQueries(() => disk) };
       db.withExclusiveTransactionAsync.mockImplementation(async (work) => work(db));
       (getDb as jest.Mock).mockResolvedValue(db);
+      original = (await getActualScorecardsByRound(original.roundId))[0];
+      disk = original;
       (database.addPendingSync as jest.Mock).mockImplementation(addActualPendingSync);
       (database.getUnsyncedScorecards as jest.Mock).mockResolvedValue([original]);
       (database.getScorecardsByRound as jest.Mock).mockImplementation(async () => [disk]);
