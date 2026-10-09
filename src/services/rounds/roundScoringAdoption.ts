@@ -136,11 +136,15 @@ async function repairWithinBoundary(
   };
   // Generic authorized metadata supplies course/game only. Historical HI/tee never come from today's profile.
   if (
-    sources.some(
-      (card) =>
-        !(card.syncHoles?.length || evidence.holes?.length) ||
-        !(card.syncGameType || evidence.gameType)
-    )
+    sources.some((card) => {
+      // This guarded context belongs only to this original source. Do not turn
+      // it into generic evidence for historical cached/queued sources.
+      const live = evidence.getLiveContext?.(card);
+      return (
+        !(card.syncHoles?.length || evidence.holes?.length || live?.holes.length) ||
+        !(card.syncGameType || evidence.gameType || live?.gameType)
+      );
+    })
   ) {
     const remote = await readRepairMetadata(roundId);
     proof.assertCurrent();

@@ -617,9 +617,8 @@ export function useRoundData({
           .eq('round_id', roundId)
           .is('deleted_at', null) as { data: RemoteScorecard[] | null; error: { message: string } | null };
 
-        if (error || !remoteScorecards?.length) return;
-
         assertCurrent();
+        if (error || !remoteScorecards?.length) return;
         const { groupScorecards, nineType, holesPlayed } = useScorecardStore.getState();
         const candidates = new Map<string, { original: Scorecard; card: Scorecard }>();
 
@@ -681,6 +680,7 @@ export function useRoundData({
               await saveScorecard(updatedScorecard, { lease,
                 ...(provisionalSource && { replaceProvisionalHandicapSource: provisionalSource }),
               });
+              if (hasRemoteScores) session.invalidateLiveContext(updatedScorecard.id);
               assertCurrent();
               if (useScorecardStore.getState().groupScorecards.get(remote.player_id) !== localScorecard) return;
               await markScorecardAsSynced(updatedScorecard.id, remote.revision);
@@ -707,7 +707,7 @@ export function useRoundData({
           useScorecardStore.setState({ groupScorecards: merged });
         }
       } catch (err) {
-        if (err instanceof RoundPersistenceSourceChangedError) {
+        if (err instanceof RoundPersistenceSourceChangedError || !current()) {
           if (cancelled) return;
           hydratedRoundRef.current = null;
           await waitForRoundPersistenceReady(roundId);

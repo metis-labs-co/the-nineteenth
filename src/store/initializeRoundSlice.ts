@@ -109,7 +109,11 @@ function localHolesPlayedFromCards(cards: Scorecard[]): number | null {
   return max;
 }
 
-type InitSessionOptions = { getSessionGeneration?: () => number };
+type InitSessionOptions = {
+  getSessionGeneration?: () => number;
+  onLiveCardsCreated?: (cards: readonly Scorecard[]) => void;
+  canUseLiveContext?: () => boolean;
+};
 
 export async function initializeRound(
   set: SetFn,
@@ -238,6 +242,7 @@ export async function initializeRound(
     }
 
     assertSource();
+    if (shape.holesPlayed == null) options.onLiveCardsCreated?.([...newScorecards.values()]);
     set({
       currentRoundId: roundId,
       currentPlayers: players,
@@ -677,7 +682,7 @@ export async function ensureTeamMemberScorecards(
     };
     if (current.holesPlayed != null) {
       const target = { nine_type: current.nineType ?? 'full', holes_played: current.holesPlayed };
-      card = createRoundScoringContext(currentRoundId, { holes: current.holes, gameType: current.gameType, ...(!cached && { getLiveContext: () => ({ player,
+      card = createRoundScoringContext(currentRoundId, { holes: current.holes, gameType: current.gameType, ...(!cached && options.canUseLiveContext?.() && { getLiveContext: () => ({ player,
         handicapSource: current.handicapSource ?? 'profile', nineType: target.nine_type,
         holes: current.holes ?? [], gameType: current.gameType!,
         teeData: current.playerTeeMap?.get(player.id) ?? current.selectedTeeData ?? null,
@@ -700,6 +705,7 @@ export async function ensureTeamMemberScorecards(
     const latest = get();
     if (latest.groupScorecards.has(player.id)) continue;
     const cards = new Map(latest.groupScorecards); cards.set(player.id, card);
+    if (!cached) options.onLiveCardsCreated?.([card]);
     set({ groupScorecards: cards, currentPlayers: latest.currentPlayers.some(p => p.id === player.id) ? latest.currentPlayers : [...latest.currentPlayers, player] });
   }
 }

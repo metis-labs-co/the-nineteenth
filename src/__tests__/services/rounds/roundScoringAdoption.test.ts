@@ -27,6 +27,9 @@ jest.mock('@/services/offline/database', () => ({
   getFailedSyncs: jest.fn(),
   persistAuthoritativeRoundShape: jest.fn(),
   getPendingSyncByEntityKey: jest.fn(),
+  saveHoles: jest.fn(async () => undefined),
+  saveScorecard: jest.fn(async () => undefined),
+  getFailedSyncCountForRound: jest.fn(async () => 0),
 }));
 jest.mock('@/services/offline/sync/networkState', () => ({
   getSyncAuthUserId: jest.fn(() => 'owner'),
@@ -36,6 +39,7 @@ jest.mock('@/services/offline/sync', () => ({
   subscribeScorecardSynced: jest.fn(),
 }));
 jest.mock('@/services/supabase/client', () => ({ supabase: { from: jest.fn() } }));
+jest.mock('@/services/diagnostics', () => ({ pushDiagnostic: jest.fn() }));
 const holes = create18Holes();
 const tee = { name: 'White', color: 'white', slopeRating: 113, courseRating: 72 };
 const player = {
@@ -79,6 +83,8 @@ const card = (overrides: Partial<Scorecard> = {}): Scorecard => ({
 });
 beforeEach(() => {
   jest.clearAllMocks();
+  const { supabase } = require('@/services/supabase/client');
+  (supabase.from as jest.Mock).mockReset();
   roundId = `adoption-${++sequence}`;
   (getSyncAuthUserId as jest.Mock).mockReturnValue('owner');
   (getHoles as jest.Mock).mockResolvedValue(holes);
@@ -368,5 +374,71 @@ it('NULL refuses a live round-only final marker even when every card remains unm
       { ownerId: 'owner' }
     )
   ).rejects.toMatchObject({ kind: 'local_end_pending' });
+  expect(persistAuthoritativeRoundShape).not.toHaveBeenCalled();
+});
+
+it('same-session live adoption uses its actual holes/game/player/tee without an authorized metadata fetch', async () => {
+  const { supabase } = require('@/services/supabase/client');
+  (getScorecardsByRound as jest.Mock).mockResolvedValue([]);
+  await useScorecardStore
+    .getState()
+    .initializeRound(roundId, [player], holes, 'stroke', false, [], tee, 'calculated');
+  const live = {
+    ...useScorecardStore.getState().groupScorecards.get(player.id)!,
+    scores: { 1: { strokes: 5 } },
+  };
+  useScorecardStore.setState({ groupScorecards: new Map([[player.id, live]]) });
+  (getScorecardsByRound as jest.Mock).mockResolvedValue([live]);
+  (getHoles as jest.Mock).mockResolvedValue([]);
+  (supabase.from as jest.Mock).mockImplementationOnce(() => {
+    throw new Error('Offline; metadata must not be requested');
+  });
+  (persistAuthoritativeRoundShape as jest.Mock).mockImplementationOnce(
+    async (_id, target, { rebuild }) => ({
+      cards: [rebuild(live, new Set([1]), target)],
+      priorLocalShapes: new Map([[live.id, { nine_type: 'full', holes_played: null }]]),
+    })
+  );
+  await adoptAuthoritativeRoundShape(roundId, shape, { ownerId: 'owner' });
+  expect(supabase.from).not.toHaveBeenCalled();
+  expect(useScorecardStore.getState().groupScorecards.get(player.id)).toMatchObject({
+    holesPlayed: 8,
+    playerHandicap: 20,
+    syncHandicapSource: 'calculated',
+    syncHoles: holes,
+    syncGameType: 'stroke',
+    teeData: tee,
+    scores: { 1: { strokes: 5 } },
+  });
+});
+
+it('live context is not donated to an older queued source sharing the current local ID', async () => {
+  const { supabase } = require('@/services/supabase/client');
+  (getScorecardsByRound as jest.Mock).mockResolvedValue([]);
+  await useScorecardStore
+    .getState()
+    .initializeRound(roundId, [player], holes, 'stroke', false, [], tee, 'calculated');
+  const live = useScorecardStore.getState().groupScorecards.get(player.id)!;
+  const historical = {
+    ...live,
+    createdAt: new Date('2020-01-01'),
+    scores: { 1: { strokes: 9 } },
+    syncHandicapSource: 'none' as const,
+  };
+  expect(
+    useScorecardStore.getState().captureRoundScoringSession(roundId)?.getLiveContext(historical)
+  ).toBeUndefined();
+  (getScorecardsByRound as jest.Mock).mockResolvedValue([live]);
+  (getPendingSyncs as jest.Mock).mockResolvedValue([
+    { type: 'scorecard', action: 'update', data: historical },
+  ]);
+  (getHoles as jest.Mock).mockResolvedValue([]);
+  (supabase.from as jest.Mock).mockImplementationOnce(() => {
+    throw new Error('Metadata unavailable offline');
+  });
+  await expect(
+    adoptAuthoritativeRoundShape(roundId, shape, { ownerId: 'owner' })
+  ).rejects.toMatchObject({ kind: 'unavailable' });
+  expect(supabase.from).toHaveBeenCalledWith('rounds');
   expect(persistAuthoritativeRoundShape).not.toHaveBeenCalled();
 });

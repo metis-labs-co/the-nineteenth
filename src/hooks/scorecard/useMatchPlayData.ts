@@ -386,9 +386,8 @@ export function useMatchPlayData({
           .eq('round_id', roundId)
           .eq('status', 'completed') as { data: RemoteScorecard[] | null; error: { message: string } | null };
 
-        if (fetchError || !remoteScorecards?.length) return;
-
         assertCurrent();
+        if (fetchError || !remoteScorecards?.length) return;
         const { groupScorecards, nineType, holesPlayed } = useScorecardStore.getState();
         const candidates = new Map<string, { original: Scorecard; card: Scorecard }>();
 
@@ -445,6 +444,7 @@ export function useMatchPlayData({
               await saveScorecard(updatedScorecard, { lease,
                 ...(provisionalSource && { replaceProvisionalHandicapSource: provisionalSource }),
               });
+              session.invalidateLiveContext(updatedScorecard.id);
               assertCurrent();
               if (useScorecardStore.getState().groupScorecards.get(remote.player_id) !== localScorecard) return;
               candidates.set(remote.player_id, { original: localScorecard, card: updatedScorecard });
@@ -469,7 +469,7 @@ export function useMatchPlayData({
           useScorecardStore.setState({ groupScorecards: merged });
         }
       } catch (err) {
-        if (err instanceof RoundPersistenceSourceChangedError) {
+        if (err instanceof RoundPersistenceSourceChangedError || !current()) {
           if (cancelled) return;
           hydratedRoundRef.current = null;
           await waitForRoundPersistenceReady(roundId);

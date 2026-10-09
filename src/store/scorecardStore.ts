@@ -55,6 +55,7 @@ export interface RoundScoringSession {
   getCards(): Scorecard[];
   hasLocalEnd(): boolean;
   getLiveContext(source: Scorecard): LiveRoundRepairContext | undefined;
+  invalidateLiveContext(scorecardId: string): void;
   applyShape(shape: RoundScoringShape, priorLocalShapes: PriorLocalShapes, acceptedWrite?: AcceptedScorecardWrite, rebuild?: RebuildRoundShapeCard): boolean;
 }
 
@@ -153,6 +154,16 @@ interface ScorecardState {
 export const useScorecardStore = create<ScorecardState>((set, get) => {
   // Invalidates asynchronous end actions even when the same round is reopened.
   let roundSession = 0;
+  // Provenance belongs to this private session, never to an ID/status supplied
+  // by historical loading or remote hydration.
+  const liveScorecardOrigins = new Map<string, number>();
+  // Match the tracked creation across SQLite/queue decoding without granting
+  // eligibility to an older source that happens to reuse the same local ID.
+  const sourceCreatedAt = (card: Scorecard) => {
+    if (card.createdAt instanceof Date) return card.createdAt.getTime();
+    return typeof card.createdAt === 'string' ? Date.parse(card.createdAt) : NaN;
+  };
+  let liveRoundSession = false;
   const captureLivePersistence = (playerId: string) => {
     const generation = roundSession;
     const roundId = get().currentRoundId;
@@ -259,26 +270,46 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
     // `currentRoundId`, which the slice only sets once the round has loaded.
     initializeRound: async (roundId, players, holes, gameType, isStandalone, allowedPlayerIds, selectedTeeData, handicapSource, playerTeeMap, nineType, startHole, holesPlayed) => {
       const session = ++roundSession;
-      await initSlice.initializeRound(set, initSyncListener, roundId, players, holes, gameType, isStandalone, allowedPlayerIds, selectedTeeData, handicapSource, playerTeeMap, nineType, startHole, holesPlayed, { getSessionGeneration: () => roundSession });
+      liveScorecardOrigins.clear();
+      liveRoundSession = false;
+      await initSlice.initializeRound(set, initSyncListener, roundId, players, holes, gameType, isStandalone, allowedPlayerIds, selectedTeeData, handicapSource, playerTeeMap, nineType, startHole, holesPlayed, {
+        getSessionGeneration: () => roundSession,
+        onLiveCardsCreated: cards => {
+          if (roundSession !== session) return;
+          liveRoundSession = true;
+          for (const card of cards) liveScorecardOrigins.set(card.id, sourceCreatedAt(card));
+        },
+      });
       if (roundSession !== session) return;
       await refreshRoundFailedSyncCount();
     },
 
     loadFromOffline: async (roundId) => {
       const session = ++roundSession;
+      liveScorecardOrigins.clear();
+      liveRoundSession = false;
       const loaded = await initSlice.loadFromOffline(set, initSyncListener, roundId, { getSessionGeneration: () => roundSession });
       if (roundSession !== session) return loaded;
       await refreshRoundFailedSyncCount();
       return loaded;
     },
 
-    ensureTeamMemberScorecards: (teamMemberPlayers) =>
-      initSlice.ensureTeamMemberScorecards(
+    ensureTeamMemberScorecards: (teamMemberPlayers) => {
+      const session = roundSession;
+      return initSlice.ensureTeamMemberScorecards(
         set,
         get,
         teamMemberPlayers,
-        { getSessionGeneration: () => roundSession }
-      ),
+        {
+          getSessionGeneration: () => roundSession,
+          canUseLiveContext: () => roundSession === session && liveRoundSession,
+          onLiveCardsCreated: cards => {
+            if (roundSession !== session || !liveRoundSession) return;
+            for (const card of cards) liveScorecardOrigins.set(card.id, sourceCreatedAt(card));
+          },
+        }
+      );
+    },
 
     // Simple setters
     setCurrentHole: (hole) => {
@@ -445,12 +476,18 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
         isCurrent,
         getCards: () => isCurrent() ? [...get().groupScorecards.values()] : [],
         hasLocalEnd: () => isCurrent() && (get().holesPlayed != null || [...get().groupScorecards.values()].some(card => card.holesPlayed != null)),
+        invalidateLiveContext: scorecardId => {
+          if (isCurrent()) liveScorecardOrigins.delete(scorecardId);
+        },
         getLiveContext: (source) => {
           if (!isCurrent()) return undefined;
           const state = get();
           const current = state.groupScorecards.get(source.playerId);
           // Same local identity in this captured active session; never a closed/reload profile lookup.
-          if (!current || current.id !== source.id || !current.player ||
+          const origin = liveScorecardOrigins.get(source.id);
+          if (origin == null || origin !== sourceCreatedAt(source) ||
+            !current || current.id !== source.id || origin !== sourceCreatedAt(current) || !current.player ||
+            source.status !== 'in-progress' || source.submittedAt || source.submittedBy ||
             current.status !== 'in-progress' || current.submittedAt || current.submittedBy) return undefined;
           return { player: current.player, handicapSource: state.handicapSource,
             nineType: state.nineType, holes: state.holes, gameType: state.gameType,
@@ -661,6 +698,8 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
 
     resetRound: () => {
       roundSession += 1;
+      liveScorecardOrigins.clear();
+      liveRoundSession = false;
       set({
         currentRoundId: null,
         currentPlayers: [],

@@ -25,7 +25,7 @@ const mockStoreState = {
   currentRoundId: ROUND_ID as string | null,
   captureRoundScoringSession: () => {
     const identity = mockStoreState.currentRoundId;
-    return { isCurrent: () => mockStoreState.currentRoundId === identity };
+    return { isCurrent: () => mockStoreState.currentRoundId === identity, invalidateLiveContext: jest.fn() };
   },
   currentPlayers: [{ id: 'player-1', name: 'Sam' }],
   holes: [] as Hole[],
@@ -422,4 +422,46 @@ it('C2b schedules fresh hydration after cancellation and waits for a closed tran
   await act(async () => { releaseGate(); await transition; for (let i=0;i<30;i++) await Promise.resolve(); });
   expect((saveScorecard as jest.Mock).mock.calls.at(-1)?.[0]).toMatchObject({ scores: { 1: { strokes: 5 } }, serverRevision: 2 });
   expect(mockGroupScorecards.get('player-1')?.scores?.[7]).toBeUndefined();
+});
+
+it.each(['empty', 'error', 'rejection'])('C2b restarts round hydration after a stale %s response and gate reopening', async (response) => {
+  const { supabase } = require('@/services/supabase/client');
+  const { withRoundPersistenceTransition } = require('@/services/offline/roundPersistenceBarrier');
+  const { act } = require('@testing-library/react-native');
+  jest.clearAllMocks();
+  mockStoreState.currentRoundId = ROUND_ID; mockStoreState.isInitialized = true;
+  mockStoreState.nineType = 'full'; mockStoreState.holesPlayed = null;
+  mockMetadata.data.nineType = 'full'; mockMetadata.data.holesPlayed = null;
+  mockGroupScorecards = new Map([['player-1', { id: 'empty-retry', roundId: ROUND_ID, playerId: 'player-1', scores: {}, status: 'in-progress' }]]);
+  let releaseRead!: (result: unknown) => void; let rejectRead!: (error: Error) => void; let releaseGate!: () => void;
+  (supabase.from as jest.Mock).mockImplementationOnce(() => {
+    const chain = { select: () => chain, eq: () => chain, is: () => new Promise((r, reject) => { releaseRead = r; rejectRead = reject; }) }; return chain;
+  });
+  renderTheHook();
+  await act(async () => { for (let i = 0; i < 10; i++) await Promise.resolve(); });
+  const transition = withRoundPersistenceTransition(ROUND_ID, { nine_type: 'full', holes_played: null }, () => new Promise<void>(r => { releaseGate = r; }), () => undefined);
+  await act(async () => {
+    for (let i = 0; i < 10; i++) await Promise.resolve();
+    if (response === 'rejection') rejectRead(new Error('offline'));
+    else releaseRead({ data: response === 'empty' ? [] : null, error: response === 'error' ? { message: 'offline' } : null });
+    for (let i = 0; i < 20; i++) await Promise.resolve();
+  });
+  expect((supabase.from as jest.Mock).mock.calls.filter(([table]) => table === 'scorecards')).toHaveLength(1);
+  mockRemoteScorecards = [{ player_id: 'player-1', scores: { 1: { strokes: 5 } }, revision: 2, status: 'completed' }];
+  await act(async () => { releaseGate(); await transition; for (let i = 0; i < 30; i++) await Promise.resolve(); });
+  expect((supabase.from as jest.Mock).mock.calls.filter(([table]) => table === 'scorecards')).toHaveLength(2);
+  expect(mockGroupScorecards.get('player-1')).toMatchObject({ scores: { 1: { strokes: 5 } }, serverRevision: 2 });
+});
+
+it('ordinary current-session hydration rejection does not schedule a retry loop', async () => {
+  const { supabase } = require('@/services/supabase/client');
+  jest.clearAllMocks();
+  mockStoreState.currentRoundId = ROUND_ID; mockStoreState.isInitialized = true;
+  mockStoreState.nineType = 'full'; mockStoreState.holesPlayed = null;
+  mockMetadata.data.nineType = 'full'; mockMetadata.data.holesPlayed = null;
+  (supabase.from as jest.Mock).mockImplementationOnce(() => {
+    const chain = { select: () => chain, eq: () => chain, is: async () => { throw new Error('offline'); } }; return chain;
+  });
+  renderTheHook(); await tick();
+  expect((supabase.from as jest.Mock).mock.calls.filter(([table]) => table === 'scorecards')).toHaveLength(1);
 });

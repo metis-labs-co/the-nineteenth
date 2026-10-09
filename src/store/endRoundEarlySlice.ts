@@ -23,6 +23,7 @@ import { persistRoundEarlyEnd } from '@/services/offline/database';
 import { storeLogger } from '@/utils/debugLogger';
 import { filterPlayableHoles } from '@/utils/holeTransformers';
 import { createRoundScoringContext } from '@/services/rounds/roundScoringContext';
+import type { RoundScoringSession } from './scorecardStore';
 import { adoptAuthoritativeRoundShape } from '@/services/rounds/roundScoringAdoption';
 import { withRoundScoringWrite } from '@/services/rounds/roundScoringCoordinator';
 import { captureRoundPersistenceSource, isRoundPersistenceSourceCurrent, RoundPersistenceSourceChangedError, withRoundPersistenceTransition } from '@/services/offline/roundPersistenceBarrier';
@@ -45,6 +46,7 @@ interface StoreState {
   playerTeeMap: Map<string, TeeBox>;
   groupScorecards: Map<string, Scorecard>;
   allowedPlayerIds: string[];
+  captureRoundScoringSession?: (roundId: string) => RoundScoringSession | null;
 }
 
 type GetFn = () => StoreState;
@@ -211,12 +213,7 @@ export async function endRoundEarly(
   let committedCards: Scorecard[] = [];
   const liveContext = (source: Scorecard) => {
     assertSession();
-    const current = get();
-    const card = current.groupScorecards.get(source.playerId);
-    if (card?.id !== source.id || !card.player || card.status !== 'in-progress' || card.submittedAt || card.submittedBy) return undefined;
-    return { player: card.player, handicapSource: current.handicapSource, nineType: current.nineType,
-      holes: current.holes, gameType: current.gameType,
-      teeData: current.playerTeeMap.get(source.playerId) ?? current.selectedTeeData };
+    return get().captureRoundScoringSession?.(currentRoundId)?.getLiveContext(source);
   };
   const transition = () => withRoundPersistenceTransition(currentRoundId, target, async () => {
     assertSession();
