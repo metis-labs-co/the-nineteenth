@@ -30,6 +30,7 @@ import { useStatsVisibilityWithTier } from '@/hooks/useStatsVisibilityWithTier';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { useFinalizeSubmittedRound } from '@/hooks/rounds/useFinalizeSubmittedRound';
 import { scoringLogger } from '@/utils/debugLogger';
+import { isEndedEarly } from '@/utils/roundShape';
 
 import { usePlayerScorecard } from './hooks';
 import {
@@ -73,7 +74,11 @@ export default function PlayerScorecardScreen({ navigation, route }: Props) {
   } = usePlayerScorecard(playerId, roundId);
 
   // Get submission methods from store (only used in the live-scoring context)
-  const { holes, getCompletedHolesCount, submitScorecards, setCurrentHole, groupScorecards } = useScorecardStore();
+  const { holes, getCompletedHolesCount, submitScorecards, setCurrentHole, groupScorecards, holesPlayed } = useScorecardStore();
+
+  // Ended rounds submit from Review / Match Play Scorecard, which validate
+  // played holes. This footer validates every planned hole.
+  const showSubmitFooter = !isReadOnly && !isEndedEarly({ holes_played: holesPlayed });
 
   // Finalise the round (status → results → skins), or queue it when offline
   const finalizeRound = useFinalizeSubmittedRound();
@@ -220,7 +225,7 @@ export default function PlayerScorecardScreen({ navigation, route }: Props) {
         style={styles.scrollView}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: insets.bottom + (isReadOnly ? spacing.lg : 120) },
+          { paddingBottom: insets.bottom + (showSubmitFooter ? 120 : spacing.lg) },
         ]}
         refreshControl={
           <RefreshControl
@@ -253,8 +258,8 @@ export default function PlayerScorecardScreen({ navigation, route }: Props) {
         />
       </ScrollView>
 
-      {/* Submit Footer - live scoring only; hidden when viewing a round read-only */}
-      {!isReadOnly && (
+      {/* Submit Footer - live scoring only; hidden read-only or after an early end */}
+      {showSubmitFooter && (
         <View
           style={[
             styles.footerContainer,

@@ -36,6 +36,7 @@ const mockLeaderboard = jest.fn((_props: unknown) => null);
 const mockMatchScorecard = jest.fn((_props: unknown) => null);
 const mockMatchLeaderboard = jest.fn((_props: unknown) => null);
 const mockSubMatchLeaderboard = jest.fn((_props: unknown) => null);
+const mockSkins = jest.fn((_props: unknown) => null);
 const mockWolf = jest.fn((_props: unknown) => null);
 let mockPendingMismatches: { id: string; hole_number: number }[] = [];
 const mockMismatchModal = jest.fn((_props: unknown) => null);
@@ -70,6 +71,7 @@ jest.mock('./components', () => ({
   LeaderboardTabContent: (props: unknown) => mockLeaderboard(props),
   MatchScorecardTabContent: (props: unknown) => mockMatchScorecard(props),
   MatchPlayLeaderboardTab: (props: unknown) => mockMatchLeaderboard(props),
+  SkinsTabContent: (props: unknown) => mockSkins(props),
   WolfTabContent: (props: unknown) => mockWolf(props),
   IncompleteScoresModal: () => null,
   ReviewLoadingState: () => null,
@@ -317,5 +319,81 @@ describe('Review readiness and mismatch routing', () => {
     mockPendingMismatches = [{ id: 'outside-nine', hole_number: 3 }, { id: 'planned', hole_number: 17 }];
     render(review());
     expect(lastProps(mockMismatchModal).mismatches).toBe(mockPendingMismatches);
+  });
+});
+
+
+describe('Review skins preview', () => {
+  function showSkins(roundDetails: unknown = null) {
+    mockTabs.mockReturnValue({
+      ...defaultTabs, activeTab: 'skins', skinsGame: { id: 'skins-1' }, roundDetails,
+    });
+  }
+
+  it.each(['full', 'back9'] as const)('keeps ordinary planned %s counts while the round row loads', (nineType) => {
+    setupStore(nineType);
+    showSkins();
+    render(review());
+    expect(lastProps(mockSkins).holeCounts).toEqual(nineType === 'full'
+      ? { plannedHoles: 18, holesPlayed: 18 } : { plannedHoles: 9, holesPlayed: 9 });
+  });
+
+  it('falls back to eighteen when neither the round row nor planned holes are loaded', () => {
+    const state = setupStore();
+    state.holes = [];
+    showSkins();
+    render(review());
+    expect(lastProps(mockSkins).holeCounts).toEqual({ plannedHoles: 18, holesPlayed: 18 });
+  });
+
+  it('keeps authoritative already-ended counts ahead of the local cutoff', () => {
+    setupStore('back9', 8);
+    showSkins({ nine_type: 'back9', holes_played: 4 });
+    render(review());
+    expect(lastProps(mockSkins).holeCounts).toEqual({ plannedHoles: 9, holesPlayed: 4 });
+  });
+
+  it('preserves an explicit full-length server count ahead of the local cutoff', () => {
+    setupStore('full', 6);
+    showSkins({ nine_type: 'full', holes_played: 18 });
+    render(review());
+    expect(lastProps(mockSkins).holeCounts).toEqual({ plannedHoles: 18, holesPlayed: 18 });
+  });
+
+  it.each(['full', 'back9'] as const)('uses the local offline cutoff with planned %s pricing while the server end is unset', (nineType) => {
+    const state = setupStore(nineType, 6);
+    const roundDetails = { nine_type: nineType, holes_played: null };
+    showSkins(roundDetails);
+    const { rerender } = render(review());
+    expect(lastProps(mockSkins).holeCounts).toEqual(nineType === 'full'
+      ? { plannedHoles: 18, holesPlayed: 6 } : { plannedHoles: 9, holesPlayed: 6 });
+    state.holesPlayed = 3;
+    rerender(review());
+    expect(lastProps(mockSkins).holeCounts).toEqual(nineType === 'full'
+      ? { plannedHoles: 18, holesPlayed: 3 } : { plannedHoles: 9, holesPlayed: 3 });
+    state.holesPlayed = null;
+    rerender(review());
+    expect(lastProps(mockSkins).holeCounts).toEqual(nineType === 'full'
+      ? { plannedHoles: 18, holesPlayed: 18 } : { plannedHoles: 9, holesPlayed: 9 });
+    expect(roundDetails.holes_played).toBeNull();
+  });
+
+  it.each(['full', 'back9'] as const)('keeps planned %s pricing with a local cutoff while the round row loads', (nineType) => {
+    const state = setupStore(nineType, 6);
+    showSkins();
+    const { rerender } = render(review());
+    expect(lastProps(mockSkins).holeCounts).toEqual(nineType === 'full'
+      ? { plannedHoles: 18, holesPlayed: 6 } : { plannedHoles: 9, holesPlayed: 6 });
+    state.holesPlayed = 3;
+    rerender(review());
+    expect(lastProps(mockSkins).holeCounts).toEqual(nineType === 'full'
+      ? { plannedHoles: 18, holesPlayed: 3 } : { plannedHoles: 9, holesPlayed: 3 });
+  });
+
+  it.each([0, -3, 2.5, NaN])('keeps ordinary counts for an invalid local marker (%s)', (marker) => {
+    setupStore('back9', marker);
+    showSkins({ nine_type: 'back9', holes_played: null });
+    render(review());
+    expect(lastProps(mockSkins).holeCounts).toEqual({ plannedHoles: 9, holesPlayed: 9 });
   });
 });

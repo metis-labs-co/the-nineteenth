@@ -74,7 +74,7 @@ export default function MatchPlayScorecardScreen({ navigation, route }: Props) {
   const { data: skinsResults, refetch: refetchSkinsResults } = useSkinsResults(skinsGame?.id);
 
   // Skins are priced on the round's planned holes (read from the round, not the store)
-  const skinsHoleCounts = useSkinsHoleCounts(roundId);
+  const roundSkinsHoleCounts = useSkinsHoleCounts(roundId);
 
   // Check if skins is enabled for this round
   const hasSkinsEnabled = !!skinsGame;
@@ -102,6 +102,18 @@ export default function MatchPlayScorecardScreen({ navigation, route }: Props) {
     holesPlayed,
     groupScorecards,
   } = useScorecardStore();
+
+  // The local end stands in while the offline end_early item is queued.
+  // Keep fetched ended counts authoritative and hole pricing planned.
+  const skinsHoleCounts = useMemo(
+    () =>
+      holesPlayed != null &&
+      isEndedEarly({ holes_played: holesPlayed }) &&
+      roundSkinsHoleCounts.holesPlayed === roundSkinsHoleCounts.plannedHoles
+        ? { plannedHoles: roundSkinsHoleCounts.plannedHoles, holesPlayed }
+        : roundSkinsHoleCounts,
+    [roundSkinsHoleCounts, holesPlayed]
+  );
 
   // Playing handicap inputs (shared with the entry screen so both views agree).
   const teeData = storeTeeData || selectedTee;

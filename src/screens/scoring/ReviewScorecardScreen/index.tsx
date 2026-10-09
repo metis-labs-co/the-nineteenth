@@ -150,14 +150,19 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
   const playedHoleNumbers = useMemo(() => playedHoles.map((h) => h.number), [playedHoles]);
 
   // Skins: holes priced on the round's planned count, the pot over the holes
-  // played (rounds.holes_played once B1 adds it). Until the round row loads,
-  // the store's hole list stands in, as totalHoles did before.
+  // played. Until the round row loads, the store's planned hole list stands in.
   const skinsHoleCounts = useMemo(
     () =>
       roundDetails
-        ? getSkinsHoleCounts(roundDetails)
-        : { plannedHoles: holeCount, holesPlayed: holeCount },
-    [roundDetails, holeCount]
+        ? getSkinsHoleCounts({
+            nine_type: roundDetails.nine_type,
+            // An offline end can precede the server marker. Only a valid
+            // local end stands in; an explicit server count stays authoritative.
+            holes_played: roundDetails.holes_played ??
+              (isEndedEarly({ holes_played: holesPlayed }) ? holesPlayed : null),
+          })
+        : { plannedHoles: holes.length || 18, holesPlayed: holeCount },
+    [roundDetails, holes.length, holeCount, holesPlayed]
   );
 
   // Scoring pairs hook for mismatch detection

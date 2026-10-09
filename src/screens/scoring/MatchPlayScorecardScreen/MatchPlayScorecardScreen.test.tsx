@@ -16,6 +16,8 @@ import { supabase } from '@/services/supabase/client';
 import MatchPlayScorecardScreen from './index';
 import { useMatchPlayData } from '@/hooks/scorecard';
 import { useScorecardStore } from '@/store/scorecardStore';
+import { useActiveSkinsGameForRound, useSkinsResults, useSkinsHoleCounts } from '@/hooks/useSkins';
+import { SkinsResultsCard } from '@/components/skins';
 import type { Hole, Scorecard } from '@/types';
 
 // ============================================================================
@@ -96,7 +98,7 @@ jest.mock('@/hooks/rounds/useFinalizeSubmittedRound', () => ({
 
 // Mock skins component
 jest.mock('@/components/skins', () => ({
-  SkinsResultsCard: () => null,
+  SkinsResultsCard: jest.fn(() => null),
 }));
 
 // Mock supabase
@@ -318,6 +320,9 @@ function setupEmptyHolesMock() {
 describe('MatchPlayScorecardScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (useActiveSkinsGameForRound as jest.Mock).mockReturnValue({ data: null, isLoading: false });
+    (useSkinsResults as jest.Mock).mockReturnValue({ data: null, refetch: jest.fn() });
+    (useSkinsHoleCounts as jest.Mock).mockReturnValue({ plannedHoles: 18, holesPlayed: 18 });
   });
 
   describe('Loading State', () => {
@@ -646,6 +651,90 @@ describe('MatchPlayScorecardScreen', () => {
       mockedUseScorecardStore.mockReturnValue(state);
       return state;
     }
+
+    function enableSkins() {
+      (useActiveSkinsGameForRound as jest.Mock).mockReturnValue({
+        data: {
+          id: 'skins-1', round_id: 'round-123', pot_type: 'per_hole', pot_value: 5,
+          scoring_type: 'gross', status: 'active', participant_ids: ['player-1', 'player-2'],
+        },
+        isLoading: false,
+      });
+      (useSkinsResults as jest.Mock).mockReturnValue({ data: [], refetch: jest.fn() });
+    }
+
+    function setupSkinsPreview(plannedHoles = 18) {
+      setupSuccessfulMock();
+      enableSkins();
+      if (plannedHoles === 9) {
+        mockedUseMatchPlayData.mockReturnValue({
+          ...mockedUseMatchPlayData({ roundId: 'round-123', player1Id: 'player-1', player2Id: 'player-2' }),
+          holes: defaultHoles.slice(9),
+        });
+        mockedUseScorecardStore.mockReturnValue({ ...mockedUseScorecardStore(), nineType: 'back9' });
+      }
+    }
+
+    function lastSkinsCounts() {
+      const calls = (SkinsResultsCard as unknown as jest.Mock).mock.calls;
+      return calls[calls.length - 1][0].holeCounts;
+    }
+
+    it.each([18, 9])('keeps ordinary skins preview counts with %s planned holes', (plannedHoles) => {
+      setupSkinsPreview(plannedHoles);
+      (useSkinsHoleCounts as jest.Mock).mockReturnValue({ plannedHoles, holesPlayed: plannedHoles });
+      render(<MatchPlayScorecardScreen navigation={mockNavigation} route={mockRoute} />);
+      fireEvent.press(screen.getByText('Skins'));
+      expect(lastSkinsCounts()).toEqual({ plannedHoles, holesPlayed: plannedHoles });
+    });
+
+    it('keeps authoritative already-ended counts ahead of the local skins preview cutoff', () => {
+      setupSkinsPreview(9);
+      mockEndedStore({ nineType: 'back9', holesPlayed: 8, isComplete: () => true });
+      (useSkinsHoleCounts as jest.Mock).mockReturnValue({ plannedHoles: 9, holesPlayed: 4 });
+      render(<MatchPlayScorecardScreen navigation={mockNavigation} route={mockRoute} />);
+      fireEvent.press(screen.getByText('Skins'));
+      expect(lastSkinsCounts()).toEqual({ plannedHoles: 9, holesPlayed: 4 });
+    });
+
+    it.each([0, -3, 2.5, NaN])('keeps ordinary skins preview counts for an invalid local marker (%s)', (holesPlayed) => {
+      setupSuccessfulMock();
+      mockEndedStore({ holesPlayed, isComplete: () => true });
+      enableSkins();
+      render(<MatchPlayScorecardScreen navigation={mockNavigation} route={mockRoute} />);
+      fireEvent.press(screen.getByText('Skins'));
+      expect(lastSkinsCounts()).toEqual({ plannedHoles: 18, holesPlayed: 18 });
+    });
+
+    it.each([18, 9])('prices the skins preview on the holes played with %s planned holes', (plannedHoles) => {
+      setupSkinsPreview(plannedHoles);
+      const state = mockEndedStore({
+        nineType: plannedHoles === 9 ? 'back9' : 'full', isComplete: () => true,
+      });
+      const fetchedCounts = { plannedHoles, holesPlayed: plannedHoles };
+      (useSkinsHoleCounts as jest.Mock).mockReturnValue(fetchedCounts);
+      const view = () => <MatchPlayScorecardScreen navigation={mockNavigation} route={mockRoute} />;
+      const { rerender } = render(view());
+      fireEvent.press(screen.getByText('Skins'));
+      expect(lastSkinsCounts()).toEqual({ plannedHoles, holesPlayed: 6 });
+      state.holesPlayed = 3;
+      rerender(view());
+      expect(lastSkinsCounts()).toEqual({ plannedHoles, holesPlayed: 3 });
+      mockedUseScorecardStore.mockReturnValue({ ...state, holesPlayed: null });
+      rerender(view());
+      expect(lastSkinsCounts()).toEqual({ plannedHoles, holesPlayed: plannedHoles });
+      expect(fetchedCounts).toEqual({ plannedHoles, holesPlayed: plannedHoles });
+    });
+
+    it('keeps the hook loading fallback for planned skins pricing and uses the local played count', () => {
+      setupSkinsPreview(9);
+      // useSkinsHoleCounts returns 18/18 before the query has loaded, even
+      // when the scoring store already knows this is a back-nine round.
+      mockEndedStore({ nineType: 'back9', isComplete: () => true });
+      render(<MatchPlayScorecardScreen navigation={mockNavigation} route={mockRoute} />);
+      fireEvent.press(screen.getByText('Skins'));
+      expect(lastSkinsCounts()).toEqual({ plannedHoles: 18, holesPlayed: 6 });
+    });
 
     it('offers Review & Submit once every played hole is complete', () => {
       setupSuccessfulMock();
