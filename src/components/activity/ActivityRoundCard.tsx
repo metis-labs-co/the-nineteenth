@@ -17,6 +17,7 @@ import { useThemeColors, useIsDark } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { PlayerAvatar } from '@/components/common';
 import { formatDateWithWeekday, formatTimeAgo } from '@/utils/formatting';
+import { formatEndedEarlyLabel, isEndedEarly } from '@/utils/roundShape';
 import { useAuth } from '@/hooks/useAuth';
 import { useLikeRound, useUnlikeRound } from '@/hooks/activity';
 import type { ActivityFeedCard, FeedParticipant } from '@/hooks/activity';
@@ -127,7 +128,12 @@ export const ActivityRoundCard = React.memo(function ActivityRoundCard({
   );
 
   const courseTitle = card.club_name || card.course_name;
-  const courseSubtitle = [formatDateWithWeekday(card.round_date), card.club_location]
+  // Keep the ended label immediately after the date so tail truncation eats
+  // the location first. Older cached cards default to the full-round count.
+  const endedEarlyLabel = isEndedEarly(card)
+    ? formatEndedEarlyLabel(card.holes_played!, card.nine_type ?? 'full')
+    : null;
+  const courseSubtitle = [formatDateWithWeekday(card.round_date), endedEarlyLabel, card.club_location]
     .filter(Boolean)
     .join(' · ');
 

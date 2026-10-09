@@ -24,6 +24,7 @@ import {
   hasMultiBallScores,
 } from '@/utils/multiBallScorecard';
 import { isSingleBallScore } from '@/types/database/base';
+import { filterPlayableHoles } from '@/utils/holeTransformers';
 import type { HandicapSource } from '@/types/database/enums';
 import type { Hole, Player, Scorecard } from '@/types';
 import type { BallCount } from '@/types/multiball.types';
@@ -86,7 +87,9 @@ interface UsePlayerScorecardResult {
   refetch: () => void;
   /** True when viewing a completed/other round (data loaded from DB, not the live scoring store). */
   isReadOnly: boolean;
-  /** First hole played (1 normally, 10 for back-9 rounds) — for hole-number display. */
+  /** Hole-number display offset: the course's start_hole (1 for standard
+   *  courses, e.g. 10 for a combo course whose internal hole 1 is "10").
+   *  Not the round's first hole — back-9 hole numbers are already 10..18. */
   startHole: number;
   // Multi-ball support
   isMultiBall: boolean;
@@ -110,6 +113,8 @@ export function usePlayerScorecard(playerId: string, roundId?: string): UsePlaye
     selectedTeeData: storeSelectedTeeData,
     handicapSource: storeHandicapSource,
     startHole: storeStartHole,
+    nineType: storeNineType,
+    holesPlayed: storeHolesPlayed,
   } = useScorecardStore();
 
   // "Live" = the scoring store holds the round we're viewing. Without a roundId we
@@ -182,7 +187,9 @@ export function usePlayerScorecard(playerId: string, roundId?: string): UsePlaye
   const handicapSource: HandicapSource = isLive
     ? storeHandicapSource
     : roRound?.competition?.handicap_source ?? 'profile';
-  const startHole = isLive ? storeStartHole : roRound?.nine_type === 'back9' ? 10 : 1;
+  // The course offset also applies read-only; back-9 physical numbers already
+  // start at 10, so deriving another offset from nine_type would show 19..27.
+  const startHole = isLive ? storeStartHole : roRound?.course?.start_hole ?? 1;
   const isLoading = isLive ? storeIsLoading : roScLoading || roRoundLoading;
   const isInitialized = isLive ? storeIsInitialized : !roScLoading && !roRoundLoading;
 
@@ -202,8 +209,9 @@ export function usePlayerScorecard(playerId: string, roundId?: string): UsePlaye
     return detectBallCount(roScorecardRaw?.scores);
   }, [isLive, storeBallCount, roScorecardRaw]);
 
-  // Get holes data
-  const holes: Hole[] = useMemo(() => {
+  // Preserve the daily-handicap fallback inputs: planned store holes live,
+  // raw course holes read-only. Played-only par would inflate the handicap.
+  const courseHoles: Hole[] = useMemo(() => {
     const sourceHoles = isLive ? storeHoles : roRound?.course?.holes;
     if (sourceHoles && sourceHoles.length > 0) {
       return sourceHoles;
@@ -225,10 +233,18 @@ export function usePlayerScorecard(playerId: string, roundId?: string): UsePlaye
     return defaultHoles;
   }, [isLive, storeHoles, roRound]);
 
-  // Calculate course par for daily handicap calculation
+  // Render and total only the round's nine and retained holes.
+  const holes: Hole[] = useMemo(() => {
+    if (isLive) {
+      return filterPlayableHoles(courseHoles, storeNineType ?? 'full', storeHolesPlayed);
+    }
+    return filterPlayableHoles(courseHoles, roRound?.nine_type ?? 'full', roRound?.holes_played);
+  }, [isLive, courseHoles, storeNineType, storeHolesPlayed, roRound]);
+
+  // Calculate course par for the unchanged daily-handicap fallback.
   const coursePar = useMemo(() => {
-    return Array.isArray(holes) ? holes.reduce((sum, hole) => sum + hole.par, 0) : 0;
-  }, [holes]);
+    return Array.isArray(courseHoles) ? courseHoles.reduce((sum, hole) => sum + hole.par, 0) : 0;
+  }, [courseHoles]);
 
   // Calculate daily handicap using WHS formula, respecting handicap source
   const { handicap, dailyHandicap } = useMemo(() => {

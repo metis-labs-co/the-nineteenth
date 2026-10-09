@@ -1,5 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react-native';
 import { ActivityRoundCard } from './ActivityRoundCard';
+import { formatDateWithWeekday } from '@/utils/formatting';
 import type { ActivityFeedCard, FeedParticipant } from '@/hooks/activity';
 
 const mockNavigate = jest.fn();
@@ -123,6 +124,41 @@ describe('ActivityRoundCard', () => {
   it('shows the course row with club name', () => {
     render(<ActivityRoundCard card={makeCard()} onOpen={jest.fn()} />);
     expect(screen.getByText('Hepburn Springs Golf Club')).toBeTruthy();
+  });
+
+  it.each([undefined, null, 0, -3, 2.5, NaN])('keeps the ordinary subtitle for absent/invalid markers (%s)', (marker) => {
+    const card = makeCard({ holes_played: marker });
+    render(<ActivityRoundCard card={card} onOpen={jest.fn()} />);
+    expect(screen.getByText(`${formatDateWithWeekday(card.round_date)} · Hepburn Springs · VIC`)).toBeTruthy();
+    expect(screen.queryByText(/Ended after/)).toBeNull();
+  });
+
+  it('puts "Ended after N of M" right after the date and preserves navigation/raw metadata', () => {
+    const card = makeCard({ holes_played: 6, nine_type: 'full' });
+    const onOpen = jest.fn();
+    render(<ActivityRoundCard card={card} onOpen={onOpen} />);
+    expect(screen.getByText(`${formatDateWithWeekday(card.round_date)} · Ended after 6 of 18 · Hepburn Springs · VIC`)).toBeTruthy();
+    fireEvent.press(screen.getByLabelText("View Sam Kay's scorecard"));
+    expect(mockNavigate).toHaveBeenCalledWith('PlayerScorecard', { playerId: 'viewer-1', roundId: 'r1' });
+    fireEvent.press(screen.getByLabelText('Sam Kay played a round at Hepburn Springs Golf Club'));
+    expect(onOpen).toHaveBeenCalledWith('r1');
+    expect(card.holes_played).toBe(6);
+    expect(card.nine_type).toBe('full');
+  });
+
+  it.each(['front9', 'back9'] as const)('counts an ended %s against 9 holes', (nineType) => {
+    render(<ActivityRoundCard card={makeCard({ holes_played: 6, nine_type: nineType })} onOpen={jest.fn()} />);
+    expect(screen.getByText(/Ended after 6 of 9/)).toBeTruthy();
+  });
+
+  it('defaults an older cached card with no nine_type to a full round', () => {
+    render(<ActivityRoundCard card={makeCard({ holes_played: 6 })} onOpen={jest.fn()} />);
+    expect(screen.getByText(/Ended after 6 of 18/)).toBeTruthy();
+  });
+
+  it('shows no ended label for a round played as planned', () => {
+    render(<ActivityRoundCard card={makeCard({ holes_played: null })} onOpen={jest.fn()} />);
+    expect(screen.queryByText(/Ended after/)).toBeNull();
   });
 
   it('stacks remaining participants in the footer, capped at 4 with a +N chip', () => {
