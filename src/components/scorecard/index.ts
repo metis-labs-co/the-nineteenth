@@ -63,3 +63,7 @@ export { GroupFilterStrip } from './GroupFilterStrip';
 export { ChangeTeesSheet } from './ChangeTeesSheet';
 export type { ChangeTeesSheetProps } from './ChangeTeesSheet';
 
+
+// End a social round early (confirmation sheet)
+export { EndRoundEarlySheet } from './EndRoundEarlySheet';
+export type { EndRoundEarlySheetProps } from './EndRoundEarlySheet';

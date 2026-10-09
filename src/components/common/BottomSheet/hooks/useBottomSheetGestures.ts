@@ -7,7 +7,7 @@
  * - Snap-back animation when gesture doesn't meet threshold
  */
 
-import { useRef, useCallback, useMemo } from 'react';
+import { useRef, useCallback, useMemo, useEffect } from 'react';
 import { Animated, PanResponder, type GestureResponderEvent, type PanResponderGestureState } from 'react-native';
 import { DEFAULT_ANIMATION_CONFIG, SWIPE_VELOCITY_THRESHOLD } from '../constants';
 import type { UseBottomSheetGesturesOptions } from '../types';
@@ -62,6 +62,18 @@ export function useBottomSheetGestures({
     }).start();
   }, [translateY, config]);
 
+  // PanResponder is retained across renders; its callbacks must read current props.
+  const latest = useRef({ enabled, translateY, shouldDismiss, onDismiss, snapBack });
+  latest.current = { enabled, translateY, shouldDismiss, onDismiss, snapBack };
+
+  useEffect(() => {
+    if (!enabled && isGestureActive.current) {
+      isGestureActive.current = false;
+      translateY.flattenOffset();
+      snapBack();
+    }
+  }, [enabled, translateY, snapBack]);
+
   // Create pan responder
   const panResponder = useRef(
     PanResponder.create({
@@ -72,41 +84,46 @@ export function useBottomSheetGestures({
         gestureState: PanResponderGestureState
       ) => {
         // Only capture if enabled and user is swiping down
-        return enabled && gestureState.dy > 10;
+        return latest.current.enabled && gestureState.dy > 10;
       },
       onMoveShouldSetPanResponderCapture: () => false,
 
       onPanResponderGrant: (_event, gestureState) => {
+        if (!latest.current.enabled) return;
         isGestureActive.current = true;
         gestureStartY.current = gestureState.y0;
         // Extract current offset from animated value
-        translateY.extractOffset();
+        latest.current.translateY.extractOffset();
       },
 
       onPanResponderMove: (_event, gestureState) => {
+        if (!latest.current.enabled || !isGestureActive.current) return;
         // Only allow downward movement (positive dy)
         const newValue = Math.max(0, gestureState.dy);
-        translateY.setValue(newValue);
+        latest.current.translateY.setValue(newValue);
       },
 
       onPanResponderRelease: (_event, gestureState) => {
+        if (!isGestureActive.current) return;
         isGestureActive.current = false;
-        translateY.flattenOffset();
+        const current = latest.current;
+        current.translateY.flattenOffset();
 
         const velocity = gestureState.vy;
         const distance = gestureState.dy;
 
-        if (shouldDismiss(velocity, distance)) {
-          onDismiss();
+        if (current.enabled && current.shouldDismiss(velocity, distance)) {
+          current.onDismiss();
         } else {
-          snapBack();
+          current.snapBack();
         }
       },
 
       onPanResponderTerminate: () => {
+        if (!isGestureActive.current) return;
         isGestureActive.current = false;
-        translateY.flattenOffset();
-        snapBack();
+        latest.current.translateY.flattenOffset();
+        latest.current.snapBack();
       },
     })
   ).current;

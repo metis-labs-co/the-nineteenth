@@ -134,3 +134,57 @@ describe('RoundHeader sync banner', () => {
     expect(onSyncPress).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('RoundHeader end-round-early action', () => {
+  it('shows a ⋮ action labelled "End round early" when allowed', () => {
+    const { getByLabelText } = render(
+      <RoundHeader {...baseProps} canEndRoundEarly onEndRoundEarlyPress={jest.fn()} />
+    );
+
+    expect(getByLabelText('End round early')).toBeTruthy();
+  });
+
+  it('hides the action unless canEndRoundEarly is set', () => {
+    const { queryByLabelText } = render(
+      <RoundHeader {...baseProps} onEndRoundEarlyPress={jest.fn()} />
+    );
+
+    expect(queryByLabelText('End round early')).toBeNull();
+  });
+
+  it('opens the sheet directly when tapped (works offline too)', () => {
+    const onEndRoundEarlyPress = jest.fn();
+    const { getByLabelText } = render(
+      <RoundHeader
+        {...baseProps}
+        isOnline={false}
+        canEndRoundEarly
+        onEndRoundEarlyPress={onEndRoundEarlyPress}
+      />
+    );
+
+    fireEvent.press(getByLabelText('End round early'));
+
+    expect(onEndRoundEarlyPress).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('RoundHeader end action gating', () => {
+  it('hides the action when no callback was supplied', () => {
+    const { queryByLabelText } = render(<RoundHeader {...baseProps} canEndRoundEarly />);
+    expect(queryByLabelText('End round early')).toBeNull();
+  });
+
+  it('keeps the tee action and sync retry available alongside the end action', () => {
+    const onChangeTeesPress = jest.fn();
+    const { getByLabelText, getByText } = render(
+      <RoundHeader {...baseProps} courseName="Course" selectedTee={{ name: 'Blue', color: 'blue' }}
+        canChangeTees onChangeTeesPress={onChangeTeesPress}
+        canEndRoundEarly onEndRoundEarlyPress={jest.fn()} failedSyncCount={1} />
+    );
+    expect(getByLabelText('End round early')).toBeTruthy();
+    fireEvent.press(getByLabelText('Change tees'));
+    expect(onChangeTeesPress).toHaveBeenCalledTimes(1);
+    expect(getByText('Retry')).toBeTruthy();
+  });
+});

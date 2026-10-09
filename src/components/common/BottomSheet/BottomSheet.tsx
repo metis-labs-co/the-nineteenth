@@ -10,7 +10,7 @@
  * - Theme support (dark/light mode)
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Modal,
@@ -40,6 +40,7 @@ import type { BottomSheetProps } from './types';
 export function BottomSheet({
   visible,
   onClose,
+  dismissible = true,
   children,
   height = DEFAULT_SHEET_HEIGHT_RATIO,
   showHandle,
@@ -97,16 +98,21 @@ export function BottomSheet({
   // Handle close with animation
   // Call onClose immediately to start navigation transition in parallel
   // with the sheet animation for smoother UX
+  const closeState = useRef({ dismissible, onClose, animateClose });
+  closeState.current = { dismissible, onClose, animateClose };
   const handleClose = useCallback(() => {
-    onClose();
-    animateClose();
-  }, [animateClose, onClose]);
+    // Previously captured handlers must honor a lock applied during a gesture.
+    const current = closeState.current;
+    if (!current.dismissible) return;
+    current.onClose();
+    current.animateClose();
+  }, []);
 
   // Gesture hook
   const { panHandlers } = useBottomSheetGestures({
     translateY,
     sheetHeight,
-    enabled: enableSwipeToDismiss,
+    enabled: enableSwipeToDismiss && dismissible,
     swipeThreshold,
     onDismiss: handleClose,
     animationConfig,
@@ -183,6 +189,8 @@ export function BottomSheet({
           <TouchableOpacity
             style={StyleSheet.absoluteFill}
             onPress={handleBackdropPress}
+            disabled={!dismissible}
+            accessibilityState={{ disabled: !dismissible }}
             activeOpacity={0.7}
             accessibilityRole="button"
             accessibilityLabel="Close sheet"
@@ -229,11 +237,11 @@ export function BottomSheet({
           ) : (
             <BottomSheetHeader
               title={title}
-              showCloseButton={showCloseButton}
+              showCloseButton={showCloseButton && dismissible}
               onClose={handleClose}
               headerLeft={headerLeft}
               headerRight={headerRight}
-              showHandle={effectiveShowHandle}
+              showHandle={effectiveShowHandle && dismissible}
               panHandlers={panHandlers}
             />
           )}

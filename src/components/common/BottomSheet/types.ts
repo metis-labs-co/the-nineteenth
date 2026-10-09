@@ -41,6 +41,9 @@ export interface BottomSheetProps {
   /** Callback when sheet is dismissed (backdrop tap, swipe, close button) */
   onClose: () => void;
 
+  /** Allow user dismissal (buttons, backdrop, swipe and back). Default: true. */
+  dismissible?: boolean;
+
   /** Content to render inside the sheet */
   children: ReactNode;
 

@@ -8,6 +8,8 @@
  *  - Right-aligned indicators: GPS distance-to-pin (opens HoleMap),
  *    SkinsIndicator, WolfIndicator. Each indicator self-hides when its
  *    game isn't active for the round.
+ *  - Optional ⋮ "End round early" action that opens the confirmation sheet
+ *    directly (social rounds; gating lives in useEndRoundEarly).
  *  - OfflineIndicator + animated sync line when offline / syncing
  *  - Scoring-pairs banner (optional — stroke play only)
  *
@@ -22,6 +24,7 @@ import {
   ConfirmationDialog,
   PageHeader,
   OfflineIndicator,
+  HeaderIconButton,
 } from '@/components/common';
 import { SkinsIndicator } from '@/components/skins';
 import { WolfIndicator } from '@/components/wolf';
@@ -73,6 +76,11 @@ export interface RoundHeaderProps {
   onChangeTeesPress?: () => void;
   /** Called when tapped while offline (e.g. to toast a hint). */
   onChangeTeesBlockedOffline?: () => void;
+
+  /** When true, show the ⋮ "End round early" action (works offline). */
+  canEndRoundEarly?: boolean;
+  /** Called when the end-round-early action is tapped — opens the sheet. */
+  onEndRoundEarlyPress?: () => void;
 }
 
 export function RoundHeader({
@@ -95,6 +103,8 @@ export function RoundHeader({
   canChangeTees = false,
   onChangeTeesPress,
   onChangeTeesBlockedOffline,
+  canEndRoundEarly = false,
+  onEndRoundEarlyPress,
 }: RoundHeaderProps) {
   const colors = useThemeColors();
 
@@ -198,6 +208,13 @@ export function RoundHeader({
       )}
       <SkinsIndicator roundId={roundId} size="sm" variant="minimal" />
       <WolfIndicator roundId={roundId} currentHole={currentHole} size="sm" variant="minimal" />
+      {canEndRoundEarly && onEndRoundEarlyPress ? (
+        <HeaderIconButton
+          icon="dots-vertical"
+          onPress={onEndRoundEarlyPress}
+          accessibilityLabel="End round early"
+        />
+      ) : null}
     </View>
   );
 
