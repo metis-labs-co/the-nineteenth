@@ -1274,9 +1274,10 @@ describe('Submission Readiness', () => {
       entries: ScoreEntry[],
       mismatches: ScoreMismatch[] = []
     ) => {
+      const upsert = jest.fn().mockReturnThis();
       (supabase.from as jest.Mock).mockImplementation((tableName: string) => ({
         select: jest.fn().mockReturnThis(),
-        upsert: jest.fn().mockReturnThis(),
+        upsert,
         eq: jest.fn().mockReturnThis(),
         order: jest.fn().mockReturnThis(),
         single: jest.fn(() => Promise.resolve({ data: { name: 'Player' }, error: null })),
@@ -1286,6 +1287,7 @@ describe('Submission Readiness', () => {
           return resolve({ data: [], error: null });
         }),
       }));
+      return { upsert };
     };
 
     it('returns canSubmit when only one scorer has touched the round', async () => {
@@ -1516,6 +1518,154 @@ describe('Submission Readiness', () => {
       expect(result.canSubmit).toBe(false);
       expect(result.reason).toBe('unresolved_mismatches');
       expect(result.mismatchCount).toBe(1); // only the group-1 mismatch counts
+    });
+    describe('round ended early (playedHoleNumbers)', () => {
+      const PLAYED = [1, 2, 3, 4, 5, 6];
+      const entriesFor = (scorerId: string, holeNumbers: number[]) =>
+        holeNumbers.map((hole) =>
+          createScoreEntry({
+            id: `entry-${scorerId}-${hole}`,
+            player_id: PLAYER_A_ID,
+            hole_number: hole,
+            scorer_id: scorerId,
+            strokes: 4,
+          })
+        );
+
+      it('ignores entries and mismatches after the last played hole', async () => {
+        // A scored holes 1–6. B's phone scored 1–8 before learning of the end,
+        // and a pending mismatch row exists on hole 7.
+        mockEntriesAndMismatches(
+          [...entriesFor(PLAYER_A_ID, PLAYED), ...entriesFor(PLAYER_B_ID, [1, 2, 3, 4, 5, 6, 7, 8])],
+          [createMismatchRecord({ id: 'mm-after-end', player_id: PLAYER_A_ID, hole_number: 7 })]
+        );
+
+        const result = await checkSubmissionReadiness(
+          ROUND_ID, PLAYER_A_ID, false, 6, [PLAYER_A_ID], PLAYED
+        );
+
+        expect(result).toEqual({ canSubmit: true });
+      });
+
+      it('does not let entries after N make a co-scorer look complete', async () => {
+        // B has 6 entries for player A, but only 4 on played holes (1–4).
+        mockEntriesAndMismatches(
+          [...entriesFor(PLAYER_A_ID, PLAYED), ...entriesFor(PLAYER_B_ID, [1, 2, 3, 4, 7, 8])],
+          []
+        );
+
+        const result = await checkSubmissionReadiness(
+          ROUND_ID, PLAYER_A_ID, false, 6, [PLAYER_A_ID], PLAYED
+        );
+
+        expect(result.canSubmit).toBe(false);
+        expect(result.reason).toBe('waiting_for_other_scorers');
+        expect(result.incompleteScorers?.[0]).toMatchObject({
+          scorerId: PLAYER_B_ID,
+          progress: { completed: 4, total: 6 },
+        });
+      });
+
+      it('still blocks on a mismatch inside the played holes', async () => {
+        mockEntriesAndMismatches(
+          [...entriesFor(PLAYER_A_ID, PLAYED), ...entriesFor(PLAYER_B_ID, PLAYED)],
+          [createMismatchRecord({ id: 'mm-hole-3', player_id: PLAYER_A_ID, hole_number: 3 })]
+        );
+
+        const result = await checkSubmissionReadiness(
+          ROUND_ID, PLAYER_A_ID, false, 6, [PLAYER_A_ID], PLAYED
+        );
+
+        expect(result.canSubmit).toBe(false);
+        expect(result.reason).toBe('unresolved_mismatches');
+        expect(result.mismatchCount).toBe(1);
+      });
+
+      it('uses physical back-nine holes and the played count rather than the planned count', async () => {
+        const backNine = [10, 11, 12, 13, 14, 15];
+        mockEntriesAndMismatches([...entriesFor(PLAYER_A_ID, backNine), ...entriesFor(PLAYER_B_ID, backNine)],
+          [createMismatchRecord({ hole_number: 16 })]);
+        expect(await checkSubmissionReadiness(ROUND_ID, PLAYER_A_ID, false, 9, [PLAYER_A_ID], backNine))
+          .toEqual({ canSubmit: true });
+      });
+
+      it('after-cutoff back-nine rows cannot complete another scorer', async () => {
+        const backNine = [10, 11, 12, 13, 14, 15];
+        mockEntriesAndMismatches([...entriesFor(PLAYER_A_ID, backNine), ...entriesFor(PLAYER_B_ID, [10, 11, 12, 13, 16, 17])]);
+        expect(await checkSubmissionReadiness(ROUND_ID, PLAYER_A_ID, false, 6, [PLAYER_A_ID], backNine))
+          .toMatchObject({ canSubmit: false, reason: 'waiting_for_other_scorers',
+            incompleteScorers: [{ scorerId: PLAYER_B_ID, progress: { completed: 4, total: 6 } }] });
+      });
+
+      it('ignores another group entries and played-hole mismatch while detecting round-wide', async () => {
+        const { upsert } = mockEntriesAndMismatches([
+          ...entriesFor(PLAYER_A_ID, PLAYED), ...entriesFor(PLAYER_B_ID, PLAYED),
+          createScoreEntry({ player_id: PLAYER_C_ID, scorer_id: PLAYER_C_ID, hole_number: 3, strokes: 4 }),
+          createScoreEntry({ player_id: PLAYER_C_ID, scorer_id: PLAYER_D_ID, hole_number: 3, strokes: 5 }),
+          createScoreEntry({ player_id: PLAYER_A_ID, scorer_id: PLAYER_A_ID, hole_number: 7, strokes: 4 }),
+          createScoreEntry({ player_id: PLAYER_A_ID, scorer_id: PLAYER_B_ID, hole_number: 7, strokes: 5 }),
+        ], [createMismatchRecord({ player_id: PLAYER_C_ID, hole_number: 3 }), createMismatchRecord({ hole_number: 7 })]);
+        expect(await checkSubmissionReadiness(ROUND_ID, PLAYER_A_ID, false, 6, [PLAYER_A_ID], PLAYED))
+          .toEqual({ canSubmit: true });
+        expect(upsert).toHaveBeenCalledWith(expect.arrayContaining([
+          expect.objectContaining({ player_id: PLAYER_C_ID, hole_number: 3 }),
+          expect.objectContaining({ player_id: PLAYER_A_ID, hole_number: 7 }),
+        ]), expect.objectContaining({ ignoreDuplicates: true }));
+      });
+
+      it('detects and blocks retained same-group mismatches without counting other groups or later holes', async () => {
+        const { upsert } = mockEntriesAndMismatches([
+          ...entriesFor(PLAYER_A_ID, PLAYED),
+          ...entriesFor(PLAYER_B_ID, PLAYED).map((entry) => entry.hole_number === 3 ? { ...entry, strokes: 5 } : entry),
+        ], [createMismatchRecord({ hole_number: 3 }), createMismatchRecord({ hole_number: 7 }),
+          createMismatchRecord({ player_id: PLAYER_C_ID, hole_number: 3 })]);
+        expect(await checkSubmissionReadiness(ROUND_ID, PLAYER_A_ID, false, 6, [PLAYER_A_ID], PLAYED))
+          .toEqual({ canSubmit: false, reason: 'unresolved_mismatches', mismatchCount: 1 });
+        expect(upsert).toHaveBeenCalledWith([
+          expect.objectContaining({ round_id: ROUND_ID, player_id: PLAYER_A_ID, hole_number: 3 }),
+        ], expect.objectContaining({ ignoreDuplicates: true }));
+      });
+    });
+    describe('default played-hole readiness parity', () => {
+      it.each([undefined, []])('keeps pending mismatches with sixth argument %s', async (played) => {
+        mockEntriesAndMismatches([
+          createScoreEntry({ scorer_id: PLAYER_A_ID }),
+          createScoreEntry({ scorer_id: PLAYER_B_ID }),
+        ], [createMismatchRecord({ hole_number: 7 })]);
+        const omitted = await checkSubmissionReadiness(ROUND_ID, PLAYER_A_ID, false, 6, [PLAYER_A_ID]);
+        const explicit = await checkSubmissionReadiness(ROUND_ID, PLAYER_A_ID, false, 6, [PLAYER_A_ID], played);
+        expect(omitted).toEqual({ canSubmit: false, reason: 'unresolved_mismatches', mismatchCount: 1 });
+        expect(explicit).toEqual(omitted);
+      });
+
+      it.each([undefined, []])('keeps planned completeness with sixth argument %s', async (played) => {
+        mockEntriesAndMismatches([
+          createScoreEntry({ scorer_id: PLAYER_A_ID }),
+          createScoreEntry({ scorer_id: PLAYER_B_ID, hole_number: 7 }),
+        ]);
+        const omitted = await checkSubmissionReadiness(ROUND_ID, PLAYER_A_ID, false, 6, [PLAYER_A_ID]);
+        const explicit = await checkSubmissionReadiness(ROUND_ID, PLAYER_A_ID, false, 6, [PLAYER_A_ID], played);
+        expect(omitted).toMatchObject({ canSubmit: false, reason: 'waiting_for_other_scorers',
+          incompleteScorers: [{ scorerId: PLAYER_B_ID, progress: { completed: 1, total: 6 } }] });
+        expect(explicit).toEqual(omitted);
+      });
+
+      it('pairs keep blocking on an after-cutoff mismatch even with played holes supplied', async () => {
+        mockEntriesAndMismatches([], [createMismatchRecord({ hole_number: 7 })]);
+        expect(await checkSubmissionReadiness(ROUND_ID, PLAYER_A_ID, true, 18, [PLAYER_A_ID], [1, 2, 3]))
+          .toEqual({ canSubmit: false, reason: 'unresolved_mismatches', mismatchCount: 1 });
+      });
+
+      it('pairs keep the supplied planned completeness even with played holes supplied', async () => {
+        (supabase.from as jest.Mock).mockImplementation((table: string) => ({
+          select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), order: jest.fn().mockReturnThis(),
+          single: jest.fn().mockResolvedValue({ data: { scorer_id: PLAYER_B_ID, scorer: { name: 'Bob' } }, error: null }),
+          then: (resolve: (value: unknown) => unknown) => resolve({ data: table === 'score_entries'
+            ? Array.from({ length: 12 }, (_, i) => createScoreEntry({ hole_number: i + 1, scorer_id: PLAYER_B_ID })) : [], error: null }),
+        }));
+        expect(await checkSubmissionReadiness(ROUND_ID, PLAYER_A_ID, true, 18, [PLAYER_A_ID], [1, 2, 3, 4, 5, 6]))
+          .toEqual({ canSubmit: false, reason: 'waiting_for_partner', partnerName: 'Bob', partnerProgress: { completed: 12, total: 36 } });
+      });
     });
   });
 

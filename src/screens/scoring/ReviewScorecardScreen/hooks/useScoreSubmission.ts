@@ -131,6 +131,10 @@ interface UseScoreSubmissionParams {
   scoringPairsEnabled?: boolean;
   currentUserId?: string;
   holeCount?: number;
+  /** Physical played holes for an early end (10–15 for a back nine after six).
+   * A non-empty list limits readiness; undefined or [] preserves planned readiness.
+   */
+  playedHoleNumbers?: number[];
 }
 
 interface UseScoreSubmissionReturn {
@@ -176,6 +180,7 @@ export function useScoreSubmission({
   scoringPairsEnabled = false,
   currentUserId,
   holeCount = 18,
+  playedHoleNumbers,
 }: UseScoreSubmissionParams): UseScoreSubmissionReturn {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -421,22 +426,27 @@ export function useScoreSubmission({
     //  - Otherwise → multi-scorer auto-detect: if 2+ users actually wrote
     //    score_entries, run N-way mismatch + completeness checks. Solo scorer
     //    rounds short-circuit inside the service and submit normally.
+    //  - An early end still checks mismatches on the played holes; entries
+    //    another phone wrote after the cutoff neither block nor complete it.
     if (currentUserId && roundId && isOnline) {
       try {
         // Scope the readiness gate to the players this device is responsible for
         // (its on-course group / pair) so different groups submit independently.
         // See resolveGroupScope: allowedPlayerIds → user's pairing → full field.
         const groupPlayerIds = getGroupScopeIds();
+        const limitToHoles = playedHoleNumbers?.length ? playedHoleNumbers : undefined;
         submitLogger.info('Checking submission readiness', {
           scoringPairsEnabled,
           groupPlayerCount: groupPlayerIds.length,
+          playedHoleCount: limitToHoles?.length ?? null,
         });
         const readiness = await checkSubmissionReadiness(
           roundId,
           currentUserId,
           scoringPairsEnabled,
-          holeCount,
+          limitToHoles ? limitToHoles.length : holeCount,
           groupPlayerIds,
+          limitToHoles,
         );
 
         if (!readiness.canSubmit) {
@@ -753,6 +763,7 @@ export function useScoreSubmission({
     scoringPairsEnabled,
     currentUserId,
     holeCount,
+    playedHoleNumbers,
     bypassAvailable,
     bypassAvailableAt,
     refreshPartnerStatus,

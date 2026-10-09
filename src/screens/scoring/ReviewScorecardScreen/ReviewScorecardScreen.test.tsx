@@ -14,7 +14,7 @@ jest.mock('@/hooks', () => ({
   useConfirmationDialog: () => ({ dialogConfig: null, showDialog: jest.fn(), dismissDialog: jest.fn() }),
 }));
 jest.mock('@/hooks/useScoreMismatch', () => ({
-  usePendingMismatches: () => ({ data: [] }),
+  usePendingMismatches: () => ({ data: mockPendingMismatches }),
   useResolveMismatch: () => ({ mutateAsync: jest.fn(), isPending: false }),
   usePartnerStatus: (...args: unknown[]) => mockPartnerStatus(...args),
 }));
@@ -37,19 +37,21 @@ const mockMatchScorecard = jest.fn((_props: unknown) => null);
 const mockMatchLeaderboard = jest.fn((_props: unknown) => null);
 const mockSubMatchLeaderboard = jest.fn((_props: unknown) => null);
 const mockWolf = jest.fn((_props: unknown) => null);
+let mockPendingMismatches: { id: string; hole_number: number }[] = [];
+const mockMismatchModal = jest.fn((_props: unknown) => null);
 const mockSubmission = jest.fn();
 const mockPartnerStatus = jest.fn((..._args: unknown[]) => ({ data: null }));
 const mockTabs = jest.fn();
 jest.mock('@/screens/rounds/ViewRoundScreen/tabs/StatsTab', () => ({ StatsTab: (props: unknown) => mockStatsTab(props) }));
 jest.mock('@/components/features/shots/ShotLogList', () => ({ ShotLogList: (props: unknown) => mockShotLogList(props) }));
 jest.mock('@/components/features/bag/BagClubPickerSheet', () => ({ BagClubPickerSheet: () => null }));
-jest.mock('@/components/scoring', () => ({ MismatchResolutionModal: () => null }));
+jest.mock('@/components/scoring', () => ({ MismatchResolutionModal: (props: unknown) => mockMismatchModal(props) }));
 jest.mock('@/components/leaderboard', () => ({ SubMatchLeaderboardTab: (props: unknown) => mockSubMatchLeaderboard(props) }));
 jest.mock('./hooks', () => ({
   useScoreReview: jest.requireActual('./hooks/useScoreReview').useScoreReview,
   useReviewScorecardTabs: () => mockTabs(),
   useScrambleTeams: () => [],
-  // Submission is out of this task's scope; keep its validation callback live.
+  // Observe the actual Review caller while keeping its validation callback live.
   useScoreSubmission: (params: { validateScores: () => unknown }) => {
     mockSubmission(params);
     return {
@@ -110,6 +112,7 @@ const defaultTabs = {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockPendingMismatches = [];
   mockTabs.mockReturnValue(defaultTabs);
 });
 
@@ -259,5 +262,60 @@ describe('ReviewScorecardScreen — ended early', () => {
     render(review());
     expect(screen.queryByTestId('ended-early-banner')).toBeNull();
     expect(screen.getAllByText('18').length).toBeGreaterThan(0);
+  });
+});
+
+
+describe('Review readiness and mismatch routing', () => {
+  it.each(['full', 'back9'] as const)('keeps planned readiness and every pending modal row (%s)', (nineType) => {
+    setupStore(nineType);
+    mockPendingMismatches = [{ id: 'played', hole_number: 12 }, { id: 'later', hole_number: 17 }];
+    render(review());
+    expect(lastProps(mockSubmission).playedHoleNumbers).toBeUndefined();
+    expect(lastProps(mockSubmission).holeCount).toBe(nineType === 'back9' ? 9 : 18);
+    expect(lastProps(mockMismatchModal).mismatches).toBe(mockPendingMismatches);
+  });
+
+  it.each(['full', 'back9'] as const)('forwards physical readiness holes through cutoff-only changes (%s)', (nineType) => {
+    const state = setupStore(nineType, 6);
+    const { rerender } = render(review());
+    expect(lastProps(mockSubmission).playedHoleNumbers).toEqual(nineType === 'back9' ? [10, 11, 12, 13, 14, 15] : [1, 2, 3, 4, 5, 6]);
+    state.holesPlayed = 3;
+    rerender(review());
+    expect(lastProps(mockSubmission).playedHoleNumbers).toEqual(nineType === 'back9' ? [10, 11, 12] : [1, 2, 3]);
+    expect(lastProps(mockSubmission).holeCount).toBe(3);
+    state.holesPlayed = null;
+    rerender(review());
+    expect(lastProps(mockSubmission).playedHoleNumbers).toBeUndefined();
+  });
+
+  it.each(['full', 'back9'] as const)('limits actual mismatch-modal rows through cutoff-only changes (%s)', (nineType) => {
+    const state = setupStore(nineType, 6);
+    mockPendingMismatches = nineType === 'back9'
+      ? [{ id: 'before-nine', hole_number: 3 }, { id: 'retained', hole_number: 12 }, { id: 'boundary', hole_number: 15 }, { id: 'later', hole_number: 16 }]
+      : [{ id: 'retained', hole_number: 3 }, { id: 'boundary', hole_number: 6 }, { id: 'later', hole_number: 7 }];
+    const { rerender } = render(review());
+    expect(lastProps(mockMismatchModal).mismatches.map((row: { id: string }) => row.id)).toEqual(['retained', 'boundary']);
+    state.holesPlayed = 3;
+    rerender(review());
+    expect(lastProps(mockMismatchModal).mismatches.map((row: { id: string }) => row.id)).toEqual(['retained']);
+    state.holesPlayed = null;
+    rerender(review());
+    expect(lastProps(mockMismatchModal).mismatches).toBe(mockPendingMismatches);
+  });
+
+  it.each([0, -3, 2.5, NaN])('keeps ordinary readiness for an invalid early-end marker (%s)', (marker) => {
+    setupStore('back9', marker);
+    render(review());
+    expect(lastProps(mockSubmission).playedHoleNumbers).toBeUndefined();
+    expect(lastProps(mockSubmission).holeCount).toBe(9);
+    expect(screen.queryByTestId('ended-early-banner')).toBeNull();
+  });
+
+  it.each([0, -3, 2.5, NaN])('keeps every modal row for an invalid early-end marker (%s)', (marker) => {
+    setupStore('back9', marker);
+    mockPendingMismatches = [{ id: 'outside-nine', hole_number: 3 }, { id: 'planned', hole_number: 17 }];
+    render(review());
+    expect(lastProps(mockMismatchModal).mismatches).toBe(mockPendingMismatches);
   });
 });

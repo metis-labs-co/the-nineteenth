@@ -237,7 +237,14 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
   );
 
   // Mismatch hooks
-  const { data: mismatches = [] } = usePendingMismatches(roundId || undefined);
+  const { data: pendingMismatches = [] } = usePendingMismatches(roundId || undefined);
+  // Another phone may retain stale mismatches after the early end. Resolve
+  // only played holes, matching the submission readiness gate.
+  const mismatches = useMemo(() => {
+    if (!isEndedEarly({ holes_played: holesPlayed }) || playedHoleNumbers.length === 0) return pendingMismatches;
+    const played = new Set<number>(playedHoleNumbers);
+    return pendingMismatches.filter((m) => played.has(m.hole_number));
+  }, [pendingMismatches, holesPlayed, playedHoleNumbers]);
   const { mutateAsync: resolveMismatch, isPending: isResolving } = useResolveMismatch();
   const { data: partnerStatus } = usePartnerStatus(roundId || undefined, currentUserId, holeCount);
 
@@ -270,6 +277,8 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
     scoringPairsEnabled,
     currentUserId,
     holeCount,
+    // Only an ended-early round limits readiness to its physical played holes.
+    playedHoleNumbers: isEndedEarly({ holes_played: holesPlayed }) ? playedHoleNumbers : undefined,
   });
 
   // Handle mismatch resolution

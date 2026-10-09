@@ -31,13 +31,18 @@ const logger = createModuleLogger('ScoreMismatchService');
  *  - Scoring pairs enabled → checkPairsReadiness (self vs assigned partner)
  *  - Otherwise → checkMultiScorerReadiness (auto-detected: only kicks in
  *    when 2+ distinct scorers have written entries for the round)
+ *
+ * @param playedHoleNumbers Only these holes count for ended-early readiness.
+ *   Omitted or empty lists preserve planned-round readiness. Scoring pairs
+ *   cannot end early, so the pairs path ignores this list.
  */
 export async function checkSubmissionReadiness(
   roundId: string,
   userId: string,
   scoringPairsEnabled: boolean,
   holeCount: number = 18,
-  groupPlayerIds?: string[]
+  groupPlayerIds?: string[],
+  playedHoleNumbers?: number[]
 ): Promise<SubmissionReadiness> {
   if (!roundId || !userId) {
     throw createError('Round ID and User ID are required', 'VALIDATION');
@@ -45,7 +50,7 @@ export async function checkSubmissionReadiness(
 
   return scoringPairsEnabled
     ? checkPairsReadiness(roundId, userId, holeCount, groupPlayerIds)
-    : checkMultiScorerReadiness(roundId, userId, holeCount, groupPlayerIds);
+    : checkMultiScorerReadiness(roundId, userId, holeCount, groupPlayerIds, playedHoleNumbers);
 }
 
 /**
@@ -60,6 +65,19 @@ function filterMismatchesToPlayers(
   if (!groupPlayerIds || groupPlayerIds.length === 0) return mismatches;
   const groupSet = new Set(groupPlayerIds);
   return mismatches.filter((m) => groupSet.has(m.player_id));
+}
+
+/**
+ * Rows another device wrote after the early end neither block readiness nor
+ * satisfy another scorer's completeness. No list preserves existing behavior.
+ */
+function filterToPlayedHoles<T extends { hole_number: number }>(
+  rows: T[],
+  playedHoleNumbers?: number[]
+): T[] {
+  if (!playedHoleNumbers || playedHoleNumbers.length === 0) return rows;
+  const played = new Set(playedHoleNumbers);
+  return rows.filter((row) => played.has(row.hole_number));
 }
 
 async function checkPairsReadiness(
@@ -114,7 +132,8 @@ async function checkMultiScorerReadiness(
   roundId: string,
   userId: string,
   holeCount: number,
-  groupPlayerIds?: string[]
+  groupPlayerIds?: string[],
+  playedHoleNumbers?: number[]
 ): Promise<SubmissionReadiness> {
   const allEntries = await getRoundScoreEntries(roundId);
 
@@ -122,9 +141,12 @@ async function checkMultiScorerReadiness(
   // supplied, fall back to round-wide (legacy behaviour).
   const groupSet =
     groupPlayerIds && groupPlayerIds.length > 0 ? new Set(groupPlayerIds) : null;
-  const entries = groupSet
+  const groupEntries = groupSet
     ? allEntries.filter((e) => groupSet.has(e.player_id))
     : allEntries;
+  const entries = filterToPlayedHoles(groupEntries, playedHoleNumbers);
+  const holesToScore =
+    playedHoleNumbers && playedHoleNumbers.length > 0 ? playedHoleNumbers.length : holeCount;
 
   const distinctScorers = new Set(entries.map((e) => e.scorer_id));
 
@@ -137,9 +159,9 @@ async function checkMultiScorerReadiness(
   // Detection stays round-wide (it only ever finds same-player conflicts), but
   // the BLOCK is scoped to this group's players.
   await createMismatchRecords(roundId);
-  const pendingMismatches = filterMismatchesToPlayers(
-    await getPendingMismatches(roundId),
-    groupPlayerIds
+  const pendingMismatches = filterToPlayedHoles(
+    filterMismatchesToPlayers(await getPendingMismatches(roundId), groupPlayerIds),
+    playedHoleNumbers
   );
   if (pendingMismatches.length > 0) {
     return {
@@ -150,14 +172,14 @@ async function checkMultiScorerReadiness(
   }
 
   // For each other scorer who touched this group, expected entries =
-  // holeCount × distinct group-players they've started scoring.
+  // Holes that count × distinct group-players they've started scoring.
   const otherScorerIds = [...distinctScorers].filter((id) => id !== userId);
   const incompleteScorers: IncompleteScorer[] = [];
 
   for (const scorerId of otherScorerIds) {
     const scorerEntries = entries.filter((e) => e.scorer_id === scorerId);
     const distinctPlayers = new Set(scorerEntries.map((e) => e.player_id));
-    const expected = distinctPlayers.size * holeCount;
+    const expected = distinctPlayers.size * holesToScore;
 
     if (scorerEntries.length < expected) {
       incompleteScorers.push({
