@@ -1,4 +1,4 @@
-import type { AcceptedScorecardWrite } from './roundScoringWrite';
+import type { AcceptedScorecardWrite, AcceptedRemoteSnapshot } from './roundScoringWrite';
 
 export type RoundScoringWriteErrorKind =
   | 'shape_changed'
@@ -13,6 +13,7 @@ export type RoundScoringWriteErrorKind =
 /** Shared server/local failure contract; importing it never loads a writer or store. */
 export class RoundScoringWriteError extends Error {
   readonly acceptedWrite?: AcceptedScorecardWrite;
+  readonly acceptedRemoteSnapshot?: AcceptedRemoteSnapshot;
   readonly sqlCode?: string;
   readonly sqlHint?: string;
 
@@ -20,11 +21,12 @@ export class RoundScoringWriteError extends Error {
     readonly kind: RoundScoringWriteErrorKind,
     readonly roundId: string,
     message: string,
-    options: { acceptedWrite?: AcceptedScorecardWrite; sqlCode?: string; sqlHint?: string } = {}
+    options: { acceptedWrite?: AcceptedScorecardWrite; acceptedRemoteSnapshot?: AcceptedRemoteSnapshot; sqlCode?: string; sqlHint?: string } = {}
   ) {
     super(message);
     this.name = 'RoundScoringWriteError';
     this.acceptedWrite = options.acceptedWrite;
+    this.acceptedRemoteSnapshot = options.acceptedRemoteSnapshot;
     this.sqlCode = options.sqlCode;
     this.sqlHint = options.sqlHint;
   }

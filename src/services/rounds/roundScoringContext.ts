@@ -6,7 +6,7 @@ import { getBaseHandicap } from '@/utils/scorecardCalculations';
 import { filterPlayableHoles } from '@/utils/holeTransformers';
 import { gameTypes } from '@/schemas/competition';
 import { RoundScoringWriteError } from './roundScoringErrors';
-import { shapeHoleNumbers, type RebuildRoundShapeCard } from './roundScoringWrite';
+import { shapeHoleNumbers, type ScoringUploadCard, type RoundScoringShape } from './roundScoringWrite';
 import { readSyncHandicapSource } from './scorecardScoringMetadata';
 
 export interface LiveRoundRepairContext {
@@ -39,7 +39,7 @@ const frozenKeys = [
   'syncHandicapSource',
 ] as const;
 
-function compatibleEvidence(source: Scorecard, other: Scorecard): boolean {
+function compatibleEvidence(source: ScoringUploadCard, other: Scorecard): boolean {
   if (source.roundId !== other.roundId || source.playerId !== other.playerId) return false;
   // A historical submission has an identity beyond the local card ID.
   for (const key of ['submittedAt', 'submittedBy'] as const) {
@@ -73,8 +73,8 @@ function compatibleEvidence(source: Scorecard, other: Scorecard): boolean {
 export function createRoundScoringContext(
   roundId: string,
   evidence: RoundRepairEvidence
-): RebuildRoundShapeCard {
-  return (source, keep, target) => {
+): <T extends ScoringUploadCard>(source: T, keep: ReadonlySet<number>, target: RoundScoringShape) => T {
+  return <T extends ScoringUploadCard>(source: T, keep: ReadonlySet<number>, target: RoundScoringShape): T => {
     const fail = (message: string, changed = false): never => {
       throw new RoundScoringWriteError(
         changed ? 'context_changed' : 'context_missing',
@@ -120,7 +120,8 @@ export function createRoundScoringContext(
         (resolved.playerHandicap != null &&
           resolved.playerGender !== undefined &&
           resolved.teeData));
-    const live = !submitted && !complete ? evidence.getLiveContext?.(source) : undefined;
+    const live = !submitted && !complete && source.id != null
+      ? evidence.getLiveContext?.(source as Scorecard) : undefined;
     if (live) {
       if (live.player.id !== source.playerId) fail('live player changed', true);
       let liveSource: HandicapSource | undefined;

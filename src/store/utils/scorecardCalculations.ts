@@ -45,7 +45,7 @@ export interface PlayerTotalsContext {
  * preserves behaviour for legacy callers that don't pass context.
  */
 export function calculatePlayerTotals(
-  scorecard: Scorecard,
+  scorecard: Pick<Scorecard, 'player' | 'scores'>,
   holes: Hole[],
   gameType: GameType,
   context?: PlayerTotalsContext

@@ -11,6 +11,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useQuickScoreSubmit, type QuickScoreSubmitInput } from '@/hooks/scorecard/useQuickScoreSubmit';
 import { create18Holes } from '@/__tests__/utils/testFixtures';
 import type { TeeBox } from '@/types/database.types';
+import { refinalizeRoundResults } from '@/services/rounds/refinalizeRoundResults';
+import { setSyncAuthUser } from '@/services/offline/sync/networkState';
 
 const mockFrom = jest.fn();
 const mockGetCurrentUser = jest.fn();
@@ -45,11 +47,12 @@ function queryStub(result: QueryResult) {
 }
 
 /** upsert → round lookup → player count (2) → completed count (1): the round stays open. */
-function scriptSupabase() {
+function scriptSupabase(competitionId: string | null = null) {
   const queue: Record<string, QueryResult[]> = {
     scorecards: [{ data: { id: 'scorecard-1' } }, { count: 1 }],
-    rounds: [{ data: { status: 'in-progress', competition_id: null } }],
+    rounds: [{ data: { status: 'in-progress', competition_id: competitionId } }],
     round_players: [{ count: 2 }],
+    competition_players: [{ count: 2 }],
   };
   mockFrom.mockImplementation((table: string) => queryStub(queue[table]?.shift() ?? {}));
 }
@@ -111,6 +114,7 @@ describe('useQuickScoreSubmit — handicap snapshot', () => {
     jest.clearAllMocks();
     upsertPayloads = [];
     mockGetCurrentUser.mockResolvedValue({ id: 'user-1' });
+    setSyncAuthUser('user-1');
   });
 
   it('snapshots a complete 18-hole card (I12 lock)', async () => {
@@ -128,6 +132,38 @@ describe('useQuickScoreSubmit — handicap snapshot', () => {
         handicap_differential: 15.8,
       }),
     );
+  });
+
+  it('preserves normal direct totals, submission metadata and all supplied draft scores', async () => {
+    const payload = await submit(makeInput({
+      scores: { 10: { strokes: 5 }, 1: { strokes: 12 } },
+      nineType: 'back9', totalGross: 5, totalNet: -14, totalPoints: 2, totalParScore: -1,
+    }));
+    expect(payload).toMatchObject({
+      round_id: 'round-1', player_id: 'player-1',
+      scores: { 10: { strokes: 5 }, 1: { strokes: 12 } },
+      total_gross: 5, total_net: -14, total_points: 2, total_par_score: -1,
+      status: 'completed', submitted_by: 'user-1', daily_handicap_used: 19,
+      handicap_differential: null,
+    });
+    expect(payload.submitted_at).toEqual(expect.any(String));
+    expect(payload.synced_at).toEqual(expect.any(String));
+  });
+
+  it('preserves normal practice zero handicap and rating omission', async () => {
+    const payload = await submit(makeInput({ handicapSource: 'none', totalNet: 90, totalPoints: 18 }));
+    expect(payload).toMatchObject({ ga_handicap_used: null, daily_handicap_used: 0,
+      course_rating_used: null, slope_rating_used: null, handicap_differential: null,
+      total_net: 90, total_points: 18 });
+  });
+
+  it('keeps competition Quick Score on direct upsert and its existing results finalization', async () => {
+    scriptSupabase('competition-1');
+    const { result } = renderHook(() => useQuickScoreSubmit(), { wrapper: makeWrapper() });
+    await act(async () => { await result.current.mutateAsync(makeInput()); });
+    expect(upsertPayloads[0]).toMatchObject({ status: 'completed', total_gross: 90 });
+    expect(mockFrom).toHaveBeenCalledWith('competition_players');
+    expect(refinalizeRoundResults).toHaveBeenCalledWith('round-1');
   });
 
   it('snapshots a complete back-9 card (I12 lock)', async () => {

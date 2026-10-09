@@ -4,20 +4,31 @@
  * Manages score state, calculates totals, and handles save flow.
  */
 
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { useRoundDetails, useRoundScorecards, useRoundPlayers } from '@/hooks/useRoundDetails';
 import { useConfirmationDialog } from '@/hooks/useConfirmationDialog';
-import { useQuickScoreSubmit } from '@/hooks/scorecard/useQuickScoreSubmit';
+import {
+  useQuickScoreSubmit,
+  type QuickScoreSubmitInput,
+} from '@/hooks/scorecard/useQuickScoreSubmit';
 import {
   getStrokesReceived,
   calculateStablefordPointsNet,
+  getEffectiveGrossStrokes,
 } from '@/utils/scoring';
-import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
+import { calculateGADailyHandicap, calculateNineAwareDailyHandicap } from '@/utils/dailyHandicap';
 import { calculateScoreDifferential } from '@/utils/handicapDifferential';
 import { calculateAdjustedGrossScore } from '@/utils/adjustedGross';
 import { isCompleteForHandicap } from '@/utils/handicapEligibility';
-import { getBaseHandicap, type ScorecardPlayerInfo } from '@/utils/scorecardCalculations';
+import {
+  calculateNetOverHolesPlayed,
+  getBaseHandicap,
+  type ScorecardPlayerInfo,
+} from '@/utils/scorecardCalculations';
+import { filterPlayableHoles } from '@/utils/holeTransformers';
+import { RoundScoringWriteError } from '@/services/rounds/roundScoringErrors';
+import { ScorecardConflictError } from '@/services/offline/sync/scorecardSync';
 import type { Hole, TeeBox } from '@/types/database.types';
 import type { HandicapSource } from '@/types/database/enums';
 
@@ -40,6 +51,23 @@ export function useQuickScoreEntry({ roundId, playerId }: UseQuickScoreEntryPara
   const [scores, setScores] = useState<Record<string, number>>({});
   const [showReview, setShowReview] = useState(false);
   const [initialized, setInitialized] = useState(false);
+  const currentDraft = useRef<QuickScoreSubmitInput | null>(null);
+  const requestGeneration = useRef(0);
+  const editGeneration = useRef(0);
+  useEffect(() => {
+    requestGeneration.current++;
+    editGeneration.current++;
+    setScores({});
+    setInitialized(false);
+    setShowReview(false);
+  }, [roundId, playerId]);
+  useEffect(
+    () => () => {
+      requestGeneration.current++;
+      currentDraft.current = null;
+    },
+    []
+  );
 
   // Extract round data
   const course = round?.course;
@@ -50,14 +78,21 @@ export function useQuickScoreEntry({ roundId, playerId }: UseQuickScoreEntryPara
 
   const selectedTee: TeeBox | null = round?.selected_tee ?? null;
   const nineType = round?.nine_type ?? 'full';
-  const handicapSource: HandicapSource = round?.handicap_source ?? round?.competition?.handicap_source ?? 'profile';
+  const holesPlayed = round?.holes_played ?? null;
+  const handicapSource: HandicapSource =
+    round?.handicap_source ?? round?.competition?.handicap_source ?? 'profile';
 
   // Filter holes based on nine_type
-  const holes: Hole[] = useMemo(() => {
+  const plannedHoles: Hole[] = useMemo(() => {
     if (nineType === 'front9') return allHoles.filter((h) => h.number <= 9);
     if (nineType === 'back9') return allHoles.filter((h) => h.number > 9);
     return allHoles;
   }, [allHoles, nineType]);
+  const holes = useMemo(
+    () =>
+      holesPlayed == null ? plannedHoles : filterPlayableHoles(plannedHoles, nineType, holesPlayed),
+    [plannedHoles, nineType, holesPlayed]
+  );
 
   const totalHoles = holes.length;
 
@@ -97,26 +132,39 @@ export function useQuickScoreEntry({ roundId, playerId }: UseQuickScoreEntryPara
 
   // Initialize scores from existing scorecard on first load
   useEffect(() => {
-    if (existingScorecard?.scores && !initialized) {
+    if (!isLoading && scorecards && !initialized) {
       const existing: Record<string, number> = {};
-      for (const [holeNum, score] of Object.entries(existingScorecard.scores)) {
+      for (const [holeNum, score] of Object.entries(existingScorecard?.scores ?? {})) {
+        if (holesPlayed != null && !holes.some((hole) => String(hole.number) === holeNum)) continue;
         const holeScore = score as { strokes?: number } | null;
         if (holeScore && 'strokes' in holeScore && holeScore.strokes && holeScore.strokes > 0) {
           existing[holeNum] = holeScore.strokes;
         }
       }
-      if (Object.keys(existing).length > 0) {
-        setScores(existing);
-      }
+      setScores(existing);
       setInitialized(true);
     }
-  }, [existingScorecard?.scores, initialized]);
+  }, [existingScorecard?.scores, initialized, holesPlayed, holes, isLoading, scorecards]);
 
   // Calculate daily handicap
   const dailyHandicap = useMemo(() => {
     if (!player || handicapSource === 'none') return 0;
     const baseHandicap = getBaseHandicap(player, handicapSource);
     if (!selectedTee?.slopeRating || !selectedTee?.courseRating) return Math.round(baseHandicap);
+    if (holesPlayed != null) {
+      return calculateNineAwareDailyHandicap({
+        gaHandicap: baseHandicap,
+        nineType,
+        par: plannedHoles.reduce((sum, h) => sum + h.par, 0),
+        slopeRating: selectedTee.slopeRating,
+        courseRating: selectedTee.courseRating,
+        slopeRatingFront9: selectedTee.slopeRatingFront9,
+        courseRatingFront9: selectedTee.courseRatingFront9,
+        slopeRatingBack9: selectedTee.slopeRatingBack9,
+        courseRatingBack9: selectedTee.courseRatingBack9,
+        gender: player.gender,
+      }).dailyHandicap;
+    }
     const coursePar = allHoles.reduce((sum, h) => sum + h.par, 0);
     if (coursePar <= 0) return Math.round(baseHandicap);
     const result = calculateGADailyHandicap({
@@ -127,7 +175,7 @@ export function useQuickScoreEntry({ roundId, playerId }: UseQuickScoreEntryPara
       gender: player.gender,
     });
     return result.dailyHandicap;
-  }, [player, handicapSource, selectedTee, allHoles]);
+  }, [player, handicapSource, selectedTee, allHoles, plannedHoles, nineType, holesPlayed]);
 
   // Calculate per-hole stableford points
   const holePoints = useMemo(() => {
@@ -136,7 +184,11 @@ export function useQuickScoreEntry({ roundId, playerId }: UseQuickScoreEntryPara
       const strokes = scores[String(hole.number)];
       if (strokes && strokes > 0) {
         const strokesReceived = getStrokesReceived(dailyHandicap, hole.strokeIndex);
-        points[String(hole.number)] = calculateStablefordPointsNet(strokes, hole.par, strokesReceived);
+        points[String(hole.number)] = calculateStablefordPointsNet(
+          strokes,
+          hole.par,
+          strokesReceived
+        );
       } else {
         points[String(hole.number)] = 0;
       }
@@ -153,16 +205,32 @@ export function useQuickScoreEntry({ roundId, playerId }: UseQuickScoreEntryPara
     holes.forEach((hole) => {
       const strokes = scores[String(hole.number)];
       if (strokes && strokes > 0) {
-        totalGross += strokes;
+        totalGross +=
+          holesPlayed == null
+            ? strokes
+            : (getEffectiveGrossStrokes(
+                strokes,
+                hole.par,
+                getStrokesReceived(dailyHandicap, hole.strokeIndex)
+              ) ?? 0);
         totalPoints += holePoints[String(hole.number)] ?? 0;
         holesEntered++;
       }
     });
 
-    const totalNet = totalGross > 0 ? totalGross - dailyHandicap : 0;
+    const totalNet =
+      holesPlayed == null
+        ? totalGross > 0
+          ? totalGross - dailyHandicap
+          : 0
+        : calculateNetOverHolesPlayed(
+            Object.fromEntries(Object.entries(scores).map(([key, strokes]) => [key, { strokes }])),
+            holes,
+            dailyHandicap
+          );
 
     return { totalGross, totalNet, totalPoints, holesEntered };
-  }, [scores, holes, holePoints, dailyHandicap]);
+  }, [scores, holes, holePoints, dailyHandicap, holesPlayed]);
 
   // Handicap differential for review. Uses the WHS ADJUSTED gross (every hole
   // capped at net double bogey) so this preview matches what the submit path
@@ -171,7 +239,9 @@ export function useQuickScoreEntry({ roundId, playerId }: UseQuickScoreEntryPara
   // every planned hole of the round's nine (I12); the review modal hides the
   // stat when it is null.
   const handicapDifferential = useMemo(() => {
-    if (!selectedTee?.courseRating || !selectedTee?.slopeRating || totals.totalGross <= 0) return null;
+    if (holesPlayed != null) return null;
+    if (!selectedTee?.courseRating || !selectedTee?.slopeRating || totals.totalGross <= 0)
+      return null;
     if (!isCompleteForHandicap(scores, nineType)) return null;
     const { adjustedGross } = calculateAdjustedGrossScore({
       holes,
@@ -183,10 +253,41 @@ export function useQuickScoreEntry({ roundId, playerId }: UseQuickScoreEntryPara
       courseRating: selectedTee.courseRating,
       slopeRating: selectedTee.slopeRating,
     });
-  }, [selectedTee, totals.totalGross, holes, scores, dailyHandicap, nineType]);
+  }, [selectedTee, totals.totalGross, holes, scores, dailyHandicap, nineType, holesPlayed]);
+
+  const dbScores = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(scores)
+          .filter(
+            ([key, strokes]) =>
+              strokes > 0 && (holesPlayed == null || holes.some((h) => String(h.number) === key))
+          )
+          .map(([key, strokes]) => [key, { strokes }])
+      ),
+    [scores, holesPlayed, holes]
+  );
+  currentDraft.current = player
+    ? {
+        roundId,
+        playerId,
+        scores: dbScores,
+        totalGross: totals.totalGross,
+        totalNet: totals.totalNet,
+        totalPoints: totals.totalPoints,
+        player,
+        selectedTee,
+        holes: allHoles,
+        nineType,
+        handicapSource,
+        expectedRoundShape: { nine_type: nineType, holes_played: holesPlayed },
+        gameType: round?.game_type,
+      }
+    : null;
 
   // Score manipulation
   const incrementScore = useCallback((holeNumber: number) => {
+    editGeneration.current++;
     setScores((prev) => {
       const key = String(holeNumber);
       const current = prev[key];
@@ -196,6 +297,7 @@ export function useQuickScoreEntry({ roundId, playerId }: UseQuickScoreEntryPara
   }, []);
 
   const decrementScore = useCallback((holeNumber: number) => {
+    editGeneration.current++;
     setScores((prev) => {
       const key = String(holeNumber);
       const current = prev[key];
@@ -211,42 +313,54 @@ export function useQuickScoreEntry({ roundId, playerId }: UseQuickScoreEntryPara
       return;
     }
     setShowReview(true);
-  }, [totals.holesEntered]);
+  }, [totals.holesEntered, showAlert]);
 
   const handleConfirmSave = useCallback(async () => {
-    if (!player) return;
-
-    // Build scores in database format
-    const dbScores: Record<string, { strokes: number }> = {};
-    for (const [holeNum, strokes] of Object.entries(scores)) {
-      if (strokes > 0) {
-        dbScores[holeNum] = { strokes };
-      }
-    }
+    const draft = currentDraft.current;
+    if (!draft) return;
+    const request = ++requestGeneration.current;
+    const edits = editGeneration.current;
+    const assertOperationCurrent = () => {
+      if (
+        requestGeneration.current !== request ||
+        currentDraft.current?.roundId !== draft.roundId ||
+        currentDraft.current?.playerId !== draft.playerId
+      )
+        throw new RoundScoringWriteError(
+          'context_changed',
+          draft.roundId,
+          'Quick Score request changed'
+        );
+    };
 
     try {
-      await submitMutation.mutateAsync({
-        roundId,
-        playerId,
-        scores: dbScores,
-        totalGross: totals.totalGross,
-        totalNet: totals.totalNet,
-        totalPoints: totals.totalPoints,
-        player,
-        selectedTee,
-        holes: allHoles,
-        // The round's planned nine — the submit's completeness gate (I12)
-        // judges the card against it.
-        nineType,
-        handicapSource,
+      const saved = await submitMutation.mutateAsync({
+        ...draft,
+        assertOperationCurrent,
+        readCurrent: () => {
+          assertOperationCurrent();
+          return currentDraft.current!;
+        },
       });
+      assertOperationCurrent();
+      if (saved.isCurrent ? !saved.isCurrent() : editGeneration.current !== edits) return;
       setShowReview(false);
       navigation.goBack();
     } catch (error) {
+      try {
+        assertOperationCurrent();
+      } catch {
+        return;
+      }
+      if (editGeneration.current !== edits) return;
+      if (error instanceof RoundScoringWriteError || error instanceof ScorecardConflictError) {
+        setScores({});
+        setInitialized(false);
+      }
       setShowReview(false);
       showAlert('Error', error instanceof Error ? error.message : 'Failed to save scores');
     }
-  }, [player, scores, roundId, playerId, totals, selectedTee, allHoles, nineType, handicapSource, submitMutation, navigation]);
+  }, [submitMutation, navigation, showAlert]);
 
   return {
     // Data

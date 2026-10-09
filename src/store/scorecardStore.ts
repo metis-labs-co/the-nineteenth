@@ -135,6 +135,8 @@ interface ScorecardState {
   endRoundEarly: (n: number) => Promise<void>;
   /** Internal passive adapter for durable authoritative adoption. */
   captureRoundScoringSession: (roundId: string) => RoundScoringSession | null;
+  /** Private generation proof also covers an originally absent remote-only session. */
+  captureRoundScoringOperation: (roundId: string) => () => boolean;
   submitScorecards: (options?: { bypassed?: boolean; playerIds?: string[] }) => Promise<void>;
   resetRound: () => void;
 
@@ -466,6 +468,13 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
     getPlayedHoles: () => {
       const { holes, nineType, holesPlayed } = get();
       return filterPlayableHoles(holes, nineType, holesPlayed);
+    },
+
+    captureRoundScoringOperation: (roundId) => {
+      const generation = roundSession;
+      const active = get().currentRoundId === roundId;
+      return () => roundSession === generation &&
+        (get().currentRoundId === roundId) === active && !(active && get().isLoading);
     },
 
     captureRoundScoringSession: (roundId) => {

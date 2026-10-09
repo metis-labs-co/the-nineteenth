@@ -38,6 +38,9 @@ import { createRoundScoringContext } from '@/services/rounds/roundScoringContext
 import {
   shapeHoleNumbers,
   scorecardScoringVersion,
+  type ScoringUploadCard,
+  type AcceptedRemoteSnapshot,
+  type RoundScoringShape,
 } from '@/services/rounds/roundScoringWrite';
 import { invalidateHandicapCache } from '@/services/queryClient';
 import { saveScoreEntries } from '@/services/scoreMismatch';
@@ -115,6 +118,7 @@ async function deleteRemoteScorecard(scorecard: Scorecard): Promise<void> {
  */
 export interface ScorecardSyncResult {
   serverRevision: number;
+  serverScorecardId?: string;
 }
 
 export class ScorecardConflictError extends Error {
@@ -149,6 +153,11 @@ export function captureScorecardUpload(roundId: string): ScorecardUploadCapture 
     session: useScorecardStore.getState().captureRoundScoringSession(roundId),
   };
 }
+/** Remote work retains private session absence as well as the original upload proof. */
+export function captureRemoteScorecardUpload(roundId: string): RemoteScorecardUploadOptions['capture'] {
+  return { ...captureScorecardUpload(roundId),
+    isSessionCurrent: useScorecardStore.getState().captureRoundScoringOperation(roundId) };
+}
 /** Capture device-wide read provenance before its round IDs become known. */
 export function captureScorecardUploadRead(): (roundId: string) => ScorecardUploadCapture {
   const ownerId = getSyncAuthUserId();
@@ -174,6 +183,20 @@ export interface ScorecardUploadOptions {
   /** Background work must not reactivate a failure awaiting explicit recovery. */
   automatic?: boolean;
 }
+export interface RemoteScorecardUploadOptions {
+  kind: 'remote';
+  capture: ScorecardUploadCapture & { isSessionCurrent: () => boolean };
+  assertOperationCurrent: () => void;
+  expectedRoundShape?: RoundScoringShape;
+  /** Existing caller completion work, guarded within this same coordinator. */
+  afterAccepted?: (assertCurrent: () => Promise<void>) => Promise<void>;
+  /** Select and prove a CURRENT immutable draft only after coordinator admission. */
+  prepareCurrent: () => Promise<{
+    card: ScoringUploadCard;
+    assertDraftCurrent: () => void;
+    serverScorecardId?: string;
+  }>;
+}
 export interface ScorecardUploadSelection {
   scorecard: Scorecard;
   queued: PendingSync | null;
@@ -181,7 +204,240 @@ export interface ScorecardUploadSelection {
   assertCurrent: () => Promise<void>;
   isOwnerCurrent: () => boolean;
 }
+export function syncScorecard(
+  scorecard: Scorecard,
+  options?: ScorecardUploadOptions
+): Promise<ScorecardSyncResult>;
+export function syncScorecard(
+  identity: { roundId: string; playerId: string },
+  options: RemoteScorecardUploadOptions
+): Promise<ScorecardSyncResult>;
 export async function syncScorecard(
+  input: Scorecard | { roundId: string; playerId: string },
+  options: ScorecardUploadOptions | RemoteScorecardUploadOptions = {}
+): Promise<ScorecardSyncResult> {
+  if ('kind' in options && options.kind === 'remote') return syncRemoteScorecard(input, options);
+  return syncLocalScorecard(input as Scorecard, options as ScorecardUploadOptions);
+}
+
+async function syncRemoteScorecard(
+  identity: { roundId: string; playerId: string },
+  options: RemoteScorecardUploadOptions
+): Promise<ScorecardSyncResult> {
+  const { ownerId, source, session, isSessionCurrent } = options.capture;
+  const assertOperationCurrent = () => {
+    options.assertOperationCurrent();
+    if (
+      !ownerId ||
+      getSyncAuthUserId() !== ownerId ||
+      source.roundId !== identity.roundId ||
+      !isSessionCurrent() ||
+      (session && !session.isCurrent())
+    )
+      throw new RoundScoringWriteError(
+        'context_changed',
+        identity.roundId,
+        'Remote scoring source changed; refresh and review scores before retrying.'
+      );
+  };
+  const assertCurrent = () => {
+    assertOperationCurrent();
+    if (!isRoundPersistenceSourceCurrent(source))
+      throw new RoundScoringWriteError(
+        'context_changed',
+        identity.roundId,
+        'Remote scoring preparation changed; refresh and review scores before retrying.'
+      );
+  };
+  assertCurrent();
+  return withRoundScoringWrite(identity.roundId, async () => {
+    assertCurrent();
+    if (Platform.OS !== 'web') {
+      try {
+        if (await getRoundEndPrerequisite(identity.roundId))
+          throw new RoundScoringWriteError(
+            'local_end_pending',
+            identity.roundId,
+            'Round end must settle before uploading scores'
+          );
+      } catch (error) {
+        if (error instanceof RoundScoringWriteError) throw error;
+        throw new RoundScoringWriteError(
+          'local_end_pending',
+          identity.roundId,
+          'Round end prerequisite could not be read'
+        );
+      }
+    }
+    assertCurrent();
+    let selected: Awaited<ReturnType<RemoteScorecardUploadOptions['prepareCurrent']>> | undefined;
+    let shape = options.expectedRoundShape;
+    let acceptedRemoteSnapshot: AcceptedRemoteSnapshot | undefined;
+    try {
+      selected = await options.prepareCurrent();
+      const selection = selected;
+      const assertDraftCurrent = async () => {
+        assertCurrent();
+        selection.assertDraftCurrent();
+      };
+      await assertDraftCurrent();
+      if (
+        selected.card.roundId !== identity.roundId ||
+        selected.card.playerId !== identity.playerId
+      )
+        throw new RoundScoringWriteError(
+          'context_changed',
+          identity.roundId,
+          'Remote scoring identity changed'
+        );
+      const preparedShape = {
+        nine_type: selected.card.syncNineType ?? 'full',
+        holes_played: selected.card.holesPlayed ?? null,
+      };
+      if (
+        shape &&
+        (shape.nine_type !== preparedShape.nine_type ||
+          shape.holes_played !== preparedShape.holes_played)
+      )
+        throw new RoundScoringWriteError(
+          'context_changed',
+          identity.roundId,
+          'Displayed round shape changed; review before retrying.'
+        );
+      shape = preparedShape;
+      const authoritative = await fetchRoundScoringShape(identity.roundId);
+      await assertDraftCurrent();
+      if (
+        authoritative.nine_type !== shape.nine_type ||
+        authoritative.holes_played !== shape.holes_played
+      )
+        throw new RoundScoringWriteError(
+          'shape_changed',
+          identity.roundId,
+          'Round changed; refresh and review scores before retrying.'
+        );
+      const prepared = createRoundScoringContext(identity.roundId, {})(
+        selected.card,
+        shapeHoleNumbers(shape),
+        shape
+      );
+      const result = await uploadScorecardWithinBoundary(
+        prepared,
+        ownerId!,
+        assertDraftCurrent,
+        async () => {},
+        (serverRevision) => ({
+          acceptedRemoteSnapshot: {
+            roundId: identity.roundId,
+            playerId: identity.playerId,
+            serverRevision,
+            ...(selection.serverScorecardId && { serverScorecardId: selection.serverScorecardId }),
+          },
+        })
+      );
+      acceptedRemoteSnapshot = {
+        roundId: identity.roundId,
+        playerId: identity.playerId,
+        serverRevision: result.serverRevision,
+        ...(selected.serverScorecardId && { serverScorecardId: selected.serverScorecardId }),
+      };
+      await options.afterAccepted?.(assertDraftCurrent);
+      try {
+        await assertDraftCurrent();
+      } catch (error) {
+        const scoringError = error instanceof RoundScoringWriteError ? error : null;
+        throw new RoundScoringWriteError(
+          scoringError?.kind ?? 'unavailable',
+          identity.roundId,
+          error instanceof Error ? error.message : 'Remote acknowledgment failed',
+          {
+            acceptedRemoteSnapshot: {
+              roundId: identity.roundId,
+              playerId: identity.playerId,
+              serverRevision: result.serverRevision,
+              ...(selected.serverScorecardId && { serverScorecardId: selected.serverScorecardId }),
+            },
+            sqlCode: scoringError?.sqlCode,
+            sqlHint: scoringError?.sqlHint,
+          }
+        );
+      }
+      return {
+        ...result,
+        ...(selected.serverScorecardId && { serverScorecardId: selected.serverScorecardId }),
+      };
+    } catch (error) {
+      const original = error instanceof RoundScoringWriteError ? error : null;
+      acceptedRemoteSnapshot = original?.acceptedRemoteSnapshot ?? acceptedRemoteSnapshot;
+      let failure = error;
+      if (
+        shape &&
+        (original?.kind === 'shape_changed' ||
+          original?.kind === 'out_of_play' ||
+          error instanceof ScorecardConflictError)
+      ) {
+        try {
+          assertCurrent();
+          selected?.assertDraftCurrent();
+          const authoritative = await fetchRoundScoringShape(identity.roundId);
+          assertCurrent();
+          selected?.assertDraftCurrent();
+          if (
+            shape.nine_type !== authoritative.nine_type ||
+            shape.holes_played !== authoritative.holes_played
+          ) {
+            await adoptRoundShapeWithinScoringWrite(identity.roundId, authoritative, {
+              ownerId: ownerId!,
+              originalSession: session,
+              isCurrent: () => {
+                assertOperationCurrent();
+                selected?.assertDraftCurrent();
+                return true;
+              },
+            });
+            // The service's own successful epoch advance invalidates the old source by design.
+            assertOperationCurrent();
+            selected?.assertDraftCurrent();
+            failure = new RoundScoringWriteError(
+              'shape_changed',
+              identity.roundId,
+              'Round changed. Refresh and review scores before retrying.',
+              { sqlCode: original?.sqlCode, sqlHint: original?.sqlHint }
+            );
+          }
+        } catch (recoveryError) {
+          failure =
+            recoveryError instanceof RoundScoringWriteError
+              ? recoveryError
+              : new RoundScoringWriteError(
+                  'unavailable',
+                  identity.roundId,
+                  recoveryError instanceof Error
+                    ? recoveryError.message
+                    : 'Remote shape recovery unavailable',
+                  { sqlCode: original?.sqlCode, sqlHint: original?.sqlHint }
+                );
+        }
+      }
+      if (acceptedRemoteSnapshot || !(failure instanceof Error)) {
+        const scoring = failure instanceof RoundScoringWriteError ? failure : null;
+        throw new RoundScoringWriteError(
+          scoring?.kind ?? 'unavailable',
+          identity.roundId,
+          failure instanceof Error ? failure.message : 'Remote scoring recovery failed',
+          {
+            acceptedRemoteSnapshot,
+            sqlCode: scoring?.sqlCode ?? original?.sqlCode,
+            sqlHint: scoring?.sqlHint ?? original?.sqlHint,
+          }
+        );
+      }
+      throw failure;
+    }
+  });
+}
+
+async function syncLocalScorecard(
   scorecard: Scorecard,
   options: ScorecardUploadOptions = {}
 ): Promise<ScorecardSyncResult> {
@@ -598,13 +854,13 @@ export async function syncScorecard(
   });
 }
 
-async function uploadScorecardWithinBoundary(scorecard: Scorecard, ownerId: string, assertCurrent: () => Promise<void>, preserveAccepted: (serverRevision: number) => Promise<void>): Promise<ScorecardSyncResult> {
-  syncLogger.info('Syncing scorecard to Supabase', logScorecardSummary(scorecard));
+async function uploadScorecardWithinBoundary(scorecard: ScoringUploadCard, ownerId: string, assertCurrent: () => Promise<void>, preserveAccepted: (serverRevision: number) => Promise<void>, acceptance?: (serverRevision: number) => { acceptedRemoteSnapshot: AcceptedRemoteSnapshot }): Promise<ScorecardSyncResult> {
+  syncLogger.info('Syncing scorecard to Supabase', scorecard.id ? logScorecardSummary({ ...scorecard, id: scorecard.id }) : { roundId: scorecard.roundId, playerId: scorecard.playerId });
 
   // Skip standalone rounds - they are local-only and don't sync to server
   if (scorecard.isStandalone) {
     syncLogger.info('Skipping standalone scorecard (local-only)', {
-      id: scorecard.id.substring(0, 20) + '...',
+      id: scorecard.id?.substring(0, 20),
     });
     return { serverRevision: scorecard.serverRevision ?? 0 };
   }
@@ -741,7 +997,7 @@ async function uploadScorecardWithinBoundary(scorecard: Scorecard, ownerId: stri
     data: SnapshotRpc['Returns'] | null;
     error: { code?: string; hint?: string; message: string; details?: string } | null;
   }>;
-  const { error, data } = await writeSnapshot('write_scorecard_snapshot', {
+  const { error, data } = await writeSnapshot.call(supabase, 'write_scorecard_snapshot', {
     p_round_id: scorecard.roundId,
     p_player_id: scorecard.playerId,
     p_expected_revision: scorecard.serverRevision ?? 0,
@@ -782,10 +1038,12 @@ async function uploadScorecardWithinBoundary(scorecard: Scorecard, ownerId: stri
     await syncScoreEntries(snapshotCard, ownerId);
     await assertCurrent();
   } catch (error) {
-    const acceptedWrite = { scorecardId: scorecard.id, serverRevision: result.server_revision };
+    const accepted = acceptance?.(result.server_revision) ?? { acceptedWrite: { scorecardId: scorecard.id!, serverRevision: result.server_revision } };
     await preserveAccepted(result.server_revision);
     if (error instanceof RoundScoringWriteError)
-      throw new RoundScoringWriteError(error.kind, error.roundId, error.message, { acceptedWrite, sqlCode: error.sqlCode, sqlHint: error.sqlHint });
+      throw new RoundScoringWriteError(error.kind, error.roundId, error.message, { ...accepted, sqlCode: error.sqlCode, sqlHint: error.sqlHint });
+    if (acceptance) throw new RoundScoringWriteError('unavailable', scorecard.roundId,
+      error instanceof Error ? error.message : 'Remote snapshot accepted but continuation failed', accepted);
     throw error;
   }
   // Start background work only after the guarded snapshot/entries continuation.
@@ -808,7 +1066,7 @@ async function uploadScorecardWithinBoundary(scorecard: Scorecard, ownerId: stri
  * high-blast-radius (it feeds `players.handicap_index` and handicap history)
  * and must never emit a differential for a scoreless / zero-gross card.
  */
-export function calculateHandicapData(scorecard: Scorecard): {
+export function calculateHandicapData(scorecard: ScoringUploadCard): {
   gaHandicapUsed: number | null;
   dailyHandicapUsed: number | null;
   handicapDifferential: number | null;
@@ -977,7 +1235,7 @@ export function calculateHandicapData(scorecard: Scorecard): {
  * Falls back to scorecard.totalNet if hole data is not available.
  */
 function calculateTotalPoints(
-  scorecard: Scorecard,
+  scorecard: ScoringUploadCard,
   dailyHandicap: number | null
 ): number {
   const holes = scorecard.syncHoles;
@@ -1023,7 +1281,7 @@ function calculateTotalPoints(
  * already wrote via calculatePlayerTotals.
  */
 function calculateTotalParScore(
-  scorecard: Scorecard,
+  scorecard: ScoringUploadCard,
   dailyHandicap: number | null
 ): number | null {
   const holes = scorecard.syncHoles;
@@ -1057,7 +1315,7 @@ function calculateTotalParScore(
  * Keep planned syncHoles/coursePar for handicap context. With no hole data or
  * no daily handicap, preserve cached totals rather than inventing pars/strokes.
  */
-function prepareEndedSnapshot(scorecard: Scorecard, dailyHandicap: number | null): Scorecard {
+function prepareEndedSnapshot(scorecard: ScoringUploadCard, dailyHandicap: number | null): ScoringUploadCard {
   const holes = scorecard.syncHoles;
   if (
     !isEndedEarly({ holes_played: scorecard.holesPlayed }) ||
@@ -1092,7 +1350,7 @@ function prepareEndedSnapshot(scorecard: Scorecard, dailyHandicap: number | null
 }
 
 /** Normal cards retain their single-ball points/Par behavior; ended cards use ball 1 like gross/net. */
-function readSnapshotStrokes(scorecard: Scorecard, holeNumber: number): number | undefined {
+function readSnapshotStrokes(scorecard: ScoringUploadCard, holeNumber: number): number | undefined {
   const score = scorecard.scores[holeNumber];
   if (!score) return undefined;
   if (isSingleBallScore(score)) return score.strokes;
@@ -1112,7 +1370,7 @@ function readSnapshotStrokes(scorecard: Scorecard, holeNumber: number): number |
  *   round's value.
  * - No daily handicap: the store's totalNet, as before.
  */
-function calculateSnapshotTotalNet(scorecard: Scorecard, dailyHandicap: number | null): number {
+function calculateSnapshotTotalNet(scorecard: ScoringUploadCard, dailyHandicap: number | null): number {
   if (dailyHandicap == null) {
     return scorecard.totalNet || 0;
   }
@@ -1130,7 +1388,7 @@ function calculateSnapshotTotalNet(scorecard: Scorecard, dailyHandicap: number |
 /**
  * Sync score entries for mismatch detection
  */
-async function syncScoreEntries(scorecard: Scorecard, currentUserId: string): Promise<void> {
+async function syncScoreEntries(scorecard: ScoringUploadCard, currentUserId: string): Promise<void> {
   // Populate score_entries for mismatch detection (if scores have scoredBy attribution).
   // This ensures offline scores are available for mismatch detection after reconnect.
   // NOTE: Only sync entries where the current user is the scorer (RLS policy requires

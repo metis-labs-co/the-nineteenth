@@ -6,6 +6,12 @@ export type RoundScoringShape = Readonly<{ nine_type: NineType; holes_played: nu
 export type PositiveRoundScoringShape = RoundScoringShape & { holes_played: number };
 /** scorecardId is the LOCAL Scorecard.id, never the UUID returned by the server RPC. */
 export type AcceptedScorecardWrite = Readonly<{ scorecardId: string; serverRevision: number }>;
+/** Calculation/upload preparation may precede a remote row's creation. */
+export type ScoringUploadCard = Omit<Scorecard, 'id'> & { id?: string };
+/** Remote acceptance never identifies a SQLite card or acknowledges a local queue. */
+export type AcceptedRemoteSnapshot = Readonly<{
+  roundId: string; playerId: string; serverRevision: number; serverScorecardId?: string;
+}>;
 export type OwnedRoundEndIntent = Readonly<{ userId: string }>;
 export type PriorLocalShapes = ReadonlyMap<string, RoundScoringShape>;
 export type RebuildRoundShapeCard = (

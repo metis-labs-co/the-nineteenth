@@ -77,6 +77,13 @@ describe('isNotPlayedRound', () => {
 });
 
 describe('splitActiveAndHistory', () => {
+  it('keeps an ended in-progress social round in the active Quick Score picker source', () => {
+    const ended = { ...comp({ id: 'ended-social', status: 'in-progress',
+      isStandalone: true, competition: undefined }), holes_played: 6 };
+    const { active, history } = splitActiveAndHistory([ended], TODAY);
+    expect(active).toEqual([ended]);
+    expect(history).toEqual([]);
+  });
   it('sends a not-played competition round to history, not the upcoming list', () => {
     const missed = comp({ id: 'missed', date: '2026-08-01' });
     const { active, history } = splitActiveAndHistory([missed], TODAY);

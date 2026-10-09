@@ -30,6 +30,8 @@ type PreparedAdoptionOptions = AdoptionOptions & {
   /** Loading has its own private generation guard and must never borrow live profiles. */
   isCurrent?: () => boolean;
   evidence?: RoundRepairEvidence;
+  /** Already-held remote callers preserve the original session, including explicit absence. */
+  originalSession?: RoundScoringSession | null;
 };
 
 async function readRepairMetadata(roundId: string): Promise<RoundRepairEvidence> {
@@ -85,9 +87,12 @@ async function readRepairMetadata(roundId: string): Promise<RoundRepairEvidence>
 function captureRepair(roundId: string, options: PreparedAdoptionOptions) {
   const ownerId = options.ownerId;
   const source = captureRoundPersistenceSource(roundId);
-  const session: RoundScoringSession | null = options.isCurrent
-    ? null
-    : useScorecardStore.getState().captureRoundScoringSession(roundId);
+  const session: RoundScoringSession | null =
+    options.originalSession !== undefined
+      ? options.originalSession
+      : options.isCurrent
+        ? null
+        : useScorecardStore.getState().captureRoundScoringSession(roundId);
   const assertCurrent = () => {
     if (!ownerId?.trim() || getSyncAuthUserId() !== ownerId)
       throw new RoundScoringWriteError('unavailable', roundId, 'Captured scoring owner changed');
@@ -198,7 +203,7 @@ export async function adoptAuthoritativeRoundShape(
 export async function adoptRoundShapeWithinScoringWrite(
   roundId: string,
   shape: RoundScoringShape,
-  options: AdoptionOptions
+  options: AdoptionOptions & Pick<PreparedAdoptionOptions, 'originalSession' | 'isCurrent'>
 ): Promise<void> {
   const proof = captureRepair(roundId, options);
   await repairWithinBoundary(roundId, shape, options, proof);
