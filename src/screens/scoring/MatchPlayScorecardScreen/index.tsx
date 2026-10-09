@@ -31,6 +31,9 @@ import { calculatePlayingHandicap } from '@/hooks/usePlayingHandicap';
 import { isSingleBallScore } from '@/types/database/base';
 import type { SkinsResultWithWinner } from '@/types';
 import { scoringLogger } from '@/utils/debugLogger';
+// Direct path: the screen test mocks the scorecard barrel.
+import { EndedEarlyBanner } from '@/components/scorecard/EndedEarlyBanner';
+import { isEndedEarly } from '@/utils/roundShape';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'MatchPlayScorecard'>;
 
@@ -94,6 +97,7 @@ export default function MatchPlayScorecardScreen({ navigation, route }: Props) {
     handicapSource,
     selectedTeeData: storeTeeData,
     startHole,
+    nineType,
     holesPlayed,
   } = useScorecardStore();
 
@@ -320,6 +324,11 @@ export default function MatchPlayScorecardScreen({ navigation, route }: Props) {
         showBack
         onBack={handleGoBack}
       />
+
+      {/* Finish screen: the ended banner has no Finish action. */}
+      {holesPlayed != null && isEndedEarly({ holes_played: holesPlayed }) ? (
+        <EndedEarlyBanner holesPlayed={holesPlayed} nineType={nineType ?? 'full'} />
+      ) : null}
 
       {/* Tab Buttons - Only show when skins is enabled */}
       {hasSkinsEnabled && (

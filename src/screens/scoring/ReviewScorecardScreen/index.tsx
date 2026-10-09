@@ -16,6 +16,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import { OfflineIndicator } from '@/components/common/OfflineIndicator';
 import { PageHeader, ConfirmationDialog } from '@/components/common';
+import { EndedEarlyBanner } from '@/components/scorecard/EndedEarlyBanner';
 import { Tabs } from '@/components/common/Tabs';
 import { MismatchResolutionModal } from '@/components/scoring';
 import { spacing } from '@/constants/theme';
@@ -34,6 +35,7 @@ import type { ShotLogEntry } from '@/types/database/shotLog.types';
 
 import { buildDailyHandicapMap } from '@/utils/leaderboardHandicaps';
 import { getSkinsHoleCounts } from '@/utils/skins';
+import { isEndedEarly } from '@/utils/roundShape';
 import { SubMatchLeaderboardTab } from '@/components/leaderboard';
 import { useRoundScorecards } from '@/hooks/rounds';
 import { createMergedGetStrokes, resolveSplitMatchDisplayPoints } from './utils/subMatchLeaderboard';
@@ -92,6 +94,8 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
     setCurrentHole,
     resetRound,
     submitScorecards,
+    holesPlayed,
+    nineType,
   } = useScoreReview({ routeHoles: route.params?.holes });
 
   // Get round ID from route params or store
@@ -404,6 +408,11 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
         isSyncing={isSubmitting}
       />
 
+      {/* Finish screen: the ended banner has no Finish action. */}
+      {holesPlayed != null && isEndedEarly({ holes_played: holesPlayed }) ? (
+        <EndedEarlyBanner holesPlayed={holesPlayed} nineType={nineType} />
+      ) : null}
+
       {/* Tab Navigation */}
       {showTabs && (
         <View style={styles.tabContainer}>
@@ -449,6 +458,8 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
           startHole={startHole}
           isMultiBall={isMultiBall}
           ballCount={ballCount}
+          nineType={nineType}
+          holesPlayed={holesPlayed}
         />
       )}
 

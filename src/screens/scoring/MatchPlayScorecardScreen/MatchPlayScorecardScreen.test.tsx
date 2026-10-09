@@ -614,6 +614,36 @@ describe('MatchPlayScorecardScreen', () => {
   });
 
   describe('Ended early', () => {
+    it.each(['full', 'back9'] as const)('shows the ended-early banner without a Finish action (%s)', (nineType) => {
+      setupSuccessfulMock();
+      mockedUseScorecardStore.mockReturnValue({
+        ...mockedUseScorecardStore(),
+        getCompletedHolesCount: jest.fn().mockReturnValue(6),
+        isHoleComplete: jest.fn().mockReturnValue(false),
+        isMultiBall: false,
+        ballCount: 1,
+        nineType,
+        holesPlayed: 6,
+      } as any);
+      render(<MatchPlayScorecardScreen navigation={mockNavigation} route={mockRoute} />);
+      expect(screen.getByText(`Ended after 6 of ${nineType === 'full' ? 18 : 9}`)).toBeTruthy();
+      expect(screen.queryByText('Finish')).toBeNull();
+      expect(screen.queryByTestId('ended-early-finish')).toBeNull();
+    });
+
+    it('shows no banner for a round played as planned', () => {
+      setupSuccessfulMock();
+      render(<MatchPlayScorecardScreen navigation={mockNavigation} route={mockRoute} />);
+      expect(screen.queryByText(/Ended after/)).toBeNull();
+    });
+
+    it.each([0, -3, 2.5, NaN])('shows no ended-early banner for an invalid marker (%s)', (holesPlayed) => {
+      setupSuccessfulMock();
+      mockedUseScorecardStore.mockReturnValue({ ...mockedUseScorecardStore(), nineType: 'full', holesPlayed } as any);
+      render(<MatchPlayScorecardScreen navigation={mockNavigation} route={mockRoute} />);
+      expect(screen.queryByTestId('ended-early-banner')).toBeNull();
+    });
+
     it.each([9, 18])(
       'forwards cutoff changes with %s planned holes',
       (count) => {

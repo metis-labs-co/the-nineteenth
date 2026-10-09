@@ -5,12 +5,13 @@
 import { useMemo, useCallback, useState } from 'react';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { generateDefaultHoles } from '@/utils/scorecardCalculations';
+import { filterPlayableHoles } from '@/utils/holeTransformers';
 import { detectBallCount, hasMultiBallScores } from '@/utils/multiBallScorecard';
 import { isSingleBallScore } from '@/types/database/base';
 import type { ScorecardTablePlayer } from '@/components/scorecard';
 import type { BallCount } from '@/types/multiball.types';
 import type { Hole, Player, Scorecard, GameType, HoleScore, MultiBallHoleScore, TeeBox } from '@/types/index';
-import type { HandicapSource } from '@/types/database/enums';
+import type { HandicapSource, NineType } from '@/types/database/enums';
 
 export interface IncompleteHole {
   holeNumber: number;
@@ -23,7 +24,12 @@ interface UseScoreReviewParams {
 
 interface UseScoreReviewReturn {
   // Data
+  /** Planned holes — feed these to anything that derives a daily handicap. */
   holes: Hole[];
+  /** Holes that count after an early end, otherwise the planned range. */
+  playedHoles: Hole[];
+  holesPlayed: number | null;
+  nineType: NineType;
   tablePlayerData: ScorecardTablePlayer[];
   currentPlayers: Player[];
   groupScorecards: Map<string, Scorecard>;
@@ -69,6 +75,8 @@ export function useScoreReview({ routeHoles }: UseScoreReviewParams): UseScoreRe
     allowedPlayerIds,
     isMultiBall: storeIsMultiBall,
     ballCount: storeBallCount,
+    nineType,
+    holesPlayed,
   } = useScorecardStore();
 
   const [showIncompleteModal, setShowIncompleteModal] = useState(false);
@@ -84,6 +92,12 @@ export function useScoreReview({ routeHoles }: UseScoreReviewParams): UseScoreRe
     }
     return generateDefaultHoles();
   }, [storeHoles, routeHoles]);
+
+  // Apply the store's played-range policy to route/default fallback holes too.
+  const playedHoles = useMemo(
+    () => filterPlayableHoles(holes, nineType ?? 'full', holesPlayed),
+    [holes, nineType, holesPlayed]
+  );
 
   // Convert store data to ScorecardTablePlayer format
   const tablePlayerData: ScorecardTablePlayer[] = useMemo(() => {
@@ -109,7 +123,7 @@ export function useScoreReview({ routeHoles }: UseScoreReviewParams): UseScoreRe
     Math.max(storeBallCount, detectBallCount(soloScores))
   ) as BallCount;
 
-  // Validate that all scores are entered for all players on all holes.
+  // Validate that all scores are entered for all players on the played holes.
   // When scoring pairs are active, only the user's assigned set (self +
   // partner) is checked — other players are scored from other devices.
   const validateScores = useCallback((): IncompleteHole[] => {
@@ -118,7 +132,7 @@ export function useScoreReview({ routeHoles }: UseScoreReviewParams): UseScoreRe
       ? currentPlayers.filter((p) => allowedPlayerIds.includes(p.id))
       : currentPlayers;
 
-    for (const hole of holes) {
+    for (const hole of playedHoles) {
       const missingPlayers: { id: string; name: string }[] = [];
 
       for (const player of playersToCheck) {
@@ -144,11 +158,14 @@ export function useScoreReview({ routeHoles }: UseScoreReviewParams): UseScoreRe
 
     setIncompleteHoles(incomplete);
     return incomplete;
-  }, [holes, currentPlayers, groupScorecards, allowedPlayerIds]);
+  }, [playedHoles, currentPlayers, groupScorecards, allowedPlayerIds]);
 
   return {
     // Data
     holes,
+    playedHoles,
+    holesPlayed: holesPlayed ?? null,
+    nineType: nineType ?? 'full',
     tablePlayerData,
     currentPlayers,
     groupScorecards,
