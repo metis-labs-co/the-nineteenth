@@ -881,11 +881,30 @@ async function processRoundEndEarlySync(
       );
       return { successCount: acknowledged ? 1 : 0, failCount: 0 };
     } catch (error) {
-      if (!selected || !isCurrent()) return { successCount: 0, failCount: 0 };
+      if (!isCurrent()) return { successCount: 0, failCount: 0 };
+      if (!selected) {
+        if (error instanceof RoundNotReadyError || error instanceof RoundScoringWriteError)
+          return { successCount: 0, failCount: 0 };
+        syncLogger.error('End intent prerequisite read failed; keeping dependent work blocked', error, {
+          roundId,
+        });
+        return { successCount: 0, failCount: 1 };
+      }
       try {
         await assertCurrent();
-      } catch {
-        return { successCount: 0, failCount: 0 };
+      } catch (readError) {
+        if (
+          !isCurrent() ||
+          readError instanceof RoundNotReadyError ||
+          readError instanceof RoundScoringWriteError
+        )
+          return { successCount: 0, failCount: 0 };
+        syncLogger.error(
+          'End intent prerequisite recheck failed; keeping dependent work blocked',
+          readError,
+          { roundId }
+        );
+        return { successCount: 0, failCount: 1 };
       }
       const permanent =
         error instanceof RoundSyncPermanentError ||

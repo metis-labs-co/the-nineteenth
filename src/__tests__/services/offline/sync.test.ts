@@ -45,6 +45,7 @@ import { createError } from '@/services/errors';
 import { applyEndRoundEarly, EndRoundEarlyError } from '@/services/rounds/applyEndRoundEarly';
 import { create18Holes } from '../../utils/testFixtures';
 import { shapeHoleNumbers } from '@/services/rounds/roundScoringWrite';
+import { syncLogger } from '@/utils/debugLogger';
 
 // ============================================================================
 // MOCK SETUP
@@ -2903,6 +2904,55 @@ describe('Queued end-round-early B6b-2', () => {
     return { promise, resolve };
   }
   const otherCard = () => fullCard({ roundId: '660e8400-e29b-41d4-a716-446655440000' });
+  it.each(['initial selection', 'failure recheck'])(
+    'reports a genuine end prerequisite database failure during %s without mutating end work',
+    async (stage) => {
+      const originalEnd = end();
+      queue = [originalEnd, cardSync(), cardSync(otherCard(), 2)];
+      const readFailure = new Error(`SQLite read failed during ${stage}`);
+      const logError = jest.spyOn(syncLogger, 'error').mockImplementation(() => undefined);
+      let endReads = 0;
+      (database.getPendingSyncByEntityKey as jest.Mock).mockImplementation(async (key) => {
+        if (key === originalEnd.entityKey) {
+          endReads++;
+          // Failure handling rereads after selection, pre-RPC proof and refused RPC.
+          if (endReads === (stage === 'initial selection' ? 1 : 3)) throw readFailure;
+        }
+        const row = queue.find((row) => row.entityKey === key);
+        return row ? readEndProof(row) : null;
+      });
+      if (stage === 'failure recheck') {
+        (applyEndRoundEarly as jest.Mock).mockRejectedValueOnce(
+          new EndRoundEarlyError('forbidden', 'old RPC refusal')
+        );
+      }
+      try {
+        await expect(syncAll()).resolves.toBe(false);
+        expect(logError).toHaveBeenCalledWith(expect.stringContaining('End intent'), readFailure, {
+          roundId,
+        });
+        expect(getSyncState().error).toContain('1 sync');
+        expect(queue.find((row) => row.id === 21)).toBe(originalEnd);
+        expect(failed).toEqual([]);
+        expect(database.persistAuthoritativeRoundShape).not.toHaveBeenCalled();
+        expect(database.removePendingSync).not.toHaveBeenCalledWith(
+          21,
+          expect.anything(),
+          expect.anything(),
+          undefined,
+          expect.anything()
+        );
+        expect(database.markPendingSyncFailed).not.toHaveBeenCalled();
+        expect(database.incrementSyncRetryCount).not.toHaveBeenCalled();
+        expect(supabase.rpc).toHaveBeenCalledTimes(1);
+        expect((supabase.rpc as jest.Mock).mock.calls[0][1].p_round_id).toBe(otherCard().roundId);
+        expect(queue.some((row) => row.id === 1)).toBe(true);
+        expect(queue.some((row) => row.id === 2)).toBe(false);
+      } finally {
+        logError.mockRestore();
+      }
+    }
+  );
   it('reports a native end-retention database failure while unrelated upload still progresses', async () => {
     queue = [
       end({ data: { id: roundId, action: 'end_early', holesPlayed: 6 } }),
@@ -3049,7 +3099,8 @@ describe('Queued end-round-early B6b-2', () => {
       if (change === 'queue-revision') queue[0] = { ...end(), revision: 2 };
       if (change === 'queue-recovery') queue[0] = { ...end(), status: 'failed', lastError: 'new' };
       rpc.resolve();
-      await draining;
+      await expect(draining).resolves.toBe(true);
+      expect(getSyncState().error).toBeNull();
       expect(database.persistAuthoritativeRoundShape).not.toHaveBeenCalled();
       expect(database.removePendingSync).not.toHaveBeenCalled();
       expect(queue).toHaveLength(1);
@@ -3133,7 +3184,8 @@ describe('Queued end-round-early B6b-2', () => {
       });
       release.resolve();
       await held;
-      await draining;
+      await expect(draining).resolves.toBe(true);
+      expect(getSyncState().error).toBeNull();
 
       expect(queue.find((row) => row.id === 21)).toBe(originalEnd);
       expect(failed).toEqual([]);
