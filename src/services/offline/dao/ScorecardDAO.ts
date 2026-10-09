@@ -50,6 +50,23 @@ async function rowToScorecard(row: ScorecardRow, connection?: EndTransaction): P
     }
   }
 
+  // Ordinary active saves have nullable SQL defaults before a scoring basis
+  // is captured. A tee, provisional source or revision handshake alone does
+  // not record unknown gender. Preserve null once ANY basis field or terminal
+  // marker exists, including zero/empty/malformed raw values. The session
+  // bridge separately proves whether an uncaptured source can use live input.
+  const genderUncaptured =
+    row.player_gender == null &&
+    row.status === 'in-progress' &&
+    row.holes_played == null &&
+    row.submitted_at == null &&
+    row.submitted_by == null &&
+    row.player_handicap_used == null &&
+    row.course_par == null &&
+    row.sync_nine_type == null &&
+    row.sync_game_type == null &&
+    row.sync_holes == null;
+
   return {
     id: row.id,
     roundId: row.round_id,
@@ -75,7 +92,7 @@ async function rowToScorecard(row: ScorecardRow, connection?: EndTransaction): P
     // Handicap calculation metadata (for fallback sync path)
     teeData,
     coursePar: row.course_par ?? undefined,
-    playerGender: (row.player_gender as 'male' | 'female' | null) ?? null,
+    ...(genderUncaptured ? {} : { playerGender: (row.player_gender as 'male' | 'female' | null) ?? null }),
     playerHandicap: row.player_handicap_used ?? null,
     // Sync metadata (for fallback sync path): without syncNineType a complete
     // 9-hole card would be judged against 18 holes and lose its differential.

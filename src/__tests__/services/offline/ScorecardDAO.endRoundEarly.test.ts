@@ -4,6 +4,9 @@ import { persistRoundEarlyEnd, saveScorecard, getScorecardsByRound } from '@/ser
 import { getDb } from '@/services/offline/DatabaseManager';
 import { bulkSaveHoleScores, getHoleScores } from '@/services/offline/dao/HoleScoreDAO';
 import type { Scorecard, TeeBox } from '@/types';
+import type { ScorecardRow } from '@/services/offline/types';
+import { createRoundScoringContext } from '@/services/rounds/roundScoringContext';
+import { create18Holes, createTestPlayer } from '../../utils/testFixtures';
 
 jest.mock('@/services/offline/DatabaseManager', () => ({ getDb: jest.fn() }));
 jest.mock('@/services/offline/dao/HoleScoreDAO', () => ({
@@ -41,6 +44,67 @@ beforeEach(() => {
   db.getFirstAsync.mockResolvedValue(null);
   db.withTransactionAsync.mockImplementation(async (work) => work());
   db.withExclusiveTransactionAsync.mockImplementation(async (work) => work(txn));
+});
+
+describe('native nullable gender capture evidence', () => {
+  const row: ScorecardRow = {
+    id: card.id, round_id: card.roundId, player_id: card.playerId, player_name: 'Player',
+    player_handicap: 24, total_gross: 5, total_net: 5, total_points: 0, status: 'in-progress',
+    submitted_at: null, submitted_by: null, created_at: '2020-01-01', updated_at: '2020-01-02',
+    is_synced: 0, is_standalone: 0, server_revision: 3, tee_data: JSON.stringify(tee),
+    player_gender: null, player_handicap_used: null, course_par: null,
+    sync_nine_type: null, sync_game_type: null, sync_holes: null,
+    sync_handicap_source: 'profile', holes_played: null,
+  };
+  const decode = async (fields: Partial<ScorecardRow> = {}) => {
+    db.getAllAsync.mockResolvedValueOnce([{ ...row, ...fields }]);
+    (getHoleScores as jest.Mock).mockResolvedValueOnce({ 1: { strokes: 5 } });
+    return (await getScorecardsByRound(card.roundId))[0];
+  };
+
+  it('leaves uncaptured active gender absent despite provisional source, tee and revision bookkeeping', async () => {
+    const decoded = await decode();
+    expect(decoded).not.toHaveProperty('playerGender');
+    expect(decoded).toMatchObject({ syncHandicapSource: 'profile', teeData: tee, serverRevision: 3 });
+  });
+
+  it.each([
+    { player_handicap_used: 0 }, { course_par: 0 },
+    { sync_nine_type: '' }, { sync_game_type: '' },
+    { sync_holes: '' }, { sync_holes: '[]' }, { sync_holes: 'malformed' },
+    { holes_played: 0 }, { holes_played: 6 },
+    { status: 'completed' }, { status: 'confirmed' },
+    { submitted_at: '' }, { submitted_at: '2020-01-02' }, { submitted_by: '' }, { submitted_by: 'owner' },
+  ])('preserves recorded-null evidence for raw partial/terminal bundle %j', async (fields) => {
+    expect((await decode(fields)).playerGender).toBeNull();
+  });
+
+  it.each(['male', 'female'])('preserves non-null %s even before other metadata was captured', async (player_gender) => {
+    expect((await decode({ player_gender })).playerGender).toBe(player_gender);
+  });
+
+  it('still refuses a live gender change against decoded partial recorded-null context', async () => {
+    const decoded = await decode({ player_handicap_used: 12 });
+    const holes = create18Holes();
+    const rebuild = createRoundScoringContext(card.roundId, {
+      getLiveContext: () => ({ player: createTestPlayer({ id: card.playerId, handicap: 12, gender: 'female' }),
+        handicapSource: 'profile', nineType: 'full', holes, gameType: 'stroke', teeData: tee }),
+    });
+    expect(() => rebuild(decoded, new Set([1,2,3,4,5,6]), { nine_type: 'full', holes_played: 6 }))
+      .toThrow(expect.objectContaining({ kind: 'context_changed' }));
+  });
+
+  it('keeps a complete decoded recorded-null basis authoritative over a different current profile', async () => {
+    const holes = create18Holes();
+    const decoded = await decode({ player_handicap_used: 12, course_par: 72,
+      sync_nine_type: 'full', sync_game_type: 'stroke', sync_holes: JSON.stringify(holes), holes_played: 6 });
+    const getLiveContext = jest.fn(() => ({ player: createTestPlayer({ id: card.playerId, handicap: 24, gender: 'female' }),
+      handicapSource: 'profile' as const, nineType: 'full' as const, holes, gameType: 'stroke' as const, teeData: tee }));
+    const repaired = createRoundScoringContext(card.roundId, { getLiveContext })(
+      decoded, new Set([1,2,3,4,5,6]), { nine_type: 'full', holes_played: 6 });
+    expect(repaired).toMatchObject({ playerGender: null, playerHandicap: 12, scores: { 1: { strokes: 5 } } });
+    expect(getLiveContext).not.toHaveBeenCalled();
+  });
 });
 
 describe('persistRoundEarlyEnd', () => {

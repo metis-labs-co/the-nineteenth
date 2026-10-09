@@ -32,6 +32,15 @@ import { calculateHandicapData } from '@/services/offline/sync/scorecardSync';
 import { shapeHoleNumbers } from '@/services/rounds/roundScoringWrite';
 import { withRoundPersistenceTransition } from '@/services/offline/roundPersistenceBarrier';
 import { Platform } from 'react-native';
+import { getScorecardsByRound as decodeNativeScorecards } from '@/services/offline/dao/ScorecardDAO';
+import { getDb } from '@/services/offline/DatabaseManager';
+import { getHoleScores } from '@/services/offline/dao/HoleScoreDAO';
+import type { ScorecardRow } from '@/services/offline/types';
+
+jest.mock('@/services/offline/DatabaseManager', () => ({ getDb: jest.fn() }));
+jest.mock('@/services/offline/dao/HoleScoreDAO', () => ({
+  getHoleScores: jest.fn(), bulkSaveHoleScores: jest.fn(), deleteHoleScores: jest.fn(),
+}));
 
 jest.mock('@/services/offline/sync/drain', () => ({ requestSyncDrain: jest.fn() }));
 jest.mock('@/services/offline/sync/networkState', () => ({ getSyncAuthUserId: jest.fn(() => 'owner') }));
@@ -775,6 +784,52 @@ describe('characterization (pre round-shape init)', () => {
 });
 
 describe('C2b resumed unended live provenance', () => {
+  it.each([
+    ['profile', 'male'], ['profile', 'female'],
+    ['calculated', 'male'], ['calculated', 'female'],
+    ['none', 'male'], ['none', 'female'],
+  ] as const)('decodes uncaptured native gender then resumes %s with refreshed %s context through scoring/end', async (source, gender) => {
+    const row: ScorecardRow = {
+      id: cardId(P1.id), round_id: ROUND_ID, player_id: P1.id, player_name: P1.name,
+      player_handicap: 24, total_gross: 5, total_net: 5, total_points: 0,
+      status: 'in-progress', submitted_at: null, submitted_by: null,
+      created_at: '2020-01-01', updated_at: '2020-01-02', is_synced: 0, is_standalone: 0,
+      // A tee/source/revision can precede captured scoring metadata in ordinary live saves.
+      tee_data: JSON.stringify(TEE_WHITE), server_revision: 3, sync_handicap_source: source,
+      player_gender: null, player_handicap_used: null, course_par: null,
+      sync_holes: null, sync_nine_type: null, sync_game_type: null, holes_played: null,
+    };
+    (getDb as jest.Mock).mockResolvedValue({ getAllAsync: jest.fn(async () => [row]) });
+    (getHoleScores as jest.Mock).mockResolvedValue({ 1: { strokes: 5 } });
+    const [decoded] = await decodeNativeScorecards(ROUND_ID);
+    (getHoles as jest.Mock).mockResolvedValue(create18Holes());
+    (getScorecardsByRound as jest.Mock).mockResolvedValue([decoded]);
+    supabaseMock.__setRoundsResult(roundsRow({ handicap_source: source, selected_tee: TEE_WHITE }));
+    const originalFrom = (supabase.from as jest.Mock).getMockImplementation()!;
+    (supabase.from as jest.Mock).mockImplementation((table: string) => {
+      if (table !== 'players') return originalFrom(table);
+      return { select: () => ({ in: async () => ({ data: [{ id: P1.id,
+        handicap: 14, handicap_index: 12, gender }] }) }) };
+    });
+    try {
+      expect(await getStore().loadFromOffline(ROUND_ID)).toBe(true);
+    } finally {
+      (supabase.from as jest.Mock).mockImplementation(originalFrom);
+    }
+    expect(getStore().groupScorecards.get(P1.id)?.player).toMatchObject({ handicap: 14, handicapIndex: 12, gender });
+    await getStore().setPlayerScore(P1.id, 2, 6);
+    await getStore().endRoundEarly(6);
+    const expectedHI = source === 'none' ? null : source === 'calculated' ? 12 : 14;
+    expect(getStore().groupScorecards.get(P1.id)).toMatchObject({
+      holesPlayed: 6, playerGender: gender, playerHandicap: expectedHI,
+      syncHandicapSource: source, teeData: TEE_WHITE, syncHoles: create18Holes(), syncGameType: 'stroke',
+      scores: { 1: { strokes: 5 }, 2: { strokes: 6 } }, totalGross: 11,
+      totalNet: source === 'none' ? 11 : 10,
+    });
+    expect(persistRoundEarlyEnd).toHaveBeenCalledWith(ROUND_ID, 6, 'full', range(1, 6),
+      [expect.objectContaining({ playerGender: gender, playerHandicap: expectedHI })]);
+  });
+
   it.each(['profile', 'calculated', 'none'] as const)('resumes a source-only active %s card, scores locally and ends with real current context', async (source) => {
     const player = { ...P1, handicap: source === 'none' ? undefined : 24, handicapIndex: source === 'none' ? undefined : 20 };
     const cached: Scorecard = {
