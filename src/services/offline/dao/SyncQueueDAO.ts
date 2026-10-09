@@ -5,6 +5,7 @@ import { assertIntentOwner, ensureRoundEndIntent, type EndTransaction } from './
 import { RoundScoringWriteError } from '@/services/rounds/roundScoringErrors';
 import { scorecardScoringVersion } from '@/services/rounds/roundScoringWrite';
 import { rowToScorecard } from './ScorecardDAO';
+import { pendingSyncRecoveryMatches, pendingSyncRecoveryVersion } from './pendingSyncRecovery';
 /**
  * Sync Queue DAO
  *
@@ -164,23 +165,55 @@ export async function getPendingSyncs(): Promise<PendingSync[]> {
 /**
  * Remove a pending sync after successful sync
  */
-export async function removePendingSync(id: number, revision?: number, isCurrent?: () => boolean,
-  expectedScorecardAbsence?: { scorecardId: string; roundId: string; playerId: string },
+export async function removePendingSync(
+  id: number,
+  revision?: number,
+  isCurrent?: () => boolean,
+  expectedScorecardAbsence?: {
+    scorecardId: string;
+    roundId: string;
+    playerId: string;
+    expectedRecovery?: PendingSync;
+  }
 ): Promise<boolean> {
+  const recoveryVersion =
+    expectedScorecardAbsence?.expectedRecovery &&
+    pendingSyncRecoveryVersion(expectedScorecardAbsence.expectedRecovery);
+  const recoveryRevision = expectedScorecardAbsence?.expectedRecovery?.revision ?? 1;
+  if (
+    recoveryVersion &&
+    (expectedScorecardAbsence?.expectedRecovery?.id !== id || recoveryRevision !== revision)
+  )
+    return false;
   const database = await getDb();
   if (isCurrent && !isCurrent()) return false;
   if (isCurrent && Platform.OS !== 'web') {
     let removed = false;
-    await database.withExclusiveTransactionAsync(async txn => {
+    await database.withExclusiveTransactionAsync(async (txn) => {
       if (!isCurrent()) return;
-      if (expectedScorecardAbsence && await txn.getFirstAsync(
-        `SELECT id FROM ${TABLE_NAMES.SCORECARDS} WHERE id = ? AND round_id = ? AND player_id = ?`,
-        [expectedScorecardAbsence.scorecardId, expectedScorecardAbsence.roundId, expectedScorecardAbsence.playerId],
-      )) return;
+      if (recoveryVersion) {
+        const queue = await txn.getFirstAsync<PendingSyncRow>(
+          `SELECT * FROM ${TABLE_NAMES.PENDING_SYNCS} WHERE id = ? AND revision = ?`,
+          [id, recoveryRevision]
+        );
+        if (!queue || !pendingSyncRecoveryMatches(recoveryVersion, queue)) return;
+      }
+      if (
+        expectedScorecardAbsence &&
+        (await txn.getFirstAsync(
+          `SELECT id FROM ${TABLE_NAMES.SCORECARDS} WHERE id = ? AND round_id = ? AND player_id = ?`,
+          [
+            expectedScorecardAbsence.scorecardId,
+            expectedScorecardAbsence.roundId,
+            expectedScorecardAbsence.playerId,
+          ]
+        ))
+      )
+        return;
       if (!isCurrent()) return;
       const result = await txn.runAsync(
         `DELETE FROM ${TABLE_NAMES.PENDING_SYNCS} WHERE id = ?${revision == null ? '' : ' AND revision = ?'}`,
-        revision == null ? [id] : [id, revision],
+        revision == null ? [id] : [id, revision]
       );
       if (!isCurrent()) throw new Error('Scoring queue acknowledgment changed during transaction');
       removed = result.changes > 0;
@@ -204,6 +237,7 @@ export async function removePendingSync(id: number, revision?: number, isCurrent
  * an online run completed). Queue handlers use removePendingSync, whose
  * revision guard keeps a row re-queued while it ran.
  */
+
 export async function removePendingSyncByEntityKey(entityKey: string): Promise<boolean> {
   const database = await getDb();
   const result = await database.runAsync(
@@ -218,11 +252,66 @@ export async function removePendingSyncByEntityKey(entityKey: string): Promise<b
 /**
  * Increment retry count for a pending sync
  */
+export interface PendingSyncRecoveryGuard {
+  expectedRecovery: PendingSync;
+  isCurrent: () => boolean;
+}
+
+async function guardPendingRecovery(
+  id: number,
+  revision: number | undefined,
+  guard: PendingSyncRecoveryGuard,
+  write: (txn: EndTransaction) => Promise<{ changes: number }>
+): Promise<boolean> {
+  const version = pendingSyncRecoveryVersion(guard.expectedRecovery);
+  if (revision == null) return false;
+  const expectedRevision = revision;
+  if (guard.expectedRecovery.id !== id || (guard.expectedRecovery.revision ?? 1) !== revision)
+    return false;
+  if (Platform.OS === 'web')
+    throw new RoundScoringWriteError(
+      'unavailable',
+      String(guard.expectedRecovery.data?.roundId ?? ''),
+      'Guarded queue recovery requires native SQLite'
+    );
+  const database = await getDb();
+  if (!guard.isCurrent()) return false;
+  let applied = false;
+  await database.withExclusiveTransactionAsync(async (txn) => {
+    if (!guard.isCurrent()) return;
+    const row = await txn.getFirstAsync<PendingSyncRow>(
+      `SELECT * FROM ${TABLE_NAMES.PENDING_SYNCS} WHERE id = ? AND revision = ?`,
+      [id, expectedRevision]
+    );
+    if (!row || !pendingSyncRecoveryMatches(version, row) || !guard.isCurrent()) return;
+    const result = await write(txn);
+    if (!guard.isCurrent())
+      throw new RoundScoringWriteError(
+        'context_changed',
+        String(guard.expectedRecovery.data?.roundId ?? ''),
+        'Queue recovery source changed during mutation'
+      );
+    applied = result.changes > 0;
+  });
+  return applied;
+}
+
 export async function incrementSyncRetryCount(
   id: number,
   revision?: number,
-  error = 'Sync failed'
+  error = 'Sync failed',
+  guard?: PendingSyncRecoveryGuard
 ): Promise<boolean> {
+  if (guard) {
+    if (revision == null) return false;
+    const expectedRevision = revision;
+    return guardPendingRecovery(id, expectedRevision, guard, (txn) =>
+      txn.runAsync(
+        `UPDATE ${TABLE_NAMES.PENDING_SYNCS} SET retry_count = retry_count + 1, last_error = ?, last_attempt_at = ? WHERE id = ? AND revision = ?`,
+        [error, new Date().toISOString(), id, expectedRevision]
+      )
+    );
+  }
   const database = await getDb();
   const result = await database.runAsync(
     `UPDATE ${TABLE_NAMES.PENDING_SYNCS}
@@ -239,8 +328,16 @@ export async function incrementSyncRetryCount(
 export async function markPendingSyncFailed(
   id: number,
   revision: number,
-  error: string
+  error: string,
+  guard?: PendingSyncRecoveryGuard
 ): Promise<boolean> {
+  if (guard)
+    return guardPendingRecovery(id, revision, guard, (txn) =>
+      txn.runAsync(
+        `UPDATE ${TABLE_NAMES.PENDING_SYNCS} SET status = 'failed', last_error = ?, last_attempt_at = ? WHERE id = ? AND revision = ?`,
+        [error, new Date().toISOString(), id, revision]
+      )
+    );
   const database = await getDb();
   const result = await database.runAsync(
     `UPDATE ${TABLE_NAMES.PENDING_SYNCS}
@@ -252,6 +349,7 @@ export async function markPendingSyncFailed(
 }
 
 /** Move retained failures back into the automatic queue. */
+
 export async function resetFailedSyncs(): Promise<number> {
   const database = await getDb();
   const result = await database.runAsync(
@@ -403,9 +501,37 @@ export async function updatePendingSyncData(id: number, data: unknown): Promise<
  */
 export async function raisePendingSyncServerRevision(
   id: number,
-  serverRevision: number
+  serverRevision: number,
+  guard?: { scorecardId: string; roundId: string; playerId: string; isCurrent: () => boolean }
 ): Promise<boolean> {
   const database = await getDb();
+  if (guard) {
+    if (!guard.isCurrent()) return false;
+    if (Platform.OS === 'web')
+      throw new RoundScoringWriteError(
+        'unavailable',
+        guard.roundId,
+        'Guarded queue revision recovery requires native SQLite'
+      );
+    let raised = false;
+    await database.withExclusiveTransactionAsync(async (txn) => {
+      if (!guard.isCurrent()) return;
+      const result = await txn.runAsync(
+        `UPDATE ${TABLE_NAMES.PENDING_SYNCS} SET data = json_set(data, '$.serverRevision', ?) WHERE id = ? AND type = 'scorecard'
+         AND json_extract(data, '$.id') = ? AND json_extract(data, '$.roundId') = ? AND json_extract(data, '$.playerId') = ?
+         AND COALESCE(json_extract(data, '$.serverRevision'), 0) < ?`,
+        [serverRevision, id, guard.scorecardId, guard.roundId, guard.playerId, serverRevision]
+      );
+      if (!guard.isCurrent())
+        throw new RoundScoringWriteError(
+          'context_changed',
+          guard.roundId,
+          'Queue revision recovery owner changed during mutation'
+        );
+      raised = result.changes > 0;
+    });
+    return raised;
+  }
   const result = await database.runAsync(
     `UPDATE ${TABLE_NAMES.PENDING_SYNCS}
         SET data = json_set(data, '$.serverRevision', ?)

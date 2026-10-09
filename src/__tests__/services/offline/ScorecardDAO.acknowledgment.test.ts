@@ -1,5 +1,6 @@
 import { getScorecardsByRound, markScorecardAsSynced } from '@/services/offline/dao/ScorecardDAO';
 import { getDb } from '@/services/offline/DatabaseManager';
+import { getPendingSyncByEntityKey } from '@/services/offline/dao/SyncQueueDAO';
 import {
   captureRoundPersistenceSource,
   withRoundPersistence,
@@ -60,6 +61,63 @@ it('acknowledges unchanged parent and holes using monotonic revision and exact i
     [7, 'local-id', 'round', 'player'],
   ]);
 });
+it.each(['unchanged', 'failed', 'retried'])(
+  'checks same-revision %s recovery state at native acknowledgment acquisition',
+  async (change) => {
+    const [expected] = await getScorecardsByRound('round');
+    let queued = {
+      id: 9,
+      revision: 3,
+      type: 'scorecard',
+      action: 'update',
+      entity_key: 'scorecard:round:player',
+      data: JSON.stringify({ id: 'local-id', roundId: 'round', playerId: 'player', scores: {} }),
+      timestamp: '2026-10-09T00:00:00.000Z',
+      retry_count: 0,
+      status: 'pending',
+      last_error: null as string | null,
+      last_attempt_at: null as string | null,
+    };
+    db.getFirstAsync.mockImplementation(async (sql: string) =>
+      sql.includes('pending_syncs') ? queued : row
+    );
+    const recovery = (await getPendingSyncByEntityKey(queued.entity_key))!;
+    let entered!: () => void;
+    let release!: () => void;
+    const waiting = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    (getDb as jest.Mock).mockImplementationOnce(async () => {
+      entered();
+      await gate;
+      return db;
+    });
+    const guardedQueue = { id: 9, revision: 3, expectedRecovery: recovery };
+    const applying = withRoundPersistence(captureRoundPersistenceSource('round'), (lease) =>
+      markScorecardAsSynced('local-id', 7, { lease, expected, queued: guardedQueue })
+    );
+    await waiting;
+    if (change !== 'unchanged')
+      queued = {
+        ...queued,
+        status: change === 'failed' ? 'failed' : 'pending',
+        retry_count: change === 'retried' ? 1 : 0,
+        last_error: 'new recovery state',
+        last_attempt_at: '2026-10-09T01:00:00.000Z',
+      };
+    release();
+    await expect(applying).resolves.toBe(change === 'unchanged');
+    if (change === 'unchanged') expect(db.runAsync).toHaveBeenCalledTimes(2);
+    else {
+      expect(db.runAsync).not.toHaveBeenCalled();
+      expect(queued).toMatchObject({ revision: 3, last_error: 'new recovery state' });
+    }
+  }
+);
+
 it('leaves both disk and queue unacknowledged when a newer queue version wins the transaction', async () => {
   const [expected] = await getScorecardsByRound('round');
   db.getFirstAsync.mockImplementation(async (sql: string) =>

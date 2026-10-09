@@ -5,6 +5,8 @@ import {
   replacePendingSyncData,
   recordAcceptedScorecardWrite,
   removePendingSync,
+  incrementSyncRetryCount,
+  markPendingSyncFailed,
 } from '@/services/offline/dao/SyncQueueDAO';
 import { getDb } from '@/services/offline/DatabaseManager';
 jest.mock('@/services/offline/DatabaseManager', () => ({ getDb: jest.fn() }));
@@ -51,6 +53,92 @@ it('CAS replacement raises revision and makes an old acknowledgment miss', async
   expect(database.runAsync.mock.calls[0][0]).toContain('revision = revision + 1');
   expect(database.runAsync.mock.calls[0][0]).not.toContain('status =');
 });
+it.each(['pending', 'failed'])(
+  'checks a same-revision %s queue row during native queue-only acknowledgment',
+  async (status) => {
+    const raw = {
+      id: 9,
+      revision: 3,
+      type: 'scorecard',
+      action: 'update',
+      entity_key: 'scorecard:r:p',
+      data: JSON.stringify({ id: 'c', roundId: 'r', playerId: 'p', scores: {} }),
+      timestamp: '2026-10-09T00:00:00.000Z',
+      retry_count: 0,
+      status: 'pending',
+      last_error: null,
+      last_attempt_at: null,
+    };
+    database.getFirstAsync.mockResolvedValueOnce(raw);
+    const expectedRecovery = (await getPendingSyncByEntityKey(raw.entity_key))!;
+    const failed = status === 'failed' ? { ...raw, status, last_error: 'new failure' } : raw;
+    txn.getFirstAsync.mockImplementation(async (sql: string) =>
+      sql.includes('pending_syncs') ? failed : null
+    );
+    const absence = { scorecardId: 'c', roundId: 'r', playerId: 'p', expectedRecovery };
+    await expect(removePendingSync(9, 3, () => true, absence)).resolves.toBe(status === 'pending');
+    expect(txn.runAsync).toHaveBeenCalledTimes(status === 'pending' ? 1 : 0);
+  }
+);
+it.each([
+  ['retry', false],
+  ['retry', true],
+  ['failure', false],
+  ['failure', true],
+] as const)(
+  'checks recovery fields during guarded %s acquisition (changed=%s)',
+  async (action, changed) => {
+    let raw = {
+      id: 9,
+      revision: 3,
+      type: 'scorecard',
+      action: 'update',
+      entity_key: 'scorecard:r:p',
+      data: JSON.stringify({ id: 'c', roundId: 'r', playerId: 'p', scores: {} }),
+      timestamp: '2026-10-09T00:00:00.000Z',
+      retry_count: 0,
+      status: 'pending',
+      last_error: null as string | null,
+      last_attempt_at: null as string | null,
+    };
+    database.getFirstAsync.mockResolvedValueOnce(raw);
+    const expectedRecovery = (await getPendingSyncByEntityKey(raw.entity_key))!;
+    txn.getFirstAsync.mockImplementation(async () => raw);
+    let entered!: () => void;
+    let release!: () => void;
+    const waiting = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    (getDb as jest.Mock).mockImplementationOnce(async () => {
+      entered();
+      await gate;
+      return database;
+    });
+    database.runAsync.mockResolvedValue({ changes: 1 });
+    const options = { expectedRecovery, isCurrent: () => true };
+    const recovering =
+      action === 'retry'
+        ? incrementSyncRetryCount(9, 3, 'old error', options)
+        : markPendingSyncFailed(9, 3, 'old error', options);
+    await waiting;
+    if (changed)
+      raw = {
+        ...raw,
+        status: 'failed',
+        retry_count: 2,
+        last_error: 'new failure',
+        last_attempt_at: '2026-10-09T01:00:00.000Z',
+      };
+    release();
+    await expect(recovering).resolves.toBe(!changed);
+    expect(database.runAsync).not.toHaveBeenCalled();
+    expect(txn.runAsync).toHaveBeenCalledTimes(changed ? 0 : 1);
+  }
+);
+
 it('records accepted revision in one exclusive transaction without replacing newer scores or reviving failure', async () => {
   await recordAcceptedScorecardWrite('r', 'p', { scorecardId: 'c', serverRevision: 9 });
   expect(database.withExclusiveTransactionAsync).toHaveBeenCalledTimes(1);

@@ -50,7 +50,7 @@ import {
   initNetworkState,
   getSyncAuthUserId,
 } from './networkState';
-import { processScorecardSync, syncScorecard, isValidUUID, ScorecardConflictError, captureScorecardUploadRead, type ScorecardUploadOptions, type ScorecardSyncResult } from './scorecardSync';
+import { processScorecardSync, syncScorecard, isValidUUID, ScorecardConflictError, captureScorecardUploadRead, type ScorecardUploadOptions, type ScorecardSyncResult, type ScorecardUploadSelection } from './scorecardSync';
 import { RoundScoringWriteError } from '@/services/rounds/roundScoringErrors';
 import { scorecardScoringVersion } from '@/services/rounds/roundScoringWrite';
 import { registerSyncDrainHandler } from './drain';
@@ -253,7 +253,8 @@ export async function syncAll(options: SyncAllOptions = {}): Promise<boolean> {
      */
     const refreshQueuedRevision = async (
       sync: PendingSync,
-      error: ScorecardConflictError
+      error: ScorecardConflictError,
+      selection?: ScorecardUploadSelection
     ): Promise<boolean> => {
       if (sync.type !== 'scorecard' || !sync.data || !Number.isFinite(error.serverRevision)) {
         return false;
@@ -262,7 +263,10 @@ export async function syncAll(options: SyncAllOptions = {}): Promise<boolean> {
 
       sync.data = { ...sync.data, serverRevision: error.serverRevision };
       if (sync.id != null) {
-        await raisePendingSyncServerRevision(sync.id, error.serverRevision);
+        await raisePendingSyncServerRevision(sync.id, error.serverRevision, ...(selection ? [{
+          scorecardId: sync.data.id, roundId: sync.data.roundId, playerId: sync.data.playerId,
+          isCurrent: selection.isOwnerCurrent,
+        }] : []));
       }
       return true;
     };
@@ -272,16 +276,110 @@ export async function syncAll(options: SyncAllOptions = {}): Promise<boolean> {
      * server's current revision when the user asked for this drain.
      */
     const attemptPendingSync = async (
-      sync: PendingSync
+      sync: PendingSync,
+      onSelected: (selection: ScorecardUploadSelection) => void
     ): Promise<ScorecardSyncResult | void> => {
       return processPendingSync(sync, {
-        capture: queuedReadCapture(String(sync.data?.roundId ?? '')),
-        adoptServerRevisionOnConflict, markSynced: true,
+        capture: queuedReadCapture(String(sync.data?.roundId ?? '')), onSelected,
+        adoptServerRevisionOnConflict, markSynced: true, automatic: !adoptServerRevisionOnConflict,
         onSynced: (card, revision) => notifyScorecardSynced(card.id, revision),
       });
     };
 
+    const handlePendingFailure = async (
+      sync: PendingSync,
+      error: unknown,
+      selection?: ScorecardUploadSelection
+    ) => {
+      if (selection) {
+        try {
+          await selection.assertCurrent();
+        } catch {
+          // C2b: a server revision may advance repaired CURRENT content without reviving old work.
+          if (error instanceof ScorecardConflictError) {
+            try {
+              await refreshQueuedRevision(sync, error, selection);
+            } catch {
+              /* Obsolete owner/session. */
+            }
+          }
+          return;
+        }
+      }
+      const recoveryGuard = selection
+        ? [{ expectedRecovery: { ...sync }, isCurrent: selection.isCurrent }]
+        : [];
+      const errorMessage = error instanceof Error ? error.message : String(error);
+
+      if (error instanceof RoundScoringWriteError) {
+        if (['invalid_shape', 'context_missing', 'out_of_play'].includes(error.kind)) {
+          await markPendingSyncFailed(sync.id!, sync.revision ?? 1, errorMessage, ...recoveryGuard);
+          failCount++;
+        }
+        return;
+      }
+
+      if (error instanceof ScorecardConflictError) {
+        // Park the server's current revision on the row before retaining it,
+        // so the next explicit retry starts from a winnable expectation.
+        await refreshQueuedRevision(sync, error, selection);
+        await markPendingSyncFailed(sync.id!, sync.revision ?? 1, errorMessage, ...recoveryGuard);
+        failCount++;
+        conflictCount++;
+        return;
+      }
+
+      // RLS policy errors (42501) mean the current user has no permission
+      // to write this row — almost always because the round/competition
+      // was deleted, the user was removed, or the scorecard belongs to a
+      // round the user no longer has access to. Retrying won't help, so
+      // drop the sync immediately rather than burning retry slots and
+      // emitting misleading "PERMANENT SYNC FAILURE" warnings.
+      const isRlsError =
+        errorMessage.includes('row-level security policy') || errorMessage.includes('42501');
+
+      if (isRlsError) {
+        syncLogger.warn('RLS POLICY ERROR: Retaining sync for explicit recovery', {
+          id: sync.id,
+          type: sync.type,
+          roundId: sync.data?.roundId?.substring(0, 8) + '...',
+          playerId: sync.data?.playerId?.substring(0, 8) + '...',
+        });
+        await markPendingSyncFailed(sync.id!, sync.revision ?? 1, errorMessage, ...recoveryGuard);
+        failCount++;
+        return;
+      }
+
+      syncLogger.error('Failed to process sync', error, {
+        id: sync.id,
+        type: sync.type,
+        action: sync.action,
+        retryCount: sync.retryCount,
+      });
+      failCount++;
+
+      const failureCount = sync.retryCount + 1;
+      if (failureCount < MAX_RETRY_COUNT) {
+        await incrementSyncRetryCount(sync.id!, sync.revision ?? 1, errorMessage, ...recoveryGuard);
+        syncLogger.debug('Incremented retry count', {
+          id: sync.id,
+          newRetryCount: failureCount,
+        });
+      } else {
+        syncLogger.error('SYNC FAILURE RETAINED: Automatic retries exhausted', undefined, {
+          id: sync.id,
+          type: sync.type,
+          roundId: sync.data?.roundId?.substring(0, 8) + '...',
+          playerId: sync.data?.playerId?.substring(0, 8) + '...',
+          maxRetries: MAX_RETRY_COUNT,
+          lastError: errorMessage,
+        });
+        await markPendingSyncFailed(sync.id!, sync.revision ?? 1, errorMessage, ...recoveryGuard);
+      }
+    };
+
     for (const sync of pendingSyncs) {
+      let selection: ScorecardUploadSelection | undefined;
       try {
         syncLogger.debug('Processing pending sync', {
           id: sync.id,
@@ -295,7 +393,7 @@ export async function syncAll(options: SyncAllOptions = {}): Promise<boolean> {
             sync.data.serverRevision = freshest;
           }
         }
-        const result = await attemptPendingSync(sync);
+        const result = await attemptPendingSync(sync, current => { selection = current; });
         if (!result) {
           const acknowledged = await removePendingSync(sync.id!, sync.revision ?? 1);
           if (!acknowledged) continue;
@@ -306,73 +404,7 @@ export async function syncAll(options: SyncAllOptions = {}): Promise<boolean> {
           if (result && sync.data?.id) freshestRevisions.set(sync.data.id, result.serverRevision);
         }
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-
-        if (error instanceof RoundScoringWriteError) {
-          if (['invalid_shape', 'context_missing', 'out_of_play'].includes(error.kind)) {
-            await markPendingSyncFailed(sync.id!, sync.revision ?? 1, errorMessage);
-            failCount++;
-          }
-          continue;
-        }
-
-        if (error instanceof ScorecardConflictError) {
-          // Park the server's current revision on the row before retaining it,
-          // so the next explicit retry starts from a winnable expectation.
-          await refreshQueuedRevision(sync, error);
-          await markPendingSyncFailed(sync.id!, sync.revision ?? 1, errorMessage);
-          failCount++;
-          conflictCount++;
-          continue;
-        }
-
-        // RLS policy errors (42501) mean the current user has no permission
-        // to write this row — almost always because the round/competition
-        // was deleted, the user was removed, or the scorecard belongs to a
-        // round the user no longer has access to. Retrying won't help, so
-        // drop the sync immediately rather than burning retry slots and
-        // emitting misleading "PERMANENT SYNC FAILURE" warnings.
-        const isRlsError =
-          errorMessage.includes('row-level security policy') || errorMessage.includes('42501');
-
-        if (isRlsError) {
-          syncLogger.warn('RLS POLICY ERROR: Retaining sync for explicit recovery', {
-            id: sync.id,
-            type: sync.type,
-            roundId: sync.data?.roundId?.substring(0, 8) + '...',
-            playerId: sync.data?.playerId?.substring(0, 8) + '...',
-          });
-          await markPendingSyncFailed(sync.id!, sync.revision ?? 1, errorMessage);
-          failCount++;
-          continue;
-        }
-
-        syncLogger.error('Failed to process sync', error, {
-          id: sync.id,
-          type: sync.type,
-          action: sync.action,
-          retryCount: sync.retryCount,
-        });
-        failCount++;
-
-        const failureCount = sync.retryCount + 1;
-        if (failureCount < MAX_RETRY_COUNT) {
-          await incrementSyncRetryCount(sync.id!, sync.revision ?? 1, errorMessage);
-          syncLogger.debug('Incremented retry count', {
-            id: sync.id,
-            newRetryCount: failureCount,
-          });
-        } else {
-          syncLogger.error('SYNC FAILURE RETAINED: Automatic retries exhausted', undefined, {
-            id: sync.id,
-            type: sync.type,
-            roundId: sync.data?.roundId?.substring(0, 8) + '...',
-            playerId: sync.data?.playerId?.substring(0, 8) + '...',
-            maxRetries: MAX_RETRY_COUNT,
-            lastError: errorMessage,
-          });
-          await markPendingSyncFailed(sync.id!, sync.revision ?? 1, errorMessage);
-        }
+        await handlePendingFailure(sync, error, selection);
       }
     }
 
@@ -396,9 +428,12 @@ export async function syncAll(options: SyncAllOptions = {}): Promise<boolean> {
       for (const scorecard of unsyncedScorecards) {
         const source = fallbackReadSource(scorecard.roundId);
         if (!isRoundPersistenceSourceCurrent(source)) continue;
+        const capture = fallbackCapture(scorecard.roundId);
+        let selection: ScorecardUploadSelection | undefined;
+        const isCurrent = () => !capture.session || capture.session.isCurrent();
         try {
           syncLogger.debug('Syncing unsynced scorecard', logScorecardSummary(scorecard));
-          await syncScorecard(scorecard, { capture: fallbackCapture(scorecard.roundId), markSynced: true,
+          await syncScorecard(scorecard, { capture, markSynced: true, automatic: !adoptServerRevisionOnConflict, onSelected: current => { selection = current; },
             onSynced: (card, revision) => notifyScorecardSynced(card.id, revision),
           });
           successCount++;
@@ -407,27 +442,32 @@ export async function syncAll(options: SyncAllOptions = {}): Promise<boolean> {
             id: scorecard.id.substring(0, 20) + '...',
           });
         } catch (error) {
+          if (selection) {
+            if (selection.queued) { await handlePendingFailure(selection.queued, error, selection); continue; }
+            try { await selection.assertCurrent(); } catch { continue; }
+          }
+          const failedCard = selection?.scorecard ?? scorecard;
           const errorMessage = error instanceof Error ? error.message : String(error);
 
           if (error instanceof RoundScoringWriteError) {
             if (['invalid_shape', 'context_missing', 'out_of_play'].includes(error.kind)) {
               failCount++;
               const retainedCard =
-                error.acceptedWrite?.scorecardId === scorecard.id
+                error.acceptedWrite?.scorecardId === failedCard.id
                   ? {
-                      ...scorecard,
+                      ...failedCard,
                       serverRevision: Math.max(
-                        scorecard.serverRevision ?? 0,
+                        failedCard.serverRevision ?? 0,
                         error.acceptedWrite.serverRevision
                       ),
                     }
-                  : scorecard;
+                  : failedCard;
               await retainFallbackFailure(
                 retainedCard,
                 errorMessage,
                 true,
                 source,
-                fallbackCapture(scorecard.roundId).ownerId
+                capture.ownerId, selection?.isCurrent ?? isCurrent
               );
             }
             continue;
@@ -444,12 +484,12 @@ export async function syncAll(options: SyncAllOptions = {}): Promise<boolean> {
             // row is recoverable rather than permanently self-conflicting.
             await retainFallbackFailure(
               Number.isFinite(error.serverRevision)
-                ? { ...scorecard, serverRevision: error.serverRevision }
-                : scorecard,
+                ? { ...failedCard, serverRevision: error.serverRevision }
+                : failedCard,
               errorMessage,
               true,
               source,
-              fallbackCapture(scorecard.roundId).ownerId
+              capture.ownerId, selection?.isCurrent ?? isCurrent
             );
           } else if (isRlsError) {
             syncLogger.error('RLS POLICY ERROR: Scorecard cannot be synced - round may have been deleted', undefined, {
@@ -457,7 +497,7 @@ export async function syncAll(options: SyncAllOptions = {}): Promise<boolean> {
               roundId: scorecard.roundId.substring(0, 8) + '...',
               playerId: scorecard.playerId.substring(0, 8) + '...',
             });
-            await retainFallbackFailure(scorecard, errorMessage, true, source, fallbackCapture(scorecard.roundId).ownerId);
+            await retainFallbackFailure(failedCard, errorMessage, true, source, capture.ownerId, selection?.isCurrent ?? isCurrent);
             rlsFailedRoundIds.add(scorecard.roundId);
             // Don't count as failure since we handled it
           } else {
@@ -466,7 +506,7 @@ export async function syncAll(options: SyncAllOptions = {}): Promise<boolean> {
               roundId: scorecard.roundId.substring(0, 8) + '...',
             });
             failCount++;
-            await retainFallbackFailure(scorecard, errorMessage, false, source, fallbackCapture(scorecard.roundId).ownerId);
+            await retainFallbackFailure(failedCard, errorMessage, false, source, capture.ownerId, selection?.isCurrent ?? isCurrent);
           }
         }
       }
@@ -865,20 +905,22 @@ async function retainFallbackFailure(
   error: string,
   permanent: boolean,
   source: RoundPersistenceSource,
-  ownerId: string | null
+  ownerId: string | null,
+  isCurrent: () => boolean
 ): Promise<void> {
   try {
     await runRoundPersistence(
       scorecard.roundId,
       { source },
       async () => {
-        if (!ownerId || getSyncAuthUserId() !== ownerId) return;
+        if (!ownerId || getSyncAuthUserId() !== ownerId || !isCurrent()) return;
         if (await getPendingSyncByEntityKey(scorecardEntityKey(scorecard))) return;
         const current = (await getScorecardsByRound(scorecard.roundId)).find(
           (card) => card.id === scorecard.id && card.playerId === scorecard.playerId
         );
         if (
           getSyncAuthUserId() !== ownerId ||
+          !isCurrent() ||
           !current ||
           scorecardScoringVersion(current) !== scorecardScoringVersion(scorecard)
         )
@@ -907,7 +949,9 @@ async function retainFallbackFailure(
               version: scorecardScoringVersion(current),
             },
             isCurrent: () =>
-              getSyncAuthUserId() === ownerId && isRoundPersistenceSourceCurrent(source),
+              getSyncAuthUserId() === ownerId &&
+              isRoundPersistenceSourceCurrent(source) &&
+              isCurrent(),
           }
         );
       },

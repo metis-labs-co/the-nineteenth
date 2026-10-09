@@ -13,7 +13,8 @@ import { assertCompatibleEndIntent, type EndTransaction, assertIntentOwner, ensu
 import { runRoundPersistence, type RoundPersistenceOptions } from '../roundPersistenceBarrier';
 import { Platform } from 'react-native';
 import { getHoleRange } from '@/constants/scoring';
-import type { Scorecard } from '@/types';
+import type { Scorecard, PendingSync } from '@/types';
+import { pendingSyncRecoveryMatches, pendingSyncRecoveryVersion } from './pendingSyncRecovery';
 import type { TeeBox, Hole } from '@/types/database/base';
 import type { GameType, NineType } from '@/types/database/enums';
 import type { PendingSyncRow, ScorecardRow } from '../types';
@@ -437,7 +438,7 @@ export async function markScorecardAsSynced(
     expected?: Scorecard;
     expectedVersion?: string;
     isCurrent?: () => boolean;
-    queued?: { id: number; revision: number };
+    queued?: { id: number; revision: number; expectedRecovery?: PendingSync };
     roundId?: string;
     playerId?: string;
   }
@@ -445,6 +446,9 @@ export async function markScorecardAsSynced(
   if (options?.expected) {
     const expected = options.expected;
     const version = options.expectedVersion ?? scorecardScoringVersion(expected);
+    const recoveryVersion =
+      options.queued?.expectedRecovery &&
+      pendingSyncRecoveryVersion(options.queued.expectedRecovery);
     if (expected.id !== scorecardId) return false;
     return runRoundPersistence(expected.roundId, options, async () => {
       if (Platform.OS === 'web')
@@ -453,22 +457,26 @@ export async function markScorecardAsSynced(
       let applied = false;
       await database.withExclusiveTransactionAsync(async (txn) => {
         if (options.isCurrent && !options.isCurrent()) return;
-        if (
-          options.queued &&
-          !(await txn.getFirstAsync(
-            `SELECT id FROM ${TABLE_NAMES.PENDING_SYNCS} WHERE id = ? AND revision = ? AND entity_key = ?`,
+        if (options.queued) {
+          const queue = await txn.getFirstAsync<PendingSyncRow>(
+            `SELECT * FROM ${TABLE_NAMES.PENDING_SYNCS} WHERE id = ? AND revision = ? AND entity_key = ?`,
             [
               options.queued.id,
               options.queued.revision,
               `scorecard:${expected.roundId}:${expected.playerId}`,
             ]
+          );
+          if (!queue || (recoveryVersion && !pendingSyncRecoveryMatches(recoveryVersion, queue)))
+            return;
+        }
+        if (
+          !options.queued &&
+          (await txn.getFirstAsync(
+            `SELECT id FROM ${TABLE_NAMES.PENDING_SYNCS} WHERE entity_key = ?`,
+            [`scorecard:${expected.roundId}:${expected.playerId}`]
           ))
         )
           return;
-        if (!options.queued && await txn.getFirstAsync(
-          `SELECT id FROM ${TABLE_NAMES.PENDING_SYNCS} WHERE entity_key = ?`,
-          [`scorecard:${expected.roundId}:${expected.playerId}`],
-        )) return;
         const row = await txn.getFirstAsync<ScorecardRow>(
           `SELECT * FROM ${TABLE_NAMES.SCORECARDS} WHERE id = ? AND round_id = ? AND player_id = ?`,
           [scorecardId, expected.roundId, expected.playerId]
@@ -529,6 +537,7 @@ export async function markScorecardAsSynced(
  * the scorecard stays unsynced, but resumes from the confirmed revision.
  * Never lowers the revision.
  */
+
 export async function recordScorecardServerRevision(
   scorecardId: string,
   serverRevision: number

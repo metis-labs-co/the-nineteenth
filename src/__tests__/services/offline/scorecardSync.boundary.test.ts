@@ -5,7 +5,7 @@ import { saveScoreEntries } from '@/services/scoreMismatch';
 import * as database from '@/services/offline/database';
 import { withRoundScoringWrite } from '@/services/rounds/roundScoringCoordinator';
 import { withRoundPersistenceTransition } from '@/services/offline/roundPersistenceBarrier';
-import type { Scorecard } from '@/types';
+import type { Scorecard, PendingSync } from '@/types';
 import { Platform } from 'react-native';
 
 jest.mock('@/services/supabase/client', () => ({
@@ -80,6 +80,23 @@ beforeEach(() => {
 });
 
 describe('common scorecard upload boundary', () => {
+
+
+  it('preserves same-revision recovery state changed during an accepted upload', async () => {
+    const original = card();
+    let queue: PendingSync = { id: 73, revision: 4, type: 'scorecard', action: 'update', data: original,
+      timestamp: new Date(0), retryCount: 0, status: 'pending' };
+    (database.getPendingSyncByEntityKey as jest.Mock).mockImplementation(async key => key.startsWith('scorecard:') ? queue : null);
+    (database.getScorecardsByRound as jest.Mock).mockResolvedValue([original]);
+    (supabase.rpc as jest.Mock).mockImplementationOnce(async () => {
+      queue = { ...queue, status: 'failed', lastError: 'later failure', lastAttemptAt: new Date(2) };
+      return accepted;
+    });
+    await expect(syncScorecard(original, { markSynced: true })).rejects.toMatchObject({ kind: 'context_changed', acceptedWrite: { scorecardId: original.id, serverRevision: 7 } });
+    expect(queue).toMatchObject({ id: 73, revision: 4, status: 'failed', lastError: 'later failure' });
+    expect(database.markScorecardAsSynced).not.toHaveBeenCalled(); expect(database.removePendingSync).not.toHaveBeenCalled();
+    expect(database.recordAcceptedScorecardWrite).toHaveBeenCalledWith(roundId, original.playerId, { scorecardId: original.id, serverRevision: 7 });
+  });
   it('preserves a normal snapshot and historical best-effort entry failures', async () => {
     (saveScoreEntries as jest.Mock).mockRejectedValueOnce(new Error('historical entry failure'));
     await expect(syncScorecard(card())).resolves.toMatchObject({ serverRevision: 7 });
@@ -406,7 +423,7 @@ describe('common scorecard upload boundary', () => {
     expect(database.markScorecardAsSynced).toHaveBeenCalledWith(
       'local-card',
       7,
-      expect.objectContaining({ expected: old, queued: { id: 9, revision: 3 } })
+      expect.objectContaining({ expected: old, queued: expect.objectContaining({ id: 9, revision: 3, expectedRecovery: expect.objectContaining({ id: 9 }) }) })
     );
     expect(old.scores).toEqual({ 1: { strokes: 5, scoredBy: 'owner' } });
     expect(database.recordAcceptedScorecardWrite).not.toHaveBeenCalled();
@@ -448,6 +465,7 @@ describe('common scorecard upload boundary', () => {
       scorecardId: 'local-card',
       roundId,
       playerId: card().playerId,
+      expectedRecovery: expect.objectContaining({ id: 9, revision: 3 }),
     });
     expect(database.markScorecardAsSynced).not.toHaveBeenCalled();
     expect(database.recordAcceptedScorecardWrite).toHaveBeenCalled();

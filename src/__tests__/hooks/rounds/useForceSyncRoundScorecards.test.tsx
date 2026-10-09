@@ -97,6 +97,42 @@ it('captures force-sync ownership before reading the local round', async () => {
   expect(database.markScorecardAsSynced).not.toHaveBeenCalled();
   expect(refinalizeRoundResults).not.toHaveBeenCalled();
 });
+it('explicit force-sync admits a CURRENT retained failed row with its captured recovery proof', async () => {
+  const queued = {
+    id: 12,
+    revision: 4,
+    type: 'scorecard',
+    action: 'update',
+    timestamp: new Date(0),
+    retryCount: 3,
+    status: 'failed',
+    lastError: 'retained failure',
+    data: { ...disk, scores: { 1: { strokes: 8 } }, totalGross: 8, totalNet: 8 },
+  };
+  (database.getPendingSyncByEntityKey as jest.Mock).mockImplementation(async (key) =>
+    key.startsWith('scorecard:') ? queued : null
+  );
+  const { result } = renderHook(useForceSyncRoundScorecards, { wrapper });
+  await expect(result.current.mutateAsync({ roundId })).resolves.toMatchObject({
+    pushed: 1,
+    failed: 0,
+  });
+  expect((supabase.rpc as jest.Mock).mock.calls[0][1].p_snapshot.scores[1]).toMatchObject({
+    strokes: 8,
+  });
+  expect(database.markScorecardAsSynced).toHaveBeenCalledWith(
+    'LOCAL-card',
+    7,
+    expect.objectContaining({
+      queued: expect.objectContaining({
+        id: 12,
+        revision: 4,
+        expectedRecovery: expect.objectContaining({ status: 'failed', retryCount: 3 }),
+      }),
+    })
+  );
+});
+
 it('force conflict retry freshly prepares the current disk scores inside one coordinator', async () => {
   (supabase.rpc as jest.Mock).mockResolvedValueOnce({
     data: [
@@ -177,11 +213,11 @@ it('actual store submission acknowledges identical durable scores despite reprep
     serverRevision: 7,
   });
 });
-it.each([false, true])(
-  'actual submit uploads CURRENT completion over an older in-progress queue (wait=%s)',
-  async (wait) => {
+it.each([[false, 'pending'], [true, 'pending'], [false, 'failed'], [true, 'failed']] as const)(
+  'actual submit uploads CURRENT completion over an older in-progress queue (wait=%s, status=%s)',
+  async (wait, status) => {
     const old = { ...disk, status: 'in-progress' as const, serverRevision: 2 };
-    const queued = { id: 11, revision: 2, type: 'scorecard', action: 'update', data: old };
+    const queued = { id: 11, revision: 2, type: 'scorecard', action: 'update', data: old, status, timestamp: new Date(0), retryCount: status === 'failed' ? 3 : 0 };
     disk = {
       ...old,
       scores: { 1: { strokes: 8 } },
@@ -256,7 +292,7 @@ it.each([false, true])(
     expect(database.markScorecardAsSynced).toHaveBeenCalledWith(
       'LOCAL-card',
       7,
-      expect.objectContaining({ expected: disk, queued: { id: 11, revision: 2 } })
+      expect.objectContaining({ expected: disk, queued: expect.objectContaining({ id: 11, revision: 2, expectedRecovery: expect.objectContaining({ id: 11 }) }) })
     );
     expect(useScorecardStore.getState().groupScorecards.get(playerId)).toMatchObject({
       status: 'completed',

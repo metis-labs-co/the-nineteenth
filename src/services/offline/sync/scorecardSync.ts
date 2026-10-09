@@ -7,6 +7,7 @@
 
 import { supabase } from '@/services/supabase/client';
 import { Platform } from 'react-native';
+import { pendingSyncRecoveryVersion } from '../dao/pendingSyncRecovery';
 import {
   getPendingSyncByEntityKey,
   getScorecardsByRound,
@@ -169,6 +170,16 @@ export interface ScorecardUploadOptions {
   adoptServerRevisionOnConflict?: boolean;
   markSynced?: boolean;
   onSynced?: (scorecard: Scorecard, serverRevision: number) => void;
+  onSelected?: (selection: ScorecardUploadSelection) => void;
+  /** Background work must not reactivate a failure awaiting explicit recovery. */
+  automatic?: boolean;
+}
+export interface ScorecardUploadSelection {
+  scorecard: Scorecard;
+  queued: PendingSync | null;
+  isCurrent: () => boolean;
+  assertCurrent: () => Promise<void>;
+  isOwnerCurrent: () => boolean;
 }
 export async function syncScorecard(
   scorecard: Scorecard,
@@ -224,6 +235,12 @@ export async function syncScorecard(
         );
       }
       assertCurrent();
+      if (options.automatic && queued?.status === 'failed')
+        throw new RoundScoringWriteError(
+          'context_changed',
+          scorecard.roundId,
+          'Queued failure requires explicit recovery'
+        );
       const live = session
         ?.getCards()
         .find(
@@ -263,10 +280,17 @@ export async function syncScorecard(
           'Queued upload was replaced or removed'
         );
       if (options.queued && queued) {
-        options.queued.data = queued.data;
-        options.queued.revision = queued.revision;
+        Object.assign(options.queued, {
+          ...queued,
+          entityKey: queued.entityKey,
+          revision: queued.revision,
+          status: queued.status,
+          lastError: queued.lastError,
+          lastAttemptAt: queued.lastAttemptAt,
+        });
       }
       const selected = current ?? scorecard;
+      const selectedOperation = options.queued ?? (queued && { ...queued });
       if (queued && (queued.type !== 'scorecard' || queued.action === 'delete'))
         throw new RoundScoringWriteError(
           'context_changed',
@@ -284,50 +308,15 @@ export async function syncScorecard(
           scorecard.roundId,
           'Current upload identity or scores are invalid'
         );
-      const shape = {
-        nine_type: selected.syncNineType ?? 'full',
-        holes_played: selected.holesPlayed ?? null,
-      };
-      let keep: ReadonlySet<number>;
-      try {
-        keep = shapeHoleNumbers(shape);
-      } catch {
-        throw new RoundScoringWriteError(
-          'invalid_shape',
-          scorecard.roundId,
-          'Invalid scoring preparation shape'
-        );
-      }
-      let prepared =
-        shape.holes_played != null
-          ? createRoundScoringContext(scorecard.roundId, {
-              getLiveContext: session?.getLiveContext,
-            })(selected, keep, shape)
-          : selected;
-      if (revisionOverride != null)
-        prepared = {
-          ...prepared,
-          serverRevision: Math.max(prepared.serverRevision ?? 0, revisionOverride),
-        };
       const diskVersion = disk && scorecardScoringVersion(disk);
       const liveVersion = live && scorecardScoringVersion(live);
       const selectedVersion = scorecardScoringVersion(selected);
-      const queueMetadata = (row: PendingSync) =>
-        JSON.stringify([
-          row.type,
-          row.action,
-          row.timestamp,
-          row.retryCount,
-          row.status,
-          row.lastError ?? null,
-          row.lastAttemptAt ?? null,
-        ]);
       const queueIdentity = queued && {
         id: queued.id,
         revision: queued.revision ?? 1,
         version: scorecardScoringVersion(queued.data as Scorecard),
         serverRevision: (queued.data as Scorecard).serverRevision ?? 0,
-        metadata: queueMetadata(queued),
+        metadata: pendingSyncRecoveryVersion(queued),
       };
       const assertCurrentContent = () => {
         assertCurrent();
@@ -369,6 +358,8 @@ export async function syncScorecard(
               (queueIdentity && queueIdentity.revision) ||
             (currentQueue && scorecardScoringVersion(currentQueue.data as Scorecard)) !==
               (queueIdentity && queueIdentity.version) ||
+            (currentQueue && pendingSyncRecoveryVersion(currentQueue)) !==
+              (queueIdentity && queueIdentity.metadata) ||
             (currentDisk && scorecardScoringVersion(currentDisk)) !== diskVersion ||
             !isRoundPersistenceSourceCurrent(currentSource)
           )
@@ -379,6 +370,41 @@ export async function syncScorecard(
             );
         }
       };
+      options.onSelected?.({
+        scorecard: selected,
+        queued: selectedOperation,
+        isCurrent: assertCurrentContent,
+        assertCurrent: assertUploadedCurrent,
+        isOwnerCurrent: () => {
+          assertCurrent();
+          return true;
+        },
+      });
+      const shape = {
+        nine_type: selected.syncNineType ?? 'full',
+        holes_played: selected.holesPlayed ?? null,
+      };
+      let keep: ReadonlySet<number>;
+      try {
+        keep = shapeHoleNumbers(shape);
+      } catch {
+        throw new RoundScoringWriteError(
+          'invalid_shape',
+          scorecard.roundId,
+          'Invalid scoring preparation shape'
+        );
+      }
+      let prepared =
+        shape.holes_played != null
+          ? createRoundScoringContext(scorecard.roundId, {
+              getLiveContext: session?.getLiveContext,
+            })(selected, keep, shape)
+          : selected;
+      if (revisionOverride != null)
+        prepared = {
+          ...prepared,
+          serverRevision: Math.max(prepared.serverRevision ?? 0, revisionOverride),
+        };
       const preserveAccepted = async (serverRevision: number) => {
         const acceptedWrite = { scorecardId: selected.id, serverRevision };
         try {
@@ -386,7 +412,7 @@ export async function syncScorecard(
           // Only the accepted metadata write may advance this failure CAS proof.
           // Never bless a newer scoring payload or reset its queue recovery state.
           if (
-            options.queued &&
+            selectedOperation &&
             queueIdentity &&
             getSyncAuthUserId() === ownerId &&
             (!session || session.isCurrent()) &&
@@ -403,16 +429,19 @@ export async function syncScorecard(
               queueIdentity.serverRevision < serverRevision &&
               currentQueue.data?.serverRevision === serverRevision &&
               scorecardScoringVersion(currentQueue.data as Scorecard) === queueIdentity.version &&
-              queueMetadata(currentQueue) === queueIdentity.metadata
+              pendingSyncRecoveryVersion(currentQueue) === queueIdentity.metadata
             ) {
-              options.queued.revision = currentQueue.revision;
+              selectedOperation.revision = currentQueue.revision;
+              queueIdentity.revision = currentQueue.revision;
             }
           }
         } catch (error) {
           throw new RoundScoringWriteError(
             'unavailable',
             selected.roundId,
-            error instanceof Error ? error.message : 'Accepted scoring revision could not be recorded',
+            error instanceof Error
+              ? error.message
+              : 'Accepted scoring revision could not be recorded',
             { acceptedWrite }
           );
         }
@@ -430,7 +459,8 @@ export async function syncScorecard(
       } catch (error) {
         const shapeRejected =
           error instanceof RoundScoringWriteError &&
-          (error.kind === 'out_of_play' || (error.kind === 'shape_changed' && !error.acceptedWrite));
+          (error.kind === 'out_of_play' ||
+            (error.kind === 'shape_changed' && !error.acceptedWrite));
         if (!shapeRejected && !(error instanceof ScorecardConflictError)) throw error;
         if (attempt > 0) throw error;
         try {
@@ -443,7 +473,9 @@ export async function syncScorecard(
           if (changed) {
             await adoptRoundShapeWithinScoringWrite(scorecard.roundId, authoritative, {
               ownerId: ownerId!,
-              ...(error instanceof RoundScoringWriteError && { acceptedWrite: error.acceptedWrite }),
+              ...(error instanceof RoundScoringWriteError && {
+                acceptedWrite: error.acceptedWrite,
+              }),
             });
             assertCurrent();
             if (error instanceof ScorecardConflictError) revisionOverride = error.serverRevision;
@@ -458,12 +490,19 @@ export async function syncScorecard(
           }
           throw error;
         } catch (recoveryError) {
-          if (error instanceof RoundScoringWriteError && error.acceptedWrite && recoveryError !== error) {
-            const scoringError = recoveryError instanceof RoundScoringWriteError ? recoveryError : null;
+          if (
+            error instanceof RoundScoringWriteError &&
+            error.acceptedWrite &&
+            recoveryError !== error
+          ) {
+            const scoringError =
+              recoveryError instanceof RoundScoringWriteError ? recoveryError : null;
             throw new RoundScoringWriteError(
               scoringError?.kind ?? 'unavailable',
               scorecard.roundId,
-              recoveryError instanceof Error ? recoveryError.message : 'Accepted scoring recovery failed',
+              recoveryError instanceof Error
+                ? recoveryError.message
+                : 'Accepted scoring recovery failed',
               {
                 acceptedWrite: error.acceptedWrite,
                 sqlCode: scoringError?.sqlCode ?? error.sqlCode,
@@ -487,7 +526,11 @@ export async function syncScorecard(
                 expected: disk,
                 expectedVersion: diskVersion,
                 ...(queueIdentity && {
-                  queued: { id: queueIdentity.id!, revision: queueIdentity.revision },
+                  queued: {
+                    id: queueIdentity.id!,
+                    revision: queueIdentity.revision,
+                    expectedRecovery: selectedOperation!,
+                  },
                 }),
                 isCurrent: assertCurrentContent,
               }))
@@ -513,9 +556,19 @@ export async function syncScorecard(
             assertCurrentContent();
             if (queued && !disk) {
               if (
-                !(await removePendingSync(queued.id!, queued.revision ?? 1, () => {
-                  return assertCurrentContent();
-                }, { scorecardId: selected.id, roundId: selected.roundId, playerId: selected.playerId }))
+                !(await removePendingSync(
+                  queued.id!,
+                  queued.revision ?? 1,
+                  () => {
+                    return assertCurrentContent();
+                  },
+                  {
+                    scorecardId: selected.id,
+                    roundId: selected.roundId,
+                    playerId: selected.playerId,
+                    expectedRecovery: selectedOperation!,
+                  }
+                ))
               )
                 throw new RoundScoringWriteError(
                   'context_changed',
