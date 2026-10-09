@@ -577,8 +577,23 @@ export async function persistAuthoritativeRoundShape(
       `SELECT * FROM ${TABLE_NAMES.PENDING_SYNCS} WHERE type = 'scorecard' AND entity_key LIKE ?`,
       [`scorecard:${roundId}:%`]
     );
+    // Local IDs and round/player identities must agree across both sources
+    // before an accepted or queued revision can be shared between them.
+    const playerByCardId = new Map<string, string>();
+    const cardIdByPlayer = new Map<string, string>();
+    const registerIdentity = (cardId: string, playerId: string) => {
+      if (
+        (playerByCardId.has(cardId) && playerByCardId.get(cardId) !== playerId) ||
+        (cardIdByPlayer.has(playerId) && cardIdByPlayer.get(playerId) !== cardId)
+      ) {
+        throw new Error('Inconsistent local scorecard identity blocks authoritative repair');
+      }
+      playerByCardId.set(cardId, playerId);
+      cardIdByPlayer.set(playerId, cardId);
+    };
     let commonKeep = new Set(authoritative);
     for (const row of rows) {
+      registerIdentity(row.id, row.player_id);
       const prior: RoundScoringShape = {
         nine_type: (row.sync_nine_type ?? shape.nine_type) as NineType,
         holes_played: row.holes_played ?? null,
@@ -595,8 +610,10 @@ export async function persistAuthoritativeRoundShape(
       const card = JSON.parse(queued.data) as Scorecard;
       if (
         !card ||
+        typeof card.id !== 'string' ||
         !card.id ||
         card.roundId !== roundId ||
+        typeof card.playerId !== 'string' ||
         !card.playerId ||
         queued.entity_key !== `scorecard:${roundId}:${card.playerId}` ||
         !card.scores ||
@@ -606,6 +623,7 @@ export async function persistAuthoritativeRoundShape(
       ) {
         throw new Error('Malformed queued scorecard blocks authoritative repair');
       }
+      registerIdentity(card.id, card.playerId);
       queuedCards.push({ row: queued, card });
     }
     const revisions = new Map<string, number>();

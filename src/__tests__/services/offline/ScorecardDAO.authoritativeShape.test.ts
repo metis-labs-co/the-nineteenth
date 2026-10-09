@@ -222,3 +222,52 @@ it('persists rebuilt sync context without altering frozen handicap or submission
   expect(sql).not.toContain('submitted_at =');
   expect(sql).not.toContain('player_handicap_used =');
 });
+
+it.each([false, true])(
+  'refuses a cached local card ID reused by another queued player (acceptedWrite=%s)',
+  async (withAcceptedWrite) => {
+    txn.getAllAsync.mockImplementation(async (sql: string) =>
+      sql.includes('FROM scorecards')
+        ? [row]
+        : [queue({ ...queuedCard, playerId: 'p2', serverRevision: 99 })]
+    );
+    await expect(
+      persistAuthoritativeRoundShape('r', { nine_type: 'full', holes_played: 8 }, {
+        ownerId: 'owner',
+        rebuild,
+        ...(withAcceptedWrite && { acceptedWrite: { scorecardId: 'c', serverRevision: 10 } }),
+      })
+    ).rejects.toThrow(/identity|malformed/i);
+    expect(txn.runAsync).not.toHaveBeenCalled();
+    expect(rebuild).not.toHaveBeenCalled();
+  }
+);
+
+it.each([false, true])(
+  'refuses a local card ID shared by queue-only players (acceptedWrite=%s)',
+  async (withAcceptedWrite) => {
+    txn.getAllAsync.mockImplementation(async (sql: string) =>
+      sql.includes('FROM scorecards')
+        ? []
+        : [queue(), { ...queue({ ...queuedCard, playerId: 'p2', serverRevision: 99 }), id: 5 }]
+    );
+    await expect(
+      persistAuthoritativeRoundShape('r', { nine_type: 'full', holes_played: 8 }, {
+        ownerId: 'owner',
+        rebuild,
+        ...(withAcceptedWrite && { acceptedWrite: { scorecardId: 'c', serverRevision: 10 } }),
+      })
+    ).rejects.toThrow(/identity|malformed/i);
+    expect(txn.runAsync).not.toHaveBeenCalled();
+    expect(rebuild).not.toHaveBeenCalled();
+  }
+);
+
+it('refuses a queued local ID that disagrees with the cached card for the same player', async () => {
+  txn.getAllAsync.mockImplementation(async (sql: string) =>
+    sql.includes('FROM scorecards') ? [row] : [queue({ ...queuedCard, id: 'different-local-id' })]
+  );
+  await expect(adopt()).rejects.toThrow(/identity|malformed/i);
+  expect(txn.runAsync).not.toHaveBeenCalled();
+  expect(rebuild).not.toHaveBeenCalled();
+});
