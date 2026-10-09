@@ -96,6 +96,7 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
     submitScorecards,
     holesPlayed,
     nineType,
+    playedHoles,
   } = useScoreReview({ routeHoles: route.params?.holes });
 
   // Get round ID from route params or store
@@ -141,7 +142,12 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
     currentPlayers,
   });
 
-  const holeCount = holes.length || 18;
+  // Submission, partner progress and Wolf/Shot copy count only played holes.
+  const holeCount = playedHoles.length || 18;
+
+  // Physical hole numbers: a back nine ended after six lists 10–15.
+  // B8-1 also uses this range for readiness and mismatch filtering.
+  const playedHoleNumbers = useMemo(() => playedHoles.map((h) => h.number), [playedHoles]);
 
   // Skins: holes priced on the round's planned count, the pot over the holes
   // played (rounds.holes_played once B1 adds it). Until the round row loads,
@@ -197,6 +203,7 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
   // (derived from the tee slope/CR) rather than the raw index. Cards under
   // review are in-progress (no stored snapshot yet), so this computes GA→daily
   // from the selected tee — the same live recompute the scorecard performs.
+  // Deliberately the PLANNED `holes` (Σpar), even for a round ended early.
   const leaderboardDailyHandicaps = useMemo<Record<string, number>>(() => {
     const inputs = currentPlayers.map((p) => {
       const base =
@@ -482,7 +489,7 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
         >
           <StatsTab
             displayPlayers={tablePlayerData}
-            holes={holes}
+            holes={playedHoles}
             statsVisibility={statsVisibility}
             canEditStats={false}
           />
@@ -493,7 +500,7 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
         <ContributionsTabContent
           isScramble={isScramble}
           isShamble={isShamble}
-          holes={holes}
+          holes={playedHoles}
           currentPlayers={currentPlayers}
           scrambleTeams={scrambleTeams}
           getPlayerScore={getPlayerScore}
@@ -523,7 +530,7 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
 
       {activeTab === 'leaderboard' && !isSubMatchRound && isScramble && (
         <ScrambleLeaderboardTab
-          holes={holes}
+          holes={playedHoles}
           currentPlayers={currentPlayers}
           currentUserId={currentUserId}
           scrambleTeams={scrambleTeams}
@@ -552,7 +559,7 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
       {activeTab === 'leaderboard' && !isSubMatchRound && !isScramble && !isMatchPlayTeam && (
         <LeaderboardTabContent
           players={currentPlayers}
-          holes={holes}
+          holes={playedHoles}
           getPlayerScore={getPlayerScore}
           currentUserId={currentUserId}
           gameType={effectiveGameType}
@@ -621,6 +628,7 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
           roundStatus={roundDetails?.status ?? 'in-progress'}
           holeStrokeCounts={userHoleStrokeCounts}
           totalHoles={holeCount}
+          holeNumbers={playedHoleNumbers}
         />
       )}
 

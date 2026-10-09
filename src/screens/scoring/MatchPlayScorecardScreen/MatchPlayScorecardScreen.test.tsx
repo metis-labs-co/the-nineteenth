@@ -16,7 +16,7 @@ import { supabase } from '@/services/supabase/client';
 import MatchPlayScorecardScreen from './index';
 import { useMatchPlayData } from '@/hooks/scorecard';
 import { useScorecardStore } from '@/store/scorecardStore';
-import type { Hole } from '@/types';
+import type { Hole, Scorecard } from '@/types';
 
 // ============================================================================
 // MOCKS
@@ -226,9 +226,11 @@ function setupSuccessfulMock() {
 
   mockedUseScorecardStore.mockReturnValue({
     getPlayerScore: jest.fn().mockReturnValue(undefined),
-    getCompletedHolesCount: jest.fn().mockReturnValue(0),
+    getCompletedHolesCount: jest.fn().mockReturnValue(0), isHoleComplete: jest.fn().mockReturnValue(false),
     submitScorecards: jest.fn(),
     resetRound: jest.fn(),
+    nineType: 'full', holesPlayed: null, groupScorecards: new Map(),
+    isMultiBall: false, ballCount: 1,
   } as any);
 
   return { mockRefetch };
@@ -251,9 +253,11 @@ function setupLoadingMock() {
 
   mockedUseScorecardStore.mockReturnValue({
     getPlayerScore: jest.fn().mockReturnValue(undefined),
-    getCompletedHolesCount: jest.fn().mockReturnValue(0),
+    getCompletedHolesCount: jest.fn().mockReturnValue(0), isHoleComplete: jest.fn().mockReturnValue(false),
     submitScorecards: jest.fn(),
     resetRound: jest.fn(),
+    nineType: 'full', holesPlayed: null, groupScorecards: new Map(),
+    isMultiBall: false, ballCount: 1,
   } as any);
 }
 
@@ -274,9 +278,11 @@ function setupErrorMock(errorMessage: string) {
 
   mockedUseScorecardStore.mockReturnValue({
     getPlayerScore: jest.fn().mockReturnValue(undefined),
-    getCompletedHolesCount: jest.fn().mockReturnValue(0),
+    getCompletedHolesCount: jest.fn().mockReturnValue(0), isHoleComplete: jest.fn().mockReturnValue(false),
     submitScorecards: jest.fn(),
     resetRound: jest.fn(),
+    nineType: 'full', holesPlayed: null, groupScorecards: new Map(),
+    isMultiBall: false, ballCount: 1,
   } as any);
 }
 
@@ -297,9 +303,11 @@ function setupEmptyHolesMock() {
 
   mockedUseScorecardStore.mockReturnValue({
     getPlayerScore: jest.fn().mockReturnValue(undefined),
-    getCompletedHolesCount: jest.fn().mockReturnValue(0),
+    getCompletedHolesCount: jest.fn().mockReturnValue(0), isHoleComplete: jest.fn().mockReturnValue(false),
     submitScorecards: jest.fn(),
     resetRound: jest.fn(),
+    nineType: 'full', holesPlayed: null, groupScorecards: new Map(),
+    isMultiBall: false, ballCount: 1,
   } as any);
 }
 
@@ -340,9 +348,11 @@ describe('MatchPlayScorecardScreen', () => {
 
       mockedUseScorecardStore.mockReturnValue({
         getPlayerScore: jest.fn().mockReturnValue(undefined),
-        getCompletedHolesCount: jest.fn().mockReturnValue(0),
+        getCompletedHolesCount: jest.fn().mockReturnValue(0), isHoleComplete: jest.fn().mockReturnValue(false),
         submitScorecards: jest.fn(),
         resetRound: jest.fn(),
+        nineType: 'full', holesPlayed: null, groupScorecards: new Map(),
+        isMultiBall: false, ballCount: 1,
       } as any);
 
       render(
@@ -510,9 +520,11 @@ describe('MatchPlayScorecardScreen', () => {
 
       mockedUseScorecardStore.mockReturnValue({
         getPlayerScore: mockGetPlayerScore,
-        getCompletedHolesCount: jest.fn().mockReturnValue(0),
+        getCompletedHolesCount: jest.fn().mockReturnValue(0), isHoleComplete: jest.fn().mockReturnValue(false),
         submitScorecards: jest.fn(),
         resetRound: jest.fn(),
+        nineType: 'full', holesPlayed: null, groupScorecards: new Map(),
+        isMultiBall: false, ballCount: 1,
       } as any);
 
       render(
@@ -543,9 +555,11 @@ describe('MatchPlayScorecardScreen', () => {
 
       mockedUseScorecardStore.mockReturnValue({
         getPlayerScore: mockGetPlayerScore,
-        getCompletedHolesCount: jest.fn().mockReturnValue(0),
+        getCompletedHolesCount: jest.fn().mockReturnValue(0), isHoleComplete: jest.fn().mockReturnValue(false),
         submitScorecards: jest.fn(),
         resetRound: jest.fn(),
+        nineType: 'full', holesPlayed: null, groupScorecards: new Map(),
+        isMultiBall: false, ballCount: 1,
       } as any);
 
       render(
@@ -575,9 +589,11 @@ describe('MatchPlayScorecardScreen', () => {
 
       mockedUseScorecardStore.mockReturnValue({
         getPlayerScore: mockGetPlayerScore,
-        getCompletedHolesCount: jest.fn().mockReturnValue(0),
+        getCompletedHolesCount: jest.fn().mockReturnValue(0), isHoleComplete: jest.fn().mockReturnValue(false),
         submitScorecards: jest.fn(),
         resetRound: jest.fn(),
+        nineType: 'full', holesPlayed: null, groupScorecards: new Map(),
+        isMultiBall: false, ballCount: 1,
       } as any);
 
       render(
@@ -614,6 +630,147 @@ describe('MatchPlayScorecardScreen', () => {
   });
 
   describe('Ended early', () => {
+    function mockEndedStore({ nineType = 'full', holesPlayed = 6, isComplete }: {
+      nineType?: 'full' | 'front9' | 'back9';
+      holesPlayed?: number;
+      isComplete: (hole: number) => boolean;
+    }) {
+      const state = {
+        ...mockedUseScorecardStore(),
+        getPlayerScore: jest.fn().mockReturnValue({ strokes: 4 }),
+        getCompletedHolesCount: jest.fn().mockReturnValue(holesPlayed),
+        isHoleComplete: jest.fn(isComplete),
+        submitScorecards: jest.fn().mockResolvedValue(undefined),
+        nineType, holesPlayed, groupScorecards: new Map(),
+      };
+      mockedUseScorecardStore.mockReturnValue(state);
+      return state;
+    }
+
+    it('offers Review & Submit once every played hole is complete', () => {
+      setupSuccessfulMock();
+      mockEndedStore({ isComplete: (hole) => hole <= 6 });
+      render(<MatchPlayScorecardScreen navigation={mockNavigation} route={mockRoute} />);
+      expect(screen.getByText('Review & Submit')).toBeTruthy();
+    });
+
+    it('withholds Review & Submit while a played hole is incomplete', () => {
+      setupSuccessfulMock();
+      mockEndedStore({ isComplete: (hole) => hole <= 5 });
+      render(<MatchPlayScorecardScreen navigation={mockNavigation} route={mockRoute} />);
+      expect(screen.queryByText('Review & Submit')).toBeNull();
+    });
+
+    it('goes straight to the submit confirmation for complete played holes', async () => {
+      setupSuccessfulMock();
+      mockEndedStore({ isComplete: (hole) => hole <= 6 });
+      render(<MatchPlayScorecardScreen navigation={mockNavigation} route={mockRoute} />);
+      await act(async () => { fireEvent.press(screen.getByText('Review & Submit')); });
+      expect(screen.queryByText('Incomplete Scorecard')).toBeNull();
+      expect(screen.getByText('Submit Scorecard')).toBeTruthy();
+    });
+
+    it('settles a back-nine round over holes 10–15', () => {
+      setupSuccessfulMock();
+      const plannedHoles = defaultHoles.slice(9);
+      mockedUseMatchPlayData.mockReturnValue({
+        ...mockedUseMatchPlayData({ roundId: 'round-123', player1Id: 'player-1', player2Id: 'player-2' }),
+        holes: plannedHoles,
+      });
+      mockEndedStore({ nineType: 'back9', isComplete: (hole) => hole >= 10 && hole <= 15 });
+      render(<MatchPlayScorecardScreen navigation={mockNavigation} route={mockRoute} />);
+      expect(screen.getByText('Ended after 6 of 9')).toBeTruthy();
+      fireEvent.press(screen.getByText('Review & Submit'));
+      expect(screen.getByText('Submit Scorecard')).toBeTruthy();
+      expect(lastTableHoles()).toBe(plannedHoles);
+    });
+
+    function lastTableHoles() {
+      return mockTableProps.mock.calls[mockTableProps.mock.calls.length - 1][0].holes;
+    }
+
+    it('rechecks played completion after a score-map replacement with a stable store function', () => {
+      setupSuccessfulMock();
+      function scorecards(completed: number) {
+        return new Map(['player-1', 'player-2'].map((playerId) => {
+          const scores: Scorecard['scores'] = {};
+          for (const hole of defaultHoles.slice(0, completed)) {
+            // Store completeness accepts a defined zero; keep that policy.
+            scores[hole.number] = { strokes: hole.number === 1 ? 0 : 4 };
+          }
+          const card: Scorecard = {
+            id: `card-${playerId}`, playerId, roundId: 'round-123', scores,
+            totalGross: 0, totalNet: 0, status: 'in-progress',
+            createdAt: new Date('2026-10-07'), updatedAt: new Date('2026-10-07'),
+          };
+          return [playerId, card] as const;
+        }));
+      }
+      let cards = scorecards(5);
+      const state = mockEndedStore({
+        isComplete: (hole) => ['player-1', 'player-2'].every((id) => {
+          const score = cards.get(id)?.scores[hole];
+          return !!score && 'strokes' in score && score.strokes !== undefined;
+        }),
+      });
+      mockedUseScorecardStore.mockReturnValue({ ...state, groupScorecards: cards });
+      const view = () => <MatchPlayScorecardScreen navigation={mockNavigation} route={mockRoute} />;
+      const { rerender } = render(view());
+      expect(screen.queryByText('Review & Submit')).toBeNull();
+      cards = scorecards(6);
+      mockedUseScorecardStore.mockReturnValue({ ...state, groupScorecards: cards });
+      rerender(view());
+      fireEvent.press(screen.getByText('Review & Submit'));
+      expect(screen.getByText('Submit Scorecard')).toBeTruthy();
+      fireEvent.press(screen.getByLabelText('Cancel'));
+      cards = scorecards(5);
+      mockedUseScorecardStore.mockReturnValue({ ...state, groupScorecards: cards });
+      rerender(view());
+      expect(screen.queryByText('Review & Submit')).toBeNull();
+    });
+
+    it('rechecks the current cutoff without changing planned holes or store functions', () => {
+      setupSuccessfulMock();
+      const state = mockEndedStore({ holesPlayed: 7, isComplete: (hole) => hole <= 6 });
+      const view = () => <MatchPlayScorecardScreen navigation={mockNavigation} route={mockRoute} />;
+      const { rerender } = render(view());
+      expect(screen.queryByText('Review & Submit')).toBeNull();
+      mockedUseScorecardStore.mockReturnValue({ ...state, holesPlayed: 6 });
+      rerender(view());
+      fireEvent.press(screen.getByText('Review & Submit'));
+      expect(screen.getByText('Submit Scorecard')).toBeTruthy();
+      fireEvent.press(screen.getByLabelText('Cancel'));
+      mockedUseScorecardStore.mockReturnValue({ ...state, holesPlayed: null });
+      rerender(view());
+      expect(screen.queryByText('Review & Submit')).toBeNull();
+    });
+
+    it.each(['full', 'back9'] as const)('keeps ordinary %s completion and confirmation routing', (nineType) => {
+      setupSuccessfulMock();
+      const holes = nineType === 'back9' ? defaultHoles.slice(9) : defaultHoles;
+      mockedUseMatchPlayData.mockReturnValue({
+        ...mockedUseMatchPlayData({ roundId: 'round-123', player1Id: 'player-1', player2Id: 'player-2' }), holes,
+      });
+      const state = {
+        ...mockedUseScorecardStore(), nineType,
+        getCompletedHolesCount: jest.fn().mockReturnValue(holes.length),
+        isHoleComplete: jest.fn().mockReturnValue(true),
+      };
+      mockedUseScorecardStore.mockReturnValue(state);
+      const view = () => <MatchPlayScorecardScreen navigation={mockNavigation} route={mockRoute} />;
+      const { rerender } = render(view());
+      fireEvent.press(screen.getByText('Review & Submit'));
+      expect(screen.getByText('Submit Scorecard')).toBeTruthy();
+      expect(screen.queryByText('Incomplete Scorecard')).toBeNull();
+      fireEvent.press(screen.getByLabelText('Cancel'));
+      state.getCompletedHolesCount = jest.fn().mockReturnValue(holes.length - 1);
+      state.isHoleComplete.mockReturnValue(false);
+      // Replacing the score map models a normal Zustand score write.
+      mockedUseScorecardStore.mockReturnValue({ ...state, groupScorecards: new Map() });
+      rerender(view());
+      expect(screen.queryByText('Review & Submit')).toBeNull();
+    });
+
     it.each(['full', 'back9'] as const)('shows the ended-early banner without a Finish action (%s)', (nineType) => {
       setupSuccessfulMock();
       mockedUseScorecardStore.mockReturnValue({
@@ -761,8 +918,11 @@ describe('MatchPlayScorecardScreen', () => {
       mockedUseScorecardStore.mockReturnValue({
         getPlayerScore: jest.fn().mockReturnValue({ strokes: 4 }),
         getCompletedHolesCount: jest.fn().mockReturnValue(18),
+        isHoleComplete: jest.fn().mockReturnValue(true),
         submitScorecards,
         resetRound: jest.fn(),
+        nineType: 'full', holesPlayed: null, groupScorecards: new Map(),
+        isMultiBall: false, ballCount: 1,
       } as any);
       mockFinalizeRound.mockResolvedValue({ completed: true, queued: false });
 

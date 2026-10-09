@@ -34,6 +34,7 @@ import { scoringLogger } from '@/utils/debugLogger';
 // Direct path: the screen test mocks the scorecard barrel.
 import { EndedEarlyBanner } from '@/components/scorecard/EndedEarlyBanner';
 import { isEndedEarly } from '@/utils/roundShape';
+import { filterPlayableHoles } from '@/utils/holeTransformers';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'MatchPlayScorecard'>;
 
@@ -91,7 +92,7 @@ export default function MatchPlayScorecardScreen({ navigation, route }: Props) {
   // Get score access and submission methods from store
   const {
     getPlayerScore,
-    getCompletedHolesCount,
+    isHoleComplete,
     submitScorecards,
     resetRound,
     handicapSource,
@@ -99,6 +100,7 @@ export default function MatchPlayScorecardScreen({ navigation, route }: Props) {
     startHole,
     nineType,
     holesPlayed,
+    groupScorecards,
   } = useScorecardStore();
 
   // Playing handicap inputs (shared with the entry screen so both views agree).
@@ -170,12 +172,22 @@ export default function MatchPlayScorecardScreen({ navigation, route }: Props) {
     [navigation, roundId, player1Id, player2Id]
   );
 
-  // Calculate if all holes are complete (both players have scores for all holes)
-  const isAllComplete = useMemo(() => {
-    if (holes.length === 0) return false;
-    const completedCount = getCompletedHolesCount();
-    return completedCount === holes.length;
-  }, [holes.length, getCompletedHolesCount]);
+  // Match context and handicap inputs keep the planned holes; completion uses
+  // only the played range after an early end.
+  const playedHoles = useMemo(
+    () => filterPlayableHoles(holes, nineType, holesPlayed),
+    [holes, nineType, holesPlayed]
+  );
+
+  // The store function is stable. Recheck when a score write replaces the map.
+  const completedPlayedHoleCount = useMemo(
+    () => playedHoles.filter((hole) => isHoleComplete(hole.number)).length,
+    // The stable store accessor reads the current map through its closure.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [playedHoles, isHoleComplete, groupScorecards]
+  );
+  const isAllComplete =
+    playedHoles.length > 0 && completedPlayedHoleCount === playedHoles.length;
 
   // Navigate after successful submission
   const navigateAfterSubmit = useCallback(() => {
@@ -223,23 +235,23 @@ export default function MatchPlayScorecardScreen({ navigation, route }: Props) {
 
   // Handle submit button press
   const handleSubmit = useCallback(() => {
-    const completedCount = getCompletedHolesCount();
     scoringLogger.info('SUBMIT: Submit button pressed from match play scorecard', {
-      completedHoles: completedCount,
-      totalHoles: holes.length,
-      isComplete: completedCount === holes.length,
+      completedHoles: completedPlayedHoleCount,
+      totalHoles: playedHoles.length,
+      isComplete: completedPlayedHoleCount === playedHoles.length,
+      isEndedEarly: holesPlayed != null,
       isOnline,
     });
 
-    // Show incomplete dialog if not all holes are scored
-    if (completedCount < holes.length) {
+    // Show incomplete dialog if not every played hole is scored
+    if (completedPlayedHoleCount < playedHoles.length) {
       setShowIncompleteDialog(true);
       return;
     }
 
     // Show confirmation dialog before submitting
     setShowSubmitConfirmDialog(true);
-  }, [getCompletedHolesCount, holes.length, isOnline]);
+  }, [completedPlayedHoleCount, playedHoles.length, holesPlayed, isOnline]);
 
   // Get player score for the table - returns just the strokes value
   const getPlayerScoreForTable = useCallback(
@@ -421,7 +433,7 @@ export default function MatchPlayScorecardScreen({ navigation, route }: Props) {
           <Dialog.Title>Incomplete Scorecard</Dialog.Title>
           <Dialog.Content>
             <Text>
-              You have {getCompletedHolesCount()} of {holes.length} holes completed.
+              You have {completedPlayedHoleCount} of {playedHoles.length} holes completed.
               Are you sure you want to submit?
             </Text>
           </Dialog.Content>

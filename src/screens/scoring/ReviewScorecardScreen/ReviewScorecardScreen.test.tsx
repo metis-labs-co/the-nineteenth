@@ -1,10 +1,10 @@
-/** Review finish screen: real review hook, banner and scorecard tab. */
+/** Review finish screen: real caller/hook, banner, actions and scorecard tab. */
 import React from 'react';
 import { render, screen, fireEvent } from '@/__tests__/utils/renderHelpers';
 import ReviewScorecardScreen from './index';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { create18Holes } from '@/__tests__/utils/testFixtures';
-import type { Player, Scorecard } from '@/types';
+import type { Hole, Player, Scorecard } from '@/types';
 import type { NineType } from '@/types/database/enums';
 
 jest.mock('@/store/scorecardStore', () => ({ useScorecardStore: jest.fn() }));
@@ -16,7 +16,7 @@ jest.mock('@/hooks', () => ({
 jest.mock('@/hooks/useScoreMismatch', () => ({
   usePendingMismatches: () => ({ data: [] }),
   useResolveMismatch: () => ({ mutateAsync: jest.fn(), isPending: false }),
-  usePartnerStatus: () => ({ data: null }),
+  usePartnerStatus: (...args: unknown[]) => mockPartnerStatus(...args),
 }));
 jest.mock('@/hooks/scorecard', () => ({
   useRoundScoringPairs: () => ({ scoringPairsEnabled: false, myScorer: null }),
@@ -28,32 +28,47 @@ jest.mock('@/hooks/shots', () => ({
   useSetShotClub: () => ({ mutate: jest.fn() }),
 }));
 jest.mock('@/hooks/queries/useBag', () => ({ useBag: () => ({ data: [] }) }));
-jest.mock('@/screens/rounds/ViewRoundScreen/tabs/StatsTab', () => ({ StatsTab: () => null }));
-jest.mock('@/components/features/shots/ShotLogList', () => ({ ShotLogList: () => null }));
+const mockStatsTab = jest.fn((_props: unknown) => null);
+const mockShotLogList = jest.fn((_props: unknown) => null);
+const mockContributions = jest.fn((_props: unknown) => null);
+const mockScrambleLeaderboard = jest.fn((_props: unknown) => null);
+const mockLeaderboard = jest.fn((_props: unknown) => null);
+const mockMatchScorecard = jest.fn((_props: unknown) => null);
+const mockMatchLeaderboard = jest.fn((_props: unknown) => null);
+const mockSubMatchLeaderboard = jest.fn((_props: unknown) => null);
+const mockWolf = jest.fn((_props: unknown) => null);
+const mockSubmission = jest.fn();
+const mockPartnerStatus = jest.fn((..._args: unknown[]) => ({ data: null }));
+const mockTabs = jest.fn();
+jest.mock('@/screens/rounds/ViewRoundScreen/tabs/StatsTab', () => ({ StatsTab: (props: unknown) => mockStatsTab(props) }));
+jest.mock('@/components/features/shots/ShotLogList', () => ({ ShotLogList: (props: unknown) => mockShotLogList(props) }));
 jest.mock('@/components/features/bag/BagClubPickerSheet', () => ({ BagClubPickerSheet: () => null }));
 jest.mock('@/components/scoring', () => ({ MismatchResolutionModal: () => null }));
-jest.mock('@/components/leaderboard', () => ({ SubMatchLeaderboardTab: () => null }));
+jest.mock('@/components/leaderboard', () => ({ SubMatchLeaderboardTab: (props: unknown) => mockSubMatchLeaderboard(props) }));
 jest.mock('./hooks', () => ({
   useScoreReview: jest.requireActual('./hooks/useScoreReview').useScoreReview,
-  useReviewScorecardTabs: () => ({
-    activeTab: 'scorecard', tabs: [], showTabs: false, handleTabChange: jest.fn(),
-    effectiveGameType: 'stroke', isScramble: false, isShamble: false,
-    isMatchPlayTeam: false, isSubMatchRound: false, roundDetails: null,
-    scoringPairsRequired: false, skinsGame: null, wolfGame: null,
-    hasWolfGame: false, hasPayoutsTab: false, hasStats: false,
-  }),
+  useReviewScorecardTabs: () => mockTabs(),
   useScrambleTeams: () => [],
   // Submission is out of this task's scope; keep its validation callback live.
-  useScoreSubmission: ({ validateScores }: { validateScores: () => unknown }) => ({
-    isSubmitting: false, isRefreshing: false, pendingSyncs: 0, syncError: null,
-    handleSubmit: validateScores, handleSyncPress: jest.fn(), handleRefresh: jest.fn(),
-    getOfflineStatus: () => 'synced', showMismatchModal: false,
-    setShowMismatchModal: jest.fn(), dialogConfig: null, dismissDialog: jest.fn(),
-  }),
+  useScoreSubmission: (params: { validateScores: () => unknown }) => {
+    mockSubmission(params);
+    return {
+      isSubmitting: false, isRefreshing: false, pendingSyncs: 0, syncError: null,
+      handleSubmit: params.validateScores, handleSyncPress: jest.fn(), handleRefresh: jest.fn(),
+      getOfflineStatus: () => 'synced', showMismatchModal: false,
+      setShowMismatchModal: jest.fn(), dialogConfig: null, dismissDialog: jest.fn(),
+    };
+  },
 }));
 jest.mock('./components', () => ({
   ScorecardTabContent: jest.requireActual('./components/ScorecardTabContent').ScorecardTabContent,
   ReviewActions: jest.requireActual('./components/ReviewActions').ReviewActions,
+  ContributionsTabContent: (props: unknown) => mockContributions(props),
+  ScrambleLeaderboardTab: (props: unknown) => mockScrambleLeaderboard(props),
+  LeaderboardTabContent: (props: unknown) => mockLeaderboard(props),
+  MatchScorecardTabContent: (props: unknown) => mockMatchScorecard(props),
+  MatchPlayLeaderboardTab: (props: unknown) => mockMatchLeaderboard(props),
+  WolfTabContent: (props: unknown) => mockWolf(props),
   IncompleteScoresModal: () => null,
   ReviewLoadingState: () => null,
   ReviewEmptyState: () => null,
@@ -85,9 +100,124 @@ function setupStore(nineType: NineType = 'full', holesPlayed: number | null = nu
   return state;
 }
 
+const defaultTabs = {
+  activeTab: 'scorecard', tabs: [], showTabs: false, handleTabChange: jest.fn(),
+  effectiveGameType: 'stroke', isScramble: false, isShamble: false,
+  isMatchPlayTeam: false, isSubMatchRound: false, roundDetails: null,
+  scoringPairsRequired: false, skinsGame: null, wolfGame: null,
+  hasWolfGame: false, hasPayoutsTab: false, hasStats: false,
+};
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockTabs.mockReturnValue(defaultTabs);
+});
+
+function lastProps(mock: jest.Mock): any {
+  return mock.mock.calls[mock.mock.calls.length - 1][0];
+}
+
 const review = () => <ReviewScorecardScreen navigation={navigation} route={route} />;
 
 describe('ReviewScorecardScreen — ended early', () => {
+  describe.each(['full', 'back9'] as const)('played tab routing (%s)', (nineType) => {
+    it.each([
+      ['stats', mockStatsTab, { hasStats: true }],
+      ['contributions', mockContributions, { isShamble: true }],
+      ['leaderboard', mockLeaderboard, {}],
+      ['leaderboard', mockScrambleLeaderboard, { isScramble: true }],
+    ] as const)('updates %s display holes when only the cutoff changes', (activeTab, target, flags) => {
+      const state = setupStore(nineType);
+      mockTabs.mockReturnValue({ ...defaultTabs, activeTab, ...flags });
+      const { rerender } = render(review());
+      expect(lastProps(target).holes.map((hole: Hole) => hole.number)).toEqual(
+        nineType === 'back9' ? [10, 11, 12, 13, 14, 15, 16, 17, 18] : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]
+      );
+      state.holesPlayed = 6;
+      rerender(review());
+      expect(lastProps(target).holes.map((hole: Hole) => hole.number)).toEqual(
+        nineType === 'back9' ? [10, 11, 12, 13, 14, 15] : [1, 2, 3, 4, 5, 6]
+      );
+      expect(lastProps(mockSubmission).holeCount).toBe(6);
+      expect(mockPartnerStatus).toHaveBeenLastCalledWith('round-1', 'p1', 6);
+      state.holesPlayed = 3;
+      rerender(review());
+      expect(lastProps(target).holes.map((hole: Hole) => hole.number)).toEqual(
+        nineType === 'back9' ? [10, 11, 12] : [1, 2, 3]
+      );
+      state.holesPlayed = null;
+      rerender(review());
+      expect(lastProps(target).holes.map((hole: Hole) => hole.number)).toEqual(state.holes.map((hole) => hole.number));
+    });
+
+    it('forwards physical played hole numbers and current progress to the shot log', () => {
+      const state = setupStore(nineType, 6);
+      mockTabs.mockReturnValue({ ...defaultTabs, activeTab: 'shots' });
+      const { rerender } = render(review());
+      expect(lastProps(mockShotLogList).holeNumbers).toEqual(nineType === 'back9' ? [10, 11, 12, 13, 14, 15] : [1, 2, 3, 4, 5, 6]);
+      expect(lastProps(mockShotLogList).totalHoles).toBe(6);
+      state.holesPlayed = 3;
+      rerender(review());
+      expect(lastProps(mockShotLogList).holeNumbers).toEqual(nineType === 'back9' ? [10, 11, 12] : [1, 2, 3]);
+      expect(lastProps(mockShotLogList).totalHoles).toBe(3);
+    });
+  });
+
+  it('keeps the tee-derived leaderboard daily handicap from planned par after cutoff changes', () => {
+    const state = setupStore();
+    state.currentPlayers = [{ ...player, handicap: 10 }];
+    mockedStore.mockReturnValue({ ...state, selectedTeeData: { slopeRating: 113, courseRating: 72 } } as any);
+    mockTabs.mockReturnValue({ ...defaultTabs, activeTab: 'leaderboard', effectiveGameType: 'stableford' });
+    const { rerender } = render(review());
+    expect(lastProps(mockLeaderboard).dailyHandicaps).toEqual({ p1: 9 });
+    mockedStore.mockReturnValue({ ...state, selectedTeeData: { slopeRating: 113, courseRating: 72 }, holesPlayed: 6 } as any);
+    rerender(review());
+    expect(lastProps(mockLeaderboard).holes).toHaveLength(6);
+    expect(lastProps(mockLeaderboard).dailyHandicaps).toEqual({ p1: 9 });
+  });
+
+  it.each([
+    ['scorecard', mockMatchScorecard, { isMatchPlayTeam: true }],
+    ['leaderboard', mockMatchLeaderboard, { isMatchPlayTeam: true }],
+    ['leaderboard', mockSubMatchLeaderboard, { isSubMatchRound: true }],
+  ] as const)('keeps planned holes for match context on %s', (activeTab, target, flags) => {
+    const state = setupStore('back9', 6);
+    mockTabs.mockReturnValue({ ...defaultTabs, activeTab, ...flags });
+    render(review());
+    expect(lastProps(target).holes).toBe(state.holes);
+  });
+
+  it('forwards played progress to the Wolf tab', () => {
+    const state = setupStore('back9', 6);
+    mockTabs.mockReturnValue({ ...defaultTabs, activeTab: 'wolf', wolfGame: { id: 'wolf-1' }, hasWolfGame: true });
+    const { rerender } = render(review());
+    expect(lastProps(mockWolf).totalHoles).toBe(6);
+    state.holesPlayed = 3;
+    rerender(review());
+    expect(lastProps(mockWolf).totalHoles).toBe(3);
+  });
+
+  it.each([
+    ['stats', mockStatsTab, { hasStats: true }],
+    ['contributions', mockContributions, { isShamble: true }],
+    ['leaderboard', mockLeaderboard, {}],
+    ['leaderboard', mockScrambleLeaderboard, { isScramble: true }],
+  ] as const)('keeps planned holes on ordinary %s tabs', (activeTab, target, flags) => {
+    const state = setupStore();
+    mockTabs.mockReturnValue({ ...defaultTabs, activeTab, ...flags });
+    render(review());
+    expect(lastProps(target).holes).toBe(state.holes);
+    expect(lastProps(mockSubmission).holeCount).toBe(18);
+    expect(mockPartnerStatus).toHaveBeenLastCalledWith('round-1', 'p1', 18);
+  });
+
+  it('keeps ordinary back-nine shot progress at nine holes', () => {
+    setupStore('back9');
+    mockTabs.mockReturnValue({ ...defaultTabs, activeTab: 'shots' });
+    render(review());
+    expect(lastProps(mockShotLogList).totalHoles).toBe(9);
+    expect(Object.keys(lastProps(mockShotLogList).holeStrokeCounts)).toEqual(['10', '11', '12', '13', '14', '15', '16', '17', '18']);
+  });
   it.each(['full', 'back9'] as const)('shows the ended-early banner without a Finish action (%s)', (nineType) => {
     setupStore(nineType, 6);
     render(review());
