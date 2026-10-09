@@ -23,7 +23,10 @@ jest.mock('@/hooks/competitions', () => ({ useCompetitionInfo: () => ({}) }));
 jest.mock('@/hooks/useAuth', () => ({ useAuth: () => ({}) }));
 jest.mock('@/hooks/usePlayingHandicap', () => ({ calculatePlayingHandicap: jest.fn() }));
 jest.mock('@/hooks', () => ({ useOnlineStatus: () => true, useProcessSkinsIfNeeded: () => ({}) }));
-jest.mock('@/hooks/scorecard', () => ({ useOfflineSync: () => ({}) }));
+jest.mock('@/hooks/scorecard', () => ({
+  useOfflineSync: () => ({}),
+  useEndRoundEarly: () => ({ canEndRoundEarly: false, sheetProps: {} }),
+}));
 jest.mock('@/context/ToastContext', () => ({ useToast: () => ({}) }));
 jest.mock('./hooks', () => ({
   useTeamMatchPlayScores: () => ({}),

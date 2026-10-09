@@ -19,14 +19,14 @@ import { View, StyleSheet, ScrollView, BackHandler } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { LoadingSpinner, ErrorState, Pill, ConfirmationDialog } from '@/components/common';
 import { useConfirmationDialog } from '@/hooks';
-import { HoleHeader, RoundHeader, SwipeableHoleNavigator, ChangeTeesSheet } from '@/components/scorecard';
+import { HoleHeader, RoundHeader, SwipeableHoleNavigator, ChangeTeesSheet, EndRoundEarlySheet } from '@/components/scorecard';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { useIsSuperAdmin } from '@/store/subscriptionStore';
-import { useMatchPlayData, useMatchPlayScoring, useOfflineSync } from '@/hooks/scorecard';
+import { useMatchPlayData, useMatchPlayScoring, useOfflineSync, useEndRoundEarly } from '@/hooks/scorecard';
 import { useProcessSkinsIfNeeded, useOnlineStatus, useAuth } from '@/hooks';
 import { useRoundDetails, useSubMatches, useUpdateSubMatchResult } from '@/hooks/rounds';
 import { useDeleteRound } from '@/hooks/rounds/mutations';
@@ -38,6 +38,7 @@ import { getMatchPlayStrokes } from '@/utils/scoring';
 import { resolvePlayerTee } from '@/utils/teeResolution';
 import { getTeeColor } from '@/services/courses';
 import { calculatePlayingHandicap } from '@/hooks/usePlayingHandicap';
+import type { EndEarlyMatchContext } from '@/utils/endRoundEarly';
 import type { RootStackScreenProps } from '@/navigation/types';
 
 import { MatchPlayFooter, PlayerScoreCard, MatchProgress } from './components';
@@ -489,6 +490,30 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
     });
   }, [navigation, roundId, player1.id, player2.id, competitionId]);
 
+  // Loaded metadata overrides route classification and the offline pairs default.
+  const isStandaloneForEndEarly = roundDetails
+    ? roundDetails.competition_id == null
+    : isStandalone;
+  const getEndEarlyMatchContext = useCallback(
+    (): EndEarlyMatchContext => ({
+      kind: 'singles',
+      holeResults,
+      names: [player1.name, player2.name],
+    }),
+    [holeResults, player1.name, player2.name]
+  );
+  const handleRoundEndedEarly = useCallback(() => {
+    handleViewScorecard();
+  }, [handleViewScorecard]);
+  const endEarly = useEndRoundEarly({
+    roundId,
+    isStandalone: isStandaloneForEndEarly,
+    gameType: 'match-play',
+    scoringPairsEnabled: roundDetails?.scoring_pairs_required ?? false,
+    getMatchContext: getEndEarlyMatchContext,
+    onEnded: handleRoundEndedEarly,
+  });
+
   // Get hole result display
   const getHoleResultDisplay = useCallback((result: HoleResult | undefined): { text: string; color: string } | null => {
     if (!result?.winner) return null;
@@ -704,6 +729,8 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
         onSyncPress={triggerSync}
         canChangeTees={canChangeTees}
         onChangeTeesPress={() => setShowChangeTeesSheet(true)}
+        canEndRoundEarly={endEarly.canEndRoundEarly}
+        onEndRoundEarlyPress={endEarly.open}
         onChangeTeesBlockedOffline={() =>
           showErrorToast('Offline', 'Connect to the internet to change tees')
         }
@@ -773,6 +800,8 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
         players={currentPlayers}
         availableTees={availableTees}
       />
+
+      <EndRoundEarlySheet {...endEarly.sheetProps} />
     </SafeAreaView>
   );
 }

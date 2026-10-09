@@ -26,7 +26,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { useStatsVisibilityWithTier } from '@/hooks/useStatsVisibilityWithTier';
 import { useIsSuperAdmin } from '@/store/subscriptionStore';
-import { useOfflineSync, useRoundData, useTeamScoring, useBuildAsYouPlay, useGroupFilter, useActiveSubMatch } from '@/hooks/scorecard';
+import { useOfflineSync, useRoundData, useTeamScoring, useBuildAsYouPlay, useGroupFilter, useActiveSubMatch, useEndRoundEarly } from '@/hooks/scorecard';
 import { usePairings, useTeams as useCompetitionTeams, useRoundDetails } from '@/hooks/rounds';
 import { useCompetitionInfo } from '@/hooks/competitions';
 import {
@@ -60,7 +60,7 @@ import {
   useWolfIntegration,
   useScoreHandlers,
 } from './hooks';
-import { RoundHeader, ChangeTeesSheet } from '@/components/scorecard';
+import { RoundHeader, ChangeTeesSheet, EndRoundEarlySheet } from '@/components/scorecard';
 import {
   ScorecardFooter,
   ScorecardDialogs,
@@ -493,6 +493,22 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
     setAllowedPlayers(ids);
   }, [isInitialized, currentRoundId, roundId, playersToRender, setAllowedPlayers]);
 
+  // Loaded round metadata is authoritative; keep the offline route fallback.
+  const isStandaloneForEndEarly = roundDetails
+    ? roundDetails.competition_id == null
+    : isStandaloneRound;
+  const handleRoundEndedEarly = useCallback(() => {
+    scoreHandlers.handleViewScorecard();
+  }, [scoreHandlers]);
+  const endEarly = useEndRoundEarly({
+    roundId,
+    isStandalone: isStandaloneForEndEarly,
+    gameType,
+    teamFormat,
+    scoringPairsEnabled: roundDetails?.scoring_pairs_required ?? scoringPairsEnabled,
+    onEnded: handleRoundEndedEarly,
+  });
+
   // Render content for any hole number (used by SwipeableHoleNavigator for transitions)
   const renderHoleContent = useCallback(
     (holeNumber: number) => {
@@ -745,6 +761,8 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
         playersToScore={playersToScore}
         canChangeTees={canChangeTees}
         onChangeTeesPress={() => setShowChangeTeesSheet(true)}
+        canEndRoundEarly={endEarly.canEndRoundEarly}
+        onEndRoundEarlyPress={endEarly.open}
         onChangeTeesBlockedOffline={() =>
           showErrorToast('Offline', 'Connect to the internet to change tees')
         }
@@ -868,6 +886,8 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
         players={currentPlayers}
         availableTees={courseTees}
       />
+
+      <EndRoundEarlySheet {...endEarly.sheetProps} />
 
       <ConfirmationDialog {...submissionDialogConfig} onCancel={dismissSubmissionDialog} />
     </SafeAreaView>

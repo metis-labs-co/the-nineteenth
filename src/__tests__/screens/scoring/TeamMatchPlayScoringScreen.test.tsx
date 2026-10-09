@@ -1,7 +1,8 @@
 /** Screen boundary coverage: round-shape recovery and fallback store init. */
 import React from 'react';
-import { render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import TeamMatchPlayScoringScreen from '@/screens/scoring/TeamMatchPlayScoringScreen';
+import type { UseEndRoundEarlyArgs } from '@/hooks/scorecard/useEndRoundEarly';
 import type { RootStackScreenProps } from '@/navigation/types';
 
 const mockStore = {
@@ -14,7 +15,14 @@ const mockStore = {
   loadFromOffline: jest.fn(() => Promise.resolve(true)),
   resetRound: jest.fn(),
 };
+let mockRoundLoading = false;
+let mockHasRound = true;
+let mockEndArgs: UseEndRoundEarlyArgs;
+let mockTeamScore = 4;
+const mockConfirm = jest.fn();
 const mockRound = {
+  competition_id: null as string | null,
+  scoring_pairs_required: false as boolean | undefined,
   nine_type: 'back9',
   holes_played: null as number | null,
   team_format: 'best-ball',
@@ -28,7 +36,11 @@ jest.mock('@/store/scorecardStore', () => ({
   useScorecardStore: Object.assign(jest.fn(() => mockStore), { getState: () => mockStore }),
 }));
 jest.mock('@/hooks/useRoundDetails', () => ({
-  useRoundDetails: () => ({ data: mockRound, isLoading: false, error: null }),
+  useRoundDetails: () => ({
+    data: mockHasRound ? mockRound : undefined,
+    isLoading: mockRoundLoading,
+    error: null,
+  }),
 }));
 jest.mock('@/hooks/scorecard/useRoundTeams', () => ({
   useRoundTeams: () => ({ teams: mockTeams, isLoading: false, error: null }),
@@ -46,24 +58,52 @@ jest.mock('@/hooks', () => ({
   useProcessSkinsIfNeeded: () => ({ processSkinsHole: jest.fn() }),
   useOnlineStatus: () => true,
 }));
-jest.mock('@/hooks/scorecard', () => ({ useOfflineSync: () => ({ triggerSync: jest.fn() }) }));
+jest.mock('@/hooks/scorecard', () => ({
+  useOfflineSync: () => ({ triggerSync: jest.fn() }),
+  useEndRoundEarly: (args: UseEndRoundEarlyArgs) => {
+    mockEndArgs = args;
+    const [visible, setVisible] = require('react').useState(false);
+    return {
+      canEndRoundEarly: args.isStandalone && !args.scoringPairsEnabled,
+      open: () => setVisible(true),
+      sheetProps: {
+        visible,
+        plan: { holesPlayed: 1, plannedHoles: 9, nineType: 'back9', lastHoleNumber: 10, removedScores: [] },
+        resultPreview: 'Team A leads',
+        onConfirm: mockConfirm,
+        onCancel: () => setVisible(false),
+      },
+    };
+  },
+}));
 jest.mock('@/store/subscriptionStore', () => ({ useIsSuperAdmin: () => false }));
-jest.mock('@/context/ThemeContext', () => ({ useThemeColors: () => ({}) }));
+jest.mock('@/context/ThemeContext', () => ({ useThemeColors: () => ({}), useIsDark: () => false }));
 jest.mock('@/context/ToastContext', () => ({ useToast: () => ({ showErrorToast: jest.fn() }) }));
-jest.mock('@/components/common', () => ({ LoadingSpinner: () => null, ConfirmationDialog: () => null }));
+jest.mock('@/components/skins', () => ({ SkinsIndicator: () => null }));
+jest.mock('@/components/wolf', () => ({ WolfIndicator: () => null }));
+jest.mock('@/components/scorecard/HoleHeader/DistanceToPin', () => ({ DistanceToPin: () => null }));
 jest.mock('@/components/scorecard', () => ({
   HoleHeader: () => null,
-  RoundHeader: () => null,
+  RoundHeader: jest.requireActual('@/components/scorecard/RoundHeader').RoundHeader,
+  EndRoundEarlySheet: jest.requireActual('@/components/scorecard/EndRoundEarlySheet').EndRoundEarlySheet,
   SwipeableHoleNavigator: () => null,
   ChangeTeesSheet: () => null,
 }));
 jest.mock('@/screens/scoring/TeamMatchPlayScoringScreen/components', () => ({
-  TeamMatchPlayFooter: () => null,
+  TeamMatchPlayFooter: ({ onViewScorecard }: { onViewScorecard: () => void }) => {
+    const { Pressable, Text } = require('react-native');
+    return (
+      <Pressable onPress={onViewScorecard}><Text>View scorecard</Text></Pressable>
+    );
+  },
   TeamScorePanel: () => null,
   TeamMatchProgress: () => null,
 }));
 jest.mock('@/screens/scoring/TeamMatchPlayScoringScreen/hooks', () => ({
-  useTeamMatchPlayScores: () => ({}),
+  useTeamMatchPlayScores: () => ({
+    getTeamBestScoreForHole: () => mockTeamScore,
+    getHoleWinnerForHole: () => 'team1',
+  }),
   useTeamMatchPlayState: () => ({}),
   useTeamMatchPlayNavigation: () => ({}),
 }));
@@ -82,12 +122,84 @@ describe('TeamMatchPlayScoringScreen round-shape boundary', () => {
     mockStore.handicapSource = 'profile';
     mockStore.loadFromOffline.mockResolvedValue(true);
     mockRound.holes_played = null;
+    mockRoundLoading = false;
+    mockHasRound = true;
+    mockTeamScore = 4;
+    mockRound.competition_id = null;
+    mockRound.scoring_pairs_required = false;
+  });
+
+  it('characterization: preserves loading followed by ordinary team review navigation', () => {
+    mockRoundLoading = true;
+    const view = render(<TeamMatchPlayScoringScreen {...props} />);
+    expect(view.getByText('Loading match...')).toBeTruthy();
+    expect(view.queryByText('View scorecard')).toBeNull();
+    mockRoundLoading = false;
+    view.rerender(<TeamMatchPlayScoringScreen {...props} />);
+    fireEvent.press(view.getByText('View scorecard'));
+    expect(props.navigation.navigate).toHaveBeenCalledWith('ReviewScorecard', {
+      roundId: 'round-team',
+      competitionId: undefined,
+      holes: expect.arrayContaining([expect.objectContaining({ number: 10 }), expect.objectContaining({ number: 18 })]),
+    });
+    expect(mockStore.resetRound).not.toHaveBeenCalled();
   });
 
   it('characterization: keeps an already initialized round', () => {
     render(<TeamMatchPlayScoringScreen {...props} />);
     expect(mockStore.resetRound).not.toHaveBeenCalled();
     expect(mockStore.loadFromOffline).not.toHaveBeenCalled();
+  });
+
+  it('opens the real end sheet and completes on team Review with live planned match context', () => {
+    const view = render(<TeamMatchPlayScoringScreen {...props} />);
+    fireEvent.press(view.getByLabelText('End round early'));
+    expect(view.getByText('End round after hole 10?')).toBeTruthy();
+    expect(view.getByText('Team A leads')).toBeTruthy();
+    fireEvent.press(view.getByTestId('end-round-early-confirm'));
+    expect(mockConfirm).toHaveBeenCalledTimes(1);
+    expect(props.navigation.navigate).not.toHaveBeenCalled();
+    const context = mockEndArgs.getMatchContext?.();
+    expect(context?.kind).toBe('team');
+    expect(context?.names).toEqual(['Team A', 'Team B']);
+    expect(Object.keys(context?.holeResults ?? {})).toEqual(['10', '11', '12', '13', '14', '15', '16', '17', '18']);
+    expect(context?.holeResults[18]).toEqual({
+      team1Score: 4,
+      team2Score: 4,
+      team1PlayerScores: {},
+      team2PlayerScores: {},
+      winner: 'team1',
+    });
+    mockTeamScore = 5;
+    expect(mockEndArgs.getMatchContext?.()?.holeResults[18]).toEqual(expect.objectContaining({ team1Score: 5 }));
+    act(() => mockEndArgs.onEnded(1));
+    expect(props.navigation.navigate).toHaveBeenCalledWith('ReviewScorecard', {
+      roundId: 'round-team',
+      competitionId: undefined,
+      holes: expect.arrayContaining([expect.objectContaining({ number: 10 }), expect.objectContaining({ number: 18 })]),
+    });
+    mockRound.scoring_pairs_required = true;
+    view.rerender(<TeamMatchPlayScoringScreen {...props} />);
+    expect(mockEndArgs.scoringPairsEnabled).toBe(true);
+    expect(view.queryByLabelText('End round early')).toBeNull();
+    mockRound.scoring_pairs_required = false;
+    mockRound.competition_id = 'competition';
+    view.rerender(<TeamMatchPlayScoringScreen {...props} />);
+    expect(mockEndArgs.isStandalone).toBe(false);
+    expect(view.queryByLabelText('End round early')).toBeNull();
+  });
+
+  it('waits for round metadata and preserves the absent-field pairs fallback', () => {
+    mockHasRound = false;
+    const view = render(<TeamMatchPlayScoringScreen {...props} />);
+    expect(mockEndArgs.isStandalone).toBe(false);
+    expect(view.queryByLabelText('End round early')).toBeNull();
+    mockHasRound = true;
+    mockRound.scoring_pairs_required = undefined;
+    view.rerender(<TeamMatchPlayScoringScreen {...props} />);
+    expect(mockEndArgs.scoringPairsEnabled).toBe(false);
+    expect(view.getByLabelText('End round early')).toBeTruthy();
+    expect(mockEndArgs.teamFormat).toBe('best-ball');
   });
 
   it('resets and reloads once per server marker, even if recovery leaves stale state', async () => {

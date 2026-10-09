@@ -18,7 +18,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { LoadingSpinner, ConfirmationDialog } from '@/components/common';
-import { HoleHeader, RoundHeader, SwipeableHoleNavigator, ChangeTeesSheet } from '@/components/scorecard';
+import { HoleHeader, RoundHeader, SwipeableHoleNavigator, ChangeTeesSheet, EndRoundEarlySheet } from '@/components/scorecard';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -34,8 +34,9 @@ import { useCompetitionInfo } from '@/hooks/competitions';
 import { useAuth } from '@/hooks/useAuth';
 import { calculatePlayingHandicap } from '@/hooks/usePlayingHandicap';
 import { useProcessSkinsIfNeeded, useOnlineStatus } from '@/hooks';
-import { useOfflineSync } from '@/hooks/scorecard';
+import { useOfflineSync, useEndRoundEarly } from '@/hooks/scorecard';
 import { teamMatchPlayLogger } from '@/utils/debugLogger';
+import type { EndEarlyMatchContext } from '@/utils/endRoundEarly';
 import type { RootStackScreenProps } from '@/navigation/types';
 import type { Player, TeeBox } from '@/types';
 import type { NineType } from '@/types/database/enums';
@@ -48,7 +49,7 @@ import {
 import { MIN_SCORE, MAX_SCORE } from './constants';
 import { useTeamMatchPlayScores, useTeamMatchPlayState, useTeamMatchPlayNavigation } from './hooks';
 import { resolveMatchHoles } from './utils';
-import type { MatchTeam } from './types';
+import type { MatchTeam, TeamHoleResult } from './types';
 import { toMatchTeam } from './types';
 
 type Props = RootStackScreenProps<'MatchPlayScoring'>;
@@ -467,6 +468,35 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
     });
   }, [navigation, roundId, competitionId, holes]);
 
+  // This screen has no standalone route fallback; wait for loaded metadata.
+  const isStandaloneForEndEarly = roundData != null && roundData.competition_id == null;
+  // Read every planned hole on demand; session state only covers visited holes.
+  const getEndEarlyMatchContext = useCallback((): EndEarlyMatchContext => {
+    const results: Record<number, TeamHoleResult> = {};
+    for (const hole of holes) {
+      results[hole.number] = {
+        team1Score: getTeamBestScoreForHole(team1, hole.number),
+        team2Score: getTeamBestScoreForHole(team2, hole.number),
+        team1PlayerScores: {},
+        team2PlayerScores: {},
+        winner: getHoleWinnerForHole(hole.number),
+      };
+    }
+    return { kind: 'team', holeResults: results, names: [team1.name, team2.name] };
+  }, [holes, team1, team2, getTeamBestScoreForHole, getHoleWinnerForHole]);
+  const handleRoundEndedEarly = useCallback(() => {
+    handleViewScorecard();
+  }, [handleViewScorecard]);
+  const endEarly = useEndRoundEarly({
+    roundId,
+    isStandalone: isStandaloneForEndEarly,
+    gameType: 'match-play',
+    teamFormat: roundData?.team_format ?? null,
+    scoringPairsEnabled: roundData?.scoring_pairs_required ?? false,
+    getMatchContext: getEndEarlyMatchContext,
+    onEnded: handleRoundEndedEarly,
+  });
+
   // Skins processing hook
   const { processSkinsHole } = useProcessSkinsIfNeeded();
 
@@ -801,6 +831,8 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
         onSyncPress={triggerSync}
         canChangeTees={isOrganizer}
         onChangeTeesPress={() => setShowChangeTeesSheet(true)}
+        canEndRoundEarly={endEarly.canEndRoundEarly}
+        onEndRoundEarlyPress={endEarly.open}
         onChangeTeesBlockedOffline={() =>
           showErrorToast('Offline', 'Connect to the internet to change tees')
         }
@@ -901,6 +933,8 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
         players={currentPlayers}
         availableTees={availableTees}
       />
+
+      <EndRoundEarlySheet {...endEarly.sheetProps} />
     </SafeAreaView>
   );
 }
