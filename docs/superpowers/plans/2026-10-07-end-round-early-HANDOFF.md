@@ -1,6 +1,6 @@
 # End Round Early: build handoff
 
-**Checkpoint:** 2026-10-10, Part A complete; all 76 implementation tasks complete and independently reviewed; final whole-branch review pending, plus all nine correction leaves C1, C2a, C2b, C3, C4a, C4b, C5a, C5b and C5c.
+**Checkpoint:** 2026-10-10, Part A complete; all 76 implementation tasks complete and independently reviewed; final whole-branch Standards and Spec reviews passed, plus all nine correction leaves C1, C2a, C2b, C3, C4a, C4b, C5a, C5b and C5c.
 **Worktree:** `.claude/worktrees/end-round-early`, branch `worktree-end-round-early`.
 **Plan:** `docs/superpowers/plans/2026-10-07-end-round-early.md`, 76 tasks run in Task Index order.
 **Spec:** `docs/superpowers/specs/2026-10-07-end-round-early-design.md`. Revision 3 and R22 override everything earlier in the spec.
@@ -50,7 +50,8 @@
 - **B10c-2 is complete and reviewed** at `4d6198cd`: both preview and creation reject an ended front or back nine before tee resolution and calculations. Pair loading applies joined SQL and returned-row exclusions before choosing the latest front/back candidates, preserving legacy cards and historical combinations. Existing C5c recalculation remains unchanged and is characterized through its exact shape-aware patch RPC. Both review gates passed without blocking findings.
 - **B11 is complete and reviewed** through `cf18e8a3`: final architecture/schema/skins/offline documentation and a durable [QA and rollout runbook](../../guides/END_ROUND_EARLY_ROLLOUT.md) describe the reviewed C1–C5/B6 contracts and pending runtime checks. A7/B1 recipe comments, the null-safe audited UNDO comparison and lock commentary are corrected without changing executable migration bodies. SPEC review corrected misplaced/detached architecture table rows; both final review gates passed. Root also applied QUALITY’s minor wording correction distinguishing the waiting round lock from card `NOWAIT` locks.
 - **Final full-suite correction:** `a20e467a` fixes an unchanged baseline sync-age test fixture that subtracted local calendar days across Melbourne DST. The suite now freezes/restores its clock and subtracts elapsed 24-hour days, preserving all assertions and production behavior. Genuine frozen RED and Melbourne/UTC GREEN preceded the passing full-suite rerun.
-- **Next: independent whole-branch review** from `935760c9` against the final implementation. Database/device QA, migration execution, merge/push and release remain pending.
+- **Final whole-branch review passed** for `935760c9...7918887a`: independent Standards and Spec reviewers each read all 188 production changes, four SQL changes and seven changed documents, with selected regression diffs and current contracts. Standards found no hard documented violations and two optional Minor duplication suggestions; Spec found no missing, extra or incorrect requirement. No blocking findings remain. Full reports and coverage are in the ignored `final-review-report.md`, `final-standards-progress.md` and `final-spec-progress.md`.
+- **Build complete; rollout pending.** All implementation and authorized local verification are complete. The committed local branch and worktree are preserved. Database/device QA, migration execution, merge/push and release remain pending in the rollout runbook.
 - **Latest validation:** B11 full suite passed 535 suites, 11681 tests and 39 snapshots (15 skipped, 1 todo). Required TEST_SUBSET passed 272 suites/5547 tests/30 snapshots. Final `pnpm verify:gate --base=935760c9` passed, including type-check, 1511 tests and lint of 347 changed files. Applicable fixture lint and static/diff checks passed; `pnpm lint:ci` passed with 123 warnings (limit 128). Gate warnings remained 20; browser, Expo/GPS and Jest advisories are documented. The first full-suite run failed four baseline date-fixture assertions and was corrected, not waived. Direct ESLint on unsupported Markdown/SQL also failed and is recorded separately from passing applicable code lint. These are local/source/mocked results: SQLite crash/interleaving, PostgreSQL compilation/RLS/locks/concurrency, device/offline/two-device QA and web shared-adoption limits remain deferred.
 - **No database has been touched.** The A7 SQL files exist but are not applied. All apply, verify and dry-run steps are deferred to the rollout checklists in A6d-2 Step 5 and B11. Never apply migrations during the build.
 
@@ -125,6 +126,12 @@
 ## Rollout instructions authored; execution pending
 - B11 corrected the A7/B1/report apply, dry-run and UNDO recipes to the port-6543 SET/SHOW-before-BEGIN form, added the audited current-index comparison to UNDO, and corrected the trigger-lock comment. These are static source corrections; no SQL was executed.
 - Use the [QA and rollout runbook](../../guides/END_ROUND_EARLY_ROLLOUT.md) for A7 → B1 → C3, verification scripts, manual concurrency schedules, device QA and release evidence.
+
+## Optional maintainability follow-ups from final review
+
+Neither suggestion blocks approval or changes current behavior:
+- Consider sharing the ended-match physical-prefix/closeout/lead walker between `MatchPlayScoringScreen/utils/matchPlayCalculations.ts:103` and `TeamMatchPlayScoringScreen/utils/teamMatchPlayCalculations.ts:121`, retaining the public-interface regressions.
+- Consider a narrow shared hydration lifecycle for `hooks/scorecard/useRoundData.ts:596` and `useMatchPlayData.ts:367`, keeping their different query, empty-score and acknowledgment policies explicit.
 
 ## Open items for Sam (not blocking)
 - Whether the UGC / age-gate migrations are on prod. This is a prerequisite for B1a's rollout.

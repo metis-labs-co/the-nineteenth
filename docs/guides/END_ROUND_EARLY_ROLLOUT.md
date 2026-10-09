@@ -4,8 +4,10 @@
 Local checks and mocked Jest boundaries do not establish PostgreSQL compilation,
 RLS/lock behavior or SQLite device crash/interleaving guarantees. No SQL, database
 connections, scratch services, credentials, migration dry runs/applies, push,
-merge, deployment or store/OTA release ran as part of B11. Root's independent
-whole-branch review from `935760c9` to final HEAD remains separate from B11 review.
+merge, deployment or store/OTA release ran as part of B11. Independent whole-branch
+source review of `935760c9...7918887a` passed on both Standards and Spec axes, with
+no blocking findings. See the [build handoff](../superpowers/plans/2026-10-07-end-round-early-HANDOFF.md)
+for local validation and the two optional maintainability suggestions.
 
 Use this current runbook alongside the historical
 [plan](../superpowers/plans/2026-10-07-end-round-early.md) and
@@ -31,7 +33,8 @@ evidence for any row below. Do not paste credentials into logs or notes.
 | Two-session disposable concurrency schedules | Pending | Pending staging evidence review | Pending |
 | Part A QA and Sam-only stuck-round procedure | Pending | Pending | Pending |
 | Native/device Part B QA and race checks | Pending | Pending staging evidence review | Pending |
-| Root final whole-branch review / merge / push | Pending | Pending | Pending |
+| Local whole-branch source review | Complete locally | Not a deployment check | Standards and Spec passed; see build handoff |
+| Merge / push | Pending | Pending | Pending |
 | Store release 1.15.0 on both platforms | Pending | Pending | Pending |
 | Post-live force-update minimum check | Pending | Pending | Pending |
 | 48-hour error / legacy-write audit | Pending | Pending | Pending |
