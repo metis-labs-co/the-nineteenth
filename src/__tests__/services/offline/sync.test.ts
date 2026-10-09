@@ -3080,6 +3080,84 @@ describe('Queued end-round-early B6b-2', () => {
       })
     );
   });
+  it.each(['coordinator', 'RPC success', 'RPC refused', 'shape success', 'shape unavailable'])(
+    'defers an old end after an independent persistence-source transition during %s',
+    async (stage) => {
+      const originalEnd = end();
+      queue = [originalEnd, cardSync(), cardSync(otherCard(), 2)];
+      const originalSource = capturePersistence(roundId);
+      const entered = deferred<void>();
+      const release = deferred<void>();
+      let held: Promise<void> | undefined;
+      if (stage === 'coordinator') {
+        held = withRoundScoringWrite(roundId, async () => {
+          entered.resolve();
+          await release.promise;
+        });
+        await entered.promise;
+      } else if (stage.startsWith('RPC')) {
+        (applyEndRoundEarly as jest.Mock).mockImplementationOnce(async () => {
+          entered.resolve();
+          await release.promise;
+          if (stage === 'RPC refused') throw new EndRoundEarlyError('forbidden', 'old refusal');
+        });
+      } else {
+        (supabase.from as jest.Mock).mockImplementation(() => ({
+          select: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          is: jest.fn().mockReturnThis(),
+          abortSignal: jest.fn().mockReturnThis(),
+          maybeSingle: jest.fn(async () => {
+            entered.resolve();
+            await release.promise;
+            return stage === 'shape unavailable'
+              ? { data: null, error: { message: 'old shape read unavailable' } }
+              : { data: { nine_type: 'full', holes_played: 6 }, error: null };
+          }),
+        }));
+      }
+      const draining = syncAll();
+      if (stage === 'coordinator') await flushPromises();
+      else await entered.promise;
+
+      // Change only the actual source epoch: owner, session and queue proofs stay identical.
+      await transitionPersistence(
+        roundId,
+        { nine_type: 'full', holes_played: 4 },
+        async () => undefined,
+        () => undefined
+      );
+      expect(capturePersistence(roundId)).toEqual({
+        ...originalSource,
+        epoch: originalSource.epoch + 1,
+      });
+      release.resolve();
+      await held;
+      await draining;
+
+      expect(queue.find((row) => row.id === 21)).toBe(originalEnd);
+      expect(failed).toEqual([]);
+      expect(database.persistAuthoritativeRoundShape).not.toHaveBeenCalled();
+      expect(database.removePendingSync).not.toHaveBeenCalledWith(
+        21,
+        expect.anything(),
+        expect.anything(),
+        undefined,
+        expect.anything()
+      );
+      expect(database.markPendingSyncFailed).not.toHaveBeenCalled();
+      expect(database.incrementSyncRetryCount).not.toHaveBeenCalled();
+      expect(supabase.rpc).toHaveBeenCalledTimes(1);
+      expect((supabase.rpc as jest.Mock).mock.calls[0][1].p_round_id).toBe(otherCard().roundId);
+      expect(queue.some((row) => row.id === 1)).toBe(true);
+      expect(queue.some((row) => row.id === 2)).toBe(false);
+      expect(applyEndRoundEarly).toHaveBeenCalledTimes(stage === 'coordinator' ? 0 : 1);
+      expect(capturePersistence(roundId)).toEqual({
+        ...originalSource,
+        epoch: originalSource.epoch + 1,
+      });
+    }
+  );
   it('holds end coordinator through durable adoption while a waiting card rereads the prerequisite', async () => {
     queue = [end()];
     const entered = deferred<void>();
@@ -3251,6 +3329,7 @@ describe('Queued end-round-early B6b-2', () => {
     );
   });
   it('durably adopts before acknowledgment, uploads CURRENT repaired cards, then finalizes', async () => {
+    const originalSource = capturePersistence(roundId);
     const card = createTestScorecard({
       holesPlayed: 6,
       syncNineType: 'full',
@@ -3295,5 +3374,6 @@ describe('Queued end-round-early B6b-2', () => {
       (finalizeSubmittedRound as jest.Mock).mock.invocationCallOrder[0]
     );
     expect(queue).toHaveLength(0);
+    expect(capturePersistence(roundId)).toEqual({ ...originalSource, epoch: originalSource.epoch + 1 });
   });
 });
