@@ -49,7 +49,16 @@
 -- handicap_combined_rounds (app writes wait until COMMIT), and the data fix
 -- row-locks every card it nulls. Apply at a quiet time.
 --
--- Apply: psql "$DB_URL" -v ON_ERROR_STOP=1 --single-transaction -f <this file>
+-- Manual apply (known pooler port 6543; dry run: ROLLBACK instead of COMMIT):
+-- psql "$DB_URL" -p 6543 -v ON_ERROR_STOP=1 <<'SQL'
+-- SET default_transaction_read_only = off;
+-- show transaction_read_only; -- must print off before BEGIN
+-- BEGIN;
+-- \i supabase/migrations/20261007000100_full_scorecards_only_handicap.sql
+-- COMMIT;
+-- SQL
+-- Final release order is A7, B1 (20261007000200), then C3 (20261007000300).
+-- If A7 is re-applied after B1/C3, immediately re-apply B1 then C3 too.
 -- Dry run and report: see supabase/scripts/full_scorecards_only_report.sql.
 -- Undo: see the commented UNDO block at the end of this file.
 
@@ -435,15 +444,22 @@ SELECT * FROM public.handicap_full_card_data_fix();
 -- =====================================================
 -- UNDO (manual — only on Sam's go; never part of a deploy)
 -- =====================================================
--- Restores every nulled differential and every recomputed index from the
+-- Restores eligible nulled differentials and unchanged recomputed indexes from the
 -- audit tables. A differential is restored only where it is still NULL, so a
 -- card completed since keeps its new value. The guard trigger is disabled
 -- around the restore (it would null the restored values) and re-enabled
 -- afterwards; it then nulls them again on the card's next write. To remove
--- the guard for good, also DROP both triggers. ALTER TABLE ... DISABLE
--- TRIGGER takes an ACCESS EXCLUSIVE lock on scorecards: run at a quiet time.
+-- the guard for good, also DROP both triggers. ALTER TABLE ... DISABLE/ENABLE
+-- TRIGGER takes a SHARE ROW EXCLUSIVE lock on scorecards (writes wait until
+-- COMMIT). Run at a quiet time. An index changed since the audited fix is
+-- preserved, including null changes, by the null-safe comparison below.
+-- After C3, protected differential restores also encounter its scoring-write
+-- guard. This A7-only historical undo is not a rollback recipe for B1/C3;
+-- Sam must review that environment separately before attempting a restore.
 --
--- psql "$DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
+-- psql "$DB_URL" -p 6543 -v ON_ERROR_STOP=1 <<'SQL'
+-- SET default_transaction_read_only = off;
+-- show transaction_read_only; -- must print off before BEGIN
 -- BEGIN;
 -- SET LOCAL lock_timeout = '5s';
 -- ALTER TABLE public.scorecards DISABLE TRIGGER scorecards_full_card_differential;
@@ -456,7 +472,8 @@ SELECT * FROM public.handicap_full_card_data_fix();
 --    SET handicap_index = pa.old_handicap_index,
 --        handicap_index_updated_at = now()
 --   FROM public.handicap_full_card_fix_player_audit pa
---  WHERE pa.player_id = p.id;
+--  WHERE pa.player_id = p.id
+--    AND p.handicap_index IS NOT DISTINCT FROM pa.new_handicap_index;
 -- ALTER TABLE public.scorecards ENABLE TRIGGER scorecards_full_card_differential;
 -- -- Optional, to remove the guard entirely:
 -- -- DROP TRIGGER IF EXISTS scorecards_full_card_differential ON public.scorecards;

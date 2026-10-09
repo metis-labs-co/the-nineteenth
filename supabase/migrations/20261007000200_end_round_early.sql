@@ -55,9 +55,16 @@
 -- staging, then prod, BEFORE the app build that selects rounds.holes_played.
 -- NEVER re-apply 20261007000100 after this file: it redefines
 -- scorecard_eligible_for_differential without the holes_played rule. If A7
--- must be re-applied, re-apply this file straight after it (idempotent).
--- Apply with:
---   psql "$DB_URL" -v ON_ERROR_STOP=1 --single-transaction -f supabase/migrations/20261007000200_end_round_early.sql
+-- must be re-applied, re-apply this file then 20261007000300 straight after it.
+-- C3 must follow this file: this file replaces its guarded end RPC.
+-- Manual apply (known pooler port 6543; dry run: ROLLBACK instead of COMMIT):
+-- psql "$DB_URL" -p 6543 -v ON_ERROR_STOP=1 <<'SQL'
+-- SET default_transaction_read_only = off;
+-- show transaction_read_only; -- must print off before BEGIN
+-- BEGIN;
+-- \i supabase/migrations/20261007000200_end_round_early.sql
+-- COMMIT;
+-- SQL
 -- =====================================================
 
 -- Fail fast if A7's completeness functions are missing.

@@ -8,7 +8,7 @@
 
 A skins game consists of:
 - **Participants**: 2-4 players competing for the pot
-- **Pot Configuration**: Either a per-hole value ($5/hole) OR a total pot ($90 split across 18 holes)
+- **Pot Configuration**: Either a per-hole value ($5/hole) OR a total pot ($90 split across the planned holes)
 - **Scoring Type**: Gross (raw strokes) OR Net (handicap-adjusted)
 - **Carryover**: When holes are tied, the pot accumulates for the next hole
 - **Settlement**: At the end, winnings minus buy-in determines who owes whom
@@ -44,8 +44,40 @@ Choose how the pot is calculated:
 
 | Pot Type | Description | Example |
 |----------|-------------|---------|
-| **Per Hole** | Fixed amount for each hole | $5/hole = $90 total |
-| **Total Pot** | Total split across 18 holes | $90 total = $5/hole |
+| **Per Hole** | Fixed amount for each hole | $5/hole = $90 total over 18 |
+| **Total Pot** | Total split across the round's planned holes (18, or 9 for a 9-hole round) | $90 total = $5/hole over 18, $10/hole over 9 |
+
+### 9-hole and ended-early rounds
+
+Hole values are priced on the round's **planned** hole count (`getHoleCount(nine_type)`).
+Settlement prices each player's buy-in on the holes **actually played**, so payouts
+stay zero-sum (within cent rounding) when a social round is ended early:
+
+`buy-in = calculatePlayedPot(game, holeCounts) / participants`, where the played pot is
+`calculateTotalPot(type, value, planned)` for a complete round and the rounded hole value ×
+`holesPlayed` for an ended-early one (≈ total pot × holesPlayed / planned).
+
+`getSkinsHoleCounts(round)` (`src/utils/skins/holeCounts.ts`) returns
+`{ plannedHoles, holesPlayed }`; it uses `rounds.holes_played` when within
+1…planned, otherwise the planned count.
+`fetchSkinsHoleCounts(roundId)` reads them from the server; every settlement path
+uses it. For a complete 18-hole round the buy-in is unchanged.
+
+| Round | Pot | Players | Hole value | Buy-in each | Pot paid out |
+|-------|-----|---------|------------|-------------|--------------|
+| 18 holes, ended after 6 | $5 per hole | 4 | $5 | $90 × 6/18 ÷ 4 = $7.50 | 6 × $5 = $30 |
+| 9-hole round | $90 total pot | 4 | $10 | $90 × 9/9 ÷ 4 = $22.50 | 9 × $10 = $90 |
+| 9-hole round, ended after 6 | $90 total pot | 4 | $10 | $90 × 6/9 ÷ 4 = $15 | 6 × $10 = $60 |
+
+Skins results for holes after the last played hole are deleted by the
+`end_round_early` RPC during an online confirmation or the owned queued
+`'end_early'` retry. Online confirmation also commits that intent atomically
+with the local end; the consumer adopts the authorized shape before acknowledging it. Completed games are
+displayed from the stored `skins_payouts`.
+
+> **Known gap:** team-skins final settlement still goes through the individual
+> calculator (`calculateFinalPayoutsWithCarryover`); `calculateTeamFinalPayouts`
+> is unused. Pricing team settlement by holes played comes with that fix.
 
 ### Scoring Type
 
@@ -92,9 +124,10 @@ Hole 6: $5 base + $5 carryover = $10 pot value
   - Player A wins $10!
 ```
 
-### Hole 18 Carryover
+### Last-Hole Carryover
 
-If hole 18 ends in a tie with accumulated carryover:
+If the last hole the round played (18, 9 for a 9-hole round, or the last hole
+of a round ended early) ends in a tie with accumulated carryover:
 - The remaining pot is **split evenly** among all participants
 - This is the simplest fair resolution
 
@@ -325,13 +358,14 @@ import {
 | Hook | Description | When to Use |
 |------|-------------|-------------|
 | `useProcessSkinsIfNeeded(roundId)` | Process skins when all scores in | After score entry |
-| `useFinalizeSubmittedRound()` (`@/hooks/rounds/useFinalizeSubmittedRound`) | Finalises the round after submit (status → results → skins via `finalizeActiveSkinsForRound`), or queues it offline | On scorecard submission |
+| `useFinalizeSubmittedRound()` (`@/hooks/rounds/useFinalizeSubmittedRound`) | Finalizes online or queues the same steps offline | On scorecard submission |
+| `finalizeActiveSkinsForRound(roundId)` (`src/services/skins/finalizeSkinsGame.ts`, service) | Settles the active game using `fetchSkinsHoleCounts` | Called by `finalizeSubmittedRound` after completion |
 
 ---
 
 ## Calculation Utilities
 
-All calculation functions are pure and located in `src/utils/skinsCalculations.ts`:
+All calculation functions are pure and located in `src/utils/skins/` (`pot.ts`, `payouts.ts`, `holeCounts.ts`):
 
 ### Pot Calculations
 
@@ -346,6 +380,13 @@ calculateTotalPot('total_pot', 90);  // → 90
 
 // Calculate buy-in per player
 calculateBuyIn('per_hole', 5, 4);    // → 22.50
+
+// Planned pricing and played settlement
+getSkinsHoleCounts({ nine_type: 'full', holes_played: 6 });
+// → { plannedHoles: 18, holesPlayed: 6 }
+calculatePlayedPot(game, { plannedHoles: 18, holesPlayed: 6 }); // $5/hole → 30
+calculateFinalPayoutsWithCarryover(game, results, participants,
+  await fetchSkinsHoleCounts(roundId));
 ```
 
 ### Winner Determination
@@ -387,9 +428,9 @@ Skins results are processed automatically when scores are entered:
 When a scorecard is submitted:
 
 1. **Submit Scorecard**: Normal submission flow
-2. **Finalize Skins**: `useFinalizeSkinsForRound` calculates final payouts
+2. **Finalize Round**: `finalizeSubmittedRound` (`src/services/rounds/finalizeSubmittedRound.ts`) completes the round when every card is in, writes results, then calls `finalizeActiveSkinsForRound`, which prices settlement with `fetchSkinsHoleCounts(roundId)`. Offline, the same steps run from the queued `'finalize'` round item once every card has synced.
 3. **Update Status**: Game marked as 'completed'
-4. **Results Available**: Skins tab shows full settlement
+4. **Results Available**: Skins tab shows the stored settlement (`skins_payouts`)
 
 ### Non-Blocking
 
@@ -468,7 +509,7 @@ When creating a skins game for a competition round:
 
 | Scenario | Direct Pot | Prize Pool |
 |----------|------------|------------|
-| Hole 18 tie (carryover) | Split among all players | Returned to pool |
+| Last played hole tie (carryover) | Split among all players | Returned to pool |
 | Unused budget | N/A | Returns to pool for reallocation |
 
 ### Locking Rules
@@ -637,4 +678,4 @@ const { data: rank } = useSkinsRank(playerId, 1);
 
 ---
 
-*Last Updated: February 2026*
+*Last Updated: October 2026*

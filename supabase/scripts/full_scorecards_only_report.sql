@@ -7,8 +7,9 @@
 -- run this report, then ROLL BACK. Nothing is kept.
 --
 -- DRY RUN (the "before" numbers):
---   PGOPTIONS='-c default_transaction_read_only=off' \
---   psql "$DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
+--   psql "$DB_URL" -p 6543 -v ON_ERROR_STOP=1 <<'SQL'
+--   SET default_transaction_read_only = off;
+--   show transaction_read_only; -- must print off before BEGIN
 --   BEGIN;
 --   SET LOCAL lock_timeout = '5s';
 --   \i supabase/migrations/20261007000100_full_scorecards_only_handicap.sql
@@ -16,8 +17,8 @@
 --   ROLLBACK;
 --   SQL
 --
---   * PGOPTIONS: the prod pooler connection defaults to read-only
---     transactions; the dry run must write (then roll back).
+--   * SET before BEGIN: pooler sessions default to read-only; the dry run
+--     must write (then roll back). Known pooler access uses port 6543.
 --   * Locks: the dry run takes the same locks as the real migration
 --     (SHARE ROW EXCLUSIVE on scorecards and handicap_combined_rounds from
 --     CREATE TRIGGER, plus row locks on every card it nulls) until ROLLBACK.
@@ -25,9 +26,12 @@
 --     lock_timeout makes it fail fast instead of queueing behind traffic.
 --   * Order: local → staging (or a prod snapshot restored locally) → prod.
 --     Then a go/no-go with Sam on sections 1-3 before applying for real.
+--   * If B1/C3 are already present, include their migrations in that order
+--     after A7 and before this report, even for a rolled-back rehearsal.
+--     A7 replaces B1's eligibility helper; B1 replaces C3's guarded end RPC.
 --
 -- AFTER applying (verify, then re-run days later to watch for drift):
---   psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/scripts/full_scorecards_only_report.sql
+--   psql "$DB_URL" -p 6543 -v ON_ERROR_STOP=1 -f supabase/scripts/full_scorecards_only_report.sql
 --
 -- Optional: -v nine_type_cutoff=YYYY-MM-DD — the date 20260330000001 (the
 -- nine_type column) reached this environment. Rounds created before it are

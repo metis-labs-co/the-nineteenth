@@ -666,20 +666,25 @@ It never imports the orchestrator: `initSyncService` registers `syncAll` as its 
 
 Each `pending_syncs` row has:
 - a `type`;
-- an `entity_key`: one row per entity. Re-queueing replaces the row and resets its retries;
+- an `entity_key`: one row per entity. Ordinary re-queueing replaces/reset retries; a same-owner/same-N end intent preserves the entire existing row, including failed recovery metadata;
 - a `status`: `pending` or `failed`. `failed` rows wait for an explicit Retry.
 
 | Type | Entity key | Data | Handler |
 |---|---|---|---|
 | `scorecard` | `scorecard:<roundId>:<playerId>` | the scorecard snapshot | `processScorecardSync` |
+| `round` | `round:<roundId>:end_early` | `{ id, action: 'end_early', holesPlayed, userId }` (captured authenticated owner required) | coordinated end consumer in `syncOrchestrator.ts` |
 | `round` | `round:<roundId>:finalize` | `{ id, action: 'finalize', userId? }` (`userId`: who was signed in when it was queued) | `processRoundSync` → `finalizeSubmittedRound` |
 
 ### Drain order
 
 Each `syncAll()` runs:
-1. queued `scorecard` uploads, in timestamp order;
-2. the SQLite fallback: submitted cards with `is_synced = 0` and no queue row;
-3. `round` items, after every upload above. A round action other than `'finalize'` runs before `'finalize'`.
+1. identifiable queued `end_early` items;
+2. a fresh CURRENT queue/source read, then eligible scorecard uploads and SQLite fallback cards;
+3. ordinary round items, including `finalize`, after eligible cards.
+
+Pending, failed, foreign-owned or malformed canonical ends block only their
+round's card/finalize work. The end prerequisite is read live inside the one
+round coordinator; unrelated rounds continue without spending blocked retries.
 
 ### `round` items: wait, drop or retry
 
@@ -687,6 +692,7 @@ A `'finalize'` item runs the same steps an online submit runs (`finalizeSubmitte
 
 | Situation | Outcome |
 |---|---|
+| A retained canonical end prerequisite exists | **Failed.** Finalize checks this before pending-card readiness so explicit Retry can revive the whole dependency chain. Pending/foreign prerequisites defer. |
 | The item's `userId` is another user than the one signed in (SQLite survives sign-out) | **Wait.** It stays `pending`, spends no retry and raises no error, until its owner signs in again. An item with no `userId` (an older build's) runs for whoever is signed in. |
 | A card for the round is still `pending` in the queue, or unsynced in SQLite with no queue row (`hasUnsyncedScorecardsForRound`); or a submit screen is finalising the same round right now (`finalizeSubmittedRound`'s atomic in-flight check rejects with `RoundNotReadyError`) | **Wait.** It stays `pending`, spends no retry and raises no error. It runs again on the next drain. |
 | The round's only unconfirmed cards are retained `failed` rows | **Failed.** The round item is marked `failed` too. Retry (`retryFailedSyncs`) revives both, and the card uploads first. |
@@ -816,6 +822,110 @@ const handleScoreChange = async (score: number) => {
 ```
 
 ---
+
+## End round early (offline)
+
+`useEndRoundEarly` and public `endRoundEarly(N)` use the existing store slice
+and native `persistRoundEarlyEnd` transaction. Normal server-backed user ends
+capture the authenticated owner, private session and source before awaits.
+Marker, later-hole deletion, full proven tee/nine/handicap basis and the owned
+intent commit or roll back together. No separate `queueRoundEndEarly` runs
+afterward; that exported helper is not the production confirmation path.
+Local-only cards remain intent-free. Same-owner/same-N work is a full queue-row
+no-op; foreign/incompatible work refuses. An already-ended durable marker
+requires the existing compatible owned intent inside the transaction, so a
+discarded marker-only cache cannot acquire today's owner.
+
+Online confirmation calls the RPC first, then uses the same atomic local finish
+as offline/network fallback. Successful online confirmation leaves acknowledgment
+to the end consumer; a durable commit requests a drain before any postcommit
+guard/error. Only actual mapped end-RPC `P0002` permits no-new-intent finish
+and cleanup of the original captured valid owned snapshot. An unavailable
+shape read never means the round was deleted. The eight-second caller deadline
+does not prove cancellation: a timed-out request can still settle on the server.
+
+### Coordination, source selection and adoption
+
+`withRoundScoringWrite` is per-round and non-reentrant. Confirmation, queued
+ends, common card upload and tee operations acquire once at their
+outer boundary. Local persistence admission is separate: source tokens attach
+before the first await, nested DAO save/queue calls share a lease, and marker
+transitions close admission and drain whole chains before committing. They
+advance the source epoch only on commit, update guarded CURRENT memory, then
+reopen. No lease spans network/coordinator waiting. Original owner and private
+session-or-absence proof remain required independently of source currentness.
+
+The queued end consumer rereads CURRENT row identity after waiting and holds
+the coordinator through RPC, authorized complete shape read, durable shared
+adoption and exact native acknowledgment. It uses the already-held
+`adoptRoundShapeWithinScoringWrite`; authoritative repair is valid on CURRENT
+closed/submitted cards and never creates/revives user intent. It repairs local
+cards and pending/failed queue snapshots together. Local prior range intersects
+server range, so N6 → N8 cannot recover discarded 7–8. Retained edits, terminal
+metadata and maximum accepted revisions survive. Unknown shape, missing proven
+historical context or failed repair keeps work blocked. Server NULL never
+clears a local final marker; initialization/load repairs before exposing a
+larger authoritative range.
+
+`roundScoringContext.ts` supplies the shared recorded calculation basis.
+Complete compatible recorded evidence wins; only proven current active context
+can fill gaps. Historical cards cannot borrow today's profile. Explicit `none`
+sets DHC0 with absent HI; unknown historical basis remains a visible block.
+
+After end processing, the card phase takes fresh queue/source proof. `syncScorecard`
+selects CURRENT queued work ahead of stale fallback, then covers prerequisite,
+preparation-consistent `expected_round_shape`, snapshot, trailing entries and
+acknowledgment. Shape rejection requires authorized read, shared adoption and
+fresh reprepare; no old totals get a new shape label. Accepted SERVER revision
+is monotonic and identifies the LOCAL card for repair, not the RPC UUID. Remote
+Quick Score acceptance is a separate identity and never acknowledges a local
+card/queue. A committed snapshot followed by new entry guard/busy failure
+retains accepted revision while deferring repair rather than reporting success;
+unrelated legacy entry errors retain their best-effort behavior.
+
+### Errors and strict acknowledgment
+
+| End outcome | Durable behavior |
+|---|---|
+| Applied or `round_already_ended` | Read authorized full shape, perform shared durable adoption, then strict acknowledgment; conflict alone never drops work before repair |
+| Actual `P0002` | Guarded cleanup of the selected matching owned snapshot, without adoption/ownership invention |
+| Network, explicit busy hint or typed stale operation | Pending/deferred, no retry spent; original work remains |
+| `42501`, other invalid `22023`, missing/invalid owner or identifiable malformed end | Exact guarded failed retention; visible in Retained Uploads |
+| Valid foreign owner | Wait for that owner; do not run under another account |
+| Repair/read/retention database error | Visible/logged failure, preserving work; unrelated rounds may continue |
+
+Native `removePendingSync` strict end mode checks selected id/revision/entity,
+exact raw JSON/decode proof and recovery fields inside the exclusive transaction,
+plus original owner/session/source before and after awaited mutation. Invalid
+JSON permits exact failed retention only, never acknowledgment. Changed work
+survives. Common card acknowledgment additionally checks captured parent and
+physical hole-row baseline, live content, expected queue identity or absence,
+and recovery state; queue deletion and disk mark occur together. Queue payload
+B may differ from unchanged cache A: exact B can be acknowledged while marking
+unchanged A synced, preventing stale fallback replay without copying B's scores.
+Newer disk/live/queue changes during the request prevent acknowledgment.
+
+### Bounded compatibility and QA
+
+Canonical `round:<id>:end_early` gives dependency scope even when type/action/
+payload identity is corrupt. Reads preserve nonpersistent `endIntentRead`
+raw/decode proof; display uses safe identity and startup cleanup preserves the
+row. Parseable declared ends without a canonical key remain visibly invalid/
+unscoped. They cannot synthesize a prerequisite for a claimed payload round.
+Noncanonical invalid JSON that cannot be identified as end work retains strict
+decoding. There is no general corruption index/repair mechanism. Older ownerless
+finalize compatibility is unchanged; ownerless new end work is invalid.
+
+Ordinary web uploads and ordinary Quick Score direct success keep supported
+paths and current owner/session/source/content checks. Native authoritative
+repair, strict end acknowledgment and atomic durable-end guarantees have no
+unguarded web fallback. Reopening offline after a cold start without a cached
+round row remains unsupported. A late RPC success is not cancellation proof.
+
+Jest exercises controlled mocked native/Supabase boundaries. Real device SQLite
+crash/interleaving, account switching, late network settlement and PostgreSQL
+locks/RLS remain deferred to the [1.15.0 QA/runbook](END_ROUND_EARLY_ROLLOUT.md)
+and [two-session schedules](../../supabase/tests/round_scoring_writes_two_session.md).
 
 ## Related Documentation
 

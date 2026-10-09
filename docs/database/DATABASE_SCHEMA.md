@@ -1669,6 +1669,8 @@ Individual rounds within competitions or standalone (social) rounds.
 | `selected_tee` | JSONB | NULL | Selected tee box configuration |
 | `scoring_pairs_required` | BOOLEAN | DEFAULT FALSE | If TRUE, scoring pairs must be set up |
 | `ball_count` | INTEGER | DEFAULT 1, CHECK(1-4) | Number of balls scored per hole (multi-ball for solo rounds) |
+| `nine_type` | TEXT | NOT NULL, DEFAULT 'full', CHECK(enum) | Holes the round is played over: 'full', 'front9', 'back9' |
+| `holes_played` | SMALLINT | NULL, CHECK (see below) | Set when a social round was ended early: holes played, counted from the round's first hole (a back-9 round ended after 6 = holes 10–15). NULL = played as planned. Written only by `end_round_early()`. A round with it set never yields a handicap differential |
 | `elapsed_time_seconds` | INTEGER | NULL | Round elapsed time tracking |
 | `timer_enabled` | BOOLEAN | DEFAULT FALSE | Whether round timer is enabled |
 | `skins_enabled` | BOOLEAN | NOT NULL, DEFAULT FALSE | Whether this round has a skins game |
@@ -1707,6 +1709,7 @@ Individual rounds within competitions or standalone (social) rounds.
 - `rounds_ownership_check` - CHECK (competition_id IS NOT NULL OR user_id IS NOT NULL)
 - `team_format_required_for_team_rounds` - CHECK (is_team_round = FALSE AND team_format IS NULL) OR (is_team_round = TRUE AND team_format IS NOT NULL)
 - `valid_ball_count` - CHECK (ball_count >= 1 AND ball_count <= 4)
+- `holes_played` - CHECK (holes_played IS NULL OR (competition_id IS NULL AND holes_played > 0 AND holes_played < CASE nine_type WHEN 'full' THEN 18 ELSE 9 END)) (migration `20261007000200_end_round_early.sql`)
 
 **RLS Policies:**
 - Organizers can manage rounds in their competitions
@@ -1941,7 +1944,7 @@ Player scorecards with hole-by-hole scores.
 | `bypassed` | BOOLEAN | NOT NULL, DEFAULT FALSE | TRUE if submitted without partner verification |
 | `daily_handicap_used` | INTEGER | NULL | Strokes received for this round (WHS daily handicap, snapshot at submission) |
 | `ga_handicap_used` | NUMERIC | NULL | Player WHS Handicap Index at time of round (input value for daily handicap) |
-| `handicap_differential` | NUMERIC(4,1) | NULL | WHS differential: (113/slope) × (gross - course_rating) |
+| `handicap_differential` | NUMERIC(4,1) | NULL | WHS differential: (113/slope) × (adjusted gross - course_rating). Forced to NULL by the `scorecards_full_card_differential` trigger when the card is incomplete for its round's `nine_type` or the round has `holes_played` set |
 | `course_rating_used` | NUMERIC | NULL | Course rating snapshot from tee selection |
 | `slope_rating_used` | INTEGER | NULL | Slope rating snapshot from tee selection |
 | `device_id` | TEXT | NULL | Device ID for offline sync |
@@ -5337,6 +5340,165 @@ get_clubs_with_courses(
 
 ---
 
+### `scorecard_is_complete_for_handicap()` and the full-scorecard triggers
+
+Only full scorecards count toward the social handicap index (migration `20261007000100_full_scorecards_only_handicap.sql`, extended by `20261007000200_end_round_early.sql`).
+
+**Signature:**
+```sql
+scorecard_is_complete_for_handicap(p_scores JSONB, p_nine_type TEXT) RETURNS BOOLEAN  -- IMMUTABLE
+```
+TRUE when `p_scores` is NULL or `{}` (no per-hole data: legacy imports and multi-ball cards keep the gross-only rule), or when every hole of 1–18 / 1–9 / 10–18 has strokes > 0 (`{"n": {"strokes": k}}`, a bare number, or any ball of a multi-ball `balls[]`). Mirrors the client's `isCompleteForHandicap`.
+
+**Shared eligibility helper:** `scorecard_eligible_for_differential(p_round_id UUID, p_scores JSONB) RETURNS BOOLEAN` (STABLE; not callable by app roles) — the round has no `holes_played` (added by `20261007000200`) **and** `scorecard_is_complete_for_handicap(p_scores, rounds.nine_type)`. Both triggers call it; to add a rule, replace this function, not the triggers. B1 adds a separate combination guard that locks both cards FOR SHARE and checks fresh submission/eligibility after waiting, preserving existing combination history.
+
+**Triggers:**
+- `scorecards_full_card_differential` (`BEFORE INSERT OR UPDATE` on `scorecards`): sets `NEW.handicap_differential := NULL` when the helper is false (card incomplete for its round's `nine_type`, or the round has `holes_played` set). This also covers app versions that predate the client gate.
+- `handicap_combined_rounds_full_cards` (`BEFORE INSERT` on `handicap_combined_rounds`): raises `22023` `'Both nines must be fully scored to combine'` when the helper is false for either source card.
+
+The audit table `handicap_full_card_fix_audit` (RLS on, no app access) records every card the one-off fix nulled.
+
+The first migration also nulls every existing incomplete card's differential (a one-off data fix). `supabase/scripts/full_scorecards_only_report.sql` reports affected cards and players; combined rows built from an incomplete card are listed, not deleted.
+
+---
+
+### `end_round_early()`
+
+End a social (standalone) round early. It records how many holes were played, trims rows for the unplayed holes and nulls the round's handicap differentials. The client calls it when the scorer confirms (`applyEndRoundEarly`). Every normal server-backed local end also commits its owned intent in the same native transaction; the queued consumer retries the RPC and performs durable adoption/acknowledgment after online confirmation or offline fallback.
+
+**Signature:**
+```sql
+end_round_early(
+  p_round_id UUID,
+  p_holes_played INT
+) RETURNS VOID
+-- SECURITY DEFINER, SET search_path = public, pg_temp
+-- REVOKE ALL FROM PUBLIC; GRANT EXECUTE TO authenticated
+```
+
+**Parameters:**
+- `p_round_id` - Round to end
+- `p_holes_played` - Holes played (N), counted from the round's first hole. Must be 1 … planned−1.
+
+**Errors:**
+- `P0002` - the round doesn't exist or is soft-deleted;
+- `42501` - not authenticated, not a standalone round, or the caller is neither the owner nor an accepted participant (`is_accepted_round_participant`);
+- `22023` with a stable `HINT`: `invalid_holes_played` (N out of range), `round_already_ended` (`holes_played` already set to a different N; `DETAIL` = that N), `round_completed` (completed and never ended), `round_not_in_progress`, `round_scorecards_busy` (all-card NOWAIT lock refusal), `round_has_submitted_scorecards`, and `round_has_combined_scorecards`. The client maps `round_already_ended` to `'conflict'`, `round_scorecards_busy` to `'busy'` (defer without retry cost), and the other listed hints to `'invalid'`.
+
+**Logic:**
+1. Authenticate owner or accepted participant and lock the round. Same N already set returns even after submission/completion. A different N conflicts; a new end must be in progress, lock all cards NOWAIT, and have no submitted/confirmed card or existing handicap combination.
+2. Set `holes_played = N`; last hole = (back9 ? 9 : 0) + N.
+3. Delete the round's `skins_results`, `wolf_hole_decisions`, `score_entries`, `score_mismatches` and `shot_log` rows with `hole_number` > last hole. SECURITY DEFINER is needed because `skins_results` are otherwise deletable only by the skins-game creator.
+4. Strip later numeric hole keys from `scorecards.scores` and set `handicap_differential = NULL`. Revision and totals stay client-owned and unchanged until a fresh client snapshot. C3 scopes each trim to the exact card/round/player and accepted shape.
+
+**Example:**
+```typescript
+const { error } = await supabase.rpc('end_round_early', {
+  p_round_id: roundId,
+  p_holes_played: 6,
+});
+```
+
+**Related:** the same migration drops and recreates `get_activity_feed()` and `get_round_feed_card()` (from `20260905000150_ugc_moderation_feed.sql`) so each card also returns `holes_played INT` and `nine_type TEXT`, for the feed's "Ended after N of M" label.
+
+---
+
+### Round scoring write guards and narrow patches (C3)
+
+`20261007000300_guard_round_scoring_writes.sql` follows A7 then B1. Reapplying
+A7 requires B1 then C3 immediately afterward: A7 replaces the eligibility helper
+and B1 replaces C3's guarded end function. Existing revision, authorization,
+terminal and RLS behavior remains. These are authored contracts; PostgreSQL
+compilation, trigger behavior and concurrent execution remain pending QA.
+
+```sql
+write_scorecard_snapshot(
+  p_round_id UUID, p_player_id UUID, p_expected_revision BIGINT, p_snapshot JSONB
+) RETURNS TABLE (
+  applied BOOLEAN, conflict BOOLEAN, server_revision BIGINT,
+  server_status TEXT, server_scores JSONB
+);
+write_scorecard_resolution(p_scorecard_id UUID, p_patch JSONB) RETURNS BOOLEAN;
+write_scorecard_handicap_patch(p_scorecard_id UUID, p_patch JSONB) RETURNS BOOLEAN;
+-- All three: SECURITY INVOKER, search_path = public, pg_temp;
+-- PUBLIC/anon revoked; authenticated EXECUTE; original DML RLS applies.
+```
+
+Every new snapshot includes `p_snapshot.expected_round_shape` with exactly the
+preparation basis `{ "nine_type": "full" | "front9" | "back9", "holes_played":
+null | N }`. A missing legacy declaration is allowed only for an unended
+round. A present null/partial/malformed object is invalid, not legacy. Both
+narrow patch APIs require the shape object. Fresh shape is compared null-safely
+after locking the existing card; whole stale writes, including retained-only
+JSON with stale aggregates/status, are rejected rather than trimmed/accepted.
+Snapshot still increments revision and refuses confirmed writes or terminal
+downgrades; an ordinary revision conflict may precede shape checking.
+
+`write_scorecard_resolution` requires `scores`, `total_gross`, `updated_at` and
+`expected_round_shape`; optional `total_net` and `total_points` preserve stored
+values when omitted. Other keys
+are rejected. `write_scorecard_handicap_patch` requires the five existing
+`handicap_differential`, `course_rating_used`, `slope_rating_used`,
+`daily_handicap_used`, `ga_handicap_used` fields and `expected_round_shape`;
+only `total_points` is optional. Both lock card first, preserve status,
+submission and revision, retain confirmed/completed permissions, and return
+false when the row is missing/hidden or no row updated. False is not success.
+Ended differentials remain NULL through the shared eligibility trigger. No
+server scoring formulas were added.
+
+The private VOLATILE SECURITY DEFINER row guards only read/lock; their DML
+callers remain subject to RLS. EXECUTE on helpers is revoked from PUBLIC,
+anon and authenticated, with fixed `public, pg_temp` search_path. Existing-card
+UPDATE holds its card lock; end obtains all-card NOWAIT before changing shape.
+INSERT (including ON CONFLICT), destination moves and actual card/player key
+changes acquire destination round FOR UPDATE NOWAIT, then a separate fresh
+conflict-card FOR UPDATE NOWAIT probe, covering both primary and round/player
+unique identities before a separate shape read. This avoids waiting for a
+completing card while holding its round. It adds no unconditional INVOKER
+round lock or SHARE lock upgrade and does not assume competition linkage is
+immutable. Ordinary competition scorers need no new round UPDATE permission.
+
+`scorecards_a_round_scoring_write` runs before
+`scorecards_full_card_differential`, so eligibility nulling cannot disguise a
+protected direct-write delta. Ended scoring/aggregate/submission direct writes
+require scoped context bound to operation, exact round/player/card and shape.
+Each success/error/conflict path restores the prior transaction-local
+`app.round_scoring_write`; context is not an authorization substitute.
+
+Narrow direct-write exceptions compare actual OLD/NEW values:
+
+- Stats-only edits keep identical score keys within the physical retained range,
+  all non-stat/opaque/multi-ball content and protected row fields. Only putts,
+  fairwayHit, fairwayMissDirection, greenInRegulation, greenMissDirection,
+  bunkerShots and hazards may differ. Changed putts are integral 0–6, bunker
+  shots 0–5, FIR/GIR boolean, directions left/right/long/short, hazards unique
+  exact `{type}` objects water/ob/lateral/lost_ball. Absent/null optional clearing
+  and unchanged unsupported legacy stats remain valid. Strokes, penalties,
+  pickups and contributions are outside this exception.
+- Identity-only player transfer preserves card/round and all scoring/status/
+  submission/handicap/revision values. Original RLS/uniqueness still applies;
+  key changes use the NOWAIT interlock above. Round relocation is protected.
+- Timestamp/device/deletion metadata remains compatible, including soft
+  delete/restore under a soft-deleted parent.
+
+`score_entries_round_scoring_write` guards every entry INSERT/UPDATE using a
+private round FOR UPDATE NOWAIT and fresh planned/played physical range; entries
+do not need a parent-card FK. Out-of-play entries reject wholly. Stable `22023`
+hints are `invalid_round_shape`, `round_shape_changed`, `round_score_out_of_play`
+and `round_scoring_busy`; no authoritative shape is leaked in DETAIL. Clients
+obtain it through an authorized read, adopt and freshly prepare rather than
+relabeling an old payload. Accepted snapshot revision survives a subsequent
+blocking entry/repair/ack failure without implying local acknowledgment.
+
+Verification authored in `supabase/tests/round_scoring_writes_verify.sql` and
+the C3-adapted `supabase/tests/end_round_early_verify.sql` is rollback-contained.
+Real lock/fresh-read/RLS/completion/upsert/combination schedules are separately
+authored in `supabase/tests/round_scoring_writes_two_session.md`. See the
+[release runbook](../guides/END_ROUND_EARLY_ROLLOUT.md) for pending execution,
+prerequisites and results recording.
+
+---
+
 ## Common Query Patterns
 
 ### 1. Create Club and Course Flow
@@ -5767,4 +5929,4 @@ For questions or issues:
 
 ---
 
-*Last Updated: February 2026*
+*Last Updated: October 2026*
