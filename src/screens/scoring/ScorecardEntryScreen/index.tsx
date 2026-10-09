@@ -26,7 +26,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { useStatsVisibilityWithTier } from '@/hooks/useStatsVisibilityWithTier';
 import { useIsSuperAdmin } from '@/store/subscriptionStore';
-import { useOfflineSync, useRoundData, useTeamScoring, useBuildAsYouPlay, useGroupFilter, useActiveSubMatch, useEndRoundEarly } from '@/hooks/scorecard';
+import { useOfflineSync, useRoundData, useTeamScoring, useBuildAsYouPlay, useGroupFilter, useActiveSubMatch, useEndRoundEarly, usePlayedHoleRange } from '@/hooks/scorecard';
 import { usePairings, useTeams as useCompetitionTeams, useRoundDetails } from '@/hooks/rounds';
 import { useCompetitionInfo } from '@/hooks/competitions';
 import {
@@ -60,7 +60,7 @@ import {
   useWolfIntegration,
   useScoreHandlers,
 } from './hooks';
-import { RoundHeader, ChangeTeesSheet, EndRoundEarlySheet } from '@/components/scorecard';
+import { RoundHeader, ChangeTeesSheet, EndRoundEarlySheet, EndedEarlyBanner } from '@/components/scorecard';
 import {
   ScorecardFooter,
   ScorecardDialogs,
@@ -322,9 +322,17 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
     }, [roundId, competitionId, isBuildAsYouPlayParam, user?.id])
   );
 
+  // Keep planned holes for handicap math and review metadata.
+  const playedRange = usePlayedHoleRange({ roundId, holes, currentHole, setCurrentHole });
+  const playedRangeRef = useRef(playedRange);
+  playedRangeRef.current = playedRange;
+
   // Wrap setCurrentHole to intercept for build-as-you-play
   const interceptedSetCurrentHole = useCallback(
     (hole: number) => {
+      // A swipe or jump captured before ending must respect the latest range.
+      const range = playedRangeRef.current;
+      if (range.isEnded && !range.navigableHoles.some((h) => h.number === hole)) return;
       if (buildAsYouPlay.enabled && !buildAsYouPlay.isHoleConfigured(hole)) {
         buildAsYouPlay.checkHoleBeforeNavigation(hole);
         return;
@@ -346,7 +354,7 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
     navigation,
     currentHole,
     setCurrentHole: interceptedSetCurrentHole,
-    holes,
+    holes: playedRange.navigableHoles,
     roundId,
     competitionId,
     isStandaloneRound,
@@ -398,7 +406,7 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
     updateMultiBallStats,
     getHoleInfo,
     buildAsYouPlay,
-    setCurrentHole,
+    setCurrentHole: interceptedSetCurrentHole,
   });
 
   // Team scoring hook — receives sub-match-scoped teams and players so
@@ -451,12 +459,12 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
   useEffect(() => {
     if (buildAsYouPlay.enabled) return;
     if (resumeAppliedRef.current === roundId) return;
-    if (!isInitialized || dataLoading || holes.length === 0) return;
+    if (!isInitialized || dataLoading || playedRange.navigableHoles.length === 0) return;
     if (playersToRender.length === 0) return;
 
     resumeAppliedRef.current = roundId;
 
-    const sortedHoles = [...holes].sort((a, b) => a.number - b.number);
+    const sortedHoles = [...playedRange.navigableHoles].sort((a, b) => a.number - b.number);
     let resumeHole = sortedHoles[sortedHoles.length - 1].number;
     for (const h of sortedHoles) {
       const allScored = playersToRender.every((player) => {
@@ -476,7 +484,7 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
     if (resumeHole !== currentHole) {
       setCurrentHole(resumeHole);
     }
-  }, [roundId, isInitialized, dataLoading, holes, playersToRender, currentHole, setCurrentHole, buildAsYouPlay.enabled]);
+  }, [roundId, isInitialized, dataLoading, playedRange.navigableHoles, playersToRender, currentHole, setCurrentHole, buildAsYouPlay.enabled]);
 
   // Keep the store's `allowedPlayerIds` in sync with the players this device is
   // actually responsible for scoring — `playersToRender` already resolves the
@@ -520,10 +528,9 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
       // bail rather than fabricating a 1–18 range which lets the user navigate
       // outside the actual playable window.
       if (holes.length === 0) return null;
-      const firstHoleNumber = holes[0].number;
-      const lastHoleNumber = holes[holes.length - 1].number;
-      const canGoPrev = holeNumber > firstHoleNumber;
-      const canGoNext = holeNumber < lastHoleNumber;
+      if (playedRange.isEnded && !playedRange.navigableHoles.some((h) => h.number === holeNumber)) return null;
+      const canGoPrev = holeNumber > playedRange.firstHoleNumber;
+      const canGoNext = holeNumber < playedRange.lastHoleNumber;
 
       return (
         <View style={styles.contentArea}>
@@ -610,7 +617,7 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
             {!isTeamRound && (
               <View style={styles.quickViewContainer}>
                 <QuickScorecardView
-                  holes={holes}
+                  holes={playedRange.navigableHoles}
                   currentHole={holeNumber}
                   players={playersToRender}
                   getPlayerHoleScore={getPlayerScore}
@@ -642,6 +649,7 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
       showTeeDots, playerTeeMap, selectedTeeData,
       groupFilter.canFilter, groupFilter.isFiltered, groupFilter.groupCount,
       groupFilter.totalCount, groupFilter.toggleShowAll, groupFilter.groupPlayers,
+      playedRange.isEnded, playedRange.firstHoleNumber, playedRange.lastHoleNumber, playedRange.navigableHoles,
     ]
   );
 
@@ -768,6 +776,14 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
         }
       />
 
+      {playedRange.isEnded && playedRange.holesPlayed != null ? (
+        <EndedEarlyBanner
+          holesPlayed={playedRange.holesPlayed}
+          nineType={playedRange.nineType}
+          onFinish={scoreHandlers.handleViewScorecard}
+        />
+      ) : null}
+
       {buildAsYouPlay.enabled && (
         <View style={[styles.buildProgressContainer, { backgroundColor: colors.surfaceVariant }]}>
           <Text style={[styles.buildProgressText, { color: colors.textSecondary }]}>
@@ -778,8 +794,8 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
 
       <SwipeableHoleNavigator
         currentHole={currentHole}
-        firstHole={holes[0]?.number ?? 1}
-        totalHoles={holes[holes.length - 1]?.number ?? 18}
+        firstHole={playedRange.firstHoleNumber}
+        totalHoles={playedRange.lastHoleNumber}
         onHoleChange={interceptedSetCurrentHole}
         enabled={!isSyncing && !isLoading && !isQuickViewScrolling}
         renderHole={renderHoleContent}
@@ -792,7 +808,7 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
         onViewScorecard={scoreHandlers.handleViewScorecard}
         canGoPrevious={nav.canGoPrevious}
         canGoNext={nav.canGoNext}
-        isAllComplete={getCompletedHolesCount() === holes.length && holes.length > 0}
+        isAllComplete={playedRange.isEnded || (getCompletedHolesCount() === holes.length && holes.length > 0)}
         onAddPhotos={roundPhotos.openMenu}
       />
 

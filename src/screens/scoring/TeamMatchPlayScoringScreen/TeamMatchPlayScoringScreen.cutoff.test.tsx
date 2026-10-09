@@ -24,6 +24,7 @@ jest.mock('@/hooks/useAuth', () => ({ useAuth: () => ({}) }));
 jest.mock('@/hooks/usePlayingHandicap', () => ({ calculatePlayingHandicap: jest.fn() }));
 jest.mock('@/hooks', () => ({ useOnlineStatus: () => true, useProcessSkinsIfNeeded: () => ({}) }));
 jest.mock('@/hooks/scorecard', () => ({
+  usePlayedHoleRange: jest.requireActual('@/hooks/scorecard/usePlayedHoleRange').usePlayedHoleRange,
   useOfflineSync: () => ({}),
   useEndRoundEarly: () => ({ canEndRoundEarly: false, sheetProps: {} }),
 }));

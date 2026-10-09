@@ -14,19 +14,19 @@
  * - Super admin delete functionality
  */
 
-import React, { useCallback, useMemo, useState, useEffect } from 'react';
+import React, { useCallback, useMemo, useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, ScrollView, BackHandler } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { LoadingSpinner, ErrorState, Pill, ConfirmationDialog } from '@/components/common';
 import { useConfirmationDialog } from '@/hooks';
-import { HoleHeader, RoundHeader, SwipeableHoleNavigator, ChangeTeesSheet, EndRoundEarlySheet } from '@/components/scorecard';
+import { HoleHeader, RoundHeader, SwipeableHoleNavigator, ChangeTeesSheet, EndRoundEarlySheet, EndedEarlyBanner } from '@/components/scorecard';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { useIsSuperAdmin } from '@/store/subscriptionStore';
-import { useMatchPlayData, useMatchPlayScoring, useOfflineSync, useEndRoundEarly } from '@/hooks/scorecard';
+import { useMatchPlayData, useMatchPlayScoring, useOfflineSync, useEndRoundEarly, usePlayedHoleRange } from '@/hooks/scorecard';
 import { useProcessSkinsIfNeeded, useOnlineStatus, useAuth } from '@/hooks';
 import { useRoundDetails, useSubMatches, useUpdateSubMatchResult } from '@/hooks/rounds';
 import { useDeleteRound } from '@/hooks/rounds/mutations';
@@ -84,19 +84,11 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
   }, [user?.id, isSuperAdmin, isStandalone, roundDetails?.user_id, competitionInfo?.organizer_id]);
   const availableTees = roundDetails?.course?.tees ?? [];
 
-  // State - start on initialHole if provided (clamped to 1-18)
+  // State - route selection is clamped to the actual hole range below.
   const [currentHole, setCurrentHole] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isScrollingProgress, setIsScrollingProgress] = useState(false);
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
-
-  // Sync currentHole when initialHole route param changes (e.g., navigating from scorecard)
-  useEffect(() => {
-    if (initialHole) {
-      const clampedHole = Math.max(1, Math.min(18, initialHole));
-      setCurrentHole(clampedHole);
-    }
-  }, [initialHole]);
 
   // When the screen is opened without explicit IDs (e.g. the "Score Round"
   // button on a split 1v1 round), resolve the logged-in user's own
@@ -141,6 +133,33 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
     }
     return DEFAULT_HOLES;
   }, [holes]);
+
+  // Navigation uses played holes; handicap calculations keep safeHoles planned.
+  const playedRange = usePlayedHoleRange({ roundId, holes: safeHoles, currentHole, setCurrentHole });
+  const playedRangeRef = useRef(playedRange);
+  playedRangeRef.current = playedRange;
+  const navigateToHole = useCallback((hole: number) => {
+    const range = playedRangeRef.current;
+    if (range.isEnded && !range.navigableHoles.some((h) => h.number === hole)) return;
+    setCurrentHole(hole);
+  }, []);
+
+  // Back-nine rounds start at their physical first hole, as team scoring does.
+  const plannedFirstHole = safeHoles[0].number;
+  const plannedLastHole = safeHoles[safeHoles.length - 1].number;
+  useEffect(() => {
+    if (currentHole < plannedFirstHole || currentHole > plannedLastHole) {
+      setCurrentHole(plannedFirstHole);
+    }
+  }, [currentHole, plannedFirstHole, plannedLastHole]);
+
+  // Keep route jumps inside the retained range before selecting a hole.
+  useEffect(() => {
+    if (initialHole) {
+      const range = playedRangeRef.current;
+      navigateToHole(Math.max(range.firstHoleNumber, Math.min(range.lastHoleNumber, initialHole)));
+    }
+  }, [initialHole, navigateToHole]);
 
   const teeData = storeTeeData || selectedTeeBox;
 
@@ -239,7 +258,7 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
   // Get the tee color string for HoleHeader (uses tee color to look up yardages)
   const selectedTeeColor = selectedTeeBox?.color ?? 'white';
 
-  const currentHoleData = safeHoles[currentHole - 1];
+  const currentHoleData = safeHoles.find((hole) => hole.number === currentHole) ?? safeHoles[0];
 
   const baseLabel = handicapSource === 'calculated' ? 'SHC' : 'HC';
 
@@ -316,24 +335,23 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
 
   // Navigation handlers — bound to the round's actual hole range so back-9
   // (10..18) and combo (10..27) rounds don't overshoot the played holes.
-  const firstHoleNumber = safeHoles[0]?.number ?? 1;
-  const lastHoleNumber = safeHoles[safeHoles.length - 1]?.number ?? 18;
+  const { firstHoleNumber, lastHoleNumber } = playedRange;
   const handlePreviousHole = useCallback(() => {
     if (currentHole > firstHoleNumber) {
-      setCurrentHole(currentHole - 1);
+      navigateToHole(currentHole - 1);
     }
-  }, [currentHole, firstHoleNumber]);
+  }, [currentHole, firstHoleNumber, navigateToHole]);
 
   const handleNextHole = useCallback(() => {
     // Allow navigation even after match is complete so user can review/edit scores
     if (currentHole < lastHoleNumber) {
-      setCurrentHole(currentHole + 1);
+      navigateToHole(currentHole + 1);
     }
-  }, [currentHole, lastHoleNumber]);
+  }, [currentHole, lastHoleNumber, navigateToHole]);
 
   const handleHolePress = useCallback((holeNumber: number) => {
-    setCurrentHole(holeNumber);
-  }, []);
+    navigateToHole(holeNumber);
+  }, [navigateToHole]);
 
   // Touch handlers for MatchProgress - disable swipe while touching
   const handleProgressTouchStart = useCallback(() => {
@@ -537,7 +555,7 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
 
   // Get hole data for any hole number
   const getHoleData = useCallback((holeNumber: number) => {
-    return safeHoles[holeNumber - 1];
+    return safeHoles.find((hole) => hole.number === holeNumber) ?? safeHoles[0];
   }, [safeHoles]);
 
   // Render content for any hole number (used by SwipeableHoleNavigator for transitions)
@@ -545,6 +563,7 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
     (holeNumber: number) => {
       const holeData = getHoleData(holeNumber);
       if (!holeData) return null;
+      if (playedRange.isEnded && !playedRange.navigableHoles.some((h) => h.number === holeNumber)) return null;
 
       const holeResult = getHoleResult(holeNumber);
       const holeResultDisplay = getHoleResultDisplay(holeResult);
@@ -638,7 +657,7 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
             <MatchProgress
               holeResults={holeResults}
               currentHole={holeNumber}
-              holeNumbers={safeHoles.map((h) => h.number)}
+              holeNumbers={playedRange.navigableHoles.map((h) => h.number)}
               startHole={startHole}
               player1={player1}
               player2={player2}
@@ -682,7 +701,8 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
       player2TeeDotColor,
       firstHoleNumber,
       lastHoleNumber,
-      safeHoles,
+      playedRange.isEnded,
+      playedRange.navigableHoles,
       startHole,
     ]
   );
@@ -736,6 +756,14 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
         }
       />
 
+      {playedRange.isEnded && playedRange.holesPlayed != null ? (
+        <EndedEarlyBanner
+          holesPlayed={playedRange.holesPlayed}
+          nineType={playedRange.nineType}
+          onFinish={handleViewScorecard}
+        />
+      ) : null}
+
       {/* Match Status Bar */}
       <View style={[styles.matchStatusBar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
         <Text
@@ -757,7 +785,7 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
         currentHole={currentHole}
         totalHoles={lastHoleNumber}
         firstHole={firstHoleNumber}
-        onHoleChange={setCurrentHole}
+        onHoleChange={navigateToHole}
         enabled={!isSubmitting && !isScrollingProgress}
         renderHole={renderHoleContent}
       />
@@ -767,11 +795,11 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
         currentHole={currentHole}
         firstHoleNumber={firstHoleNumber}
         lastHoleNumber={lastHoleNumber}
-        isMatchComplete={isMatchComplete}
+        isMatchComplete={isMatchComplete || playedRange.isEnded}
         isSubmitting={isSubmitting}
         onPreviousHole={handlePreviousHole}
         onNextHole={handleNextHole}
-        onSubmitMatch={handleSubmitMatch}
+        onSubmitMatch={playedRange.isEnded ? handleViewScorecard : handleSubmitMatch}
         onViewScorecard={handleViewScorecard}
       />
 

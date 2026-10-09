@@ -18,7 +18,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { LoadingSpinner, ConfirmationDialog } from '@/components/common';
-import { HoleHeader, RoundHeader, SwipeableHoleNavigator, ChangeTeesSheet, EndRoundEarlySheet } from '@/components/scorecard';
+import { HoleHeader, RoundHeader, SwipeableHoleNavigator, ChangeTeesSheet, EndRoundEarlySheet, EndedEarlyBanner } from '@/components/scorecard';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -34,7 +34,7 @@ import { useCompetitionInfo } from '@/hooks/competitions';
 import { useAuth } from '@/hooks/useAuth';
 import { calculatePlayingHandicap } from '@/hooks/usePlayingHandicap';
 import { useProcessSkinsIfNeeded, useOnlineStatus } from '@/hooks';
-import { useOfflineSync, useEndRoundEarly } from '@/hooks/scorecard';
+import { useOfflineSync, useEndRoundEarly, usePlayedHoleRange } from '@/hooks/scorecard';
 import { teamMatchPlayLogger } from '@/utils/debugLogger';
 import type { EndEarlyMatchContext } from '@/utils/endRoundEarly';
 import type { RootStackScreenProps } from '@/navigation/types';
@@ -183,6 +183,16 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
   // One-shot guard: recover from a server-side early end once per
   // (round, holes_played), so a failed reload can't loop (as useMatchPlayData).
   const holesPlayedResetRef = useRef<string | null>(null);
+
+  // Navigation uses played holes; handicaps, results and review keep holes planned.
+  const playedRange = usePlayedHoleRange({ roundId, holes, currentHole, setCurrentHole });
+  const playedRangeRef = useRef(playedRange);
+  playedRangeRef.current = playedRange;
+  const navigateToHole = useCallback((hole: number) => {
+    const range = playedRangeRef.current;
+    if (range.isEnded && !range.navigableHoles.some((h) => h.number === hole)) return;
+    setCurrentHole(hole);
+  }, []);
 
   // Ensure the scorecard store is initialized for this round.
   // The initial call from `useStartNewRound` can silently fail (errors are
@@ -449,10 +459,10 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
     handleBackPress,
   } = useTeamMatchPlayNavigation({
     currentHole,
-    setCurrentHole,
-    firstHoleNumber,
-    lastHoleNumber,
-    isMatchComplete,
+    setCurrentHole: navigateToHole,
+    firstHoleNumber: playedRange.firstHoleNumber,
+    lastHoleNumber: playedRange.lastHoleNumber,
+    isMatchComplete: isMatchComplete && !playedRange.isEnded,
     roundId,
     navigation,
     showDialog,
@@ -541,7 +551,7 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
   // Handle player score adjustment
   const handlePlayerScoreAdjust = useCallback(
     async (playerId: string, delta: number) => {
-      if (isMatchComplete) {
+      if (isMatchComplete && !playedRange.isEnded) {
         teamMatchPlayLogger.debug('Score adjust ignored - match complete');
         return;
       }
@@ -573,6 +583,7 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
       currentHoleData.par,
       currentHoleData.strokeIndex,
       isMatchComplete,
+      playedRange.isEnded,
       getPlayerScoreValue,
       setPlayerScore,
       triggerSkinsProcessing,
@@ -582,7 +593,7 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
   // Handle player par select
   const handlePlayerParSelect = useCallback(
     async (playerId: string, par: number) => {
-      if (isMatchComplete) {
+      if (isMatchComplete && !playedRange.isEnded) {
         teamMatchPlayLogger.debug('Par select ignored - match complete');
         return;
       }
@@ -605,6 +616,7 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
       currentHoleData.par,
       currentHoleData.strokeIndex,
       isMatchComplete,
+      playedRange.isEnded,
       setPlayerScore,
       triggerSkinsProcessing,
     ]
@@ -614,7 +626,7 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
   // — pickup is stored as the magic gross score `par + strokes + 2`.
   const handlePlayerPickUp = useCallback(
     async (playerId: string) => {
-      if (isMatchComplete) {
+      if (isMatchComplete && !playedRange.isEnded) {
         teamMatchPlayLogger.debug('Pickup ignored - match complete');
         return;
       }
@@ -636,6 +648,7 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
       currentHoleData.par,
       currentHoleData.strokeIndex,
       isMatchComplete,
+      playedRange.isEnded,
       pickUpPlayer,
       triggerSkinsProcessing,
     ]
@@ -652,6 +665,7 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
     (holeNumber: number) => {
       const holeData = getHoleData(holeNumber);
       if (!holeData) return null;
+      if (playedRange.isEnded && !playedRange.navigableHoles.some((h) => h.number === holeNumber)) return null;
 
       const team1Score = getTeamBestScoreForHole(team1, holeNumber);
       const team2Score = getTeamBestScoreForHole(team2, holeNumber);
@@ -662,8 +676,8 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
 
       // Bound to the round's actual hole range so back-9 / combo rounds
       // don't fall off the end.
-      const canGoPrev = holeNumber > firstHoleNumber;
-      const canGoNext = holeNumber < lastHoleNumber && !isMatchComplete;
+      const canGoPrev = holeNumber > playedRange.firstHoleNumber;
+      const canGoNext = holeNumber < playedRange.lastHoleNumber && (!isMatchComplete || playedRange.isEnded);
 
       return (
         <View style={styles.contentArea}>
@@ -684,7 +698,7 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
                 teamScore={team1Score}
                 bestPlayerId={team1Contributor}
                 par={holeData.par}
-                isMatchComplete={isMatchComplete}
+                isMatchComplete={isMatchComplete && !playedRange.isEnded}
                 isWinning={holeWinner === 'team1'}
                 matchStatus={team1MatchStatus}
                 getPlayerScore={(playerId) => getPlayerScoreForHole(playerId, holeNumber)}
@@ -714,7 +728,7 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
                 teamScore={team2Score}
                 bestPlayerId={team2Contributor}
                 par={holeData.par}
-                isMatchComplete={isMatchComplete}
+                isMatchComplete={isMatchComplete && !playedRange.isEnded}
                 isWinning={holeWinner === 'team2'}
                 matchStatus={team2MatchStatus}
                 getPlayerScore={(playerId) => getPlayerScoreForHole(playerId, holeNumber)}
@@ -739,7 +753,7 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
             <TeamMatchProgress
               holeResults={holeResults}
               currentHole={holeNumber}
-              holeNumbers={holes.map((h) => h.number)}
+              holeNumbers={playedRange.navigableHoles.map((h) => h.number)}
               startHole={startHole}
               team1={team1}
               team2={team2}
@@ -773,8 +787,10 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
       holeResults,
       handleHolePress,
       holes,
-      firstHoleNumber,
-      lastHoleNumber,
+      playedRange.isEnded,
+      playedRange.firstHoleNumber,
+      playedRange.lastHoleNumber,
+      playedRange.navigableHoles,
       startHole,
     ]
   );
@@ -837,6 +853,14 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
           showErrorToast('Offline', 'Connect to the internet to change tees')
         }
       />
+
+      {playedRange.isEnded && playedRange.holesPlayed != null ? (
+        <EndedEarlyBanner
+          holesPlayed={playedRange.holesPlayed}
+          nineType={playedRange.nineType}
+          onFinish={handleViewScorecard}
+        />
+      ) : null}
 
       {showSubMatchPicker && (
         <ScrollView
@@ -903,22 +927,22 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
 
       <SwipeableHoleNavigator
         currentHole={currentHole}
-        totalHoles={lastHoleNumber}
-        firstHole={firstHoleNumber}
-        onHoleChange={setCurrentHole}
-        enabled={!isSubmitting && !isMatchComplete}
+        totalHoles={playedRange.lastHoleNumber}
+        firstHole={playedRange.firstHoleNumber}
+        onHoleChange={navigateToHole}
+        enabled={!isSubmitting && (!isMatchComplete || playedRange.isEnded)}
         renderHole={renderHoleContent}
       />
 
       <TeamMatchPlayFooter
         currentHole={currentHole}
-        firstHoleNumber={firstHoleNumber}
-        lastHoleNumber={lastHoleNumber}
-        isMatchComplete={isMatchComplete}
+        firstHoleNumber={playedRange.firstHoleNumber}
+        lastHoleNumber={playedRange.lastHoleNumber}
+        isMatchComplete={isMatchComplete || playedRange.isEnded}
         isSubmitting={isSubmitting}
         onPreviousHole={handlePreviousHole}
         onNextHole={handleNextHole}
-        onSubmitMatch={handleSubmitMatch}
+        onSubmitMatch={playedRange.isEnded ? handleViewScorecard : handleSubmitMatch}
         onViewScorecard={handleViewScorecard}
       />
 
