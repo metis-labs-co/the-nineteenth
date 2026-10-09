@@ -4,6 +4,7 @@
  * Data access operations for hole scores in SQLite.
  */
 
+import type { SQLiteDatabase } from 'expo-sqlite';
 import type { HoleScore, HoleShotContributions, MultiBallHoleScore } from '@/types';
 import { isMultiBallScore } from '@/types/database/base';
 import type { HoleScoreRow } from '../types';
@@ -77,9 +78,10 @@ export async function saveHoleScore(
  * Get hole scores for a scorecard (supports both single-ball and multi-ball scores)
  */
 export async function getHoleScores(
-  scorecardId: string
+  scorecardId: string,
+  connection?: Pick<SQLiteDatabase, 'getAllAsync'>
 ): Promise<{ [holeNumber: number]: HoleScore | MultiBallHoleScore }> {
-  const database = await getDb();
+  const database = connection ?? await getDb();
 
   const rows = await database.getAllAsync<Pick<HoleScoreRow,
     'hole_number' | 'strokes' | 'putts' | 'fairway_hit' | 'green_in_regulation' | 'penalties' | 'ball_scores' | 'scored_by' | 'shot_contributions'

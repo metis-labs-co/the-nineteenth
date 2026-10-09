@@ -1,3 +1,6 @@
+import { Platform } from 'react-native';
+import type { AcceptedScorecardWrite, OwnedRoundEndIntent } from '@/services/rounds/roundScoringWrite';
+import { assertIntentOwner, ensureRoundEndIntent } from './roundEndIntent';
 /**
  * Sync Queue DAO
  *
@@ -84,19 +87,7 @@ export async function getPendingSyncs(): Promise<PendingSync[]> {
 
   dbLogger.debug('Retrieved pending syncs', { count: rows.length });
 
-  return rows.map((row) => ({
-    id: row.id,
-    type: row.type as PendingSync['type'],
-    action: row.action as PendingSync['action'],
-    data: JSON.parse(row.data),
-    timestamp: new Date(row.timestamp),
-    retryCount: row.retry_count,
-    entityKey: row.entity_key,
-    revision: row.revision,
-    status: row.status,
-    lastError: row.last_error,
-    lastAttemptAt: row.last_attempt_at ? new Date(row.last_attempt_at) : null,
-  }));
+  return rows.map(decodePendingSyncRow);
 }
 
 /**
@@ -273,19 +264,7 @@ export async function getFailedSyncs(): Promise<PendingSync[]> {
      ORDER BY last_attempt_at DESC, timestamp DESC`
   );
 
-  return rows.map((row) => ({
-    id: row.id,
-    type: row.type as PendingSync['type'],
-    action: row.action as PendingSync['action'],
-    data: JSON.parse(row.data),
-    timestamp: new Date(row.timestamp),
-    retryCount: row.retry_count,
-    entityKey: row.entity_key,
-    revision: row.revision,
-    status: row.status,
-    lastError: row.last_error,
-    lastAttemptAt: row.last_attempt_at ? new Date(row.last_attempt_at) : null,
-  }));
+  return rows.map(decodePendingSyncRow);
 }
 
 /**
@@ -376,4 +355,94 @@ function getEntityKey(sync: Omit<PendingSync, 'id'>): string {
   }
   if (sync.data?.id) return `${sync.type}:${sync.data.id}`;
   throw new Error(`Cannot queue ${sync.type} sync without a stable entity identifier`);
+}
+
+/** Queue without replacing or reviving an existing end intent. */
+export async function queueRoundEarlyEndIntent(
+  roundId: string,
+  holesPlayed: number,
+  intent: OwnedRoundEndIntent
+): Promise<void> {
+  assertIntentOwner(intent);
+  if (!roundId || !Number.isInteger(holesPlayed) || holesPlayed < 1)
+    throw new Error('Invalid end intent');
+  if (Platform.OS === 'web') throw new Error('Durable end intent requires native SQLite');
+  const database = await getDb();
+  await database.withExclusiveTransactionAsync((txn) =>
+    ensureRoundEndIntent(txn, roundId, holesPlayed, intent)
+  );
+}
+
+export function decodePendingSyncRow(row: PendingSyncRow): PendingSync {
+  return {
+    id: row.id,
+    type: row.type as PendingSync['type'],
+    action: row.action as PendingSync['action'],
+    data: JSON.parse(row.data),
+    timestamp: new Date(row.timestamp),
+    retryCount: row.retry_count,
+    entityKey: row.entity_key,
+    revision: row.revision,
+    status: row.status,
+    lastError: row.last_error,
+    lastAttemptAt: row.last_attempt_at ? new Date(row.last_attempt_at) : null,
+  };
+}
+
+/** Includes retained failures. Invalid JSON throws and therefore stays blocking. */
+export async function getPendingSyncByEntityKey(entityKey: string): Promise<PendingSync | null> {
+  const database = await getDb();
+  const row = await database.getFirstAsync<PendingSyncRow>(
+    `SELECT * FROM ${TABLE_NAMES.PENDING_SYNCS} WHERE entity_key = ?`,
+    [entityKey]
+  );
+  return row ? decodePendingSyncRow(row) : null;
+}
+
+/** Replace only this version of the payload, invalidating any old upload acknowledgment. */
+export async function replacePendingSyncData(
+  id: number,
+  expectedRevision: number,
+  data: unknown
+): Promise<number | null> {
+  const database = await getDb();
+  const result = await database.runAsync(
+    `UPDATE ${TABLE_NAMES.PENDING_SYNCS} SET data = ?, revision = revision + 1 WHERE id = ? AND revision = ?`,
+    [JSON.stringify(data), id, expectedRevision]
+  );
+  return result.changes === 1 ? expectedRevision + 1 : null;
+}
+
+/** Partial snapshot success must raise both live revisions, keeping newer work unsynced. */
+export async function recordAcceptedScorecardWrite(
+  roundId: string,
+  playerId: string,
+  accepted: AcceptedScorecardWrite
+): Promise<void> {
+  if (Platform.OS === 'web') throw new Error('Accepted scoring writes require native SQLite');
+  if (!Number.isInteger(accepted.serverRevision) || accepted.serverRevision < 0)
+    throw new Error('Invalid accepted server revision');
+  const database = await getDb();
+  await database.withExclusiveTransactionAsync(async (txn) => {
+    await txn.runAsync(
+      `UPDATE ${TABLE_NAMES.SCORECARDS} SET server_revision = MAX(COALESCE(server_revision, 0), ?), is_synced = 0 WHERE id = ? AND round_id = ? AND player_id = ?`,
+      [accepted.serverRevision, accepted.scorecardId, roundId, playerId]
+    );
+    await txn.runAsync(
+      `UPDATE ${TABLE_NAMES.PENDING_SYNCS}
+      SET data = json_set(data, '$.serverRevision', ?), revision = revision + 1
+      WHERE entity_key = ? AND type = 'scorecard' AND action != 'delete'
+        AND json_extract(data, '$.id') = ?
+        AND json_extract(data, '$.roundId') = ? AND json_extract(data, '$.playerId') = ?
+        AND COALESCE(json_extract(data, '$.serverRevision'), 0) < ?`,
+      [
+        accepted.serverRevision,
+        `scorecard:${roundId}:${playerId}`,
+        accepted.scorecardId,
+        roundId,
+        playerId,
+        accepted.serverRevision,
+      ]
+    );
+  });
 }

@@ -19,6 +19,7 @@ export { initDatabase, closeDatabase, clearAllData, __resetDatabaseState } from 
 export {
   saveScorecard,
   persistRoundEarlyEnd,
+  persistAuthoritativeRoundShape,
   getScorecardsByRound,
   deleteScorecard,
   deleteScorecardsByRound,
@@ -42,6 +43,10 @@ export { saveHoles, getHoles, deleteHoles } from './dao/HolesDAO';
 // Sync queue operations
 export {
   addPendingSync,
+  queueRoundEarlyEndIntent,
+  getPendingSyncByEntityKey,
+  replacePendingSyncData,
+  recordAcceptedScorecardWrite,
   getPendingSyncs,
   removePendingSync,
   incrementSyncRetryCount,

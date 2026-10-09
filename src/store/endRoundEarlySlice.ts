@@ -16,6 +16,9 @@
 import type { Scorecard, Player, Hole, GameType, TeeBox } from '@/types';
 import type { HandicapSource } from '@/types/database';
 import type { NineType } from '@/types/database/enums';
+import type { OwnedRoundEndIntent } from '@/services/rounds/roundScoringWrite';
+import { getSyncAuthUserId } from '@/services/offline/sync/networkState';
+import { requestSyncDrain } from '@/services/offline/sync/drain';
 import { persistRoundEarlyEnd } from '@/services/offline/database';
 import { storeLogger } from '@/utils/debugLogger';
 import { filterPlayableHoles } from '@/utils/holeTransformers';
@@ -118,6 +121,8 @@ interface EndRoundEarlyOptions {
   getSessionGeneration?: () => number;
   /** Adopt an existing end, regardless of which players this device scores. */
   reconcile?: boolean;
+  /** Captured by an owning caller; the public producer activates in B6b-2. */
+  intent?: OwnedRoundEndIntent;
 }
 
 /**
@@ -133,6 +138,9 @@ export async function endRoundEarly(
   n: number,
   options: EndRoundEarlyOptions = {}
 ): Promise<void> {
+  if (options.intent && (options.reconcile || !options.intent.userId?.trim() || getSyncAuthUserId() !== options.intent.userId)) {
+    throw new Error('Captured end owner no longer matches the authenticated account');
+  }
   const getSessionGeneration = options.getSessionGeneration ?? (() => 0);
   const session = getSessionGeneration();
   const state = get();
@@ -163,7 +171,7 @@ export async function endRoundEarly(
   const allStamped = [...state.groupScorecards.values()].every(
     (scorecard) => scorecard.holesPlayed === n
   );
-  if (state.holesPlayed === n && removals.length === 0 && allStamped) return;
+  if (!options.intent && state.holesPlayed === n && removals.length === 0 && allStamped) return;
 
   storeLogger.info('Ending round early', {
     roundId: currentRoundId.substring(0, 8) + '...',
@@ -181,10 +189,16 @@ export async function endRoundEarly(
     [...state.groupScorecards].map(([playerId, scorecard]) => ({
       scorecardId: scorecard.id,
       teeData: state.playerTeeMap.get(playerId) ?? state.selectedTeeData,
-    }))
+    })),
+    ...(options.intent ? [{ intent: options.intent }] : [])
   );
 
+  if (options.intent) requestSyncDrain('round-end-early');
+
   const assertSession = () => {
+    if (options.intent && getSyncAuthUserId() !== options.intent.userId) {
+      throw new Error('Authenticated account changed after durable end intent');
+    }
     if (getSessionGeneration() !== session || get().currentRoundId !== currentRoundId) {
       throw new EndRoundEarlyRoundChangedError(currentRoundId);
     }

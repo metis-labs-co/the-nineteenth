@@ -13,6 +13,7 @@
  *      as each group submits — as the inline submit always did;
  *   3. finalizeActiveSkinsForRound — settles the round's active skins game.
  *
+ * Rejects with RoundNotReadyError while an early end is queued (pending or failed).
  * Never rejects on a step failure. A failed status read/write comes back as
  * `statusError`, and a failed skins settlement as `skinsError`, after every
  * step has still run, so the caller can retry (the sync queue spends a retry;
@@ -28,6 +29,7 @@
  * keeps its queued item.
  */
 
+import { hasQueuedRoundEndEarly } from './applyEndRoundEarly';
 import { finalizeRoundStatus } from './finalizeRoundStatus';
 import { refinalizeRoundResults } from './refinalizeRoundResults';
 import { finalizeActiveSkinsForRound } from '@/services/skins/finalizeSkinsGame';
@@ -46,7 +48,9 @@ import type { SkinsGame } from '@/types/database/skins.types';
  * `userId` is the user signed in when it was queued (A6b-1 stamps it); the
  * queue runs the item only for that user. Older items have none.
  */
-export type RoundSyncData = { id: string; action: 'finalize'; userId?: string };
+export type RoundSyncData =
+  | { id: string; action: 'finalize'; userId?: string }
+  | { id: string; action: 'end_early'; holesPlayed: number; userId: string };
 
 export interface FinalizeSubmittedRoundResult {
   /** True when the round is `completed` on the server — set now or already. */
@@ -109,6 +113,8 @@ export async function finalizeSubmittedRound(roundId: string): Promise<FinalizeS
  * always taken and released around it.
  */
 async function runFinalizeSteps(roundId: string): Promise<FinalizeSubmittedRoundResult> {
+  if (await hasQueuedRoundEndEarly(roundId)) throw new RoundNotReadyError(roundId);
+
   let completed = false;
   let statusError: unknown = null;
   try {

@@ -4,12 +4,15 @@
  * Data access operations for scorecards in SQLite.
  */
 
+import type { AcceptedScorecardWrite, PositiveRoundScoringShape, PriorLocalShapes, RoundScoringShape, OwnedRoundEndIntent } from '@/services/rounds/roundScoringWrite';
+import { shapeHoleNumbers } from '@/services/rounds/roundScoringWrite';
+import { assertCompatibleEndIntent, type EndTransaction, assertIntentOwner, ensureRoundEndIntent } from './roundEndIntent';
 import { Platform } from 'react-native';
 import { getHoleRange } from '@/constants/scoring';
 import type { Scorecard } from '@/types';
 import type { TeeBox, Hole } from '@/types/database/base';
 import type { GameType, NineType } from '@/types/database/enums';
-import type { ScorecardRow } from '../types';
+import type { PendingSyncRow, ScorecardRow } from '../types';
 import { getDb, isValidUUID } from '../DatabaseManager';
 import { nowSQLite, fromSQLiteDate, fromSQLiteDateOptional } from '../utils/dateUtils';
 import { TABLE_NAMES } from '../schema/tables';
@@ -19,8 +22,8 @@ import { dbLogger } from '@/utils/debugLogger';
 /**
  * Convert a database row to a Scorecard object
  */
-async function rowToScorecard(row: ScorecardRow): Promise<Scorecard> {
-  const scores = await getHoleScores(row.id);
+async function rowToScorecard(row: ScorecardRow, connection?: EndTransaction): Promise<Scorecard> {
+  const scores = connection ? await getHoleScores(row.id, connection) : await getHoleScores(row.id);
 
   // Parse tee data JSON if present (stored for handicap calculation in fallback sync path)
   let teeData: TeeBox | null = null;
@@ -208,6 +211,7 @@ export async function persistRoundEarlyEnd(
   nineType: NineType,
   playedHoleNumbers: readonly number[],
   cards: readonly { scorecardId: string; teeData: TeeBox | null }[],
+  options: { intent?: OwnedRoundEndIntent } = {},
 ): Promise<void> {
   if (Platform.OS === 'web') {
     throw new Error('Durable early ending requires native SQLite; web is unsupported');
@@ -215,6 +219,7 @@ export async function persistRoundEarlyEnd(
   if (!Number.isInteger(holesPlayed) || holesPlayed < 1 || playedHoleNumbers.length !== holesPlayed) {
     throw new Error('Invalid durable early-end played holes');
   }
+  if (options.intent) assertIntentOwner(options.intent);
   const database = await getDb();
   const now = nowSQLite();
   await database.withExclusiveTransactionAsync(async (txn) => {
@@ -230,6 +235,7 @@ export async function persistRoundEarlyEnd(
         [scorecardId, ...playedHoleNumbers]
       );
     }
+    if (options.intent) await ensureRoundEndIntent(txn, roundId, holesPlayed, options.intent);
   });
 }
 
@@ -530,4 +536,155 @@ export async function clearInvalidMockData(): Promise<number> {
     dbLogger.info('Cleared invalid mock data', { count: deletedCount });
   }
   return deletedCount;
+}
+
+/**
+ * Passive authoritative repair: all cached cards and live queue payloads commit
+ * together. The caller supplies synchronous existing scoring math/context;
+ * this operation neither acknowledges work nor creates an end intent.
+ */
+export async function persistAuthoritativeRoundShape(
+  roundId: string,
+  shape: PositiveRoundScoringShape,
+  options: {
+    ownerId: string;
+    acceptedWrite?: AcceptedScorecardWrite;
+    rebuild: (card: Scorecard, keep: ReadonlySet<number>) => Scorecard;
+  }
+): Promise<{ cards: Scorecard[]; priorLocalShapes: PriorLocalShapes }> {
+  assertIntentOwner({ userId: options.ownerId });
+  if (Platform.OS === 'web') throw new Error('Authoritative scoring repair requires native SQLite');
+  const authoritative = shapeHoleNumbers(shape);
+  if (shape.holes_played == null)
+    throw new Error('Authoritative end requires positive holes played');
+  const accepted = options.acceptedWrite;
+  if (accepted && (!Number.isInteger(accepted.serverRevision) || accepted.serverRevision < 0))
+    throw new Error('Invalid accepted server revision');
+  const database = await getDb();
+  const cards: Scorecard[] = [];
+  const priorLocalShapes = new Map<string, RoundScoringShape>();
+  await database.withExclusiveTransactionAsync(async (txn) => {
+    const end = await txn.getFirstAsync<PendingSyncRow>(
+      `SELECT * FROM ${TABLE_NAMES.PENDING_SYNCS} WHERE entity_key = ?`,
+      [`round:${roundId}:end_early`]
+    );
+    if (end) assertCompatibleEndIntent(end, roundId, { userId: options.ownerId });
+    const rows = await txn.getAllAsync<ScorecardRow>(
+      `SELECT * FROM ${TABLE_NAMES.SCORECARDS} WHERE round_id = ?`,
+      [roundId]
+    );
+    const queue = await txn.getAllAsync<PendingSyncRow>(
+      `SELECT * FROM ${TABLE_NAMES.PENDING_SYNCS} WHERE type = 'scorecard' AND entity_key LIKE ?`,
+      [`scorecard:${roundId}:%`]
+    );
+    let commonKeep = new Set(authoritative);
+    for (const row of rows) {
+      const prior: RoundScoringShape = {
+        nine_type: (row.sync_nine_type ?? shape.nine_type) as NineType,
+        holes_played: row.holes_played ?? null,
+      };
+      if (prior.holes_played != null && !row.sync_nine_type)
+        throw new Error('Missing prior ended nine context');
+      priorLocalShapes.set(row.id, prior);
+      if (prior.holes_played != null)
+        commonKeep = new Set([...commonKeep].filter((h) => shapeHoleNumbers(prior).has(h)));
+    }
+    const queuedCards: { row: PendingSyncRow; card: Scorecard }[] = [];
+    for (const queued of queue) {
+      if (queued.action === 'delete') continue;
+      const card = JSON.parse(queued.data) as Scorecard;
+      if (
+        !card ||
+        !card.id ||
+        card.roundId !== roundId ||
+        !card.playerId ||
+        queued.entity_key !== `scorecard:${roundId}:${card.playerId}` ||
+        !card.scores ||
+        typeof card.scores !== 'object' ||
+        Array.isArray(card.scores) ||
+        !['create', 'update'].includes(queued.action)
+      ) {
+        throw new Error('Malformed queued scorecard blocks authoritative repair');
+      }
+      queuedCards.push({ row: queued, card });
+    }
+    const revisions = new Map<string, number>();
+    for (const row of rows)
+      revisions.set(row.id, Math.max(revisions.get(row.id) ?? 0, row.server_revision ?? 0));
+    for (const { card } of queuedCards)
+      revisions.set(card.id, Math.max(revisions.get(card.id) ?? 0, card.serverRevision ?? 0));
+    if (accepted)
+      revisions.set(
+        accepted.scorecardId,
+        Math.max(revisions.get(accepted.scorecardId) ?? 0, accepted.serverRevision)
+      );
+    const repair = (source: Scorecard): Scorecard => {
+      let keep = new Set(commonKeep);
+      if (source.holesPlayed != null) {
+        if (!source.syncNineType) throw new Error('Missing queued ended nine context');
+        const prior = shapeHoleNumbers({
+          nine_type: source.syncNineType,
+          holes_played: source.holesPlayed,
+        });
+        keep = new Set([...keep].filter((h) => prior.has(h)));
+      }
+      const input = { ...source, holesPlayed: shape.holes_played, syncNineType: shape.nine_type };
+      const rebuilt = options.rebuild(input, keep);
+      // Context/math may change aggregates and effective tee, never identity,
+      // submission history, frozen handicap or source retained score values.
+      const scores = Object.fromEntries(
+        Object.entries(source.scores).filter(([h]) => keep.has(Number(h)))
+      );
+      return {
+        ...input,
+        scores,
+        totalGross: rebuilt.totalGross,
+        totalNet: rebuilt.totalNet,
+        total_par_score: rebuilt.total_par_score,
+        teeData: rebuilt.teeData,
+        syncHoles: rebuilt.syncHoles ?? source.syncHoles,
+        syncGameType: rebuilt.syncGameType ?? source.syncGameType,
+        serverRevision: revisions.get(source.id) ?? source.serverRevision,
+      };
+    };
+    for (const row of rows) {
+      const card = repair(await rowToScorecard(row, txn));
+      cards.push(card);
+      const result = await txn.runAsync(
+        `UPDATE ${TABLE_NAMES.SCORECARDS}
+        SET holes_played = ?, sync_nine_type = ?, tee_data = ?, total_gross = ?, total_net = ?, total_points = ?, sync_holes = ?, sync_game_type = ?, server_revision = ?, is_synced = 0
+        WHERE id = ? AND round_id = ?`,
+        [
+          shape.holes_played,
+          shape.nine_type,
+          card.teeData ? JSON.stringify(card.teeData) : null,
+          card.totalGross,
+          card.totalNet,
+          card.syncGameType === 'stableford' ? card.totalNet : 0,
+          card.syncHoles ? JSON.stringify(card.syncHoles) : null,
+          card.syncGameType ?? null,
+          card.serverRevision ?? null,
+          row.id,
+          roundId,
+        ]
+      );
+      if (result.changes !== 1)
+        throw new Error('Cached scorecard changed during authoritative repair');
+      const keep = Object.keys(card.scores).map(Number);
+      await txn.runAsync(
+        `DELETE FROM ${TABLE_NAMES.HOLE_SCORES} WHERE scorecard_id = ?${keep.length ? ` AND hole_number NOT IN (${keep.map(() => '?').join(', ')})` : ''}`,
+        [row.id, ...keep]
+      );
+    }
+    for (const { row, card } of queuedCards) {
+      const rebuilt = repair(card);
+      const result = await txn.runAsync(
+        `UPDATE ${TABLE_NAMES.PENDING_SYNCS} SET data = ?, revision = revision + 1 WHERE id = ? AND revision = ?`,
+        [JSON.stringify(rebuilt), row.id, row.revision]
+      );
+      if (result.changes !== 1)
+        throw new Error('Queued scorecard changed during authoritative repair');
+    }
+  });
+  return { cards, priorLocalShapes };
 }

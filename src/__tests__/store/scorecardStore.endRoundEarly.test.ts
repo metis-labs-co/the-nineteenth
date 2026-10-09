@@ -8,6 +8,9 @@
  * @see docs/superpowers/specs/2026-10-07-end-round-early-design.md (R14–R17)
  */
 
+import { endRoundEarly as endWithIntent } from '@/store/endRoundEarlySlice';
+import { requestSyncDrain } from '@/services/offline/sync/drain';
+import { getSyncAuthUserId } from '@/services/offline/sync/networkState';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { debouncedQueueScorecardSync } from '@/store/scorecardSyncDebounce';
 import { createTestPlayer, create18Holes } from '../utils/testFixtures';
@@ -24,6 +27,9 @@ import {
 import { syncScorecard } from '@/services/offline/sync';
 import { supabase } from '@/services/supabase/client';
 import { storeLogger } from '@/utils/debugLogger';
+
+jest.mock('@/services/offline/sync/drain', () => ({ requestSyncDrain: jest.fn() }));
+jest.mock('@/services/offline/sync/networkState', () => ({ getSyncAuthUserId: jest.fn(() => 'owner') }));
 
 jest.mock('@/services/offline/database', () => ({
   saveScorecard: jest.fn(() => Promise.resolve()),
@@ -1044,4 +1050,217 @@ describe('init paths repair stale ended totals without cleanup', () => {
       expect(getStore().groupScorecards.get(P1.id)).toMatchObject({ totalGross: 24, totalNet: 21, total_par_score: 0, teeData: tee });
     }
   });
+});
+
+describe('passive current scoring session bridge', () => {
+  it('rebuilds current retained edits and newer submitted metadata after an asynchronous repair', async () => {
+    await getStore().initializeRound(ROUND_ID, [P1], create18Holes());
+    await score(P1.id, [1, 6, 7]);
+    const session = getStore().captureRoundScoringSession(ROUND_ID)!;
+    const prior = new Map([[cardId(P1.id), { nine_type: 'full' as const, holes_played: 6 }]]);
+    let release!: () => void;
+    const durableRepair = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const adoption = durableRepair.then(() =>
+      session.applyShape({ nine_type: 'full', holes_played: 8 }, prior, {
+        scorecardId: cardId(P1.id),
+        serverRevision: 10,
+      })
+    );
+    // Edits and submission occur while the durable repair is awaiting SQLite.
+    await score(P1.id, [1], 3);
+    const current = getStore().groupScorecards.get(P1.id)!;
+    useScorecardStore.setState({
+      groupScorecards: new Map([
+        [
+          P1.id,
+          {
+            ...current,
+            status: 'completed',
+            submittedBy: 'new-submitter',
+            submittedAt: new Date('2026-10-09'),
+            serverRevision: 12,
+          },
+        ],
+      ]),
+      currentHole: 9,
+    });
+    const beforeSaves = (saveScorecard as jest.Mock).mock.calls.length;
+    release();
+    expect(await adoption).toBe(true);
+    const repaired = getStore().groupScorecards.get(P1.id)!;
+    expect(repaired.scores[1]).toMatchObject({ strokes: 3 });
+    expect(repaired.scores[7]).toBeUndefined();
+    expect(repaired).toMatchObject({
+      status: 'completed',
+      submittedBy: 'new-submitter',
+      serverRevision: 12,
+      holesPlayed: 8,
+      totalGross: 7,
+    });
+    expect(getStore().currentHole).toBe(8);
+    expect(getStore().holes).toHaveLength(18);
+    expect((saveScorecard as jest.Mock).mock.calls).toHaveLength(beforeSaves);
+  });
+  it('does not mutate a reset/reinitialized session for the same round', async () => {
+    await getStore().initializeRound(ROUND_ID, [P1], create18Holes());
+    const session = getStore().captureRoundScoringSession(ROUND_ID)!;
+    getStore().resetRound();
+    await getStore().initializeRound(
+      ROUND_ID,
+      [P1],
+      create18Holes(),
+      'stableford',
+      false,
+      [],
+      null,
+      'profile',
+      new Map(),
+      'back9'
+    );
+    expect(session.isCurrent()).toBe(false);
+    expect(session.applyShape({ nine_type: 'full', holes_played: 6 }, new Map())).toBe(false);
+    expect(getStore().holesPlayed).toBeNull();
+    expect(getStore().nineType).toBe('back9');
+  });
+  it('returns null for closed, different or loading rounds', async () => {
+    expect(getStore().captureRoundScoringSession(ROUND_ID)).toBeNull();
+    await getStore().initializeRound(ROUND_ID, [P1], create18Holes());
+    expect(getStore().captureRoundScoringSession('other')).toBeNull();
+    useScorecardStore.setState({ isLoading: true });
+    expect(getStore().captureRoundScoringSession(ROUND_ID)).toBeNull();
+  });
+  it('intersects every earlier durable marker and current card cutoff on a changed nine', async () => {
+    await getStore().initializeRound(
+      ROUND_ID,
+      [P1, P2],
+      create18Holes(),
+      'stroke',
+      false,
+      [],
+      null,
+      'profile',
+      new Map(),
+      'back9'
+    );
+    await score(P1.id, [10, 13, 15, 16]);
+    const session = getStore().captureRoundScoringSession(ROUND_ID)!;
+    const prior = new Map([
+      [cardId(P1.id), { nine_type: 'back9' as const, holes_played: 6 }],
+      [cardId(P2.id), { nine_type: 'back9' as const, holes_played: 4 }],
+    ]);
+    expect(session.applyShape({ nine_type: 'back9', holes_played: 8 }, prior)).toBe(true);
+    expect(scoredHoles(P1.id)).toEqual([10, 13]);
+    expect(getStore().holes).toHaveLength(9);
+  });
+});
+
+describe('passive captured owned-intent option', () => {
+  const endOwned = () =>
+    endWithIntent(getStore, (partial) => useScorecardStore.setState(partial), 6, {
+      intent: { userId: 'owner' },
+    });
+  beforeEach(() => {
+    (getSyncAuthUserId as jest.Mock).mockReturnValue('owner');
+  });
+  it('ensures an intent even when the local end is already a no-op', async () => {
+    await getStore().initializeRound(ROUND_ID, [P1], create18Holes());
+    await getStore().endRoundEarly(6);
+    (persistRoundEarlyEnd as jest.Mock).mockClear();
+    await endOwned();
+    expect(persistRoundEarlyEnd).toHaveBeenCalledWith(
+      ROUND_ID,
+      6,
+      'full',
+      [1, 2, 3, 4, 5, 6],
+      expect.any(Array),
+      { intent: { userId: 'owner' } }
+    );
+    expect(requestSyncDrain).toHaveBeenCalled();
+  });
+  it('requests the original durable work before a postcommit account change rejects memory application', async () => {
+    await getStore().initializeRound(ROUND_ID, [P1], create18Holes());
+    (persistRoundEarlyEnd as jest.Mock).mockImplementationOnce(async () => {
+      (getSyncAuthUserId as jest.Mock).mockReturnValue('other');
+    });
+    await expect(endOwned()).rejects.toThrow(/owner|account|changed/i);
+    expect(requestSyncDrain).toHaveBeenCalled();
+    expect(getStore().holesPlayed).toBeNull();
+    expect(persistRoundEarlyEnd).toHaveBeenCalledWith(
+      ROUND_ID,
+      6,
+      'full',
+      expect.any(Array),
+      expect.any(Array),
+      { intent: { userId: 'owner' } }
+    );
+  });
+  it('rejects a captured owner that disagrees with the account before persistence', async () => {
+    await getStore().initializeRound(ROUND_ID, [P1], create18Holes());
+    (getSyncAuthUserId as jest.Mock).mockReturnValue(null);
+    await expect(endOwned()).rejects.toThrow(/owner|account/i);
+    expect(persistRoundEarlyEnd).not.toHaveBeenCalled();
+  });
+  it('requests drain before detecting a postcommit reset and leaves the new session untouched', async () => {
+    await getStore().initializeRound(ROUND_ID, [P1], create18Holes());
+    let generation = 1;
+    (persistRoundEarlyEnd as jest.Mock).mockImplementationOnce(async () => {
+      generation++;
+      getStore().resetRound();
+    });
+    await expect(
+      endWithIntent(getStore, (partial) => useScorecardStore.setState(partial), 6, {
+        intent: { userId: 'owner' },
+        getSessionGeneration: () => generation,
+      })
+    ).rejects.toThrow(/unloaded/);
+    expect(requestSyncDrain).toHaveBeenCalled();
+    expect(getStore().currentRoundId).toBeNull();
+  });
+});
+
+it('refuses authoritative bridge math when current planned context cannot reconstruct the server nine', async () => {
+  await getStore().initializeRound(
+    ROUND_ID,
+    [P1],
+    create18Holes(),
+    'stroke',
+    false,
+    [],
+    null,
+    'profile',
+    new Map(),
+    'front9'
+  );
+  const session = getStore().captureRoundScoringSession(ROUND_ID)!;
+  expect(() => session.applyShape({ nine_type: 'back9', holes_played: 6 }, new Map())).toThrow(
+    /planned|context/i
+  );
+  expect(getStore().nineType).toBe('front9');
+  expect(getStore().holesPlayed).toBeNull();
+});
+
+it('adopts N6 on a physical nine-hole course retaining its full-nine label and planned handicap context', async () => {
+  const physicalNine = create18Holes().slice(0, 9);
+  await getStore().initializeRound(
+    ROUND_ID,
+    [P1],
+    physicalNine,
+    'stroke',
+    false,
+    [],
+    TEE_WHITE,
+    'profile',
+    new Map(),
+    'full'
+  );
+  await score(P1.id, [1, 6, 7]);
+  const session = getStore().captureRoundScoringSession(ROUND_ID)!;
+  expect(session.applyShape({ nine_type: 'full', holes_played: 6 }, new Map())).toBe(true);
+  expect(getStore().holes).toHaveLength(9);
+  expect(getStore().nineType).toBe('full');
+  expect(getStore().holesPlayed).toBe(6);
+  expect(scoredHoles(P1.id)).toEqual([1, 6]);
+  expect(getStore().groupScorecards.get(P1.id)?.totalGross).toBe(8);
 });

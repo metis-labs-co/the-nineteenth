@@ -14,6 +14,9 @@
 
 import { create } from 'zustand';
 import { Scorecard, HoleScore, Player, Hole, GameType, TeeBox, HoleShotContributions } from '@/types';
+import { shapeHoleNumbers } from '@/services/rounds/roundScoringWrite';
+import type { AcceptedScorecardWrite, PositiveRoundScoringShape, PriorLocalShapes } from '@/services/rounds/roundScoringWrite';
+import { lastPlayedHoleNumber } from '@/utils/roundShape';
 import type { HandicapSource } from '@/types/database';
 import type { NineType } from '@/types/database/enums';
 import type { BallCount } from '@/types/multiball.types';
@@ -41,6 +44,11 @@ import * as multiBall from './multiBallSlice';
 import * as scoreUpdate from './scoreUpdateSlice';
 import * as initSlice from './initializeRoundSlice';
 import * as endEarly from './endRoundEarlySlice';
+
+interface RoundScoringSession {
+  isCurrent(): boolean;
+  applyShape(shape: PositiveRoundScoringShape, priorLocalShapes: PriorLocalShapes, acceptedWrite?: AcceptedScorecardWrite): boolean;
+}
 
 interface ScorecardState {
   // Current round data
@@ -118,6 +126,8 @@ interface ScorecardState {
   getPlayedHoles: () => Hole[];
   /** Durably end after n holes locally; the caller tells the server. */
   endRoundEarly: (n: number) => Promise<void>;
+  /** Internal passive adapter for durable authoritative adoption. */
+  captureRoundScoringSession: (roundId: string) => RoundScoringSession | null;
   submitScorecards: (options?: { bypassed?: boolean; playerIds?: string[] }) => Promise<void>;
   resetRound: () => void;
 
@@ -395,6 +405,79 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
     getPlayedHoles: () => {
       const { holes, nineType, holesPlayed } = get();
       return filterPlayableHoles(holes, nineType, holesPlayed);
+    },
+
+    captureRoundScoringSession: (roundId) => {
+      const generation = roundSession;
+      const isCurrent = () =>
+        roundSession === generation && get().currentRoundId === roundId && !get().isLoading;
+      if (!isCurrent()) return null;
+      return {
+        isCurrent,
+        applyShape: (shape, priorLocalShapes, acceptedWrite) => {
+          if (!isCurrent()) return false;
+          const current = get();
+          const plannedHoles = filterPlayableHoles(current.holes, shape.nine_type);
+          const plannedNumbers = new Set<number>(plannedHoles.map((h) => h.number));
+          const required = shapeHoleNumbers(shape);
+          // holes is the declared planned course list, including physical-nine
+          // courses whose legacy nine label is 'full'. Never fabricate holes.
+          if (
+            plannedHoles.length === 0 ||
+            [...required].some((h) => !plannedNumbers.has(h)) ||
+            plannedHoles.some((h) => !h.par || !h.strokeIndex)
+          ) {
+            throw new Error('Missing planned context for authoritative scoring shape');
+          }
+          let keep = shapeHoleNumbers(shape);
+          for (const prior of priorLocalShapes.values()) {
+            if (prior.holes_played == null) continue;
+            const earlier = shapeHoleNumbers(prior);
+            keep = new Set([...keep].filter((h) => earlier.has(h)));
+          }
+          const groupScorecards = new Map<string, Scorecard>();
+          for (const [playerId, card] of current.groupScorecards) {
+            let cardKeep = keep;
+            if (card.holesPlayed != null) {
+              const earlier = shapeHoleNumbers({
+                nine_type: card.syncNineType ?? current.nineType,
+                holes_played: card.holesPlayed,
+              });
+              cardKeep = new Set([...keep].filter((h) => earlier.has(h)));
+            }
+            const rebuilt = endEarly.rebuildEndedScorecard(
+              card,
+              cardKeep,
+              shape.holes_played,
+              plannedHoles,
+              current.gameType,
+              {
+                selectedTee: current.playerTeeMap.get(playerId) ?? current.selectedTeeData,
+                handicapSource: current.handicapSource,
+                nineType: shape.nine_type,
+              }
+            );
+            groupScorecards.set(playerId, {
+              ...rebuilt,
+              syncNineType: shape.nine_type,
+              ...(acceptedWrite?.scorecardId === card.id && {
+                serverRevision: Math.max(card.serverRevision ?? 0, acceptedWrite.serverRevision),
+              }),
+            });
+          }
+          const played = shapeHoleNumbers(shape);
+          set({
+            groupScorecards,
+            holes: plannedHoles,
+            holesPlayed: shape.holes_played,
+            nineType: shape.nine_type,
+            currentHole: played.has(current.currentHole)
+              ? current.currentHole
+              : lastPlayedHoleNumber(shape.nine_type, shape.holes_played),
+          });
+          return true;
+        },
+      };
     },
 
     endRoundEarly: (n) => endEarly.endRoundEarly(get, set, n, { getSessionGeneration: () => roundSession }),

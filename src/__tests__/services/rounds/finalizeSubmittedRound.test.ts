@@ -11,6 +11,8 @@ import {
   RoundNotReadyError,
 } from '@/services/rounds/finalizeSubmittedRound';
 
+jest.mock('@/services/rounds/applyEndRoundEarly', () => ({ hasQueuedRoundEndEarly: jest.fn(() => Promise.resolve(false)) }));
+
 const mockFinalizeRoundStatus = jest.fn();
 jest.mock('@/services/rounds/finalizeRoundStatus', () => ({
   finalizeRoundStatus: (...args: unknown[]) => mockFinalizeRoundStatus(...args),
