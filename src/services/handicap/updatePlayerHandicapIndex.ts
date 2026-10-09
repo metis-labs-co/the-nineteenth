@@ -15,6 +15,7 @@ import { calculateHandicapIndex } from '@/utils/handicapDifferential';
 import { isSharedBallRound } from '@/utils/roundFormat';
 import { syncLogger } from '@/utils/debugLogger';
 import { isCompleteForHandicap } from '@/utils/handicapEligibility';
+import { isEndedEarly } from '@/utils/roundShape';
 import type { NineType } from '@/types/database/enums';
 
 /** WHS uses the 20 most recent qualifying rounds. */
@@ -94,12 +95,16 @@ export async function updatePlayerHandicapIndex(playerId: string): Promise<void>
     // combined via handicap_combined_rounds.
     const { data: scorecards, error: fetchError } = await supabase
       .from('scorecards')
-      .select('handicap_differential, submitted_at, scores, rounds!inner(nine_type, game_type, team_format)')
+      .select(
+        'handicap_differential, submitted_at, scores, rounds!inner(nine_type, game_type, team_format, holes_played)',
+      )
       .eq('player_id', playerId)
       .in('status', ['completed', 'confirmed'])
       .not('handicap_differential', 'is', null)
       .is('rounds.deleted_at', null)
       .eq('rounds.nine_type', 'full')
+      // Belt: an early-ended round never counts toward the index (I12, R13).
+      .is('rounds.holes_played', null)
       .order('submitted_at', { ascending: false })
       .limit(BELT_FETCH_LIMIT) as unknown as {
         data: {
@@ -111,6 +116,7 @@ export async function updatePlayerHandicapIndex(playerId: string): Promise<void>
             nine_type: NineType | null;
             game_type: string | null;
             team_format: string | null;
+            holes_played: number | null;
           } | null;
         }[] | null;
         error: PostgrestError | null;
@@ -169,6 +175,9 @@ export async function updatePlayerHandicapIndex(playerId: string): Promise<void>
         // carries a stored differential (old client, or data from before the
         // server trigger) is skipped. Legacy cards without hole data count.
         if (!isCompleteForHandicap(sc.scores, sc.rounds?.nine_type ?? 'full')) continue;
+        // Same backstop for an early-ended round (the card gate and the server
+        // trigger already null its differential).
+        if (isEndedEarly(sc.rounds)) continue;
         if (sc.handicap_differential != null) {
           cardEntries.push({
             differential: sc.handicap_differential,

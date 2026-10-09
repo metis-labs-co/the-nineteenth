@@ -13,6 +13,7 @@ import { calculateHandicapIndex, getQualifyingCount } from '@/utils/handicapDiff
 import { recalculateScorecardDifferential } from '@/services/handicap/recalculateScorecardDifferential';
 import { isSharedBallRound } from '@/utils/roundFormat';
 import { isCompleteForHandicap } from '@/utils/handicapEligibility';
+import { isEndedEarly } from '@/utils/roundShape';
 import type { NineType } from '@/types/database/enums';
 import { updatePlayerHandicapIndex } from '@/services/handicap/updatePlayerHandicapIndex';
 import {
@@ -60,6 +61,7 @@ interface ScorecardWithRound {
     nine_type: NineType | null;
     game_type: string | null;
     team_format: string | null;
+    holes_played?: number | null;
     courses: {
       id: string;
       name: string;
@@ -75,7 +77,7 @@ interface ScorecardWithRound {
 interface RecalculationCandidate {
   id: string;
   scores: Record<string, unknown> | null;
-  rounds: { nine_type: NineType | null } | null;
+  rounds: { nine_type: NineType | null; holes_played?: number | null } | null;
 }
 
 /**
@@ -85,10 +87,14 @@ interface RecalculationCandidate {
 async function findScorecardsNeedingRecalculation(playerId: string): Promise<string[]> {
   const { data, error } = await supabase
     .from('scorecards')
-    .select('id, scores, rounds!inner(nine_type)')
+    .select('id, scores, rounds!inner(nine_type, holes_played)')
     .eq('player_id', playerId)
     .in('status', ['completed', 'confirmed'])
     .is('handicap_differential', null)
+    // An early-ended round never earns a differential (I12); without this it
+    // would be re-picked every session and crowd recalculable cards out of
+    // the limit below.
+    .is('rounds.holes_played', null)
     .limit(20);
 
   if (error || !data) return [];
@@ -96,7 +102,11 @@ async function findScorecardsNeedingRecalculation(playerId: string): Promise<str
   const ids = (data as unknown as RecalculationCandidate[])
     // An incomplete card can never earn a differential (I12) — the recalc
     // would only write null again, so don't spend a round-trip on it.
-    .filter((sc) => isCompleteForHandicap(sc.scores, sc.rounds?.nine_type ?? 'full'))
+    .filter(
+      (sc) =>
+        isCompleteForHandicap(sc.scores, sc.rounds?.nine_type ?? 'full') &&
+        !isEndedEarly(sc.rounds),
+    )
     .map((sc) => sc.id)
     .filter((id: string) => !attemptedRecalculations.has(id));
 
@@ -136,6 +146,7 @@ export async function fetchHandicapHistory(playerId: string): Promise<HandicapSu
         nine_type,
         game_type,
         team_format,
+        holes_played,
         courses (
           id,
           name,
@@ -151,6 +162,8 @@ export async function fetchHandicapHistory(playerId: string): Promise<HandicapSu
     .not('handicap_differential', 'is', null)
     .is('rounds.deleted_at', null)
     .eq('rounds.nine_type', 'full')
+    // Belt: early-ended rounds never appear in handicap history (I12, R13).
+    .is('rounds.holes_played', null)
     .order('submitted_at', { ascending: false })
     .limit(BELT_FETCH_LIMIT);
 
@@ -195,6 +208,7 @@ export async function fetchHandicapHistory(playerId: string): Promise<HandicapSu
             nine_type,
             game_type,
             team_format,
+            holes_played,
             courses (
               id,
               name,
@@ -210,6 +224,7 @@ export async function fetchHandicapHistory(playerId: string): Promise<HandicapSu
         .not('handicap_differential', 'is', null)
         .is('rounds.deleted_at', null)
         .eq('rounds.nine_type', 'full')
+        .is('rounds.holes_played', null)
         .order('submitted_at', { ascending: false })
         .limit(BELT_FETCH_LIMIT);
 
@@ -232,7 +247,8 @@ export async function fetchHandicapHistory(playerId: string): Promise<HandicapSu
         sc.course_rating_used !== null &&
         sc.slope_rating_used !== null &&
         !isSharedBallRound(sc.rounds ?? {}) &&
-        isCompleteForHandicap(sc.scores, sc.rounds?.nine_type ?? 'full')
+        isCompleteForHandicap(sc.scores, sc.rounds?.nine_type ?? 'full') &&
+        !isEndedEarly(sc.rounds)
     )
     // The fetch is newest first: keep the 20 most recent that pass.
     .slice(0, WHS_RECENT_ROUNDS);
