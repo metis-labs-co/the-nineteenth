@@ -63,7 +63,7 @@ import { useDeleteShot, useSetShotClub } from '@/hooks/shots';
 import { useBag } from '@/hooks/queries/useBag';
 import { useSocialAccess } from '@/hooks/useSocialAccess';
 import { clubLabel, type ClubKey } from '@/constants/clubs';
-import { filterHolesByNineType } from '@/utils/holeTransformers';
+import { getViewRoundHoles } from './viewRoundHoles';
 import type { ShotLogEntry } from '@/types/database/shotLog.types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ViewRound'>;
@@ -223,15 +223,10 @@ export default function ViewRoundScreen(props: Props) {
 
   const { round } = vm;
 
-  // Holes the round is actually being played over. For 'front9' / 'back9'
-  // standalone rounds this strips the unplayed nine so the scorecard,
-  // stats, and shot picker all surface only the holes that count. The
-  // course holes themselves stay intact in the round payload — this is a
-  // display-time filter only.
-  const playableHoles = filterHolesByNineType(
-    Array.isArray(round.course?.holes) ? round.course.holes : [],
-    round.nine_type
-  );
+  // Match length uses planned holes plus the cutoff; display-only tabs and
+  // the shot picker use played holes. Scorecard/stats tabs keep their raw
+  // course input and derive their own context from nineType and holesPlayed.
+  const { plannedHoles, playedHoles: playableHoles, holesPlayed } = getViewRoundHoles(round);
   const playableHoleNumbers = playableHoles.map((h) => h.number);
 
   return (
@@ -379,6 +374,7 @@ export default function ViewRoundScreen(props: Props) {
             gameType={round.game_type}
             handicapSource={round.handicap_source ?? undefined}
             nineType={round.nine_type}
+            holesPlayed={holesPlayed}
             startHole={round.course?.start_hole ?? 1}
           />
         )}
@@ -392,6 +388,7 @@ export default function ViewRoundScreen(props: Props) {
             onEditStats={vm.handleEditStatsOpen}
             onUpgradePress={vm.handleNavigateToSubscription}
             nineType={round.nine_type}
+            holesPlayed={holesPlayed}
           />
         )}
         {vm.activeTab === 'match' && (vm.isMatchPlayRound || vm.isTeamMatchPlayRound) && (
@@ -413,7 +410,7 @@ export default function ViewRoundScreen(props: Props) {
               isMatchPlayRound={vm.isMatchPlayRound}
               isTeamMatchPlayRound={vm.isTeamMatchPlayRound}
               matchPlayPlayers={vm.matchPlayPlayers}
-              holes={round.course?.holes || null}
+              holes={round.course?.holes ? plannedHoles : null}
               getPlayerScore={vm.getPlayerScore}
               matchPlayData={vm.matchPlayData}
               currentUserId={vm.user?.id}
@@ -422,6 +419,7 @@ export default function ViewRoundScreen(props: Props) {
               isSplitRound={vm.isSplitRound}
               roundId={round.id}
               startHole={round.course?.start_hole ?? 1}
+              holesPlayed={holesPlayed}
             />
           )
         )}
@@ -549,7 +547,7 @@ export default function ViewRoundScreen(props: Props) {
         )}
         {vm.activeTab === 'scrambleTeamScore' && vm.isScrambleRound && (
           <ScrambleTeamScoreTab
-            holes={round.course?.holes || null}
+            holes={round.course?.holes ? playableHoles : null}
             scrambleTeams={vm.scrambleTeams}
             selectedTeamIndex={vm.selectedTeamIndex}
             onSelectTeam={vm.setSelectedTeamIndex}
@@ -560,7 +558,7 @@ export default function ViewRoundScreen(props: Props) {
         )}
         {vm.activeTab === 'scrambleLeaderboard' && vm.isScrambleRound && (
           <ScrambleLeaderboardTab
-            holes={round.course?.holes || null}
+            holes={round.course?.holes ? playableHoles : null}
             scrambleTeams={vm.scrambleTeams}
             allScramblePlayers={vm.allScramblePlayers}
             getTeamScoreByIndex={vm.getScrambleTeamScoreByIndex}
