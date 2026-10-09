@@ -2,6 +2,7 @@ import { readSyncHandicapSource } from '@/services/rounds/scorecardScoringMetada
 import { Platform } from 'react-native';
 import type { AcceptedScorecardWrite, OwnedRoundEndIntent } from '@/services/rounds/roundScoringWrite';
 import { assertIntentOwner, ensureRoundEndIntent } from './roundEndIntent';
+import { RoundScoringWriteError } from '@/services/rounds/roundScoringErrors';
 /**
  * Sync Queue DAO
  *
@@ -17,25 +18,41 @@ import { dbLogger } from '@/utils/debugLogger';
 /**
  * Add a pending sync operation
  */
-export async function addPendingSync(sync: Omit<PendingSync, 'id'>): Promise<void> {
+export async function addPendingSync(
+  sync: Omit<PendingSync, 'id'>,
+  options: { ifAbsent?: boolean; isCurrent?: () => boolean } = {}
+): Promise<void> {
   dbLogger.debug('Adding pending sync', {
     type: sync.type,
     action: sync.action,
     retryCount: sync.retryCount,
   });
 
-  if (sync.type === 'scorecard' && sync.action !== 'delete') readSyncHandicapSource(sync.data?.syncHandicapSource);
+  if (sync.type === 'scorecard' && sync.action !== 'delete')
+    readSyncHandicapSource(sync.data?.syncHandicapSource);
+  if (options.ifAbsent && options.isCurrent && Platform.OS === 'web')
+    throw new RoundScoringWriteError(
+      'unavailable',
+      String(sync.data?.roundId ?? ''),
+      'Guarded failure retention requires native SQLite'
+    );
   const database = await getDb();
+  if (options.isCurrent && !options.isCurrent()) return;
 
   const entityKey = sync.entityKey ?? getEntityKey(sync);
   const status = sync.status ?? 'pending';
 
   try {
-    await database.runAsync(
-      `INSERT INTO ${TABLE_NAMES.PENDING_SYNCS}
+    const insert = async (connection: Pick<Awaited<ReturnType<typeof getDb>>, 'runAsync'>) => {
+      if (options.isCurrent && !options.isCurrent()) return;
+      await connection.runAsync(
+        `INSERT INTO ${TABLE_NAMES.PENDING_SYNCS}
          (type, action, data, timestamp, retry_count, entity_key, revision, status, last_error, last_attempt_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-       ON CONFLICT(entity_key) DO UPDATE SET
+       ON CONFLICT(entity_key) ${
+         options.ifAbsent
+           ? 'DO NOTHING'
+           : `DO UPDATE SET
          action = CASE
            WHEN ${TABLE_NAMES.PENDING_SYNCS}.action = 'create' AND excluded.action = 'update'
              THEN 'create'
@@ -53,20 +70,31 @@ export async function addPendingSync(sync: Omit<PendingSync, 'id'>): Promise<voi
          revision = ${TABLE_NAMES.PENDING_SYNCS}.revision + 1,
          status = excluded.status,
          last_error = excluded.last_error,
-         last_attempt_at = excluded.last_attempt_at`,
-      [
-        sync.type,
-        sync.action,
-        JSON.stringify(sync.data),
-        sync.timestamp.toISOString(),
-        sync.retryCount,
-        entityKey,
-        sync.revision ?? 1,
-        status,
-        sync.lastError ?? null,
-        sync.lastAttemptAt?.toISOString() ?? null,
-      ]
-    );
+         last_attempt_at = excluded.last_attempt_at`
+       }`,
+        [
+          sync.type,
+          sync.action,
+          JSON.stringify(sync.data),
+          sync.timestamp.toISOString(),
+          sync.retryCount,
+          entityKey,
+          sync.revision ?? 1,
+          status,
+          sync.lastError ?? null,
+          sync.lastAttemptAt?.toISOString() ?? null,
+        ]
+      );
+      if (options.isCurrent && !options.isCurrent())
+        throw new RoundScoringWriteError(
+          'context_changed',
+          String(sync.data?.roundId ?? ''),
+          'Failure retention source changed during insert'
+        );
+    };
+    if (options.ifAbsent && options.isCurrent && Platform.OS !== 'web')
+      await database.withExclusiveTransactionAsync(insert);
+    else await insert(database);
 
     dbLogger.debug('Pending sync added successfully', {
       type: sync.type,

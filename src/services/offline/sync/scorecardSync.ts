@@ -312,10 +312,22 @@ export async function syncScorecard(
       const diskVersion = disk && scorecardScoringVersion(disk);
       const liveVersion = live && scorecardScoringVersion(live);
       const selectedVersion = scorecardScoringVersion(selected);
+      const queueMetadata = (row: PendingSync) =>
+        JSON.stringify([
+          row.type,
+          row.action,
+          row.timestamp,
+          row.retryCount,
+          row.status,
+          row.lastError ?? null,
+          row.lastAttemptAt ?? null,
+        ]);
       const queueIdentity = queued && {
         id: queued.id,
         revision: queued.revision ?? 1,
         version: scorecardScoringVersion(queued.data as Scorecard),
+        serverRevision: (queued.data as Scorecard).serverRevision ?? 0,
+        metadata: queueMetadata(queued),
       };
       const assertCurrentContent = () => {
         assertCurrent();
@@ -371,13 +383,36 @@ export async function syncScorecard(
         const acceptedWrite = { scorecardId: selected.id, serverRevision };
         try {
           await recordAcceptedScorecardWrite(selected.roundId, selected.playerId, acceptedWrite);
+          // Only the accepted metadata write may advance this failure CAS proof.
+          // Never bless a newer scoring payload or reset its queue recovery state.
+          if (
+            options.queued &&
+            queueIdentity &&
+            getSyncAuthUserId() === ownerId &&
+            (!session || session.isCurrent()) &&
+            isRoundPersistenceSourceCurrent(currentSource)
+          ) {
+            const currentQueue = await getPendingSyncByEntityKey(key);
+            if (
+              getSyncAuthUserId() === ownerId &&
+              (!session || session.isCurrent()) &&
+              isRoundPersistenceSourceCurrent(currentSource) &&
+              currentQueue &&
+              currentQueue.id === queueIdentity.id &&
+              currentQueue.revision === queueIdentity.revision + 1 &&
+              queueIdentity.serverRevision < serverRevision &&
+              currentQueue.data?.serverRevision === serverRevision &&
+              scorecardScoringVersion(currentQueue.data as Scorecard) === queueIdentity.version &&
+              queueMetadata(currentQueue) === queueIdentity.metadata
+            ) {
+              options.queued.revision = currentQueue.revision;
+            }
+          }
         } catch (error) {
           throw new RoundScoringWriteError(
             'unavailable',
             selected.roundId,
-            error instanceof Error
-              ? error.message
-              : 'Accepted scoring revision could not be recorded',
+            error instanceof Error ? error.message : 'Accepted scoring revision could not be recorded',
             { acceptedWrite }
           );
         }
@@ -395,30 +430,49 @@ export async function syncScorecard(
       } catch (error) {
         const shapeRejected =
           error instanceof RoundScoringWriteError &&
-          error.kind === 'shape_changed' &&
-          !error.acceptedWrite;
+          (error.kind === 'out_of_play' || (error.kind === 'shape_changed' && !error.acceptedWrite));
         if (!shapeRejected && !(error instanceof ScorecardConflictError)) throw error;
         if (attempt > 0) throw error;
-        assertCurrent();
-        const authoritative = await fetchRoundScoringShape(scorecard.roundId);
-        assertCurrent();
-        const changed =
-          authoritative.nine_type !== shape.nine_type ||
-          authoritative.holes_played !== shape.holes_played;
-        if (changed) {
-          await adoptRoundShapeWithinScoringWrite(scorecard.roundId, authoritative, {
-            ownerId: ownerId!,
-          });
+        try {
           assertCurrent();
-          if (error instanceof ScorecardConflictError) revisionOverride = error.serverRevision;
-          continue; // Reread repaired CURRENT queue/disk/store under the same coordinator.
-        }
-        if (error instanceof ScorecardConflictError && options.adoptServerRevisionOnConflict) {
+          const authoritative = await fetchRoundScoringShape(scorecard.roundId);
           assertCurrent();
-          revisionOverride = error.serverRevision;
-          continue;
+          const changed =
+            authoritative.nine_type !== shape.nine_type ||
+            authoritative.holes_played !== shape.holes_played;
+          if (changed) {
+            await adoptRoundShapeWithinScoringWrite(scorecard.roundId, authoritative, {
+              ownerId: ownerId!,
+              ...(error instanceof RoundScoringWriteError && { acceptedWrite: error.acceptedWrite }),
+            });
+            assertCurrent();
+            if (error instanceof ScorecardConflictError) revisionOverride = error.serverRevision;
+            else if (error instanceof RoundScoringWriteError && error.acceptedWrite)
+              revisionOverride = error.acceptedWrite.serverRevision;
+            continue; // Reread repaired CURRENT queue/disk/store under the same coordinator.
+          }
+          if (error instanceof ScorecardConflictError && options.adoptServerRevisionOnConflict) {
+            assertCurrent();
+            revisionOverride = error.serverRevision;
+            continue;
+          }
+          throw error;
+        } catch (recoveryError) {
+          if (error instanceof RoundScoringWriteError && error.acceptedWrite && recoveryError !== error) {
+            const scoringError = recoveryError instanceof RoundScoringWriteError ? recoveryError : null;
+            throw new RoundScoringWriteError(
+              scoringError?.kind ?? 'unavailable',
+              scorecard.roundId,
+              recoveryError instanceof Error ? recoveryError.message : 'Accepted scoring recovery failed',
+              {
+                acceptedWrite: error.acceptedWrite,
+                sqlCode: scoringError?.sqlCode ?? error.sqlCode,
+                sqlHint: scoringError?.sqlHint ?? error.sqlHint,
+              }
+            );
+          }
+          throw recoveryError;
         }
-        throw error;
       }
       const acceptedWrite = { scorecardId: selected.id, serverRevision: result.serverRevision };
       try {

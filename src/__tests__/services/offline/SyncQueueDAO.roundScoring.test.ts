@@ -107,3 +107,39 @@ it('queue admission preserves a recorded source when the incoming payload omits 
   expect(sql).toContain("json_set(excluded.data, '$.syncHandicapSource'");
   expect(sql).toContain("json_extract(excluded.data, '$.syncHandicapSource') IS NULL");
 });
+it('rolls back conditional failure retention if ownership changes while its insert settles', async () => {
+  let current = true;
+  let retained: unknown = null;
+  const write = async (_sql: string, args: unknown[]) => {
+    retained = args[2];
+    current = false;
+    return { changes: 1 };
+  };
+  database.runAsync.mockImplementation(write);
+  txn.runAsync.mockImplementation(write);
+  database.withExclusiveTransactionAsync.mockImplementation(async (work) => {
+    const previous = retained;
+    try {
+      await work(txn);
+    } catch (error) {
+      retained = previous;
+      throw error;
+    }
+  });
+  await expect(
+    addPendingSync(
+      {
+        type: 'scorecard',
+        action: 'update',
+        data: { id: 'c', roundId: 'r', playerId: 'p', scores: {} },
+        timestamp: new Date(0),
+        retryCount: 3,
+        status: 'failed',
+        lastError: 'invalid',
+      },
+      { ifAbsent: true, isCurrent: () => current }
+    )
+  ).rejects.toMatchObject({ kind: 'context_changed' });
+  expect(retained).toBeNull();
+  expect(database.withExclusiveTransactionAsync).toHaveBeenCalledTimes(1);
+});

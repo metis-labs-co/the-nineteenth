@@ -119,6 +119,92 @@ describe('common scorecard upload boundary', () => {
       expect(supabase.rpc).not.toHaveBeenCalled();
     }
   );
+  it('reconciles out-of-play trailing entries after partial acceptance and retries freshly repaired CURRENT scores', async () => {
+    let disk = card({
+      roundId: '550e8400-e29b-41d4-a716-446655440021',
+      totalGross: 28,
+      totalNet: 99,
+      playerHandicap: 18,
+      playerGender: 'male',
+      coursePar: 72,
+      syncGameType: 'stroke',
+      teeData: { name: 'White', color: 'white', courseRating: 72, slopeRating: 113 },
+      syncHoles: Array.from({ length: 18 }, (_, i) => ({
+        number: (i + 1) as 1,
+        par: 4,
+        strokeIndex: i + 1,
+      })),
+      scores: Object.fromEntries(
+        [1, 2, 3, 4, 5, 6, 7].map((h) => [h, { strokes: 4, scoredBy: 'owner' }])
+      ),
+    });
+    (database.getScorecardsByRound as jest.Mock).mockImplementation(async () => [disk]);
+    (database.recordAcceptedScorecardWrite as jest.Mock).mockImplementation(
+      async (_round, _player, acceptedWrite) => {
+        disk = { ...disk, serverRevision: acceptedWrite.serverRevision };
+      }
+    );
+    (saveScoreEntries as jest.Mock).mockImplementationOnce(async () => {
+      expect(database.markScorecardAsSynced).not.toHaveBeenCalled();
+      expect(database.removePendingSync).not.toHaveBeenCalled();
+      disk = {
+        ...disk,
+        status: 'confirmed',
+        scores: { ...disk.scores, 1: { strokes: 8, scoredBy: 'owner' } },
+      };
+      throw { code: '22023', hint: 'round_score_out_of_play', message: 'entry is now outside N6' };
+    });
+    const target = { nine_type: 'full', holes_played: 6 };
+    const builder = {
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      is: jest.fn().mockReturnThis(),
+      abortSignal: jest.fn().mockReturnThis(),
+      maybeSingle: jest.fn(async () => ({ data: target, error: null })),
+    };
+    (supabase.from as jest.Mock).mockReturnValue(builder);
+    (database.persistAuthoritativeRoundShape as jest.Mock).mockImplementation(
+      async (_round, shape, options) => {
+        disk = options.rebuild(disk, new Set([1, 2, 3, 4, 5, 6]), shape);
+        return { priorLocalShapes: new Map() };
+      }
+    );
+    (supabase.rpc as jest.Mock)
+      .mockResolvedValueOnce(accepted)
+      .mockResolvedValueOnce({
+        ...accepted,
+        data: [{ applied: true, conflict: false, server_revision: 8 }],
+      });
+    await expect(syncScorecard(disk, { markSynced: true })).resolves.toMatchObject({
+      serverRevision: 8,
+    });
+    expect(database.recordAcceptedScorecardWrite).toHaveBeenCalledWith(disk.roundId, disk.playerId, {
+      scorecardId: 'local-card',
+      serverRevision: 7,
+    });
+    expect(database.persistAuthoritativeRoundShape).toHaveBeenCalledWith(
+      disk.roundId,
+      target,
+      expect.objectContaining({ acceptedWrite: { scorecardId: 'local-card', serverRevision: 7 } })
+    );
+    expect((supabase.rpc as jest.Mock).mock.calls[1][1]).toMatchObject({
+      p_expected_revision: 7,
+      p_snapshot: {
+        expected_round_shape: target,
+        total_gross: 28,
+        total_net: 22,
+        status: 'confirmed',
+        scores: { 1: { strokes: 8 } },
+      },
+    });
+    expect(
+      (saveScoreEntries as jest.Mock).mock.calls[1][0].map(
+        (entry: { holeNumber: number }) => entry.holeNumber
+      )
+    ).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(database.markScorecardAsSynced).toHaveBeenCalledTimes(1);
+    expect(database.markScorecardAsSynced).toHaveBeenCalledWith('local-card', 8, expect.anything());
+  });
   it('defers only the affected round when live prerequisite decoding fails', async () => {
     (database.getPendingSyncByEntityKey as jest.Mock).mockImplementation(async (key: string) => {
       if (key === `round:${roundId}:end_early`) throw new SyntaxError('malformed JSON');
@@ -213,6 +299,42 @@ describe('common scorecard upload boundary', () => {
     });
     expect(supabase.rpc).not.toHaveBeenCalled();
   });
+  it.each(['failed-read', 'owner-replacement'])(
+    'keeps partial accepted metadata when out-of-play reconciliation has %s',
+    async (boundary) => {
+      (saveScoreEntries as jest.Mock).mockRejectedValueOnce({
+        code: '22023',
+        hint: 'round_score_out_of_play',
+        message: 'entry guard',
+      });
+      const builder = {
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        is: jest.fn().mockReturnThis(),
+        abortSignal: jest.fn().mockReturnThis(),
+        maybeSingle: jest.fn(async () => {
+          if (boundary === 'owner-replacement') setSyncAuthUser('replacement-owner');
+          return boundary === 'failed-read'
+            ? { data: null, error: { message: 'shape unavailable' } }
+            : { data: { nine_type: 'full', holes_played: 6 }, error: null };
+        }),
+      };
+      (supabase.from as jest.Mock).mockReturnValue(builder);
+      await expect(syncScorecard(card(), { markSynced: true })).rejects.toMatchObject({
+        kind: boundary === 'failed-read' ? 'unavailable' : 'context_changed',
+        acceptedWrite: { scorecardId: 'local-card', serverRevision: 7 },
+        sqlHint: 'round_score_out_of_play',
+      });
+      expect(database.recordAcceptedScorecardWrite).toHaveBeenCalledWith(roundId, card().playerId, {
+        scorecardId: 'local-card',
+        serverRevision: 7,
+      });
+      expect(supabase.rpc).toHaveBeenCalledTimes(1);
+      expect(database.persistAuthoritativeRoundShape).not.toHaveBeenCalled();
+      expect(database.markScorecardAsSynced).not.toHaveBeenCalled();
+      expect(database.removePendingSync).not.toHaveBeenCalled();
+    }
+  );
   it('records a late accepted revision without entries or acknowledgment after owner replacement', async () => {
     const response = deferred<typeof accepted>();
     (supabase.rpc as jest.Mock).mockReturnValueOnce(response.promise);
@@ -412,9 +534,9 @@ describe('common scorecard upload boundary', () => {
       Object.defineProperty(Platform, 'OS', { value: previous, configurable: true });
     }
   });
-  it.each([true, false])(
-    'reconstructs stale NULL snapshots after cross-device end (extra keys=%s)',
-    async (extraKeys) => {
+  it.each([[true, 'round_shape_changed'], [false, 'round_shape_changed'], [true, 'round_score_out_of_play']] as const)(
+    'reconstructs stale NULL snapshots after cross-device end (extra keys=%s, guard=%s)',
+    async (extraKeys, hint) => {
       const id = extraKeys
         ? '550e8400-e29b-41d4-a716-446655440010'
         : '550e8400-e29b-41d4-a716-446655440011';
@@ -454,7 +576,7 @@ describe('common scorecard upload boundary', () => {
       );
       (supabase.rpc as jest.Mock).mockResolvedValueOnce({
         data: null,
-        error: { code: '22023', hint: 'round_shape_changed', message: 'stale shape' },
+        error: { code: '22023', hint, message: 'stale shape' },
       });
       await expect(syncScorecard(disk)).resolves.toMatchObject({ serverRevision: 7 });
       expect((supabase.rpc as jest.Mock).mock.calls[1][1].p_snapshot).toMatchObject({

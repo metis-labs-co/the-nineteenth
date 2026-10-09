@@ -309,7 +309,7 @@ export async function syncAll(options: SyncAllOptions = {}): Promise<boolean> {
         const errorMessage = error instanceof Error ? error.message : String(error);
 
         if (error instanceof RoundScoringWriteError) {
-          if (['invalid_shape', 'context_missing'].includes(error.kind)) {
+          if (['invalid_shape', 'context_missing', 'out_of_play'].includes(error.kind)) {
             await markPendingSyncFailed(sync.id!, sync.revision ?? 1, errorMessage);
             failCount++;
           }
@@ -410,9 +410,25 @@ export async function syncAll(options: SyncAllOptions = {}): Promise<boolean> {
           const errorMessage = error instanceof Error ? error.message : String(error);
 
           if (error instanceof RoundScoringWriteError) {
-            if (['invalid_shape', 'context_missing'].includes(error.kind)) {
+            if (['invalid_shape', 'context_missing', 'out_of_play'].includes(error.kind)) {
               failCount++;
-              await retainFallbackFailure(scorecard, errorMessage, true, source, fallbackCapture(scorecard.roundId).ownerId);
+              const retainedCard =
+                error.acceptedWrite?.scorecardId === scorecard.id
+                  ? {
+                      ...scorecard,
+                      serverRevision: Math.max(
+                        scorecard.serverRevision ?? 0,
+                        error.acceptedWrite.serverRevision
+                      ),
+                    }
+                  : scorecard;
+              await retainFallbackFailure(
+                retainedCard,
+                errorMessage,
+                true,
+                source,
+                fallbackCapture(scorecard.roundId).ownerId
+              );
             }
             continue;
           }
@@ -867,22 +883,36 @@ async function retainFallbackFailure(
           scorecardScoringVersion(current) !== scorecardScoringVersion(scorecard)
         )
           return;
-        await addPendingSync({
-          type: 'scorecard',
-          action: 'update',
-          data: scorecard,
-          entityKey: scorecardEntityKey(scorecard),
-          timestamp: new Date(),
-          retryCount: permanent ? MAX_RETRY_COUNT : 1,
-          status: permanent ? 'failed' : 'pending',
-          lastError: error,
-          lastAttemptAt: new Date(),
-        });
+        await addPendingSync(
+          {
+            type: 'scorecard',
+            action: 'update',
+            data: {
+              ...scorecard,
+              serverRevision: Math.max(scorecard.serverRevision ?? 0, current.serverRevision ?? 0),
+            },
+            entityKey: scorecardEntityKey(scorecard),
+            timestamp: new Date(),
+            retryCount: permanent ? MAX_RETRY_COUNT : 1,
+            status: permanent ? 'failed' : 'pending',
+            lastError: error,
+            lastAttemptAt: new Date(),
+          },
+          {
+            ifAbsent: true,
+            isCurrent: () =>
+              getSyncAuthUserId() === ownerId && isRoundPersistenceSourceCurrent(source),
+          }
+        );
       },
       scorecard
     );
   } catch (error) {
     // C4 owns network recovery; an obsolete failure object cannot replace repaired local work.
-    if (!(error instanceof RoundPersistenceSourceChangedError)) throw error;
+    if (
+      !(error instanceof RoundPersistenceSourceChangedError) &&
+      !(error instanceof RoundScoringWriteError && error.kind === 'context_changed')
+    )
+      throw error;
   }
 }
