@@ -306,75 +306,87 @@ export async function syncAll(options: SyncAllOptions = {}): Promise<boolean> {
           return;
         }
       }
-      const recoveryGuard = selection
-        ? [{ expectedRecovery: { ...sync }, isCurrent: selection.isCurrent }]
-        : [];
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      try {
+        const recoveryGuard = selection
+          ? [{ expectedRecovery: { ...sync }, isCurrent: selection.isCurrent }]
+          : [];
+        const errorMessage = error instanceof Error ? error.message : String(error);
 
-      if (error instanceof RoundScoringWriteError) {
-        if (['invalid_shape', 'context_missing', 'out_of_play'].includes(error.kind)) {
+        if (error instanceof RoundScoringWriteError) {
+          if (['invalid_shape', 'context_missing', 'out_of_play'].includes(error.kind)) {
+            await markPendingSyncFailed(sync.id!, sync.revision ?? 1, errorMessage, ...recoveryGuard);
+            failCount++;
+          }
+          return;
+        }
+
+        if (error instanceof ScorecardConflictError) {
+          // Park the server's current revision on the row before retaining it,
+          // so the next explicit retry starts from a winnable expectation.
+          await refreshQueuedRevision(sync, error, selection);
           await markPendingSyncFailed(sync.id!, sync.revision ?? 1, errorMessage, ...recoveryGuard);
           failCount++;
+          conflictCount++;
+          return;
         }
-        return;
-      }
 
-      if (error instanceof ScorecardConflictError) {
-        // Park the server's current revision on the row before retaining it,
-        // so the next explicit retry starts from a winnable expectation.
-        await refreshQueuedRevision(sync, error, selection);
-        await markPendingSyncFailed(sync.id!, sync.revision ?? 1, errorMessage, ...recoveryGuard);
-        failCount++;
-        conflictCount++;
-        return;
-      }
+        // RLS policy errors (42501) mean the current user has no permission
+        // to write this row — almost always because the round/competition
+        // was deleted, the user was removed, or the scorecard belongs to a
+        // round the user no longer has access to. Retrying won't help, so
+        // drop the sync immediately rather than burning retry slots and
+        // emitting misleading "PERMANENT SYNC FAILURE" warnings.
+        const isRlsError =
+          errorMessage.includes('row-level security policy') || errorMessage.includes('42501');
 
-      // RLS policy errors (42501) mean the current user has no permission
-      // to write this row — almost always because the round/competition
-      // was deleted, the user was removed, or the scorecard belongs to a
-      // round the user no longer has access to. Retrying won't help, so
-      // drop the sync immediately rather than burning retry slots and
-      // emitting misleading "PERMANENT SYNC FAILURE" warnings.
-      const isRlsError =
-        errorMessage.includes('row-level security policy') || errorMessage.includes('42501');
+        if (isRlsError) {
+          syncLogger.warn('RLS POLICY ERROR: Retaining sync for explicit recovery', {
+            id: sync.id,
+            type: sync.type,
+            roundId: sync.data?.roundId?.substring(0, 8) + '...',
+            playerId: sync.data?.playerId?.substring(0, 8) + '...',
+          });
+          await markPendingSyncFailed(sync.id!, sync.revision ?? 1, errorMessage, ...recoveryGuard);
+          failCount++;
+          return;
+        }
 
-      if (isRlsError) {
-        syncLogger.warn('RLS POLICY ERROR: Retaining sync for explicit recovery', {
+        syncLogger.error('Failed to process sync', error, {
           id: sync.id,
           type: sync.type,
-          roundId: sync.data?.roundId?.substring(0, 8) + '...',
-          playerId: sync.data?.playerId?.substring(0, 8) + '...',
+          action: sync.action,
+          retryCount: sync.retryCount,
         });
-        await markPendingSyncFailed(sync.id!, sync.revision ?? 1, errorMessage, ...recoveryGuard);
         failCount++;
-        return;
-      }
 
-      syncLogger.error('Failed to process sync', error, {
-        id: sync.id,
-        type: sync.type,
-        action: sync.action,
-        retryCount: sync.retryCount,
-      });
-      failCount++;
-
-      const failureCount = sync.retryCount + 1;
-      if (failureCount < MAX_RETRY_COUNT) {
-        await incrementSyncRetryCount(sync.id!, sync.revision ?? 1, errorMessage, ...recoveryGuard);
-        syncLogger.debug('Incremented retry count', {
-          id: sync.id,
-          newRetryCount: failureCount,
-        });
-      } else {
-        syncLogger.error('SYNC FAILURE RETAINED: Automatic retries exhausted', undefined, {
-          id: sync.id,
-          type: sync.type,
-          roundId: sync.data?.roundId?.substring(0, 8) + '...',
-          playerId: sync.data?.playerId?.substring(0, 8) + '...',
-          maxRetries: MAX_RETRY_COUNT,
-          lastError: errorMessage,
-        });
-        await markPendingSyncFailed(sync.id!, sync.revision ?? 1, errorMessage, ...recoveryGuard);
+        const failureCount = sync.retryCount + 1;
+        if (failureCount < MAX_RETRY_COUNT) {
+          await incrementSyncRetryCount(sync.id!, sync.revision ?? 1, errorMessage, ...recoveryGuard);
+          syncLogger.debug('Incremented retry count', {
+            id: sync.id,
+            newRetryCount: failureCount,
+          });
+        } else {
+          syncLogger.error('SYNC FAILURE RETAINED: Automatic retries exhausted', undefined, {
+            id: sync.id,
+            type: sync.type,
+            roundId: sync.data?.roundId?.substring(0, 8) + '...',
+            playerId: sync.data?.playerId?.substring(0, 8) + '...',
+            maxRetries: MAX_RETRY_COUNT,
+            lastError: errorMessage,
+          });
+          await markPendingSyncFailed(sync.id!, sync.revision ?? 1, errorMessage, ...recoveryGuard);
+        }
+      } catch (recoveryError) {
+        if (
+          !selection ||
+          !(recoveryError instanceof RoundScoringWriteError) ||
+          recoveryError.kind !== 'context_changed' ||
+          recoveryError.roundId !== sync.data?.roundId
+        )
+          throw recoveryError;
+        // Native recovery has refused or rolled back this obsolete operation.
+        // Its late guard settlement must not prevent unrelated rounds from syncing.
       }
     };
 

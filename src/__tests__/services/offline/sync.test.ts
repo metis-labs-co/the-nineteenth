@@ -30,7 +30,7 @@ import { setSyncAuthUser } from '@/services/offline/sync/networkState';
 import { supabase } from '@/services/supabase/client';
 import * as queryClient from '@/services/queryClient';
 import { saveScoreEntries } from '@/services/scoreMismatch';
-import { addPendingSync as addActualPendingSync } from '@/services/offline/dao/SyncQueueDAO';
+import { addPendingSync as addActualPendingSync, incrementSyncRetryCount as incrementActualSyncRetryCount, markPendingSyncFailed as markActualPendingSyncFailed } from '@/services/offline/dao/SyncQueueDAO';
 import { getScorecardsByRound as getActualScorecardsByRound } from '@/services/offline/dao/ScorecardDAO';
 import { withRoundScoringWrite } from '@/services/rounds/roundScoringCoordinator';
 import { useScorecardStore } from '@/store/scorecardStore';
@@ -2228,6 +2228,158 @@ describe('C2b fallback source retention', () => {
 
 describe('C4a orchestrator current-source schedules', () => {
   beforeEach(async () => { initSyncService(); await flushPromises(); jest.clearAllMocks(); });
+  it.each([
+    ['queued', 'acquisition', 'retry'],
+    ['queued', 'settlement', 'retry'],
+    ['queued', 'acquisition', 'failure'],
+    ['queued', 'settlement', 'failure'],
+    ['fallback', 'acquisition', 'retry'],
+    ['fallback', 'settlement', 'retry'],
+    ['fallback', 'acquisition', 'failure'],
+    ['fallback', 'settlement', 'failure'],
+    ['queued', 'database-error', 'retry'],
+    ['fallback', 'database-error', 'retry'],
+  ] as const)(
+    'continues unrelated recovery work from %s after %s %s guard settlement',
+    async (caller, boundary, mutation) => {
+      const cardA = createTestScorecard({ roundId: '550e8400-e29b-41d4-a716-446655440237' });
+      const cardB = createTestScorecard({
+        id: 'unrelated-local-card',
+        roundId: '550e8400-e29b-41d4-a716-446655440238',
+      });
+      const queueA = createPendingSync({
+        id: 781,
+        revision: 4,
+        retryCount: mutation === 'retry' ? 0 : 2,
+        data: cardA,
+      });
+      const queueB = createPendingSync({ id: 782, revision: 5, data: cardB });
+      const finalization = createPendingSync({
+        id: 783,
+        type: 'round',
+        data: { id: cardB.roundId, action: 'finalize' },
+      });
+      let raw = {
+        id: queueA.id,
+        revision: queueA.revision,
+        type: queueA.type,
+        action: queueA.action,
+        timestamp: queueA.timestamp.toISOString(),
+        retry_count: queueA.retryCount,
+        status: 'pending',
+        last_error: null as string | null,
+        last_attempt_at: null as string | null,
+      };
+      const baseline = { ...raw };
+      let entered!: () => void;
+      let release!: () => void;
+      const waiting = new Promise<void>((resolve) => {
+        entered = resolve;
+      });
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const sql = jest.fn(async () => {
+        raw = {
+          ...raw,
+          retry_count: mutation === 'retry' ? raw.retry_count + 1 : raw.retry_count,
+          status: mutation === 'failure' ? 'failed' : raw.status,
+          last_error: 'obsolete failure',
+        };
+        if (boundary === 'settlement') {
+          entered();
+          await gate;
+        }
+        return { changes: 1 };
+      });
+      const db = {
+        getFirstAsync: jest.fn(async () => raw),
+        runAsync: sql,
+        withExclusiveTransactionAsync: jest.fn(),
+      };
+      db.withExclusiveTransactionAsync.mockImplementation(async (work) => {
+        const before = { ...raw };
+        try {
+          await work(db);
+        } catch (error) {
+          raw = before;
+          throw error;
+        }
+      });
+      (getDb as jest.Mock).mockImplementation(async () => {
+        if (boundary === 'database-error') throw new Error('genuine recovery database failure');
+        if (boundary === 'acquisition') {
+          entered();
+          await gate;
+        }
+        return db;
+      });
+      (database.incrementSyncRetryCount as jest.Mock).mockImplementation(
+        incrementActualSyncRetryCount
+      );
+      (database.markPendingSyncFailed as jest.Mock).mockImplementation(markActualPendingSyncFailed);
+      (database.getPendingSyncs as jest.Mock).mockResolvedValue(
+        caller === 'queued' ? [queueA, queueB, finalization] : [finalization]
+      );
+      (finalizeSubmittedRound as jest.Mock).mockResolvedValue({ completed: true });
+      (database.getUnsyncedScorecards as jest.Mock).mockResolvedValue(
+        caller === 'fallback' ? [cardA, cardB] : []
+      );
+      (database.getScorecardsByRound as jest.Mock).mockImplementation(async (roundId) =>
+        roundId === cardA.roundId ? [cardA] : [cardB]
+      );
+      (database.getPendingSyncByEntityKey as jest.Mock).mockImplementation(async (key) =>
+        key === `scorecard:${cardA.roundId}:${cardA.playerId}`
+          ? queueA
+          : key === `scorecard:${cardB.roundId}:${cardB.playerId}`
+            ? queueB
+            : null
+      );
+      (supabase.rpc as jest.Mock).mockImplementation(async (_name, args) =>
+        args.p_round_id === cardA.roundId
+          ? { data: null, error: { message: 'round A upload failed' } }
+          : { data: [{ applied: true, conflict: false, server_revision: 7 }], error: null }
+      );
+      const syncing = syncAll();
+      if (boundary !== 'database-error') {
+        await waiting;
+        await transitionPersistence(
+          cardA.roundId,
+          { nine_type: 'full', holes_played: 6 },
+          async () => undefined,
+          () => undefined
+        );
+        release();
+      }
+      await syncing;
+      expect(raw).toEqual(baseline);
+      expect(queueA).toMatchObject({
+        revision: 4,
+        retryCount: baseline.retry_count,
+        data: { scores: cardA.scores },
+      });
+      const uploadedRounds = (supabase.rpc as jest.Mock).mock.calls.map(
+        ([, args]) => args.p_round_id
+      );
+      if (boundary === 'database-error') {
+        expect(uploadedRounds).toEqual([cardA.roundId]);
+        expect(getSyncState().error).toBe('genuine recovery database failure');
+        expect(finalizeSubmittedRound).not.toHaveBeenCalled();
+      } else {
+        expect(uploadedRounds).toEqual([cardA.roundId, cardB.roundId]);
+        expect(database.markScorecardAsSynced).toHaveBeenCalledWith(cardB.id, 7, expect.any(Object));
+        expect(queryClient.invalidateLeaderboardCache).toHaveBeenCalled();
+        expect(finalizeSubmittedRound).toHaveBeenCalledWith(cardB.roundId);
+      }
+      expect(database.markScorecardAsSynced).not.toHaveBeenCalledWith(
+        cardA.id,
+        expect.anything(),
+        expect.anything()
+      );
+      expect(sql).toHaveBeenCalledTimes(boundary === 'settlement' ? 1 : 0);
+    }
+  );
+
   it.each(['unchanged', 'removed', 'replaced'])(
     'recovers the selected CURRENT queue from fallback only when %s',
     async (state) => {
