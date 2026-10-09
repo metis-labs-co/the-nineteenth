@@ -19,3 +19,4 @@ export * from './useGroupFilter';
 export * from './useActiveSubMatch';
 
 export * from './useEndRoundEarly';
+export * from './usePlayedHoleRange';

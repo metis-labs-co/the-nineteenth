@@ -67,3 +67,7 @@ export type { ChangeTeesSheetProps } from './ChangeTeesSheet';
 // End a social round early (confirmation sheet)
 export { EndRoundEarlySheet } from './EndRoundEarlySheet';
 export type { EndRoundEarlySheetProps } from './EndRoundEarlySheet';
+
+// "Ended after N of M" banner (scoring screens + finish screens)
+export { EndedEarlyBanner } from './EndedEarlyBanner';
+export type { EndedEarlyBannerProps } from './EndedEarlyBanner';
