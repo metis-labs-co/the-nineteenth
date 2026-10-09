@@ -17,6 +17,7 @@ import type {
   EclecticLeaderboardEntry,
 } from '@/types/database';
 import type { EligibleScorecard } from './types';
+import { isEndedEarly } from '@/utils/roundShape';
 
 // Helper to bypass Supabase generated types for new tables.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -233,6 +234,7 @@ export async function getEligibleScorecards(
       rounds!inner (
         date,
         course_id,
+        holes_played,
         courses (
           name
         )
@@ -241,6 +243,8 @@ export async function getEligibleScorecards(
     .eq('player_id', user.id)
     .in('status', ['completed', 'confirmed'])
     .is('rounds.deleted_at', null)
+    // Early-ended rounds never carry a handicap differential (I12).
+    .is('rounds.holes_played', null)
     .order('created_at', { ascending: false });
 
   if (taggedIds.length > 0) {
@@ -266,21 +270,29 @@ export async function getEligibleScorecards(
     status: string;
     created_at: string;
     total_gross: number | null;
-    rounds?: { date?: string; course_id?: string; courses?: { name?: string } };
+    rounds?: {
+      date?: string;
+      course_id?: string;
+      holes_played?: number | null;
+      courses?: { name?: string };
+    };
   }
-  return ((data ?? []) as unknown as ScorecardWithRound[]).map((sc) => ({
-    id: sc.id,
-    round_id: sc.round_id,
-    player_id: sc.player_id,
-    handicap_differential: sc.handicap_differential,
-    status: sc.status,
-    created_at: sc.created_at,
-    total_gross: sc.total_gross,
-    course_name: sc.rounds?.courses?.name ?? null,
-    club_name: null,
-    course_id: sc.rounds?.course_id ?? null,
-    needs_recalculation: sc.handicap_differential == null,
-  }));
+  return ((data ?? []) as unknown as ScorecardWithRound[])
+    // Belt: never offer an early-ended round, even if the filter above is missed.
+    .filter((sc) => !isEndedEarly(sc.rounds))
+    .map((sc) => ({
+      id: sc.id,
+      round_id: sc.round_id,
+      player_id: sc.player_id,
+      handicap_differential: sc.handicap_differential,
+      status: sc.status,
+      created_at: sc.created_at,
+      total_gross: sc.total_gross,
+      course_name: sc.rounds?.courses?.name ?? null,
+      club_name: null,
+      course_id: sc.rounds?.course_id ?? null,
+      needs_recalculation: sc.handicap_differential == null,
+    }));
 }
 
 /**

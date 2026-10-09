@@ -45,6 +45,8 @@ import { buildPostSubmitResetState } from '@/navigation/postSubmitNavigation';
 import type { IncompleteHole } from './useScoreReview';
 import { usePairings } from '@/hooks/rounds';
 import { resolveGroupScopeIds } from './resolveGroupScope';
+import { buildRoundAchievementEventData } from './roundAchievementEvent';
+import { readRoundAchievementStore } from './roundAchievementStore';
 
 // =====================================================
 // SCORE STATISTICS FOR ACHIEVEMENTS
@@ -284,9 +286,9 @@ export function useScoreSubmission({
         const {
           holes: storeHoles,
           gameType: storeGameType,
-          groupScorecards: storeScorecards,
-        } = useScorecardStore.getState();
-        const userScorecard = storeScorecards.get(achievementPlayerId);
+          userScorecard,
+          endedEarly,
+        } = readRoundAchievementStore(achievementPlayerId);
 
         if (!userScorecard || storeHoles.length === 0) return;
 
@@ -310,22 +312,15 @@ export function useScoreSubmission({
           submitLogger.warn('Failed to fetch course_id for achievements (non-blocking)', { error });
         }
 
-        const eventData: AchievementEventData = {
-          round_id: roundId,
-          game_type: storeGameType || 'stableford',
-          course_id: courseIdForEvent,
-          is_competition: !!competitionId && competitionId !== 'standalone',
-          hole_count: scoreStats.holesPlayed,
-          gross_score: scoreStats.totalGross,
-          net_score: userScorecard.totalNet || undefined,
-          birdies: scoreStats.birdies,
-          eagles: scoreStats.eagles,
-          albatrosses: scoreStats.albatross,
-          pars: scoreStats.pars,
-          bogeys: scoreStats.bogeys,
-          double_bogeys: scoreStats.doubleBogeys,
-          hole_in_one: scoreStats.holeInOne,
-        };
+        const eventData: AchievementEventData = buildRoundAchievementEventData({
+          roundId,
+          gameType: storeGameType || 'stableford',
+          courseId: courseIdForEvent,
+          isCompetition: !!competitionId && competitionId !== 'standalone',
+          scoreStats,
+          totalNet: userScorecard.totalNet,
+          endedEarly,
+        });
 
         const newAchievements: AchievementDefinition[] = [];
         const newCosmetics: CosmeticDefinition[] = [];
