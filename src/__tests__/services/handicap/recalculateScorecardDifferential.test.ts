@@ -414,6 +414,57 @@ describe('recalculateScorecardDifferential', () => {
     });
   });
 
+  describe('ended-early rounds (holes_played belt)', () => {
+    it('computes a differential for a card with no hole data (locks current behaviour)', async () => {
+      setupMocks({ scorecard: { ...mockScorecard, scores: {} } });
+
+      const result = await recalculateScorecardDifferential(SCORECARD_ID);
+
+      // Legacy gross-only rule: (113 / 125) × (85 − 72.5) = 11.3.
+      expect(result.handicapDifferential).toBe(11.3);
+    });
+
+    it('requests holes_played with the authorized round shape', async () => {
+      setupMocks();
+
+      await recalculateScorecardDifferential(SCORECARD_ID);
+
+      expect(mockChains.rounds.select).toHaveBeenCalledWith('nine_type, holes_played');
+    });
+
+    it.each([
+      { holesPlayed: 6, scores: {} },
+      { holesPlayed: 9, scores: {} },
+      { holesPlayed: 6, scores: undefined },
+    ])(
+      'writes a NULL differential for legacy scores on a full round ended early at $holesPlayed holes',
+      async ({ holesPlayed, scores }) => {
+        setupMocks({
+          scorecard: { ...mockScorecard, scores },
+          round: { ...mockRound, holes_played: holesPlayed },
+        });
+
+        const result = await recalculateScorecardDifferential(SCORECARD_ID);
+
+        expect(result.handicapDifferential).toBeNull();
+        expect(result.courseRatingUsed).toBe(72.5);
+        expect(result.dailyHandicapUsed).toBe(19);
+        expect(mockRpc).toHaveBeenCalledWith('write_scorecard_handicap_patch', {
+          p_scorecard_id: SCORECARD_ID,
+          p_patch: {
+            expected_round_shape: { nine_type: 'full', holes_played: holesPlayed },
+            handicap_differential: null,
+            course_rating_used: 72.5,
+            slope_rating_used: 125,
+            daily_handicap_used: 19,
+            ga_handicap_used: 18.5,
+          },
+        });
+        expect(mockChains.scorecards.update).not.toHaveBeenCalled();
+      }
+    );
+  });
+
   describe('handicap completeness gate (I12)', () => {
     const range = (start: number, end: number): number[] =>
       Array.from({ length: end - start + 1 }, (_, i) => start + i);

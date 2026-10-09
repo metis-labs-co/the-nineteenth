@@ -23,6 +23,7 @@ import {
 import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
 import { syncLogger } from '@/utils/debugLogger';
 import { isCompleteForHandicap } from '@/utils/handicapEligibility';
+import { isEndedEarly } from '@/utils/roundShape';
 import type { TeeBox, Hole } from '@/types/database/base';
 import type { NineType } from '@/types/database/enums';
 
@@ -44,6 +45,8 @@ interface RoundLite {
   id: string;
   course_id: string;
   nine_type: NineType | null;
+  /** Set when a social round was ended early — such a nine never combines. */
+  holes_played?: number | null;
   selected_tee: TeeBox | null;
   courses: { holes: Hole[] | null } | null;
 }
@@ -90,7 +93,7 @@ async function loadScorecard(id: string): Promise<ScorecardLite> {
 
 async function loadRound(roundId: string): Promise<RoundLite> {
   const { data, error } = await from('rounds')
-    .select('id, course_id, nine_type, selected_tee, courses!course_id (holes)')
+    .select('id, course_id, nine_type, holes_played, selected_tee, courses!course_id (holes)')
     .eq('id', roundId)
     .single();
   if (error || !data) {
@@ -204,11 +207,14 @@ async function validateAndBuildContext(
   }
   // A combined 18 is only handicap-eligible when each nine is COMPLETE for its
   // own nine (I12) — a part-filled nine must not combine. Legacy nines with no
-  // per-hole data keep the gross-only rule. The server trigger
+  // per-hole data keep the gross-only rule unless their round ended early.
+  // Check both rounds before resolving tees or preparing calculations. The server trigger
   // handicap_combined_rounds_full_cards enforces the same rule.
   if (
     !isCompleteForHandicap(front.scores, 'front9') ||
-    !isCompleteForHandicap(back.scores, 'back9')
+    !isCompleteForHandicap(back.scores, 'back9') ||
+    isEndedEarly(frontRound) ||
+    isEndedEarly(backRound)
   ) {
     throw new Error('Both nines must be fully scored to combine');
   }

@@ -8,6 +8,7 @@
 
 import { supabase } from '@/services/supabase/client';
 import { isCompleteForHandicap } from '@/utils/handicapEligibility';
+import { isEndedEarly } from '@/utils/roundShape';
 import type { HandicapRound, CombinableNinePair, NinePieceSummary } from '@/types';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -130,6 +131,8 @@ interface NineScorecardRow {
     id: string;
     date: string | null;
     nine_type: 'front9' | 'back9' | 'full';
+    /** Set when the round was ended early — such a nine never combines. */
+    holes_played?: number | null;
     selected_tee: { name?: string } | null;
     courses: {
       id: string;
@@ -212,6 +215,7 @@ export async function fetchCombinableNinePairs(
         id,
         date,
         nine_type,
+        holes_played,
         selected_tee,
         courses (
           id,
@@ -228,6 +232,8 @@ export async function fetchCombinableNinePairs(
     .in('status', ['completed', 'confirmed'])
     .is('rounds.deleted_at', null)
     .in('rounds.nine_type', ['front9', 'back9'])
+    // An ended-early nine never combines (I12, R13).
+    .is('rounds.holes_played', null)
     .order('submitted_at', { ascending: false })
     .limit(50);
 
@@ -244,7 +250,9 @@ export async function fetchCombinableNinePairs(
       !combinedIds.has(sc.id) &&
       sc.rounds &&
       sc.rounds.courses &&
-      isCompleteForHandicap(sc.scores, sc.rounds.nine_type),
+      isCompleteForHandicap(sc.scores, sc.rounds.nine_type) &&
+      // Belt: exclude ended nines before choosing the latest front/back pair.
+      !isEndedEarly(sc.rounds),
   );
 
   // Group by (course_id, tee_name_lower). Within each group, separate by nine_type.
