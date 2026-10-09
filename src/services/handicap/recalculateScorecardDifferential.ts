@@ -280,20 +280,29 @@ export async function recalculateScorecardDifferentialWithinScoringWrite(
       JSON.stringify(shape) === JSON.stringify(operation.preparedShape)
     )
       throw error;
-    const originalSource = operation.source;
-    await adoptRoundShapeWithinScoringWrite(roundId, shape, {
-      ownerId: operation.ownerId,
-      originalSession: operation.session,
-      isCurrent: () =>
-        getSyncAuthUserId() === operation.ownerId &&
-        operation.isSessionCurrent() &&
-        (!operation.session || operation.session.isCurrent()),
-    });
-    // Accept exactly our own successful transition, never a later independent one.
-    operation.source = { roundId, epoch: originalSource.epoch + 1 };
-    operation.assertCurrent();
+    await adoptRecalculationShape(roundId, shape, operation);
     return prepareAndPatchScorecard(scorecardId, roundId, operation);
   }
+}
+
+async function adoptRecalculationShape(
+  roundId: string,
+  shape: RoundScoringShape,
+  operation: HandicapRecalculationOperation
+): Promise<void> {
+  operation.assertCurrent();
+  const originalSource = operation.source;
+  await adoptRoundShapeWithinScoringWrite(roundId, shape, {
+    ownerId: operation.ownerId,
+    originalSession: operation.session,
+    isCurrent: () =>
+      getSyncAuthUserId() === operation.ownerId &&
+      operation.isSessionCurrent() &&
+      (!operation.session || operation.session.isCurrent()),
+  });
+  // Accept exactly our own successful transition, never a later independent one.
+  operation.source = { roundId, epoch: originalSource.epoch + 1 };
+  operation.assertCurrent();
 }
 
 async function prepareAndPatchScorecard(
@@ -389,6 +398,22 @@ async function prepareAndPatchScorecard(
   const shape = await fetchRoundScoringShape(scorecard.round_id);
   operation.assertCurrent();
   operation.preparedShape = shape;
+  if (operation.session) {
+    // A first successful server patch can already see another device's end.
+    // Install that known shape through shared repair before the caller's local
+    // tee calculation; a temporary prepared basis cannot replace installation.
+    const current = useScorecardStore.getState();
+    if (
+      current.nineType !== shape.nine_type ||
+      current.holesPlayed !== shape.holes_played ||
+      operation.session.getCards().some(
+        (card) =>
+          (card.syncNineType !== undefined && card.syncNineType !== shape.nine_type) ||
+          (card.holesPlayed ?? null) !== shape.holes_played
+      )
+    )
+      await adoptRecalculationShape(roundId, shape, operation);
+  }
   const nineType: NineType = shape.nine_type;
   const localSource = operation.session
     ?.getCards()

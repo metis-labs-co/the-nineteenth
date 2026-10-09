@@ -15,6 +15,7 @@ import { EditTeesSheet } from '@/components/rounds/ViewRound/EditTeesSheet';
 import { EditTeesSheetProps } from '@/components/rounds/ViewRound/EditTeesSheet';
 import { ChangeTeesSheet } from '@/components/scorecard/ChangeTeesSheet';
 import { adoptAuthoritativeRoundShape } from '@/services/rounds/roundScoringAdoption';
+import { withRoundPersistenceTransition } from '@/services/offline/roundPersistenceBarrier';
 import type { Scorecard, Player } from '@/types';
 
 jest.mock('@/services/supabase/client', () => ({ supabase: { from: jest.fn(), rpc: jest.fn() } }));
@@ -704,4 +705,186 @@ it('keeps authentic server HI zero when proven local none records no HI', async 
   expect(
     useScorecardStore.getState().groupScorecards.get(playerId)!.playerHandicap
   ).toBeUndefined();
+});
+
+it('adopts an end visible on the first read before tee persistence and retains newer played edits', async () => {
+  installCard({
+    scores: { 1: { strokes: 5 }, 2: { strokes: 4 }, 3: { strokes: 6 } },
+    totalGross: 15,
+  });
+  const readEntered = gate();
+  const readFinished = gate();
+  const patchEntered = gate();
+  const patchFinished = gate();
+  onCardRead = async () => {
+    readEntered.release();
+    await readFinished.promise;
+  };
+  onPatch = async () => {
+    patchEntered.release();
+    await patchFinished.promise;
+  };
+  const { result } = renderTee();
+  let mutation!: Promise<unknown>;
+  act(() => {
+    mutation = result.current.mutateAsync(input());
+  });
+  await readEntered.promise;
+  // Another device ends before the first authoritative shape read, so the
+  // first patch is accepted. There is no shape_changed recovery to repair us.
+  shape.holes_played = 2;
+  expect(useScorecardStore.getState().holesPlayed).toBeNull();
+  readFinished.release();
+  await patchEntered.promise;
+  await useScorecardStore.getState().setPlayerScore(playerId, 1, 8);
+  db.runAsync.mockClear();
+  patchFinished.release();
+  await act(async () => {
+    await mutation;
+  });
+  const current = useScorecardStore.getState().groupScorecards.get(playerId)!;
+  expect(supabase.rpc).toHaveBeenCalledTimes(1);
+  expect(useScorecardStore.getState().holesPlayed).toBe(2);
+  expect(current.scores).toEqual({
+    1: expect.objectContaining({ strokes: 8 }),
+    2: expect.objectContaining({ strokes: 4 }),
+  });
+  expect(current).toMatchObject({
+    holesPlayed: 2,
+    syncNineType: 'full',
+    playerHandicap: 12,
+    playerGender: null,
+    syncHandicapSource: 'calculated',
+    teeData: newTee,
+  });
+  expect(db.withExclusiveTransactionAsync).toHaveBeenCalledTimes(1);
+  const saved = db.runAsync.mock.calls.find(([sql]) =>
+    sql.includes('INSERT OR REPLACE INTO scorecards')
+  )!;
+  expect((saved[1] as unknown[])[20]).toBe('full');
+  expect((saved[1] as unknown[])[23]).toBe(2);
+  const savedHoles = db.runAsync.mock.calls
+    .filter(([sql]) => sql.includes('INSERT OR REPLACE INTO hole_scores'))
+    .map(([, args]) => (args as unknown[])[1]);
+  expect(savedHoles).toEqual([1, 2]);
+});
+
+it('intersects a prior local cutoff on first-read adoption and keeps explicit none without a profile donor', async () => {
+  shape.holes_played = 2;
+  serverCard = { ...serverCard, ga_handicap_used: null };
+  installCard({
+    holesPlayed: 1,
+    syncHandicapSource: 'none',
+    playerHandicap: undefined,
+    scores: { 1: { strokes: 5 }, 2: { strokes: 4 } },
+  });
+  const { result } = renderTee();
+  await act(async () => {
+    await result.current.mutateAsync(input());
+  });
+  const current = useScorecardStore.getState().groupScorecards.get(playerId)!;
+  expect(current.scores).toEqual({ 1: { strokes: 5 } });
+  expect(current.holesPlayed).toBe(2);
+  expect(current.syncHandicapSource).toBe('none');
+  expect(current.playerHandicap).toBeUndefined();
+  expect(supabase.rpc).toHaveBeenCalledTimes(1);
+  expect(supabase.rpc).toHaveBeenCalledWith(
+    'write_scorecard_handicap_patch',
+    expect.objectContaining({
+      p_patch: expect.objectContaining({ ga_handicap_used: null, daily_handicap_used: 0 }),
+    })
+  );
+  expect(db.withExclusiveTransactionAsync).toHaveBeenCalledTimes(1);
+});
+
+it('refuses first-read unended authority instead of clearing a final local end', async () => {
+  installCard({ holesPlayed: 2 });
+  const { result } = renderTee();
+  await act(async () => {
+    await expect(result.current.mutateAsync(input())).rejects.toMatchObject({
+      kind: 'local_end_pending',
+    });
+  });
+  expect(supabase.rpc).not.toHaveBeenCalled();
+  expect(useScorecardStore.getState().holesPlayed).toBe(2);
+  expect(useScorecardStore.getState().getPlayerTee(playerId)).toEqual(tee);
+});
+
+it('adopts a differing planned nine on the first read even when both cutoffs are null', async () => {
+  installCard({ scores: { 1: { strokes: 5 }, 10: { strokes: 6 } } });
+  shape.nine_type = 'front9';
+  const { result } = renderTee();
+  await act(async () => {
+    await result.current.mutateAsync(input());
+  });
+  const current = useScorecardStore.getState().groupScorecards.get(playerId)!;
+  expect(useScorecardStore.getState().nineType).toBe('front9');
+  expect(current.syncNineType).toBe('front9');
+  expect(current.holesPlayed).toBeNull();
+  expect(current.scores).toEqual({ 1: { strokes: 5 } });
+  expect(db.withExclusiveTransactionAsync).toHaveBeenCalledTimes(1);
+  expect(supabase.rpc).toHaveBeenCalledTimes(1);
+});
+
+it.each(['owner', 'session'])('retains original %s proof through first-read adoption', async (changed) => {
+  installCard();
+  shape.holes_played = 2;
+  const entered = gate();
+  const finish = gate();
+  db.withExclusiveTransactionAsync.mockImplementationOnce(
+    async (run: (tx: unknown) => Promise<void>) => {
+      entered.release();
+      await finish.promise;
+      await run(db);
+    }
+  );
+  const { result } = renderTee();
+  let mutation!: Promise<unknown>;
+  act(() => {
+    mutation = result.current.mutateAsync(input());
+  });
+  const refusal = mutation.catch((error) => error);
+  await entered.promise;
+  if (changed === 'owner') setSyncAuthUser('another-owner');
+  else {
+    useScorecardStore.getState().resetRound();
+    installCard();
+  }
+  finish.release();
+  let error: unknown;
+  await act(async () => {
+    error = await refusal;
+  });
+  expect(error).toMatchObject({ kind: changed === 'owner' ? 'unavailable' : 'context_changed' });
+  expect(supabase.rpc).not.toHaveBeenCalled();
+  expect(useScorecardStore.getState().holesPlayed).toBeNull();
+  expect(useScorecardStore.getState().getPlayerTee(playerId)).toEqual(tee);
+});
+
+it('rejects an independent epoch advance after its own successful first-read adoption', async () => {
+  installCard();
+  shape.holes_played = 2;
+  onPatch = async () => {
+    await withRoundPersistenceTransition(roundId, shape as never, async () => undefined, () => {});
+  };
+  const { result } = renderTee();
+  await act(async () => {
+    await expect(result.current.mutateAsync(input())).rejects.toMatchObject({
+      kind: 'context_changed',
+    });
+  });
+  expect(db.withExclusiveTransactionAsync).toHaveBeenCalledTimes(1);
+  expect(supabase.rpc).toHaveBeenCalledTimes(1);
+  expect(useScorecardStore.getState().holesPlayed).toBe(2);
+  expect(useScorecardStore.getState().getPlayerTee(playerId)).toEqual(tee);
+});
+
+it('keeps ordinary server-only first-read ended recalculation free of native database access', async () => {
+  shape.holes_played = 2;
+  const { result } = renderTee(true);
+  await act(async () => {
+    await result.current.mutateAsync(input());
+  });
+  expect(supabase.rpc).toHaveBeenCalledTimes(1);
+  expect(getDb).not.toHaveBeenCalled();
 });
