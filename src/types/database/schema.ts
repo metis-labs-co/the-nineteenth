@@ -32,6 +32,24 @@ import type { Team, TeamMember, RoundResult, TeamStandingsEntry } from './team.t
 import type { Notification, NotificationData } from './notification.types';
 import type { UserSubscription, TierLimits } from './subscription.types';
 import type { PushToken } from './push-token.types';
+import type { RoundScoringShape } from '@/services/rounds/roundScoringWrite';
+
+/** Shape captured when preparing BOTH scores and aggregates; never relabel a prepared write. */
+export type ScorecardSnapshotWrite = Partial<Pick<Scorecard,
+  'scores' | 'total_gross' | 'total_net' | 'total_points' | 'total_par_score' |
+  'status' | 'submitted_at' | 'submitted_by' | 'synced_at' | 'ga_handicap_used' |
+  'daily_handicap_used' | 'handicap_differential' | 'course_rating_used' | 'slope_rating_used'
+>> & { expected_round_shape: RoundScoringShape };
+
+export type ScorecardResolutionPatch = Pick<Scorecard, 'scores' | 'total_gross' | 'updated_at'> &
+  Partial<Pick<Scorecard, 'total_net' | 'total_points'>> & {
+    expected_round_shape: RoundScoringShape;
+  };
+
+export type ScorecardHandicapPatch = Pick<Scorecard,
+  'handicap_differential' | 'course_rating_used' | 'slope_rating_used' |
+  'daily_handicap_used' | 'ga_handicap_used'
+> & Partial<Pick<Scorecard, 'total_points'>> & { expected_round_shape: RoundScoringShape };
 
 /**
  * Complete database schema type for Supabase client
@@ -374,6 +392,29 @@ export interface Database {
     };
     Views: Record<string, never>;
     Functions: {
+      write_scorecard_snapshot: {
+        Args: {
+          p_round_id: string;
+          p_player_id: string;
+          p_expected_revision: number | null;
+          p_snapshot: ScorecardSnapshotWrite;
+        };
+        Returns: {
+          applied: boolean;
+          conflict: boolean;
+          server_revision: number | null;
+          server_status: string | null;
+          server_scores: Scorecard['scores'] | null;
+        }[];
+      };
+      write_scorecard_resolution: {
+        Args: { p_scorecard_id: string; p_patch: ScorecardResolutionPatch };
+        Returns: boolean; // false means missing/RLS-hidden/not updated, never success
+      };
+      write_scorecard_handicap_patch: {
+        Args: { p_scorecard_id: string; p_patch: ScorecardHandicapPatch };
+        Returns: boolean;
+      };
       calculate_stableford_points: {
         Args: {
           gross_score: number;
