@@ -80,3 +80,18 @@ export function getSortedStandings(
 
   return entries;
 }
+
+/**
+ * Keep only the decisions on holes the round actually played. A round ended
+ * early can still hold decisions for later holes on a device that hasn't
+ * synced the end_round_early trim yet, so the Review previews ignore them.
+ *
+ * @param lastHoleNumber - The round's last played hole number; null/undefined keeps all.
+ */
+export function filterDecisionsThroughHole<T extends Pick<WolfHoleDecision, 'hole_number'>>(
+  decisions: T[],
+  lastHoleNumber: number | null | undefined
+): T[] {
+  if (lastHoleNumber == null) return decisions;
+  return decisions.filter((d) => d.hole_number <= lastHoleNumber);
+}

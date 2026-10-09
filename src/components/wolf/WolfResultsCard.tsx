@@ -36,16 +36,45 @@ export interface WolfResultsCardProps {
   wolfGame: WolfGameWithParticipants;
   /** Array of hole decisions with details */
   decisions: WolfDecisionWithDetails[];
+  /** Played physical hole numbers; omitted draws holes 1–18. */
+  holeNumbers?: number[];
   /** Test ID for testing */
   testID?: string;
 }
 
 /** Row type for FlatList rendering */
-type ResultRow =
+export type WolfResultRow =
   | { type: 'header' }
   | { type: 'hole'; holeNumber: number; decision: WolfDecisionWithDetails | null }
   | { type: 'subtotal'; label: string; holeRange: string }
   | { type: 'legend' };
+
+type ResultRow = WolfResultRow;
+
+/** Default grid when the caller does not narrow the played holes. */
+const ALL_HOLE_NUMBERS = Array.from({ length: 18 }, (_, i) => i + 1);
+
+/** Build the listed holes and their front/back sections in physical hole order. */
+export function buildWolfResultRows(
+  decisionsMap: Map<number, WolfDecisionWithDetails>,
+  holeNumbers: number[] = ALL_HOLE_NUMBERS
+): WolfResultRow[] {
+  const rows: WolfResultRow[] = [{ type: 'header' }];
+  const sorted = [...holeNumbers].sort((a, b) => a - b);
+
+  const pushSection = (holes: number[], label: string) => {
+    if (holes.length === 0) return;
+    for (const hole of holes) {
+      rows.push({ type: 'hole', holeNumber: hole, decision: decisionsMap.get(hole) ?? null });
+    }
+    rows.push({ type: 'subtotal', label, holeRange: `${holes[0]}-${holes[holes.length - 1]}` });
+  };
+
+  pushSection(sorted.filter((n) => n <= 9), 'FRONT 9');
+  pushSection(sorted.filter((n) => n >= 10), 'BACK 9');
+  rows.push({ type: 'legend' });
+  return rows;
+}
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -122,6 +151,7 @@ function getPointsAbbrev(
 export const WolfResultsCard = React.memo(function WolfResultsCard({
   wolfGame,
   decisions,
+  holeNumbers,
   testID,
 }: WolfResultsCardProps) {
   const colors = useThemeColors();
@@ -133,13 +163,15 @@ export const WolfResultsCard = React.memo(function WolfResultsCard({
     return map;
   }, [decisions]);
 
-  // Calculate totals
+  // Calculate totals over the listed holes (all decisions when omitted)
   const { wolvesWon, packsWon, ties } = useMemo(() => {
     let wolfWins = 0;
     let packWins = 0;
     let tieCount = 0;
+    const listed = holeNumbers ? new Set(holeNumbers) : null;
 
     decisions.forEach((d) => {
+      if (listed && !listed.has(d.hole_number)) return;
       if (d.calculated_at) {
         if (d.is_tie) {
           tieCount++;
@@ -156,38 +188,13 @@ export const WolfResultsCard = React.memo(function WolfResultsCard({
       packsWon: packWins,
       ties: tieCount,
     };
-  }, [decisions]);
+  }, [decisions, holeNumbers]);
 
-  // Build row data for FlatList
-  const rowData = useMemo<ResultRow[]>(() => {
-    const rows: ResultRow[] = [];
-
-    // Header row
-    rows.push({ type: 'header' });
-
-    // Holes 1-9
-    for (let hole = 1; hole <= 9; hole++) {
-      const decision = decisionsMap.get(hole) ?? null;
-      rows.push({ type: 'hole', holeNumber: hole, decision });
-    }
-
-    // Front 9 subtotal
-    rows.push({ type: 'subtotal', label: 'FRONT 9', holeRange: '1-9' });
-
-    // Holes 10-18
-    for (let hole = 10; hole <= 18; hole++) {
-      const decision = decisionsMap.get(hole) ?? null;
-      rows.push({ type: 'hole', holeNumber: hole, decision });
-    }
-
-    // Back 9 subtotal
-    rows.push({ type: 'subtotal', label: 'BACK 9', holeRange: '10-18' });
-
-    // Legend
-    rows.push({ type: 'legend' });
-
-    return rows;
-  }, [decisionsMap]);
+  // Build the played rows, defaulting to the original 1–18 grid.
+  const rowData = useMemo<ResultRow[]>(
+    () => buildWolfResultRows(decisionsMap, holeNumbers),
+    [decisionsMap, holeNumbers]
+  );
 
   // Get Wolf player for a hole
   const getWolfForHole = (holeNumber: number): string => {

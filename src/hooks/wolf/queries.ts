@@ -26,6 +26,7 @@ import {
   calculateWolfStandings,
   getSortedStandings,
   calculateWolfPayouts,
+  buildWolfGameSummary,
 } from '@/utils/wolf';
 import { createError } from '@/services/errors';
 import type {
@@ -520,52 +521,30 @@ export function useCanUseWolf(userId?: string) {
  * Combines game, decisions, and payouts with calculated standings.
  *
  * @param gameId - Wolf game UUID
+ * @param options.lastHoleNumber - Inclusive last played hole; null/omitted keeps every hole.
  * @returns Query result with WolfGameSummary
  */
-export function useWolfSummary(gameId: string | undefined) {
+export function useWolfSummary(
+  gameId: string | undefined,
+  options?: { lastHoleNumber?: number | null }
+) {
   const gameQuery = useWolfGame(gameId);
   const decisionsQuery = useWolfHoleDecisions(gameId);
   const payoutsQuery = useWolfPayouts(gameId);
 
   const game = gameQuery.data;
+  const lastHoleNumber = options?.lastHoleNumber ?? null;
 
   // Compute summary using useMemo
   const summary = useMemo((): WolfGameSummary | null => {
     if (!game) return null;
-    const decisions = decisionsQuery.data ?? [];
-    const payouts = payoutsQuery.data ?? [];
-
-    // Create player name map
-    const playerNames: Record<string, string> = {};
-    for (const participant of game.participants) {
-      playerNames[participant.id] = participant.name;
-    }
-
-    // Calculate standings
-    const standingsMap = calculateWolfStandings(decisions, game.participant_ids);
-    const standings = getSortedStandings(standingsMap, playerNames);
-
-    // Calculate net_result for each standing entry when pot is enabled
-    if (game.pot_enabled && game.pot_value_per_point) {
-      const payoutCalcs = calculateWolfPayouts(standingsMap, game.pot_value_per_point);
-      for (const entry of standings) {
-        entry.net_result = payoutCalcs[entry.player_id]?.netResult ?? 0;
-      }
-    }
-
-    // Count completed holes (have calculated_at) and decided holes
-    const holesCompleted = decisions.filter((d) => d.calculated_at !== null).length;
-    const holesDecided = decisions.filter((d) => d.decided_at !== null).length;
-
-    return {
+    return buildWolfGameSummary(
       game,
-      decisions,
-      payouts,
-      standings,
-      holes_completed: holesCompleted,
-      holes_decided: holesDecided,
-    };
-  }, [game, decisionsQuery.data, payoutsQuery.data]);
+      decisionsQuery.data ?? [],
+      payoutsQuery.data ?? [],
+      lastHoleNumber
+    );
+  }, [game, decisionsQuery.data, payoutsQuery.data, lastHoleNumber]);
 
   return {
     data: summary,

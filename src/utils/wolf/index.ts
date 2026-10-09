@@ -26,7 +26,10 @@ export { calculateNetScore, determineWolfHoleResult } from './scoring';
 export { DEFAULT_WOLF_POINT_VALUES, calculateWolfPoints } from './points';
 
 // Standings functions
-export { calculateWolfStandings, getSortedStandings } from './standings';
+export { calculateWolfStandings, getSortedStandings, filterDecisionsThroughHole } from './standings';
+
+// Display summary (standings + counts, optionally cut to the holes played)
+export { buildWolfGameSummary } from './summary';
 
 // Payout functions
 export { calculateWolfPayouts, createPayoutRecords } from './payouts';
