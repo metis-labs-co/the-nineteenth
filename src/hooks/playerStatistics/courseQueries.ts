@@ -11,6 +11,7 @@ import { CACHE_TIMES, GC_TIMES } from '@/constants/cacheConfig';
 import { supabase } from '@/services/supabase/client';
 import { statisticsKeys } from '@/hooks/queryKeys';
 import { parseAndTransformHoles } from '@/utils/holeTransformers';
+import { isEndedEarly } from '@/utils/roundShape';
 import {
   countScoreDistribution,
   calculateParTypeStats,
@@ -73,6 +74,7 @@ export function useCourseStatistics(
             game_type,
             handicap_source,
             status,
+            holes_played,
             courses!inner (
               id,
               name,
@@ -119,6 +121,11 @@ export function useCourseStatistics(
       let fullRoundsCount = 0;
       let totalGrossSum = 0;
       let nineHoleGrossSum = 0;
+      // Early-ended rounds still count in timesPlayed and every played-hole metric.
+      let endedEarlyRoundsCount = 0;
+      let endedEarlyGrossSum = 0;
+      let endedEarlyPutts = 0;
+      let endedEarlyHolesWithPutts = 0;
       let totalPointsSum = 0;
       let bestGross = Infinity;
       let worstGross = 0;
@@ -136,6 +143,8 @@ export function useCourseStatistics(
       let girOpportunities = 0;
 
       const allHoleScores: EnrichedHoleScore[] = [];
+      // Hole scores from rounds that count toward per-round averages.
+      const roundAverageHoleScores: EnrichedHoleScore[] = [];
       const roundSummaries: RoundSummary[] = [];
       const perRoundStats: {
         roundId: string;
@@ -180,6 +189,7 @@ export function useCourseStatistics(
 
         if (!round || !course) return;
 
+        const endedEarly = isEndedEarly(round);
         courseName = course.name;
         const isStandaloneRound = !competition;
         // Mirror the logic in queries.ts: a standalone round is a "handicap
@@ -209,8 +219,11 @@ export function useCourseStatistics(
         const holesInScorecard = Object.values(scores).filter((s) => s?.strokes).length;
         totalHolesPlayed += holesInScorecard;
 
-        const isFullRound = holesInScorecard >= FULL_ROUND_HOLE_COUNT;
-        if (isFullRound) {
+        const isFullRound = !endedEarly && holesInScorecard >= FULL_ROUND_HOLE_COUNT;
+        if (endedEarly) {
+          endedEarlyRoundsCount++;
+          endedEarlyGrossSum += scorecard.total_gross || 0;
+        } else if (isFullRound) {
           fullRoundsCount++;
           totalGrossSum += scorecard.total_gross || 0;
           totalPointsSum += scorecard.total_points || 0;
@@ -228,7 +241,7 @@ export function useCourseStatistics(
           const par = parMap.get(holeNumber) || 4;
 
           // Collect for par type stats
-          allHoleScores.push({
+          const enriched: EnrichedHoleScore = {
             strokes: holeScore.strokes,
             par,
             gir: typeof holeScore.greenInRegulation === 'boolean' ? holeScore.greenInRegulation : null,
@@ -238,7 +251,9 @@ export function useCourseStatistics(
             greenMissDirection: holeScore.greenMissDirection,
             bunkerShots: holeScore.bunkerShots,
             hazards: holeScore.hazards,
-          });
+          };
+          allHoleScores.push(enriched);
+          if (!endedEarly) roundAverageHoleScores.push(enriched);
 
           // Hole-by-hole aggregation
           if (!holeAgg.has(holeNumber)) {
@@ -283,6 +298,10 @@ export function useCourseStatistics(
           if (typeof holeScore.putts === 'number' && holeScore.putts >= 0) {
             totalPutts += holeScore.putts;
             holesWithPuttsRecorded++;
+            if (endedEarly) {
+              endedEarlyPutts += holeScore.putts;
+              endedEarlyHolesWithPutts++;
+            }
           }
           if (par >= 4 && typeof holeScore.fairwayHit === 'boolean') {
             fairwayOpportunities++;
@@ -318,6 +337,9 @@ export function useCourseStatistics(
           gameType: round.game_type,
           roundStatus: round.status,
         });
+
+        // Early-ended rounds stay out of the per-round trend sparklines.
+        if (endedEarly) return;
 
         // Per-round stats collection
         let roundFirHit = 0, roundFirOpps = 0;
@@ -361,10 +383,10 @@ export function useCourseStatistics(
         ? Math.round((totalGrossSum / fullRoundsCount) * 10) / 10 : 0;
       const averageStablefordPoints = fullRoundsCount > 0
         ? Math.round((totalPointsSum / fullRoundsCount) * 10) / 10 : 0;
-      // Per-hole average spans every hole played, so include 9-hole gross
-      // alongside the 18-hole sum (denominator already counts all holes).
+      // Per-hole average includes full, nine-hole and early-ended gross;
+      // the denominator already counts every played hole.
       const averageScorePerHole = totalHolesPlayed > 0
-        ? Math.round(((totalGrossSum + nineHoleGrossSum) / totalHolesPlayed) * 100) / 100 : 0;
+        ? Math.round(((totalGrossSum + nineHoleGrossSum + endedEarlyGrossSum) / totalHolesPlayed) * 100) / 100 : 0;
 
       // Score distribution totals
       const totalScoreDistribution =
@@ -427,11 +449,16 @@ export function useCourseStatistics(
       const puttingDepth = calculatePuttingDepthStats(allHoleScores);
       const fairwayMissDirection = calculateFairwayMissDirectionStats(allHoleScores);
       const greenMissDirection = calculateGreenMissDirectionStats(allHoleScores);
-      const bunkerStatsData = calculateBunkerStats(allHoleScores, timesPlayed);
-      const hazardStatsData = calculateHazardStats(allHoleScores, timesPlayed);
+      // Per-round averages exclude ended cards from numerator, denominator
+      // and tracked checks; timesPlayed still counts them for the rounds tile.
+      const roundsForAverages = timesPlayed - endedEarlyRoundsCount;
+      const bunkerStatsData = calculateBunkerStats(allHoleScores, roundsForAverages, roundAverageHoleScores);
+      const hazardStatsData = calculateHazardStats(allHoleScores, roundsForAverages, roundAverageHoleScores);
 
-      const averagePuttsPerRound = holesWithPuttsRecorded > 0 && timesPlayed > 0
-        ? Math.round((totalPutts / timesPlayed) * 10) / 10 : null;
+      const averagePuttsPerRound =
+        holesWithPuttsRecorded - endedEarlyHolesWithPutts > 0 && roundsForAverages > 0
+          ? Math.round(((totalPutts - endedEarlyPutts) / roundsForAverages) * 10) / 10
+          : null;
       const averagePuttsPerHole = holesWithPuttsRecorded > 0
         ? Math.round((totalPutts / holesWithPuttsRecorded) * 100) / 100 : null;
       const fairwayPercentage = fairwayOpportunities > 0
