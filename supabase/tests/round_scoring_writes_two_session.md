@@ -28,6 +28,9 @@ INSERT INTO rounds(id,user_id,status,nine_type)
 INSERT INTO round_players(round_id,player_id,invitation_status)
  SELECT id,'fa000000-0000-0000-0000-000000000001','accepted'
  FROM rounds WHERE id::TEXT LIKE 'fa000000-0000-0000-0001-%';
+-- Schedule8d's other-player INSERT requires the target's round membership.
+INSERT INTO round_players(round_id,player_id,invitation_status) VALUES
+ ('fa000000-0000-0000-0001-000000000001','fa000000-0000-0000-0000-000000000002','accepted');
 INSERT INTO scorecards(id,round_id,player_id,status,scores,total_gross)
  VALUES ('fa000000-0000-0000-0007-000000000001','fa000000-0000-0000-0001-000000000001',
  'fa000000-0000-0000-0000-000000000001','in-progress','{"1":{"strokes":4},"7":{"strokes":5}}',9);
