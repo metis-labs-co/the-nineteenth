@@ -27,7 +27,7 @@ import {
   splitHolesByNine,
   generateDefaultHoles,
 } from '@/utils/scorecardCalculations';
-import { filterHolesByNineType } from '@/utils/holeTransformers';
+import { filterHolesByNineType, filterPlayableHoles } from '@/utils/holeTransformers';
 import {
   INDIVIDUAL_LABEL_WIDTH,
   INDIVIDUAL_TOTAL_WIDTH,
@@ -58,6 +58,8 @@ interface RoundScorecardTabProps {
   /** Which holes the round is being played over. Filters the displayed
    *  hole columns and OUT/IN subtotal rows. Defaults to 'full'. */
   nineType?: NineType;
+  /** Ended-round cutoff; planned holes still determine the daily handicap. */
+  holesPlayed?: number | null;
   /** Display offset for combo / cross-nine courses (default 1). */
   startHole?: number;
 }
@@ -68,7 +70,11 @@ interface RoundScorecardTabProps {
 
 interface IndividualScorecardViewProps {
   displayPlayers: ScorecardTablePlayer[];
+  /** Planned holes for daily handicap calculation. */
   holes: Hole[];
+  /** Played holes for rows and par totals. */
+  playedHoles: Hole[];
+  holesPlayed?: number | null;
   /** Selected tee data for daily handicap calculation */
   selectedTeeData?: TeeBox | null;
   /** Game type — used to hide the Stableford Pts row for stroke play */
@@ -78,17 +84,19 @@ interface IndividualScorecardViewProps {
 const IndividualScorecardView = React.memo(function IndividualScorecardView({
   displayPlayers,
   holes,
+  playedHoles,
+  holesPlayed = null,
   selectedTeeData,
   gameType,
 }: IndividualScorecardViewProps) {
   const showStableford = gameType !== 'stroke';
   const colors = useThemeColors();
 
-  const { front9, back9 } = useMemo(() => splitHolesByNine(holes), [holes]);
-  const parTotals = useMemo(() => calculateParTotals(holes), [holes]);
+  const { front9, back9 } = useMemo(() => splitHolesByNine(playedHoles), [playedHoles]);
+  const parTotals = useMemo(() => calculateParTotals(playedHoles), [playedHoles]);
   const playerStats = useMemo(
-    () => calculatePlayerStats(displayPlayers, holes, selectedTeeData),
-    [displayPlayers, holes, selectedTeeData]
+    () => calculatePlayerStats(displayPlayers, holes, selectedTeeData, undefined, { holesPlayed }),
+    [displayPlayers, holes, selectedTeeData, holesPlayed]
   );
 
   const renderPlayerScorecard = (displayPlayer: ScorecardTablePlayer, index: number) => {
@@ -281,6 +289,7 @@ export const RoundScorecardTab = React.memo(function RoundScorecardTab({
   gameType,
   handicapSource,
   nineType = 'full',
+  holesPlayed = null,
   startHole = 1,
 }: RoundScorecardTabProps) {
   const colors = useThemeColors();
@@ -295,6 +304,12 @@ export const RoundScorecardTab = React.memo(function RoundScorecardTab({
       Array.isArray(holes) && holes.length > 0 ? holes : generateDefaultHoles();
     return filterHolesByNineType(base, nineType);
   }, [holes, nineType]);
+
+  // Only rows and par use the cutoff; both views retain planned handicap inputs.
+  const playedHoles = useMemo(
+    () => filterPlayableHoles(courseHoles, nineType, holesPlayed),
+    [courseHoles, nineType, holesPlayed]
+  );
 
   // Merge scorecards with all players from pairings
   const displayPlayers: ScorecardTablePlayer[] = useMemo(() => {
@@ -358,6 +373,8 @@ export const RoundScorecardTab = React.memo(function RoundScorecardTab({
             ]}
             onPress={() => setViewMode('table')}
             activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Table view"
           >
             <Icon
               source="table"
@@ -373,6 +390,8 @@ export const RoundScorecardTab = React.memo(function RoundScorecardTab({
             ]}
             onPress={() => setViewMode('individual')}
             activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Individual view"
           >
             <Icon
               source="card-account-details-outline"
@@ -388,6 +407,8 @@ export const RoundScorecardTab = React.memo(function RoundScorecardTab({
         <ScorecardTable
           players={displayPlayers}
           holes={courseHoles}
+          nineType={nineType}
+          holesPlayed={holesPlayed}
           screenWidth={screenWidth}
           onPlayerPress={onPlayerPress}
           selectedTeeData={selectedTeeData}
@@ -399,6 +420,8 @@ export const RoundScorecardTab = React.memo(function RoundScorecardTab({
         <IndividualScorecardView
           displayPlayers={displayPlayers}
           holes={courseHoles}
+          playedHoles={playedHoles}
+          holesPlayed={holesPlayed}
           selectedTeeData={selectedTeeData}
           gameType={gameType}
         />

@@ -14,7 +14,7 @@ import { FeatureLockCompact } from '@/components/subscription/FeatureLockCompact
 import { EmptyState } from '@/components/common/EmptyState';
 import { isSingleBallScore } from '@/types/database/base';
 import { splitHolesByNine, generateDefaultHoles } from '@/utils/scorecardCalculations';
-import { filterHolesByNineType } from '@/utils/holeTransformers';
+import { filterPlayableHoles } from '@/utils/holeTransformers';
 import { getScoreColor } from '@/utils/scoring';
 import type { Hole, Player } from '@/types';
 import type { ScorecardWithPlayer, RoundPlayer } from '@/hooks/useRoundDetails';
@@ -44,9 +44,11 @@ interface StatsTabProps {
   /** Which holes the round is being played over. Filters the rendered
    *  hole rows and OUT/IN subtotals. Defaults to 'full'. */
   nineType?: NineType;
+  /** Ended-round cutoff. Null/undefined preserves the planned rows and stats. */
+  holesPlayed?: number | null;
 }
 
-export function StatsTab({ displayPlayers: displayPlayersProp, scorecards, roundPlayers, holes: rawHoles, statsVisibility, canEditStats, onEditStats, onUpgradePress, nineType = 'full' }: StatsTabProps) {
+export function StatsTab({ displayPlayers: displayPlayersProp, scorecards, roundPlayers, holes: rawHoles, statsVisibility, canEditStats, onEditStats, onUpgradePress, nineType = 'full', holesPlayed = null }: StatsTabProps) {
   const colors = useThemeColors();
   const [selectedPlayerIndex, setSelectedPlayerIndex] = useState(0);
 
@@ -55,8 +57,8 @@ export function StatsTab({ displayPlayers: displayPlayersProp, scorecards, round
       Array.isArray(rawHoles) && rawHoles.length > 0
         ? rawHoles
         : generateDefaultHoles();
-    return filterHolesByNineType(base, nineType);
-  }, [rawHoles, nineType]);
+    return filterPlayableHoles(base, nineType, holesPlayed);
+  }, [rawHoles, nineType, holesPlayed]);
 
   // Merge scorecards with round players (same logic as RoundScorecardTab)
   // If displayPlayersProp is provided, skip the merge logic entirely

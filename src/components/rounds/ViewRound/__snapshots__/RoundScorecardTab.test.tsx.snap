@@ -93,6 +93,8 @@ exports[`RoundScorecardTab Snapshots matches snapshot with players 1`] = `
         }
       >
         <View
+          accessibilityLabel="Table view"
+          accessibilityRole="button"
           accessibilityState={
             {
               "busy": undefined,
@@ -151,6 +153,8 @@ exports[`RoundScorecardTab Snapshots matches snapshot with players 1`] = `
           />
         </View>
         <View
+          accessibilityLabel="Individual view"
+          accessibilityRole="button"
           accessibilityState={
             {
               "busy": undefined,

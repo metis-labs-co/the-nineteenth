@@ -11,11 +11,14 @@
  */
 
 import React from 'react';
-import { render, screen, fireEvent } from '@/__tests__/utils/renderHelpers';
+import { render, screen, fireEvent, within } from '@/__tests__/utils/renderHelpers';
 import { RoundScorecardTab } from './RoundScorecardTab';
 import { create18Holes } from '@/__tests__/utils/testFixtures';
 import type { ScorecardWithPlayer, RoundPlayer } from '@/hooks/useRoundDetails';
 import type { Hole } from '@/types/database.types';
+
+const mockScorecardTableProps = jest.fn();
+let mockUseRealScorecardTable = false;
 
 // Mock the ScorecardTable and ScoreIndicator components
 jest.mock('@/components/scorecard', () => {
@@ -25,11 +28,20 @@ jest.mock('@/components/scorecard', () => {
       players,
       holes,
       onPlayerPress,
+      ...rest
     }: {
       players: any[];
       holes: any[];
       onPlayerPress?: (id: string) => void;
-    }) => (
+      holesPlayed?: number | null;
+      nineType?: string;
+    }) => {
+      mockScorecardTableProps({ holeCount: holes.length, holesPlayed: rest.holesPlayed });
+      if (mockUseRealScorecardTable) {
+        const { ScorecardTable } = jest.requireActual('@/components/scorecard/ScorecardTable/ScorecardTable');
+        return <ScorecardTable players={players} holes={holes} onPlayerPress={onPlayerPress} {...rest} />;
+      }
+      return (
       <View testID="scorecard-table">
         <Text>ScorecardTable</Text>
         <Text testID="player-count">{String(players.length)}</Text>
@@ -44,7 +56,8 @@ jest.mock('@/components/scorecard', () => {
           </Text>
         ))}
       </View>
-    ),
+      );
+    },
     ScoreIndicator: ({
       strokes,
       par: _par,
@@ -93,6 +106,7 @@ jest.mock('@/context/SubscriptionContext', () => ({
 
 // Mock scoring utilities
 jest.mock('@/utils/scoring', () => ({
+  ...jest.requireActual('@/utils/scoring'),
   getScoreColor: (score: number, par: number) => {
     const diff = score - par;
     if (diff <= -2) return '#00bfff'; // Eagle
@@ -102,11 +116,13 @@ jest.mock('@/utils/scoring', () => ({
     return '#ff0000'; // Double+
   },
   getStrokesReceived: (handicap: number, strokeIndex: number) => {
+    if (mockUseRealScorecardTable) return jest.requireActual('@/utils/scoring').getStrokesReceived(handicap, strokeIndex);
     const fullStrokes = Math.floor(handicap / 18);
     const extraStrokes = handicap % 18;
     return fullStrokes + (strokeIndex <= extraStrokes ? 1 : 0);
   },
   calculateStablefordPointsNet: (strokes: number, par: number, strokesReceived: number) => {
+    if (mockUseRealScorecardTable) return jest.requireActual('@/utils/scoring').calculateStablefordPointsNet(strokes, par, strokesReceived);
     const netStrokes = strokes - strokesReceived;
     const relativeToPar = netStrokes - par;
     if (relativeToPar <= -3) return 5;
@@ -120,8 +136,11 @@ jest.mock('@/utils/scoring', () => ({
 
 // Mock scorecard calculations
 jest.mock('@/utils/scorecardCalculations', () => ({
-  calculatePlayerStats: (players: any[], _holes: any[]) =>
-    players.map(() => ({
+  ...jest.requireActual('@/utils/scorecardCalculations'),
+  calculatePlayerStats: (players: any[], ...args: any[]) =>
+    mockUseRealScorecardTable
+      ? jest.requireActual('@/utils/scorecardCalculations').calculatePlayerStats(players, ...args)
+      : players.map(() => ({
       front9Gross: 36,
       back9Gross: 36,
       totalGross: 72,
@@ -132,7 +151,9 @@ jest.mock('@/utils/scorecardCalculations', () => ({
       back9Stableford: 18,
       totalStableford: 36,
     })),
-  calculateParTotals: (_holes: any[]) => ({
+  calculateParTotals: (holes: any[]) => mockUseRealScorecardTable
+    ? jest.requireActual('@/utils/scorecardCalculations').calculateParTotals(holes)
+    : ({
     front9: 36,
     back9: 36,
     total: 72,
@@ -155,9 +176,21 @@ jest.mock('@/utils/scorecardCalculations', () => ({
 
 // Mock scorecard layout utilities
 jest.mock('@/utils/scorecardLayout', () => ({
+  ...jest.requireActual('@/utils/scorecardLayout'),
   INDIVIDUAL_LABEL_WIDTH: 40,
   INDIVIDUAL_TOTAL_WIDTH: 40,
 }));
+
+// Read visible table totals from their labelled rows, rather than matching a
+// number that could also occur in a hole or stroke-index cell.
+function tableRowTexts(label: string): string[] {
+  const labels = screen.getAllByText(label);
+  let row = labels[labels.length - 1].parent!;
+  while (row.type !== 'View') row = row.parent!;
+  row = row.parent!;
+  while (row.type !== 'View') row = row.parent!;
+  return within(row).getAllByText(/.+/).map(text => String(text.props.children));
+}
 
 // ===========================================================================
 // TEST FIXTURES
@@ -1031,6 +1064,133 @@ describe('RoundScorecardTab', () => {
   // ===========================================================================
   // SNAPSHOT TESTS
   // ===========================================================================
+
+  describe('Planned-round characterization', () => {
+    afterEach(() => { mockUseRealScorecardTable = false; });
+
+    it('keeps the planned table holes and the existing individual defaults', () => {
+      mockUseRealScorecardTable = true;
+      render(<RoundScorecardTab
+        scorecards={[createScorecardWithPlayer('player-1', 'John', 15, generateScores(holes))]}
+        roundPlayers={[]} holes={holes} handicapSource="none" startHole={10}
+      />);
+      expect(mockScorecardTableProps).toHaveBeenLastCalledWith({ holeCount: 18, holesPlayed: null });
+      fireEvent.press(screen.UNSAFE_getAllByType(require('react-native').TouchableOpacity)[1]);
+      // Individual view historically defaults its HC source and hole labels.
+      expect(screen.getByText('DHC: 15')).toBeTruthy();
+      expect(screen.getAllByTestId(/^score-indicator-compact-/)).toHaveLength(18);
+      expect(screen.getByText('OUT')).toBeTruthy();
+      expect(screen.getByText('IN')).toBeTruthy();
+    });
+
+    it('keeps tee-derived daily handicap and totals equal across the real table and individual view', () => {
+      mockUseRealScorecardTable = true;
+      const card = createScorecardWithPlayer('player-1', 'John', 18,
+        Object.fromEntries(holes.map(h => [String(h.number), { strokes: h.par + 1 }])));
+      render(<RoundScorecardTab scorecards={[card]} roundPlayers={[]} holes={holes}
+        selectedTeeData={{ name: 'White', color: 'white', slopeRating: 113, courseRating: 72 }} />);
+      expect(screen.getByText(/DHC: 17/)).toBeTruthy();
+      expect(tableRowTexts('Gross')).toEqual(['Gross', '-', '72', '90', '35']);
+      expect(tableRowTexts('Net')).toEqual(['Net', '-', '-', '73', '-']);
+      expect(tableRowTexts('Pts')).toEqual(['Pts', '-', '-', '-', '35']);
+      fireEvent.press(screen.UNSAFE_getAllByType(require('react-native').TouchableOpacity)[1]);
+      expect(screen.getByText('DHC: 17')).toBeTruthy();
+      expect(screen.getByText('90')).toBeTruthy();
+      expect(screen.getByText('73')).toBeTruthy();
+      expect(screen.getByText('35')).toBeTruthy();
+    });
+  });
+
+  describe('Ended-early rounds', () => {
+    beforeEach(() => {
+      mockScorecardTableProps.mockClear();
+    });
+
+    afterEach(() => { mockUseRealScorecardTable = false; });
+
+    it('gives the table the planned holes plus holesPlayed', () => {
+      render(
+        <RoundScorecardTab
+          scorecards={[createScorecardWithPlayer('player-1', 'John', 15, generateScores(holes.slice(0, 6)))]}
+          roundPlayers={[]}
+          holes={holes}
+          holesPlayed={6}
+        />
+      );
+
+      expect(mockScorecardTableProps).toHaveBeenLastCalledWith({ holeCount: 18, holesPlayed: 6 });
+    });
+
+    it('renders every planned hole in the individual view when played as planned', () => {
+      render(
+        <RoundScorecardTab
+          scorecards={[createScorecardWithPlayer('player-1', 'John', 15, generateScores(holes))]}
+          roundPlayers={[]}
+          holes={holes}
+        />
+      );
+
+      fireEvent.press(screen.getByLabelText('Individual view'));
+      expect(screen.getAllByTestId(/^score-indicator-compact-/)).toHaveLength(18);
+    });
+
+    it('renders only the holes played in the individual view for a round ended early', () => {
+      render(
+        <RoundScorecardTab
+          scorecards={[createScorecardWithPlayer('player-1', 'John', 15, generateScores(holes.slice(0, 6)))]}
+          roundPlayers={[]}
+          holes={holes}
+          holesPlayed={6}
+        />
+      );
+
+      fireEvent.press(screen.getByLabelText('Individual view'));
+      expect(screen.getAllByTestId(/^score-indicator-compact-/)).toHaveLength(6);
+      // No back-nine section once the round ended inside the front nine.
+      expect(screen.queryByText('IN')).toBeNull();
+    });
+
+    it('renders holes 10–15 of a back-9 round ended after 6', () => {
+      const played = holes.filter((h) => h.number >= 10 && h.number <= 15);
+      render(
+        <RoundScorecardTab
+          scorecards={[createScorecardWithPlayer('player-1', 'John', 15, generateScores(played))]}
+          roundPlayers={[]}
+          holes={holes}
+          nineType="back9"
+          holesPlayed={6}
+        />
+      );
+
+      fireEvent.press(screen.getByLabelText('Individual view'));
+      expect(screen.getAllByTestId(/^score-indicator-compact-/)).toHaveLength(6);
+      expect(screen.queryByText('OUT')).toBeNull();
+    });
+    it('keeps the planned tee handicap and retained numeric totals equal in both real views despite stale scores', () => {
+      mockUseRealScorecardTable = true;
+      // HI 18, slope 113, CR/par 72 => round(18 × .93) = DHC 17.
+      // Six bogeys total 29; all six SIs <=17 => six strokes, net23, points12.
+      const card = createScorecardWithPlayer('player-1', 'John', 18,
+        Object.fromEntries(holes.map(h => [String(h.number), { strokes: h.number <= 6 ? h.par + 1 : 9 }])));
+      render(<RoundScorecardTab scorecards={[card]} roundPlayers={[]} holes={holes} holesPlayed={6}
+        selectedTeeData={{ name: 'White', color: 'white', slopeRating: 113, courseRating: 72 }} />);
+      expect(screen.getByText(/DHC: 17/)).toBeTruthy();
+      expect(tableRowTexts('Gross')).toEqual(['Gross', '-', '23', '29', '12']);
+      expect(tableRowTexts('Net')).toEqual(['Net', '-', '-', '23', '-']);
+      expect(tableRowTexts('Pts')).toEqual(['Pts', '-', '-', '-', '12']);
+      expect(screen.queryByText('IN')).toBeNull();
+      fireEvent.press(screen.getByLabelText('Individual view'));
+      expect(screen.getByText('DHC: 17')).toBeTruthy();
+      expect(screen.getAllByText('29')).toHaveLength(2); // total and OUT gross
+      expect(screen.getAllByText('23')).toHaveLength(2); // total net and OUT par
+      expect(screen.getAllByText('12')).toHaveLength(2); // total and OUT points
+      expect(screen.getAllByTestId(/^score-indicator-compact-/)).toHaveLength(6);
+      expect(screen.queryByText('IN')).toBeNull();
+      fireEvent.press(screen.getByRole('button', { name: 'Table view' }));
+      expect(screen.getByText(/DHC: 17/)).toBeTruthy();
+      expect(screen.queryByText('IN')).toBeNull();
+    });
+  });
 
   describe('Snapshots', () => {
     it('matches snapshot with players', () => {

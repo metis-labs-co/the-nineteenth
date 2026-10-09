@@ -40,6 +40,8 @@ interface MatchTabProps {
   roundId?: string;
   /** Display offset for combo / cross-nine courses (default 1). */
   startHole?: number;
+  /** Ended-round cutoff; holes retain the planned match length. */
+  holesPlayed?: number | null;
 }
 
 export function MatchTab({
@@ -55,6 +57,7 @@ export function MatchTab({
   isSplitRound = false,
   roundId,
   startHole = 1,
+  holesPlayed = null,
 }: MatchTabProps) {
   const colors = useThemeColors();
 
@@ -89,6 +92,7 @@ export function MatchTab({
           </Text>
           <MatchPlayScorecardTable
             holes={holes!}
+            holesPlayed={holesPlayed}
             player1={matchPlayPlayers!.player1}
             player2={matchPlayPlayers!.player2}
             getPlayerScore={getPlayerScore}
