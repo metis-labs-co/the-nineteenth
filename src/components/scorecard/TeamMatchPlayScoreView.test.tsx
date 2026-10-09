@@ -70,6 +70,7 @@ function createDefaultProps(overrides: Partial<React.ComponentProps<typeof TeamM
     onTeam2ScoreSelect: jest.fn(),
     holeResults: new Map<number, 'team1' | 'team2' | 'halved'>(),
     totalHoles: 18,
+    plannedHoles: holes,
     disabled: false,
     ...overrides,
   };
@@ -989,5 +990,146 @@ describe('TeamMatchPlayScoreView', () => {
 
       expect(screen.getByText('Hole Halved')).toBeTruthy();
     });
+  });
+});
+
+describe('TeamMatchPlayScoreView early-end baseline', () => {
+  it('shows an unfinished lead and counts with six decided holes', () => {
+    const holeResults = new Map<number, 'team1' | 'team2' | 'halved'>([
+      [1, 'team1'],
+      [2, 'halved'],
+      [3, 'team1'],
+      [4, 'halved'],
+      [5, 'halved'],
+      [6, 'halved'],
+    ]);
+    render(<TeamMatchPlayScoreView {...createDefaultProps({ holeResults })} />);
+    expect(screen.getByText('Team Alpha 2 UP')).toBeTruthy();
+    expect(screen.getByText('4 halved')).toBeTruthy();
+  });
+});
+
+describe('Match Status — round ended early', () => {
+  it('settles on the lead after the holes played: "wins 2 UP"', () => {
+    // 18 planned, ended after 6: Team Alpha wins 1 and 3, the rest halved.
+    const holeResults = new Map<number, 'team1' | 'team2' | 'halved'>();
+    holeResults.set(1, 'team1');
+    holeResults.set(2, 'halved');
+    holeResults.set(3, 'team1');
+    for (let i = 4; i <= 6; i++) holeResults.set(i, 'halved');
+
+    render(
+      <TeamMatchPlayScoreView
+        {...createDefaultProps({ holeResults, totalHoles: 18, holesPlayed: 6 })}
+      />
+    );
+
+    expect(screen.getByText('Team Alpha wins 2 UP')).toBeTruthy();
+  });
+
+  it('is still "2 UP" in progress when the round was not ended (characterization)', () => {
+    const holeResults = new Map<number, 'team1' | 'team2' | 'halved'>();
+    holeResults.set(1, 'team1');
+    holeResults.set(2, 'halved');
+    holeResults.set(3, 'team1');
+    for (let i = 4; i <= 6; i++) holeResults.set(i, 'halved');
+
+    render(<TeamMatchPlayScoreView {...createDefaultProps({ holeResults, totalHoles: 18 })} />);
+
+    expect(screen.getByText('Team Alpha 2 UP')).toBeTruthy();
+  });
+});
+
+describe('TeamMatchPlayScoreView sparse cutoff boundary', () => {
+  it.each([1, 10, 31])(
+    'ignores a stale result after N using actual planned numbering from %i',
+    (first) => {
+      const plannedHoles = Array.from(
+        { length: 9 },
+        (_, i) => ({ ...defaultHole, number: first + i }) as Hole
+      );
+      const holeResults = new Map<number, 'team1' | 'team2' | 'halved'>([
+        [first, 'team1'],
+        [first + 2, 'halved'],
+        [first + 3, 'team2'],
+      ]);
+      const props = createDefaultProps({
+        plannedHoles,
+        totalHoles: 9,
+        holeResults,
+        holesPlayed: 3,
+      });
+      const { rerender } = render(<TeamMatchPlayScoreView {...props} />);
+      expect(screen.getByText('Team Alpha 1 UP')).toBeTruthy();
+      expect(screen.getByText('0')).toBeTruthy(); // Team Beta's stale post-cutoff win is excluded.
+      expect(screen.getByText('1 halved')).toBeTruthy();
+      rerender(
+        <TeamMatchPlayScoreView
+          {...props}
+          holeResults={new Map([...holeResults, [first + 1, 'halved']])}
+        />
+      );
+      expect(screen.getByText('Team Alpha wins 1 UP')).toBeTruthy();
+      expect(screen.getByText('2 halved')).toBeTruthy();
+    }
+  );
+  it('recomputes status and counts when only cutoff changes and restores defaults', () => {
+    const holeResults = new Map<number, 'team1' | 'team2' | 'halved'>([
+      [1, 'team1'],
+      [2, 'halved'],
+      [3, 'team1'],
+      [4, 'halved'],
+      [5, 'halved'],
+      [6, 'halved'],
+      [7, 'team2'],
+    ]);
+    const props = createDefaultProps({ holeResults });
+    const { rerender } = render(<TeamMatchPlayScoreView {...props} />);
+    expect(screen.getByText('Team Alpha 1 UP')).toBeTruthy();
+    rerender(<TeamMatchPlayScoreView {...props} holesPlayed={6} />);
+    expect(screen.getByText('Team Alpha wins 2 UP')).toBeTruthy();
+    expect(screen.getByText('4 halved')).toBeTruthy();
+    rerender(<TeamMatchPlayScoreView {...props} holesPlayed={null} />);
+    expect(screen.getByText('Team Alpha 1 UP')).toBeTruthy();
+  });
+  it('preserves a genuine planned-nine close-out before the cutoff', () => {
+    const holeResults = new Map<number, 'team1' | 'team2' | 'halved'>([
+      [10, 'team1'],
+      [11, 'team1'],
+      [12, 'team1'],
+      [13, 'team1'],
+      [14, 'team1'],
+      [15, 'team2'],
+      [16, 'team2'],
+    ]);
+    render(
+      <TeamMatchPlayScoreView
+        {...createDefaultProps({
+          holeResults,
+          plannedHoles: holes.slice(9),
+          totalHoles: 9,
+          holesPlayed: 6,
+        })}
+      />
+    );
+    expect(screen.getByText('Team Alpha wins 5&4')).toBeTruthy();
+  });
+  it('keeps valid-cutoff results conservative without planned context', () => {
+    render(
+      <TeamMatchPlayScoreView
+        {...createDefaultProps({
+          holeResults: new Map([
+            [10, 'team1'],
+            [11, 'team1'],
+            [12, 'team1'],
+          ]),
+          plannedHoles: undefined,
+          holesPlayed: 3,
+        })}
+      />
+    );
+    expect(screen.getByText('All Square')).toBeTruthy();
+    expect(screen.getByText('0 halved')).toBeTruthy();
+    expect(screen.queryByText(/wins/)).toBeNull();
   });
 });

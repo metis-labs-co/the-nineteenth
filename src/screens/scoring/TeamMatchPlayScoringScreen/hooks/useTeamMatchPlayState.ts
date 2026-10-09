@@ -11,6 +11,8 @@
  */
 
 import { useCallback, useMemo, useState, useEffect } from 'react';
+import type { Hole } from '@/types';
+import { retainTeamMatchResults } from '../utils/playedTeamMatchResults';
 import { useConfirmationDialog } from '@/hooks';
 import { teamMatchPlayLogger } from '@/utils/debugLogger';
 import {
@@ -31,6 +33,10 @@ interface UseTeamMatchPlayStateParams {
   getPlayerScoreValue: (playerId: string) => number | null;
   /** Planned holes in the match — the round's nine-filtered count (9 or 18). */
   totalHoles: number;
+  /** Actual planned card, required to resolve sparse results when ended early. */
+  plannedHoles?: readonly Pick<Hole, 'number'>[];
+  /** Count played when ended early; null/undefined = as planned. */
+  holesPlayed?: number | null;
   onSubmitSuccess: () => void;
   /**
    * Optional persistence callback invoked on match submission.
@@ -56,6 +62,8 @@ export function useTeamMatchPlayState({
   currentHoleWinner,
   getPlayerScoreValue,
   totalHoles,
+  plannedHoles,
+  holesPlayed = null,
   onSubmitSuccess,
   onPersistResult,
 }: UseTeamMatchPlayStateParams) {
@@ -116,10 +124,15 @@ export function useTeamMatchPlayState({
     getPlayerScoreValue,
   ]);
 
-  // Calculate match status against the planned holes (never a default 18).
+  const retainedResults = useMemo(
+    () => retainTeamMatchResults(holeResults, totalHoles, holesPlayed, plannedHoles),
+    [holeResults, totalHoles, holesPlayed, plannedHoles]
+  );
+
+  // Status and counts share the physical played prefix; totalHoles stays planned.
   const matchStatus: TeamMatchStatus = useMemo(
-    () => calculateTeamMatchStatus(holeResults, totalHoles),
-    [holeResults, totalHoles]
+    () => calculateTeamMatchStatus(retainedResults, totalHoles, holesPlayed),
+    [retainedResults, totalHoles, holesPlayed]
   );
   const isMatchComplete = matchStatus.status === 'complete';
   const matchStatusText = useMemo(
@@ -138,7 +151,7 @@ export function useTeamMatchPlayState({
   );
 
   // Count holes won
-  const holesWon = useMemo(() => countHolesWon(holeResults), [holeResults]);
+  const holesWon = useMemo(() => countHolesWon(retainedResults), [retainedResults]);
 
   // Submit match result
   const handleSubmitMatch = useCallback(async () => {

@@ -7,8 +7,10 @@ import type { Hole } from '@/types/database.types';
 import type { MatchTeam } from '@/screens/scoring/TeamMatchPlayScoringScreen/types';
 
 export interface TeamMatchPlayScorecardTableProps {
-  /** Course holes data */
+  /** Planned holes (already nine-filtered); used for match mathematics. */
   holes: Hole[];
+  /** Played count when ended early; null/undefined = as planned. */
+  holesPlayed?: number | null;
   /** Team A data (members must already have playing handicap populated). */
   team1: MatchTeam;
   /** Team B data (members must already have playing handicap populated). */

@@ -17,6 +17,8 @@
  * | TOT  | 72  | 77      | 75      | Joe 2 UP    |
  */
 
+import { filterPlayableHoles } from '@/utils/holeTransformers';
+import { resolveEndedAfter } from '@/utils/matchPlayResult';
 import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -41,26 +43,36 @@ export const MatchPlayScorecardTable = React.memo(function MatchPlayScorecardTab
   player2,
   getPlayerScore,
   onHolePress,
+  holesPlayed = null,
   player1Handicap = 0,
   player2Handicap = 0,
   startHole = 1,
 }: MatchPlayScorecardTableProps) {
   const colors = useThemeColors();
+  // Normalize cutoff exactly as the table utility does; keep planned holes for math.
+  const endedAfter = resolveEndedAfter(holes.length || 18, holesPlayed);
+  const playedHoles = useMemo(
+    () => filterPlayableHoles(holes, 'full', endedAfter),
+    [holes, endedAfter]
+  );
 
   // Split holes into front 9 and back 9
   const front9Holes = useMemo(
-    () => holes.filter((h) => h.number <= 9).sort((a, b) => a.number - b.number),
-    [holes]
+    () => playedHoles.filter((h) => h.number <= 9).sort((a, b) => a.number - b.number),
+    [playedHoles]
   );
   const back9Holes = useMemo(
-    () => holes.filter((h) => h.number > 9).sort((a, b) => a.number - b.number),
-    [holes]
+    () => playedHoles.filter((h) => h.number > 9).sort((a, b) => a.number - b.number),
+    [playedHoles]
   );
 
   // Calculate all match data
   const data = useMemo(
-    () => calculateAllData(holes, player1.id, player2.id, getPlayerScore, player1Handicap, player2Handicap),
-    [holes, player1.id, player2.id, getPlayerScore, player1Handicap, player2Handicap]
+    () => calculateAllData(
+      holes, player1.id, player2.id, getPlayerScore,
+      player1Handicap, player2Handicap, endedAfter
+    ),
+    [holes, player1.id, player2.id, getPlayerScore, player1Handicap, player2Handicap, endedAfter]
   );
 
   return (

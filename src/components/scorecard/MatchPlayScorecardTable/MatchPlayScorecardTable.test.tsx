@@ -634,3 +634,112 @@ describe('MatchPlayScorecardTable', () => {
     });
   });
 });
+
+describe('MatchPlayScorecardTable early-end baseline', () => {
+  it('renders all planned rows for a partial card', () => {
+    render(
+      <MatchPlayScorecardTable
+        holes={defaultHoles}
+        player1={defaultPlayer1}
+        player2={defaultPlayer2}
+        getPlayerScore={createScoreGetter({ 'player-1': { 1: 3 }, 'player-2': { 1: 4 } })}
+      />
+    );
+    expect(screen.getByText('18')).toBeTruthy();
+    expect(screen.queryByText('JS 1 up')).toBeNull();
+  });
+});
+
+describe('Ended early (holesPlayed)', () => {
+  // Fixture pars for holes 1-6: 4,3,5,4,4,3. John wins 1 (3 v 4) and 3 (4 v 5); the rest are halved.
+  const scores: Record<string, Record<number, number>> = {
+    'player-1': { 1: 3, 2: 3, 3: 4, 4: 4, 5: 4, 6: 3 },
+    'player-2': { 1: 4, 2: 3, 3: 5, 4: 4, 5: 4, 6: 3 },
+  };
+
+  it('renders only the played holes and settles the match on the lead', () => {
+    render(
+      <MatchPlayScorecardTable
+        holes={defaultHoles}
+        player1={defaultPlayer1}
+        player2={defaultPlayer2}
+        getPlayerScore={createScoreGetter(scores)}
+        holesPlayed={6}
+      />
+    );
+
+    expect(screen.getAllByText('6').length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText('7')).toBeNull();
+    expect(screen.queryByText('18')).toBeNull();
+    // Hole 6 row + TOT row: complete "2 up", not the in-progress "2 UP".
+    expect(screen.getAllByText('JS 2 up')).toHaveLength(2);
+  });
+
+  it('renders every planned hole when played as planned (characterization)', () => {
+    render(
+      <MatchPlayScorecardTable
+        holes={defaultHoles}
+        player1={defaultPlayer1}
+        player2={defaultPlayer2}
+        getPlayerScore={createScoreGetter(scores)}
+      />
+    );
+
+    expect(screen.getAllByText('18').length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText('JS 2 up')).toBeNull();
+  });
+});
+
+describe('MatchPlayScorecardTable cutoff rerenders', () => {
+  it('renders back-nine physical rows and recomputes when only cutoff changes', () => {
+    const planned = defaultHoles.slice(9);
+    const getScore = createScoreGetter({
+      'player-1': { 10: 3, 11: 4, 12: 4 },
+      'player-2': { 10: 4, 11: 4, 12: 4 },
+    });
+    const card = (holesPlayed: number | null) => (
+      <MatchPlayScorecardTable
+        holes={planned}
+        player1={defaultPlayer1}
+        player2={defaultPlayer2}
+        getPlayerScore={getScore}
+        holesPlayed={holesPlayed}
+      />
+    );
+    const { rerender } = render(card(null));
+    expect(screen.getByText('18')).toBeTruthy();
+    rerender(card(3));
+    expect(screen.getByText('10')).toBeTruthy();
+    expect(screen.getAllByText('12').length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText('13')).toBeNull();
+    expect(screen.queryByText('18')).toBeNull();
+    expect(screen.getByText('OUT')).toBeTruthy();
+    expect(screen.getByText('IN')).toBeTruthy();
+    expect(screen.getByText('TOT')).toBeTruthy();
+    rerender(card(null));
+    expect(screen.getByText('18')).toBeTruthy();
+  });
+  it.each([0, -1, 1.5, 18, 19, NaN, Infinity])(
+    'preserves baseline rows and running statuses for invalid cutoff %s',
+    (cutoff) => {
+      const planned = [defaultHoles[2], defaultHoles[0], defaultHoles[1], ...defaultHoles.slice(3)];
+      const getScore = createScoreGetter({
+        'player-1': { 1: 3, 2: 3, 3: 4 },
+        'player-2': { 1: 4, 2: 3, 3: 5 },
+      });
+      const card = (holesPlayed: number | null) => (
+        <MatchPlayScorecardTable
+          holes={planned}
+          player1={defaultPlayer1}
+          player2={defaultPlayer2}
+          getPlayerScore={getScore}
+          holesPlayed={holesPlayed}
+        />
+      );
+      const { rerender, toJSON } = render(card(null));
+      const baseline = toJSON();
+      rerender(card(cutoff));
+      expect(toJSON()).toEqual(baseline);
+    }
+  );
+});

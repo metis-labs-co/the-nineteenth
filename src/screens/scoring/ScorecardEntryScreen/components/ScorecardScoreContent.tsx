@@ -35,7 +35,8 @@ import { getTeeColor } from '@/services/courses';
 import type { BallCount } from '@/types/multiball.types';
 import { isSingleBallScore } from '@/types/database';
 import { calculateStablefordPointsNet, calculateNetScore, calculateParScore, getStrokesOnHole, getStrokesReceived } from '@/utils/scoring';
-import { PICKUP_SCORE } from '@/constants/scoring';
+import { useScorecardStore } from '@/store/scorecardStore';
+import { PICKUP_SCORE, getHoleCount } from '@/constants/scoring';
 import { useSettingsStore } from '@/store/settingsStore';
 
 /** Display info for a player's handicap on scorecard cards */
@@ -185,6 +186,13 @@ export function ScorecardScoreContent({
   playersOverride,
   roundId,
 }: ScorecardScoreContentProps) {
+  const holesPlayed = useScorecardStore((s) => s.holesPlayed);
+  // Read planned context directly: `holes` may be a played-only rendering list.
+  const plannedHoles = useScorecardStore((s) => s.holes);
+  const nineType = useScorecardStore((s) => s.nineType);
+  const plannedHoleCount = Number.isInteger(holesPlayed) && (holesPlayed ?? 0) > 0
+    ? plannedHoles.length || getHoleCount(nineType)
+    : holes.length;
   // Map of player_id -> team name, used to render team affiliation under
   // each player's name on individual score cards. Sources, in priority:
   //  1. Competition-level teams (covers singles match play and any
@@ -606,7 +614,9 @@ export function ScorecardScoreContent({
         onTeam1ScoreSelect={(strokes) => handleTeamMatchPlayScoreSelect(0, strokes)}
         onTeam2ScoreSelect={(strokes) => handleTeamMatchPlayScoreSelect(1, strokes)}
         holeResults={teamMatchPlayResults}
-        totalHoles={holes.length}
+        totalHoles={plannedHoleCount}
+        plannedHoles={plannedHoles}
+        holesPlayed={holesPlayed}
       />
     );
   }

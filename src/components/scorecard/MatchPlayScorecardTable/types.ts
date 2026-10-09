@@ -9,8 +9,10 @@ import type { HoleResult, MatchStatus } from '@/screens/scoring/MatchPlayScoring
 import type { Hole } from '@/types/database.types';
 
 export interface MatchPlayScorecardTableProps {
-  /** Course holes data */
+  /** Planned holes (already nine-filtered); used for match mathematics. */
   holes: Hole[];
+  /** Played count when ended early; null/undefined = as planned. */
+  holesPlayed?: number | null;
   /** Player 1 info */
   player1: { id: string; name: string };
   /** Player 2 info */

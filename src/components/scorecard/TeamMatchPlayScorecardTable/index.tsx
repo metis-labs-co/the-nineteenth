@@ -13,6 +13,8 @@
  * uses `getFirstName` which would collapse "Team 1" / "Team 2" to "Team").
  */
 
+import { filterPlayableHoles } from '@/utils/holeTransformers';
+import { resolveEndedAfter } from '@/utils/matchPlayResult';
 import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
@@ -30,21 +32,28 @@ export const TeamMatchPlayScorecardTable = React.memo(function TeamMatchPlayScor
   team2,
   getPlayerScore,
   onHolePress,
+  holesPlayed = null,
 }: TeamMatchPlayScorecardTableProps) {
   const colors = useThemeColors();
+  // Normalize cutoff exactly as the table utility does; keep planned holes for math.
+  const endedAfter = resolveEndedAfter(holes.length || 18, holesPlayed);
+  const playedHoles = useMemo(
+    () => filterPlayableHoles(holes, 'full', endedAfter),
+    [holes, endedAfter]
+  );
 
   const front9Holes = useMemo(
-    () => holes.filter((h) => h.number <= 9).sort((a, b) => a.number - b.number),
-    [holes]
+    () => playedHoles.filter((h) => h.number <= 9).sort((a, b) => a.number - b.number),
+    [playedHoles]
   );
   const back9Holes = useMemo(
-    () => holes.filter((h) => h.number > 9).sort((a, b) => a.number - b.number),
-    [holes]
+    () => playedHoles.filter((h) => h.number > 9).sort((a, b) => a.number - b.number),
+    [playedHoles]
   );
 
   const data = useMemo(
-    () => calculateTeamMatchData(holes, team1, team2, getPlayerScore),
-    [holes, team1, team2, getPlayerScore]
+    () => calculateTeamMatchData(holes, team1, team2, getPlayerScore, endedAfter),
+    [holes, team1, team2, getPlayerScore, endedAfter]
   );
 
   return (

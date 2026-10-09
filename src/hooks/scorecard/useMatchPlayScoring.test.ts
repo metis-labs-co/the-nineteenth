@@ -59,7 +59,8 @@ function buildGroupScorecards(
 
 function setupStoreMock(
   scores: Record<string, Record<number, { strokes: number }>> = {},
-  holes: Hole[] = defaultHoles
+  holes: Hole[] = defaultHoles,
+  holesPlayed: number | null = null
 ) {
   mockGetPlayerScore.mockImplementation((playerId: string, holeNumber: number) => {
     const playerScores = scores[playerId];
@@ -80,6 +81,7 @@ function setupStoreMock(
     getHoleInfo: mockGetHoleInfo,
     holes,
     groupScorecards,
+    holesPlayed,
   } as any);
 }
 
@@ -776,6 +778,105 @@ describe('useMatchPlayScoring', () => {
       rerender({ ...defaultParams, currentHole: 5 });
 
       expect(result.current.getPlayerScore('player1')).toBe(3);
+    });
+  });
+});
+
+describe('useMatchPlayScoring early-end baseline', () => {
+  it('keeps six decided holes in progress against eighteen planned holes', () => {
+    setupStoreMock(scoresFor(defaultHoles.slice(0, 6), [2, 5]));
+    const { result } = renderHook(() =>
+      useMatchPlayScoring({ ...defaultParams, player2Handicap: 18 })
+    );
+    expect(result.current.matchStatus).toEqual({
+      status: 'in_progress',
+      leader: 'player1',
+      holesUp: 2,
+      holesRemaining: 12,
+    });
+  });
+});
+
+describe('round ended early (store holesPlayed)', () => {
+  const firstSix = defaultHoles.filter((h) => h.number <= 6);
+  const evenHandicaps = { ...defaultParams, player2Handicap: defaultParams.player1Handicap };
+
+  it('settles an 18-hole match ended after 6 on the lead: complete "2 up"', () => {
+    // Player 1 wins holes 2 and 5 (3 v 4); holes 1, 3, 4, 6 halved.
+    setupStoreMock(scoresFor(firstSix, [2, 5]), defaultHoles, 6);
+
+    const { result } = renderHook(() => useMatchPlayScoring(evenHandicaps));
+
+    expect(result.current.isMatchComplete).toBe(true);
+    expect(result.current.matchStatus).toEqual({
+      status: 'complete',
+      winner: 'player1',
+      margin: '2 up',
+    });
+    expect(result.current.matchStatusText).toBe('John Smith wins 2 up');
+    expect(result.current.player1MatchStatus.fullText).toBe('Won 2 up');
+  });
+
+  it('halves an ended-early match that is level', () => {
+    setupStoreMock(scoresFor(firstSix, []), defaultHoles, 6);
+
+    const { result } = renderHook(() => useMatchPlayScoring(evenHandicaps));
+
+    expect(result.current.matchStatus).toEqual({
+      status: 'complete',
+      winner: 'halved',
+      margin: 'All Square',
+    });
+    expect(result.current.matchStatusText).toBe('Match Halved');
+  });
+
+  it('is still in progress with the same scores when the round was not ended (characterization)', () => {
+    setupStoreMock(scoresFor(firstSix, [2, 5]), defaultHoles, null);
+
+    const { result } = renderHook(() => useMatchPlayScoring(evenHandicaps));
+
+    expect(result.current.matchStatus).toEqual({
+      status: 'in_progress',
+      leader: 'player1',
+      holesUp: 2,
+      holesRemaining: 12,
+    });
+  });
+});
+
+describe('useMatchPlayScoring cutoff rerenders', () => {
+  it('recomputes when only store cutoff changes, keeping planned nine and ignoring stale later scores', () => {
+    const planned = defaultHoles.slice(9);
+    setupStoreMock(scoresFor(planned, [10, 12]), planned);
+    const state = mockedUseScorecardStore();
+    const { result, rerender } = renderHook(() =>
+      useMatchPlayScoring({ ...defaultParams, player2Handicap: 18 })
+    );
+    expect(result.current.matchStatus).toEqual({
+      status: 'complete',
+      winner: 'player1',
+      margin: '2 up',
+    });
+    mockedUseScorecardStore.mockReturnValue({ ...state, holesPlayed: 6 });
+    rerender({});
+    expect(result.current.matchStatus).toEqual({
+      status: 'complete',
+      winner: 'player1',
+      margin: '2 up',
+    });
+    mockedUseScorecardStore.mockReturnValue({ ...state, holesPlayed: 2 });
+    rerender({});
+    expect(result.current.matchStatus).toEqual({
+      status: 'complete',
+      winner: 'player1',
+      margin: '1 up',
+    });
+    mockedUseScorecardStore.mockReturnValue(state);
+    rerender({});
+    expect(result.current.matchStatus).toEqual({
+      status: 'complete',
+      winner: 'player1',
+      margin: '2 up',
     });
   });
 });

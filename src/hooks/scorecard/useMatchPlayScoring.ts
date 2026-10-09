@@ -91,7 +91,7 @@ export function useMatchPlayScoring({
 }: UseMatchPlayScoringParams): UseMatchPlayScoringResult {
   // Get store functions and data
   // IMPORTANT: We need groupScorecards in the dependency to trigger re-renders when scores change
-  const { setPlayerScore, getHoleInfo, holes, groupScorecards } = useScorecardStore();
+  const { setPlayerScore, getHoleInfo, holes, groupScorecards, holesPlayed } = useScorecardStore();
 
   // Build hole results from store scores
   // Note: We read directly from groupScorecards to ensure reactivity when scores change
@@ -172,11 +172,12 @@ export function useMatchPlayScoring({
   // Calculate match status against the round's planned holes — the store's
   // nine-filtered list (9 for front9/back9). Defaulting to 18 meant a 9-hole
   // match could never reach "complete". An empty list (not loaded yet) keeps
-  // 18, so it never reads as a finished, halved match.
+  // 18, so it never reads as a finished, halved match. Ended rounds settle
+  // after holesPlayed while real close-outs still use the planned count.
   const plannedHoleCount = holes.length || 18;
   const matchStatus = useMemo(
-    () => calculateMatchStatus(holeResults, plannedHoleCount),
-    [holeResults, plannedHoleCount]
+    () => calculateMatchStatus(holeResults, plannedHoleCount, holesPlayed),
+    [holeResults, plannedHoleCount, holesPlayed]
   );
   const isMatchComplete = matchStatus.status === 'complete';
   const matchStatusText = useMemo(

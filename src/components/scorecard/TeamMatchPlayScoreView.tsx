@@ -24,6 +24,7 @@ import type { Hole, HoleScore, MultiBallHoleScore } from '@/types';
 import { isSingleBallScore } from '@/types/database';
 import type { TeamWithMembers } from '@/types/database.types';
 import { PICKUP_SCORE } from '@/constants/scoring';
+import { retainTeamMatchResults } from '@/screens/scoring/TeamMatchPlayScoringScreen/utils/playedTeamMatchResults';
 import { compactMatchMargin } from '@/utils/matchMargin';
 import {
   calculateTeamMatchStatus,
@@ -43,6 +44,10 @@ interface TeamMatchPlayScoreViewProps {
   holeResults: Map<number, 'team1' | 'team2' | 'halved'>;
   /** Planned holes in the match (the round's nine-filtered count: 9 or 18). */
   totalHoles: number;
+  /** Actual planned card, required to resolve sparse results when ended early. */
+  plannedHoles?: readonly Pick<Hole, 'number'>[];
+  /** Count played when ended early; null/undefined = as planned. */
+  holesPlayed?: number | null;
   disabled?: boolean;
 }
 
@@ -59,7 +64,9 @@ function describeMatchStatus(
   holeResults: Map<number, 'team1' | 'team2' | 'halved'>,
   totalHoles: number,
   team1Name: string,
-  team2Name: string
+  team2Name: string,
+  holesPlayed: number | null,
+  plannedHoles?: readonly Pick<Hole, 'number'>[]
 ): { status: string; team1Holes: number; team2Holes: number; halved: number; winner: 'team1' | 'team2' | null } {
   const results: Record<number, TeamHoleResult> = {};
   holeResults.forEach((winner, holeNumber) => {
@@ -72,8 +79,9 @@ function describeMatchStatus(
     };
   });
 
-  const { team1: team1Holes, team2: team2Holes, halved } = countHolesWon(results);
-  const matchStatus = calculateTeamMatchStatus(results, totalHoles);
+  const retainedResults = retainTeamMatchResults(results, totalHoles, holesPlayed, plannedHoles);
+  const { team1: team1Holes, team2: team2Holes, halved } = countHolesWon(retainedResults);
+  const matchStatus = calculateTeamMatchStatus(retainedResults, totalHoles, holesPlayed);
   const nameFor = (team: 'team1' | 'team2') => (team === 'team1' ? team1Name : team2Name);
 
   if (matchStatus.status === 'complete') {
@@ -114,13 +122,15 @@ export const TeamMatchPlayScoreView = React.memo(function TeamMatchPlayScoreView
   onTeam2ScoreSelect,
   holeResults,
   totalHoles,
+  plannedHoles,
+  holesPlayed = null,
   disabled = false,
 }: TeamMatchPlayScoreViewProps) {
   const colors = useThemeColors();
 
   const matchStatus = useMemo(
-    () => describeMatchStatus(holeResults, totalHoles, team1.name, team2.name),
-    [holeResults, totalHoles, team1.name, team2.name]
+    () => describeMatchStatus(holeResults, totalHoles, team1.name, team2.name, holesPlayed, plannedHoles),
+    [holeResults, totalHoles, team1.name, team2.name, holesPlayed, plannedHoles]
   );
 
   // Narrow to single-ball scores for accessing strokes

@@ -25,6 +25,7 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import { useIsSuperAdmin } from '@/store/subscriptionStore';
 import { useScorecardStore } from '@/store/scorecardStore';
+import { getHoleCount } from '@/constants/scoring';
 import { resolveRoundShape } from '@/utils/roundShape';
 import { useRoundDetails } from '@/hooks/useRoundDetails';
 import { useRoundTeams } from '@/hooks/scorecard/useRoundTeams';
@@ -72,6 +73,9 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
     syncError,
     startHole,
   } = useScorecardStore();
+  const storeHolesPlayed = useScorecardStore((s) => s.holesPlayed);
+  // Store holes stay planned even when navigation later renders a played slice.
+  const storePlannedHoles = useScorecardStore((s) => s.holes);
   const isOnline = useOnlineStatus();
   const { triggerSync } = useOfflineSync();
 
@@ -427,7 +431,11 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
     team2BestScore,
     currentHoleWinner,
     getPlayerScoreValue,
-    totalHoles: holes.length || 18,
+    totalHoles: Number.isInteger(storeHolesPlayed) && (storeHolesPlayed ?? 0) > 0
+      ? storePlannedHoles.length || getHoleCount(roundNineType)
+      : holes.length || 18,
+    plannedHoles: storePlannedHoles,
+    holesPlayed: storeHolesPlayed,
     onSubmitSuccess: () => navigation.goBack(),
     onPersistResult: isSplitRound && activeSubMatch ? handlePersistSubMatchResult : undefined,
   });
