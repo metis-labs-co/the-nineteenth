@@ -503,7 +503,10 @@ describe('recalculateScorecardDifferential', () => {
 
 
 describe('shape-aware handicap patch', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    setSyncAuthUser('owner');
+  });
   it('writes the exact narrow handicap RPC with its preparation shape', async () => {
     setupMocks();
     await recalculateScorecardDifferential(SCORECARD_ID);
@@ -521,7 +524,10 @@ describe('shape-aware handicap patch', () => {
 
 
 describe('ended recalculation', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    setSyncAuthUser('owner');
+  });
   it('keeps an ended legacy gross-only card differential NULL', async () => {
     setupMocks({ round: { ...mockRound, holes_played: 6 }, scorecard: { ...mockScorecard, scores: {} } });
     const result = await recalculateScorecardDifferential(SCORECARD_ID);
