@@ -1,3 +1,4 @@
+import { recoverHydratedScorecards, type DurableHydrationRecovery } from './recoverHydratedScorecards';
 import { getSyncAuthUserId } from '@/services/offline/sync/networkState';
 import { captureRoundPersistenceSource, isRoundPersistenceSourceCurrent, withRoundPersistence, waitForRoundPersistenceReady, RoundPersistenceSourceChangedError } from '@/services/offline/roundPersistenceBarrier';
 /**
@@ -354,6 +355,7 @@ export function useMatchPlayData({
   // that exist in Supabase but not in the local SQLite store
   const hydratedRoundRef = useRef<string | null>(null);
 
+  const durableRecoveryRef = useRef<DurableHydrationRecovery | null>(null);
   const [hydrationAttempt, setHydrationAttempt] = useState(0);
   useEffect(() => {
     let cancelled = false;
@@ -371,6 +373,13 @@ export function useMatchPlayData({
       hydratedRoundRef.current = roundId;
 
       try {
+        const recovery = durableRecoveryRef.current;
+        if (recovery?.roundId === roundId && recovery.isCurrent()) {
+          const needsRemote = await recoverHydratedScorecards({ ...recovery, isCurrent: () => current() && recovery.isCurrent() });
+          assertCurrent();
+          durableRecoveryRef.current = null;
+          if (!needsRemote) return;
+        } else durableRecoveryRef.current = null;
         interface RemoteScorecard {
           player_id: string;
           revision: number;
@@ -444,6 +453,14 @@ export function useMatchPlayData({
               await saveScorecard(updatedScorecard, { lease,
                 ...(provisionalSource && { replaceProvisionalHandicapSource: provisionalSource }),
               });
+              if (session.isCurrent() && getSyncAuthUserId() === ownerId) {
+                const recovery = durableRecoveryRef.current ?? {
+                  roundId, isCurrent: () => session.isCurrent() && getSyncAuthUserId() === ownerId,
+                  originals: new Map<string, Scorecard>(),
+                };
+                recovery.originals.set(remote.player_id, localScorecard);
+                durableRecoveryRef.current = recovery;
+              }
               session.invalidateLiveContext(updatedScorecard.id);
               assertCurrent();
               if (useScorecardStore.getState().groupScorecards.get(remote.player_id) !== localScorecard) return;
@@ -462,6 +479,7 @@ export function useMatchPlayData({
         }
 
         assertCurrent();
+        durableRecoveryRef.current = null;
         if (candidates.size) {
           const latest = useScorecardStore.getState().groupScorecards;
           const merged = new Map(latest);

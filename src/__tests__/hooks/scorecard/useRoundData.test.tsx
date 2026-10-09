@@ -11,7 +11,7 @@
 
 import { renderHook } from '@testing-library/react-native';
 import { useRoundData } from '@/hooks/scorecard/useRoundData';
-import { saveScorecard, markScorecardAsSynced } from '@/services/offline/database';
+import { saveScorecard, markScorecardAsSynced, getScorecardsByRound } from '@/services/offline/database';
 import { Platform } from 'react-native';
 import type { Hole, Scorecard } from '@/types';
 
@@ -23,7 +23,8 @@ let mockRemoteScorecards: unknown[] = [];
 
 const mockStoreState = {
   currentRoundId: ROUND_ID as string | null,
-  captureRoundScoringSession: () => {
+  captureRoundScoringSession: (roundId: string) => {
+    if (mockStoreState.currentRoundId !== roundId) return null;
     const identity = mockStoreState.currentRoundId;
     return { isCurrent: () => mockStoreState.currentRoundId === identity, invalidateLiveContext: jest.fn() };
   },
@@ -116,6 +117,7 @@ jest.mock('@/store/initializeRoundSlice', () => ({
 }));
 jest.mock('@/services/offline/database', () => ({
   saveScorecard: jest.fn(() => Promise.resolve()),
+  getScorecardsByRound: jest.fn(async () => []),
   markScorecardAsSynced: jest.fn(() => Promise.resolve()),
 }));
 jest.mock('@/services/diagnostics', () => ({ pushDiagnostic: jest.fn() }));
@@ -464,4 +466,75 @@ it('ordinary current-session hydration rejection does not schedule a retry loop'
   });
   renderTheHook(); await tick();
   expect((supabase.from as jest.Mock).mock.calls.filter(([table]) => table === 'scorecards')).toHaveLength(1);
+});
+
+
+it.each(['commit', 'rollback', 'reclose during recovery', 'session change during recovery', 'local edit during recovery', 'unmount during recovery'])('C2b recovers a committed native replacement after transition %s during save', async (outcome) => {
+  const { act } = require('@testing-library/react-native');
+  const { withRoundPersistenceTransition } = require('@/services/offline/roundPersistenceBarrier');
+  jest.clearAllMocks();
+  mockStoreState.currentRoundId = ROUND_ID; mockStoreState.isInitialized = true;
+  mockStoreState.nineType = 'front9'; mockStoreState.holesPlayed = null;
+  mockMetadata.data.nineType = 'front9'; mockMetadata.data.holesPlayed = null;
+  const blank = { id: 'native-recovery', roundId: ROUND_ID, playerId: 'player-1', scores: {}, status: 'in-progress' as const, syncHandicapSource: 'none' as const,
+    player: { id: 'player-1', name: 'Current', email: '', handicap: 14, handicapIndex: 12, gender: 'female' as const, createdAt: new Date(), updatedAt: new Date() } };
+  mockGroupScorecards = new Map([['player-1', blank]]);
+  mockRemoteScorecards = [{ player_id: 'player-1', scores: { 1: { strokes: 5 } }, status: 'completed', total_gross: 5, total_net: 5, revision: 3 }];
+  let durable: Partial<import('@/types').Scorecard> = { ...blank };
+  let releaseSave!: () => void; let releaseTransition!: () => void;
+  const strictSave = jest.fn(async (card, options) => {
+    if (options?.replaceProvisionalHandicapSource && (durable.syncHandicapSource !== options.replaceProvisionalHandicapSource || Object.keys(durable.scores ?? {}).length))
+      throw new Error('Strict native provisional predicate refused second replacement');
+    durable = { ...card }; // First native transaction committed before the admitted operation resolves.
+    await new Promise<void>(r => { releaseSave = r; });
+  });
+  (saveScorecard as jest.Mock).mockImplementation(strictSave);
+  let releaseRecoveryRead!: () => void;
+  const decoded = () => ({ ...durable, player: durable.player && { ...durable.player, handicapIndex: undefined, gender: undefined } });
+  (getScorecardsByRound as jest.Mock).mockImplementation(async () => [decoded()]);
+  if (outcome.includes('during recovery'))
+    (getScorecardsByRound as jest.Mock).mockImplementationOnce(async () => {
+      await new Promise<void>(r => { releaseRecoveryRead = r; });
+      return [decoded()];
+    });
+  const hook = renderTheHook();
+  await act(async () => { for (let i = 0; i < 20; i++) await Promise.resolve(); });
+  expect(strictSave).toHaveBeenCalledTimes(1);
+  const transition = withRoundPersistenceTransition(ROUND_ID, { nine_type: 'front9', holes_played: null }, async () => {
+    await new Promise<void>(r => { releaseTransition = r; });
+    if (outcome === 'rollback') throw new Error('controlled rollback');
+  }, () => undefined).catch(() => undefined);
+  await act(async () => { releaseSave(); for (let i = 0; i < 30; i++) await Promise.resolve(); });
+  expect(mockGroupScorecards.get('player-1')).toBe(blank);
+  expect(getScorecardsByRound).not.toHaveBeenCalled();
+  await act(async () => { releaseTransition(); await transition; for (let i = 0; i < 60; i++) await Promise.resolve(); });
+  if (outcome === 'session change during recovery' || outcome === 'local edit during recovery' || outcome === 'unmount during recovery') {
+    if (outcome === 'session change during recovery') mockStoreState.currentRoundId = 'replacement-session';
+    if (outcome === 'local edit during recovery') mockGroupScorecards = new Map([['player-1', { ...blank, scores: { 1: { strokes: 9 } } }]]);
+    if (outcome === 'unmount during recovery') hook.unmount();
+    const retained = mockGroupScorecards.get('player-1');
+    await act(async () => { releaseRecoveryRead(); for (let i = 0; i < 40; i++) await Promise.resolve(); });
+    expect(mockGroupScorecards.get('player-1')).toBe(retained);
+    expect(strictSave).toHaveBeenCalledTimes(1);
+    expect(getScorecardsByRound).toHaveBeenCalledTimes(1);
+    if (outcome !== 'unmount during recovery') hook.unmount();
+    (saveScorecard as jest.Mock).mockImplementation(() => Promise.resolve());
+    return;
+  }
+  if (outcome === 'reclose during recovery') {
+    expect(getScorecardsByRound).toHaveBeenCalledTimes(1);
+    const secondTransition = withRoundPersistenceTransition(ROUND_ID, { nine_type: 'front9', holes_played: null },
+      () => new Promise<void>(r => { releaseTransition = r; }), () => undefined);
+    await act(async () => { releaseRecoveryRead(); for (let i = 0; i < 30; i++) await Promise.resolve(); });
+    expect(mockGroupScorecards.get('player-1')).toBe(blank);
+    expect(getScorecardsByRound).toHaveBeenCalledTimes(1);
+    await act(async () => { releaseTransition(); await secondTransition; for (let i = 0; i < 60; i++) await Promise.resolve(); });
+  }
+  expect(mockGroupScorecards.get('player-1')).toMatchObject({ scores: { 1: { strokes: 5 } }, status: 'completed', totalGross: 5 });
+  expect(mockGroupScorecards.get('player-1')).not.toHaveProperty('syncHandicapSource', 'none');
+  expect((mockGroupScorecards.get('player-1') as import('@/types').Scorecard).player).toBe(blank.player);
+  expect(strictSave).toHaveBeenCalledTimes(1);
+  expect(getScorecardsByRound).toHaveBeenCalledTimes(outcome === 'reclose during recovery' ? 2 : 1);
+  hook.unmount();
+  (saveScorecard as jest.Mock).mockImplementation(() => Promise.resolve());
 });

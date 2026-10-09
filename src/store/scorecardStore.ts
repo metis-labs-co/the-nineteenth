@@ -618,7 +618,7 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
       let errorCount = 0;
       for (const playerId of ids) {
         try {
-          const prepare = () => {
+          const prepare = (requireTerminalContext = false) => {
             assertSession();
             const state = get();
             if (!state.holes.length) throw new Error('No holes data available for submission');
@@ -626,7 +626,7 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
             if (!card) throw new Error('Scorecard missing during submission');
             const preserveContext = hasFrozenScoringContext(card) || state.holesPlayed != null;
             const shape = { nine_type: state.nineType, holes_played: state.holesPlayed ?? card.holesPlayed ?? null };
-            const basis = shape.holes_played != null
+            const basis = (requireTerminalContext && preserveContext) || shape.holes_played != null
               ? createRoundScoringContext(currentRoundId, { getLiveContext: session!.getLiveContext })(card, shapeHoleNumbers(shape), shape)
               : card;
             return {
@@ -644,20 +644,20 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
             };
           };
           const persist = () => withRoundPersistence(source, async lease => {
-            const original = get().groupScorecards.get(playerId);
+            const wasTerminal = hasFrozenScoringContext(get().groupScorecards.get(playerId)!);
             const prepared = prepare();
             await saveScorecard(prepared, { lease });
             assertSession();
-            if (!getIsOnline()) await queueScorecardSync(prepare(), 'update', { lease });
+            if (!getIsOnline()) await queueScorecardSync(prepare(!wasTerminal), 'update', { lease });
             assertSession();
-            // Patch CURRENT state; retained edits/newer terminal fields may have arrived during save.
-            const current = get().groupScorecards.get(playerId)!;
+            // Capture CURRENT scoring context before applying completion intent.
+            // A retained edit/revision notification may have replaced the active
+            // object while save waited, without having captured a scoring bundle.
+            const completed = prepare(!wasTerminal);
             const next = new Map(get().groupScorecards);
-            next.set(playerId, { ...current, status: current.status === 'confirmed' ? 'confirmed' : prepared.status,
-              submittedAt: current.submittedAt ?? prepared.submittedAt,
-              ...(current === original && prepared) });
+            next.set(playerId, completed);
             set({ groupScorecards: next });
-            return prepared;
+            return completed;
           });
           let prepared: Scorecard;
           try { prepared = await persist(); }

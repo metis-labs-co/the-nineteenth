@@ -1649,7 +1649,7 @@ describe('C2b atomic user end and current submission', () => {
     await getStore().submitScorecards();
     expect(submittedPayload(P1.id)).toMatchObject({ playerHandicap: 12, syncHandicapSource: 'calculated', teeData: TEE_RED });
   });
-  it('submission completion patches the CURRENT map after a local save await', async () => {
+  it('submission refuses an unexplained incomplete terminal replacement while preserving CURRENT fields', async () => {
     await start();
     let release!: () => void;
     (saveScorecard as jest.Mock).mockImplementationOnce(() => new Promise<void>(r => { release = r; }));
@@ -1657,8 +1657,46 @@ describe('C2b atomic user end and current submission', () => {
     for (let i=0;i<10;i++) await Promise.resolve();
     const current = getStore().groupScorecards.get(P1.id)!;
     useScorecardStore.setState({ groupScorecards: new Map([[P1.id, { ...current, scores: { 1: { strokes: 8 } }, status: 'confirmed', submittedBy: 'newer' }]]) });
-    release(); await submit;
+    const rejected = expect(submit).rejects.toThrow('Failed to submit');
+    release(); await rejected;
     expect(getStore().groupScorecards.get(P1.id)).toMatchObject({ scores: { 1: { strokes: 8 } }, status: 'confirmed', submittedBy: 'newer' });
+    expect(syncScorecard).not.toHaveBeenCalled();
+  });
+  it('submission preserves a complete CURRENT terminal basis and newer metadata after a local save await', async () => {
+    await start();
+    let release!: () => void;
+    (saveScorecard as jest.Mock).mockImplementationOnce(() => new Promise<void>(r => { release = r; }));
+    const submit = getStore().submitScorecards();
+    for (let i=0;i<10;i++) await Promise.resolve();
+    const submittedAt = new Date('2026-10-01');
+    const current = getStore().groupScorecards.get(P1.id)!;
+    useScorecardStore.setState({ groupScorecards: new Map([[P1.id, { ...current,
+      scores: { 1: { strokes: 8 } }, status: 'confirmed', submittedAt, submittedBy: 'newer', serverRevision: 7,
+      playerHandicap: 12, playerGender: null, teeData: TEE_WHITE, coursePar: 72,
+      syncHoles: create18Holes(), syncNineType: 'full', syncGameType: 'stroke', syncHandicapSource: 'calculated',
+    }]]) });
+    release(); await submit;
+    const expected = { scores: { 1: { strokes: 8 } }, totalGross: 8, status: 'confirmed', submittedAt,
+      submittedBy: 'newer', playerHandicap: 12, syncHandicapSource: 'calculated', syncNineType: 'full' };
+    expect(getStore().groupScorecards.get(P1.id)).toMatchObject({ ...expected, serverRevision: 7 });
+    expect(submittedPayload(P1.id)).toMatchObject({ ...expected, serverRevision: 7 });
+  });
+  it('ordinary online submission captures the CURRENT edited nine-hole card basis before completing it', async () => {
+    await getStore().initializeRound(ROUND_ID, [{ ...P1, handicap: 14, gender: 'female' }], create18Holes(), 'stroke', false, [], TEE_WHITE, 'profile', new Map(), 'back9');
+    await getStore().setPlayerScore(P1.id, 10, 4);
+    let release!: () => void;
+    (saveScorecard as jest.Mock).mockImplementationOnce(() => new Promise<void>(r => { release = r; }));
+    const submit = getStore().submitScorecards();
+    for (let i = 0; i < 10; i++) await Promise.resolve();
+    await getStore().setPlayerScore(P1.id, 10, 8);
+    release(); await submit;
+    const basis = {
+      status: 'completed', scores: { 10: { strokes: 8 } }, totalGross: 8,
+      teeData: TEE_WHITE, playerHandicap: 14, playerGender: 'female', coursePar: 36,
+      syncHoles: create18Holes().filter(h => h.number >= 10), syncGameType: 'stroke', syncNineType: 'back9', syncHandicapSource: 'profile',
+    };
+    expect(getStore().groupScorecards.get(P1.id)).toMatchObject(basis);
+    expect(submittedPayload(P1.id)).toMatchObject(basis);
   });
   it('offline submission queues current retained scores and terminal metadata after its save wait', async () => {
     const { getIsOnline } = require('@/services/offline/sync');
