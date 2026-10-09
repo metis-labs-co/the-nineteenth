@@ -46,6 +46,15 @@ function compatibleEvidence(source: Scorecard, other: Scorecard): boolean {
   }
   let overlap = false;
   for (const key of frozenKeys) {
+    // Explicit unknown gender is recorded input, so it cannot mix with a known
+    // gender. Matching unknowns alone still do not prove a shared frozen basis.
+    if (
+      key === 'playerGender' &&
+      source[key] !== undefined &&
+      other[key] !== undefined &&
+      !equal(source[key], other[key])
+    )
+      return false;
     if (
       source[key] === undefined ||
       source[key] === null ||
@@ -239,6 +248,26 @@ export function createRoundScoringContext(
         Number(resolved.teeData.courseRating) <= 0
       )
         fail('missing frozen HI/gender/tee ratings');
+      // Match calculateNineAwareDailyHandicap: a dedicated CR selects that
+      // nine's slope (or main fallback); otherwise both nine fields are unused.
+      if (target.nine_type !== 'full') {
+        const nineCourseRating =
+          target.nine_type === 'front9'
+            ? resolved.teeData?.courseRatingFront9
+            : resolved.teeData?.courseRatingBack9;
+        const nineSlopeRating =
+          (target.nine_type === 'front9'
+            ? resolved.teeData?.slopeRatingFront9
+            : resolved.teeData?.slopeRatingBack9) ?? resolved.teeData?.slopeRating;
+        if (
+          nineCourseRating != null &&
+          (!Number.isFinite(nineCourseRating) ||
+            nineCourseRating <= 0 ||
+            !Number.isFinite(nineSlopeRating) ||
+            Number(nineSlopeRating) <= 0)
+        )
+          fail('invalid frozen nine tee ratings');
+      }
     }
     const scores = Object.fromEntries(
       Object.entries(source.scores).filter(

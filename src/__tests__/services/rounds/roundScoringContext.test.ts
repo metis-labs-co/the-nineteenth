@@ -229,6 +229,63 @@ describe('pure shape context repair', () => {
       })
     ).toThrow(/context/i);
   });
+  it.each([
+    [null, 'female'],
+    ['female', null],
+  ] as const)(
+    'rejects donor gender %s -> %s when filling frozen HI',
+    (sourceGender, donorGender) => {
+      const source = card({ playerHandicap: undefined, playerGender: sourceGender });
+      const callback = createRoundScoringContext('r', {
+        sources: [card({ playerHandicap: 17, playerGender: donorGender })],
+      });
+      expect(() =>
+        callback(source, new Set([10, 11]), {
+          nine_type: 'back9',
+          holes_played: 2,
+        })
+      ).toThrow(expect.objectContaining({ kind: 'context_missing' }));
+    }
+  );
+  it('accepts compatible null-gender evidence without changing the frozen calculation basis', () => {
+    const source = card({ playerHandicap: undefined, playerGender: null });
+    const callback = createRoundScoringContext('r', {
+      sources: [card({ playerHandicap: 17, playerGender: null })],
+    });
+    const result = callback(source, new Set([10, 11]), { nine_type: 'back9', holes_played: 2 });
+    expect(result).toMatchObject({ playerHandicap: 17, playerGender: null, totalNet: 7 });
+    expect(calculateHandicapData(result).dailyHandicapUsed).toBe(13);
+  });
+  it('keeps a complete null-gender source authoritative over a disagreeing donor', () => {
+    const source = card({ playerHandicap: 17, playerGender: null });
+    const callback = createRoundScoringContext('r', {
+      sources: [card({ playerHandicap: 17, playerGender: 'female' })],
+    });
+    const result = callback(source, new Set([10, 11]), { nine_type: 'back9', holes_played: 2 });
+    expect(result).toMatchObject({ playerHandicap: 17, playerGender: null });
+    expect(calculateHandicapData(result).dailyHandicapUsed).toBe(13);
+  });
+  it('matching null gender alone does not prove a compatible frozen basis', () => {
+    const source = card({
+      playerHandicap: undefined,
+      playerGender: null,
+      teeData: undefined,
+      coursePar: undefined,
+      syncHoles: undefined,
+      syncGameType: undefined,
+      syncNineType: undefined,
+      syncHandicapSource: undefined,
+    });
+    const callback = createRoundScoringContext('r', {
+      sources: [card({ playerHandicap: 17, playerGender: null })],
+    });
+    expect(() =>
+      callback(source, new Set([10]), {
+        nine_type: 'back9',
+        holes_played: 2,
+      })
+    ).toThrow(expect.objectContaining({ kind: 'context_missing' }));
+  });
   it('uses proven current live none context for an active source, preserving absent HI', () => {
     const source = card({
       status: 'in-progress',
@@ -382,4 +439,97 @@ describe('pure shape context repair', () => {
       expect.objectContaining({ kind: 'context_changed' })
     );
   });
+});
+
+describe('effective tee ratings during pure context repair', () => {
+  function repair(nineType: 'full' | 'front9' | 'back9', teeData: TeeBox, none = false) {
+    const number = nineType === 'back9' ? 10 : 1;
+    return createRoundScoringContext('r', {})(
+      card({
+        playerHandicap: 17,
+        syncHandicapSource: none ? 'none' : 'profile',
+        teeData,
+        syncHoles: holes,
+        syncNineType: 'full',
+        coursePar: 72,
+        scores: { [number]: { strokes: 4 } },
+      }),
+      new Set([number]),
+      { nine_type: nineType, holes_played: 2 }
+    );
+  }
+  describe.each(['front9', 'back9'] as const)('%s', (nineType) => {
+    const courseKey = nineType === 'front9' ? 'courseRatingFront9' : 'courseRatingBack9';
+    const slopeKey = nineType === 'front9' ? 'slopeRatingFront9' : 'slopeRatingBack9';
+    it.each([
+      ['course', -1],
+      ['course', 0],
+      ['course', NaN],
+      ['course', Infinity],
+      ['slope', 0],
+      ['slope', NaN],
+      ['slope', Infinity],
+    ] as const)('refuses consumed dedicated %s rating %s', (kind, value) => {
+      const key = kind === 'course' ? courseKey : slopeKey;
+      expect(() => repair(nineType, { ...tee, [key]: value })).toThrow(
+        expect.objectContaining({ kind: 'context_missing' })
+      );
+    });
+    it.each([undefined, null])(
+      'uses main ratings when nine CR is %s, ignoring unused nine slope',
+      (courseRating) => {
+        const teeData = { ...tee, [courseKey]: courseRating, [slopeKey]: NaN };
+        const result = repair(nineType, teeData);
+        expect(result.totalNet).toBe(3);
+        expect(calculateHandicapData(result).dailyHandicapUsed).toBe(11);
+      }
+    );
+    it('uses main slope when dedicated CR exists but dedicated slope is absent', () => {
+      const result = repair(nineType, { ...tee, [slopeKey]: undefined });
+      expect(result.totalNet).toBe(3);
+      expect(calculateHandicapData(result).dailyHandicapUsed).toBe(nineType === 'front9' ? 11 : 13);
+    });
+    it('ignores invalid dedicated ratings on the opposite nine', () => {
+      const unused =
+        nineType === 'front9'
+          ? { courseRatingBack9: -1, slopeRatingBack9: NaN }
+          : { courseRatingFront9: -1, slopeRatingFront9: NaN };
+      const result = repair(nineType, { ...tee, ...unused });
+      expect(result.totalNet).toBe(3);
+      expect(calculateHandicapData(result).dailyHandicapUsed).toBe(nineType === 'front9' ? 10 : 14);
+    });
+  });
+  it('full uses main ratings and ignores all dedicated nine ratings', () => {
+    const result = repair('full', {
+      ...tee,
+      courseRatingFront9: -1,
+      slopeRatingFront9: NaN,
+      courseRatingBack9: Infinity,
+      slopeRatingBack9: 0,
+    });
+    expect(result.totalNet).toBe(2);
+    expect(calculateHandicapData(result).dailyHandicapUsed).toBe(22);
+  });
+  it.each(['slopeRating', 'courseRating'] as const)('full refuses invalid main %s', (key) => {
+    expect(() => repair('full', { ...tee, [key]: 0 })).toThrow(
+      expect.objectContaining({ kind: 'context_missing' })
+    );
+  });
+  it.each(['full', 'front9', 'back9'] as const)(
+    'explicit none keeps DHC0 for %s despite invalid unused ratings',
+    (nineType) => {
+      const teeData = {
+        ...tee,
+        slopeRating: 0,
+        courseRating: NaN,
+        courseRatingFront9: -1,
+        slopeRatingFront9: NaN,
+        courseRatingBack9: Infinity,
+        slopeRatingBack9: 0,
+      };
+      const result = repair(nineType, teeData, true);
+      expect(result).toMatchObject({ totalNet: 4, playerHandicap: 17, teeData });
+      expect(calculateHandicapData(result).dailyHandicapUsed).toBe(0);
+    }
+  );
 });
