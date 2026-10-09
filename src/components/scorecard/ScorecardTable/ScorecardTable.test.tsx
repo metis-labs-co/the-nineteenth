@@ -910,4 +910,177 @@ describe('ScorecardTable', () => {
       expect(screen.queryByText('IN')).toBeNull();
     });
   });
+
+  describe('Ended early (holesPlayed)', () => {
+    function parThroughSix(): Record<string, { strokes: number }> {
+      return generateScores(holes.filter((hole) => hole.number <= 6));
+    }
+
+    it('renders only the played holes and hides the back-nine block', () => {
+      render(
+        <ScorecardTable
+          players={[createScorecardPlayer('1', 'John', 9, parThroughSix())]}
+          holes={holes}
+          nineType="full"
+          holesPlayed={6}
+          screenWidth={defaultScreenWidth}
+        />
+      );
+
+      expect(screen.getAllByText('6').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getByText('OUT')).toBeTruthy();
+      expect(screen.queryByText('IN')).toBeNull();
+      expect(screen.queryByText('18')).toBeNull();
+    });
+
+    it('nets over the played holes while keeping the planned daily handicap', () => {
+      render(
+        <ScorecardTable
+          players={[createScorecardPlayer('1', 'John', 9, parThroughSix())]}
+          holes={holes}
+          nineType="full"
+          holesPlayed={6}
+          screenWidth={defaultScreenWidth}
+        />
+      );
+
+      // Par 23 minus strokes on SI 7, 1, 5 = 20, rather than 23 - HC 9 = 14.
+      expect(screen.getByText('20')).toBeTruthy();
+      expect(screen.queryByText('14')).toBeNull();
+    });
+
+    it('slices a back-nine round from hole 10 (holes 10–15 after 6)', () => {
+      render(
+        <ScorecardTable
+          players={[createScorecardPlayer('1', 'John', 9)]}
+          holes={holes.filter((hole) => hole.number >= 10)}
+          nineType="back9"
+          holesPlayed={6}
+          screenWidth={defaultScreenWidth}
+        />
+      );
+
+      expect(screen.getAllByText('15').length).toBeGreaterThanOrEqual(1);
+      expect(screen.queryByText('17')).toBeNull();
+      expect(screen.getByText('IN')).toBeTruthy();
+      expect(screen.queryByText('OUT')).toBeNull();
+    });
+
+    it('updates rows, par, net and points when only the cutoff changes', () => {
+      const players = [createScorecardPlayer('1', 'John', 9, generateScores(holes))];
+      const props = {
+        players,
+        holes,
+        screenWidth: defaultScreenWidth,
+        gameType: 'stableford' as const,
+      };
+      const { rerender } = render(<ScorecardTable {...props} />);
+      expect(screen.getByText('HC: 9')).toBeTruthy();
+      expect(screen.getByText('45pt')).toBeTruthy();
+
+      rerender(<ScorecardTable {...props} holesPlayed={6} />);
+      expect(screen.queryByText('IN')).toBeNull();
+      expect(screen.getByText('HC: 9')).toBeTruthy();
+      expect(screen.getByText('20')).toBeTruthy();
+      expect(screen.getAllByText('15pt')).toHaveLength(2);
+      expect(screen.getAllByText('23')).toHaveLength(4); // Subtotal and Gross: par and player total.
+
+      rerender(<ScorecardTable {...props} holesPlayed={3} />);
+      expect(screen.getByText('10')).toBeTruthy();
+      expect(screen.getAllByText('8pt')).toHaveLength(2);
+      expect(screen.getAllByText('12')).toHaveLength(4); // OUT and Gross: par and player total.
+    });
+
+    it('renders ended rows and totals in the horizontal-scroll layout', () => {
+      const players = ['John', 'Jane', 'Sam', 'Noah'].map((name, index) =>
+        createScorecardPlayer(String(index), name, 9, generateScores(holes))
+      );
+      const onHolePress = jest.fn();
+      render(
+        <ScorecardTable
+          players={players}
+          holes={holes}
+          holesPlayed={6}
+          screenWidth={defaultScreenWidth}
+          gameType="stableford"
+          onHolePress={onHolePress}
+        />
+      );
+
+      expect(screen.getByText('OUT')).toBeTruthy();
+      expect(screen.queryByText('IN')).toBeNull();
+      expect(screen.queryByText('18')).toBeNull();
+      expect(screen.getAllByText('20')).toHaveLength(4);
+      expect(screen.getAllByText('15pt')).toHaveLength(8);
+      expect(screen.getAllByTestId(/^score-indicator-/)).toHaveLength(24);
+      fireEvent.press(screen.getAllByText('6')[0]);
+      expect(onHolePress).toHaveBeenCalledWith(6);
+    });
+
+    it('keeps the real tee-derived daily handicap and header course par after a cutoff', () => {
+      const players = [createScorecardPlayer('1', 'John', 9, generateScores(holes))];
+      const selectedTeeData = { name: 'White', color: 'white', slopeRating: 113, courseRating: 72 };
+      const props = {
+        players,
+        holes,
+        selectedTeeData,
+        screenWidth: defaultScreenWidth,
+        gameType: 'stableford' as const,
+      };
+      const { rerender } = render(<ScorecardTable {...props} />);
+      // round((9 * 113 / 113 + 72 - 72) * .93 * .9986) = 8.
+      expect(screen.getByText('DHC: 8')).toBeTruthy();
+
+      rerender(<ScorecardTable {...props} holesPlayed={6} />);
+      expect(screen.getByText('DHC: 8')).toBeTruthy();
+      expect(screen.getByText('20')).toBeTruthy();
+      expect(screen.getAllByText('15pt')).toHaveLength(2);
+    });
+
+    it('totals back-nine gross, net, par and points over holes 10–15', () => {
+      const back9 = holes.filter((hole) => hole.number >= 10);
+      render(
+        <ScorecardTable
+          players={[createScorecardPlayer('1', 'John', 9, generateScores(back9))]}
+          holes={back9}
+          nineType="back9"
+          holesPlayed={6}
+          gameType="stableford"
+          screenWidth={defaultScreenWidth}
+        />
+      );
+
+      expect(screen.getByText('IN')).toBeTruthy();
+      expect(screen.queryByText('OUT')).toBeNull();
+      expect(screen.queryByText('17')).toBeNull();
+      expect(screen.getByText('20')).toBeTruthy();
+      expect(screen.getAllByText('15pt')).toHaveLength(2);
+      expect(screen.getAllByText('23')).toHaveLength(4); // Subtotal and Gross: par and player total.
+    });
+
+    it('keeps snapshot handicap while points and retained rows agree after an early end', () => {
+      const player = {
+        ...createScorecardPlayer('1', 'John', 0, generateScores(holes)),
+        storedGaHandicap: 18,
+        storedDailyHandicap: 18,
+        storedTotalPoints: 54,
+      };
+      render(
+        <ScorecardTable
+          players={[player]}
+          holes={holes}
+          holesPlayed={6}
+          gameType="stableford"
+          screenWidth={defaultScreenWidth}
+        />
+      );
+
+      expect(screen.getByText('DHC: 18')).toBeTruthy();
+      expect(screen.getAllByTestId(/^score-indicator-/)).toHaveLength(6);
+      expect(screen.getAllByText('17')).toHaveLength(2); // Net 23 - 6 received strokes.
+      expect(screen.getAllByText('18pt')).toHaveLength(2); // Six net birdies.
+      expect(screen.queryByText('54pt')).toBeNull();
+      expect(screen.getAllByText('23')).toHaveLength(4); // Subtotal and Gross: par and player total.
+    });
+  });
 });

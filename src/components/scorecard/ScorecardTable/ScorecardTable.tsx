@@ -21,6 +21,7 @@ import {
   calculateParTotals,
   splitHolesByNine,
 } from '@/utils/scorecardCalculations';
+import { filterPlayableHoles } from '@/utils/holeTransformers';
 import {
   calculateScorecardLayout,
   FIXED_COLUMNS_WIDTH,
@@ -65,6 +66,8 @@ export const ScorecardTable = React.memo(function ScorecardTable({
   handicapSource,
   scoreDisplayMode,
   startHole = 1,
+  nineType = 'full',
+  holesPlayed = null,
 }: ScorecardTableProps) {
   const colors = useThemeColors();
   const [showHandicapInfo, setShowHandicapInfo] = useState(false);
@@ -84,23 +87,29 @@ export const ScorecardTable = React.memo(function ScorecardTable({
     [screenWidth, players.length, statsColumnCount]
   );
 
-  // Calculate player statistics (with daily handicap if tee data available)
+  // Display only played holes; keep the planned list for the daily handicap.
+  const playedHoles = useMemo(
+    () => filterPlayableHoles(Array.isArray(holes) ? holes : [], nineType, holesPlayed),
+    [holes, nineType, holesPlayed]
+  );
+
+  // Planned holes preserve the daily handicap; totals use the played cutoff.
   const playerStats = useMemo(
-    () => calculatePlayerStats(players, holes, selectedTeeData, handicapSource),
-    [players, holes, selectedTeeData, handicapSource]
+    () => calculatePlayerStats(players, holes, selectedTeeData, handicapSource, { holesPlayed }),
+    [players, holes, selectedTeeData, handicapSource, holesPlayed]
   );
 
   // Calculate par totals
-  const parTotals = useMemo(() => calculateParTotals(holes), [holes]);
+  const parTotals = useMemo(() => calculateParTotals(playedHoles), [playedHoles]);
 
-  // Calculate course par for daily handicap
+  // Course par for daily handicap always covers the planned holes.
   const coursePar = useMemo(
     () => (Array.isArray(holes) ? holes : []).reduce((sum, hole) => sum + hole.par, 0),
     [holes]
   );
 
   // Split holes
-  const { front9, back9 } = useMemo(() => splitHolesByNine(holes), [holes]);
+  const { front9, back9 } = useMemo(() => splitHolesByNine(playedHoles), [playedHoles]);
 
   const { playerCellWidth, needsHorizontalScroll } = layout;
 

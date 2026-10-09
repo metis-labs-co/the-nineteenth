@@ -6,6 +6,7 @@
 
 import type { Hole, TeeBox, GameType } from '@/types/database.types';
 import type { HandicapSource } from '@/types/database';
+import type { NineType } from '@/types/database/enums';
 import type { PlayerGender } from '@/types/database/player.types';
 import type { ScoresRecord, PlayerStats, ParTotals } from '@/utils/scorecardCalculations';
 
@@ -70,6 +71,10 @@ export interface ScorecardTableProps {
   /** Display offset for combo / cross-nine courses (default 1 = standard
    *  1..18, 10 = combo starting at facility hole 10). */
   startHole?: number;
+  /** The round's nine type (default 'full'). Used with holesPlayed to pick rows. */
+  nineType?: NineType;
+  /** Played-hole count after an early end. Keep holes planned for the daily handicap. */
+  holesPlayed?: number | null;
 }
 
 /**

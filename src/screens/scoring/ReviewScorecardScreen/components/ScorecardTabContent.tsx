@@ -27,9 +27,10 @@ import type { ScorecardTablePlayer } from '@/components/scorecard';
 import type { ScoreDisplayMode } from '@/components/scorecard/ScorecardTable/types';
 import { buildMultiBallHoleData, buildMultiBallStats } from '@/utils/multiBallScorecard';
 import { calculatePlayerStats } from '@/utils/scorecardCalculations';
+import { filterPlayableHoles } from '@/utils/holeTransformers';
 import type { BallCount } from '@/types/multiball.types';
 import type { Player, Hole, HoleScore, MultiBallHoleScore, GameType, TeeBox } from '@/types';
-import type { HandicapSource } from '@/types/database/enums';
+import type { HandicapSource, NineType } from '@/types/database/enums';
 import type { ScrambleTeam } from '../hooks/useScrambleTeams';
 
 interface ScorecardTabContentProps {
@@ -51,6 +52,10 @@ interface ScorecardTabContentProps {
   /** True for solo practice rounds scored with more than one ball. */
   isMultiBall?: boolean;
   ballCount?: BallCount;
+  /** The round's nine type (default 'full'). */
+  nineType?: NineType;
+  /** Played-hole count after an early end. Keep holes planned for the daily handicap. */
+  holesPlayed?: number | null;
 }
 
 export function ScorecardTabContent({
@@ -70,9 +75,16 @@ export function ScorecardTabContent({
   startHole = 1,
   isMultiBall = false,
   ballCount = 1,
+  nineType = 'full',
+  holesPlayed = null,
 }: ScorecardTabContentProps) {
   const colors = useThemeColors();
   const { width: screenWidth } = useWindowDimensions();
+
+  const playedHoles = React.useMemo(
+    () => filterPlayableHoles(holes, nineType, holesPlayed),
+    [holes, nineType, holesPlayed]
+  );
 
   // Multi-ball is a solo practice format, so it only applies to a lone player.
   const multiBallPlayer =
@@ -93,8 +105,9 @@ export function ScorecardTabContent({
     );
     const dailyHandicap = stats?.dailyHandicap ?? 0;
 
+    // Handicap above uses planned holes; ball rows and totals use played holes.
     const holeData = buildMultiBallHoleData({
-      holes,
+      holes: playedHoles,
       scores: multiBallPlayer.scores,
       dailyHandicap,
       ballCount,
@@ -106,7 +119,7 @@ export function ScorecardTabContent({
       back9: holeData.filter((d) => d.hole.number > 9),
       stats: buildMultiBallStats(holeData, ballCount),
     };
-  }, [multiBallPlayer, holes, selectedTeeData, handicapSource, ballCount]);
+  }, [multiBallPlayer, holes, playedHoles, selectedTeeData, handicapSource, ballCount]);
 
   const [selectedTeamIndex, setSelectedTeamIndex] = useState(0);
   const [scoreDisplayMode, setScoreDisplayMode] = useState<ScoreDisplayMode>(
@@ -222,7 +235,7 @@ export function ScorecardTabContent({
             />
             {/* Selected team's scorecard */}
             <ScrambleScorecardTable
-              holes={holes}
+              holes={playedHoles}
               teamName={scrambleTeams[selectedTeamIndex]?.name || 'Team'}
               teamHandicap={getScrambleTeamHandicapByIndex(selectedTeamIndex)}
               getTeamScore={(holeNumber) => getScrambleTeamScoreByIndex(selectedTeamIndex, holeNumber)}
@@ -248,6 +261,8 @@ export function ScorecardTabContent({
             selectedTeeData={selectedTeeData}
             handicapSource={handicapSource}
             startHole={startHole}
+            nineType={nineType}
+            holesPlayed={holesPlayed}
           />
         )}
       </ScrollView>
