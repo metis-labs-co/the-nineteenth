@@ -40,7 +40,6 @@ export function ChangeTeesSheet({
   const colors = useThemeColors();
   const { mutateAsync: switchTee, isPending } = useSwitchPlayerTee();
   const getPlayerTee = useScorecardStore((s) => s.getPlayerTee);
-  const setPlayerTee = useScorecardStore((s) => s.setPlayerTee);
   const groupScorecards = useScorecardStore((s) => s.groupScorecards);
 
   const initialSelections = useMemo(() => {
@@ -104,13 +103,12 @@ export function ChangeTeesSheet({
           tee,
           scorecardId: realScorecardId,
         });
-        await setPlayerTee(player.id, tee);
       }
       onClose();
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : 'Failed to update tees');
     }
-  }, [changed, selections, groupScorecards, switchTee, setPlayerTee, roundId, competitionId, onClose]);
+  }, [changed, selections, groupScorecards, switchTee, roundId, competitionId, onClose]);
 
   if (availableTees.length === 0) {
     return (

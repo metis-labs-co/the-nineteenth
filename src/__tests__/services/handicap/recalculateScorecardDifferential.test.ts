@@ -5,11 +5,15 @@
  * for scorecards that were originally synced without slope/course ratings.
  */
 
+import { setSyncAuthUser } from '@/services/offline/sync/networkState';
+import { recalculateScorecardDifferential } from '@/services/handicap/recalculateScorecardDifferential';
+
 // ============================================================================
 // MOCK SETUP — variables prefixed with 'mock' are allowed in jest.mock()
 // ============================================================================
 
 // Track mock call chains per table
+const mockRpc = jest.fn<Promise<{ data: boolean | null; error: unknown }>, [string, unknown]>(async () => ({ data: true, error: null }));
 const mockChains: Record<string, Record<string, jest.Mock>> = {};
 
 function mockCreateChain(resolveValue: { data: unknown; error: unknown }) {
@@ -19,6 +23,8 @@ function mockCreateChain(resolveValue: { data: unknown; error: unknown }) {
   chain.update = jest.fn().mockReturnValue(chain);
   chain.upsert = jest.fn().mockReturnValue(chain);
   chain.eq = jest.fn().mockReturnValue(chain);
+  chain.is = jest.fn().mockReturnValue(chain);
+  chain.abortSignal = jest.fn().mockReturnValue(chain);
   chain.in = jest.fn().mockReturnValue(chain);
   chain.not = jest.fn().mockReturnValue(chain);
   chain.order = jest.fn().mockReturnValue(chain);
@@ -30,6 +36,7 @@ function mockCreateChain(resolveValue: { data: unknown; error: unknown }) {
 
 jest.mock('@/services/supabase/client', () => ({
   supabase: {
+    rpc: (...args: [string, unknown]) => mockRpc(...args),
     from: jest.fn((table: string) => {
       const chain = mockChains[table];
       if (chain) return chain;
@@ -49,17 +56,9 @@ jest.mock('@/services/handicap/updatePlayerHandicapIndex', () => ({
   updatePlayerHandicapIndex: jest.fn(() => Promise.resolve()),
 }));
 
-jest.mock('@/utils/debugLogger', () => ({
-  syncLogger: {
-    info: jest.fn(),
-    debug: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-  },
-}));
+jest.mock('@/services/offline/DatabaseManager', () => ({ getDb: jest.fn() }));
 
 // Import after mocks are set up
-import { recalculateScorecardDifferential } from '@/services/handicap/recalculateScorecardDifferential';
 
 // ============================================================================
 // TEST DATA
@@ -80,6 +79,8 @@ const mockScorecard = {
 };
 
 const mockRound = {
+  nine_type: 'full',
+  holes_played: null as number | null,
   id: ROUND_ID,
   course_id: COURSE_ID,
   selected_tee: {
@@ -136,6 +137,7 @@ function setupMocks(overrides: {
     data: overrides.scorecard ?? mockScorecard,
     error: overrides.scorecardError ?? null,
   });
+  mockRpc.mockResolvedValue({ data: true, error: overrides.updateError ?? null });
   // Also handle update calls
   scorecardChain.update = jest.fn().mockReturnValue({
     eq: jest.fn(() => Promise.resolve({ data: null, error: overrides.updateError ?? null })),
@@ -191,6 +193,7 @@ function setupMocks(overrides: {
 describe('recalculateScorecardDifferential', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    setSyncAuthUser('owner');
     // Reset mock chains
     Object.keys(mockChains).forEach((key) => delete mockChains[key]);
   });
@@ -461,13 +464,12 @@ describe('recalculateScorecardDifferential', () => {
       // Before the gate: gross 24 + 6 = 30 → (113 / 125) × (30 − 72.5) = −38.4
       expect(result.handicapDifferential).toBeNull();
       expect(result.dailyHandicapUsed).toBe(19);
-      expect(mockChains['scorecards'].update).toHaveBeenCalledWith(
-        expect.objectContaining({
+      expect(mockRpc).toHaveBeenCalledWith('write_scorecard_handicap_patch', expect.objectContaining({ p_patch: expect.objectContaining({
           handicap_differential: null,
           daily_handicap_used: 19,
           course_rating_used: 72.5,
           slope_rating_used: 125,
-        }),
+        }) }),
       );
     });
 
@@ -481,8 +483,7 @@ describe('recalculateScorecardDifferential', () => {
       const result = await recalculateScorecardDifferential(SCORECARD_ID);
 
       expect(result.handicapDifferential).toBeNull();
-      expect(mockChains['scorecards'].update).toHaveBeenCalledWith(
-        expect.objectContaining({ handicap_differential: null, total_points: expect.any(Number) }),
+      expect(mockRpc).toHaveBeenCalledWith('write_scorecard_handicap_patch', expect.objectContaining({ p_patch: expect.objectContaining({ handicap_differential: null, total_points: expect.any(Number) }) }),
       );
     });
 
@@ -497,5 +498,46 @@ describe('recalculateScorecardDifferential', () => {
 
       expect(result.handicapDifferential).toBeNull();
     });
+  });
+});
+
+
+describe('shape-aware handicap patch', () => {
+  beforeEach(() => jest.clearAllMocks());
+  it('writes the exact narrow handicap RPC with its preparation shape', async () => {
+    setupMocks();
+    await recalculateScorecardDifferential(SCORECARD_ID);
+    expect(mockRpc).toHaveBeenCalledWith('write_scorecard_handicap_patch', {
+      p_scorecard_id: SCORECARD_ID,
+      p_patch: {
+        expected_round_shape: { nine_type: 'full', holes_played: null },
+        handicap_differential: 11.3, course_rating_used: 72.5,
+        slope_rating_used: 125, daily_handicap_used: 19, ga_handicap_used: 18.5,
+      },
+    });
+    expect(mockChains.scorecards.update).not.toHaveBeenCalled();
+  });
+});
+
+
+describe('ended recalculation', () => {
+  beforeEach(() => jest.clearAllMocks());
+  it('keeps an ended legacy gross-only card differential NULL', async () => {
+    setupMocks({ round: { ...mockRound, holes_played: 6 }, scorecard: { ...mockScorecard, scores: {} } });
+    const result = await recalculateScorecardDifferential(SCORECARD_ID);
+    expect(result.handicapDifferential).toBeNull();
+  });
+  it('uses planned back-nine DHC but only played Stableford holes', async () => {
+    setupMocks({
+      round: { ...mockRound, nine_type: 'back9', holes_played: 2, game_type: 'stableford' },
+      scorecard: { ...mockScorecard, ga_handicap_used: 18.5,
+        scores: { 10: { strokes: 6 }, 11: { strokes: 5 }, 12: { strokes: 4 } } },
+    });
+    const result = await recalculateScorecardDifferential(SCORECARD_ID);
+    expect(result.dailyHandicapUsed).toBe(10);
+    expect(mockRpc).toHaveBeenCalledWith('write_scorecard_handicap_patch', expect.objectContaining({
+      p_patch: expect.objectContaining({ total_points: 3, handicap_differential: null,
+        expected_round_shape: { nine_type: 'back9', holes_played: 2 } }),
+    }));
   });
 });

@@ -18,7 +18,9 @@ import {
   skinsKeys,
   leaderboardKeys,
 } from '@/hooks/queryKeys';
-import { recalculateScorecardDifferential } from '@/services/handicap/recalculateScorecardDifferential';
+import { captureHandicapRecalculationOperation, recalculateScorecardDifferentialWithinScoringWrite } from '@/services/handicap/recalculateScorecardDifferential';
+import { withRoundScoringWrite } from '@/services/rounds/roundScoringCoordinator';
+import { useScorecardStore } from '@/store/scorecardStore';
 import { upsertRoundPlayerTee } from '@/services/competitionPlayers/competitionPlayersService';
 import { refinalizeRoundResults } from '@/services/rounds/refinalizeRoundResults';
 import { forceFinalizeRound } from '@/services/rounds/forceFinalizeRound';
@@ -238,25 +240,8 @@ export interface UpdatePlayerTeeInput {
  * the new tee's slope/CR.
  */
 async function updatePlayerTeeAndRecalculate(input: UpdatePlayerTeeInput): Promise<void> {
-  const { roundId, playerId, scorecardId, tee } = input;
-
-  // 1. Update the round_players tee override. Some earlier records might
-  //    not have a round_players row at all (older standalone rounds), so
-  //    we upsert on (round_id, player_id) if supported; otherwise we
-  //    update and insert on miss.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase typed client workaround
-  const { error: updateError } = await (supabase.from('round_players') as any)
-    .update({ selected_tee: tee })
-    .eq('round_id', roundId)
-    .eq('player_id', playerId);
-  if (updateError) {
-    throw new Error(`Failed to update round_players: ${updateError.message}`);
-  }
-
-  // 2. Trigger the server-side recalc. This reads the effective tee
-  //    (per-player override wins), computes WHS DHC, and rewrites
-  //    all snapshot fields on the scorecard.
-  await recalculateScorecardDifferential(scorecardId);
+  // This editor has always written round_players; competitionId only invalidates caches.
+  return switchPlayerTeeAndPersist({ ...input, competitionId: undefined });
 }
 
 /**
@@ -309,7 +294,7 @@ export interface SwitchPlayerTeeInput {
 }
 
 /**
- * Persist a per-player tee override and (best-effort) recalculate the
+ * Persist a per-player tee override and recalculate the
  * scorecard differential. Routes the write by round type:
  *   - standalone  -> round_players.selected_tee
  *   - competition -> competition_round_player_tees.selected_tee
@@ -318,24 +303,36 @@ export interface SwitchPlayerTeeInput {
 export async function switchPlayerTeeAndPersist(input: SwitchPlayerTeeInput): Promise<void> {
   const { roundId, playerId, tee, competitionId, scorecardId } = input;
 
-  if (competitionId) {
-    await upsertRoundPlayerTee(roundId, playerId, tee);
-  } else {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase typed client workaround
-    const { error } = await (supabase.from('round_players') as any)
-      .update({ selected_tee: tee })
-      .eq('round_id', roundId)
-      .eq('player_id', playerId);
-    if (error) {
-      throw new Error(`Failed to update round_players: ${error.message}`);
+  const operation = captureHandicapRecalculationOperation(roundId);
+  return withRoundScoringWrite(roundId, async () => {
+    operation.assertCurrent();
+    if (competitionId) {
+      await upsertRoundPlayerTee(roundId, playerId, tee);
+    } else {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase typed client workaround
+      const { error } = await (supabase.from('round_players') as any)
+        .update({ selected_tee: tee })
+        .eq('round_id', roundId)
+        .eq('player_id', playerId);
+      if (error) {
+        throw new Error(`Failed to update round_players: ${error.message}`);
+      }
     }
-  }
 
-  // Recalc only when there is a real scorecard to recompute. Mid-round with
-  // no synced scorecard, the live store snapshot drives the eventual submit.
-  if (scorecardId) {
-    await recalculateScorecardDifferential(scorecardId);
-  }
+    operation.assertCurrent();
+    // Recalc only when there is a real scorecard to recompute. Mid-round with
+    // no synced scorecard, the live store snapshot drives the eventual submit.
+    let persistedTee = tee;
+    if (scorecardId) {
+      const recalculated = await recalculateScorecardDifferentialWithinScoringWrite(scorecardId, roundId, operation);
+      persistedTee = recalculated.teeUsed;
+    }
+    operation.assertCurrent();
+    if (operation.session) {
+      await useScorecardStore.getState().setPlayerTee(playerId, persistedTee);
+      operation.assertCurrent();
+    }
+  });
 }
 
 /**

@@ -7,13 +7,25 @@
  * differential so the scorecard can be tagged to a league.
  */
 
+import { useScorecardStore, type RoundScoringSession } from '@/store/scorecardStore';
+import { getSyncAuthUserId } from '@/services/offline/sync/networkState';
+import {
+  captureRoundPersistenceRead,
+  captureRoundPersistenceSource,
+  isRoundPersistenceSourceCurrent,
+} from '@/services/offline/roundPersistenceBarrier';
+import { withRoundScoringWrite } from '@/services/rounds/roundScoringCoordinator';
+import { calculateHandicapData } from '@/services/offline/sync/scorecardSync';
+import { createRoundScoringContext } from '@/services/rounds/roundScoringContext';
+import { shapeHoleNumbers } from '@/services/rounds/roundScoringWrite';
+import { adoptRoundShapeWithinScoringWrite } from '@/services/rounds/roundScoringAdoption';
+import type { RoundScoringShape } from '@/services/rounds/roundScoringWrite';
+import type { RoundPersistenceSource } from '@/services/offline/roundPersistenceBarrier';
+
 import { supabase } from '@/services/supabase/client';
 import { invalidateHandicapCache } from '@/services/queryClient';
 import { calculateScoreDifferential, getRatingsForGender } from '@/utils/handicapDifferential';
-import {
-  calculateAdjustedGrossScore,
-  type AdjustedGrossParams,
-} from '@/utils/adjustedGross';
+import { calculateAdjustedGrossScore, type AdjustedGrossParams } from '@/utils/adjustedGross';
 import { calculateNineAwareDailyHandicap } from '@/utils/dailyHandicap';
 import { updatePlayerHandicapIndex } from '@/services/handicap/updatePlayerHandicapIndex';
 import { syncLogger } from '@/utils/debugLogger';
@@ -21,9 +33,63 @@ import { getEffectiveTeeRatings } from '@/utils/teeResolution';
 import { isSharedBallRound } from '@/utils/roundFormat';
 import { isCompleteForHandicap } from '@/utils/handicapEligibility';
 import { getStrokesReceived, calculateStablefordPointsNet } from '@/utils/scoring';
+import type { GameType } from '@/types';
 import type { TeeBox, Hole, HoleScore } from '@/types/database/base';
 import { isSingleBallScore } from '@/types/database/base';
+import { filterPlayableHoles } from '@/utils/holeTransformers';
+import type { Database, ScorecardHandicapPatch } from '@/types/database/schema';
+import { fetchRoundScoringShape } from '@/services/rounds/roundScoringShape';
+import {
+  roundScoringErrorFromSql,
+  RoundScoringWriteError,
+} from '@/services/rounds/roundScoringErrors';
 import type { NineType } from '@/types/database/enums';
+
+export interface HandicapRecalculationOperation {
+  ownerId: string;
+  session: RoundScoringSession | null;
+  isSessionCurrent: () => boolean;
+  source: RoundPersistenceSource;
+  preparedShape?: RoundScoringShape;
+  assertCurrent: () => void;
+}
+/** Original owner/private session or absence captured before any operation await. */
+export function captureHandicapRecalculationOperation(
+  roundId: string
+): HandicapRecalculationOperation {
+  const state = useScorecardStore.getState();
+  return createHandicapRecalculationOperation(roundId, {
+    ownerId: getSyncAuthUserId() ?? '',
+    session: state.captureRoundScoringSession(roundId),
+    isSessionCurrent: state.captureRoundScoringOperation(roundId),
+    source: captureRoundPersistenceSource(roundId),
+  });
+}
+
+function createHandicapRecalculationOperation(
+  roundId: string,
+  captured: Pick<
+    HandicapRecalculationOperation,
+    'ownerId' | 'session' | 'isSessionCurrent' | 'source'
+  >
+): HandicapRecalculationOperation {
+  const { ownerId, session, isSessionCurrent } = captured;
+  const operation: HandicapRecalculationOperation = {
+    ...captured,
+    assertCurrent: () => {
+      if (!ownerId || getSyncAuthUserId() !== ownerId)
+        throw new RoundScoringWriteError('unavailable', roundId, 'Captured scoring owner changed');
+      if (
+        !isSessionCurrent() ||
+        (session && !session.isCurrent()) ||
+        !isRoundPersistenceSourceCurrent(operation.source)
+      )
+        throw new RoundScoringWriteError('context_changed', roundId, 'Scoring context changed');
+    },
+  };
+  operation.assertCurrent();
+  return operation;
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const from = (table: string) => (supabase as any).from(table);
@@ -39,6 +105,8 @@ export interface RecalculationResult {
   courseRatingUsed: number;
   slopeRatingUsed: number;
   gaHandicapUsed: number | null;
+  /** Actual persisted override used for this preparation, including fresh retries. */
+  teeUsed: TeeBox;
 }
 
 interface TeeRecord {
@@ -122,9 +190,7 @@ async function resolveTeeForRound(
   const teeName = selectedTee.name.toLowerCase();
 
   // Case-insensitive name match
-  const nameMatches = teeList.filter(
-    (t) => t.name.toLowerCase() === teeName
-  );
+  const nameMatches = teeList.filter((t) => t.name.toLowerCase() === teeName);
 
   if (nameMatches.length === 1) {
     return nameMatches[0];
@@ -151,9 +217,7 @@ async function resolveTeeForRound(
     return withRatings ?? colorMatches[0];
   }
 
-  throw new Error(
-    `Could not resolve tee "${selectedTee.name}" from tees table for this course`
-  );
+  throw new Error(`Could not resolve tee "${selectedTee.name}" from tees table for this course`);
 }
 
 /**
@@ -167,6 +231,77 @@ async function resolveTeeForRound(
 export async function recalculateScorecardDifferential(
   scorecardId: string
 ): Promise<RecalculationResult> {
+  // Round identity is not known until an authorized card read. Capture the
+  // original global generation and per-round epochs before that first await.
+  const ownerId = getSyncAuthUserId();
+  const state = useScorecardStore.getState();
+  const originalRoundId = state.currentRoundId;
+  const isSessionCurrent = state.captureRoundScoringOperation(originalRoundId ?? '');
+  const originalSession = originalRoundId
+    ? state.captureRoundScoringSession(originalRoundId)
+    : null;
+  const sourceForRound = captureRoundPersistenceRead();
+  const { data, error } = await supabase
+    .from('scorecards')
+    .select('round_id')
+    .eq('id', scorecardId)
+    .single();
+  if (error || !data) throw new Error('Scorecard not found');
+  const roundId = (data as { round_id: string }).round_id;
+  if (getSyncAuthUserId() !== ownerId || !isSessionCurrent())
+    throw new RoundScoringWriteError('context_changed', roundId, 'Scoring context changed');
+  const operation = createHandicapRecalculationOperation(roundId, {
+    ownerId: ownerId ?? '',
+    isSessionCurrent,
+    source: sourceForRound(roundId),
+    session: originalRoundId === roundId ? originalSession : null,
+  });
+  operation.assertCurrent();
+  return withRoundScoringWrite(roundId, () =>
+    recalculateScorecardDifferentialWithinScoringWrite(scorecardId, roundId, operation)
+  );
+}
+
+/** Tee callers already own the single coordinator for metadata, patch and local application. */
+export async function recalculateScorecardDifferentialWithinScoringWrite(
+  scorecardId: string,
+  roundId: string,
+  operation: HandicapRecalculationOperation
+): Promise<RecalculationResult> {
+  try {
+    return await prepareAndPatchScorecard(scorecardId, roundId, operation);
+  } catch (error) {
+    if (!(error instanceof RoundScoringWriteError) || error.kind !== 'shape_changed') throw error;
+    operation.assertCurrent();
+    const shape = await fetchRoundScoringShape(roundId);
+    operation.assertCurrent();
+    if (
+      !operation.preparedShape ||
+      JSON.stringify(shape) === JSON.stringify(operation.preparedShape)
+    )
+      throw error;
+    const originalSource = operation.source;
+    await adoptRoundShapeWithinScoringWrite(roundId, shape, {
+      ownerId: operation.ownerId,
+      originalSession: operation.session,
+      isCurrent: () =>
+        getSyncAuthUserId() === operation.ownerId &&
+        operation.isSessionCurrent() &&
+        (!operation.session || operation.session.isCurrent()),
+    });
+    // Accept exactly our own successful transition, never a later independent one.
+    operation.source = { roundId, epoch: originalSource.epoch + 1 };
+    operation.assertCurrent();
+    return prepareAndPatchScorecard(scorecardId, roundId, operation);
+  }
+}
+
+async function prepareAndPatchScorecard(
+  scorecardId: string,
+  roundId: string,
+  operation: HandicapRecalculationOperation
+): Promise<RecalculationResult> {
+  operation.assertCurrent();
   syncLogger.info('Attempting retroactive differential recalculation', {
     scorecardId: scorecardId.substring(0, 8) + '...',
   });
@@ -182,7 +317,10 @@ export async function recalculateScorecardDifferential(
     throw new Error('Scorecard not found');
   }
 
+  operation.assertCurrent();
   const scorecard = scorecardData as unknown as ScorecardRecord;
+  if (scorecard.round_id !== roundId)
+    throw new RoundScoringWriteError('context_changed', roundId, 'Scorecard round changed');
 
   if (!scorecard.total_gross || scorecard.total_gross <= 0) {
     throw new Error('Invalid scorecard data for recalculation: no gross score');
@@ -190,7 +328,9 @@ export async function recalculateScorecardDifferential(
 
   // 2. Fetch the round with course data
   const { data: roundData, error: roundError } = await from('rounds')
-    .select('id, course_id, game_type, team_format, selected_tee, nine_type, courses!course_id (holes)')
+    .select(
+      'id, course_id, game_type, team_format, selected_tee, nine_type, courses!course_id (holes)'
+    )
     .eq('id', scorecard.round_id)
     .single();
 
@@ -198,6 +338,7 @@ export async function recalculateScorecardDifferential(
     throw new Error('Round not found for this scorecard');
   }
 
+  operation.assertCurrent();
   const round = roundData as RoundRecord;
 
   if (!round.course_id) {
@@ -212,17 +353,21 @@ export async function recalculateScorecardDifferential(
   }
 
   // 2b. Check for per-player tee override from round_players
-  const { data: roundPlayerData } = await from('round_players')
+  const { data: roundPlayerData, error: roundPlayerError } = await from('round_players')
     .select('selected_tee')
     .eq('round_id', scorecard.round_id)
     .eq('player_id', scorecard.player_id)
     .maybeSingle();
 
+  operation.assertCurrent();
+  if (roundPlayerError)
+    throw new Error(`Failed to read persisted tee: ${roundPlayerError.message}`);
   const roundPlayer = roundPlayerData as RoundPlayerRecord | null;
   const effectiveSelectedTee = roundPlayer?.selected_tee ?? round.selected_tee;
 
   // 3. Resolve the canonical tee from tees table
   const tee = await resolveTeeForRound(round.course_id, effectiveSelectedTee);
+  operation.assertCurrent();
 
   // 4. Map to TeeWithRatings format for getRatingsForGender
   const teeWithRatings = {
@@ -239,8 +384,40 @@ export async function recalculateScorecardDifferential(
     .eq('id', scorecard.player_id)
     .single();
 
+  operation.assertCurrent();
   const player = playerData as unknown as PlayerRecord | null;
-  const playerGender = player?.gender ?? null;
+  const shape = await fetchRoundScoringShape(scorecard.round_id);
+  operation.assertCurrent();
+  operation.preparedShape = shape;
+  const nineType: NineType = shape.nine_type;
+  const localSource = operation.session
+    ?.getCards()
+    .find(
+      (card) =>
+        card.roundId === roundId &&
+        card.playerId === scorecard.player_id &&
+        (card.syncHoles?.length || card.syncHandicapSource !== undefined)
+    );
+  const localBasis = localSource
+    ? createRoundScoringContext(roundId, {
+        holes: round.courses?.holes ?? undefined,
+        gameType: round.game_type as GameType,
+        getLiveContext: operation.session?.getLiveContext,
+      })(localSource, shapeHoleNumbers(shape), shape)
+    : undefined;
+  if (
+    localBasis &&
+    scorecard.ga_handicap_used != null &&
+    localBasis.playerHandicap != null &&
+    scorecard.ga_handicap_used !== localBasis.playerHandicap
+  )
+    throw new RoundScoringWriteError(
+      'context_changed',
+      roundId,
+      'Recorded handicap inputs disagree'
+    );
+  const playerGender =
+    localBasis?.playerGender !== undefined ? localBasis.playerGender : (player?.gender ?? null);
 
   // 6. Get ratings for gender (full-round ratings from canonical tee record)
   const baseRatings = getRatingsForGender(teeWithRatings, playerGender);
@@ -253,7 +430,6 @@ export async function recalculateScorecardDifferential(
   // The 9-hole ratings come from the effectiveSelectedTee TeeBox (stored on round/round_player),
   // which may carry slopeRatingFront9/Back9 and courseRatingFront9/Back9 fields.
   // We build a TeeBox merging the canonical full-round ratings with 9-hole overrides from the tee JSON.
-  const nineType: NineType = round.nine_type ?? 'full';
   let finalSlopeRating = baseRatings.slopeRating;
   let finalCourseRating = baseRatings.courseRating;
 
@@ -324,6 +500,23 @@ export async function recalculateScorecardDifferential(
     }
   }
 
+  if (localBasis) {
+    // Deliberate tee changes retain the recorded HI/source/gender. Validate
+    // through the same context adapter and reuse the existing none-aware math.
+    const canonicalTee: TeeBox = {
+      ...effectiveSelectedTee!,
+      slopeRating: baseRatings.slopeRating,
+      courseRating: baseRatings.courseRating,
+    };
+    const prepared = createRoundScoringContext(roundId, {
+      holes: effectiveHoles,
+      getLiveContext: operation.session?.getLiveContext,
+    })({ ...localBasis, teeData: canonicalTee }, shapeHoleNumbers(shape), shape);
+    const frozenHandicap = calculateHandicapData(prepared);
+    gaHandicapUsed = prepared.playerHandicap ?? scorecard.ga_handicap_used ?? null;
+    dailyHandicapUsed = frozenHandicap.dailyHandicapUsed;
+  }
+
   // 8. Calculate differential from the WHS ADJUSTED gross score — every hole
   // capped at net double bogey (par + 2 + strokes received). Falls back to the
   // raw total_gross when hole data is unavailable, which is what this call site
@@ -334,7 +527,8 @@ export async function recalculateScorecardDifferential(
   // Tees — gets a NULL differential instead of an error, so the daily handicap
   // and points snapshot below still refresh. Cards with no per-hole data keep
   // the legacy gross-only rule.
-  const isCompleteCard = isCompleteForHandicap(scorecard.scores, nineType);
+  const isCompleteCard =
+    shape.holes_played === null && isCompleteForHandicap(scorecard.scores, nineType);
   let handicapDifferential: number | null = null;
 
   if (isCompleteCard) {
@@ -360,9 +554,14 @@ export async function recalculateScorecardDifferential(
 
   // 9. Recalculate total_points if this is a Stableford round with daily handicap
   let totalPoints: number | null = null;
-  if (round.game_type === 'stableford' && dailyHandicapUsed != null && scorecard.scores && effectiveHoles.length > 0) {
+  if (
+    round.game_type === 'stableford' &&
+    dailyHandicapUsed != null &&
+    scorecard.scores &&
+    effectiveHoles.length > 0
+  ) {
     let points = 0;
-    for (const hole of effectiveHoles) {
+    for (const hole of filterPlayableHoles(effectiveHoles, nineType, shape.holes_played)) {
       const score = scorecard.scores[String(hole.number)];
       if (!score || !isSingleBallScore(score) || !score.strokes || score.strokes <= 0) continue;
       const strokesReceived = getStrokesReceived(dailyHandicapUsed, hole.strokeIndex);
@@ -372,8 +571,8 @@ export async function recalculateScorecardDifferential(
   }
 
   // 10. Update the scorecard in Supabase
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const updatePayload: Record<string, any> = {
+  const updatePayload: ScorecardHandicapPatch = {
+    expected_round_shape: shape,
     handicap_differential: handicapDifferential,
     course_rating_used: ratings.courseRating,
     slope_rating_used: ratings.slopeRating,
@@ -384,16 +583,33 @@ export async function recalculateScorecardDifferential(
     updatePayload.total_points = totalPoints;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { error: updateError, data: _data } = await (
-    supabase
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types workaround
-      .from('scorecards') as any
-  ).update(updatePayload).eq('id', scorecardId);
-
+  type PatchRpc = Database['public']['Functions']['write_scorecard_handicap_patch'];
+  type PatchWrite = (
+    name: 'write_scorecard_handicap_patch',
+    args: PatchRpc['Args']
+  ) => PromiseLike<{
+    data: PatchRpc['Returns'] | null;
+    error: { message: string; code?: string; hint?: string } | null;
+  }>;
+  operation.assertCurrent();
+  const { data: applied, error: updateError } = await (supabase.rpc as unknown as PatchWrite).call(
+    supabase,
+    'write_scorecard_handicap_patch',
+    { p_scorecard_id: scorecardId, p_patch: updatePayload }
+  );
+  operation.assertCurrent();
   if (updateError) {
-    throw new Error(`Failed to update scorecard: ${updateError.message}`);
+    throw (
+      roundScoringErrorFromSql(scorecard.round_id, updateError) ??
+      new Error(`Failed to update scorecard: ${updateError.message}`)
+    );
   }
+  if (applied !== true)
+    throw new RoundScoringWriteError(
+      'unavailable',
+      scorecard.round_id,
+      'Handicap patch was not applied'
+    );
 
   syncLogger.info('Retroactive differential recalculation successful', {
     scorecardId: scorecardId.substring(0, 8) + '...',
@@ -419,5 +635,10 @@ export async function recalculateScorecardDifferential(
     courseRatingUsed: ratings.courseRating,
     slopeRatingUsed: ratings.slopeRating,
     gaHandicapUsed,
+    teeUsed: {
+      ...effectiveSelectedTee!,
+      slopeRating: baseRatings.slopeRating,
+      courseRating: baseRatings.courseRating,
+    },
   };
 }

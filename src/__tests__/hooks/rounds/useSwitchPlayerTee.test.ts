@@ -1,13 +1,15 @@
 import { switchPlayerTeeAndPersist } from '@/hooks/rounds/mutations';
 import { supabase } from '@/services/supabase/client';
 import { upsertRoundPlayerTee } from '@/services/competitionPlayers/competitionPlayersService';
-import { recalculateScorecardDifferential } from '@/services/handicap/recalculateScorecardDifferential';
+import { setSyncAuthUser } from '@/services/offline/sync/networkState';
+import { recalculateScorecardDifferentialWithinScoringWrite } from '@/services/handicap/recalculateScorecardDifferential';
 
 jest.mock('@/services/competitionPlayers/competitionPlayersService', () => ({
   upsertRoundPlayerTee: jest.fn(() => Promise.resolve()),
 }));
 jest.mock('@/services/handicap/recalculateScorecardDifferential', () => ({
-  recalculateScorecardDifferential: jest.fn(() => Promise.resolve()),
+  ...jest.requireActual('@/services/handicap/recalculateScorecardDifferential'),
+  recalculateScorecardDifferentialWithinScoringWrite: jest.fn(() => Promise.resolve({ teeUsed: tee })),
 }));
 jest.mock('@/services/supabase/client', () => {
   const update = jest.fn(() => ({
@@ -19,7 +21,7 @@ jest.mock('@/services/supabase/client', () => {
 const tee = { tee_id: 't1', name: 'Blue', color: 'blue', slopeRating: 120, courseRating: 71 };
 
 describe('switchPlayerTeeAndPersist', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => { jest.clearAllMocks(); setSyncAuthUser('owner'); });
 
   it('writes round_players for standalone rounds', async () => {
     await switchPlayerTeeAndPersist({ roundId: 'r1', playerId: 'p1', tee });
@@ -35,11 +37,11 @@ describe('switchPlayerTeeAndPersist', () => {
 
   it('recalculates when a scorecard id is provided', async () => {
     await switchPlayerTeeAndPersist({ roundId: 'r1', playerId: 'p1', tee, scorecardId: 'sc1' });
-    expect(recalculateScorecardDifferential).toHaveBeenCalledWith('sc1');
+    expect(recalculateScorecardDifferentialWithinScoringWrite).toHaveBeenCalledWith('sc1', 'r1', expect.objectContaining({ ownerId: 'owner' }));
   });
 
   it('skips recalculation when no scorecard id is provided', async () => {
     await switchPlayerTeeAndPersist({ roundId: 'r1', playerId: 'p1', tee });
-    expect(recalculateScorecardDifferential).not.toHaveBeenCalled();
+    expect(recalculateScorecardDifferentialWithinScoringWrite).not.toHaveBeenCalled();
   });
 });
