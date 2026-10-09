@@ -105,10 +105,17 @@ export function calculateGreenMissDirectionStats(
 
 /**
  * Calculate bunker statistics
+ *
+ * @param allScores - every hole score; drives the per-hole figures.
+ * @param roundsPlayed - rounds in the per-round average's denominator.
+ * @param roundAverageScores - hole scores feeding the per-round numerator.
+ *   Defaults to `allScores`. Callers pass a subset (with a matching
+ *   `roundsPlayed`) to keep early-ended rounds out of the per-round average.
  */
 export function calculateBunkerStats(
   allScores: EnrichedHoleScore[],
-  roundsPlayed: number
+  roundsPlayed: number,
+  roundAverageScores: EnrichedHoleScore[] = allScores
 ): BunkerStats {
   let totalBunkerShots = 0;
   let holesWithBunkers = 0;
@@ -122,13 +129,24 @@ export function calculateBunkerStats(
     }
   }
 
+  // The per-round average reads only roundAverageScores, including its
+  // "tracked" check: holes from left-out rounds can't turn "not tracked" into 0.
+  let roundAverageBunkerShots = 0;
+  let roundAverageHolesTracked = 0;
+  for (const score of roundAverageScores) {
+    if (typeof score.bunkerShots === 'number') {
+      roundAverageHolesTracked++;
+      roundAverageBunkerShots += score.bunkerShots;
+    }
+  }
+
   return {
     totalBunkerShots,
     holesWithBunkers,
     totalHolesTracked,
     averageBunkerShotsPerRound:
-      roundsPlayed > 0 && totalHolesTracked > 0
-        ? Math.round((totalBunkerShots / roundsPlayed) * 10) / 10
+      roundsPlayed > 0 && roundAverageHolesTracked > 0
+        ? Math.round((roundAverageBunkerShots / roundsPlayed) * 10) / 10
         : null,
     holesWithBunkersPercentage:
       totalHolesTracked > 0
@@ -142,10 +160,16 @@ export function calculateBunkerStats(
 
 /**
  * Calculate hazard statistics
+ *
+ * @param allScores - every hole score; drives the per-hole figures.
+ * @param roundsPlayed - rounds in the per-round average's denominator.
+ * @param roundAverageScores - hole scores feeding the per-round numerator
+ *   (defaults to `allScores`); see calculateBunkerStats.
  */
 export function calculateHazardStats(
   allScores: EnrichedHoleScore[],
-  roundsPlayed: number
+  roundsPlayed: number,
+  roundAverageScores: EnrichedHoleScore[] = allScores
 ): HazardStats {
   let waterCount = 0;
   let obCount = 0;
@@ -173,6 +197,18 @@ export function calculateHazardStats(
 
   const totalHazards = waterCount + obCount + lateralCount + lostBallCount;
 
+  // Every HazardEntry is one of the four counted types, so an entry count
+  // equals the per-type sum above. The per-round average reads only
+  // roundAverageScores, including its "tracked" check (see calculateBunkerStats).
+  let roundAverageHazards = 0;
+  let roundAverageHolesTracked = 0;
+  for (const score of roundAverageScores) {
+    if (score.hazards !== undefined) {
+      roundAverageHolesTracked++;
+      roundAverageHazards += score.hazards.length;
+    }
+  }
+
   return {
     waterCount,
     obCount,
@@ -180,8 +216,8 @@ export function calculateHazardStats(
     lostBallCount,
     totalHazards,
     averageHazardsPerRound:
-      roundsPlayed > 0 && totalHolesTracked > 0
-        ? Math.round((totalHazards / roundsPlayed) * 10) / 10
+      roundsPlayed > 0 && roundAverageHolesTracked > 0
+        ? Math.round((roundAverageHazards / roundsPlayed) * 10) / 10
         : null,
     holesWithHazards,
     totalHolesTracked,

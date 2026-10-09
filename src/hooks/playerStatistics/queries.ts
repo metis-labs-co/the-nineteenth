@@ -13,6 +13,7 @@ import { supabase } from '@/services/supabase/client';
 import { statisticsKeys } from '@/hooks/queryKeys';
 import { parseAndTransformHoles } from '@/utils/holeTransformers';
 import { isSharedBallRound } from '@/utils/roundFormat';
+import { isEndedEarly } from '@/utils/roundShape';
 import {
   countScoreDistribution,
   calculateParTypeStats,
@@ -113,6 +114,7 @@ export function usePlayerStatistics(
             team_format,
             handicap_source,
             status,
+            holes_played,
             courses!inner (
               id,
               name,
@@ -239,6 +241,16 @@ export function usePlayerStatistics(
       // 9-hole accumulators (rounds with < 18 holes scored)
       let nineHoleGrossSum = 0;
 
+      // Early-ended social rounds (rounds.holes_played set). They count as
+      // rounds played and feed every per-hole metric, but stay out of every
+      // per-round aggregate: the 18- and 9-hole buckets, the trend sparkline and
+      // the per-round putts / bunker / hazard averages. Their gross joins only
+      // the per-hole average.
+      let endedEarlyRoundsCount = 0;
+      let endedEarlyGrossSum = 0;
+      let endedEarlyPutts = 0;
+      let endedEarlyHolesWithPutts = 0;
+
       // Year-to-date accumulators (current calendar year, 18-hole rounds only)
       const currentYear = new Date().getFullYear();
       let ytdRoundsCount = 0;
@@ -254,6 +266,8 @@ export function usePlayerStatistics(
 
       // Collect all hole scores for par type and short game calculations
       const allHoleScores: EnrichedHoleScore[] = [];
+      // Hole scores from rounds that count toward per-round averages.
+      const roundAverageHoleScores: EnrichedHoleScore[] = [];
 
       // Track course stats
       const courseStatsMap = new Map<
@@ -274,6 +288,7 @@ export function usePlayerStatistics(
       // played.
       const fullRoundSummaries: RoundSummary[] = [];
       const nineHoleSummaries: RoundSummary[] = [];
+      const endedEarlySummaries: RoundSummary[] = [];
 
       // Track practice vs competition rounds and game type breakdown
       let practiceRoundsCount = 0;
@@ -314,6 +329,7 @@ export function usePlayerStatistics(
         // Only require round and course - competition can be null for practice rounds
         if (!round || !course) return;
 
+        const endedEarly = isEndedEarly(round);
         const isStandaloneRound = !competition;
 
         // Count match play rounds
@@ -376,6 +392,10 @@ export function usePlayerStatistics(
           if (typeof holeScore.putts === 'number' && holeScore.putts >= 0) {
             totalPutts += holeScore.putts;
             holesWithPuttsRecorded++;
+            if (endedEarly) {
+              endedEarlyPutts += holeScore.putts;
+              endedEarlyHolesWithPutts++;
+            }
           }
 
           // FIR stats (only applicable for par 4s and 5s)
@@ -396,7 +416,7 @@ export function usePlayerStatistics(
 
           // Collect hole data for par type and short game stats
           if (holeScore.strokes) {
-            allHoleScores.push({
+            const enriched: EnrichedHoleScore = {
               strokes: holeScore.strokes,
               par,
               gir: typeof holeScore.greenInRegulation === 'boolean' ? holeScore.greenInRegulation : null,
@@ -406,7 +426,9 @@ export function usePlayerStatistics(
               greenMissDirection: holeScore.greenMissDirection,
               bunkerShots: holeScore.bunkerShots,
               hazards: holeScore.hazards,
-            });
+            };
+            allHoleScores.push(enriched);
+            if (!endedEarly) roundAverageHoleScores.push(enriched);
           }
         });
 
@@ -435,9 +457,13 @@ export function usePlayerStatistics(
           roundStatus: round.status,
         };
 
-        const isFullRound = holesInScorecard >= FULL_ROUND_HOLE_COUNT;
+        const isFullRound = !endedEarly && holesInScorecard >= FULL_ROUND_HOLE_COUNT;
 
-        if (isFullRound) {
+        if (endedEarly) {
+          endedEarlyRoundsCount++;
+          endedEarlyGrossSum += scorecard.total_gross || 0;
+          endedEarlySummaries.push(summary);
+        } else if (isFullRound) {
           fullRoundsCount++;
           totalGrossScoreSum += scorecard.total_gross || 0;
           totalPointsSum += scorecard.total_points || 0;
@@ -478,6 +504,9 @@ export function usePlayerStatistics(
           nineHoleGrossSum += scorecard.total_gross || 0;
           nineHoleSummaries.push(summary);
         }
+
+        // Early-ended rounds stay out of the per-round trend sparklines.
+        if (endedEarly) return;
 
         // Collect per-round stats for sparklines
         let roundFirHit = 0, roundFirOpps = 0;
@@ -622,11 +651,14 @@ export function usePlayerStatistics(
       const averageStablefordPoints =
         fullRoundsCount > 0 ? Math.round((totalPointsSum / fullRoundsCount) * 10) / 10 : 0;
 
-      // Per-hole average spans every hole played, so include 9-hole gross
-       // alongside the 18-hole sum (denominator already counts all holes).
+      // Per-hole average spans every hole played, so include 9-hole and
+      // early-ended gross alongside the 18-hole sum (the denominator already
+      // counts all holes).
       const averageScorePerHole =
         totalHolesPlayed > 0
-          ? Math.round(((totalGrossScoreSum + nineHoleGrossSum) / totalHolesPlayed) * 100) / 100
+          ? Math.round(
+              ((totalGrossScoreSum + nineHoleGrossSum + endedEarlyGrossSum) / totalHolesPlayed) * 100
+            ) / 100
           : 0;
 
       // Calculate percentages
@@ -656,15 +688,20 @@ export function usePlayerStatistics(
       // exclude rounds that are still 'in-progress' or 'upcoming' so the
       // activity list only shows finished rounds even if a scorecard within
       // them was marked completed early.
-      const recentRounds = [...fullRoundSummaries, ...nineHoleSummaries]
+      const recentRounds = [...fullRoundSummaries, ...nineHoleSummaries, ...endedEarlySummaries]
         .filter((r) => r.roundStatus === 'completed')
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
         .slice(0, 5);
 
+      // Per-round averages leave early-ended rounds out of the numerator, the
+      // denominator and the "tracked" check (so only an ended-early round
+      // recording putts gives "—", not 0); per-hole averages keep every hole.
+      const roundsForAverages = roundsPlayed - endedEarlyRoundsCount;
+
       // Calculate putting averages
       const averagePuttsPerRound =
-        holesWithPuttsRecorded > 0 && roundsPlayed > 0
-          ? Math.round((totalPutts / roundsPlayed) * 10) / 10
+        holesWithPuttsRecorded - endedEarlyHolesWithPutts > 0 && roundsForAverages > 0
+          ? Math.round(((totalPutts - endedEarlyPutts) / roundsForAverages) * 10) / 10
           : null;
       const averagePuttsPerHole =
         holesWithPuttsRecorded > 0
@@ -697,8 +734,8 @@ export function usePlayerStatistics(
       // Calculate advanced stats
       const fairwayMissDirection = calculateFairwayMissDirectionStats(allHoleScores);
       const greenMissDirection = calculateGreenMissDirectionStats(allHoleScores);
-      const bunkerStats = calculateBunkerStats(allHoleScores, roundsPlayed);
-      const hazardStats = calculateHazardStats(allHoleScores, roundsPlayed);
+      const bunkerStats = calculateBunkerStats(allHoleScores, roundsForAverages, roundAverageHoleScores);
+      const hazardStats = calculateHazardStats(allHoleScores, roundsForAverages, roundAverageHoleScores);
 
       // Convert game type counts map to plain object
       const gameTypeBreakdown: Record<string, number> = {};
