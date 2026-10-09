@@ -409,6 +409,8 @@ export interface Scorecard {
   coursePar?: number;
   /** Hole data for Stableford points calculation during sync */
   syncHoles?: Hole[];
+  /** Captured local scoring basis; absence is legacy unknown, never implicit none. */
+  syncHandicapSource?: HandicapSource;
   /** Game type for correct points calculation during sync */
   syncGameType?: GameType;
   /** Nine type for correct 9-hole rating selection during sync */

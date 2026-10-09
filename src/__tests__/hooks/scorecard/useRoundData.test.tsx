@@ -295,4 +295,26 @@ describe('useRoundData — holes_played (end round early)', () => {
     const saved = (saveScorecard as jest.Mock).mock.calls[0][0] as Scorecard;
     expect(Object.keys(saved.scores).map(Number)).toEqual(expectedHoles);
   });
+  it('remote terminal hydration drops provisional blank-card none', async () => {
+    mockStoreState.currentRoundId = ROUND_ID; mockStoreState.isInitialized = true;
+    mockStoreState.nineType = 'front9'; mockStoreState.holesPlayed = null;
+    mockGroupScorecards = new Map([['player-1', { id: 'local', playerId: 'player-1', scores: {}, status: 'in-progress', syncHandicapSource: 'none' }]]);
+    mockRemoteScorecards = [{ player_id: 'player-1', scores: { '1': { strokes: 4 } }, status: 'completed', total_gross: 4, total_net: 4, revision: 3 }];
+    mockMetadata.data.nineType = 'front9'; mockMetadata.data.holesPlayed = null;
+    renderTheHook(); await tick();
+    expect((saveScorecard as jest.Mock).mock.calls.at(-1)[0].syncHandicapSource).toBeUndefined();
+  });
+
+  it('does not install remote scores when provisional replacement is refused', async () => {
+    mockStoreState.currentRoundId = ROUND_ID; mockStoreState.isInitialized = true;
+    mockStoreState.nineType = 'front9'; mockStoreState.holesPlayed = null;
+    const local: Partial<Scorecard> = { id: 'local', playerId: 'player-1', scores: {}, status: 'in-progress', syncHandicapSource: 'none' };
+    mockGroupScorecards = new Map([['player-1', local]]);
+    mockRemoteScorecards = [{ player_id: 'player-1', scores: { '1': { strokes: 4 } }, status: 'completed', total_gross: 4, total_net: 4, revision: 3 }];
+    (saveScorecard as jest.Mock).mockRejectedValueOnce(new Error('provisional changed'));
+    mockMetadata.data.nineType = 'front9'; mockMetadata.data.holesPlayed = null;
+    renderTheHook(); await tick();
+    expect(mockGroupScorecards.get('player-1')).toBe(local);
+  });
+
 });

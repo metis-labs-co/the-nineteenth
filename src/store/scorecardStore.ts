@@ -15,7 +15,9 @@
 import { create } from 'zustand';
 import { Scorecard, HoleScore, Player, Hole, GameType, TeeBox, HoleShotContributions } from '@/types';
 import { shapeHoleNumbers } from '@/services/rounds/roundScoringWrite';
-import type { AcceptedScorecardWrite, PositiveRoundScoringShape, PriorLocalShapes } from '@/services/rounds/roundScoringWrite';
+import type { AcceptedScorecardWrite, RoundScoringShape, PriorLocalShapes, RebuildRoundShapeCard } from '@/services/rounds/roundScoringWrite';
+import { RoundScoringWriteError } from '@/services/rounds/roundScoringErrors';
+import { hasFrozenScoringContext } from '@/services/rounds/scorecardScoringMetadata';
 import { lastPlayedHoleNumber } from '@/utils/roundShape';
 import type { HandicapSource } from '@/types/database';
 import type { NineType } from '@/types/database/enums';
@@ -48,7 +50,7 @@ import * as endEarly from './endRoundEarlySlice';
 
 interface RoundScoringSession {
   isCurrent(): boolean;
-  applyShape(shape: PositiveRoundScoringShape, priorLocalShapes: PriorLocalShapes, acceptedWrite?: AcceptedScorecardWrite): boolean;
+  applyShape(shape: RoundScoringShape, priorLocalShapes: PriorLocalShapes, acceptedWrite?: AcceptedScorecardWrite, rebuild?: RebuildRoundShapeCard): boolean;
 }
 
 interface ScorecardState {
@@ -274,6 +276,8 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
           const s = get();
           return {
             currentRoundId: s.currentRoundId,
+            handicapSource: s.handicapSource,
+            holesPlayed: s.holesPlayed,
             currentPlayers: s.currentPlayers,
             groupScorecards: s.groupScorecards,
           };
@@ -432,9 +436,21 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
       if (!isCurrent()) return null;
       return {
         isCurrent,
-        applyShape: (shape, priorLocalShapes, acceptedWrite) => {
+        applyShape: (shape, priorLocalShapes, acceptedWrite, rebuild) => {
           if (!isCurrent()) return false;
           const current = get();
+          if (
+            shape.holes_played === null &&
+            (current.holesPlayed != null ||
+              [...current.groupScorecards.values()].some((card) => card.holesPlayed != null) ||
+              [...priorLocalShapes.values()].some((prior) => prior.holes_played != null))
+          ) {
+            throw new RoundScoringWriteError(
+              'local_end_pending',
+              roundId,
+              'A final current-session local end is pending'
+            );
+          }
           const plannedHoles = filterPlayableHoles(current.holes, shape.nine_type);
           const plannedNumbers = new Set<number>(plannedHoles.map((h) => h.number));
           const required = shapeHoleNumbers(shape);
@@ -442,12 +458,12 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
           // courses whose legacy nine label is 'full'. Never fabricate holes.
           if (
             plannedHoles.length === 0 ||
-            [...required].some((h) => !plannedNumbers.has(h)) ||
+            (shape.holes_played != null && [...required].some((h) => !plannedNumbers.has(h))) ||
             plannedHoles.some((h) => !h.par || !h.strokeIndex)
           ) {
             throw new Error('Missing planned context for authoritative scoring shape');
           }
-          let keep = shapeHoleNumbers(shape);
+          let keep = new Set([...shapeHoleNumbers(shape)].filter((h) => plannedNumbers.has(h)));
           for (const prior of priorLocalShapes.values()) {
             if (prior.holes_played == null) continue;
             const earlier = shapeHoleNumbers(prior);
@@ -463,20 +479,37 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
               });
               cardKeep = new Set([...keep].filter((h) => earlier.has(h)));
             }
-            const rebuilt = endEarly.rebuildEndedScorecard(
-              card,
-              cardKeep,
-              shape.holes_played,
-              plannedHoles,
-              current.gameType,
-              {
-                selectedTee: current.playerTeeMap.get(playerId) ?? current.selectedTeeData,
-                handicapSource: current.handicapSource,
-                nineType: shape.nine_type,
-              }
-            );
+            const rebuilt = rebuild
+              ? rebuild(card, cardKeep, shape)
+              : endEarly.rebuildEndedScorecard(
+                  card,
+                  cardKeep,
+                  shape.holes_played,
+                  plannedHoles,
+                  current.gameType,
+                  {
+                    selectedTee: current.playerTeeMap.get(playerId) ?? current.selectedTeeData,
+                    handicapSource: current.handicapSource,
+                    nineType: shape.nine_type,
+                  }
+                );
             groupScorecards.set(playerId, {
-              ...rebuilt,
+              ...card,
+              scores: Object.fromEntries(
+                Object.entries(card.scores).filter(([h]) => cardKeep.has(Number(h)))
+              ),
+              holesPlayed: shape.holes_played,
+              totalGross: rebuilt.totalGross,
+              totalNet: rebuilt.totalNet,
+              total_par_score: rebuilt.total_par_score,
+              teeData: rebuilt.teeData,
+              syncHoles: rebuilt.syncHoles ?? card.syncHoles,
+              syncGameType: rebuilt.syncGameType ?? card.syncGameType,
+              coursePar: rebuilt.coursePar ?? card.coursePar,
+              playerHandicap: card.playerHandicap ?? rebuilt.playerHandicap,
+              playerGender:
+                card.playerGender === undefined ? rebuilt.playerGender : card.playerGender,
+              syncHandicapSource: card.syncHandicapSource ?? rebuilt.syncHandicapSource,
               syncNineType: shape.nine_type,
               ...(acceptedWrite?.scorecardId === card.id && {
                 serverRevision: Math.max(card.serverRevision ?? 0, acceptedWrite.serverRevision),
@@ -491,7 +524,9 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
             nineType: shape.nine_type,
             currentHole: played.has(current.currentHole)
               ? current.currentHole
-              : lastPlayedHoleNumber(shape.nine_type, shape.holes_played),
+              : shape.holes_played == null
+                ? plannedHoles[0].number
+                : lastPlayedHoleNumber(shape.nine_type, shape.holes_played),
           });
           return true;
         },
@@ -501,7 +536,7 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
     endRoundEarly: (n) => endEarly.endRoundEarly(get, set, n, { getSessionGeneration: () => roundSession }),
 
     submitScorecards: async (options) => {
-      const { groupScorecards, currentRoundId, selectedTeeData, holes, gameType, nineType, holesPlayed } = get();
+      const { groupScorecards, currentRoundId, selectedTeeData, holes, gameType, nineType, holesPlayed, handicapSource } = get();
       const scopeIds = options?.playerIds;
       const targetIds =
         scopeIds && scopeIds.length > 0 ? new Set(scopeIds) : null;
@@ -551,19 +586,26 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
           continue; // group-scoped submit: leave other groups' cards untouched
         }
         try {
+          // A repaired ended/submitted basis is historical input, not today's player/round.
+          const preserveContext = hasFrozenScoringContext(scorecard) || holesPlayed != null;
           const updatedScorecard: Scorecard = {
             ...scorecard,
             status: 'completed',
             submittedAt: now,
             updatedAt: now,
-            teeData: get().getPlayerTee(playerId),
-            playerGender: scorecard.player?.gender || null,
-            playerHandicap: scorecard.player?.handicap || null,
-            coursePar,
-            // Attach hole data and game type for correct Stableford points calculation during sync
-            syncHoles: safeHoles,
-            syncGameType: gameType,
-            syncNineType: nineType,
+            ...(preserveContext
+              ? {}
+              : {
+                  teeData: get().getPlayerTee(playerId),
+                  playerGender: scorecard.player?.gender || null,
+                  playerHandicap: scorecard.player?.handicap || null,
+                  coursePar,
+                  // Attach hole data and game type for correct Stableford points calculation during sync
+                  syncHoles: safeHoles,
+                  syncGameType: gameType,
+                  syncNineType: nineType,
+                }),
+            syncHandicapSource: preserveContext ? scorecard.syncHandicapSource : handicapSource,
             // Ended early: sync nets over the played holes (B4). The card
             // already carries it (endRoundEarly stamps it); restated so a card
             // created after the end (team backfill) carries it too.

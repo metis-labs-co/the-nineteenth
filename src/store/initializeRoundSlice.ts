@@ -26,6 +26,8 @@ import { isValidUUID } from './utils/scorecardCalculations';
 type SetFn = (partial: Record<string, unknown>) => void;
 type GetFn = () => {
   currentRoundId: string | null;
+  handicapSource?: HandicapSource;
+  holesPlayed?: number | null;
   currentPlayers: Player[];
   groupScorecards: Map<string, Scorecard>;
 };
@@ -186,6 +188,7 @@ export async function initializeRound(
         createdAt: new Date(),
         updatedAt: new Date(),
         isStandalone,
+        ...(shape.holesPlayed == null && { syncHandicapSource: handicapSource }),
         ...(shape.holesPlayed != null && {
           holesPlayed: shape.holesPlayed,
           teeData: effectivePlayerTees.get(player.id) ?? effectiveSelectedTee,
@@ -625,6 +628,7 @@ export async function ensureTeamMemberScorecards(
       totalGross: 0,
       totalNet: 0,
       status: 'in-progress',
+      ...(state.holesPlayed == null && { syncHandicapSource: state.handicapSource }),
       createdAt: new Date(),
       updatedAt: new Date(),
       // Match initializeRound's behaviour: inherit isStandalone from any

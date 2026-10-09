@@ -11,6 +11,7 @@
  * - Returns match-specific data (player1, player2, holes, course info)
  */
 
+import { hydratedSyncHandicapSource } from '@/services/rounds/scorecardScoringMetadata';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { supabase } from '@/services/supabase/client';
@@ -362,6 +363,7 @@ export function useMatchPlayData({
       try {
         interface RemoteScorecard {
           player_id: string;
+          revision: number;
           scores: Record<string, { strokes?: number }> | null;
           total_gross: number | null;
           total_net: number | null;
@@ -370,7 +372,7 @@ export function useMatchPlayData({
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types workaround
         const { data: remoteScorecards, error: fetchError } = await (supabase.from('scorecards') as any)
-          .select('player_id, scores, total_gross, total_net, status')
+          .select('player_id, scores, total_gross, total_net, status, revision')
           .eq('round_id', roundId)
           .eq('status', 'completed') as { data: RemoteScorecard[] | null; error: { message: string } | null };
 
@@ -412,6 +414,7 @@ export function useMatchPlayData({
 
           const updatedScorecard: Scorecard = {
             ...localScorecard,
+            syncHandicapSource: hydratedSyncHandicapSource(localScorecard, remote.revision),
             scores: convertedScores,
             totalGross: remote.total_gross ?? 0,
             totalNet: remote.total_net ?? 0,
@@ -419,11 +422,27 @@ export function useMatchPlayData({
             updatedAt: new Date(),
           };
 
+          const provisionalSource =
+            localScorecard.syncHandicapSource != null && updatedScorecard.syncHandicapSource == null
+              ? localScorecard.syncHandicapSource
+              : undefined;
+          if (provisionalSource) {
+            try {
+              await saveScorecard(updatedScorecard, {
+                replaceProvisionalHandicapSource: provisionalSource,
+              });
+            } catch (error) {
+              roundDataLogger.warn('Provisional scorecard changed; remote hydration deferred', {
+                error,
+              });
+              continue;
+            }
+          }
           groupScorecards.set(remote.player_id, updatedScorecard);
           merged = true;
 
           try {
-            await saveScorecard(updatedScorecard);
+            if (!provisionalSource) await saveScorecard(updatedScorecard);
           } catch {
             // Non-critical: store is already updated
           }

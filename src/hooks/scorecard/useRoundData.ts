@@ -9,6 +9,7 @@
  * to specialized hooks for each concern.
  */
 
+import { hydratedSyncHandicapSource } from '@/services/rounds/scorecardScoringMetadata';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { getOfflinePlayersForRound } from '@/store/initializeRoundSlice';
@@ -646,6 +647,7 @@ export function useRoundData({
           // Update the local scorecard with remote data
           const updatedScorecard: Scorecard = {
             ...localScorecard,
+            syncHandicapSource: hydratedSyncHandicapSource(localScorecard, remote.revision),
             ...(hasRemoteScores && {
               scores: convertedScores,
               totalGross: remote.total_gross ?? 0,
@@ -656,12 +658,28 @@ export function useRoundData({
             updatedAt: new Date(),
           };
 
+          const provisionalSource =
+            localScorecard.syncHandicapSource != null && updatedScorecard.syncHandicapSource == null
+              ? localScorecard.syncHandicapSource
+              : undefined;
+          if (provisionalSource) {
+            try {
+              await saveScorecard(updatedScorecard, {
+                replaceProvisionalHandicapSource: provisionalSource,
+              });
+            } catch (error) {
+              roundDataLogger.warn('Provisional scorecard changed; remote hydration deferred', {
+                error,
+              });
+              continue;
+            }
+          }
           groupScorecards.set(remote.player_id, updatedScorecard);
           merged = true;
 
           // Persist to SQLite so future offline loads pick it up
           try {
-            await saveScorecard(updatedScorecard);
+            if (!provisionalSource) await saveScorecard(updatedScorecard);
             await markScorecardAsSynced(updatedScorecard.id, remote.revision);
           } catch {
             // Non-critical: store is already updated

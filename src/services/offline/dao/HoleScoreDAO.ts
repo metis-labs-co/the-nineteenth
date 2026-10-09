@@ -66,8 +66,9 @@ async function withHolePersistence<T>(
 
 async function saveHoleScoreLocal(
   scorecardId: string, holeNumber: number, score: HoleScore | MultiBallHoleScore,
+  connection?: Pick<SQLiteDatabase, 'runAsync'>,
 ): Promise<void> {
-  const database = await getDb();
+  const database = connection ?? await getDb();
   const now = nowSQLite();
 
   if (isMultiBallScore(score)) {
@@ -215,7 +216,20 @@ export async function bulkSaveHoleScores(
   scorecardId: string,
   scores: { [holeNumber: number]: HoleScore | MultiBallHoleScore },
   options: RoundPersistenceOptions = {},
+  connection?: Pick<SQLiteDatabase, 'runAsync' | 'getFirstAsync'>,
 ): Promise<void> {
+  if (connection) {
+    if (!options.lease) throw new Error('Transaction hole writes require an active round lease');
+    const roundId = roundPersistenceLeaseRoundId(options.lease);
+    const parent = await connection.getFirstAsync<{ round_id: string }>(
+      `SELECT round_id FROM ${TABLE_NAMES.SCORECARDS} WHERE id = ?`, [scorecardId]
+    );
+    if (parent?.round_id !== roundId) throw new Error('Wrong-round transaction hole parent');
+    for (const [holeNumber, score] of Object.entries(scores)) {
+      if (score) await saveHoleScoreLocal(scorecardId, Number(holeNumber), score, connection);
+    }
+    return;
+  }
   return withHolePersistence(scorecardId, options, async (proof) => {
     for (const [holeNumber, score] of Object.entries(scores)) {
       if (score) {

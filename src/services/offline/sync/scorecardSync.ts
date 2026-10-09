@@ -329,7 +329,7 @@ export function calculateHandicapData(scorecard: Scorecard): {
   slopeRatingUsed: number | null;
 } {
   let gaHandicapUsed: number | null = null;
-  let dailyHandicapUsed: number | null = null;
+  let dailyHandicapUsed: number | null = scorecard.syncHandicapSource === 'none' ? 0 : null;
   let handicapDifferential: number | null = null;
   let courseRatingUsed: number | null = null;
   let slopeRatingUsed: number | null = null;
@@ -363,7 +363,7 @@ export function calculateHandicapData(scorecard: Scorecard): {
             slopeRatingBack9: teeData.slopeRatingBack9,
             courseRatingBack9: teeData.courseRatingBack9,
           },
-          nineType,
+          nineType
         );
         if (slope != null) finalSlopeRating = slope;
         if (cr != null) finalCourseRating = cr;
@@ -381,19 +381,22 @@ export function calculateHandicapData(scorecard: Scorecard): {
 
         // coursePar is already 9-hole filtered for 9-hole rounds, matching the
         // helper's expectation that `par` is the par of the holes being played.
-        const dailyResult = calculateNineAwareDailyHandicap({
-          gaHandicap: playerHandicap,
-          nineType,
-          par: coursePar,
-          slopeRating: ratings.slopeRating,
-          courseRating: ratings.courseRating,
-          slopeRatingFront9: teeData.slopeRatingFront9,
-          courseRatingFront9: teeData.courseRatingFront9,
-          slopeRatingBack9: teeData.slopeRatingBack9,
-          courseRatingBack9: teeData.courseRatingBack9,
-          gender: playerGender,
-        });
-        dailyHandicapUsed = dailyResult.dailyHandicap;
+        const dailyResult =
+          scorecard.syncHandicapSource === 'none'
+            ? null
+            : calculateNineAwareDailyHandicap({
+                gaHandicap: playerHandicap,
+                nineType,
+                par: coursePar,
+                slopeRating: ratings.slopeRating,
+                courseRating: ratings.courseRating,
+                slopeRatingFront9: teeData.slopeRatingFront9,
+                courseRatingFront9: teeData.courseRatingFront9,
+                slopeRatingBack9: teeData.slopeRatingBack9,
+                courseRatingBack9: teeData.courseRatingBack9,
+                gender: playerGender,
+              });
+        if (dailyResult) dailyHandicapUsed = dailyResult.dailyHandicap;
       }
 
       // Calculate score differential from the WHS ADJUSTED gross score — every
@@ -411,8 +414,7 @@ export function calculateHandicapData(scorecard: Scorecard): {
       // and the other differential call sites.
       // Leaving handicapDifferential null excludes the round from both the
       // handicap history and the WHS index (both filter on a non-null value).
-      const grossIsPositive =
-        typeof scorecard.totalGross === 'number' && scorecard.totalGross > 0;
+      const grossIsPositive = typeof scorecard.totalGross === 'number' && scorecard.totalGross > 0;
       // Handicap completeness gate (I12): only a card that scores every planned
       // hole — judged from the nine type, never from syncHoles — earns a
       // differential. An early-ended, part-filled or still in-progress card

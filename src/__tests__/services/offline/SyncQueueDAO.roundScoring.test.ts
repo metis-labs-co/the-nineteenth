@@ -1,5 +1,7 @@
 import {
   getPendingSyncByEntityKey,
+  decodePendingSyncRow,
+  addPendingSync,
   replacePendingSyncData,
   recordAcceptedScorecardWrite,
   removePendingSync,
@@ -75,4 +77,19 @@ it('uses the local card identity even when the accepted server record has a diff
   });
   expect(txn.runAsync.mock.calls[0][1]).toEqual([11, localId, 'r', 'p']);
   expect(txn.runAsync.mock.calls[1][1]).toEqual([11, 'scorecard:r:p', localId, 'r', 'p', 11]);
+});
+
+
+it('preserves queue source metadata and rejects explicit invalid enums at decode', () => {
+  const row = { id: 4, type: 'scorecard', action: 'update', data: JSON.stringify({ syncHandicapSource: 'none' }), timestamp: '2026-10-01', revision: 4, status: 'failed' as const, retry_count: 5, entity_key: 'scorecard:r:p', last_error: 'old', last_attempt_at: null };
+  expect(decodePendingSyncRow(row).data.syncHandicapSource).toBe('none');
+  expect(() => decodePendingSyncRow({ ...row, data: JSON.stringify({ syncHandicapSource: 'bad' }) })).toThrow(/handicap source/i);
+});
+
+
+it('queue admission preserves a recorded source when the incoming payload omits it', async () => {
+  await addPendingSync({ type: 'scorecard', action: 'update', data: { id: 'c', roundId: 'r', playerId: 'p', scores: {} }, timestamp: new Date(), retryCount: 0 });
+  const [sql] = database.runAsync.mock.calls[0];
+  expect(sql).toContain("json_set(excluded.data, '$.syncHandicapSource'");
+  expect(sql).toContain("json_extract(excluded.data, '$.syncHandicapSource') IS NULL");
 });

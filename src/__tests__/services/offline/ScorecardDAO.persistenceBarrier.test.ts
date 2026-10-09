@@ -162,3 +162,23 @@ it('accepts same-shape tee corrections and actual physical-nine context with a l
     2
   );
 });
+
+
+it('provisional hydration validates parent and writes every hole on its exclusive connection with the admitted lease', async () => {
+  const scorecard = card('provisional-exclusive');
+  const txn = { runAsync: jest.fn().mockResolvedValue({ changes: 1 }), getFirstAsync: jest.fn().mockResolvedValue({ round_id: scorecard.roundId }) };
+  Object.assign(db, { withExclusiveTransactionAsync: jest.fn(async (work) => work(txn)) });
+  await saveScorecard(scorecard, { source: capture(scorecard.roundId), replaceProvisionalHandicapSource: 'none' });
+  expect(db.runAsync).not.toHaveBeenCalled(); expect(db.getFirstAsync).not.toHaveBeenCalled();
+  expect(txn.getFirstAsync).toHaveBeenCalledWith(expect.stringContaining('SELECT round_id'), [scorecard.id]);
+  expect(txn.runAsync.mock.calls.filter(([sql]) => sql.includes('INTO hole_scores'))).toHaveLength(2);
+  expect(txn.runAsync.mock.calls.find(([sql, args]) => sql.includes('INTO hole_scores') && args[1] === 4)?.[1][7]).toBe(JSON.stringify('balls' in scorecard.scores[4] ? scorecard.scores[4].balls : []));
+});
+
+it('refuses an exclusive-connection wrong-round parent before any hole insert', async () => {
+  const txn = { runAsync: jest.fn(), getFirstAsync: jest.fn().mockResolvedValue({ round_id: 'wrong' }) };
+  await write(capture('transaction-parent'), async lease => {
+    await expect(bulkSaveHoleScores('c', { 1: { strokes: 4 } }, { lease }, txn)).rejects.toThrow('Wrong-round');
+  });
+  expect(txn.runAsync).not.toHaveBeenCalled(); expect(db.runAsync).not.toHaveBeenCalled();
+});

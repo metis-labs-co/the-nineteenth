@@ -17,11 +17,13 @@ import type { Scorecard, Player, Hole, GameType, TeeBox } from '@/types';
 import type { HandicapSource } from '@/types/database';
 import type { NineType } from '@/types/database/enums';
 import type { OwnedRoundEndIntent } from '@/services/rounds/roundScoringWrite';
+import { hasFrozenScoringContext } from '@/services/rounds/scorecardScoringMetadata';
 import { getSyncAuthUserId } from '@/services/offline/sync/networkState';
 import { requestSyncDrain } from '@/services/offline/sync/drain';
 import { persistRoundEarlyEnd } from '@/services/offline/database';
 import { storeLogger } from '@/utils/debugLogger';
 import { filterPlayableHoles } from '@/utils/holeTransformers';
+import { getBaseHandicap } from '@/utils/scorecardCalculations';
 import { lastPlayedHoleNumber } from '@/utils/roundShape';
 import { persistScorecardUpdate } from './scorecardPersistence';
 import { debouncedQueueScorecardSync } from './scorecardSyncDebounce';
@@ -91,7 +93,7 @@ function keysOutside(scorecard: Scorecard, played: Set<number>): number[] {
 export function rebuildEndedScorecard(
   scorecard: Scorecard,
   played: ReadonlySet<number>,
-  holesPlayed: number,
+  holesPlayed: number | null,
   plannedHoles: Hole[],
   gameType: GameType,
   context: PlayerTotalsContext,
@@ -138,7 +140,12 @@ export async function endRoundEarly(
   n: number,
   options: EndRoundEarlyOptions = {}
 ): Promise<void> {
-  if (options.intent && (options.reconcile || !options.intent.userId?.trim() || getSyncAuthUserId() !== options.intent.userId)) {
+  if (
+    options.intent &&
+    (options.reconcile ||
+      !options.intent.userId?.trim() ||
+      getSyncAuthUserId() !== options.intent.userId)
+  ) {
     throw new Error('Captured end owner no longer matches the authenticated account');
   }
   const getSessionGeneration = options.getSessionGeneration ?? (() => 0);
@@ -161,7 +168,9 @@ export async function endRoundEarly(
     throw new Error('A round can only be ended early from a device that scores every player');
   }
 
-  const played = new Set<number>(filterPlayableHoles(holes, nineType, n).map((hole) => hole.number));
+  const played = new Set<number>(
+    filterPlayableHoles(holes, nineType, n).map((hole) => hole.number)
+  );
   const removals = [...state.groupScorecards.values()]
     .map((scorecard) => ({
       scorecardId: scorecard.id,
@@ -188,7 +197,12 @@ export async function endRoundEarly(
     [...played],
     [...state.groupScorecards].map(([playerId, scorecard]) => ({
       scorecardId: scorecard.id,
-      teeData: state.playerTeeMap.get(playerId) ?? state.selectedTeeData,
+      teeData: hasFrozenScoringContext(scorecard)
+        ? (scorecard.teeData ?? null)
+        : (state.playerTeeMap.get(playerId) ?? state.selectedTeeData),
+      syncHandicapSource: hasFrozenScoringContext(scorecard)
+        ? scorecard.syncHandicapSource
+        : state.handicapSource,
     })),
     ...(options.intent ? [{ intent: options.intent }] : [])
   );
@@ -208,7 +222,9 @@ export async function endRoundEarly(
   const now = new Date();
   const nextScorecards = new Map<string, Scorecard>();
   for (const [playerId, scorecard] of current.groupScorecards) {
-    const teeData = current.playerTeeMap.get(playerId) ?? current.selectedTeeData;
+    const teeData = hasFrozenScoringContext(scorecard)
+      ? (scorecard.teeData ?? null)
+      : (current.playerTeeMap.get(playerId) ?? current.selectedTeeData);
     const updated = rebuildEndedScorecard(
       scorecard,
       played,
@@ -222,7 +238,33 @@ export async function endRoundEarly(
       },
       now
     );
-    nextScorecards.set(playerId, updated);
+    nextScorecards.set(playerId, {
+      ...updated,
+      // Capture a newly ended live basis once. Later repairs/submissions preserve it.
+      ...(!hasFrozenScoringContext(scorecard) && {
+        syncHandicapSource: current.handicapSource,
+        syncHoles: current.holes,
+        syncGameType: current.gameType,
+        syncNineType: current.nineType,
+        coursePar: current.holes.reduce((sum, hole) => sum + hole.par, 0),
+        playerHandicap:
+          current.handicapSource === 'none'
+            ? (scorecard.playerHandicap ?? scorecard.player?.handicap ?? null)
+            : getBaseHandicap(
+                scorecard.player
+                  ? {
+                      id: scorecard.player.id,
+                      name: scorecard.player.name,
+                      handicap: scorecard.player.handicap ?? null,
+                      handicap_index: scorecard.player.handicapIndex ?? null,
+                      gender: scorecard.player.gender ?? null,
+                    }
+                  : null,
+                current.handicapSource
+              ),
+        playerGender: scorecard.player?.gender ?? null,
+      }),
+    });
   }
 
   set({

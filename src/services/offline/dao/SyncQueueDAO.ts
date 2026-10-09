@@ -1,3 +1,4 @@
+import { readSyncHandicapSource } from '@/services/rounds/scorecardScoringMetadata';
 import { Platform } from 'react-native';
 import type { AcceptedScorecardWrite, OwnedRoundEndIntent } from '@/services/rounds/roundScoringWrite';
 import { assertIntentOwner, ensureRoundEndIntent } from './roundEndIntent';
@@ -23,6 +24,7 @@ export async function addPendingSync(sync: Omit<PendingSync, 'id'>): Promise<voi
     retryCount: sync.retryCount,
   });
 
+  if (sync.type === 'scorecard' && sync.action !== 'delete') readSyncHandicapSource(sync.data?.syncHandicapSource);
   const database = await getDb();
 
   const entityKey = sync.entityKey ?? getEntityKey(sync);
@@ -39,7 +41,13 @@ export async function addPendingSync(sync: Omit<PendingSync, 'id'>): Promise<voi
              THEN 'create'
            ELSE excluded.action
          END,
-         data = excluded.data,
+         data = CASE
+           WHEN excluded.type = 'scorecard'
+             AND json_extract(excluded.data, '$.syncHandicapSource') IS NULL
+             AND json_extract(pending_syncs.data, '$.syncHandicapSource') IS NOT NULL
+           THEN json_set(excluded.data, '$.syncHandicapSource', json_extract(pending_syncs.data, '$.syncHandicapSource'))
+           ELSE excluded.data
+         END,
          timestamp = excluded.timestamp,
          retry_count = excluded.retry_count,
          revision = ${TABLE_NAMES.PENDING_SYNCS}.revision + 1,
@@ -374,11 +382,13 @@ export async function queueRoundEarlyEndIntent(
 }
 
 export function decodePendingSyncRow(row: PendingSyncRow): PendingSync {
+  const data = JSON.parse(row.data);
+  if (row.type === 'scorecard' && row.action !== 'delete') readSyncHandicapSource(data?.syncHandicapSource);
   return {
     id: row.id,
     type: row.type as PendingSync['type'],
     action: row.action as PendingSync['action'],
-    data: JSON.parse(row.data),
+    data,
     timestamp: new Date(row.timestamp),
     retryCount: row.retry_count,
     entityKey: row.entity_key,

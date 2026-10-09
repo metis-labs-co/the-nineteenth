@@ -157,6 +157,11 @@ export const MIGRATIONS: Migration[] = [
     name: 'add_scorecard_holes_played',
     up: `ALTER TABLE scorecards ADD COLUMN holes_played INTEGER`,
   },
+  {
+    version: 23,
+    name: 'add_scorecard_sync_handicap_source',
+    up: `ALTER TABLE scorecards ADD COLUMN sync_handicap_source TEXT`,
+  },
 ];
 
 /**

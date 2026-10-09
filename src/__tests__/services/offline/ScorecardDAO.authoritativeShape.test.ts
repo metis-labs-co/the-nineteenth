@@ -220,7 +220,7 @@ it('persists rebuilt sync context without altering frozen handicap or submission
   expect(sql).toContain('sync_game_type = ?');
   expect(sql).toContain('total_points = ?');
   expect(sql).not.toContain('submitted_at =');
-  expect(sql).not.toContain('player_handicap_used =');
+  expect(sql).toContain('player_handicap_used =');
 });
 
 it.each([false, true])(
@@ -270,4 +270,29 @@ it('refuses a queued local ID that disagrees with the cached card for the same p
   await expect(adopt()).rejects.toThrow(/identity|malformed/i);
   expect(txn.runAsync).not.toHaveBeenCalled();
   expect(rebuild).not.toHaveBeenCalled();
+});
+
+
+it('passes ORIGINAL frozen shape into callback with target separate', async () => {
+  await adopt();
+  expect(rebuild).toHaveBeenCalledWith(expect.objectContaining({ holesPlayed: 6, syncNineType: 'full' }), expect.any(Set), { nine_type: 'full', holes_played: 8 });
+});
+it.each(['cached', 'queue', 'intent'])('NULL refuses transaction-current %s final end before writes', async (source) => {
+  txn.getAllAsync.mockImplementation(async (sql: string) => sql.includes('FROM scorecards')
+    ? source === 'cached' ? [row] : []
+    : source === 'queue' ? [queue({ ...queuedCard, holesPlayed: 3 })] : []);
+  if (source === 'intent') txn.getFirstAsync.mockResolvedValue({ type: 'round', action: 'update', data: JSON.stringify({ id: 'r', action: 'end_early', holesPlayed: 6, userId: 'owner' }) });
+  await expect(persistAuthoritativeRoundShape('r', { nine_type: 'front9', holes_played: null }, { ownerId: 'owner', rebuild })).rejects.toMatchObject({ kind: 'local_end_pending' });
+  expect(txn.runAsync).not.toHaveBeenCalled();
+});
+it('allows NULL nine correction from unended sources, persists proven par/HI/gender/source', async () => {
+  txn.getAllAsync.mockImplementation(async (sql: string) => sql.includes('FROM scorecards')
+    ? [{ ...row, holes_played: null, player_handicap_used: null, player_gender: null, sync_holes: JSON.stringify([{ number: 1, par: 4, strokeIndex: 1 }]) }] : []);
+  rebuild.mockImplementationOnce((source) => ({ ...source, coursePar: 36, playerHandicap: 0, playerGender: 'female', syncHandicapSource: 'none', totalGross: 4, totalNet: 4 }));
+  const result = await persistAuthoritativeRoundShape('r', { nine_type: 'front9', holes_played: null }, { ownerId: 'owner', rebuild });
+  expect(result.cards[0]).toMatchObject({ coursePar: 36, playerHandicap: 0, playerGender: null, syncHandicapSource: 'none', holesPlayed: null });
+  const [sql, args] = txn.runAsync.mock.calls.find(([sql]) => sql.includes('UPDATE scorecards'))!;
+  expect(sql).toContain('course_par = ?'); expect(sql).toContain('player_handicap_used = ?');
+  expect(sql).toContain('player_gender = ?'); expect(sql).toContain('sync_handicap_source = ?');
+  expect(args).toContain('none');
 });

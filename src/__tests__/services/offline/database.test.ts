@@ -702,7 +702,7 @@ describe('Scorecard Operations', () => {
       );
       expect(insertCall[0]).toContain('sync_nine_type, sync_game_type, sync_holes');
       // holes_played (B3a) is bound after the three sync_* values.
-      expect(insertCall[1].slice(-4, -1)).toEqual(['front9', 'stroke', JSON.stringify(holes)]);
+      expect(insertCall[1].slice(20, 23)).toEqual(['front9', 'stroke', JSON.stringify(holes)]);
     });
 
     it('writes NULLs when the card carries no sync metadata', async () => {
@@ -712,8 +712,8 @@ describe('Scorecard Operations', () => {
         call[0].includes('INSERT OR REPLACE INTO scorecards')
       );
       // A3b's 23 values + holes_played (B3a).
-      expect(insertCall[1]).toHaveLength(24);
-      expect(insertCall[1].slice(-4, -1)).toEqual([null, null, null]);
+      expect(insertCall[1]).toHaveLength(25);
+      expect(insertCall[1].slice(20, 23)).toEqual([null, null, null]);
     });
 
     it('restores them when an unsynced card is re-read', async () => {
@@ -1542,4 +1542,10 @@ describe('End round early: SQLite marker and hole removal', () => {
       ).rejects.toThrow('disk I/O error');
     });
   });
+});
+
+
+it('registers the next source migration as one nullable column without backfill', () => {
+  const { MIGRATIONS } = jest.requireActual('@/services/offline/schema/migrations');
+  expect(MIGRATIONS.at(-1)).toEqual({ version: 23, name: 'add_scorecard_sync_handicap_source', up: 'ALTER TABLE scorecards ADD COLUMN sync_handicap_source TEXT' });
 });

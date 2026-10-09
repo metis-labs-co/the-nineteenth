@@ -300,3 +300,24 @@ describe('syncScorecard — ended pickup snapshot', () => {
     }
   );
 });
+
+
+describe('explicit no-handicap durable snapshot basis', () => {
+  it.each(['full', 'front9', 'back9'] as const)('none keeps DHC0 and authentic ratings/HI for %s', async (syncNineType) => {
+    const first = syncNineType === 'back9' ? 10 : 1;
+    const syncHoles = syncNineType === 'full' ? PAR_4_HOLES : PAR_4_HOLES.filter(h => syncNineType === 'front9' ? h.number <= 9 : h.number >= 10);
+    for (const playerHandicap of [null, 0, 18]) {
+      for (const syncGameType of ['stroke', 'stableford', 'par'] as const) {
+        await syncScorecard(sixHoleCard({ syncHandicapSource: 'none', playerHandicap, syncNineType,
+          teeData: { ...TEE, courseRating: 76, courseRatingFront9: 39, slopeRatingFront9: 120, courseRatingBack9: 40, slopeRatingBack9: 130 },
+          syncHoles, coursePar: syncHoles.length * 4, holesPlayed: 2, syncGameType,
+          scores: { [first]: { strokes: 4 }, [first + 1]: { strokes: 10 }, [first + 2]: { strokes: 4 } } }));
+        expect(lastSnapshot()).toMatchObject({ daily_handicap_used: 0, ga_handicap_used: playerHandicap,
+          course_rating_used: syncNineType === 'full' ? 76 : syncNineType === 'front9' ? 39 : 40,
+          slope_rating_used: syncNineType === 'full' ? 113 : syncNineType === 'front9' ? 120 : 130,
+          total_gross: 10, total_net: 10, total_points: syncGameType === 'stableford' ? 2 : 24,
+          total_par_score: syncGameType === 'par' ? -1 : null, handicap_differential: null });
+      }
+    }
+  });
+});

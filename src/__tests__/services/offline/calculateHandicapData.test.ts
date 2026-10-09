@@ -298,3 +298,14 @@ describe('calculateHandicapData — invalid ended markers', () => {
       .toEqual(calculateHandicapData(makeScorecard()));
   });
 });
+
+
+it('explicit none keeps differential eligibility gates and real scratch zero remains distinct', () => {
+  const scratch = makeScorecard({ playerHandicap: 0, teeData: { ...TEE, courseRating: 76 }, coursePar: 72, scores: parCardWithBlowUp(1, 12), syncHoles: PAR_72_HOLES, totalGross: 80 });
+  expect(calculateHandicapData(scratch).dailyHandicapUsed).toBe(4);
+  const none = calculateHandicapData({ ...scratch, syncHandicapSource: 'none' });
+  expect(none.dailyHandicapUsed).toBe(0); expect(none.gaHandicapUsed).toBe(0);
+  expect(none.handicapDifferential).not.toBeNull();
+  expect(calculateHandicapData({ ...scratch, syncHandicapSource: 'none', holesPlayed: 6 }).handicapDifferential).toBeNull();
+  expect(calculateHandicapData({ ...scratch, syncHandicapSource: 'none', syncGameType: 'scramble' }).handicapDifferential).toBeNull();
+});

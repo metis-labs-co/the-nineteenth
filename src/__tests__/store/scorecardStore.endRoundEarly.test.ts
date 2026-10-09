@@ -232,7 +232,7 @@ describe('submitScorecards on a round ended early', () => {
     await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes());
     await score(P1.id, range(1, 6));
     await score(P2.id, range(1, 6));
-    useScorecardStore.setState({ holesPlayed: 6 });
+    await getStore().endRoundEarly(6);
 
     await getStore().submitScorecards();
 
@@ -268,8 +268,8 @@ describe('endRoundEarly(n)', () => {
 
     expect(persistRoundEarlyEnd).toHaveBeenCalledTimes(1);
     expect(persistRoundEarlyEnd).toHaveBeenCalledWith(ROUND_ID, 6, 'full', range(1, 6), [
-      { scorecardId: cardId(P1.id), teeData: TEE_WHITE },
-      { scorecardId: cardId(P2.id), teeData: TEE_RED },
+      { scorecardId: cardId(P1.id), teeData: TEE_WHITE, syncHandicapSource: 'profile' },
+      { scorecardId: cardId(P2.id), teeData: TEE_RED, syncHandicapSource: 'profile' },
     ]);
     expect(holesPlayedDuringDelete).toBeNull();
     expect(p1HolesDuringDelete).toEqual(range(1, 7));
@@ -413,8 +413,8 @@ describe('endRoundEarly — back 9 (Review Focus #2)', () => {
     await getStore().endRoundEarly(6);
 
     expect(persistRoundEarlyEnd).toHaveBeenCalledWith(ROUND_ID, 6, 'back9', range(10, 15), [
-      { scorecardId: cardId(P1.id), teeData: null },
-      { scorecardId: cardId(P2.id), teeData: null },
+      { scorecardId: cardId(P1.id), teeData: null, syncHandicapSource: 'profile' },
+      { scorecardId: cardId(P2.id), teeData: null, syncHandicapSource: 'profile' },
     ]);
     expect(getStore().getPlayedHoles().map((h) => h.number)).toEqual(range(10, 15));
     expect(scoredHoles(P1.id)).toEqual(range(10, 15));
@@ -437,8 +437,8 @@ describe('endRoundEarly durable boundary', () => {
     resolved = true;
 
     expect(persistRoundEarlyEnd).toHaveBeenCalledWith(ROUND_ID, 6, 'full', range(1, 6), [
-      { scorecardId: cardId(P1.id), teeData: TEE_WHITE },
-      { scorecardId: cardId(P2.id), teeData: TEE_WHITE },
+      { scorecardId: cardId(P1.id), teeData: TEE_WHITE, syncHandicapSource: 'profile' },
+      { scorecardId: cardId(P2.id), teeData: TEE_WHITE, syncHandicapSource: 'profile' },
     ]);
     expect(getStore().holesPlayed).toBe(6);
     expect(getStore().groupScorecards.get(P2.id)?.holesPlayed).toBe(6);
@@ -813,8 +813,8 @@ describe('init paths resolve the round shape and reconcile', () => {
     expect(getStore().holesPlayed).toBe(6);
     expect(persistRoundEarlyEnd).toHaveBeenCalledTimes(1);
     expect(persistRoundEarlyEnd).toHaveBeenCalledWith(ROUND_ID, 6, 'full', range(1, 6), [
-      { scorecardId: cardId(P1.id), teeData: null },
-      { scorecardId: cardId(P2.id), teeData: null },
+      { scorecardId: cardId(P1.id), teeData: null, syncHandicapSource: 'profile' },
+      { scorecardId: cardId(P2.id), teeData: null, syncHandicapSource: 'profile' },
     ]);
     expect(scoredHoles(P1.id)).toEqual(range(1, 6));
     expect(scoredHoles(P2.id)).toEqual(range(1, 6));
@@ -1265,4 +1265,72 @@ it('adopts N6 on a physical nine-hole course retaining its full-nine label and p
   expect(getStore().holesPlayed).toBe(6);
   expect(scoredHoles(P1.id)).toEqual([1, 6]);
   expect(getStore().groupScorecards.get(P1.id)?.totalGross).toBe(8);
+});
+
+
+describe('C2a passive nullable current-source bridge', () => {
+  it('refuses live-only final N while server is NULL, preserving memory', async () => {
+    await getStore().initializeRound(ROUND_ID, [P1], create18Holes());
+    const source = getStore().groupScorecards.get(P1.id)!;
+    useScorecardStore.setState({ groupScorecards: new Map([[P1.id, { ...source, holesPlayed: 3 }]]) });
+    const current = getStore().groupScorecards;
+    const session = getStore().captureRoundScoringSession(ROUND_ID)!;
+    expect(() => session.applyShape({ nine_type: 'front9', holes_played: null }, new Map())).toThrow(expect.objectContaining({ kind: 'local_end_pending' }));
+    expect(getStore().groupScorecards).toBe(current);
+  });
+  it('supplies original source and separate nullable target to the pure callback', async () => {
+    await getStore().initializeRound(ROUND_ID, [P1], create18Holes());
+    const source = getStore().groupScorecards.get(P1.id)!;
+    useScorecardStore.setState({ currentHole: 15, groupScorecards: new Map([[P1.id, { ...source, syncNineType: 'full', scores: { 1: { strokes: 4 }, 10: { strokes: 5 } } }]]) });
+    const rebuild = jest.fn((card: Scorecard, keep: ReadonlySet<number>) => ({ ...card,
+      scores: Object.fromEntries(Object.entries(card.scores).filter(([n]) => keep.has(Number(n)))),
+      totalGross: 4, totalNet: 4, coursePar: 36, syncHandicapSource: 'none' as const }));
+    const session = getStore().captureRoundScoringSession(ROUND_ID)!;
+    expect(session.applyShape({ nine_type: 'front9', holes_played: null }, new Map(), undefined, rebuild)).toBe(true);
+    expect(rebuild).toHaveBeenCalledWith(expect.objectContaining({ syncNineType: 'full' }), expect.any(Set), { nine_type: 'front9', holes_played: null });
+    expect(getStore().currentHole).toBe(1);
+    expect(getStore().groupScorecards.get(P1.id)?.scores).toEqual({ 1: { strokes: 4 } });
+  });
+  it('new cards and atomic end descriptors capture current none while submission retains repaired frozen HI0', async () => {
+    await getStore().initializeRound(ROUND_ID, [P1], create18Holes(), 'stroke', false, [], TEE_RED, 'none');
+    expect(getStore().groupScorecards.get(P1.id)?.syncHandicapSource).toBe('none');
+    await getStore().endRoundEarly(2);
+    expect((persistRoundEarlyEnd as jest.Mock).mock.calls.at(-1)[4][0].syncHandicapSource).toBe('none');
+    const source = getStore().groupScorecards.get(P1.id)!;
+    useScorecardStore.setState({ groupScorecards: new Map([[P1.id, { ...source, player: { ...P1, handicap: 44 },
+      playerHandicap: 0, playerGender: 'female', coursePar: 72, teeData: TEE_RED,
+      syncHoles: create18Holes(), syncGameType: 'stroke', syncNineType: 'full', syncHandicapSource: 'none' }]]) });
+    await getStore().submitScorecards();
+    expect((syncScorecard as jest.Mock).mock.calls.at(-1)[0]).toMatchObject({ playerHandicap: 0, playerGender: 'female', teeData: TEE_RED, syncHandicapSource: 'none' });
+  });
+  it('does not stamp the current source onto a fresh authoritative-ended historical placeholder', async () => {
+    await getStore().initializeRound(ROUND_ID, [P1], create18Holes(), 'stroke', false, [], TEE_RED, 'none', new Map(), 'full', 1, 2);
+    expect(getStore().groupScorecards.get(P1.id)?.syncHandicapSource).toBeUndefined();
+  });
+
+  it.each([0, -2, 12, null])('ended construction preserves recorded input %s and incomplete metadata rather than today’s profile', async hi => {
+    await getStore().initializeRound(ROUND_ID, [P1], create18Holes(), 'stroke', false, [], TEE_WHITE, 'calculated');
+    const source = getStore().groupScorecards.get(P1.id)!;
+    useScorecardStore.setState({ holesPlayed: 2, handicapSource: 'profile', groupScorecards: new Map([[P1.id, { ...source,
+      holesPlayed: 2, player: { ...P1, handicap: 44 }, playerHandicap: hi, playerGender: null,
+      syncHandicapSource: 'calculated', teeData: TEE_RED, coursePar: undefined, syncHoles: undefined }]]) });
+    await getStore().submitScorecards();
+    const payload = (syncScorecard as jest.Mock).mock.calls.at(-1)[0];
+    expect(payload).toMatchObject({ playerHandicap: hi, playerGender: null, syncHandicapSource: 'calculated', teeData: TEE_RED });
+    expect(payload.coursePar).toBeUndefined(); expect(payload.syncHoles).toBeUndefined();
+  });
+  it('ordinary unended calculated submission retains legacy profile input selection', async () => {
+    const player = { ...P1, handicap: 24, handicapIndex: 12 };
+    await getStore().initializeRound(ROUND_ID, [player], create18Holes(), 'stroke', false, [], TEE_WHITE, 'calculated');
+    await getStore().submitScorecards();
+    expect((syncScorecard as jest.Mock).mock.calls.at(-1)[0]).toMatchObject({ playerHandicap: 24, syncHandicapSource: 'calculated' });
+  });
+
+  it('round-ended construction preserves an unmarked card’s source rather than stamping today’s setting', async () => {
+    await getStore().initializeRound(ROUND_ID, [P1], create18Holes(), 'stroke', false, [], TEE_WHITE, 'calculated');
+    useScorecardStore.setState({ holesPlayed: 2, handicapSource: 'profile' });
+    await getStore().submitScorecards();
+    expect((syncScorecard as jest.Mock).mock.calls.at(-1)[0].syncHandicapSource).toBe('calculated');
+  });
+
 });

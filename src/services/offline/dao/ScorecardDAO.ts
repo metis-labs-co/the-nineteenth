@@ -4,7 +4,10 @@
  * Data access operations for scorecards in SQLite.
  */
 
-import type { AcceptedScorecardWrite, PositiveRoundScoringShape, PriorLocalShapes, RoundScoringShape, OwnedRoundEndIntent } from '@/services/rounds/roundScoringWrite';
+import type { AcceptedScorecardWrite, RebuildRoundShapeCard, PriorLocalShapes, RoundScoringShape, OwnedRoundEndIntent } from '@/services/rounds/roundScoringWrite';
+import { RoundScoringWriteError } from '@/services/rounds/roundScoringErrors';
+import { readSyncHandicapSource } from '@/services/rounds/scorecardScoringMetadata';
+import type { HandicapSource } from '@/types/database';
 import { shapeHoleNumbers } from '@/services/rounds/roundScoringWrite';
 import { assertCompatibleEndIntent, type EndTransaction, assertIntentOwner, ensureRoundEndIntent } from './roundEndIntent';
 import { runRoundPersistence, type RoundPersistenceOptions } from '../roundPersistenceBarrier';
@@ -79,6 +82,7 @@ async function rowToScorecard(row: ScorecardRow, connection?: EndTransaction): P
     syncNineType: (row.sync_nine_type as NineType | null | undefined) ?? undefined,
     syncGameType: (row.sync_game_type as GameType | null | undefined) ?? undefined,
     syncHoles,
+    syncHandicapSource: readSyncHandicapSource(row.sync_handicap_source),
     // End round early marker (local migration 22)
     holesPlayed: row.holes_played ?? null,
   };
@@ -87,11 +91,16 @@ async function rowToScorecard(row: ScorecardRow, connection?: EndTransaction): P
 /**
  * Save or update a scorecard locally
  */
-export function saveScorecard(scorecard: Scorecard, options: RoundPersistenceOptions = {}): Promise<void> {
-  return runRoundPersistence(scorecard.roundId, options, (lease) => saveScorecardLocal(scorecard, { lease }), scorecard);
+export interface SaveScorecardOptions extends RoundPersistenceOptions {
+  /** Remote hydration only: expected source of an otherwise untouched blank live row. */
+  replaceProvisionalHandicapSource?: HandicapSource;
 }
 
-async function saveScorecardLocal(scorecard: Scorecard, options: RoundPersistenceOptions): Promise<void> {
+export function saveScorecard(scorecard: Scorecard, options: SaveScorecardOptions = {}): Promise<void> {
+  return runRoundPersistence(scorecard.roundId, options, (lease) => saveScorecardLocal(scorecard, { ...options, lease }), scorecard);
+}
+
+async function saveScorecardLocal(scorecard: Scorecard, options: SaveScorecardOptions): Promise<void> {
   dbLogger.debug('Saving scorecard', {
     id: scorecard.id.substring(0, 20) + '...',
     roundId: scorecard.roundId.substring(0, 8) + '...',
@@ -100,9 +109,40 @@ async function saveScorecardLocal(scorecard: Scorecard, options: RoundPersistenc
     isStandalone: scorecard.isStandalone,
   });
 
+  readSyncHandicapSource(scorecard.syncHandicapSource);
   const database = await getDb();
   const now = nowSQLite();
   const holeCount = Object.keys(scorecard.scores).length;
+
+  const provisionalSource = options.replaceProvisionalHandicapSource;
+  if (provisionalSource !== undefined) {
+    readSyncHandicapSource(provisionalSource);
+    if (Platform.OS === 'web') throw new Error('Provisional hydration requires native SQLite');
+    if (scorecard.syncHandicapSource != null) throw new Error('Provisional hydration must leave historical source unknown');
+    await database.withExclusiveTransactionAsync(async (txn) => {
+      const result = await txn.runAsync(
+        `UPDATE ${TABLE_NAMES.SCORECARDS}
+         SET total_gross = ?, total_net = ?, total_points = ?, status = ?, submitted_at = ?, submitted_by = ?,
+             updated_at = ?, server_revision = ?, is_synced = 0, sync_handicap_source = NULL
+         WHERE id = ? AND round_id = ? AND player_id = ? AND sync_handicap_source = ?
+           AND status = 'in-progress' AND submitted_at IS NULL AND submitted_by IS NULL
+           AND holes_played IS NULL AND server_revision IS NULL AND tee_data IS NULL
+           AND player_handicap_used IS NULL AND player_gender IS NULL AND course_par IS NULL
+           AND sync_holes IS NULL AND sync_game_type IS NULL AND sync_nine_type IS NULL
+           AND total_gross = 0 AND total_net = 0 AND total_points = 0
+           AND NOT EXISTS (SELECT 1 FROM ${TABLE_NAMES.HOLE_SCORES} WHERE scorecard_id = scorecards.id)
+           AND NOT EXISTS (SELECT 1 FROM ${TABLE_NAMES.PENDING_SYNCS}
+             WHERE type = 'scorecard' AND (entity_key = ? OR json_extract(data, '$.id') = scorecards.id))`,
+        [scorecard.totalGross, scorecard.totalNet, 0, scorecard.status, scorecard.submittedAt?.toISOString() ?? null,
+          scorecard.submittedBy ?? null, now, scorecard.serverRevision ?? null,
+          scorecard.id, scorecard.roundId, scorecard.playerId, provisionalSource,
+          `scorecard:${scorecard.roundId}:${scorecard.playerId}`]
+      );
+      if (result.changes !== 1) throw new RoundScoringWriteError('context_changed', scorecard.roundId, 'Provisional scorecard changed before remote hydration');
+      await bulkSaveHoleScores(scorecard.id, scorecard.scores, options, txn);
+    });
+    return;
+  }
 
   try {
     // Use a transaction to atomically save the scorecard row and all hole scores
@@ -117,8 +157,8 @@ async function saveScorecardLocal(scorecard: Scorecard, options: RoundPersistenc
          (id, round_id, player_id, player_name, player_handicap, total_gross, total_net, total_points,
           status, submitted_at, submitted_by, created_at, updated_at, is_synced, is_standalone,
           tee_data, course_par, player_gender, player_handicap_used, server_revision,
-          sync_nine_type, sync_game_type, sync_holes, holes_played)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          sync_nine_type, sync_game_type, sync_holes, holes_played, sync_handicap_source)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
           round_id = excluded.round_id,
           player_id = excluded.player_id,
@@ -140,6 +180,7 @@ async function saveScorecardLocal(scorecard: Scorecard, options: RoundPersistenc
           server_revision = excluded.server_revision,
           sync_game_type = excluded.sync_game_type,
           sync_holes = excluded.sync_holes,
+          sync_handicap_source = COALESCE(excluded.sync_handicap_source, scorecards.sync_handicap_source),
           holes_played = COALESCE(scorecards.holes_played, excluded.holes_played),
           tee_data = CASE WHEN scorecards.holes_played IS NOT NULL AND scorecards.holes_played IS NOT excluded.holes_played THEN scorecards.tee_data ELSE excluded.tee_data END,
           sync_nine_type = CASE WHEN scorecards.holes_played IS NOT NULL AND scorecards.holes_played IS NOT excluded.holes_played THEN scorecards.sync_nine_type WHEN scorecards.holes_played IS NOT NULL THEN COALESCE(excluded.sync_nine_type, scorecards.sync_nine_type) ELSE excluded.sync_nine_type END`,
@@ -168,6 +209,7 @@ async function saveScorecardLocal(scorecard: Scorecard, options: RoundPersistenc
           scorecard.syncGameType ?? null,
           scorecard.syncHoles ? JSON.stringify(scorecard.syncHoles) : null,
           scorecard.holesPlayed ?? null,
+          scorecard.syncHandicapSource ?? null,
         ]
       );
 
@@ -215,7 +257,7 @@ export async function persistRoundEarlyEnd(
   holesPlayed: number,
   nineType: NineType,
   playedHoleNumbers: readonly number[],
-  cards: readonly { scorecardId: string; teeData: TeeBox | null }[],
+  cards: readonly { scorecardId: string; teeData: TeeBox | null; syncHandicapSource?: HandicapSource }[],
   options: { intent?: OwnedRoundEndIntent } = {},
 ): Promise<void> {
   if (Platform.OS === 'web') {
@@ -224,14 +266,15 @@ export async function persistRoundEarlyEnd(
   if (!Number.isInteger(holesPlayed) || holesPlayed < 1 || playedHoleNumbers.length !== holesPlayed) {
     throw new Error('Invalid durable early-end played holes');
   }
+  for (const card of cards) readSyncHandicapSource(card.syncHandicapSource);
   if (options.intent) assertIntentOwner(options.intent);
   const database = await getDb();
   const now = nowSQLite();
   await database.withExclusiveTransactionAsync(async (txn) => {
-    for (const { scorecardId, teeData } of cards) {
+    for (const { scorecardId, teeData, syncHandicapSource } of cards) {
       const result = await txn.runAsync(
-        `UPDATE ${TABLE_NAMES.SCORECARDS} SET holes_played = ?, tee_data = ?, sync_nine_type = ?, updated_at = ?, is_synced = 0 WHERE id = ? AND round_id = ?`,
-        [holesPlayed, teeData ? JSON.stringify(teeData) : null, nineType, now, scorecardId, roundId]
+        `UPDATE ${TABLE_NAMES.SCORECARDS} SET holes_played = ?, tee_data = ?, sync_nine_type = ?, updated_at = ?, is_synced = 0${syncHandicapSource == null ? '' : ', sync_handicap_source = COALESCE(?, sync_handicap_source)'} WHERE id = ? AND round_id = ?`,
+        [holesPlayed, teeData ? JSON.stringify(teeData) : null, nineType, now, ...(syncHandicapSource == null ? [] : [syncHandicapSource]), scorecardId, roundId]
       );
       if (result.changes !== 1) throw new Error(`Missing expected scorecard ${scorecardId} for early end`);
       const placeholders = playedHoleNumbers.map(() => '?').join(', ');
@@ -550,18 +593,16 @@ export async function clearInvalidMockData(): Promise<number> {
  */
 export async function persistAuthoritativeRoundShape(
   roundId: string,
-  shape: PositiveRoundScoringShape,
+  shape: RoundScoringShape,
   options: {
     ownerId: string;
     acceptedWrite?: AcceptedScorecardWrite;
-    rebuild: (card: Scorecard, keep: ReadonlySet<number>) => Scorecard;
+    rebuild: RebuildRoundShapeCard;
   }
 ): Promise<{ cards: Scorecard[]; priorLocalShapes: PriorLocalShapes }> {
   assertIntentOwner({ userId: options.ownerId });
   if (Platform.OS === 'web') throw new Error('Authoritative scoring repair requires native SQLite');
   const authoritative = shapeHoleNumbers(shape);
-  if (shape.holes_played == null)
-    throw new Error('Authoritative end requires positive holes played');
   const accepted = options.acceptedWrite;
   if (accepted && (!Number.isInteger(accepted.serverRevision) || accepted.serverRevision < 0))
     throw new Error('Invalid accepted server revision');
@@ -574,6 +615,7 @@ export async function persistAuthoritativeRoundShape(
       [`round:${roundId}:end_early`]
     );
     if (end) assertCompatibleEndIntent(end, roundId, { userId: options.ownerId });
+    if (end && shape.holes_played === null) throw new RoundScoringWriteError('local_end_pending', roundId, 'An owned local end is pending');
     const rows = await txn.getAllAsync<ScorecardRow>(
       `SELECT * FROM ${TABLE_NAMES.SCORECARDS} WHERE round_id = ?`,
       [roundId]
@@ -599,6 +641,7 @@ export async function persistAuthoritativeRoundShape(
     let commonKeep = new Set(authoritative);
     for (const row of rows) {
       registerIdentity(row.id, row.player_id);
+      if (shape.holes_played === null && row.holes_played != null) throw new RoundScoringWriteError('local_end_pending', roundId, 'A cached final local end is pending');
       const prior: RoundScoringShape = {
         nine_type: (row.sync_nine_type ?? shape.nine_type) as NineType,
         holes_played: row.holes_played ?? null,
@@ -629,6 +672,8 @@ export async function persistAuthoritativeRoundShape(
         throw new Error('Malformed queued scorecard blocks authoritative repair');
       }
       registerIdentity(card.id, card.playerId);
+      readSyncHandicapSource(card.syncHandicapSource);
+      if (shape.holes_played === null && card.holesPlayed != null) throw new RoundScoringWriteError('local_end_pending', roundId, 'A queued final local end is pending');
       queuedCards.push({ row: queued, card });
     }
     const revisions = new Map<string, number>();
@@ -652,7 +697,9 @@ export async function persistAuthoritativeRoundShape(
         keep = new Set([...keep].filter((h) => prior.has(h)));
       }
       const input = { ...source, holesPlayed: shape.holes_played, syncNineType: shape.nine_type };
-      const rebuilt = options.rebuild(input, keep);
+      const rebuilt = options.rebuild(source, keep, shape);
+      readSyncHandicapSource(rebuilt.syncHandicapSource);
+      if (shape.holes_played === null && rebuilt.syncHoles) keep = new Set([...keep].filter(h => rebuilt.syncHoles!.some(hole => hole.number === h)));
       // Context/math may change aggregates and effective tee, never identity,
       // submission history, frozen handicap or source retained score values.
       const scores = Object.fromEntries(
@@ -667,6 +714,10 @@ export async function persistAuthoritativeRoundShape(
         teeData: rebuilt.teeData,
         syncHoles: rebuilt.syncHoles ?? source.syncHoles,
         syncGameType: rebuilt.syncGameType ?? source.syncGameType,
+        coursePar: rebuilt.coursePar ?? source.coursePar,
+        playerHandicap: source.playerHandicap ?? rebuilt.playerHandicap,
+        playerGender: source.playerGender === undefined ? rebuilt.playerGender : source.playerGender,
+        syncHandicapSource: source.syncHandicapSource ?? rebuilt.syncHandicapSource,
         serverRevision: revisions.get(source.id) ?? source.serverRevision,
       };
     };
@@ -675,7 +726,7 @@ export async function persistAuthoritativeRoundShape(
       cards.push(card);
       const result = await txn.runAsync(
         `UPDATE ${TABLE_NAMES.SCORECARDS}
-        SET holes_played = ?, sync_nine_type = ?, tee_data = ?, total_gross = ?, total_net = ?, total_points = ?, sync_holes = ?, sync_game_type = ?, server_revision = ?, is_synced = 0
+        SET holes_played = ?, sync_nine_type = ?, tee_data = ?, total_gross = ?, total_net = ?, total_points = ?, sync_holes = ?, sync_game_type = ?, server_revision = ?, course_par = ?, player_handicap_used = ?, player_gender = ?, sync_handicap_source = ?, is_synced = 0
         WHERE id = ? AND round_id = ?`,
         [
           shape.holes_played,
@@ -687,6 +738,10 @@ export async function persistAuthoritativeRoundShape(
           card.syncHoles ? JSON.stringify(card.syncHoles) : null,
           card.syncGameType ?? null,
           card.serverRevision ?? null,
+          card.coursePar ?? null,
+          card.playerHandicap ?? null,
+          card.playerGender ?? null,
+          card.syncHandicapSource ?? null,
           row.id,
           roundId,
         ]

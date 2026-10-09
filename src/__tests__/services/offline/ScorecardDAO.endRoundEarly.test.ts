@@ -1,8 +1,8 @@
 /** Mock-only transaction/SQL contracts: no database connection or SQL execution. */
 import { Platform } from 'react-native';
-import { persistRoundEarlyEnd, saveScorecard } from '@/services/offline/dao/ScorecardDAO';
+import { persistRoundEarlyEnd, saveScorecard, getScorecardsByRound } from '@/services/offline/dao/ScorecardDAO';
 import { getDb } from '@/services/offline/DatabaseManager';
-import { bulkSaveHoleScores } from '@/services/offline/dao/HoleScoreDAO';
+import { bulkSaveHoleScores, getHoleScores } from '@/services/offline/dao/HoleScoreDAO';
 import type { Scorecard, TeeBox } from '@/types';
 
 jest.mock('@/services/offline/DatabaseManager', () => ({ getDb: jest.fn() }));
@@ -17,6 +17,7 @@ const txn = { runAsync: jest.fn() };
 const db = {
   runAsync: jest.fn(),
   getFirstAsync: jest.fn(),
+  getAllAsync: jest.fn(),
   withTransactionAsync: jest.fn(),
   withExclusiveTransactionAsync: jest.fn(),
 };
@@ -168,5 +169,65 @@ describe('ordinary save after a durable end', () => {
   it('preserves normal non-ended full-card persistence', async () => {
     await saveScorecard(card);
     expect(bulkSaveHoleScores).toHaveBeenCalledWith('card-1', card.scores, expect.objectContaining({ lease: expect.any(Object) }));
+  });
+});
+
+
+describe('durable handicap-source metadata', () => {
+  it('captures none in the atomic marker commit before any best-effort save/restart', async () => {
+    await persistRoundEarlyEnd('round-1', 2, 'full', [1,2], [{ scorecardId: card.id, teeData: tee, syncHandicapSource: 'none' }]);
+    const [sql, args] = txn.runAsync.mock.calls.find(([sql]) => sql.includes('UPDATE scorecards'))!;
+    expect(sql).toContain('sync_handicap_source = COALESCE'); expect(args).toContain('none');
+    expect(db.runAsync).not.toHaveBeenCalled();
+  });
+  it.each([undefined, 'none', 'profile', 'calculated'] as const)('binds source %s and omission preserves the stored stamp', async (syncHandicapSource) => {
+    await saveScorecard({ ...card, syncHandicapSource });
+    const [sql, args] = db.runAsync.mock.calls[0];
+    expect(sql).toContain('sync_handicap_source = COALESCE(excluded.sync_handicap_source, scorecards.sync_handicap_source)');
+    expect(args[24]).toBe(syncHandicapSource ?? null);
+  });
+  it('rejects an explicit invalid source before writing', async () => {
+    await expect(saveScorecard({ ...card, syncHandicapSource: 'invalid' as Scorecard['syncHandicapSource'] })).rejects.toThrow(/handicap source/i);
+    expect(db.runAsync).not.toHaveBeenCalled();
+  });
+});
+
+
+it('mocked restart decodes the atomic end source before best-effort row saves', async () => {
+  const stored = { id: card.id, round_id: card.roundId, player_id: card.playerId, player_name: 'Historical',
+    total_gross: 20, total_net: 20, status: 'in-progress', player_handicap: 44,
+    submitted_at: null, submitted_by: null, created_at: '2026-10-01', updated_at: '2026-10-01',
+    is_synced: 0, is_standalone: 0, tee_data: JSON.stringify(tee), course_par: 72,
+    player_gender: null, player_handicap_used: null, sync_nine_type: 'full', sync_game_type: 'stroke',
+    sync_handicap_source: undefined as string | undefined, holes_played: null as number | null };
+  txn.runAsync.mockImplementation(async (sql, args) => {
+    if (sql.includes('UPDATE scorecards')) { stored.holes_played = args[0]; stored.sync_handicap_source = args[4]; }
+    return { changes: 1 };
+  });
+  await persistRoundEarlyEnd(card.roundId, 2, 'full', [1,2], [{ scorecardId: card.id, teeData: tee, syncHandicapSource: 'none' }]);
+  db.getAllAsync.mockResolvedValue([stored]);
+  (getHoleScores as jest.Mock).mockResolvedValue({ 1: { strokes: 4 }, 2: { strokes: 10 } });
+  const [restarted] = await getScorecardsByRound(card.roundId);
+  expect(restarted).toMatchObject({ holesPlayed: 2, syncHandicapSource: 'none', playerHandicap: null });
+  expect(db.runAsync).not.toHaveBeenCalled();
+  stored.sync_handicap_source = 'invalid';
+  await expect(getScorecardsByRound(card.roundId)).rejects.toThrow(/handicap source/i);
+});
+
+
+describe('guarded provisional hydration replacement', () => {
+  it('clears only an empty live provisional row and writes remote holes on the exclusive connection', async () => {
+    await saveScorecard({ ...card, scores: { 1: { strokes: 4 } }, status: 'completed', serverRevision: 3 }, { replaceProvisionalHandicapSource: 'none' });
+    expect(db.withExclusiveTransactionAsync).toHaveBeenCalledTimes(1); expect(db.withTransactionAsync).not.toHaveBeenCalled();
+    const [sql, args] = txn.runAsync.mock.calls[0];
+    for (const guard of ['round_id = ?', 'player_id = ?', 'sync_handicap_source = ?', 'holes_played IS NULL', 'submitted_at IS NULL', 'submitted_by IS NULL', 'server_revision IS NULL', 'tee_data IS NULL', 'player_handicap_used IS NULL', 'player_gender IS NULL', 'course_par IS NULL', 'sync_holes IS NULL', 'sync_game_type IS NULL', 'sync_nine_type IS NULL', 'total_gross = 0', 'total_net = 0', 'total_points = 0', 'NOT EXISTS', 'hole_scores', 'pending_syncs']) expect(sql).toContain(guard);
+    expect(sql).toContain('sync_handicap_source = NULL'); expect(args).toContain('none');
+    expect(bulkSaveHoleScores).toHaveBeenCalledWith(card.id, { 1: { strokes: 4 } }, expect.objectContaining({ lease: expect.any(Object) }), txn);
+    expect(db.runAsync).not.toHaveBeenCalled();
+  });
+  it('refuses the whole replacement on an atomic guard miss before holes or fallback UPSERT', async () => {
+    txn.runAsync.mockResolvedValue({ changes: 0 });
+    await expect(saveScorecard({ ...card, status: 'completed' }, { replaceProvisionalHandicapSource: 'none' })).rejects.toMatchObject({ kind: 'context_changed' });
+    expect(bulkSaveHoleScores).not.toHaveBeenCalled(); expect(db.runAsync).not.toHaveBeenCalled();
   });
 });
