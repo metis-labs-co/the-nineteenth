@@ -20,15 +20,17 @@ import {
   saveHoleScore,
   saveHoles,
   persistRoundEarlyEnd,
+  persistAuthoritativeRoundShape,
   getHoles,
   getScorecardsByRound,
   deleteHoleScoresForCards,
 } from '@/services/offline/database';
-import { syncScorecard } from '@/services/offline/sync';
+import { syncScorecard, queueScorecardSync } from '@/services/offline/sync';
 import { supabase } from '@/services/supabase/client';
-import { storeLogger } from '@/utils/debugLogger';
 import { createRoundScoringContext } from '@/services/rounds/roundScoringContext';
 import { calculateHandicapData } from '@/services/offline/sync/scorecardSync';
+import { shapeHoleNumbers } from '@/services/rounds/roundScoringWrite';
+import { withRoundPersistenceTransition } from '@/services/offline/roundPersistenceBarrier';
 import { Platform } from 'react-native';
 
 jest.mock('@/services/offline/sync/drain', () => ({ requestSyncDrain: jest.fn() }));
@@ -41,6 +43,7 @@ jest.mock('@/services/offline/database', () => ({
   saveHoles: jest.fn(() => Promise.resolve()),
   getHoles: jest.fn(() => Promise.resolve([])),
   persistRoundEarlyEnd: jest.fn(() => Promise.resolve()),
+  persistAuthoritativeRoundShape: jest.fn(), getPendingSyncs: jest.fn(async () => []), getFailedSyncs: jest.fn(async () => []),
   deleteHoleScoresForCards: jest.fn(() => Promise.resolve()),
   markScorecardsAsSynced: jest.fn(() => Promise.resolve()),
   markScorecardAsSynced: jest.fn(() => Promise.resolve()),
@@ -171,13 +174,20 @@ beforeEach(() => {
   (getHoles as jest.Mock).mockReset().mockResolvedValue([]);
   (getScorecardsByRound as jest.Mock).mockReset().mockResolvedValue([]);
   (persistRoundEarlyEnd as jest.Mock).mockReset().mockResolvedValue(undefined);
+  (persistAuthoritativeRoundShape as jest.Mock).mockReset().mockImplementation(async (id, target, { rebuild }) => {
+    const cards = await getScorecardsByRound(id);
+    const prior = new Map(cards.map(card => [card.id, { nine_type: card.syncNineType ?? target.nine_type, holes_played: card.holesPlayed ?? null }]));
+    let keep = shapeHoleNumbers(target);
+    for (const card of cards) if (card.holesPlayed != null) keep = new Set([...keep].filter(h => shapeHoleNumbers({ nine_type: card.syncNineType ?? target.nine_type, holes_played: card.holesPlayed! }).has(h)));
+    return { cards: cards.map(card => rebuild(card, keep, target)), priorLocalShapes: prior };
+  });
   (saveScorecard as jest.Mock).mockReset().mockResolvedValue(undefined);
   (deleteHoleScoresForCards as jest.Mock).mockReset().mockResolvedValue(undefined);
 });
 
 describe('characterization (pre end-round-early)', () => {
   it('submitScorecards stamps the planned coursePar 72, 18 syncHoles, syncNineType full and no holesPlayed', async () => {
-    await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes());
+    await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes(), 'stableford', false, [], TEE_WHITE);
     await score(P1.id, [1]);
     await score(P2.id, [1]);
 
@@ -191,7 +201,7 @@ describe('characterization (pre end-round-early)', () => {
   });
 
   it('submitScorecards stamps coursePar 36 and 9 syncHoles for a front-9 round', async () => {
-    await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes(), 'stableford', false, [], null, 'profile', new Map(), 'front9');
+    await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes(), 'stableford', false, [], TEE_WHITE, 'profile', new Map(), 'front9');
     await score(P1.id, [1]);
 
     await getStore().submitScorecards();
@@ -206,7 +216,7 @@ describe('characterization (pre end-round-early)', () => {
 
 describe('getPlayedHoles / resetRound', () => {
   it('returns the planned holes until the round is ended, then only the played ones', async () => {
-    await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes());
+    await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes(), 'stableford', false, [], TEE_WHITE);
 
     expect(getStore().holesPlayed).toBeNull();
     expect(getStore().getPlayedHoles()).toHaveLength(18);
@@ -217,7 +227,7 @@ describe('getPlayedHoles / resetRound', () => {
   });
 
   it('a back-9 round ended after 6 plays holes 10–15 (Review Focus #2)', async () => {
-    await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes(), 'stableford', false, [], null, 'profile', new Map(), 'back9');
+    await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes(), 'stableford', false, [], TEE_WHITE, 'profile', new Map(), 'back9');
     useScorecardStore.setState({ holesPlayed: 6 });
 
     expect(getStore().getPlayedHoles().map((h) => h.number)).toEqual(range(10, 15));
@@ -232,7 +242,7 @@ describe('getPlayedHoles / resetRound', () => {
 
 describe('submitScorecards on a round ended early', () => {
   it('keeps the PLANNED coursePar (72) and 18 syncHoles, and carries holesPlayed', async () => {
-    await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes());
+    await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes(), 'stableford', false, [], TEE_WHITE);
     await score(P1.id, range(1, 6));
     await score(P2.id, range(1, 6));
     await getStore().endRoundEarly(6);
@@ -271,8 +281,8 @@ describe('endRoundEarly(n)', () => {
 
     expect(persistRoundEarlyEnd).toHaveBeenCalledTimes(1);
     expect(persistRoundEarlyEnd).toHaveBeenCalledWith(ROUND_ID, 6, 'full', range(1, 6), [
-      { scorecardId: cardId(P1.id), teeData: TEE_WHITE, syncHandicapSource: 'profile' },
-      { scorecardId: cardId(P2.id), teeData: TEE_RED, syncHandicapSource: 'profile' },
+      expect.objectContaining({ scorecardId: cardId(P1.id), teeData: TEE_WHITE, syncHandicapSource: 'profile' }),
+      expect.objectContaining({ scorecardId: cardId(P2.id), teeData: TEE_RED, syncHandicapSource: 'profile' }),
     ]);
     expect(holesPlayedDuringDelete).toBeNull();
     expect(p1HolesDuringDelete).toEqual(range(1, 7));
@@ -408,7 +418,7 @@ describe('endRoundEarly(n)', () => {
 
 describe('endRoundEarly — back 9 (Review Focus #2)', () => {
   it('removes scores after hole 15 only', async () => {
-    await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes(), 'stableford', false, [], null, 'profile', new Map(), 'back9');
+    await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes(), 'stableford', false, [], TEE_WHITE, 'profile', new Map(), 'back9');
     await score(P1.id, range(10, 16));
     await score(P2.id, range(10, 15));
     jest.clearAllMocks();
@@ -416,8 +426,8 @@ describe('endRoundEarly — back 9 (Review Focus #2)', () => {
     await getStore().endRoundEarly(6);
 
     expect(persistRoundEarlyEnd).toHaveBeenCalledWith(ROUND_ID, 6, 'back9', range(10, 15), [
-      { scorecardId: cardId(P1.id), teeData: null, syncHandicapSource: 'profile' },
-      { scorecardId: cardId(P2.id), teeData: null, syncHandicapSource: 'profile' },
+      expect.objectContaining({ scorecardId: cardId(P1.id), teeData: TEE_WHITE, syncHandicapSource: 'profile' }),
+      expect.objectContaining({ scorecardId: cardId(P2.id), teeData: TEE_WHITE, syncHandicapSource: 'profile' }),
     ]);
     expect(getStore().getPlayedHoles().map((h) => h.number)).toEqual(range(10, 15));
     expect(scoredHoles(P1.id)).toEqual(range(10, 15));
@@ -440,23 +450,25 @@ describe('endRoundEarly durable boundary', () => {
     resolved = true;
 
     expect(persistRoundEarlyEnd).toHaveBeenCalledWith(ROUND_ID, 6, 'full', range(1, 6), [
-      { scorecardId: cardId(P1.id), teeData: TEE_WHITE, syncHandicapSource: 'profile' },
-      { scorecardId: cardId(P2.id), teeData: TEE_WHITE, syncHandicapSource: 'profile' },
+      expect.objectContaining({ scorecardId: cardId(P1.id), teeData: TEE_WHITE, syncHandicapSource: 'profile' }),
+      expect.objectContaining({ scorecardId: cardId(P2.id), teeData: TEE_WHITE, syncHandicapSource: 'profile' }),
     ]);
     expect(getStore().holesPlayed).toBe(6);
     expect(getStore().groupScorecards.get(P2.id)?.holesPlayed).toBe(6);
   });
 
   it.each([false, true])('aborts an older end after changed-nine initialization of the SAME round (reset first: %s)', async (resetFirst) => {
-    await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes());
+    await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes(), 'stableford', false, [], TEE_WHITE);
+    let initializing!: Promise<void>;
     (persistRoundEarlyEnd as jest.Mock).mockImplementationOnce(async () => {
       if (resetFirst) getStore().resetRound();
-      await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes(), 'stroke', false, [], TEE_RED, 'profile', new Map(), 'back9');
-      jest.clearAllMocks();
+      initializing = getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes(), 'stroke', false, [], TEE_RED, 'profile', new Map(), 'back9');
     });
 
     await expect(getStore().endRoundEarly(6)).rejects.toMatchObject({ name: 'EndRoundEarlyRoundChangedError', roundId: ROUND_ID });
-
+    await expect(initializing).rejects.toThrow(/source changed/);
+    await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes(), 'stroke', false, [], TEE_RED, 'profile', new Map(), 'back9');
+    jest.clearAllMocks();
     expect(getStore().nineType).toBe('back9');
     expect(getStore().holesPlayed).toBeNull();
     expect(getStore().getPlayedHoles().map((h) => h.number)).toEqual(range(10, 18));
@@ -465,7 +477,7 @@ describe('endRoundEarly durable boundary', () => {
   });
 
   it('supports adopting a larger authoritative N as well as a smaller N', async () => {
-    await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes());
+    await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes(), 'stableford', false, [], TEE_WHITE);
     await getStore().endRoundEarly(4);
     await getStore().endRoundEarly(6);
     expect(getStore().holesPlayed).toBe(6);
@@ -495,7 +507,7 @@ describe('endRoundEarly durable boundary', () => {
 
 describe('endRoundEarly post-commit session changes', () => {
   it('stops further metadata saves and syncs after a reset during the first metadata save', async () => {
-    await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes());
+    await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes(), 'stableford', false, [], TEE_WHITE);
     jest.clearAllMocks();
     (saveScorecard as jest.Mock).mockImplementationOnce(async () => { getStore().resetRound(); });
 
@@ -508,12 +520,12 @@ describe('endRoundEarly post-commit session changes', () => {
   });
 
   it('does not let a pending sync getter read a later session of the same round', async () => {
-    await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes());
+    await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes(), 'stableford', false, [], TEE_WHITE);
     await getStore().endRoundEarly(6);
     const getPendingCard = (debouncedQueueScorecardSync as jest.Mock).mock.calls[0][1] as () => Scorecard | undefined;
     expect(getPendingCard()?.holesPlayed).toBe(6);
     getStore().resetRound();
-    await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes());
+    await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes(), 'stableford', false, [], TEE_WHITE);
     expect(getPendingCard()).toBeUndefined();
   });
 
@@ -530,7 +542,7 @@ describe('endRoundEarly post-commit session changes', () => {
   });
 
   it('does not schedule standalone scorecard snapshots and refuses an unloaded round', async () => {
-    await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes(), 'stroke', true);
+    await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes(), 'stroke', true, [], TEE_WHITE);
     jest.clearAllMocks();
     await getStore().endRoundEarly(6);
     expect(debouncedQueueScorecardSync).not.toHaveBeenCalled();
@@ -542,7 +554,7 @@ describe('endRoundEarly post-commit session changes', () => {
 
 describe('endRoundEarly while initialization is pending', () => {
   it('rejects when changed-nine init starts BEFORE ending, before the durable DAO is called', async () => {
-    await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes());
+    await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes(), 'stableford', false, [], TEE_WHITE);
     await score(P1.id, range(1, 7));
     let releaseHoles!: () => void;
     let holesStarted!: () => void;
@@ -568,7 +580,7 @@ describe('endRoundEarly while initialization is pending', () => {
   });
 
   it('rejects before the durable DAO while offline loading is pending', async () => {
-    await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes());
+    await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes(), 'stableford', false, [], TEE_WHITE);
     let releaseCards!: () => void;
     (getScorecardsByRound as jest.Mock).mockImplementationOnce(() => new Promise<Scorecard[]>((resolve) => { releaseCards = () => resolve([]); }));
     const loading = getStore().loadFromOffline(ROUND_ID);
@@ -587,7 +599,7 @@ describe('endRoundEarly while initialization is pending', () => {
 
 describe('closed holes after an early end', () => {
   beforeEach(async () => {
-    await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes());
+    await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes(), 'stableford', false, [], TEE_WHITE);
     await score(P1.id, range(1, 6));
     await score(P2.id, range(1, 6));
     await getStore().endRoundEarly(6);
@@ -639,7 +651,7 @@ const holeWrites = [
 
 describe('writes to a hole outside the planned list', () => {
   it.each(holeWrites)('$name ignores hole 12 of an open front nine', async ({ apply }) => {
-    await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes(), 'stableford', false, [], null, 'profile', new Map(), 'front9');
+    await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes(), 'stableford', false, [], TEE_WHITE, 'profile', new Map(), 'front9');
     getStore().setMultiBallConfig(2);
     const before = getStore().groupScorecards;
     jest.clearAllMocks();
@@ -656,7 +668,7 @@ describe('writes to a hole outside the planned list', () => {
 
 describe('closed holes on a back nine ended after six', () => {
   it.each(holeWrites)('$name accepts hole 15 corrections and refuses hole 16', async ({ apply, expected, multiBall }) => {
-    await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes(), 'stableford', false, [], null, 'profile', new Map(), 'back9');
+    await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes(), 'stableford', false, [], TEE_WHITE, 'profile', new Map(), 'back9');
     if (multiBall) {
       getStore().setMultiBallConfig(2);
       for (const hole of range(10, 15)) {
@@ -696,6 +708,10 @@ const cachedCard = (player: Player, holeNumbers: number[], holesPlayed?: number 
   roundId: ROUND_ID,
   playerId: player.id,
   player,
+  playerHandicap: player.handicap ?? 0, playerGender: player.gender ?? null, teeData: TEE_WHITE,
+  syncHoles: create18Holes(), syncGameType: 'stroke', syncHandicapSource: 'profile',
+  syncNineType: holeNumbers[0] >= 10 ? 'back9' : 'full',
+  coursePar: holeNumbers[0] >= 10 ? 36 : 72,
   scores: Object.fromEntries(holeNumbers.map((h) => [h, { strokes: 4 }])),
   totalGross: holeNumbers.length * 4,
   totalNet: 0,
@@ -814,15 +830,11 @@ describe('init paths resolve the round shape and reconcile', () => {
 
     expect(loaded).toBe(true);
     expect(getStore().holesPlayed).toBe(6);
-    expect(persistRoundEarlyEnd).toHaveBeenCalledTimes(1);
-    expect(persistRoundEarlyEnd).toHaveBeenCalledWith(ROUND_ID, 6, 'full', range(1, 6), [
-      { scorecardId: cardId(P1.id), teeData: null, syncHandicapSource: 'profile' },
-      { scorecardId: cardId(P2.id), teeData: null, syncHandicapSource: 'profile' },
-    ]);
+    expect(persistAuthoritativeRoundShape).toHaveBeenCalledTimes(1);
+    expect(persistAuthoritativeRoundShape).toHaveBeenCalledWith(ROUND_ID, { nine_type: 'full', holes_played: 6 }, expect.any(Object));
     expect(scoredHoles(P1.id)).toEqual(range(1, 6));
     expect(scoredHoles(P2.id)).toEqual(range(1, 6));
-    expect(saveScorecard).toHaveBeenCalledWith(expect.objectContaining({ id: cardId(P1.id), holesPlayed: 6 }), expect.objectContaining({ lease: expect.any(Object) }));
-    expect(debouncedQueueScorecardSync).toHaveBeenCalledWith(cardId(P2.id), expect.any(Function));
+    expect(getStore().groupScorecards.get(P2.id)?.scores[7]).toBeUndefined();
 
     const fromMock = supabase.from as jest.Mock;
     const roundsSelects = fromMock.mock.calls
@@ -839,12 +851,10 @@ describe('init paths resolve the round shape and reconcile', () => {
 
     await getStore().loadFromOffline(ROUND_ID);
 
-    expect(persistRoundEarlyEnd).toHaveBeenCalledWith(ROUND_ID, 6, 'full', range(1, 6), expect.any(Array));
+    expect(persistAuthoritativeRoundShape).toHaveBeenCalledWith(ROUND_ID, { nine_type: 'full', holes_played: 6 }, expect.any(Object));
     expect(scoredHoles(P2.id)).toEqual(range(1, 6));
-    expect(saveScorecard).toHaveBeenCalledWith(expect.objectContaining({ id: cardId(P1.id), holesPlayed: 6 }), expect.objectContaining({ lease: expect.any(Object) }));
-    expect(saveScorecard).toHaveBeenCalledWith(expect.objectContaining({ id: cardId(P2.id), holesPlayed: 6 }), expect.objectContaining({ lease: expect.any(Object) }));
-    expect(debouncedQueueScorecardSync).toHaveBeenCalledTimes(1);
-    expect(debouncedQueueScorecardSync).toHaveBeenCalledWith(cardId(P2.id), expect.any(Function));
+    expect(debouncedQueueScorecardSync).not.toHaveBeenCalled();
+    expect(getStore().groupScorecards.get(P2.id)?.scores[7]).toBeUndefined();
   });
 
   it('the server N wins over a different local N (first device to end wins — Review Focus #3)', async () => {
@@ -855,7 +865,7 @@ describe('init paths resolve the round shape and reconcile', () => {
 
     expect(getStore().holesPlayed).toBe(4);
     expect(getStore().currentHole).toBe(4);
-    expect(persistRoundEarlyEnd).toHaveBeenCalledWith(ROUND_ID, 4, 'full', range(1, 4), expect.any(Array));
+    expect(persistAuthoritativeRoundShape).toHaveBeenCalledWith(ROUND_ID, { nine_type: 'full', holes_played: 4 }, expect.any(Object));
     expect(scoredHoles(P1.id)).toEqual(range(1, 4));
     expect(scoredHoles(P2.id)).toEqual(range(1, 4));
     expect(getStore().groupScorecards.get(P1.id)?.holesPlayed).toBe(4);
@@ -876,19 +886,19 @@ describe('init paths resolve the round shape and reconcile', () => {
 
   it('initializeRound takes the server holes_played and stamps the new cards', async () => {
     await getStore().initializeRound(
-      ROUND_ID, [P1, P2], create18Holes(), 'stroke', false, [], null, 'profile', new Map(), 'full', 1, 6
+      ROUND_ID, [P1, P2], create18Holes(), 'stroke', false, [], TEE_WHITE, 'profile', new Map(), 'full', 1, 6
     );
 
     expect(getStore().holesPlayed).toBe(6);
     expect(getStore().holes).toHaveLength(18);
-    expect(saveScorecard).toHaveBeenCalledWith(expect.objectContaining({ id: cardId(P1.id), holesPlayed: 6 }));
+    expect(saveScorecard).toHaveBeenCalledWith(expect.objectContaining({ id: cardId(P1.id), holesPlayed: 6 }), expect.objectContaining({ lease: expect.any(Object) }));
     expect(persistRoundEarlyEnd).not.toHaveBeenCalled();
   });
 
   it("initializeRound keeps a local end recorded on this device's SQLite cards", async () => {
     (getScorecardsByRound as jest.Mock).mockResolvedValue([cachedCard(P1, range(1, 6), 6), cachedCard(P2, range(1, 6), 6)]);
 
-    await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes());
+    await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes(), 'stableford', false, [], TEE_WHITE);
 
     expect(getStore().holesPlayed).toBe(6);
   });
@@ -923,27 +933,17 @@ describe('init paths durability corrections', () => {
     expect(Object.keys(submittedPayload(P1.id).scores).map(Number)).toEqual(range(1, 6));
   });
 
-  it('failed disk reconcile loads safely, excludes later scores from totals/submission, and retries on next load', async () => {
+  it('failed durable repair blocks installation and a fresh load retries current sources', async () => {
     const cards = [cachedCard(P1, range(1, 8)), cachedCard(P2, range(1, 7))];
     supabaseMock.__setRoundsResult(roundsRow({ holes_played: 6 }));
     (getScorecardsByRound as jest.Mock).mockResolvedValue(cards);
-    (persistRoundEarlyEnd as jest.Mock).mockRejectedValueOnce(new Error('disk cleanup failed'));
-
+    (persistAuthoritativeRoundShape as jest.Mock).mockRejectedValueOnce(new Error('disk cleanup failed'));
+    expect(await getStore().loadFromOffline(ROUND_ID)).toBe(false);
+    expect(getStore().isInitialized).toBe(false);
+    expect(getStore().groupScorecards.size).toBe(0);
     expect(await getStore().loadFromOffline(ROUND_ID)).toBe(true);
     expect(scoredHoles(P1.id)).toEqual(range(1, 6));
-    expect(getStore().getPlayerTotals(P1.id)).toMatchObject({ gross: 24, net: 24 });
     expect(getStore().groupScorecards.get(P1.id)).toMatchObject({ totalGross: 24, totalNet: 24 });
-    expect(saveScorecard).not.toHaveBeenCalled();
-    expect(debouncedQueueScorecardSync).not.toHaveBeenCalled();
-    expect(storeLogger.error).toHaveBeenCalledWith('Failed to reconcile a round ended early', expect.any(Error), expect.objectContaining({ holesPlayed: 6 }));
-    await getStore().submitScorecards();
-    expect(Object.keys(submittedPayload(P1.id).scores).map(Number)).toEqual(range(1, 6));
-    expect(submittedPayload(P1.id).totalGross).toBe(24);
-    getStore().resetRound();
-    jest.clearAllMocks();
-    expect(await getStore().loadFromOffline(ROUND_ID)).toBe(true);
-    expect(persistRoundEarlyEnd).toHaveBeenCalledTimes(1);
-    expect(debouncedQueueScorecardSync).toHaveBeenCalledTimes(2);
   });
 
   it('adopts a larger server N as well as a smaller N without inventing lost scores', async () => {
@@ -953,16 +953,16 @@ describe('init paths durability corrections', () => {
     expect(getStore().holesPlayed).toBe(8);
     expect(getStore().currentHole).toBe(7);
     expect(scoredHoles(P1.id)).toEqual(range(1, 6));
-    expect(persistRoundEarlyEnd).toHaveBeenCalledWith(ROUND_ID, 8, 'full', range(1, 8), expect.any(Array));
-    expect(saveScorecard).toHaveBeenCalledWith(expect.objectContaining({ holesPlayed: 8 }), expect.objectContaining({ lease: expect.any(Object) }));
+    expect(persistAuthoritativeRoundShape).toHaveBeenCalledWith(ROUND_ID, { nine_type: 'full', holes_played: 8 }, expect.any(Object));
+    expect(getStore().groupScorecards.get(P1.id)).toMatchObject({ holesPlayed: 8, totalGross: 24 });
     expect(debouncedQueueScorecardSync).not.toHaveBeenCalled();
   });
 
   it('sets loading before awaiting cached cards and refuses an end during that await', async () => {
-    await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes());
+    await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes(), 'stableford', false, [], TEE_WHITE);
     let release!: (cards: Scorecard[]) => void;
     (getScorecardsByRound as jest.Mock).mockImplementationOnce(() => new Promise<Scorecard[]>((resolve) => { release = resolve; }));
-    const initializing = getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes());
+    const initializing = getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes(), 'stableford', false, [], TEE_WHITE);
     expect(getStore().isLoading).toBe(true);
     await expect(getStore().endRoundEarly(6)).rejects.toThrow(/initializ|loading/i);
     expect(persistRoundEarlyEnd).not.toHaveBeenCalled();
@@ -970,24 +970,20 @@ describe('init paths durability corrections', () => {
     await initializing;
   });
 
-  it('does not apply failed reconcile fallback to a new session of the same round', async () => {
+  it('does not apply failed repair to a replacement same-round session', async () => {
     supabaseMock.__setRoundsResult(roundsRow({ holes_played: 6 }));
-    (getScorecardsByRound as jest.Mock).mockResolvedValueOnce([cachedCard(P1, range(1, 8))]);
+    (getScorecardsByRound as jest.Mock).mockResolvedValue([cachedCard(P1, range(1, 8))]);
     let rejectCleanup!: (error: Error) => void;
     let started!: () => void;
-    const cleanupStarted = new Promise<void>((resolve) => { started = resolve; });
-    (persistRoundEarlyEnd as jest.Mock).mockImplementationOnce(() => { started(); return new Promise<void>((_, reject) => { rejectCleanup = reject; }); });
-    const loading = getStore().loadFromOffline(ROUND_ID);
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(persistRoundEarlyEnd).toHaveBeenCalledTimes(1);
-    await cleanupStarted;
-    await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes(), 'stroke', false, [], null, 'profile', new Map(), 'back9');
-    rejectCleanup(new Error('disk cleanup failed'));
-    await loading;
-    expect(getStore().nineType).toBe('back9');
-    expect(getStore().holesPlayed).toBeNull();
+    const entered = new Promise<void>(r => { started = r; });
+    (persistAuthoritativeRoundShape as jest.Mock).mockImplementationOnce(() => { started(); return new Promise((_, reject) => { rejectCleanup = reject; }); });
+    const loading = getStore().loadFromOffline(ROUND_ID); await entered;
+    getStore().resetRound();
+    (getScorecardsByRound as jest.Mock).mockResolvedValue([]);
+    const initializing = getStore().initializeRound(ROUND_ID, [P1], create18Holes(), 'stroke', false, [], TEE_WHITE, 'profile', new Map(), 'back9');
+    rejectCleanup(new Error('rollback')); await loading; await initializing;
+    expect(getStore().nineType).toBe('back9'); expect(getStore().holesPlayed).toBeNull();
     expect(scoredHoles(P1.id)).toEqual([]);
-    expect(debouncedQueueScorecardSync).not.toHaveBeenCalled();
   });
 });
 
@@ -1001,7 +997,7 @@ describe('init paths session isolation', () => {
     const old = action === 'initializeRound'
       ? getStore().initializeRound(ROUND_ID, [P1], create18Holes())
       : getStore().loadFromOffline(ROUND_ID);
-    const newer = getStore().initializeRound(ROUND_ID, [P2], create18Holes(), 'stroke', false, [], null, 'profile', new Map(), 'back9');
+    const newer = getStore().initializeRound(ROUND_ID, [P2], create18Holes(), 'stroke', false, [], TEE_WHITE, 'profile', new Map(), 'back9');
     rejectOld(new Error('stale cache read failed'));
     await old;
     expect(getStore().isLoading).toBe(true);
@@ -1040,7 +1036,7 @@ describe('init paths repair stale ended totals without cleanup', () => {
     if (action === 'loadFromOffline') {
       expect(await getStore().loadFromOffline(ROUND_ID)).toBe(true);
     } else {
-      await getStore().initializeRound(ROUND_ID, [player], create18Holes(), 'stroke');
+      await getStore().initializeRound(ROUND_ID, [player], create18Holes(), 'stroke', false, [], TEE_WHITE);
     }
 
     expect(persistRoundEarlyEnd).not.toHaveBeenCalled();
@@ -1059,7 +1055,7 @@ describe('init paths repair stale ended totals without cleanup', () => {
 
 describe('passive current scoring session bridge', () => {
   it('rebuilds current retained edits and newer submitted metadata after an asynchronous repair', async () => {
-    await getStore().initializeRound(ROUND_ID, [P1], create18Holes());
+    await getStore().initializeRound(ROUND_ID, [P1], create18Holes(), 'stableford', false, [], TEE_WHITE);
     await score(P1.id, [1, 6, 7]);
     const session = getStore().captureRoundScoringSession(ROUND_ID)!;
     const prior = new Map([[cardId(P1.id), { nine_type: 'full' as const, holes_played: 6 }]]);
@@ -1109,7 +1105,7 @@ describe('passive current scoring session bridge', () => {
     expect((saveScorecard as jest.Mock).mock.calls).toHaveLength(beforeSaves);
   });
   it('does not mutate a reset/reinitialized session for the same round', async () => {
-    await getStore().initializeRound(ROUND_ID, [P1], create18Holes());
+    await getStore().initializeRound(ROUND_ID, [P1], create18Holes(), 'stableford', false, [], TEE_WHITE);
     const session = getStore().captureRoundScoringSession(ROUND_ID)!;
     getStore().resetRound();
     await getStore().initializeRound(
@@ -1131,7 +1127,7 @@ describe('passive current scoring session bridge', () => {
   });
   it('returns null for closed, different or loading rounds', async () => {
     expect(getStore().captureRoundScoringSession(ROUND_ID)).toBeNull();
-    await getStore().initializeRound(ROUND_ID, [P1], create18Holes());
+    await getStore().initializeRound(ROUND_ID, [P1], create18Holes(), 'stableford', false, [], TEE_WHITE);
     expect(getStore().captureRoundScoringSession('other')).toBeNull();
     useScorecardStore.setState({ isLoading: true });
     expect(getStore().captureRoundScoringSession(ROUND_ID)).toBeNull();
@@ -1170,7 +1166,7 @@ describe('passive captured owned-intent option', () => {
     (getSyncAuthUserId as jest.Mock).mockReturnValue('owner');
   });
   it('ensures an intent even when the local end is already a no-op', async () => {
-    await getStore().initializeRound(ROUND_ID, [P1], create18Holes());
+    await getStore().initializeRound(ROUND_ID, [P1], create18Holes(), 'stableford', false, [], TEE_WHITE);
     await getStore().endRoundEarly(6);
     (persistRoundEarlyEnd as jest.Mock).mockClear();
     await endOwned();
@@ -1185,7 +1181,7 @@ describe('passive captured owned-intent option', () => {
     expect(requestSyncDrain).toHaveBeenCalled();
   });
   it('requests the original durable work before a postcommit account change rejects memory application', async () => {
-    await getStore().initializeRound(ROUND_ID, [P1], create18Holes());
+    await getStore().initializeRound(ROUND_ID, [P1], create18Holes(), 'stableford', false, [], TEE_WHITE);
     (persistRoundEarlyEnd as jest.Mock).mockImplementationOnce(async () => {
       (getSyncAuthUserId as jest.Mock).mockReturnValue('other');
     });
@@ -1202,13 +1198,13 @@ describe('passive captured owned-intent option', () => {
     );
   });
   it('rejects a captured owner that disagrees with the account before persistence', async () => {
-    await getStore().initializeRound(ROUND_ID, [P1], create18Holes());
+    await getStore().initializeRound(ROUND_ID, [P1], create18Holes(), 'stableford', false, [], TEE_WHITE);
     (getSyncAuthUserId as jest.Mock).mockReturnValue(null);
     await expect(endOwned()).rejects.toThrow(/owner|account/i);
     expect(persistRoundEarlyEnd).not.toHaveBeenCalled();
   });
   it('requests drain before detecting a postcommit reset and leaves the new session untouched', async () => {
-    await getStore().initializeRound(ROUND_ID, [P1], create18Holes());
+    await getStore().initializeRound(ROUND_ID, [P1], create18Holes(), 'stableford', false, [], TEE_WHITE);
     let generation = 1;
     (persistRoundEarlyEnd as jest.Mock).mockImplementationOnce(async () => {
       generation++;
@@ -1342,7 +1338,7 @@ describe('C2a passive nullable current-source bridge', () => {
   });
 
   it('refuses live-only final N while server is NULL, preserving memory', async () => {
-    await getStore().initializeRound(ROUND_ID, [P1], create18Holes());
+    await getStore().initializeRound(ROUND_ID, [P1], create18Holes(), 'stableford', false, [], TEE_WHITE);
     const source = getStore().groupScorecards.get(P1.id)!;
     useScorecardStore.setState({ groupScorecards: new Map([[P1.id, { ...source, holesPlayed: 3 }]]) });
     const current = getStore().groupScorecards;
@@ -1351,7 +1347,7 @@ describe('C2a passive nullable current-source bridge', () => {
     expect(getStore().groupScorecards).toBe(current);
   });
   it('supplies original source and separate nullable target to the pure callback', async () => {
-    await getStore().initializeRound(ROUND_ID, [P1], create18Holes());
+    await getStore().initializeRound(ROUND_ID, [P1], create18Holes(), 'stableford', false, [], TEE_WHITE);
     const source = getStore().groupScorecards.get(P1.id)!;
     useScorecardStore.setState({ currentHole: 15, groupScorecards: new Map([[P1.id, { ...source, syncNineType: 'full', scores: { 1: { strokes: 4 }, 10: { strokes: 5 } } }]]) });
     const rebuild = jest.fn((card: Scorecard, keep: ReadonlySet<number>) => ({ ...card,
@@ -1386,10 +1382,9 @@ describe('C2a passive nullable current-source bridge', () => {
     useScorecardStore.setState({ holesPlayed: 2, handicapSource: 'profile', groupScorecards: new Map([[P1.id, { ...source,
       holesPlayed: 2, player: { ...P1, handicap: 44 }, playerHandicap: hi, playerGender: null,
       syncHandicapSource: 'calculated', teeData: TEE_RED, coursePar: undefined, syncHoles: undefined }]]) });
-    await getStore().submitScorecards();
-    const payload = (syncScorecard as jest.Mock).mock.calls.at(-1)[0];
-    expect(payload).toMatchObject({ playerHandicap: hi, playerGender: null, syncHandicapSource: 'calculated', teeData: TEE_RED });
-    expect(payload.coursePar).toBeUndefined(); expect(payload.syncHoles).toBeUndefined();
+    await expect(getStore().submitScorecards()).rejects.toThrow('Failed to submit');
+    expect(syncScorecard).not.toHaveBeenCalled();
+    expect(getStore().groupScorecards.get(P1.id)).toMatchObject({ playerHandicap: hi, syncHandicapSource: 'calculated', teeData: TEE_RED });
   });
   it('ordinary unended calculated submission retains legacy profile input selection', async () => {
     const player = { ...P1, handicap: 24, handicapIndex: 12 };
@@ -1400,7 +1395,8 @@ describe('C2a passive nullable current-source bridge', () => {
 
   it('round-ended construction preserves an unmarked card’s source rather than stamping today’s setting', async () => {
     await getStore().initializeRound(ROUND_ID, [P1], create18Holes(), 'stroke', false, [], TEE_WHITE, 'calculated');
-    useScorecardStore.setState({ holesPlayed: 2, handicapSource: 'profile' });
+    const card = getStore().groupScorecards.get(P1.id)!;
+    useScorecardStore.setState({ holesPlayed: 2, handicapSource: 'profile', groupScorecards: new Map([[P1.id, { ...card, playerHandicap: 12, playerGender: null, syncHoles: create18Holes(), syncGameType: 'stroke', syncNineType: 'full', coursePar: 72, teeData: TEE_WHITE }]]) });
     await getStore().submitScorecards();
     expect((syncScorecard as jest.Mock).mock.calls.at(-1)[0].syncHandicapSource).toBe('calculated');
   });
@@ -1492,4 +1488,137 @@ describe('web blank-card source compatibility', () => {
       courseRatingUsed: 70,
     });
   });
+});
+
+describe('C2b atomic user end and current submission', () => {
+  const start = async (source: 'calculated' | 'none' = 'calculated') => {
+    await getStore().initializeRound(ROUND_ID, [{ ...P1, handicap: 24, handicapIndex: 12 }], create18Holes(), 'stroke', false, [], TEE_WHITE, source);
+    await getStore().setPlayerScore(P1.id, 1, 4);
+  };
+  it('commits the complete calculated HI12 basis before postcommit save, not embedded profile24', async () => {
+    await start();
+    (persistRoundEarlyEnd as jest.Mock).mockImplementationOnce(async (...args) => {
+      expect(args[4][0]).toMatchObject({ playerHandicap: 12, playerGender: null, coursePar: 72, syncGameType: 'stroke', syncHoles: create18Holes(), syncHandicapSource: 'calculated' });
+    });
+    await getStore().endRoundEarly(6);
+    expect(getStore().groupScorecards.get(P1.id)).toMatchObject({ playerHandicap: 12, player: { handicap: 24 } });
+  });
+  it('known-none atomic descriptor keeps absent HI and real context', async () => {
+    await start('none');
+    useScorecardStore.setState({ groupScorecards: new Map([[P1.id, { ...getStore().groupScorecards.get(P1.id)!, player: { ...P1, handicap: undefined }, playerHandicap: undefined }]]) });
+    await getStore().endRoundEarly(6);
+    expect((persistRoundEarlyEnd as jest.Mock).mock.calls[0][4][0]).toMatchObject({ syncHandicapSource: 'none', coursePar: 72, syncGameType: 'stroke', teeData: TEE_WHITE });
+    expect((persistRoundEarlyEnd as jest.Mock).mock.calls[0][4][0].playerHandicap).toBeUndefined();
+  });
+  it('rejects missing real user-end context before committing marker', async () => {
+    await start(); getStore().setSelectedTeeData(null);
+    await expect(getStore().endRoundEarly(6)).rejects.toMatchObject({ kind: 'context_missing' });
+    expect(persistRoundEarlyEnd).not.toHaveBeenCalled();
+  });
+  it('ended retained edits, totals, submit and deliberate tee change keep recorded HI12', async () => {
+    await start(); await getStore().endRoundEarly(6);
+    useScorecardStore.setState({ handicapSource: 'profile' });
+    await getStore().setPlayerScore(P1.id, 1, 5);
+    const recorded = getStore().groupScorecards.get(P1.id)!;
+    const expected = createRoundScoringContext(ROUND_ID, {})(recorded, new Set([1,2,3,4,5,6]), { nine_type: 'full', holes_played: 6 });
+    expect(getStore().getPlayerTotals(P1.id).net).toBe(expected.totalNet);
+    expect(recorded.totalNet).toBe(expected.totalNet);
+    await getStore().setPlayerTee(P1.id, TEE_RED);
+    expect(getStore().groupScorecards.get(P1.id)).toMatchObject({ playerHandicap: 12, syncHandicapSource: 'calculated', teeData: TEE_RED });
+    await getStore().submitScorecards();
+    expect(submittedPayload(P1.id)).toMatchObject({ playerHandicap: 12, syncHandicapSource: 'calculated', teeData: TEE_RED });
+  });
+  it('submission completion patches the CURRENT map after a local save await', async () => {
+    await start();
+    let release!: () => void;
+    (saveScorecard as jest.Mock).mockImplementationOnce(() => new Promise<void>(r => { release = r; }));
+    const submit = getStore().submitScorecards();
+    for (let i=0;i<10;i++) await Promise.resolve();
+    const current = getStore().groupScorecards.get(P1.id)!;
+    useScorecardStore.setState({ groupScorecards: new Map([[P1.id, { ...current, scores: { 1: { strokes: 8 } }, status: 'confirmed', submittedBy: 'newer' }]]) });
+    release(); await submit;
+    expect(getStore().groupScorecards.get(P1.id)).toMatchObject({ scores: { 1: { strokes: 8 } }, status: 'confirmed', submittedBy: 'newer' });
+  });
+  it('offline submission queues current retained scores and terminal metadata after its save wait', async () => {
+    const { getIsOnline } = require('@/services/offline/sync');
+    await start(); await getStore().endRoundEarly(6);
+    (getIsOnline as jest.Mock).mockReturnValue(false);
+    let release!: () => void;
+    (saveScorecard as jest.Mock).mockImplementationOnce(() => new Promise<void>(r => { release = r; }));
+    const submit = getStore().submitScorecards();
+    for (let i = 0; i < 10; i++) await Promise.resolve();
+    const current = getStore().groupScorecards.get(P1.id)!;
+    useScorecardStore.setState({ groupScorecards: new Map([[P1.id, { ...current, scores: { 1: { strokes: 8 } }, status: 'confirmed', submittedBy: 'newer' }]]) });
+    release(); await submit;
+    expect((queueScorecardSync as jest.Mock).mock.calls.at(-1)[0]).toMatchObject({ scores: { 1: { strokes: 8 } }, status: 'confirmed', submittedBy: 'newer', playerHandicap: 12 });
+    (getIsOnline as jest.Mock).mockReturnValue(true);
+  });
+});
+
+describe('C2b prepared writer provenance', () => {
+  it('backfill cancelled by a closed gate restarts from current ended context after reopening', async () => {
+    await getStore().initializeRound(ROUND_ID, [P1], create18Holes(), 'stroke', false, [], TEE_WHITE);
+    let release!: () => void;
+    let entered!: () => void;
+    const ready = new Promise<void>(r => { entered = r; });
+    const transition = withRoundPersistenceTransition(ROUND_ID, { nine_type: 'full', holes_played: 6 }, async () => {
+      entered(); await new Promise<void>(r => { release = r; });
+    }, () => { useScorecardStore.setState({ holesPlayed: 6 }); });
+    await ready;
+    const backfill = getStore().ensureTeamMemberScorecards([P2]);
+    await Promise.resolve();
+    expect(getStore().groupScorecards.has(P2.id)).toBe(false);
+    release(); await transition; await backfill;
+    expect(getStore().groupScorecards.get(P2.id)).toMatchObject({ holesPlayed: 6, syncHoles: create18Holes(), teeData: TEE_WHITE });
+  });
+  it('initialization captures before cached read and refuses late saveHoles/install after a transition', async () => {
+    let release!: (cards: Scorecard[]) => void;
+    (getScorecardsByRound as jest.Mock).mockImplementationOnce(() => new Promise<Scorecard[]>(r => { release = r; }));
+    const init = getStore().initializeRound(ROUND_ID, [P1], create18Holes(), 'stroke', false, [], TEE_WHITE);
+    await withRoundPersistenceTransition(ROUND_ID, { nine_type: 'full', holes_played: 6 }, async () => undefined, () => undefined);
+    release([]);
+    await expect(init).rejects.toThrow(/source changed|source.*changed/i);
+    expect(saveHoles).not.toHaveBeenCalled(); expect(getStore().isInitialized).toBe(false);
+  });
+  it('late backfill never replaces current cards after a session reset', async () => {
+    await getStore().initializeRound(ROUND_ID, [P1], create18Holes(), 'stroke', false, [], TEE_WHITE);
+    let release!: () => void;
+    (saveScorecard as jest.Mock).mockImplementationOnce(() => new Promise<void>(r => { release = r; }));
+    const backfill = getStore().ensureTeamMemberScorecards([P2]);
+    for (let i=0;i<10;i++) await Promise.resolve();
+    getStore().resetRound(); release(); await backfill;
+    expect(getStore().currentRoundId).toBeNull(); expect(getStore().groupScorecards.size).toBe(0);
+  });
+});
+
+it('C2b submission waiting through transition retains completion intent and reparses current ended scores/context', async () => {
+  await getStore().initializeRound(ROUND_ID, [{ ...P1, handicap: 24, handicapIndex: 12 }], create18Holes(), 'stroke', false, [], TEE_WHITE, 'calculated');
+  let release!: () => void; let entered!: () => void;
+  const ready = new Promise<void>(r => { entered = r; });
+  const transition = withRoundPersistenceTransition(ROUND_ID, { nine_type: 'full', holes_played: 6 }, async () => { entered(); await new Promise<void>(r => { release = r; }); }, () => {
+    const current = getStore().groupScorecards.get(P1.id)!;
+    useScorecardStore.setState({ holesPlayed: 6, groupScorecards: new Map([[P1.id, { ...current, holesPlayed: 6,
+      scores: { 1: { strokes: 7 } }, playerHandicap: 12, playerGender: null, teeData: TEE_WHITE,
+      syncHoles: create18Holes(), coursePar: 72, syncGameType: 'stroke', syncNineType: 'full', syncHandicapSource: 'calculated' }]]) });
+  });
+  await ready;
+  const submit = getStore().submitScorecards(); release(); await transition; await submit;
+  expect(submittedPayload(P1.id)).toMatchObject({ status: 'completed', playerHandicap: 12, holesPlayed: 6, scores: { 1: { strokes: 7 } } });
+  expect(getStore().groupScorecards.get(P1.id)).toMatchObject({ status: 'completed', playerHandicap: 12, holesPlayed: 6, scores: { 1: { strokes: 7 } } });
+});
+
+it('C2b user end rechecks CURRENT submission eligibility after admitted writers drain', async () => {
+  const { withRoundPersistence, captureRoundPersistenceSource } = require('@/services/offline/roundPersistenceBarrier');
+  await getStore().initializeRound(ROUND_ID, [P1], create18Holes(), 'stroke', false, [], TEE_WHITE);
+  let release!: () => void;
+  const submission = withRoundPersistence(captureRoundPersistenceSource(ROUND_ID), async () => {
+    await new Promise<void>(r => { release = r; });
+    const current = getStore().groupScorecards.get(P1.id)!;
+    useScorecardStore.setState({ groupScorecards: new Map([[P1.id, { ...current, status: 'completed', submittedAt: new Date() }]]) });
+  });
+  const ending = getStore().endRoundEarly(6);
+  release(); await submission;
+  await expect(ending).rejects.toThrow(/submitted|completed/);
+  expect(persistRoundEarlyEnd).not.toHaveBeenCalled();
+  expect(getStore().holesPlayed).toBeNull();
 });

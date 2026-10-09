@@ -1202,10 +1202,7 @@ describe('Retained failure recovery', () => {
 
     await syncAll();
 
-    expect(database.updatePendingSyncData).toHaveBeenCalledWith(
-      55,
-      expect.objectContaining({ serverRevision: 9 })
-    );
+    expect(database.raisePendingSyncServerRevision).toHaveBeenCalledWith(55, 9);
     expect(database.markPendingSyncFailed).toHaveBeenCalledWith(55, 1, expect.any(String));
   });
 
@@ -1261,10 +1258,7 @@ describe('Retained failure recovery', () => {
     await retryFailedSyncs();
 
     expect(database.markPendingSyncFailed).toHaveBeenCalledWith(58, 1, expect.any(String));
-    expect(database.updatePendingSyncData).toHaveBeenLastCalledWith(
-      58,
-      expect.objectContaining({ serverRevision: 11 })
-    );
+    expect(database.raisePendingSyncServerRevision).toHaveBeenLastCalledWith(58, 11);
   });
 
   it('does not raise a global error message for dormant failures after a clean drain', async () => {
@@ -1765,4 +1759,46 @@ describe("C1 local queue persistence admission", () => {
       expect.objectContaining({ action: "delete", data: scorecard }),
     );
   });
+});
+
+describe('C2b fallback source retention', () => {
+  beforeEach(async () => { initSyncService(); await flushPromises(); jest.clearAllMocks(); });
+  it('does not retag an old failed upload after local shape repair', async () => {
+    const card = createTestScorecard({ roundId: '550e8400-e29b-41d4-a716-446655440201' });
+    (database.getUnsyncedScorecards as jest.Mock).mockResolvedValue([card]);
+    (supabase.rpc as jest.Mock).mockImplementationOnce(async () => {
+      await transitionPersistence(card.roundId, { nine_type: 'full', holes_played: 6 }, async () => undefined, () => undefined);
+      return { data: null, error: { message: 'network failed' } };
+    });
+    await syncAll();
+    expect(database.addPendingSync).not.toHaveBeenCalled();
+  });
+  it('captures device-wide read provenance before its unknown-round snapshot await', async () => {
+    const card = createTestScorecard({ roundId: '550e8400-e29b-41d4-a716-446655440202' });
+    (database.getUnsyncedScorecards as jest.Mock).mockImplementationOnce(async () => {
+      await transitionPersistence(card.roundId, { nine_type: 'full', holes_played: 6 }, async () => undefined, () => undefined);
+      return [card];
+    });
+    await syncAll();
+    expect(supabase.rpc).not.toHaveBeenCalled(); expect(database.addPendingSync).not.toHaveBeenCalled();
+  });
+});
+
+it('C2b conflict after repair raises revision only and cannot write captured discarded scores/status back', async () => {
+  initSyncService(); await flushPromises(); jest.clearAllMocks();
+  const original = createTestScorecard({ roundId: '550e8400-e29b-41d4-a716-446655440203', scores: { 1: { strokes: 4 }, 7: { strokes: 9 } }, serverRevision: 2 });
+  const pending = createPendingSync({ id: 995, data: original });
+  let livePayload = original;
+  (database.getPendingSyncs as jest.Mock).mockResolvedValue([pending]);
+  (database.updatePendingSyncData as jest.Mock).mockImplementationOnce(async (_id, data) => { livePayload = data; return true; });
+  (database.raisePendingSyncServerRevision as jest.Mock).mockImplementationOnce(async (_id, revision) => { livePayload = { ...livePayload, serverRevision: Math.max(livePayload.serverRevision ?? 0, revision) }; return true; });
+  (supabase.rpc as jest.Mock).mockImplementationOnce(async () => {
+    await transitionPersistence(original.roundId, { nine_type: 'full', holes_played: 6 }, async () => undefined, () => {
+      livePayload = { ...original, scores: { 1: { strokes: 8 } }, holesPlayed: 6, syncNineType: 'full', status: 'confirmed' };
+    });
+    return { data: [{ applied: false, conflict: true, server_revision: 9, server_status: 'completed', server_scores: {} }], error: null };
+  });
+  await syncAll();
+  expect(livePayload).toMatchObject({ scores: { 1: { strokes: 8 } }, holesPlayed: 6, status: 'confirmed', serverRevision: 9 });
+  expect(livePayload.scores[7]).toBeUndefined(); expect(database.updatePendingSyncData).not.toHaveBeenCalled();
 });

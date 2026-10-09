@@ -23,6 +23,11 @@ import {
 } from '@/utils/holeTransformers';
 import { resolveRoundShape } from '@/utils/roundShape';
 import { isValidUUID } from './utils/scorecardCalculations';
+import { captureRoundPersistenceSource, isRoundPersistenceSourceCurrent, withRoundPersistence, waitForRoundPersistenceReady, RoundPersistenceSourceChangedError } from '@/services/offline/roundPersistenceBarrier';
+import { repairRoundShapeForInitialization } from '@/services/rounds/roundScoringAdoption';
+import { createRoundScoringContext } from '@/services/rounds/roundScoringContext';
+import { shapeHoleNumbers } from '@/services/rounds/roundScoringWrite';
+import { getSyncAuthUserId } from '@/services/offline/sync/networkState';
 
 type SetFn = (partial: Record<string, unknown>) => void;
 type GetFn = () => {
@@ -30,6 +35,12 @@ type GetFn = () => {
   handicapSource?: HandicapSource;
   holesPlayed?: number | null;
   currentPlayers: Player[];
+  isLoading?: boolean;
+  holes?: Hole[];
+  gameType?: GameType;
+  nineType?: NineType;
+  selectedTeeData?: TeeBox | null;
+  playerTeeMap?: Map<string, TeeBox>;
   groupScorecards: Map<string, Scorecard>;
 };
 
@@ -120,7 +131,12 @@ export async function initializeRound(
   // Refuse end actions throughout the cached-marker read as well as writes.
   set({ isLoading: true, selectedTeeData });
   const session = options.getSessionGeneration?.();
-  const isCurrentSession = () => options.getSessionGeneration?.() === session;
+  let source = captureRoundPersistenceSource(roundId);
+  const ownerId = getSyncAuthUserId();
+  const isCurrentSession = () => options.getSessionGeneration?.() === session && getSyncAuthUserId() === ownerId;
+  const assertSource = () => {
+    if (!isCurrentSession() || !isRoundPersistenceSourceCurrent(source)) throw new RoundPersistenceSourceChangedError(roundId);
+  };
   // Defensive filter: callers may pass the full course holes (18) regardless
   // of the round's nine_type. Filtering here keeps the in-memory state, the
   // SQLite snapshot, and downstream count/par/sync logic in sync with what
@@ -170,9 +186,19 @@ export async function initializeRound(
       effectiveSelectedTee = cachedCards.find((card) => card.teeData)?.teeData ?? selectedTeeData;
     }
     storeLogger.debug('Saving holes to SQLite', { roundId, holeCount: filteredHoles.length });
-    await saveHoles(roundId, filteredHoles);
+    await withRoundPersistence(source, async () => { assertSource(); await saveHoles(roundId, filteredHoles); });
     if (!isCurrentSession()) return;
 
+    if (shape.holesPlayed != null) {
+      const result = await repairRoundShapeForInitialization(roundId, { nine_type: nineType, holes_played: shape.holesPlayed }, {
+        ownerId: ownerId ?? '', isCurrent: () => isCurrentSession() && getSyncAuthUserId() === ownerId,
+        evidence: { holes: filteredHoles, gameType },
+      });
+      if (!isCurrentSession()) return;
+      source = captureRoundPersistenceSource(roundId); // Result of OUR committed repair, never old prepared scores.
+      for (const card of result.cards) cachedByPlayer.set(card.playerId, card);
+    }
+    assertSource();
     const newScorecards = new Map<string, Scorecard>();
 
     for (const player of players) {
@@ -207,10 +233,11 @@ export async function initializeRound(
       });
       // Keep cached keys/markers intact until reconcile detects removals and
       // crosses the durable cleanup boundary. Fresh cards have no lost scores.
-      if (!cached) await saveScorecard(scorecard);
+      if (!cached) await withRoundPersistence(source, async lease => { assertSource(); await saveScorecard(scorecard, { lease }); });
       if (!isCurrentSession()) return;
     }
 
+    assertSource();
     set({
       currentRoundId: roundId,
       currentPlayers: players,
@@ -257,7 +284,12 @@ export async function loadFromOffline(
   options: InitSessionOptions = {},
 ): Promise<boolean> {
   const session = options.getSessionGeneration?.();
-  const isCurrentSession = () => options.getSessionGeneration?.() === session;
+  let source = captureRoundPersistenceSource(roundId);
+  const ownerId = getSyncAuthUserId();
+  const isCurrentSession = () => options.getSessionGeneration?.() === session && getSyncAuthUserId() === ownerId;
+  const assertSource = () => {
+    if (!isCurrentSession() || !isRoundPersistenceSourceCurrent(source)) throw new RoundPersistenceSourceChangedError(roundId);
+  };
   storeLogger.info('Loading round from offline storage', { roundId });
   pushDiagnostic('offline_load.entered', { roundId });
   set({ isLoading: true });
@@ -315,7 +347,8 @@ export async function loadFromOffline(
         if (isCurrentSession()) set({ isLoading: false });
         return false;
       }
-      await saveHoles(roundId, remoteHoles);
+      assertSource();
+      await withRoundPersistence(source, async () => { assertSource(); await saveHoles(roundId, remoteHoles); });
       cachedHoles = remoteHoles;
       pushDiagnostic('offline_load.holes_recovered', {
         roundId,
@@ -347,7 +380,7 @@ export async function loadFromOffline(
     try {
       const refreshableIds = new Set(
         scorecards
-          .filter((sc) => sc.status !== 'completed' && sc.status !== 'confirmed')
+          .filter((sc) => sc.holesPlayed == null && sc.status !== 'completed' && sc.status !== 'confirmed' && !sc.submittedAt && !sc.submittedBy)
           .map((sc) => sc.playerId)
       );
       const idsToRefresh = players
@@ -516,6 +549,17 @@ export async function loadFromOffline(
       { nine_type: nineType, holes_played: serverHolesPlayed },
       { nineType, holesPlayed: localHolesPlayedFromCards(scorecards) }
     );
+    assertSource();
+    if (shape.holesPlayed != null) {
+      const result = await repairRoundShapeForInitialization(roundId, { nine_type: nineType, holes_played: shape.holesPlayed }, {
+        ownerId: ownerId ?? '', isCurrent: () => isCurrentSession() && getSyncAuthUserId() === ownerId, evidence: { holes, gameType },
+      });
+      if (!isCurrentSession()) return false;
+      source = captureRoundPersistenceSource(roundId);
+      newScorecards.clear();
+      for (const card of result.cards) newScorecards.set(card.playerId, card);
+    }
+    assertSource();
     const playedHoles = filterPlayableHoles(holes, nineType, shape.holesPlayed);
     const holeNumbers = playedHoles.map((h: any) => h.number ?? h.hole_number);
     let currentHole = holeNumbers[0] ?? 1;
@@ -535,6 +579,7 @@ export async function loadFromOffline(
     }
 
     if (!isCurrentSession()) return false;
+    assertSource();
     set({
       currentRoundId: roundId,
       currentPlayers: players,
@@ -599,74 +644,62 @@ export async function loadFromOffline(
 export async function ensureTeamMemberScorecards(
   set: SetFn,
   get: GetFn,
-  teamMemberPlayers: Player[]
+  teamMemberPlayers: Player[],
+  options: InitSessionOptions = {},
 ): Promise<void> {
   const state = get();
-  const { currentRoundId, currentPlayers, groupScorecards } = state;
-
-  if (!currentRoundId) return;
-  if (teamMemberPlayers.length === 0) return;
-
-  const missing = teamMemberPlayers.filter(
-    (p) => !groupScorecards.has(p.id)
-  );
-
-  if (missing.length === 0) return;
-
-  storeLogger.info('Ensuring scorecards for newly-added team members', {
-    roundId: currentRoundId,
-    missingCount: missing.length,
-    missingPlayers: missing.map((p) => p.name),
-  });
-
-  const updatedScorecards = new Map(groupScorecards);
-
-  for (const player of missing) {
-    const scorecard: Scorecard = {
-      id: `scorecard-${currentRoundId}-${player.id}`,
-      roundId: currentRoundId,
-      playerId: player.id,
-      player,
-      scores: {},
-      totalGross: 0,
-      totalNet: 0,
-      status: 'in-progress',
-      ...(Platform.OS !== 'web' && state.holesPlayed == null && {
-        syncHandicapSource: state.handicapSource,
-      }),
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      // Match initializeRound's behaviour: inherit isStandalone from any
-      // existing scorecard (they all share the same flag for a round).
-      isStandalone: groupScorecards.values().next().value?.isStandalone ?? false,
+  const currentRoundId = state.currentRoundId;
+  if (!currentRoundId || !teamMemberPlayers.length) return;
+  const session = options.getSessionGeneration?.();
+  const source = captureRoundPersistenceSource(currentRoundId);
+  const ownerId = getSyncAuthUserId();
+  const sameSession = () => options.getSessionGeneration?.() === session && getSyncAuthUserId() === ownerId && get().currentRoundId === currentRoundId && !get().isLoading;
+  const isCurrent = () => sameSession() && isRoundPersistenceSourceCurrent(source);
+  const restart = async () => {
+    await waitForRoundPersistenceReady(currentRoundId);
+    if (sameSession()) await ensureTeamMemberScorecards(set, get, teamMemberPlayers, options);
+  };
+  if (!isCurrent()) { if (sameSession()) await restart(); return; }
+  // An earlier admitted backfill may have committed before a transition cancelled
+  // its memory install. Recover that current durable card rather than overwrite it.
+  const cachedCards = await getScorecardsByRound(currentRoundId);
+  if (!isCurrent()) { if (sameSession()) await restart(); return; }
+  for (const player of teamMemberPlayers) {
+    if (!isCurrent()) { if (sameSession()) await restart(); return; }
+    const current = get();
+    if (current.groupScorecards.has(player.id)) continue;
+    const cached = cachedCards.find(card => card.playerId === player.id);
+    let card: Scorecard = cached ?? {
+      id: `scorecard-${currentRoundId}-${player.id}`, roundId: currentRoundId, playerId: player.id, player,
+      scores: {}, totalGross: 0, totalNet: 0, status: 'in-progress', createdAt: new Date(), updatedAt: new Date(),
+      isStandalone: current.groupScorecards.values().next().value?.isStandalone ?? false,
+      ...(Platform.OS !== 'web' && current.holesPlayed == null && { syncHandicapSource: current.handicapSource }),
     };
-
-    updatedScorecards.set(player.id, scorecard);
-
-    try {
-      await saveScorecard(scorecard);
-    } catch (error) {
-      storeLogger.error('Failed to save backfill scorecard to SQLite', error, {
-        scorecardId: scorecard.id,
-        playerId: player.id,
-      });
-      // Don't bail on the whole batch — keep going for other missing
-      // players. The in-memory state still gets updated below.
+    if (current.holesPlayed != null) {
+      const target = { nine_type: current.nineType ?? 'full', holes_played: current.holesPlayed };
+      card = createRoundScoringContext(currentRoundId, { holes: current.holes, gameType: current.gameType, ...(!cached && { getLiveContext: () => ({ player,
+        handicapSource: current.handicapSource ?? 'profile', nineType: target.nine_type,
+        holes: current.holes ?? [], gameType: current.gameType!,
+        teeData: current.playerTeeMap?.get(player.id) ?? current.selectedTeeData ?? null,
+      }) }) })(card, shapeHoleNumbers(target), target);
     }
+    try {
+      await withRoundPersistence(source, async lease => {
+        if (!isCurrent()) throw new RoundPersistenceSourceChangedError(currentRoundId);
+        await saveScorecard(card, { lease });
+      });
+    } catch (error) {
+      if (error instanceof RoundPersistenceSourceChangedError || !isCurrent()) {
+        if (sameSession()) await restart();
+        return;
+      }
+      storeLogger.error('Failed to save backfill scorecard to SQLite', error, { scorecardId: card.id });
+      continue;
+    }
+    if (!isCurrent()) { if (sameSession()) await restart(); return; }
+    const latest = get();
+    if (latest.groupScorecards.has(player.id)) continue;
+    const cards = new Map(latest.groupScorecards); cards.set(player.id, card);
+    set({ groupScorecards: cards, currentPlayers: latest.currentPlayers.some(p => p.id === player.id) ? latest.currentPlayers : [...latest.currentPlayers, player] });
   }
-
-  // Merge the new players into currentPlayers (preserving original order
-  // for stable rendering, then appending the new ones at the end).
-  const existingIds = new Set(currentPlayers.map((p) => p.id));
-  const appendedPlayers = missing.filter((p) => !existingIds.has(p.id));
-
-  set({
-    currentPlayers: [...currentPlayers, ...appendedPlayers],
-    groupScorecards: updatedScorecards,
-  });
-
-  storeLogger.info('Backfilled team member scorecards', {
-    roundId: currentRoundId,
-    added: missing.length,
-  });
 }

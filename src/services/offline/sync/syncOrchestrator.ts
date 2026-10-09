@@ -5,7 +5,7 @@
  * Manages sync queue, state, and scheduling.
  */
 
-import { runRoundPersistence, type RoundPersistenceOptions } from '../roundPersistenceBarrier';
+import { captureRoundPersistenceRead, isRoundPersistenceSourceCurrent, RoundPersistenceSourceChangedError, runRoundPersistence, type RoundPersistenceOptions, type RoundPersistenceSource } from '../roundPersistenceBarrier';
 import {
   getPendingSyncs,
   removePendingSync,
@@ -23,7 +23,6 @@ import {
   clearInvalidMockData,
   getFailedSyncs,
   discardPendingSync,
-  updatePendingSyncData,
   raisePendingSyncServerRevision,
   hasUnsyncedScorecardsForRound,
   getFailedSyncCountForRound,
@@ -260,7 +259,7 @@ export async function syncAll(options: SyncAllOptions = {}): Promise<boolean> {
 
       sync.data = { ...sync.data, serverRevision: error.serverRevision };
       if (sync.id != null) {
-        await updatePendingSyncData(sync.id, sync.data);
+        await raisePendingSyncServerRevision(sync.id, error.serverRevision);
       }
       return true;
     };
@@ -399,6 +398,7 @@ export async function syncAll(options: SyncAllOptions = {}): Promise<boolean> {
     }
 
     // Also sync any unsynced scorecards
+    const fallbackReadSource = captureRoundPersistenceRead();
     const [allUnsyncedScorecards, queuedEntityKeys] = await Promise.all([
       getUnsyncedScorecards(),
       getQueuedEntityKeys(),
@@ -414,6 +414,8 @@ export async function syncAll(options: SyncAllOptions = {}): Promise<boolean> {
       const rlsFailedRoundIds = new Set<string>();
 
       for (const scorecard of unsyncedScorecards) {
+        const source = fallbackReadSource(scorecard.roundId);
+        if (!isRoundPersistenceSourceCurrent(source)) continue;
         try {
           syncLogger.debug('Syncing unsynced scorecard', logScorecardSummary(scorecard));
           const result = await syncScorecard(scorecard);
@@ -441,7 +443,8 @@ export async function syncAll(options: SyncAllOptions = {}): Promise<boolean> {
                 ? { ...scorecard, serverRevision: error.serverRevision }
                 : scorecard,
               errorMessage,
-              true
+              true,
+              source
             );
           } else if (isRlsError) {
             syncLogger.error('RLS POLICY ERROR: Scorecard cannot be synced - round may have been deleted', undefined, {
@@ -449,7 +452,7 @@ export async function syncAll(options: SyncAllOptions = {}): Promise<boolean> {
               roundId: scorecard.roundId.substring(0, 8) + '...',
               playerId: scorecard.playerId.substring(0, 8) + '...',
             });
-            await retainFallbackFailure(scorecard, errorMessage, true);
+            await retainFallbackFailure(scorecard, errorMessage, true, source);
             rlsFailedRoundIds.add(scorecard.roundId);
             // Don't count as failure since we handled it
           } else {
@@ -458,7 +461,7 @@ export async function syncAll(options: SyncAllOptions = {}): Promise<boolean> {
               roundId: scorecard.roundId.substring(0, 8) + '...',
             });
             failCount++;
-            await retainFallbackFailure(scorecard, errorMessage, false);
+            await retainFallbackFailure(scorecard, errorMessage, false, source);
           }
         }
       }
@@ -855,9 +858,11 @@ function scorecardEntityKey(scorecard: Scorecard): string {
 async function retainFallbackFailure(
   scorecard: Scorecard,
   error: string,
-  permanent: boolean
+  permanent: boolean,
+  source: RoundPersistenceSource,
 ): Promise<void> {
-  await addPendingSync({
+  try {
+    await runRoundPersistence(scorecard.roundId, { source }, async () => addPendingSync({
     type: 'scorecard',
     action: 'update',
     data: scorecard,
@@ -867,5 +872,9 @@ async function retainFallbackFailure(
     status: permanent ? 'failed' : 'pending',
     lastError: error,
     lastAttemptAt: new Date(),
-  });
+    }), scorecard);
+  } catch (error) {
+    // C4 owns network recovery; an obsolete failure object cannot replace repaired local work.
+    if (!(error instanceof RoundPersistenceSourceChangedError)) throw error;
+  }
 }

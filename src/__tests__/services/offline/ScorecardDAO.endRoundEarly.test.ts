@@ -247,3 +247,48 @@ describe('guarded provisional hydration replacement', () => {
     expect(bulkSaveHoleScores).not.toHaveBeenCalled(); expect(db.runAsync).not.toHaveBeenCalled();
   });
 });
+
+describe('C2b full atomic end basis survives crash before any full-card metadata save', () => {
+  it.each([['calculated', 12], ['none', undefined]] as const)('restarts %s with recorded HI %s and actual planned context', async (source, hi) => {
+    const { createRoundScoringContext } = require('@/services/rounds/roundScoringContext');
+    const { calculateHandicapData } = require('@/services/offline/sync/scorecardSync');
+    const { create18Holes } = require('../../utils/testFixtures');
+    const holes = create18Holes();
+    // The native mock stores only what the marker transaction itself writes.
+    // No saveScorecard call takes place between commit and restart.
+    const savedRow = {
+      id: 'crash-card', round_id: 'crash-round', player_id: 'p', player_name: 'Player', player_handicap: 24,
+      total_gross: 99, total_net: 99, total_points: 0, status: 'in-progress', submitted_at: null, submitted_by: null,
+      created_at: '2026-10-01', updated_at: '2026-10-01', is_synced: 0, is_standalone: 0,
+    } as Record<string, unknown>;
+    txn.runAsync.mockImplementation(async (sql, args) => {
+      if (sql.includes('UPDATE scorecards')) {
+        expect(sql).toContain('player_handicap_used = ?'); expect(sql).toContain('sync_holes = ?');
+        Object.assign(savedRow, { holes_played: args[0], tee_data: args[1], sync_nine_type: args[2],
+          sync_handicap_source: args[4], player_handicap_used: args[5], player_gender: args[6],
+          course_par: args[7], sync_holes: args[8], sync_game_type: args[9] });
+      }
+      return { changes: 1 };
+    });
+    await persistRoundEarlyEnd('crash-round', 6, 'full', [1,2,3,4,5,6], [{
+      scorecardId: 'crash-card', teeData: tee, syncHandicapSource: source,
+      playerHandicap: hi, playerGender: null, coursePar: 72, syncHoles: holes, syncGameType: 'stroke',
+    }]);
+    expect(db.withExclusiveTransactionAsync).toHaveBeenCalledTimes(1); expect(db.withTransactionAsync).not.toHaveBeenCalled();
+    db.getAllAsync.mockResolvedValueOnce([savedRow]);
+    (getHoleScores as jest.Mock).mockResolvedValueOnce({ 1: { strokes: 4 }, 6: { strokes: 4 } });
+    const [restored] = await getScorecardsByRound('crash-round');
+    expect(restored.player?.handicap).toBe(24);
+    expect(restored.playerHandicap ?? undefined).toBe(hi);
+    const repaired = createRoundScoringContext('crash-round', {})(restored, new Set([1,2,3,4,5,6]), { nine_type: 'full', holes_played: 6 });
+    const snapshot = calculateHandicapData(repaired);
+    expect(snapshot.gaHandicapUsed ?? undefined).toBe(hi);
+    expect(snapshot.handicapDifferential).toBeNull();
+    if (source === 'none') {
+      expect(snapshot.dailyHandicapUsed).toBe(0); expect(repaired.totalNet).toBe(repaired.totalGross);
+    } else {
+      expect(snapshot.dailyHandicapUsed).toBeLessThan(15);
+      expect(repaired.playerHandicap).toBe(12);
+    }
+  });
+});

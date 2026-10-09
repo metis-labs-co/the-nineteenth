@@ -36,6 +36,10 @@ const mockEighteenHoles: Hole[] = Array.from({ length: 18 }, (_, i) => ({
 // Mutable state the store mock returns; tests adjust per scenario
 const mockStoreState = {
   currentRoundId: null as string | null,
+  captureRoundScoringSession: () => {
+    const identity = mockStoreState.currentRoundId;
+    return { isCurrent: () => mockStoreState.currentRoundId === identity };
+  },
   currentPlayers: [] as { id: string }[],
   isInitialized: false,
   holes: [] as Hole[],
@@ -53,7 +57,7 @@ jest.mock('@/store/scorecardStore', () => {
     ...mockStoreState,
     groupScorecards: mockGroupScorecards,
   });
-  (useScorecardStore as unknown as { setState: (s: unknown) => void }).setState = jest.fn();
+  (useScorecardStore as unknown as { setState: (s: { groupScorecards?: typeof mockGroupScorecards }) => void }).setState = jest.fn((state: { groupScorecards?: typeof mockGroupScorecards }) => { if (state.groupScorecards) mockGroupScorecards = state.groupScorecards; });
   return { useScorecardStore };
 });
 
@@ -346,7 +350,7 @@ describe('useMatchPlayData (nine_type awareness)', () => {
         renderTheHook();
         if (hasScores) {
           await waitFor(() => expect(saveScorecard).toHaveBeenCalledTimes(1));
-          expect((saveScorecard as jest.Mock).mock.calls[0]).toHaveLength(1);
+          expect((saveScorecard as jest.Mock).mock.calls[0][1]).not.toHaveProperty('replaceProvisionalHandicapSource');
           expect(mockGroupScorecards.get(P1)).toMatchObject({
             scores: { 1: { strokes: 4 } },
             status: 'completed',

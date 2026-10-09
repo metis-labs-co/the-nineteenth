@@ -19,6 +19,8 @@ import { captureRoundPersistenceSource } from '@/services/offline/roundPersisten
 import { persistScorecardUpdate, type LivePersistenceContext } from './scorecardPersistence';
 import { debouncedQueueScorecardSync } from './scorecardSyncDebounce';
 import { calculatePlayerTotals } from './utils/scorecardCalculations';
+import { createRoundScoringContext } from '@/services/rounds/roundScoringContext';
+import { shapeHoleNumbers } from '@/services/rounds/roundScoringWrite';
 
 interface StoreState {
   groupScorecards: Map<string, Scorecard>;
@@ -81,9 +83,15 @@ function applyScoreUpdate(
     handicapSource: state.handicapSource,
     nineType: state.nineType,
   });
-  updatedScorecard.totalGross = totals.gross;
-  updatedScorecard.totalNet = totals.net;
-  updatedScorecard.total_par_score = totals.parScore;
+  if ((state.holesPlayed ?? scorecard.holesPlayed) != null) {
+    const shape = { nine_type: state.nineType, holes_played: state.holesPlayed ?? scorecard.holesPlayed ?? null };
+    const rebuilt = createRoundScoringContext(scorecard.roundId, {})(updatedScorecard, shapeHoleNumbers(shape), shape);
+    Object.assign(updatedScorecard, rebuilt);
+  } else {
+    updatedScorecard.totalGross = totals.gross;
+    updatedScorecard.totalNet = totals.net;
+    updatedScorecard.total_par_score = totals.parScore;
+  }
 
   const newScorecards = new Map(groupScorecards);
   newScorecards.set(playerId, updatedScorecard);

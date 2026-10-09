@@ -4,6 +4,7 @@ import { getDb } from '@/services/offline/DatabaseManager';
 import { getHoleScores } from '@/services/offline/dao/HoleScoreDAO';
 import type { Hole, Scorecard } from '@/types';
 import type { ScorecardRow, PendingSyncRow } from '@/services/offline/types';
+jest.mock('@/services/offline/sync/networkState', () => ({ getSyncAuthUserId: jest.fn(() => 'owner') }));
 jest.mock('@/services/offline/DatabaseManager', () => ({ getDb: jest.fn() }));
 jest.mock('@/services/offline/dao/HoleScoreDAO', () => ({ getHoleScores: jest.fn() }));
 const row: ScorecardRow = {
@@ -295,4 +296,28 @@ it('allows NULL nine correction from unended sources, persists proven par/HI/gen
   expect(sql).toContain('course_par = ?'); expect(sql).toContain('player_handicap_used = ?');
   expect(sql).toContain('player_gender = ?'); expect(sql).toContain('sync_handicap_source = ?');
   expect(args).toContain('none');
+});
+
+it('C2b initialization uses the shared core and native repair while priorN6 still masks an old NULL queued7/8', async () => {
+  const { repairRoundShapeForInitialization } = require('@/services/rounds/roundScoringAdoption');
+  const { create18Holes } = require('../../utils/testFixtures');
+  const holes = create18Holes();
+  const tee = { name: 'White', color: 'white', slopeRating: 113, courseRating: 72 };
+  const currentRow = { ...row, tee_data: JSON.stringify(tee), sync_holes: JSON.stringify(holes), sync_handicap_source: 'calculated' };
+  const queued = { ...queuedCard, playerHandicap: 12, playerGender: 'male' as const, teeData: tee,
+    syncHoles: holes, syncGameType: 'stroke' as const, syncHandicapSource: 'calculated' as const,
+    syncNineType: 'full' as const, coursePar: 72, scores: { 1: { strokes: 3 }, 7: { strokes: 8 }, 8: { strokes: 9 } } };
+  const nativeQueue = queue(queued);
+  // Both ordinary hint reads and exclusive CURRENT reads use these native mocks.
+  const readRows = jest.fn(async (sql: string) => sql.includes('FROM scorecards') ? [currentRow] : sql.includes('FROM holes ') ?
+    holes.map((h: { number: number; par: number; strokeIndex: number }) => ({ hole_number: h.number, par: h.par, stroke_index: h.strokeIndex })) : [nativeQueue]);
+  Object.assign(database, { getAllAsync: readRows });
+  txn.getAllAsync.mockImplementation(readRows);
+  const result = await repairRoundShapeForInitialization('r', { nine_type: 'full', holes_played: 8 }, { ownerId: 'owner', isCurrent: () => true, evidence: { holes, gameType: 'stroke' } });
+  expect(result.priorLocalShapes.get('c')).toEqual({ nine_type: 'full', holes_played: 6 });
+  expect(result.cards[0].scores[7]).toBeUndefined();
+  const repairedQueue = JSON.parse(txn.runAsync.mock.calls.find(([sql]) => sql.includes('UPDATE pending_syncs'))![1][0]);
+  expect(repairedQueue).toMatchObject({ scores: { 1: { strokes: 3 } }, holesPlayed: 8, playerHandicap: 12, status: 'completed' });
+  expect(repairedQueue.scores[7]).toBeUndefined(); expect(repairedQueue.scores[8]).toBeUndefined();
+  expect(database.withExclusiveTransactionAsync).toHaveBeenCalledTimes(1);
 });

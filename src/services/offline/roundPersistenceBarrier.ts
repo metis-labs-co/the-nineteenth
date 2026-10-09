@@ -45,6 +45,11 @@ function gateFor(roundId: string): RoundGate {
 export function captureRoundPersistenceSource(roundId: string): RoundPersistenceSource {
   return Object.freeze({ roundId, epoch: gateFor(roundId).epoch });
 }
+/** Capture provenance before an asynchronous device-wide read reveals its round IDs. */
+export function captureRoundPersistenceRead(): (roundId: string) => RoundPersistenceSource {
+  const epochs = new Map([...rounds].map(([id, gate]) => [id, gate.epoch]));
+  return roundId => Object.freeze({ roundId, epoch: epochs.get(roundId) ?? 0 });
+}
 export function isRoundPersistenceSourceCurrent(source: RoundPersistenceSource): boolean {
   const gate = gateFor(source.roundId);
   return !gate.closed && gate.epoch === source.epoch;
@@ -124,6 +129,12 @@ export function runRoundPersistence<T>(
   } catch (error) {
     return Promise.reject(error);
   }
+}
+
+/** Wait without admission so a cancelled prepared reader can start a fresh acquisition. */
+export async function waitForRoundPersistenceReady(roundId: string): Promise<void> {
+  const gate = gateFor(roundId);
+  while (gate.closed) await gate.reopened;
 }
 
 /**

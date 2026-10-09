@@ -1,3 +1,5 @@
+import { getSyncAuthUserId } from '@/services/offline/sync/networkState';
+import { captureRoundPersistenceSource, isRoundPersistenceSourceCurrent, withRoundPersistence, waitForRoundPersistenceReady, RoundPersistenceSourceChangedError } from '@/services/offline/roundPersistenceBarrier';
 /**
  * useRoundData Hook
  *
@@ -581,12 +583,20 @@ export function useRoundData({
 
   // Hydrate store from Supabase: merge any completed scorecards (e.g. from QuickScore)
   // that exist in Supabase but not in the local SQLite store
+  const [hydrationAttempt, setHydrationAttempt] = useState(0);
   useEffect(() => {
+    let cancelled = false;
     const hydrateFromSupabase = async () => {
       if (!isInitialized || !roundId || hydratedRoundRef.current === roundId) {
         return;
       }
 
+      const ownerId = getSyncAuthUserId();
+      const source = captureRoundPersistenceSource(roundId);
+      const session = useScorecardStore.getState().captureRoundScoringSession(roundId);
+      if (!session) return;
+      const current = () => !cancelled && getSyncAuthUserId() === ownerId && session.isCurrent() && isRoundPersistenceSourceCurrent(source);
+      const assertCurrent = () => { if (!current()) throw new RoundPersistenceSourceChangedError(roundId); };
       hydratedRoundRef.current = roundId;
 
       try {
@@ -609,8 +619,9 @@ export function useRoundData({
 
         if (error || !remoteScorecards?.length) return;
 
+        assertCurrent();
         const { groupScorecards, nineType, holesPlayed } = useScorecardStore.getState();
-        let merged = false;
+        const candidates = new Map<string, { original: Scorecard; card: Scorecard }>();
 
         for (const remote of remoteScorecards) {
           const localScorecard = groupScorecards.get(remote.player_id);
@@ -662,27 +673,24 @@ export function useRoundData({
             localScorecard.syncHandicapSource != null && updatedScorecard.syncHandicapSource == null
               ? localScorecard.syncHandicapSource
               : undefined;
-          if (provisionalSource) {
-            try {
-              await saveScorecard(updatedScorecard, {
-                replaceProvisionalHandicapSource: provisionalSource,
-              });
-            } catch (error) {
-              roundDataLogger.warn('Provisional scorecard changed; remote hydration deferred', {
-                error,
-              });
-              continue;
-            }
-          }
-          groupScorecards.set(remote.player_id, updatedScorecard);
-          merged = true;
-
-          // Persist to SQLite so future offline loads pick it up
+          assertCurrent();
           try {
-            if (!provisionalSource) await saveScorecard(updatedScorecard);
-            await markScorecardAsSynced(updatedScorecard.id, remote.revision);
-          } catch {
-            // Non-critical: store is already updated
+            await withRoundPersistence(source, async lease => {
+              assertCurrent();
+              if (useScorecardStore.getState().groupScorecards.get(remote.player_id) !== localScorecard) return;
+              await saveScorecard(updatedScorecard, { lease,
+                ...(provisionalSource && { replaceProvisionalHandicapSource: provisionalSource }),
+              });
+              assertCurrent();
+              if (useScorecardStore.getState().groupScorecards.get(remote.player_id) !== localScorecard) return;
+              await markScorecardAsSynced(updatedScorecard.id, remote.revision);
+              assertCurrent();
+              candidates.set(remote.player_id, { original: localScorecard, card: updatedScorecard });
+            });
+          } catch (error) {
+            if (error instanceof RoundPersistenceSourceChangedError) throw error;
+            roundDataLogger.warn('Scorecard changed; remote hydration deferred', { error });
+            continue;
           }
 
           roundDataLogger.info('Hydrated scorecard from Supabase', {
@@ -691,17 +699,28 @@ export function useRoundData({
           });
         }
 
-        if (merged) {
-          // Trigger store update so UI re-renders with hydrated data
-          useScorecardStore.setState({ groupScorecards: new Map(groupScorecards) });
+        assertCurrent();
+        if (candidates.size) {
+          const latest = useScorecardStore.getState().groupScorecards;
+          const merged = new Map(latest);
+          for (const [id, candidate] of candidates) if (latest.get(id) === candidate.original) merged.set(id, candidate.card);
+          useScorecardStore.setState({ groupScorecards: merged });
         }
       } catch (err) {
+        if (err instanceof RoundPersistenceSourceChangedError) {
+          if (cancelled) return;
+          hydratedRoundRef.current = null;
+          await waitForRoundPersistenceReady(roundId);
+          if (!cancelled) setHydrationAttempt(attempt => attempt + 1);
+          return;
+        }
         roundDataLogger.warn('Failed to hydrate from Supabase', { error: err });
       }
     };
 
-    hydrateFromSupabase();
-  }, [isInitialized, roundId]);
+    void hydrateFromSupabase();
+    return () => { cancelled = true; if (hydratedRoundRef.current === roundId) hydratedRoundRef.current = null; };
+  }, [isInitialized, roundId, hydrationAttempt]);
 
   // Update round status to 'in-progress' when scoring begins
   // This runs separately from initialization to ensure it happens even if

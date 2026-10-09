@@ -17,13 +17,15 @@ import type { Scorecard, Player, Hole, GameType, TeeBox } from '@/types';
 import type { HandicapSource } from '@/types/database';
 import type { NineType } from '@/types/database/enums';
 import type { OwnedRoundEndIntent } from '@/services/rounds/roundScoringWrite';
-import { hasFrozenScoringContext } from '@/services/rounds/scorecardScoringMetadata';
 import { getSyncAuthUserId } from '@/services/offline/sync/networkState';
 import { requestSyncDrain } from '@/services/offline/sync/drain';
 import { persistRoundEarlyEnd } from '@/services/offline/database';
 import { storeLogger } from '@/utils/debugLogger';
 import { filterPlayableHoles } from '@/utils/holeTransformers';
-import { getBaseHandicap } from '@/utils/scorecardCalculations';
+import { createRoundScoringContext } from '@/services/rounds/roundScoringContext';
+import { adoptAuthoritativeRoundShape } from '@/services/rounds/roundScoringAdoption';
+import { withRoundScoringWrite } from '@/services/rounds/roundScoringCoordinator';
+import { captureRoundPersistenceSource, isRoundPersistenceSourceCurrent, RoundPersistenceSourceChangedError, withRoundPersistenceTransition } from '@/services/offline/roundPersistenceBarrier';
 import { lastPlayedHoleNumber } from '@/utils/roundShape';
 import { persistScorecardUpdate } from './scorecardPersistence';
 import { debouncedQueueScorecardSync } from './scorecardSyncDebounce';
@@ -125,6 +127,8 @@ interface EndRoundEarlyOptions {
   reconcile?: boolean;
   /** Captured by an owning caller; the public producer activates in B6b-2. */
   intent?: OwnedRoundEndIntent;
+  /** Internal callers already holding the server boundary must opt in explicitly. */
+  withinScoringWrite?: boolean;
 }
 
 /**
@@ -152,6 +156,8 @@ export async function endRoundEarly(
   const session = getSessionGeneration();
   const state = get();
   const { currentRoundId, holes, nineType } = state;
+  const ownerId = getSyncAuthUserId();
+  const source = currentRoundId ? captureRoundPersistenceSource(currentRoundId) : undefined;
 
   if (!currentRoundId) {
     throw new Error('No round ID set');
@@ -164,7 +170,11 @@ export async function endRoundEarly(
   if (!Number.isInteger(n) || n < 1 || n >= holes.length) {
     throw new Error(`Invalid holes played: ${n} (the round has ${holes.length} planned holes)`);
   }
-  if (!options.reconcile && !scoresEveryPlayer(state)) {
+  if (options.reconcile) {
+    await adoptAuthoritativeRoundShape(currentRoundId, { nine_type: nineType, holes_played: n }, { ownerId: ownerId ?? '' });
+    return;
+  }
+  if (!scoresEveryPlayer(state)) {
     throw new Error('A round can only be ended early from a device that scores every player');
   }
 
@@ -188,92 +198,61 @@ export async function endRoundEarly(
     removedCardCount: removals.length,
   });
 
-  // Expo's exclusive transaction owns a separate native connection. Marker,
-  // effective tee and cleanup commit together, even when there are no removals.
-  await persistRoundEarlyEnd(
-    currentRoundId,
-    n,
-    nineType,
-    [...played],
-    [...state.groupScorecards].map(([playerId, scorecard]) => ({
-      scorecardId: scorecard.id,
-      teeData: hasFrozenScoringContext(scorecard)
-        ? (scorecard.teeData ?? null)
-        : (state.playerTeeMap.get(playerId) ?? state.selectedTeeData),
-      syncHandicapSource: hasFrozenScoringContext(scorecard)
-        ? scorecard.syncHandicapSource
-        : state.handicapSource,
-    })),
-    ...(options.intent ? [{ intent: options.intent }] : [])
-  );
-
-  if (options.intent) requestSyncDrain('round-end-early');
-
   const assertSession = () => {
     if (options.intent && getSyncAuthUserId() !== options.intent.userId) {
       throw new Error('Authenticated account changed after durable end intent');
     }
-    if (getSessionGeneration() !== session || get().currentRoundId !== currentRoundId) {
+    if (getSyncAuthUserId() !== ownerId) throw new Error('Authenticated account changed after durable end');
+    if (getSessionGeneration() !== session || get().currentRoundId !== currentRoundId || get().isLoading) {
       throw new EndRoundEarlyRoundChangedError(currentRoundId);
     }
   };
-  assertSession();
-  const current = get();
-  const now = new Date();
-  const nextScorecards = new Map<string, Scorecard>();
-  for (const [playerId, scorecard] of current.groupScorecards) {
-    const teeData = hasFrozenScoringContext(scorecard)
-      ? (scorecard.teeData ?? null)
-      : (current.playerTeeMap.get(playerId) ?? current.selectedTeeData);
-    const updated = rebuildEndedScorecard(
-      scorecard,
-      played,
-      n,
-      current.holes,
-      current.gameType,
-      {
-        selectedTee: teeData,
-        handicapSource: current.handicapSource,
-        nineType: current.nineType,
-      },
-      now
-    );
-    nextScorecards.set(playerId, {
-      ...updated,
-      // Capture a newly ended live basis once. Later repairs/submissions preserve it.
-      ...(!hasFrozenScoringContext(scorecard) && {
-        syncHandicapSource: current.handicapSource,
-        syncHoles: current.holes,
-        syncGameType: current.gameType,
-        syncNineType: current.nineType,
-        coursePar: current.holes.reduce((sum, hole) => sum + hole.par, 0),
-        playerHandicap:
-          current.handicapSource === 'none'
-            ? (scorecard.playerHandicap ?? scorecard.player?.handicap ?? null)
-            : getBaseHandicap(
-                scorecard.player
-                  ? {
-                      id: scorecard.player.id,
-                      name: scorecard.player.name,
-                      handicap: scorecard.player.handicap ?? null,
-                      handicap_index: scorecard.player.handicapIndex ?? null,
-                      gender: scorecard.player.gender ?? null,
-                    }
-                  : null,
-                current.handicapSource
-              ),
-        playerGender: scorecard.player?.gender ?? null,
-      }),
-    });
-  }
-
-  set({
-    groupScorecards: nextScorecards,
-    holesPlayed: n,
-    currentHole: played.has(current.currentHole)
-      ? current.currentHole
-      : lastPlayedHoleNumber(current.nineType, n),
+  const target = { nine_type: nineType, holes_played: n };
+  let committedCards: Scorecard[] = [];
+  const liveContext = (source: Scorecard) => {
+    assertSession();
+    const current = get();
+    const card = current.groupScorecards.get(source.playerId);
+    if (card?.id !== source.id || !card.player || card.status !== 'in-progress' || card.submittedAt || card.submittedBy) return undefined;
+    return { player: card.player, handicapSource: current.handicapSource, nineType: current.nineType,
+      holes: current.holes, gameType: current.gameType,
+      teeData: current.playerTeeMap.get(source.playerId) ?? current.selectedTeeData };
+  };
+  const transition = () => withRoundPersistenceTransition(currentRoundId, target, async () => {
+    assertSession();
+    // A local submission may have completed while this transition drained its lease.
+    const current = get();
+    const alreadySameEnd = current.holesPlayed === n && [...current.groupScorecards.values()].every(card => card.holesPlayed === n);
+    if (!alreadySameEnd && [...current.groupScorecards.values()].some(card => card.status === 'completed' || card.status === 'confirmed' || card.submittedAt || card.submittedBy)) {
+      throw new Error('Cannot end a submitted or completed scorecard');
+    }
+    if (!scoresEveryPlayer(current)) throw new Error('A round can only be ended early from a device that scores every player');
+    // Drained writers may have changed context and scores. Prepare these CURRENT sources.
+    const rebuild = createRoundScoringContext(currentRoundId, { getLiveContext: liveContext });
+    committedCards = [...get().groupScorecards.values()].map(card => rebuild(card, played, target));
+    await persistRoundEarlyEnd(currentRoundId, n, nineType, [...played], committedCards.map(card => ({
+      scorecardId: card.id, teeData: card.teeData ?? null, syncHandicapSource: card.syncHandicapSource,
+      playerHandicap: card.playerHandicap, playerGender: card.playerGender, coursePar: card.coursePar,
+      syncHoles: card.syncHoles, syncGameType: card.syncGameType,
+    })), ...(options.intent ? [{ intent: options.intent }] : []));
+  }, () => {
+    // The owned commit must request drain even if session/application now throws.
+    if (options.intent) requestSyncDrain('round-end-early');
+    assertSession();
+    const current = get();
+    const rebuild = createRoundScoringContext(currentRoundId, { sources: committedCards, getLiveContext: liveContext });
+    const cards = new Map([...current.groupScorecards].map(([playerId, card]) => [playerId, rebuild(card, played, target)]));
+    set({ groupScorecards: cards, holesPlayed: n,
+      currentHole: played.has(current.currentHole) ? current.currentHole : lastPlayedHoleNumber(nineType, n) });
   });
+  if (options.withinScoringWrite) await transition();
+  else await withRoundScoringWrite(currentRoundId, () => {
+    assertSession();
+    if (getSyncAuthUserId() !== ownerId || !source || !isRoundPersistenceSourceCurrent(source)) throw new RoundPersistenceSourceChangedError(currentRoundId);
+    return transition();
+  });
+  const nextScorecards = get().groupScorecards;
+  const committedSource = captureRoundPersistenceSource(currentRoundId);
 
   // Best-effort full-card metadata/totals saves follow the durable boundary.
   // Snapshot sync replaces server scores wholesale, propagating removals.
@@ -283,6 +262,8 @@ export async function endRoundEarly(
     await persistScorecardUpdate({
       scorecard: { scorecardId: scorecard.id, scorecard },
       context: options.reconcile ? 'endRoundEarly:reconcile' : 'endRoundEarly',
+      source: committedSource,
+      resolveCurrentScorecard: () => getSessionGeneration() === session && get().currentRoundId === currentRoundId && !get().isLoading ? get().groupScorecards.get(playerId) : undefined,
     });
     assertSession();
     if (!scorecard.isStandalone && (!options.reconcile || cardsThatLostScores.has(scorecard.id))) {
@@ -305,42 +286,12 @@ export function needsEndRoundEarlyReconcile(state: StoreState): boolean {
   );
 }
 
-/** Keep load successful and memory safe even if disk cleanup needs a retry. */
+/** Reconciliation uses the same queue-aware authoritative repair; failures keep the caller blocked. */
 export async function reconcileEndedEarly(
   get: GetFn,
   set: SetFn,
   options: Pick<EndRoundEarlyOptions, 'getSessionGeneration'> = {}
 ): Promise<void> {
-  const state = get();
-  const n = state.holesPlayed;
-  if (n == null) return;
-  const session = options.getSessionGeneration?.();
-  if (needsEndRoundEarlyReconcile(state)) {
-    try {
-      await endRoundEarly(get, set, n, { ...options, reconcile: true });
-      storeLogger.info('Reconciled a round ended early', { roundId: state.currentRoundId, holesPlayed: n });
-      return;
-    } catch (error) {
-      storeLogger.error('Failed to reconcile a round ended early', error, { roundId: state.currentRoundId, holesPlayed: n });
-    }
-  }
-  if (options.getSessionGeneration?.() !== session || get().currentRoundId !== state.currentRoundId) return;
-  const current = get();
-  const played = new Set<number>(filterPlayableHoles(current.holes, current.nineType, n).map((hole) => hole.number));
-  // Matching markers/keys do not guarantee fresh totals: the durable end can
-  // commit before the best-effort metadata save. Always rebuild loaded ended
-  // cards. This memory-only repair never schedules a metadata-only snapshot,
-  // and after cleanup failure disk keeps its disagreement for the next load.
-  const cards = new Map<string, Scorecard>();
-  for (const [playerId, card] of current.groupScorecards) {
-    cards.set(playerId, rebuildEndedScorecard(card, played, n, current.holes, current.gameType, {
-      selectedTee: current.playerTeeMap.get(playerId) ?? current.selectedTeeData,
-      handicapSource: current.handicapSource,
-      nineType: current.nineType,
-    }, card.updatedAt));
-  }
-  set({
-    groupScorecards: cards,
-    currentHole: played.has(current.currentHole) ? current.currentHole : lastPlayedHoleNumber(current.nineType, n),
-  });
+  const n = get().holesPlayed;
+  if (n != null) await endRoundEarly(get, set, n, { ...options, reconcile: true });
 }

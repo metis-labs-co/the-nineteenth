@@ -23,6 +23,10 @@ let mockRemoteScorecards: unknown[] = [];
 
 const mockStoreState = {
   currentRoundId: ROUND_ID as string | null,
+  captureRoundScoringSession: () => {
+    const identity = mockStoreState.currentRoundId;
+    return { isCurrent: () => mockStoreState.currentRoundId === identity };
+  },
   currentPlayers: [{ id: 'player-1', name: 'Sam' }],
   holes: [] as Hole[],
   isInitialized: true,
@@ -42,7 +46,7 @@ jest.mock('@/store/scorecardStore', () => {
     ...mockStoreState,
     groupScorecards: mockGroupScorecards,
   });
-  (useScorecardStore as unknown as { setState: (s: unknown) => void }).setState = jest.fn();
+  (useScorecardStore as unknown as { setState: (s: { groupScorecards?: typeof mockGroupScorecards }) => void }).setState = jest.fn((state: { groupScorecards?: typeof mockGroupScorecards }) => { if (state.groupScorecards) mockGroupScorecards = state.groupScorecards; });
   return { useScorecardStore };
 });
 
@@ -353,7 +357,7 @@ describe('useRoundData — holes_played (end round early)', () => {
         renderTheHook();
         await tick();
         expect(saveScorecard).toHaveBeenCalledTimes(1);
-        expect((saveScorecard as jest.Mock).mock.calls[0]).toHaveLength(1);
+        expect((saveScorecard as jest.Mock).mock.calls[0][1]).not.toHaveProperty('replaceProvisionalHandicapSource');
         expect(mockGroupScorecards.get('player-1')).toMatchObject({
           serverRevision: 3,
           scores: hasScores ? { 1: { strokes: 4 } } : {},
@@ -368,4 +372,54 @@ describe('useRoundData — holes_played (end round early)', () => {
 
 
 
+});
+
+it('C2b hydration keeps candidate separate while save waits and refuses session replacement before ack/install', async () => {
+  const { useScorecardStore } = require('@/store/scorecardStore');
+  jest.clearAllMocks(); mockStoreState.currentRoundId = ROUND_ID; mockStoreState.isInitialized = true;
+  mockStoreState.nineType = 'full'; mockStoreState.holesPlayed = null; mockMetadata.data.nineType = 'full'; mockMetadata.data.holesPlayed = null;
+  let release!: () => void;
+  (saveScorecard as jest.Mock).mockImplementationOnce(() => new Promise<void>(r => { release = r; }));
+  const blank = { id: 'candidate', roundId: ROUND_ID, playerId: 'player-1', scores: {}, status: 'in-progress' } as Scorecard;
+  mockGroupScorecards = new Map([['player-1', blank]]);
+  mockRemoteScorecards = [{ player_id: 'player-1', scores: { 1: { strokes: 4 } }, status: 'completed', revision: 8 }];
+  renderTheHook();
+  for (let i=0;i<20;i++) await Promise.resolve();
+  expect(mockGroupScorecards.get('player-1')).toBe(blank);
+  mockStoreState.currentRoundId = 'replacement';
+  release(); for (let i=0;i<20;i++) await Promise.resolve();
+  expect(markScorecardAsSynced).not.toHaveBeenCalled();
+  expect(useScorecardStore.setState).not.toHaveBeenCalled();
+});
+
+it('C2b schedules fresh hydration after cancellation and waits for a closed transition without busy reads', async () => {
+  const { supabase } = require('@/services/supabase/client');
+  const { withRoundPersistenceTransition } = require('@/services/offline/roundPersistenceBarrier');
+  const { act } = require('@testing-library/react-native');
+  jest.clearAllMocks();
+  mockStoreState.currentRoundId = ROUND_ID; mockStoreState.isInitialized = true;
+  mockStoreState.nineType = 'full'; mockStoreState.holesPlayed = null;
+  mockMetadata.data.nineType = 'full'; mockMetadata.data.holesPlayed = null;
+  mockGroupScorecards = new Map([['player-1', { id: 'fresh', roundId: ROUND_ID, playerId: 'player-1', scores: {}, status: 'in-progress' }]]);
+  let releaseRead!: (result: unknown) => void; let releaseGate!: () => void;
+  (supabase.from as jest.Mock).mockImplementationOnce(() => {
+    const chain = { select: () => chain, eq: () => chain, is: () => new Promise(r => { releaseRead = r; }) }; return chain;
+  });
+  renderTheHook();
+  await act(async () => { for (let i=0;i<10;i++) await Promise.resolve(); });
+  const transition = withRoundPersistenceTransition(ROUND_ID, { nine_type: 'full', holes_played: 6 }, () => new Promise<void>(r => { releaseGate = r; }), () => {
+    mockStoreState.holesPlayed = 6; mockMetadata.data.holesPlayed = 6;
+    mockGroupScorecards = new Map([['player-1', { id: 'fresh', roundId: ROUND_ID, playerId: 'player-1', holesPlayed: 6, scores: {}, status: 'in-progress' }]]);
+  });
+  await act(async () => {
+    for (let i=0;i<10;i++) await Promise.resolve();
+    releaseRead({ data: [{ player_id: 'player-1', scores: { 7: { strokes: 9 } }, revision: 1, status: 'completed' }], error: null });
+    for (let i=0;i<20;i++) await Promise.resolve();
+  });
+  // Cancellation must wait for admission to reopen before requesting a NEW remote object.
+  expect((supabase.from as jest.Mock).mock.calls.filter(([table]) => table === 'scorecards')).toHaveLength(1);
+  mockRemoteScorecards = [{ player_id: 'player-1', scores: { 1: { strokes: 5 } }, revision: 2, status: 'completed' }];
+  await act(async () => { releaseGate(); await transition; for (let i=0;i<30;i++) await Promise.resolve(); });
+  expect((saveScorecard as jest.Mock).mock.calls.at(-1)?.[0]).toMatchObject({ scores: { 1: { strokes: 5 } }, serverRevision: 2 });
+  expect(mockGroupScorecards.get('player-1')?.scores?.[7]).toBeUndefined();
 });

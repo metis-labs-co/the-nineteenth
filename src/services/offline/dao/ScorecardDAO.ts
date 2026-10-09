@@ -257,7 +257,7 @@ export async function persistRoundEarlyEnd(
   holesPlayed: number,
   nineType: NineType,
   playedHoleNumbers: readonly number[],
-  cards: readonly { scorecardId: string; teeData: TeeBox | null; syncHandicapSource?: HandicapSource }[],
+  cards: readonly { scorecardId: string; teeData: TeeBox | null; syncHandicapSource?: HandicapSource; playerHandicap?: number | null; playerGender?: Scorecard['playerGender']; coursePar?: number; syncHoles?: Hole[]; syncGameType?: GameType }[],
   options: { intent?: OwnedRoundEndIntent } = {},
 ): Promise<void> {
   if (Platform.OS === 'web') {
@@ -271,10 +271,10 @@ export async function persistRoundEarlyEnd(
   const database = await getDb();
   const now = nowSQLite();
   await database.withExclusiveTransactionAsync(async (txn) => {
-    for (const { scorecardId, teeData, syncHandicapSource } of cards) {
+    for (const { scorecardId, teeData, syncHandicapSource, playerHandicap, playerGender, coursePar, syncHoles, syncGameType } of cards) {
       const result = await txn.runAsync(
-        `UPDATE ${TABLE_NAMES.SCORECARDS} SET holes_played = ?, tee_data = ?, sync_nine_type = ?, updated_at = ?, is_synced = 0${syncHandicapSource == null ? '' : ', sync_handicap_source = COALESCE(?, sync_handicap_source)'} WHERE id = ? AND round_id = ?`,
-        [holesPlayed, teeData ? JSON.stringify(teeData) : null, nineType, now, ...(syncHandicapSource == null ? [] : [syncHandicapSource]), scorecardId, roundId]
+        `UPDATE ${TABLE_NAMES.SCORECARDS} SET holes_played = ?, tee_data = ?, sync_nine_type = ?, updated_at = ?, is_synced = 0${syncHandicapSource == null ? '' : ', sync_handicap_source = COALESCE(?, sync_handicap_source)'}${syncHoles ? ', player_handicap_used = ?, player_gender = ?, course_par = ?, sync_holes = ?, sync_game_type = ?' : ''} WHERE id = ? AND round_id = ?`,
+        [holesPlayed, teeData ? JSON.stringify(teeData) : null, nineType, now, ...(syncHandicapSource == null ? [] : [syncHandicapSource]), ...(syncHoles ? [playerHandicap ?? null, playerGender ?? null, coursePar ?? null, JSON.stringify(syncHoles), syncGameType ?? null] : []), scorecardId, roundId]
       );
       if (result.changes !== 1) throw new Error(`Missing expected scorecard ${scorecardId} for early end`);
       const placeholders = playedHoleNumbers.map(() => '?').join(', ');
