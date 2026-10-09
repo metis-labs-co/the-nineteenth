@@ -22,6 +22,7 @@ import { GAME_TYPE_LABELS } from '@/constants/statusConfig';
 import { GAME_TYPE_DESCRIPTIONS } from '@/constants/gameTypeDescriptions';
 import type { GameType } from '@/types/database/enums';
 import type { PlayerStatistics } from '@/hooks/usePlayerStatistics';
+import { recentRoundEndedEarlyLabel } from '@/hooks/playerStatistics/recentRounds';
 import type { RoundTypeFilter } from '@/screens/rounds/RoundListScreen/types';
 
 // =====================================================
@@ -220,6 +221,7 @@ export const OverviewStats = React.memo(function OverviewStats({ stats }: Overvi
                 isLast={index === stats.recentRounds.length - 1}
                 isPracticeRound={round.isPracticeRound}
                 isHandicapRound={round.isHandicapRound}
+                endedEarlyLabel={recentRoundEndedEarlyLabel(round)}
                 onPress={() => handleCoursePress(round.courseId, round.courseName)}
               />
             ))}

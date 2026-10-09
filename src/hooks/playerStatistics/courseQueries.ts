@@ -75,6 +75,7 @@ export function useCourseStatistics(
             handicap_source,
             status,
             holes_played,
+            nine_type,
             courses!inner (
               id,
               name,
@@ -336,6 +337,8 @@ export function useCourseStatistics(
           isHandicapRound,
           gameType: round.game_type,
           roundStatus: round.status,
+          roundHolesPlayed: round.holes_played ?? null,
+          nineType: round.nine_type ?? 'full',
         });
 
         // Early-ended rounds stay out of the per-round trend sparklines.

@@ -42,6 +42,8 @@ export interface RecentRoundRowProps {
   isHandicapRound?: boolean;
   /** Optional press handler */
   onPress?: () => void;
+  /** "Ended after 6 of 18" for a round ended early. */
+  endedEarlyLabel?: string | null;
 }
 
 // =====================================================
@@ -82,6 +84,7 @@ export const RecentRoundRow = React.memo(function RecentRoundRow({
   isPracticeRound = false,
   isHandicapRound = false,
   onPress,
+  endedEarlyLabel = null,
 }: RecentRoundRowProps) {
   const colors = useThemeColors();
   const secondaryScore = formatSecondaryScore(gameType, totalPoints);
@@ -108,6 +111,14 @@ export const RecentRoundRow = React.memo(function RecentRoundRow({
           <Pill label={getGameTypeLabel(gameType)} variant="default" size="sm" />
           {isHandicapRound && <Pill label="Handicap" variant="success" size="sm" />}
           {isPracticeRound && <Pill label="Practice" variant="info" size="sm" />}
+          {endedEarlyLabel && (
+            <Pill
+              label={endedEarlyLabel}
+              variant="info"
+              size="sm"
+              testID="recent-round-ended-early"
+            />
+          )}
         </View>
       </View>
       <View style={styles.scores}>

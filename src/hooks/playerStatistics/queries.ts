@@ -115,6 +115,7 @@ export function usePlayerStatistics(
             handicap_source,
             status,
             holes_played,
+            nine_type,
             courses!inner (
               id,
               name,
@@ -455,6 +456,8 @@ export function usePlayerStatistics(
           isHandicapRound,
           gameType: round.game_type,
           roundStatus: round.status,
+          roundHolesPlayed: round.holes_played ?? null,
+          nineType: round.nine_type ?? 'full',
         };
 
         const isFullRound = !endedEarly && holesInScorecard >= FULL_ROUND_HOLE_COUNT;

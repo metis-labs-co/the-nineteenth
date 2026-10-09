@@ -20,6 +20,7 @@ import { PerformanceChart, PerformanceRow, CourseStatsCard } from '@/components/
 import { FeatureLock } from '@/components/subscription';
 import { formatDateAustralian } from '@/utils/formatting';
 import type { PlayerStatistics } from '@/hooks/usePlayerStatistics';
+import { excludeEndedEarly } from '@/hooks/playerStatistics/recentRounds';
 
 // =====================================================
 // TYPES
@@ -53,7 +54,7 @@ export const AdvancedAnalytics = React.memo(function AdvancedAnalytics({
             onUpgradePress={onUpgradePress}
             lockedMessage="Unlock performance insights"
           >
-            <PerformanceChart rounds={stats.recentRounds} />
+            <PerformanceChart rounds={excludeEndedEarly(stats.recentRounds)} />
           </FeatureLock>
         </>
       )}

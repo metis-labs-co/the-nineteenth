@@ -18,6 +18,7 @@ import {
 } from '@/components/statistics';
 import { formatDateLong } from '@/utils/formatting';
 import type { CourseStatisticsData } from '@/hooks/playerStatistics';
+import { excludeEndedEarly, recentRoundEndedEarlyLabel } from '@/hooks/playerStatistics/recentRounds';
 
 interface CourseOverviewTabProps {
   stats: CourseStatisticsData;
@@ -28,8 +29,8 @@ export const CourseOverviewTab = React.memo(function CourseOverviewTab({
 }: CourseOverviewTabProps) {
   const colors = useThemeColors();
 
-  // Build chart data from recent rounds (ordered by date ascending)
-  const chartRounds = [...stats.recentRounds]
+  // Ended rounds stay in recent activity but not in the score trend.
+  const chartRounds = excludeEndedEarly(stats.recentRounds)
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
     .map((r) => ({ date: r.date, totalGross: r.totalGross, totalPoints: r.totalPoints }));
 
@@ -101,6 +102,7 @@ export const CourseOverviewTab = React.memo(function CourseOverviewTab({
                 isLast={index === stats.recentRounds.length - 1}
                 isPracticeRound={round.isPracticeRound}
                 isHandicapRound={round.isHandicapRound}
+                endedEarlyLabel={recentRoundEndedEarlyLabel(round)}
               />
             ))}
           </View>

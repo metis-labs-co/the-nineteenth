@@ -56,6 +56,7 @@ import { FeatureLockButton } from '@/components/subscription/FeatureLockButton';
 import { UpgradePrompt, type UpgradePromptConfig } from '@/components/subscription';
 import { ProfileFrame, ProfileBadge, ProfileTitle } from '@/components/cosmetics';
 import { formatDateAustralian } from '@/utils/formatting';
+import { recentRoundEndedEarlyLabel } from '@/hooks/playerStatistics/recentRounds';
 import { formatHandicapIndex } from '@/utils/displayHelpers';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PlayerDetail'>;
@@ -642,7 +643,9 @@ export default function PlayerDetailScreen({ navigation, route }: Props) {
                           style={[styles.recentCompetition, { color: colors.textSecondary }]}
                           numberOfLines={1}
                         >
-                          {round.competitionName}
+                          {[round.competitionName, recentRoundEndedEarlyLabel(round)]
+                            .filter(Boolean)
+                            .join(' · ')}
                         </Text>
                       </View>
                       <View style={styles.recentScores}>

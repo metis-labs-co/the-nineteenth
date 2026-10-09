@@ -28,6 +28,7 @@ import {
 } from '@/components/statistics';
 import { FeatureLock } from '@/components/subscription';
 import { formatDateAustralian } from '@/utils/formatting';
+import { excludeEndedEarly } from '@/hooks/playerStatistics/recentRounds';
 import type { PlayerStatistics } from '@/hooks/usePlayerStatistics';
 
 // =====================================================
@@ -127,7 +128,7 @@ export const ScoringTab = React.memo(function ScoringTab({
             onUpgradePress={onUpgradePress}
             lockedMessage="Unlock performance insights"
           >
-            <PerformanceChart rounds={stats.recentRounds} />
+            <PerformanceChart rounds={excludeEndedEarly(stats.recentRounds)} />
           </FeatureLock>
         </>
       )}

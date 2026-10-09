@@ -18,7 +18,7 @@
  * - PlayerStatistics: Complete player statistics object
  */
 
-import type { GameType, RoundStatus } from '@/types/database/enums';
+import type { GameType, NineType, RoundStatus } from '@/types/database/enums';
 
 /**
  * Score distribution breakdown
@@ -65,6 +65,10 @@ export interface RoundSummary {
   gameType: GameType;
   /** Status of the underlying round (upcoming / in-progress / completed). */
   roundStatus: RoundStatus;
+  /** Raw rounds.holes_played end marker, distinct from holesPlayed (scored count). */
+  roundHolesPlayed?: number | null;
+  /** Planned nine, used to label the round as "of 9" or "of 18". */
+  nineType?: NineType;
 }
 
 /**
