@@ -21,18 +21,19 @@ jest.mock('@/hooks/rounds', () => ({
 jest.mock('@/hooks/scorecard/useRoundTeams', () => ({
   useRoundTeams: () => mockRoundTeamsReturn,
 }));
+const mockColors = {
+  surface: '#fff',
+  border: '#eee',
+  textPrimary: '#000',
+  textSecondary: '#666',
+  success: '#0a0',
+  error: '#a00',
+  warning: '#fa0',
+  info: '#00a',
+  primary: '#06f',
+};
 jest.mock('@/context/ThemeContext', () => ({
-  useThemeColors: () => ({
-    surface: '#fff',
-    border: '#eee',
-    textPrimary: '#000',
-    textSecondary: '#666',
-    success: '#0a0',
-    error: '#a00',
-    warning: '#fa0',
-    info: '#00a',
-    primary: '#06f',
-  }),
+  useThemeColors: () => mockColors,
 }));
 jest.mock('@/hooks/usePlayingHandicap', () => ({
   calculatePlayingHandicap: () => ({ playingHandicap: 0 }),
@@ -46,6 +47,47 @@ const holes = Array.from({ length: 9 }, (_, i) => ({
   par: 4,
   strokeIndex: i + 1,
 }));
+
+function setupMatch(synthesized: boolean, persisted = {}) {
+  mockRoundTeamsReturn = {
+    teams: ['a', 'b'].map((side, index) => ({
+      id: `t${index + 1}`,
+      name: index === 0 ? 'Reds' : 'Blues',
+      color: null,
+      members: [1, 2].map((n) => ({
+        player_id: `${side}${n}`,
+        player: { id: `${side}${n}`, name: `${side}${n}`, handicap: 0 },
+      })),
+    })),
+    isLoading: false,
+  };
+  mockSubMatchesReturn = {
+    data: synthesized
+      ? []
+      : [
+          {
+            id: 'sm1',
+            team_a_player_ids: ['a1'],
+            team_b_player_ids: ['b1'],
+            status: 'in-progress',
+            result: null,
+            final_differential: null,
+            final_holes_remaining: null,
+            ...persisted,
+          },
+        ],
+    isLoading: false,
+  };
+}
+
+const matchProps = {
+  roundId: 'r1',
+  gameType: 'match-play' as const,
+  holes: holes as import('@/types').Hole[],
+  isRefreshing: false,
+  onRefresh: () => {},
+  bottomInset: 0,
+};
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -202,6 +244,87 @@ describe('SubMatchLeaderboardTab (decoupled)', () => {
     expect(screen.queryByText('Sam')).toBeNull();
     expect(screen.getByTestId('match-row-status')).toHaveTextContent('A/S');
   });
+
+  it.each([true, false])(
+    'keeps a partial match in progress by default (synthesized=%s)',
+    (synthesized) => {
+      setupMatch(synthesized);
+      const getStrokes = (pid: string, h: number) =>
+        h > 6 ? undefined : h <= 2 && pid.startsWith('b') ? 5 : 4;
+      const { rerender } = render(
+        <SubMatchLeaderboardTab {...matchProps} getStrokes={getStrokes} />,
+      );
+      expect(screen.getByTestId('match-row-status')).toHaveTextContent('2 UP');
+      rerender(
+        <SubMatchLeaderboardTab {...matchProps} getStrokes={getStrokes} />,
+      );
+      expect(screen.getByTestId('match-row-status')).toHaveTextContent('2 UP');
+    },
+  );
+
+  it.each([true, false])(
+    'settles at the first real planned-nine close-out on cutoff-only rerenders (synthesized=%s)',
+    (synthesized) => {
+      setupMatch(synthesized);
+      const plannedHoles = holes.map((h) => ({
+        ...h,
+        number: h.number + 9,
+      })) as import('@/types').Hole[];
+      const getStrokes = (pid: string, h: number) =>
+        h > 15 ? undefined : h <= 14 && pid.startsWith('b') ? 5 : 4;
+      const props = { ...matchProps, holes: plannedHoles, getStrokes };
+      const { rerender } = render(
+        <SubMatchLeaderboardTab {...props} holesPlayed={null} />,
+      );
+      expect(screen.getByTestId('match-row-status')).toHaveTextContent('5&3');
+      rerender(<SubMatchLeaderboardTab {...props} holesPlayed={6} />);
+      expect(screen.getByTestId('match-row-status')).toHaveTextContent('5&4');
+      rerender(<SubMatchLeaderboardTab {...props} holesPlayed={null} />);
+      expect(screen.getByTestId('match-row-status')).toHaveTextContent('5&3');
+    },
+  );
+
+  it.each([true, false])(
+    'ignores stale scores after an ended-early level match (synthesized=%s)',
+    (synthesized) => {
+      setupMatch(synthesized);
+      const getStrokes = (pid: string, h: number) =>
+        h > 6 && pid.startsWith('b') ? 5 : 4;
+      render(
+        <SubMatchLeaderboardTab
+          {...matchProps}
+          getStrokes={getStrokes}
+          holesPlayed={6}
+        />,
+      );
+      expect(screen.getByTestId('match-row-status')).toHaveTextContent('A/S');
+    },
+  );
+
+  it.each([true, false])(
+    'preserves manual precedence after an early end (manual=%s)',
+    (manual) => {
+      setupMatch(false, {
+        status: 'completed',
+        result: 'b-wins',
+        final_differential: 6,
+        final_holes_remaining: 5,
+        manual_result: manual,
+      });
+      const getStrokes = (pid: string, h: number) =>
+        h > 6 ? undefined : h <= 2 && pid.startsWith('b') ? 5 : 4;
+      render(
+        <SubMatchLeaderboardTab
+          {...matchProps}
+          getStrokes={getStrokes}
+          holesPlayed={6}
+        />,
+      );
+      expect(screen.getByTestId('match-row-status')).toHaveTextContent(
+        manual ? '6&5' : '2 UP',
+      );
+    },
+  );
 
   it('shows the empty state for a team match-play round with only one team', () => {
     mockSubMatchesReturn = { data: [], isLoading: false };

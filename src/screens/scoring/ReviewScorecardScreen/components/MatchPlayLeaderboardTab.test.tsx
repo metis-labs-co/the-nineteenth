@@ -142,4 +142,80 @@ describe('MatchPlayLeaderboardTab', () => {
       expect.objectContaining({ matchResult: 'win', holesUpDown: '3&2' })
     );
   });
+  it('settles on the lead and updates when only the cutoff changes', () => {
+    const plannedHoles = holesFrom(18);
+    mockStoreState = {
+      holesPlayed: null,
+      getPlayerScore: (pid, h) =>
+        h > 6 ? undefined : { strokes: h <= 2 && pid === 'b1' ? 5 : 4 },
+    };
+    const tab = () => (
+      <MatchPlayLeaderboardTab
+        roundId="r1"
+        holes={plannedHoles}
+        roundDetails={undefined}
+        currentUserId="a1"
+        isRefreshing={false}
+        onRefresh={() => {}}
+        bottomInset={0}
+      />
+    );
+    const { rerender } = render(tab());
+    expect(
+      lastLeaderboardProps().entries[0].scoreData.matchResult,
+    ).toBeUndefined();
+    mockStoreState.holesPlayed = 6;
+    rerender(tab());
+    const props = lastLeaderboardProps();
+    expect(props.totalHoles).toBe(18);
+    expect(props.entries[0].teamName).toBe('Reds');
+    expect(props.entries[0].scoreData).toMatchObject({
+      matchResult: 'win',
+      holesUpDown: '2 UP',
+      holesWon: 2,
+      holesHalved: 4,
+    });
+    expect(props.entries[1].scoreData).toMatchObject({
+      matchResult: 'loss',
+      holesUpDown: '2 UP',
+    });
+    mockStoreState.holesPlayed = null;
+    rerender(tab());
+    expect(
+      lastLeaderboardProps().entries[0].scoreData.matchResult,
+    ).toBeUndefined();
+  });
+
+  it('halves an ended back-nine match and ignores stale later scores', () => {
+    mockStoreState = {
+      holesPlayed: 6,
+      getPlayerScore: (pid, h) => ({ strokes: h > 15 && pid === 'b1' ? 5 : 4 }),
+    };
+    renderTab(holesFrom(18).slice(9));
+    const props = lastLeaderboardProps();
+    expect(props.totalHoles).toBe(9);
+    for (const entry of props.entries) {
+      expect(entry.scoreData).toMatchObject({
+        matchResult: 'halved',
+        holesUpDown: 'A/S',
+        holesWon: 0,
+        holesHalved: 6,
+      });
+    }
+  });
+
+  it('retains a real close-out against the planned back nine', () => {
+    mockStoreState = {
+      holesPlayed: 6,
+      getPlayerScore: (pid, h) =>
+        h > 15 ? undefined : { strokes: h <= 14 && pid === 'b1' ? 5 : 4 },
+    };
+    renderTab(holesFrom(18).slice(9));
+    expect(lastLeaderboardProps().totalHoles).toBe(9);
+    expect(lastLeaderboardProps().entries[0].scoreData).toMatchObject({
+      matchResult: 'win',
+      holesUpDown: '5&4',
+    });
+  });
+
 });

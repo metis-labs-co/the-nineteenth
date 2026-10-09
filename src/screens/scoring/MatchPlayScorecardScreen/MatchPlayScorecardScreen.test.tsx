@@ -54,13 +54,22 @@ jest.mock('@/store/scorecardStore', () => ({
 const mockedUseScorecardStore = useScorecardStore as jest.MockedFunction<typeof useScorecardStore>;
 
 // Mock MatchPlayScorecardTable
+const mockTableProps = jest.fn();
 jest.mock('@/components/scorecard', () => ({
-  MatchPlayScorecardTable: ({ player1, player2 }: { player1: { name: string }; player2: { name: string } }) => {
+  MatchPlayScorecardTable: (props: {
+    player1: { name: string };
+    player2: { name: string };
+    holes: Hole[];
+    holesPlayed?: number | null;
+  }) => {
+    mockTableProps(props);
+    const { player1, player2, holesPlayed } = props;
     const { View, Text } = require('react-native');
     return (
       <View testID="match-play-scorecard-table">
         <Text testID="player1-name">{player1.name}</Text>
         <Text testID="player2-name">{player2.name}</Text>
+        <Text testID="table-holes-played">{holesPlayed == null ? 'as-planned' : String(holesPlayed)}</Text>
       </View>
     );
   },
@@ -602,6 +611,90 @@ describe('MatchPlayScorecardScreen', () => {
         player2Id: 'custom-player-2',
       });
     });
+  });
+
+  describe('Ended early', () => {
+    it.each([9, 18])(
+      'forwards cutoff changes with %s planned holes',
+      (count) => {
+        setupSuccessfulMock();
+        const plannedHoles = count === 9 ? defaultHoles.slice(9) : defaultHoles;
+        mockedUseMatchPlayData.mockReturnValue({
+          ...mockedUseMatchPlayData({
+            roundId: 'round-123',
+            player1Id: 'player-1',
+            player2Id: 'player-2',
+          }),
+          holes: plannedHoles,
+        });
+        const baseStore = mockedUseScorecardStore();
+        mockedUseScorecardStore.mockReturnValue({
+          ...baseStore,
+          holesPlayed: null,
+        });
+        const tab = () => (
+          <MatchPlayScorecardScreen
+            navigation={mockNavigation}
+            route={mockRoute}
+          />
+        );
+        const { rerender } = render(tab());
+        expect(screen.getByTestId('table-holes-played')).toHaveTextContent(
+          'as-planned',
+        );
+        mockedUseScorecardStore.mockReturnValue({
+          ...baseStore,
+          holesPlayed: 6,
+        });
+        rerender(tab());
+        expect(screen.getByTestId('table-holes-played')).toHaveTextContent('6');
+        expect(
+          mockTableProps.mock.calls[mockTableProps.mock.calls.length - 1][0]
+            .holes,
+        ).toBe(plannedHoles);
+        mockedUseScorecardStore.mockReturnValue({
+          ...baseStore,
+          holesPlayed: null,
+        });
+        rerender(tab());
+        expect(screen.getByTestId('table-holes-played')).toHaveTextContent(
+          'as-planned',
+        );
+      },
+    );
+
+    it.each([undefined, null])(
+      'keeps planned back-nine holes without a cutoff (%s)',
+      (holesPlayed) => {
+        setupSuccessfulMock();
+        const plannedHoles = defaultHoles.slice(9);
+        mockedUseMatchPlayData.mockReturnValue({
+          ...mockedUseMatchPlayData({
+            roundId: 'round-123',
+            player1Id: 'player-1',
+            player2Id: 'player-2',
+          }),
+          holes: plannedHoles,
+        });
+        const baseStore = mockedUseScorecardStore();
+        mockedUseScorecardStore.mockReturnValue({ ...baseStore, holesPlayed });
+
+        render(
+          <MatchPlayScorecardScreen
+            navigation={mockNavigation}
+            route={mockRoute}
+          />,
+        );
+
+        expect(screen.getByTestId('table-holes-played')).toHaveTextContent(
+          'as-planned',
+        );
+        expect(
+          mockTableProps.mock.calls[mockTableProps.mock.calls.length - 1][0]
+            .holes,
+        ).toBe(plannedHoles);
+      },
+    );
   });
 
   describe('Header Display', () => {

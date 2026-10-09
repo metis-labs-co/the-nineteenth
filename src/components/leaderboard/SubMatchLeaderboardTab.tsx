@@ -45,6 +45,12 @@ interface SubMatchLeaderboardTabProps {
   scrollable?: boolean;
   /** Per-match points for the overall tally header. Defaults to flat 1 / 0.5. */
   matchPoints?: { win: number; tie: number };
+  /**
+   * Holes played when the round was ended early (counted from the first of
+   * the planned `holes`); null/undefined = played as planned. Match-play rows
+   * settle on the lead after that many holes unless already closed out.
+   */
+  holesPlayed?: number | null;
 }
 
 function labelForSide(
@@ -72,6 +78,7 @@ export function SubMatchLeaderboardTab({
   bottomInset,
   scrollable = true,
   matchPoints = { win: 1, tie: 0.5 },
+  holesPlayed = null,
 }: SubMatchLeaderboardTabProps) {
   const colors = useThemeColors();
   const { data: subMatches, isLoading: smLoading } = useSubMatches(roundId);
@@ -192,7 +199,7 @@ export function SubMatchLeaderboardTab({
             : { teamA, teamB, leaderSide: data.leaderSide, hasScores: data.hasScores }
         );
       if (model === 'match-play') {
-        const live = computeMatchPlaySubMatch(row.sides, holes, getStrokes);
+        const live = computeMatchPlaySubMatch(row.sides, holes, getStrokes, holesPlayed);
         const data = selectMatchSource(live, row.persisted ?? null);
         pushLeader(data);
         return (
@@ -228,7 +235,7 @@ export function SubMatchLeaderboardTab({
       );
     });
     return { leaders, content };
-  }, [rows, model, holes, getStrokes, currentUserId, teamNameByPlayer]);
+  }, [rows, model, holes, getStrokes, currentUserId, teamNameByPlayer, holesPlayed]);
 
   const isLoading = smLoading || teamsLoading;
   // The Ryder-cup tally header only makes sense across real sub-matches; a

@@ -136,6 +136,7 @@ export function MatchPlayLeaderboardTab({
 }: MatchPlayLeaderboardTabProps) {
   const colors = useThemeColors();
   const getPlayerScoreFromStore = useScorecardStore((s) => s.getPlayerScore);
+  const holesPlayed = useScorecardStore((s) => s.holesPlayed);
 
   const competitionId = roundDetails?.competition_id ?? undefined;
   const { teams: teamsData, isLoading } = useRoundTeams(
@@ -186,12 +187,12 @@ export function MatchPlayLeaderboardTab({
 
   const entries = useMemo(() => {
     if (!team1 || !team2) return [];
-    const calc = calculateTeamMatchData(holes, team1, team2, getPlayerScore);
+    const calc = calculateTeamMatchData(holes, team1, team2, getPlayerScore, holesPlayed);
     return [
       buildTeamEntry(team1, team2, 'player1', calc),
       buildTeamEntry(team2, team1, 'player2', calc),
     ];
-  }, [team1, team2, holes, getPlayerScore]);
+  }, [team1, team2, holes, getPlayerScore, holesPlayed]);
 
   const hasEntries = entries.length > 0;
 

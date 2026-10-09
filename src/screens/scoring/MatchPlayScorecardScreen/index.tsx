@@ -94,6 +94,7 @@ export default function MatchPlayScorecardScreen({ navigation, route }: Props) {
     handicapSource,
     selectedTeeData: storeTeeData,
     startHole,
+    holesPlayed,
   } = useScorecardStore();
 
   // Playing handicap inputs (shared with the entry screen so both views agree).
@@ -362,6 +363,7 @@ export default function MatchPlayScorecardScreen({ navigation, route }: Props) {
             player1Handicap={player1PlayingHandicap}
             player2Handicap={player2PlayingHandicap}
             startHole={startHole}
+            holesPlayed={holesPlayed}
           />
         ) : (
           /* Skins Tab Content */

@@ -46,6 +46,7 @@ export function MatchScorecardTabContent({
 }: MatchScorecardTabContentProps) {
   const colors = useThemeColors();
   const getPlayerScoreFromStore = useScorecardStore((s) => s.getPlayerScore);
+  const holesPlayed = useScorecardStore((s) => s.holesPlayed);
 
   const competitionId = roundDetails?.competition_id ?? undefined;
   const { teams: teamsData, isLoading } = useRoundTeams(
@@ -117,6 +118,7 @@ export function MatchScorecardTabContent({
           team1={team1!}
           team2={team2!}
           getPlayerScore={getPlayerScore}
+          holesPlayed={holesPlayed}
         />
       ) : (
         <View style={styles.emptyContainer}>
