@@ -7,6 +7,7 @@
 import type { AcceptedScorecardWrite, PositiveRoundScoringShape, PriorLocalShapes, RoundScoringShape, OwnedRoundEndIntent } from '@/services/rounds/roundScoringWrite';
 import { shapeHoleNumbers } from '@/services/rounds/roundScoringWrite';
 import { assertCompatibleEndIntent, type EndTransaction, assertIntentOwner, ensureRoundEndIntent } from './roundEndIntent';
+import { runRoundPersistence, type RoundPersistenceOptions } from '../roundPersistenceBarrier';
 import { Platform } from 'react-native';
 import { getHoleRange } from '@/constants/scoring';
 import type { Scorecard } from '@/types';
@@ -86,7 +87,11 @@ async function rowToScorecard(row: ScorecardRow, connection?: EndTransaction): P
 /**
  * Save or update a scorecard locally
  */
-export async function saveScorecard(scorecard: Scorecard): Promise<void> {
+export function saveScorecard(scorecard: Scorecard, options: RoundPersistenceOptions = {}): Promise<void> {
+  return runRoundPersistence(scorecard.roundId, options, (lease) => saveScorecardLocal(scorecard, { lease }), scorecard);
+}
+
+async function saveScorecardLocal(scorecard: Scorecard, options: RoundPersistenceOptions): Promise<void> {
   dbLogger.debug('Saving scorecard', {
     id: scorecard.id.substring(0, 20) + '...',
     roundId: scorecard.roundId.substring(0, 8) + '...',
@@ -181,7 +186,7 @@ export async function saveScorecard(scorecard: Scorecard): Promise<void> {
           return hole >= start && hole < end;
         }));
       }
-      await bulkSaveHoleScores(scorecard.id, scores);
+      await bulkSaveHoleScores(scorecard.id, scores, options);
     });
 
     dbLogger.debug('Scorecard saved successfully', {

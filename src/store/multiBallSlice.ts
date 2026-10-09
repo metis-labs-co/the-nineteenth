@@ -11,7 +11,9 @@ import type { BallCount } from '@/types/multiball.types';
 import type { NineType } from '@/types/database/enums';
 import { isHoleAfterEarlyEnd } from '@/utils/roundShape';
 import { isMultiBallScore, type MultiBallHoleScore, type BallTotals } from '@/types/database/base';
+import { captureRoundPersistenceSource, runRoundPersistence, RoundPersistenceSourceChangedError } from '@/services/offline/roundPersistenceBarrier';
 import { saveScorecard } from '@/services/offline/database';
+import type { LivePersistenceContext } from './scorecardPersistence';
 
 import { calculateStablefordPointsNet, calculateNetScore, getStrokesReceived } from '@/utils/scoring';
 import { storeLogger } from '@/utils/debugLogger';
@@ -33,6 +35,25 @@ export interface MultiBallStateSlice {
 type Get = () => MultiBallStateSlice;
 type Set = (partial: Partial<MultiBallStateSlice>) => void;
 
+/** Preserve each action's existing error policy while sharing bounded current-card rebase. */
+async function persistMultiBallCard(card: Scorecard, persistence?: LivePersistenceContext): Promise<void> {
+  const source = persistence?.source ?? captureRoundPersistenceSource(card.roundId);
+  try {
+    await runRoundPersistence(card.roundId, { source }, async (lease) => {
+      if (persistence?.resolveCurrentScorecard && !persistence.resolveCurrentScorecard()) return;
+      await saveScorecard(card, { lease });
+    });
+  } catch (error) {
+    if (!(error instanceof RoundPersistenceSourceChangedError) || !persistence?.resolveCurrentScorecard) throw error;
+    const current = persistence.resolveCurrentScorecard();
+    if (!current || current.roundId !== card.roundId) return;
+    await runRoundPersistence(card.roundId, { source: captureRoundPersistenceSource(card.roundId) }, async (lease) => {
+      if (persistence.resolveCurrentScorecard!() !== current) return;
+      await saveScorecard(current, { lease });
+    });
+  }
+}
+
 // ---------------------------------------------------------------------------
 // setMultiBallConfig
 // ---------------------------------------------------------------------------
@@ -53,6 +74,7 @@ export async function setMultiBallScore(
   hole: number,
   ballIndex: number,
   strokes: number,
+  persistence?: LivePersistenceContext,
 ): Promise<void> {
   const { groupScorecards, holes, ballCount, currentRoundId } = get();
 
@@ -119,7 +141,7 @@ export async function setMultiBallScore(
 
   // Save to offline storage (scorecard save handles the full scorecard including scores)
   if (currentRoundId) {
-    await saveScorecard(updatedScorecard);
+    await persistMultiBallCard(updatedScorecard, persistence);
   }
 }
 
@@ -133,6 +155,7 @@ export async function updateMultiBallStats(
   hole: number,
   ballIndex: number,
   updates: Partial<HoleScore>,
+  persistence?: LivePersistenceContext,
 ): Promise<void> {
   const { groupScorecards, holes, ballCount, currentRoundId } = get();
 
@@ -202,7 +225,7 @@ export async function updateMultiBallStats(
   // Save to offline storage — sync is deferred to submission time
   if (currentRoundId) {
     try {
-      await saveScorecard(updatedScorecard);
+      await persistMultiBallCard(updatedScorecard, persistence);
     } catch (error) {
       storeLogger.error('Failed to save multi-ball stats', error, {
         playerId: playerId.substring(0, 8) + '...',

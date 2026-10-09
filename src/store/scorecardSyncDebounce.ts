@@ -19,6 +19,7 @@
  * raced by a trailing in-progress one.
  */
 
+import { captureRoundPersistenceSource, RoundPersistenceSourceChangedError } from '@/services/offline/roundPersistenceBarrier';
 import type { Scorecard } from '@/types';
 import {
   queueScorecardSync,
@@ -47,15 +48,24 @@ export function debouncedQueueScorecardSync(
 
   const timer = setTimeout(async () => {
     timers.delete(scorecardId);
-    const scorecard = getScorecard();
+    let scorecard = getScorecard();
     if (!scorecard) return;
     // Submission path owns the 'completed' upsert; skip live sync here so
     // we never overwrite a freshly-submitted scorecard with an in-progress
     // tail.
     if (scorecard.status === 'completed') return;
 
+    let source = captureRoundPersistenceSource(scorecard.roundId);
     try {
-      await queueScorecardSync(scorecard, 'update');
+      try {
+        await queueScorecardSync(scorecard, 'update', { source });
+      } catch (error) {
+        if (!(error instanceof RoundPersistenceSourceChangedError)) throw error;
+        scorecard = getScorecard();
+        if (!scorecard || scorecard.status === 'completed') return;
+        source = captureRoundPersistenceSource(scorecard.roundId);
+        await queueScorecardSync(scorecard, 'update', { source });
+      }
       if (getIsOnline()) {
         manualSync().catch((err) => {
           storeLogger.warn('Live scorecard sync failed', {

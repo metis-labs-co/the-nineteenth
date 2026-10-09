@@ -8,6 +8,7 @@
  * dependent on execution order. Tests are grouped to minimize state conflicts.
  */
 
+import { captureRoundPersistenceSource as capturePersistence, withRoundPersistenceTransition as transitionPersistence, RoundPersistenceSourceChangedError } from '@/services/offline/roundPersistenceBarrier';
 import NetInfo from '@react-native-community/netinfo';
 import {
   initSyncService,
@@ -1700,5 +1701,68 @@ describe('Round items and the signed-in user', () => {
     await syncAll();
 
     expect(finalizeSubmittedRound).toHaveBeenCalledWith(ROUND_ID);
+  });
+});
+
+// C1 local queue admission; existing queue CAS/old-ack tests remain separate.
+describe("C1 local queue persistence admission", () => {
+  it("holds the lease across queue/count work before allowing repair", async () => {
+    let release!: () => void;
+    let started!: () => void;
+    const paused = new Promise<void>((r) => {
+      release = r;
+    });
+    const admitted = new Promise<void>((r) => {
+      started = r;
+    });
+    const roundId = "550e8400-e29b-41d4-a716-446655440030";
+    const scorecard = createTestScorecard({ roundId });
+    (database.getPendingSyncCount as jest.Mock).mockImplementationOnce(
+      async () => {
+        started();
+        await paused;
+        return 1;
+      },
+    );
+    const queued = queueScorecardSync(scorecard, "update", {
+      source: capturePersistence(roundId),
+    });
+    await admitted;
+    const repair = jest.fn(async () => {});
+    const ending = transitionPersistence(
+      roundId,
+      { nine_type: "full", holes_played: 6 },
+      repair,
+      () => {},
+    );
+    expect(repair).not.toHaveBeenCalled();
+    release();
+    await queued;
+    await ending;
+    expect(repair).toHaveBeenCalledTimes(1);
+  });
+  it("a captured queue source cannot overwrite a repaired payload; delete stays an operation", async () => {
+    const roundId = "550e8400-e29b-41d4-a716-446655440031";
+    const scorecard = createTestScorecard({ roundId });
+    const source = capturePersistence(roundId);
+    await transitionPersistence(
+      roundId,
+      { nine_type: "full", holes_played: 6 },
+      async () => {},
+      () => {},
+    );
+    await expect(
+      queueScorecardSync(scorecard, "update", { source }),
+    ).rejects.toBeInstanceOf(RoundPersistenceSourceChangedError);
+    expect(database.addPendingSync).not.toHaveBeenCalled();
+    await expect(queueScorecardSync(scorecard)).rejects.toBeInstanceOf(
+      RoundPersistenceSourceChangedError,
+    );
+    await queueScorecardSync(scorecard, "delete", {
+      source: capturePersistence(roundId),
+    });
+    expect(database.addPendingSync).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "delete", data: scorecard }),
+    );
   });
 });

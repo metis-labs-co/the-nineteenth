@@ -9,6 +9,8 @@
  * - Offline support integration
  */
 
+import { withRoundPersistenceTransition } from '@/services/offline/roundPersistenceBarrier';
+import { flushPendingScorecardSyncs } from '@/store/scorecardSyncDebounce';
 import { useScorecardStore } from '@/store/scorecardStore';
 import {
   createTestPlayer,
@@ -1810,5 +1812,193 @@ describe('ScorecardStore', () => {
       const scores = store.getMultiBallScores(playerId, 99);
       expect(scores[0].strokes).toBe(0); // Default empty score
     });
+  });
+});
+
+// C1 live races use only the store's native-DAO mocks; transitions are passive test consumers.
+const c1Deferred = () => {
+  let resolve!: () => void;
+  const promise = new Promise<void>((r) => {
+    resolve = r;
+  });
+  return { promise, resolve };
+};
+const c1Player = createTestPlayer({ id: "c1-player", handicap: 0 });
+function installC1Round(
+  roundId: string,
+  scores: Scorecard["scores"] = {
+    3: { strokes: 4, putts: 2 },
+    8: { strokes: 5 },
+  },
+) {
+  const scorecard: Scorecard = {
+    id: `card-${roundId}`,
+    roundId,
+    playerId: c1Player.id,
+    player: c1Player,
+    scores,
+    totalGross: 9,
+    totalNet: 9,
+    status: "in-progress",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+  useScorecardStore.setState({
+    currentRoundId: roundId,
+    currentPlayers: [c1Player],
+    holes: create18Holes(),
+    groupScorecards: new Map([[c1Player.id, scorecard]]),
+    isLoading: false,
+    isInitialized: true,
+  });
+  return scorecard;
+}
+describe("C1 live persistence source/session protection", () => {
+  afterEach(() => flushPendingScorecardSyncs());
+  beforeEach(() => {
+    getStore().resetRound();
+    jest.clearAllMocks();
+  });
+  it("two retained live edits remain immediate and rebase newest full card without obsolete hole writes", async () => {
+    const roundId = "c1-store-live";
+    const original = installC1Round(roundId);
+    const paused = c1Deferred();
+    const session = getStore().captureRoundScoringSession(roundId)!;
+    const ending = withRoundPersistenceTransition(
+      roundId,
+      { nine_type: "full", holes_played: 6 },
+      () => paused.promise,
+      () => {
+        session.applyShape(
+          { nine_type: "full", holes_played: 6 },
+          new Map([[original.id, { nine_type: "full", holes_played: null }]]),
+        );
+      },
+    );
+    const first = getStore().setPlayerScore(c1Player.id, 3, 5);
+    expect(getStrokes(getStore().getPlayerScore(c1Player.id, 3))).toBe(5);
+    const second = getStore().updatePlayerHoleScore(c1Player.id, 3, {
+      strokes: 6,
+      putts: 1,
+    });
+    expect(getStrokes(getStore().getPlayerScore(c1Player.id, 3))).toBe(6);
+    expect(saveScorecard).not.toHaveBeenCalled();
+    paused.resolve();
+    await ending;
+    await first;
+    await second;
+    expect(saveHoleScore).not.toHaveBeenCalled();
+    for (const [saved] of (saveScorecard as jest.Mock).mock.calls) {
+      expect(saved.scores[3]).toEqual(
+        expect.objectContaining({ strokes: 6, putts: 1 }),
+      );
+      expect(saved.scores[8]).toBeUndefined();
+      expect(saved.holesPlayed).toBe(6);
+    }
+    expect(saveScorecard).toHaveBeenCalledTimes(2);
+  });
+  it("same-round reset cancels the old continuation and its debounced getter", async () => {
+    const roundId = "c1-store-reset";
+    installC1Round(roundId);
+    const paused = c1Deferred();
+    const ending = withRoundPersistenceTransition(
+      roundId,
+      { nine_type: "full", holes_played: 6 },
+      () => paused.promise,
+      () => {},
+    );
+    const writing = getStore().setPlayerScore(c1Player.id, 3, 5);
+    getStore().resetRound();
+    const replacement = installC1Round(roundId, { 3: { strokes: 9 } });
+    paused.resolve();
+    await ending;
+    await writing;
+    expect(saveScorecard).not.toHaveBeenCalled();
+    expect(saveHoleScore).not.toHaveBeenCalled();
+    expect(getStore().groupScorecards.get(c1Player.id)).toBe(replacement);
+  });
+  it("tee switches stay immediate and persist the current retained edit after repair", async () => {
+    const roundId = "c1-store-tee";
+    const original = installC1Round(roundId);
+    const paused = c1Deferred();
+    const session = getStore().captureRoundScoringSession(roundId)!;
+    const ending = withRoundPersistenceTransition(
+      roundId,
+      { nine_type: "full", holes_played: 6 },
+      () => paused.promise,
+      () => {
+        session.applyShape(
+          { nine_type: "full", holes_played: 6 },
+          new Map([[original.id, { nine_type: "full", holes_played: null }]]),
+        );
+      },
+    );
+    const tee = {
+      name: "Red",
+      color: "red",
+      slopeRating: 113,
+      courseRating: 72,
+    };
+    const switching = getStore().setPlayerTee(c1Player.id, tee);
+    expect(getStore().getPlayerTee(c1Player.id)).toBe(tee);
+    const editing = getStore().updateShotContributions(c1Player.id, 3, {
+      teeShot: c1Player.id,
+    });
+    paused.resolve();
+    await ending;
+    await switching;
+    await editing;
+    for (const [saved] of (saveScorecard as jest.Mock).mock.calls) {
+      expect(saved.teeData).toEqual(tee);
+      expect(saved.scores[3].shotContributions).toEqual({
+        teeShot: c1Player.id,
+      });
+      expect(saved.scores[8]).toBeUndefined();
+    }
+  });
+  it("multi-ball score/stats rebase current full card with all balls and stats intact", async () => {
+    const roundId = "c1-store-multiball";
+    const original = installC1Round(roundId, {
+      3: {
+        balls: [
+          { strokes: 4, putts: 2 },
+          { strokes: 5, putts: 3 },
+        ],
+      },
+    });
+    useScorecardStore.setState({ ballCount: 2, isMultiBall: true });
+    const paused = c1Deferred();
+    const session = getStore().captureRoundScoringSession(roundId)!;
+    const ending = withRoundPersistenceTransition(
+      roundId,
+      { nine_type: "full", holes_played: 6 },
+      () => paused.promise,
+      () => {
+        session.applyShape(
+          { nine_type: "full", holes_played: 6 },
+          new Map([[original.id, { nine_type: "full", holes_played: null }]]),
+        );
+      },
+    );
+    const scoring = getStore().setMultiBallScore(c1Player.id, 3, 1, 6);
+    const stats = getStore().updateMultiBallStats(c1Player.id, 3, 0, {
+      putts: 1,
+      fairwayHit: true,
+    });
+    expect(getStore().getMultiBallScores(c1Player.id, 3)).toEqual([
+      { strokes: 4, putts: 1, fairwayHit: true },
+      { strokes: 6, putts: 3 },
+    ]);
+    paused.resolve();
+    await ending;
+    await scoring;
+    await stats;
+    expect(saveScorecard).toHaveBeenCalledTimes(2);
+    for (const [saved] of (saveScorecard as jest.Mock).mock.calls)
+      expect(saved.scores[3].balls).toEqual([
+        { strokes: 4, putts: 1, fairwayHit: true },
+        { strokes: 6, putts: 3 },
+      ]);
+    expect(queueScorecardSync).not.toHaveBeenCalled();
   });
 });

@@ -39,6 +39,7 @@ import {
 import { storeLogger, logScorecardSummary } from '@/utils/debugLogger';
 import { filterPlayableHoles } from '@/utils/holeTransformers';
 import { calculatePlayerTotals } from './utils/scorecardCalculations';
+import { captureRoundPersistenceSource } from '@/services/offline/roundPersistenceBarrier';
 import { persistScorecardUpdate } from './scorecardPersistence';
 import * as multiBall from './multiBallSlice';
 import * as scoreUpdate from './scoreUpdateSlice';
@@ -145,6 +146,21 @@ interface ScorecardState {
 export const useScorecardStore = create<ScorecardState>((set, get) => {
   // Invalidates asynchronous end actions even when the same round is reopened.
   let roundSession = 0;
+  const captureLivePersistence = (playerId: string) => {
+    const generation = roundSession;
+    const roundId = get().currentRoundId;
+    const card = get().groupScorecards.get(playerId);
+    const source = card ? captureRoundPersistenceSource(card.roundId) : undefined;
+    return {
+      source,
+      resolveCurrentScorecard: () => {
+        const state = get();
+        if (roundSession !== generation || state.currentRoundId !== roundId || state.isLoading) return undefined;
+        const current = state.groupScorecards.get(playerId);
+        return current?.id === card?.id ? current : undefined;
+      },
+    };
+  };
 
   // Subscribe to sync state changes
   let unsubscribe: (() => void) | null = null;
@@ -292,6 +308,7 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
     },
 
     setPlayerTee: async (playerId, tee) => {
+      const persistence = captureLivePersistence(playerId);
       const { groupScorecards, playerTeeMap, holes, gameType, handicapSource, nineType } = get();
       const scorecard = groupScorecards.get(playerId);
       if (!scorecard) {
@@ -328,6 +345,7 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
       await persistScorecardUpdate({
         scorecard: { scorecardId: updatedScorecard.id, scorecard: updatedScorecard },
         context: 'setPlayerTee',
+        ...persistence,
       });
       storeLogger.info('Player tee switched', {
         playerId: playerId.substring(0, 8) + '...',
@@ -338,16 +356,16 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
 
     // Score updates (delegated to scoreUpdateSlice)
     setPlayerScore: (playerId, hole, strokes, scoredBy) =>
-      scoreUpdate.setPlayerScore(get, set, playerId, hole, strokes, scoredBy),
+      scoreUpdate.setPlayerScore(get, set, playerId, hole, strokes, scoredBy, captureLivePersistence(playerId)),
 
     updatePlayerHoleScore: (playerId, hole, updates) =>
-      scoreUpdate.updatePlayerHoleScore(get, set, playerId, hole, updates),
+      scoreUpdate.updatePlayerHoleScore(get, set, playerId, hole, updates, captureLivePersistence(playerId)),
 
     updateShotContributions: (playerId, hole, contributions) =>
-      scoreUpdate.updateShotContributions(get, set, playerId, hole, contributions),
+      scoreUpdate.updateShotContributions(get, set, playerId, hole, contributions, captureLivePersistence(playerId)),
 
     updateLocalScore: (roundId, playerId, holeNumber, strokes) =>
-      scoreUpdate.updateLocalScore(get, set, roundId, playerId, holeNumber, strokes),
+      scoreUpdate.updateLocalScore(get, set, roundId, playerId, holeNumber, strokes, captureLivePersistence(playerId)),
 
     // Getters
     getPlayerScore: (playerId, hole) => {
@@ -644,9 +662,9 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
     // Multi-ball scoring functions (delegated to multiBallSlice)
     setMultiBallConfig: (ballCount: BallCount) => multiBall.setMultiBallConfig(set, ballCount),
     setMultiBallScore: (playerId, hole, ballIndex, strokes) =>
-      multiBall.setMultiBallScore(get, set, playerId, hole, ballIndex, strokes),
+      multiBall.setMultiBallScore(get, set, playerId, hole, ballIndex, strokes, captureLivePersistence(playerId)),
     updateMultiBallStats: (playerId, hole, ballIndex, updates) =>
-      multiBall.updateMultiBallStats(get, set, playerId, hole, ballIndex, updates),
+      multiBall.updateMultiBallStats(get, set, playerId, hole, ballIndex, updates, captureLivePersistence(playerId)),
     getMultiBallScores: (playerId, hole) => multiBall.getMultiBallScores(get, playerId, hole),
     getMultiBallTotals: (playerId) => multiBall.getMultiBallTotals(get, playerId),
 

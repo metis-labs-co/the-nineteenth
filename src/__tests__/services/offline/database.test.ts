@@ -57,7 +57,12 @@ let mockWithTransactionAsync: jest.Mock;
 const createMockDatabase = () => {
   mockExecAsync = jest.fn().mockResolvedValue(undefined);
   mockRunAsync = jest.fn().mockResolvedValue({ lastInsertRowId: 1, changes: 1 });
-  mockGetFirstAsync = jest.fn().mockResolvedValue(null);
+  // Native mock parent identity used by the ordinary hole/bulk persistence boundary.
+  mockGetFirstAsync = jest.fn().mockImplementation(async (sql: string) =>
+    sql.includes('SELECT round_id FROM scorecards')
+      ? { round_id: '550e8400-e29b-41d4-a716-446655440000' }
+      : null
+  );
   mockGetAllAsync = jest.fn().mockResolvedValue([]);
   mockCloseAsync = jest.fn().mockResolvedValue(undefined);
   mockWithTransactionAsync = jest.fn(async (callback: () => Promise<void>) => callback());

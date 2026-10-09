@@ -5,6 +5,7 @@
  * Manages sync queue, state, and scheduling.
  */
 
+import { runRoundPersistence, type RoundPersistenceOptions } from '../roundPersistenceBarrier';
 import {
   getPendingSyncs,
   removePendingSync,
@@ -713,7 +714,8 @@ async function processRoundFinalize(roundId: string): Promise<void> {
  */
 export async function queueScorecardSync(
   scorecard: Scorecard,
-  action: 'create' | 'update' | 'delete' = 'update'
+  action: 'create' | 'update' | 'delete' = 'update',
+  options: RoundPersistenceOptions = {},
 ): Promise<void> {
   syncLogger.debug('Queueing scorecard sync', {
     id: scorecard.id.substring(0, 20) + '...',
@@ -745,20 +747,22 @@ export async function queueScorecardSync(
     return;
   }
 
-  await addPendingSync({
-    type: 'scorecard',
-    action,
-    data: scorecard,
-    timestamp: new Date(),
-    retryCount: 0,
-  });
+  await runRoundPersistence(scorecard.roundId, options, async () => {
+    await addPendingSync({
+      type: 'scorecard',
+      action,
+      data: scorecard,
+      timestamp: new Date(),
+      retryCount: 0,
+    });
 
-  syncLogger.debug('Scorecard added to sync queue', {
-    id: scorecard.id.substring(0, 20) + '...',
-    action,
-  });
+    syncLogger.debug('Scorecard added to sync queue', {
+      id: scorecard.id.substring(0, 20) + '...',
+      action,
+    });
 
-  await updateSyncCounts();
+    await updateSyncCounts();
+  }, action === 'delete' ? undefined : scorecard);
 
   // Try to sync immediately if online
   if (getIsOnline() && !getIsSyncing()) {

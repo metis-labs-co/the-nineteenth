@@ -298,10 +298,12 @@ describe('endRoundEarly(n)', () => {
     expect(p1).toMatchObject({ holesPlayed: 6, teeData: TEE_WHITE, totalGross: 24, totalNet: 24 });
     expect(p2).toMatchObject({ holesPlayed: 6, teeData: TEE_RED, totalGross: 24, totalNet: 24 });
     expect(saveScorecard).toHaveBeenCalledWith(
-      expect.objectContaining({ id: cardId(P1.id), holesPlayed: 6, teeData: TEE_WHITE, totalGross: 24 })
+      expect.objectContaining({ id: cardId(P1.id), holesPlayed: 6, teeData: TEE_WHITE, totalGross: 24 }),
+      expect.objectContaining({ lease: expect.any(Object) })
     );
     expect(saveScorecard).toHaveBeenCalledWith(
-      expect.objectContaining({ id: cardId(P2.id), holesPlayed: 6, teeData: TEE_RED, totalGross: 24 })
+      expect.objectContaining({ id: cardId(P2.id), holesPlayed: 6, teeData: TEE_RED, totalGross: 24 }),
+      expect.objectContaining({ lease: expect.any(Object) })
     );
     expect(debouncedQueueScorecardSync).toHaveBeenCalledWith(cardId(P1.id), expect.any(Function));
     expect(debouncedQueueScorecardSync).toHaveBeenCalledWith(cardId(P2.id), expect.any(Function));
@@ -519,7 +521,7 @@ describe('endRoundEarly post-commit session changes', () => {
 
     await getStore().setPlayerTee(P1.id, TEE_RED);
 
-    expect(saveScorecard).toHaveBeenCalledWith(expect.objectContaining({ holesPlayed: 6, teeData: TEE_RED }));
+    expect(saveScorecard).toHaveBeenCalledWith(expect.objectContaining({ holesPlayed: 6, teeData: TEE_RED }), expect.objectContaining({ lease: expect.any(Object) }));
     expect(getStore().groupScorecards.get(P1.id)?.teeData).toEqual(TEE_RED);
     expect(persistRoundEarlyEnd).not.toHaveBeenCalled();
   });
@@ -816,7 +818,7 @@ describe('init paths resolve the round shape and reconcile', () => {
     ]);
     expect(scoredHoles(P1.id)).toEqual(range(1, 6));
     expect(scoredHoles(P2.id)).toEqual(range(1, 6));
-    expect(saveScorecard).toHaveBeenCalledWith(expect.objectContaining({ id: cardId(P1.id), holesPlayed: 6 }));
+    expect(saveScorecard).toHaveBeenCalledWith(expect.objectContaining({ id: cardId(P1.id), holesPlayed: 6 }), expect.objectContaining({ lease: expect.any(Object) }));
     expect(debouncedQueueScorecardSync).toHaveBeenCalledWith(cardId(P2.id), expect.any(Function));
 
     const fromMock = supabase.from as jest.Mock;
@@ -836,8 +838,8 @@ describe('init paths resolve the round shape and reconcile', () => {
 
     expect(persistRoundEarlyEnd).toHaveBeenCalledWith(ROUND_ID, 6, 'full', range(1, 6), expect.any(Array));
     expect(scoredHoles(P2.id)).toEqual(range(1, 6));
-    expect(saveScorecard).toHaveBeenCalledWith(expect.objectContaining({ id: cardId(P1.id), holesPlayed: 6 }));
-    expect(saveScorecard).toHaveBeenCalledWith(expect.objectContaining({ id: cardId(P2.id), holesPlayed: 6 }));
+    expect(saveScorecard).toHaveBeenCalledWith(expect.objectContaining({ id: cardId(P1.id), holesPlayed: 6 }), expect.objectContaining({ lease: expect.any(Object) }));
+    expect(saveScorecard).toHaveBeenCalledWith(expect.objectContaining({ id: cardId(P2.id), holesPlayed: 6 }), expect.objectContaining({ lease: expect.any(Object) }));
     expect(debouncedQueueScorecardSync).toHaveBeenCalledTimes(1);
     expect(debouncedQueueScorecardSync).toHaveBeenCalledWith(cardId(P2.id), expect.any(Function));
   });
@@ -949,7 +951,7 @@ describe('init paths durability corrections', () => {
     expect(getStore().currentHole).toBe(7);
     expect(scoredHoles(P1.id)).toEqual(range(1, 6));
     expect(persistRoundEarlyEnd).toHaveBeenCalledWith(ROUND_ID, 8, 'full', range(1, 8), expect.any(Array));
-    expect(saveScorecard).toHaveBeenCalledWith(expect.objectContaining({ holesPlayed: 8 }));
+    expect(saveScorecard).toHaveBeenCalledWith(expect.objectContaining({ holesPlayed: 8 }), expect.objectContaining({ lease: expect.any(Object) }));
     expect(debouncedQueueScorecardSync).not.toHaveBeenCalled();
   });
 

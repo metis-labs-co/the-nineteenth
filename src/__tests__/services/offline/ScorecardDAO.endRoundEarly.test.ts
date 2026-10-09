@@ -155,7 +155,7 @@ describe('ordinary save after a durable end', () => {
     expect(bulkSaveHoleScores).toHaveBeenCalledWith('card-1', {
       10: { strokes: 4 },
       15: { strokes: 5 },
-    });
+    }, expect.objectContaining({ lease: expect.any(Object) }));
   });
 
   it('keeps the ordinary non-ended sync-nine clear semantics', async () => {
@@ -167,6 +167,6 @@ describe('ordinary save after a durable end', () => {
 
   it('preserves normal non-ended full-card persistence', async () => {
     await saveScorecard(card);
-    expect(bulkSaveHoleScores).toHaveBeenCalledWith('card-1', card.scores);
+    expect(bulkSaveHoleScores).toHaveBeenCalledWith('card-1', card.scores, expect.objectContaining({ lease: expect.any(Object) }));
   });
 });

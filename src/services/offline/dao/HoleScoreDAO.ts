@@ -4,6 +4,7 @@
  * Data access operations for hole scores in SQLite.
  */
 
+import { runRoundPersistence, roundPersistenceLeaseRoundId, type RoundPersistenceOptions } from '../roundPersistenceBarrier';
 import type { SQLiteDatabase } from 'expo-sqlite';
 import type { HoleScore, HoleShotContributions, MultiBallHoleScore } from '@/types';
 import { isMultiBallScore } from '@/types/database/base';
@@ -33,7 +34,38 @@ export function parseShotContributions(raw: string): HoleShotContributions {
 export async function saveHoleScore(
   scorecardId: string,
   holeNumber: number,
-  score: HoleScore | MultiBallHoleScore
+  score: HoleScore | MultiBallHoleScore,
+  options: RoundPersistenceOptions = {},
+): Promise<void> {
+  return withHolePersistence(scorecardId, options, () => saveHoleScoreLocal(scorecardId, holeNumber, score));
+}
+
+async function withHolePersistence<T>(
+  scorecardId: string,
+  options: RoundPersistenceOptions,
+  work: (proof: RoundPersistenceOptions & { roundId: string }) => Promise<T>,
+): Promise<T> {
+  const roundId = options.roundId ?? options.source?.roundId ?? (options.lease ? roundPersistenceLeaseRoundId(options.lease) : undefined);
+  const readParent = async () => {
+    const database = await getDb();
+    const parent = await database.getFirstAsync<{ round_id: string }>(
+      `SELECT round_id FROM ${TABLE_NAMES.SCORECARDS} WHERE id = ?`, [scorecardId]
+    );
+    if (!parent) throw new Error(`Missing parent scorecard ${scorecardId}`);
+    return parent.round_id;
+  };
+  if (roundId) return runRoundPersistence(roundId, options, async (lease) => {
+    if (await readParent() !== roundId) throw new Error('Wrong-round hole persistence lease/source');
+    return work({ lease, roundId });
+  });
+  // Legacy hole-only callers have no round provenance. Resolve the parent solely to enforce
+  // missing-source refusal on protected rounds; never manufacture a token after this await.
+  const parentRoundId = await readParent();
+  return runRoundPersistence(parentRoundId, options, (lease) => work({ lease, roundId: parentRoundId }));
+}
+
+async function saveHoleScoreLocal(
+  scorecardId: string, holeNumber: number, score: HoleScore | MultiBallHoleScore,
 ): Promise<void> {
   const database = await getDb();
   const now = nowSQLite();
@@ -181,11 +213,15 @@ export async function deleteHoleScoresForCards(
  */
 export async function bulkSaveHoleScores(
   scorecardId: string,
-  scores: { [holeNumber: number]: HoleScore | MultiBallHoleScore }
+  scores: { [holeNumber: number]: HoleScore | MultiBallHoleScore },
+  options: RoundPersistenceOptions = {},
 ): Promise<void> {
-  for (const [holeNumber, score] of Object.entries(scores)) {
-    if (score) {
-      await saveHoleScore(scorecardId, parseInt(holeNumber), score);
+  return withHolePersistence(scorecardId, options, async (proof) => {
+    for (const [holeNumber, score] of Object.entries(scores)) {
+      if (score) {
+        // Parent identity was checked once at the bulk boundary. Keep this bypass private.
+        await runRoundPersistence(proof.roundId, proof, () => saveHoleScoreLocal(scorecardId, parseInt(holeNumber), score));
+      }
     }
-  }
+  });
 }

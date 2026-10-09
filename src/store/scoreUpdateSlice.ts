@@ -15,7 +15,8 @@ import type { NineType } from '@/types/database/enums';
 import { isSingleBallScore } from '@/types/database/base';
 import { storeLogger } from '@/utils/debugLogger';
 import { isHoleAfterEarlyEnd } from '@/utils/roundShape';
-import { persistScorecardUpdate } from './scorecardPersistence';
+import { captureRoundPersistenceSource } from '@/services/offline/roundPersistenceBarrier';
+import { persistScorecardUpdate, type LivePersistenceContext } from './scorecardPersistence';
 import { debouncedQueueScorecardSync } from './scorecardSyncDebounce';
 import { calculatePlayerTotals } from './utils/scorecardCalculations';
 
@@ -98,6 +99,7 @@ export async function setPlayerScore(
   hole: number,
   strokes: number,
   scoredBy?: string,
+  persistence?: LivePersistenceContext,
 ): Promise<void> {
   const {
     groupScorecards,
@@ -161,6 +163,7 @@ export async function setPlayerScore(
     holesPlayed,
   });
   if (!updatedScorecard) return;
+  const proof = persistence ?? { source: captureRoundPersistenceSource(scorecard.roundId) };
 
   // Persist to SQLite synchronously, then debounce a Supabase sync so other
   // devices viewing the round (organisers, other players) see live in-progress
@@ -176,13 +179,14 @@ export async function setPlayerScore(
   // now the single writer, batching all of this player's entries into one
   // upsert ~2s after the last tap.
   await persistScorecardUpdate({
+    ...proof,
     holeScore: { scorecardId: scorecard.id, holeNumber: hole, score: holeScore },
     scorecard: { scorecardId: scorecard.id, scorecard: updatedScorecard },
     context: 'setPlayerScore',
   });
 
   if (currentRoundId && !scorecard.isStandalone) {
-    debouncedQueueScorecardSync(scorecard.id, () => get().groupScorecards.get(playerId));
+    debouncedQueueScorecardSync(scorecard.id, persistence?.resolveCurrentScorecard ?? (() => get().groupScorecards.get(playerId)));
   }
 }
 
@@ -192,6 +196,7 @@ export async function updatePlayerHoleScore(
   playerId: string,
   hole: number,
   updates: Partial<HoleScore>,
+  persistence?: LivePersistenceContext,
 ): Promise<void> {
   const { groupScorecards, holes, gameType, allowedPlayerIds, selectedTeeData, playerTeeMap, handicapSource, nineType, holesPlayed } = get();
 
@@ -224,8 +229,10 @@ export async function updatePlayerHoleScore(
     holesPlayed,
   });
   if (!updatedScorecard) return;
+  const proof = persistence ?? { source: captureRoundPersistenceSource(scorecard.roundId) };
 
   await persistScorecardUpdate({
+    ...proof,
     holeScore: { scorecardId: scorecard.id, holeNumber: hole, score: holeScore },
     scorecard: { scorecardId: scorecard.id, scorecard: updatedScorecard },
     context: 'updatePlayerHoleScore',
@@ -238,6 +245,7 @@ export async function updateShotContributions(
   playerId: string,
   hole: number,
   contributions: HoleShotContributions,
+  persistence?: LivePersistenceContext,
 ): Promise<void> {
   const { groupScorecards, holes, gameType, selectedTeeData, playerTeeMap, handicapSource, nineType, holesPlayed } = get();
 
@@ -271,8 +279,10 @@ export async function updateShotContributions(
     holesPlayed,
   });
   if (!updatedScorecard) return;
+  const proof = persistence ?? { source: captureRoundPersistenceSource(scorecard.roundId) };
 
   const saved = await persistScorecardUpdate({
+    ...proof,
     holeScore: { scorecardId: scorecard.id, holeNumber: hole, score: holeScore },
     scorecard: { scorecardId: scorecard.id, scorecard: updatedScorecard },
     context: 'updateShotContributions',
@@ -293,6 +303,7 @@ export async function updateLocalScore(
   playerId: string,
   holeNumber: number,
   strokes: number,
+  persistence?: LivePersistenceContext,
 ): Promise<void> {
   const { groupScorecards, holes, gameType, selectedTeeData, playerTeeMap, handicapSource, nineType, holesPlayed } = get();
 
@@ -329,15 +340,17 @@ export async function updateLocalScore(
     holesPlayed,
   });
   if (!updatedScorecard) return;
+  const proof = persistence ?? { source: captureRoundPersistenceSource(scorecard.roundId) };
 
   const saved = await persistScorecardUpdate({
+    ...proof,
     holeScore: { scorecardId: scorecard.id, holeNumber, score: holeScore },
     scorecard: { scorecardId: scorecard.id, scorecard: updatedScorecard },
     context: 'updateLocalScore',
   });
 
   if (!scorecard.isStandalone) {
-    debouncedQueueScorecardSync(scorecard.id, () => get().groupScorecards.get(playerId));
+    debouncedQueueScorecardSync(scorecard.id, persistence?.resolveCurrentScorecard ?? (() => get().groupScorecards.get(playerId)));
   }
 
   if (saved) {
