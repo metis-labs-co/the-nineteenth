@@ -26,7 +26,7 @@ import { createRoundScoringContext } from '@/services/rounds/roundScoringContext
 import type { RoundScoringSession } from './scorecardStore';
 import { adoptAuthoritativeRoundShape } from '@/services/rounds/roundScoringAdoption';
 import { withRoundScoringWrite, getRoundEndPrerequisite } from '@/services/rounds/roundScoringCoordinator';
-import { captureRoundPersistenceSource, isRoundPersistenceSourceCurrent, RoundPersistenceSourceChangedError, withRoundPersistenceTransition } from '@/services/offline/roundPersistenceBarrier';
+import { captureRoundPersistenceSource, isRoundPersistenceSourceCurrent, RoundPersistenceSourceChangedError, withRoundPersistenceTransition, type RoundPersistenceSource } from '@/services/offline/roundPersistenceBarrier';
 import { lastPlayedHoleNumber } from '@/utils/roundShape';
 import { persistScorecardUpdate } from './scorecardPersistence';
 import { debouncedQueueScorecardSync } from './scorecardSyncDebounce';
@@ -131,6 +131,12 @@ interface EndRoundEarlyOptions {
   intent?: OwnedRoundEndIntent;
   /** Internal callers already holding the server boundary must opt in explicitly. */
   withinScoringWrite?: boolean;
+  /** Original held-operation proof; checked again after local drain/prerequisite awaits. */
+  capturedProof?: {
+    source: RoundPersistenceSource;
+    assertEligible: () => void;
+    onCommitted: (source: RoundPersistenceSource) => void;
+  };
 }
 
 /**
@@ -159,7 +165,7 @@ export async function endRoundEarly(
   const state = get();
   const { currentRoundId, holes, nineType } = state;
   const ownerId = getSyncAuthUserId();
-  const source = currentRoundId ? captureRoundPersistenceSource(currentRoundId) : undefined;
+  const source = options.capturedProof?.source ?? (currentRoundId ? captureRoundPersistenceSource(currentRoundId) : undefined);
 
   if (!currentRoundId) {
     throw new Error('No round ID set');
@@ -210,6 +216,12 @@ export async function endRoundEarly(
     }
   };
   const target = { nine_type: nineType, holes_played: n };
+  const assertOriginalProof = () => {
+    options.capturedProof?.assertEligible();
+    if (options.capturedProof && captureRoundPersistenceSource(currentRoundId).epoch !== source!.epoch)
+      throw new RoundPersistenceSourceChangedError(currentRoundId);
+  };
+  let committedSource!: RoundPersistenceSource;
   let committedCards: Scorecard[] = [];
   const liveContext = (source: Scorecard) => {
     assertSession();
@@ -217,6 +229,7 @@ export async function endRoundEarly(
   };
   const transition = () => withRoundPersistenceTransition(currentRoundId, target, async () => {
     assertSession();
+    assertOriginalProof();
     // A local submission may have completed while this transition drained its lease.
     const current = get();
     const alreadySameEnd = current.holesPlayed === n && [...current.groupScorecards.values()].every(card => card.holesPlayed === n);
@@ -226,6 +239,7 @@ export async function endRoundEarly(
     if (options.intent && current.holesPlayed != null) {
       const existing = await getRoundEndPrerequisite(currentRoundId);
       assertSession();
+      assertOriginalProof();
       if (!existing || existing.type !== 'round' || existing.action !== 'update' ||
         existing.data?.id !== currentRoundId || existing.data?.action !== 'end_early' ||
         existing.data?.holesPlayed !== n || existing.data?.userId !== options.intent.userId)
@@ -235,6 +249,7 @@ export async function endRoundEarly(
     // Drained writers may have changed context and scores. Prepare these CURRENT sources.
     const rebuild = createRoundScoringContext(currentRoundId, { getLiveContext: liveContext });
     committedCards = [...get().groupScorecards.values()].map(card => rebuild(card, played, target));
+    assertOriginalProof();
     await persistRoundEarlyEnd(currentRoundId, n, nineType, [...played], committedCards.map(card => ({
       scorecardId: card.id, teeData: card.teeData ?? null, syncHandicapSource: card.syncHandicapSource,
       playerHandicap: card.playerHandicap, playerGender: card.playerGender, coursePar: card.coursePar,
@@ -246,6 +261,8 @@ export async function endRoundEarly(
   }, () => {
     // The owned commit must request drain even if session/application now throws.
     if (options.intent) requestSyncDrain('round-end-early');
+    committedSource = { roundId: currentRoundId, epoch: source!.epoch + 1 };
+    if (options.capturedProof) options.capturedProof.onCommitted(committedSource);
     assertSession();
     const current = get();
     const rebuild = createRoundScoringContext(currentRoundId, { sources: committedCards, getLiveContext: liveContext });
@@ -253,27 +270,35 @@ export async function endRoundEarly(
     set({ groupScorecards: cards, holesPlayed: n,
       currentHole: played.has(current.currentHole) ? current.currentHole : lastPlayedHoleNumber(nineType, n) });
   });
-  if (options.withinScoringWrite) await transition();
+  if (options.withinScoringWrite) {
+    options.capturedProof?.assertEligible();
+    if (options.capturedProof && !isRoundPersistenceSourceCurrent(source!)) throw new RoundPersistenceSourceChangedError(currentRoundId);
+    await transition();
+  }
   else await withRoundScoringWrite(currentRoundId, () => {
     assertSession();
     if (getSyncAuthUserId() !== ownerId || !source || !isRoundPersistenceSourceCurrent(source)) throw new RoundPersistenceSourceChangedError(currentRoundId);
     return transition();
   });
   const nextScorecards = get().groupScorecards;
-  const committedSource = captureRoundPersistenceSource(currentRoundId);
+  const assertCommittedSession = () => {
+    assertSession();
+    if (options.capturedProof && !isRoundPersistenceSourceCurrent(committedSource))
+      throw new RoundPersistenceSourceChangedError(currentRoundId);
+  };
 
   // Best-effort full-card metadata/totals saves follow the durable boundary.
   // Snapshot sync replaces server scores wholesale, propagating removals.
   const cardsThatLostScores = new Set(removals.map((entry) => entry.scorecardId));
   for (const [playerId, scorecard] of nextScorecards) {
-    assertSession();
+    assertCommittedSession();
     await persistScorecardUpdate({
       scorecard: { scorecardId: scorecard.id, scorecard },
       context: options.reconcile ? 'endRoundEarly:reconcile' : 'endRoundEarly',
       source: committedSource,
-      resolveCurrentScorecard: () => getSessionGeneration() === session && get().currentRoundId === currentRoundId && !get().isLoading ? get().groupScorecards.get(playerId) : undefined,
+      resolveCurrentScorecard: () => getSessionGeneration() === session && get().currentRoundId === currentRoundId && !get().isLoading && (!options.capturedProof || (getSyncAuthUserId() === ownerId && isRoundPersistenceSourceCurrent(committedSource))) ? get().groupScorecards.get(playerId) : undefined,
     });
-    assertSession();
+    assertCommittedSession();
     if (!scorecard.isStandalone && (!options.reconcile || cardsThatLostScores.has(scorecard.id))) {
       debouncedQueueScorecardSync(scorecard.id, () =>
         getSessionGeneration() === session && get().currentRoundId === currentRoundId

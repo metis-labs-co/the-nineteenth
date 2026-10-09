@@ -47,6 +47,7 @@ import * as multiBall from './multiBallSlice';
 import * as scoreUpdate from './scoreUpdateSlice';
 import * as initSlice from './initializeRoundSlice';
 import * as endEarly from './endRoundEarlySlice';
+import { EndRoundEarlyError } from '@/services/rounds/applyEndRoundEarly';
 
 export interface RoundScoringSession {
   isCurrent(): boolean;
@@ -55,6 +56,19 @@ export interface RoundScoringSession {
   getLiveContext(source: Scorecard): LiveRoundRepairContext | undefined;
   invalidateLiveContext(scorecardId: string): void;
   applyShape(shape: RoundScoringShape, priorLocalShapes: PriorLocalShapes, acceptedWrite?: AcceptedScorecardWrite, rebuild?: RebuildRoundShapeCard): boolean;
+}
+
+/** Internal held user-end adapter. Public endRoundEarly(n) remains unchanged. */
+export interface CapturedRoundEndEarly {
+  readonly ownerId: string;
+  readonly session: RoundScoringSession;
+  isCurrent(): boolean;
+  assertSourceCurrent(): void;
+  finishWithinScoringWrite(n: number, options: (
+    | { mode: 'owned' }
+    | { mode: 'server_missing'; missingError: EndRoundEarlyError }
+  ) & { assertEligible: () => void }): Promise<void>;
+  isCommittedSourceCurrent(): boolean;
 }
 
 interface ScorecardState {
@@ -137,6 +151,7 @@ interface ScorecardState {
   captureRoundScoringSession: (roundId: string) => RoundScoringSession | null;
   /** Private generation proof also covers an originally absent remote-only session. */
   captureRoundScoringOperation: (roundId: string) => () => boolean;
+  captureRoundEndEarlyOperation: (roundId: string) => CapturedRoundEndEarly | null;
   submitScorecards: (options?: { bypassed?: boolean; playerIds?: string[] }) => Promise<void>;
   resetRound: () => void;
 
@@ -603,6 +618,50 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
                 : lastPlayedHoleNumber(shape.nine_type, shape.holes_played),
           });
           return true;
+        },
+      };
+    },
+
+    captureRoundEndEarlyOperation: (roundId) => {
+      const state = get();
+      const ownerId = getSyncAuthUserId();
+      const generation = roundSession;
+      const session = state.captureRoundScoringSession(roundId);
+      if (!ownerId?.trim() || !session || state.isLoading || !state.isInitialized || !state.holes.length || !state.currentPlayers.length) return null;
+      const source = captureRoundPersistenceSource(roundId);
+      const serverBacked = [...state.groupScorecards.values()].some(card => !card.isStandalone);
+      let committedSource: typeof source | undefined;
+      const isCurrent = () => roundSession === generation && session.isCurrent() && get().isInitialized && getSyncAuthUserId() === ownerId;
+      const assertCurrent = () => {
+        if (!isCurrent()) throw new endEarly.EndRoundEarlyRoundChangedError(roundId);
+      };
+      const assertSourceCurrent = () => {
+        assertCurrent();
+        if (!isRoundPersistenceSourceCurrent(source)) throw new RoundPersistenceSourceChangedError(roundId);
+      };
+      return {
+        ownerId, session, isCurrent, assertSourceCurrent,
+        isCommittedSourceCurrent: () => isCurrent() && !!committedSource && isRoundPersistenceSourceCurrent(committedSource),
+        finishWithinScoringWrite: async (n, options) => {
+          assertSourceCurrent();
+          if (options.mode === 'server_missing' && (!(options.missingError instanceof EndRoundEarlyError) || options.missingError.code !== 'not_found'))
+            throw new Error('Only an actual mapped missing end RPC permits an intent-free finish');
+          await endEarly.endRoundEarly(get, set, n, {
+            getSessionGeneration: () => roundSession,
+            withinScoringWrite: true,
+            intent: serverBacked && options.mode === 'owned' ? { userId: ownerId } : undefined,
+            capturedProof: {
+              source,
+              assertEligible: () => { assertCurrent(); options.assertEligible(); },
+              onCommitted: accepted => {
+                // Synchronous callback after this transaction, never an arbitrary later recapture.
+                if (accepted.epoch !== source.epoch + 1 || captureRoundPersistenceSource(roundId).epoch !== accepted.epoch)
+                  throw new RoundPersistenceSourceChangedError(roundId);
+                committedSource = accepted;
+                assertCurrent();
+              },
+            },
+          });
         },
       };
     },
