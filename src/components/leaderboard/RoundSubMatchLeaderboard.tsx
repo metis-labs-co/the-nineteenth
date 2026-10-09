@@ -1,6 +1,7 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { useRoundDetails, useRoundScorecards } from '@/hooks/rounds';
 import { isSingleBallScore } from '@/types/database/base';
+import { filterHolesByNineType } from '@/utils/holeTransformers';
 import { SubMatchLeaderboardTab } from './SubMatchLeaderboardTab';
 import { resolveSplitMatchDisplayPoints } from '@/screens/scoring/ReviewScorecardScreen/utils/subMatchLeaderboard';
 import type { GameType, TeamFormat } from '@/types';
@@ -18,8 +19,14 @@ interface RoundSubMatchLeaderboardProps {
  * Self-contained live sub-match leaderboard for a round. Sources holes / tee /
  * handicap source / game type from `useRoundDetails`, and per-hole strokes from
  * the round's server scorecards (`useRoundScorecards`). Drop it in anywhere with
- * a round id — used by the ViewRound Leaderboard tab and the competition
- * per-round leaderboard for split alt-shot rounds.
+ * a round id — used by the ViewRound Leaderboard tab, the ViewRound Match tab
+ * for team match play, and the competition per-round leaderboard for split
+ * alt-shot rounds.
+ *
+ * Holes are the round's planned holes (the course narrowed to nine_type),
+ * as on Review and the live scoring screen. The raw holes_played cutoff
+ * lets an ended-early social match settle on its final lead. Competition
+ * rounds retain their full-round defaults.
  */
 export function RoundSubMatchLeaderboard({
   roundId,
@@ -31,6 +38,13 @@ export function RoundSubMatchLeaderboard({
 }: RoundSubMatchLeaderboardProps) {
   const { data: round } = useRoundDetails(roundId);
   const { data: scorecards } = useRoundScorecards(roundId);
+
+  const courseHoles = round?.course?.holes;
+  const nineType = round?.nine_type ?? 'full';
+  const plannedHoles = useMemo(
+    () => filterHolesByNineType(courseHoles ?? [], nineType),
+    [courseHoles, nineType]
+  );
 
   const matchPoints = resolveSplitMatchDisplayPoints({
     round_format: round?.round_format ?? null,
@@ -54,7 +68,8 @@ export function RoundSubMatchLeaderboard({
       competitionId={competitionId}
       gameType={(round?.game_type ?? 'alt-shot') as GameType}
       teamFormat={(round?.team_format ?? null) as TeamFormat | null}
-      holes={round?.course?.holes ?? []}
+      holes={plannedHoles}
+      holesPlayed={round?.holes_played ?? null}
       currentUserId={currentUserId}
       selectedTeeData={round?.selected_tee ?? null}
       handicapSource={round?.handicap_source ?? undefined}

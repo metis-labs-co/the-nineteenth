@@ -31,6 +31,7 @@ import { getTeeColor } from '@/components/common/TeeSelector';
 import { RoundCoverPhotoButton, RoundPhotoBanner } from '@/components/activity';
 import { useSocialAccess } from '@/hooks/useSocialAccess';
 import { formatDateWithWeekday, formatTeeTime } from '@/utils/formatting';
+import { formatEndedEarlyLabel, isEndedEarly } from '@/utils/roundShape';
 import { useSettingsStore } from '@/store/settingsStore';
 import type { RootStackParamList } from '@/navigation/types';
 
@@ -385,17 +386,27 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
                     : undefined
                 }
               >
-                <Pill
-                  label={
-                    round.nine_type === 'front9'
-                      ? 'Front 9'
-                      : round.nine_type === 'back9'
-                        ? 'Back 9'
-                        : 'Full 18'
-                  }
-                  variant="primary"
-                  size="md"
-                />
+                <View style={styles.formatPillContainer}>
+                  <Pill
+                    label={
+                      round.nine_type === 'front9'
+                        ? 'Front 9'
+                        : round.nine_type === 'back9'
+                          ? 'Back 9'
+                          : 'Full 18'
+                    }
+                    variant="primary"
+                    size="md"
+                  />
+                  {isEndedEarly(round) && round.holes_played != null && (
+                    <Pill
+                      label={formatEndedEarlyLabel(round.holes_played, round.nine_type ?? 'full')}
+                      variant="info"
+                      size="md"
+                      testID="round-details-ended-early"
+                    />
+                  )}
+                </View>
               </DetailRow>
               <View style={[styles.detailDivider, { backgroundColor: colors.border }]} />
             </>

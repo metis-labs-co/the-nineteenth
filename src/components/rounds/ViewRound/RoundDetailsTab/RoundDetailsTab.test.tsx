@@ -22,6 +22,7 @@ import type { GameType, RoundStatus, AustralianState, CompetitionStatus, TeeBox 
 
 // Store reference to mock navigate function
 const mockNavigate = jest.fn();
+const mockEndedPillProps = jest.fn();
 
 // Override navigation mock to use our mockNavigate
 jest.mock('@react-navigation/native', () => {
@@ -170,11 +171,14 @@ jest.mock('@/components/common/StatusBadge', () => {
 jest.mock('@/components/common/Pill', () => {
   const { View, Text } = require('react-native');
   return {
-    Pill: ({ label, variant: _variant, size: _size }: { label: string; variant?: string; size?: string }) => (
-      <View testID={`pill-${label.toLowerCase().replace(/\s+/g, '-')}`}>
-        <Text>{label}</Text>
-      </View>
-    ),
+    Pill: ({ label, testID, variant, size }: { label: string; testID?: string; variant?: string; size?: string }) => {
+      if (testID === 'round-details-ended-early') mockEndedPillProps({ label, variant, size, testID });
+      return (
+        <View testID={testID ?? `pill-${label.toLowerCase().replace(/\s+/g, '-')}`}>
+          <Text>{label}</Text>
+        </View>
+      );
+    },
   };
 });
 
@@ -1005,6 +1009,84 @@ describe('RoundDetailsTab', () => {
 
       expect(screen.getByText('Team Best Ball')).toBeTruthy();
     });
+  });
+
+  describe('Ended-early label', () => {
+    it.each([
+      ['full', 'Full 18', 'Ended after 6 of 18'],
+      ['front9', 'Front 9', 'Ended after 6 of 9'],
+      ['back9', 'Back 9', 'Ended after 6 of 9'],
+      [null, 'Full 18', 'Ended after 6 of 18'],
+      [undefined, 'Full 18', 'Ended after 6 of 18'],
+    ] as const)('shows the ended info label beside %s planned holes', (nineType, plannedLabel, endedLabel) => {
+      const round = createRoundWithCourse({
+        competition_id: null, competition: null, status: 'completed',
+        // Exercise legacy missing nine metadata at the component boundary.
+        nine_type: nineType as RoundWithCourse['nine_type'], holes_played: 6,
+      });
+      render(<RoundDetailsTab round={round} />);
+      expect(screen.getByText(plannedLabel)).toBeTruthy();
+      expect(screen.getByTestId('round-details-ended-early')).toHaveTextContent(endedLabel);
+      expect(mockEndedPillProps).toHaveBeenCalledWith({
+        label: endedLabel, variant: 'info', size: 'md', testID: 'round-details-ended-early',
+      });
+      expect(round.nine_type).toBe(nineType);
+      expect(round.holes_played).toBe(6);
+    });
+
+    it.each([
+      ['upcoming', false], ['in-progress', false], ['completed', false],
+      ['upcoming', true], ['in-progress', true], ['completed', true],
+    ] as const)('shows persisted ended metadata for %s, organizer=%s', (status, isOrganizer) => {
+      const round = createRoundWithCourse({
+        competition_id: null, competition: null, status, nine_type: 'full', holes_played: 6,
+      });
+      render(<RoundDetailsTab round={round} isOrganizer={isOrganizer} />);
+      expect(screen.getByTestId('round-details-ended-early')).toHaveTextContent('Ended after 6 of 18');
+      expect(screen.getByTestId(`status-badge-${status}`)).toBeTruthy();
+    });
+
+    it.each([null, undefined, 0, -3, 2.5, NaN])(
+      'keeps ordinary standalone labels for marker %s (characterization)',
+      (holesPlayed) => {
+        const round = createRoundWithCourse({
+          competition_id: null, competition: null, status: 'completed',
+          nine_type: 'full', holes_played: holesPlayed,
+        });
+        render(<RoundDetailsTab round={round} />);
+        expect(screen.getByTestId('pill-full-18')).toBeTruthy();
+        expect(screen.queryByTestId('round-details-ended-early')).toBeNull();
+        expect(screen.queryByText(/Ended after/)).toBeNull();
+        expect(round.holes_played).toBe(holesPlayed);
+      },
+    );
+
+    it('keeps the Holes row hidden for competition rounds (characterization)', () => {
+      const round = createRoundWithCourse({ holes_played: 6 });
+      render(<RoundDetailsTab round={round} isOrganizer />);
+      expect(screen.queryByTestId('pill-full-18')).toBeNull();
+      expect(screen.queryByTestId('round-details-ended-early')).toBeNull();
+    });
+
+    it.each([
+      ['upcoming', true, true],
+      ['in-progress', true, true],
+      ['completed', true, false],
+      ['upcoming', false, false],
+      ['in-progress', false, false],
+    ] as const)(
+      'preserves the Holes row edit gate for %s, organizer=%s (characterization)',
+      (status, isOrganizer, editable) => {
+        const round = createRoundWithCourse({
+          competition_id: null, competition: null, status, holes_played: null,
+        });
+        render(<RoundDetailsTab round={round} isOrganizer={isOrganizer} />);
+        expect(screen.getByTestId('pill-full-18')).toBeTruthy();
+        expect(screen.getByLabelText('Holes').props.accessibilityRole === 'button').toBe(editable);
+        fireEvent.press(screen.getByLabelText('Holes'));
+        expect(!!screen.queryByTestId('edit-nine-type-sheet')).toBe(editable);
+      },
+    );
   });
 
   describe('Snapshots', () => {
