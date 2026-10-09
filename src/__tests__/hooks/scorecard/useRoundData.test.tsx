@@ -11,7 +11,8 @@
 
 import { renderHook } from '@testing-library/react-native';
 import { useRoundData } from '@/hooks/scorecard/useRoundData';
-import { saveScorecard } from '@/services/offline/database';
+import { saveScorecard, markScorecardAsSynced } from '@/services/offline/database';
+import { Platform } from 'react-native';
 import type { Hole, Scorecard } from '@/types';
 
 const ROUND_ID = 'round-ee';
@@ -316,5 +317,55 @@ describe('useRoundData — holes_played (end round early)', () => {
     renderTheHook(); await tick();
     expect(mockGroupScorecards.get('player-1')).toBe(local);
   });
+  it.each([true, false])(
+    'web blank hydration uses ordinary save with remote scores=%s and records revision',
+    async (hasScores) => {
+      const originalOS = Platform.OS;
+      Object.defineProperty(Platform, 'OS', { configurable: true, value: 'web' });
+      try {
+        mockGroupScorecards = new Map([
+          [
+            'player-1',
+            {
+              id: 'local',
+              roundId: ROUND_ID,
+              playerId: 'player-1',
+              scores: {},
+              status: 'in-progress',
+            },
+          ],
+        ]);
+        mockRemoteScorecards = [
+          {
+            player_id: 'player-1',
+            scores: hasScores ? { '1': { strokes: 4 } } : {},
+            status: 'completed',
+            total_gross: 4,
+            total_net: 4,
+            revision: 3,
+          },
+        ];
+        (saveScorecard as jest.Mock).mockImplementationOnce((_card, options) =>
+          options?.replaceProvisionalHandicapSource
+            ? Promise.reject(new Error('Native-exclusive replacement unavailable on web'))
+            : Promise.resolve()
+        );
+        renderTheHook();
+        await tick();
+        expect(saveScorecard).toHaveBeenCalledTimes(1);
+        expect((saveScorecard as jest.Mock).mock.calls[0]).toHaveLength(1);
+        expect(mockGroupScorecards.get('player-1')).toMatchObject({
+          serverRevision: 3,
+          scores: hasScores ? { 1: { strokes: 4 } } : {},
+        });
+        expect(mockGroupScorecards.get('player-1')?.syncHandicapSource).toBeUndefined();
+        expect(markScorecardAsSynced).toHaveBeenCalledWith('local', 3);
+      } finally {
+        Object.defineProperty(Platform, 'OS', { configurable: true, value: originalOS });
+      }
+    }
+  );
+
+
 
 });

@@ -1,6 +1,6 @@
 import { createRoundScoringContext } from '@/services/rounds/roundScoringContext';
 import { RoundScoringWriteError } from '@/services/rounds/roundScoringErrors';
-import type { Hole, Scorecard, TeeBox } from '@/types';
+import type { GameType, Hole, Scorecard, TeeBox } from '@/types';
 import { calculatePlayerTotals } from '@/store/utils/scorecardCalculations';
 import { getStrokesReceived } from '@/utils/scoring';
 import { calculateHandicapData } from '@/services/offline/sync/scorecardSync';
@@ -96,6 +96,91 @@ it.each([undefined, null, 'profile', 'calculated'] as const)(
 
 describe('pure shape context repair', () => {
   const rebuild = () => createRoundScoringContext('r', {});
+  it.each(['source', 'donor', 'evidence', 'live'] as const)(
+    'refuses a runtime-invalid game type used from %s',
+    (origin) => {
+      const invalid = 'not-a-format' as GameType; // Malformed external/cache boundary data.
+      const source = card({ syncGameType: origin === 'source' ? invalid : undefined });
+      const callback = createRoundScoringContext('r', {
+        sources: origin === 'donor' ? [card({ syncGameType: invalid })] : undefined,
+        gameType: origin === 'evidence' ? invalid : undefined,
+        getLiveContext:
+          origin === 'live'
+            ? () => ({
+                player: { ...source.player!, handicap: -2, gender: 'female' },
+                handicapSource: 'profile',
+                nineType: 'back9',
+                teeData: tee,
+                holes: holes.slice(9),
+                gameType: invalid,
+              })
+            : undefined,
+      });
+      const current =
+        origin === 'live'
+          ? {
+              ...source,
+              status: 'in-progress' as const,
+              submittedAt: undefined,
+              submittedBy: undefined,
+            }
+          : source;
+      expect(() =>
+        callback(current, new Set([10]), {
+          nine_type: 'back9',
+          holes_played: 2,
+        })
+      ).toThrow(expect.objectContaining({ kind: 'context_missing' }));
+    }
+  );
+  it.each([
+    'stroke',
+    'stableford',
+    'par',
+    'match-play',
+    'best-ball',
+    'scramble',
+    'shamble',
+    'alt-shot',
+  ] as const)('preserves the existing supported %s format', (syncGameType) => {
+    const source = card({ syncGameType });
+    const result = rebuild()(source, new Set([10, 11]), { nine_type: 'back9', holes_played: 2 });
+    const expected = calculatePlayerTotals(
+      {
+        ...source,
+        player: { ...source.player!, handicap: -2, gender: 'female' },
+      },
+      holes.slice(9),
+      syncGameType,
+      { handicapSource: 'profile', selectedTee: tee, nineType: 'back9' }
+    );
+    expect(result).toMatchObject({
+      syncGameType,
+      totalGross: expected.gross,
+      totalNet: expected.net,
+    });
+  });
+  it('complete recorded game type wins over malformed unused evidence and live context', () => {
+    const invalid = 'not-a-format' as GameType;
+    const getLiveContext = jest.fn(() => ({
+      player: card().player!,
+      handicapSource: 'profile' as const,
+      nineType: 'back9' as const,
+      teeData: tee,
+      holes: holes.slice(9),
+      gameType: invalid,
+    }));
+    const callback = createRoundScoringContext('r', {
+      sources: [card({ syncGameType: invalid })],
+      gameType: invalid,
+      getLiveContext,
+    });
+    const source = card({ status: 'in-progress', submittedAt: undefined, submittedBy: undefined });
+    expect(
+      callback(source, new Set([10]), { nine_type: 'back9', holes_played: 2 }).syncGameType
+    ).toBe('stroke');
+    expect(getLiveContext).not.toHaveBeenCalled();
+  });
   it.each([-2, 0, 17])(
     'uses frozen female calculated HI %s without changing original player or submission',
     (hi) => {

@@ -27,6 +27,9 @@ import {
 import { syncScorecard } from '@/services/offline/sync';
 import { supabase } from '@/services/supabase/client';
 import { storeLogger } from '@/utils/debugLogger';
+import { createRoundScoringContext } from '@/services/rounds/roundScoringContext';
+import { calculateHandicapData } from '@/services/offline/sync/scorecardSync';
+import { Platform } from 'react-native';
 
 jest.mock('@/services/offline/sync/drain', () => ({ requestSyncDrain: jest.fn() }));
 jest.mock('@/services/offline/sync/networkState', () => ({ getSyncAuthUserId: jest.fn(() => 'owner') }));
@@ -1269,6 +1272,75 @@ it('adopts N6 on a physical nine-hole course retaining its full-nine label and p
 
 
 describe('C2a passive nullable current-source bridge', () => {
+  async function prepareNullableCorrection() {
+    const holes = create18Holes().map((h) => ({ ...h, par: 4 as const }));
+    await getStore().initializeRound(ROUND_ID, [P1], holes, 'stroke', false, [], TEE_WHITE, 'none');
+    const card = getStore().groupScorecards.get(P1.id)!;
+    useScorecardStore.setState({
+      currentHole: 15,
+      groupScorecards: new Map([
+        [
+          P1.id,
+          {
+            ...card,
+            scores: { 1: { strokes: 4 }, 10: { strokes: 5 } },
+            totalGross: 9,
+            totalNet: 9,
+            coursePar: 72,
+            syncHoles: holes,
+            syncGameType: 'stroke',
+            syncNineType: 'full',
+            syncHandicapSource: 'none',
+            serverRevision: 3,
+          },
+        ],
+      ]),
+    });
+    return getStore().captureRoundScoringSession(ROUND_ID)!;
+  }
+  it('refuses nullable default repair before state or accepted-revision mutation', async () => {
+    const session = await prepareNullableCorrection();
+    const before = getStore();
+    expect(() =>
+      session.applyShape({ nine_type: 'front9', holes_played: null }, new Map(), {
+        scorecardId: cardId(P1.id),
+        serverRevision: 7,
+      })
+    ).toThrow(expect.objectContaining({ kind: 'context_missing' }));
+    expect(getStore()).toBe(before);
+    expect(getStore().groupScorecards.get(P1.id)).toMatchObject({
+      coursePar: 72,
+      syncNineType: 'full',
+      serverRevision: 3,
+      totalNet: 9,
+    });
+  });
+  it('nullable shared-context repair updates real planned metadata and accepted revision', async () => {
+    const session = await prepareNullableCorrection();
+    expect(
+      session.applyShape(
+        { nine_type: 'front9', holes_played: null },
+        new Map(),
+        {
+          scorecardId: cardId(P1.id),
+          serverRevision: 7,
+        },
+        createRoundScoringContext(ROUND_ID, {})
+      )
+    ).toBe(true);
+    const card = getStore().groupScorecards.get(P1.id)!;
+    expect(card).toMatchObject({
+      coursePar: 36,
+      syncNineType: 'front9',
+      serverRevision: 7,
+      totalGross: 4,
+      totalNet: 4,
+      scores: { 1: { strokes: 4 } },
+    });
+    expect(card.syncHoles?.map((h) => h.number)).toEqual(range(1, 9));
+    expect(getStore()).toMatchObject({ nineType: 'front9', holesPlayed: null, currentHole: 1 });
+  });
+
   it('refuses live-only final N while server is NULL, preserving memory', async () => {
     await getStore().initializeRound(ROUND_ID, [P1], create18Holes());
     const source = getStore().groupScorecards.get(P1.id)!;
@@ -1333,4 +1405,91 @@ describe('C2a passive nullable current-source bridge', () => {
     expect((syncScorecard as jest.Mock).mock.calls.at(-1)[0].syncHandicapSource).toBe('calculated');
   });
 
+});
+
+
+describe('web blank-card source compatibility', () => {
+  const originalOS = Platform.OS;
+  beforeEach(() => Object.defineProperty(Platform, 'OS', { configurable: true, value: 'web' }));
+  afterEach(() => Object.defineProperty(Platform, 'OS', { configurable: true, value: originalOS }));
+  it('omits provisional source from new web memory and initial saved payload', async () => {
+    await getStore().initializeRound(
+      ROUND_ID,
+      [P1],
+      create18Holes(),
+      'stroke',
+      false,
+      [],
+      TEE_RED,
+      'none'
+    );
+    const card = getStore().groupScorecards.get(P1.id)!;
+    expect(card).not.toHaveProperty('syncHandicapSource');
+    expect((saveScorecard as jest.Mock).mock.calls[0][0]).not.toHaveProperty('syncHandicapSource');
+  });
+  it('omits source from new web team-backfill cards and keeps existing entries', async () => {
+    await getStore().initializeRound(
+      ROUND_ID,
+      [P1],
+      create18Holes(),
+      'stroke',
+      false,
+      [],
+      TEE_RED,
+      'none'
+    );
+    const recorded = {
+      ...getStore().groupScorecards.get(P1.id)!,
+      syncHandicapSource: 'calculated' as const,
+    };
+    useScorecardStore.setState({ groupScorecards: new Map([[P1.id, recorded]]) });
+    (saveScorecard as jest.Mock).mockClear();
+    await getStore().ensureTeamMemberScorecards([P1, P2]);
+    expect(getStore().groupScorecards.get(P1.id)).toBe(recorded);
+    expect(getStore().groupScorecards.get(P2.id)).not.toHaveProperty('syncHandicapSource');
+    expect((saveScorecard as jest.Mock).mock.calls[0][0]).not.toHaveProperty('syncHandicapSource');
+  });
+  it('preserves a reused cached ended source on web', async () => {
+    const cached = { ...cachedCard(P1, [1], 2), syncHandicapSource: 'calculated' as const };
+    (getScorecardsByRound as jest.Mock).mockResolvedValue([cached]);
+    await getStore().initializeRound(
+      ROUND_ID,
+      [P1],
+      create18Holes(),
+      'stroke',
+      false,
+      [],
+      TEE_RED,
+      'none'
+    );
+    expect(getStore().groupScorecards.get(P1.id)?.syncHandicapSource).toBe('calculated');
+  });
+  it('web none submission captures source and produces DHC0 with CR different from par', async () => {
+    const player = { ...P1, handicap: 17 };
+    const holes = create18Holes().map((h) => ({ ...h, par: 4 as const }));
+    await getStore().initializeRound(
+      ROUND_ID,
+      [player],
+      holes,
+      'stroke',
+      false,
+      [],
+      TEE_RED,
+      'none'
+    );
+    await score(player.id, [1]);
+    await getStore().submitScorecards();
+    const payload = submittedPayload(player.id);
+    expect(payload).toMatchObject({
+      syncHandicapSource: 'none',
+      playerHandicap: 17,
+      coursePar: 72,
+      totalNet: 4,
+    });
+    expect(calculateHandicapData(payload)).toMatchObject({
+      dailyHandicapUsed: 0,
+      gaHandicapUsed: 17,
+      courseRatingUsed: 70,
+    });
+  });
 });

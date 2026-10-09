@@ -13,6 +13,7 @@ import { renderHook, waitFor } from '@testing-library/react-native';
 import { useMatchPlayData } from '@/hooks/scorecard/useMatchPlayData';
 import { saveScorecard } from '@/services/offline/database';
 import type { Hole } from '@/types';
+import { Platform } from 'react-native';
 
 // What hydrateFromSupabase sees: the store's cards and the server's rows.
 let mockGroupScorecards = new Map<string, unknown>();
@@ -314,5 +315,54 @@ describe('useMatchPlayData (nine_type awareness)', () => {
     renderTheHook(); await waitFor(() => expect(saveScorecard).toHaveBeenCalledTimes(1));
     expect(mockGroupScorecards.get('player-1')).toBe(local);
   });
+  it.each([true, false])(
+    'web blank match-play hydration keeps existing behavior with remote scores=%s',
+    async (hasScores) => {
+      const originalOS = Platform.OS;
+      Object.defineProperty(Platform, 'OS', { configurable: true, value: 'web' });
+      try {
+        mockStoreState.currentRoundId = ROUND_ID;
+        mockStoreState.isInitialized = true;
+        mockStoreState.nineType = 'front9';
+        mockStoreState.holesPlayed = null;
+        const local = { id: 'local', playerId: P1, scores: {}, status: 'in-progress' };
+        mockGroupScorecards = new Map([[P1, local]]);
+        mockRemoteScorecards = [
+          {
+            player_id: P1,
+            scores: hasScores ? { '1': { strokes: 4 } } : {},
+            status: 'completed',
+            total_gross: 4,
+            total_net: 4,
+            revision: 3,
+          },
+        ];
+        if (hasScores)
+          (saveScorecard as jest.Mock).mockImplementationOnce((_card, options) =>
+            options?.replaceProvisionalHandicapSource
+              ? Promise.reject(new Error('Native-exclusive replacement unavailable on web'))
+              : Promise.resolve()
+          );
+        renderTheHook();
+        if (hasScores) {
+          await waitFor(() => expect(saveScorecard).toHaveBeenCalledTimes(1));
+          expect((saveScorecard as jest.Mock).mock.calls[0]).toHaveLength(1);
+          expect(mockGroupScorecards.get(P1)).toMatchObject({
+            scores: { 1: { strokes: 4 } },
+            status: 'completed',
+          });
+          expect((saveScorecard as jest.Mock).mock.calls[0][0].syncHandicapSource).toBeUndefined();
+        } else {
+          await new Promise((resolve) => setTimeout(resolve, 20));
+          expect(saveScorecard).not.toHaveBeenCalled();
+          expect(mockGroupScorecards.get(P1)).toBe(local);
+        }
+      } finally {
+        Object.defineProperty(Platform, 'OS', { configurable: true, value: originalOS });
+      }
+    }
+  );
+
+
 
 });

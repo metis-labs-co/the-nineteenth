@@ -451,6 +451,13 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
               'A final current-session local end is pending'
             );
           }
+          if (shape.holes_played === null && !rebuild) {
+            throw new RoundScoringWriteError(
+              'context_missing',
+              roundId,
+              'Nullable shape repair requires proven scoring context'
+            );
+          }
           const plannedHoles = filterPlayableHoles(current.holes, shape.nine_type);
           const plannedNumbers = new Set<number>(plannedHoles.map((h) => h.number));
           const required = shapeHoleNumbers(shape);

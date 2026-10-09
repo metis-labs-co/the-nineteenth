@@ -3,6 +3,7 @@
  */
 
 import { Scorecard, Player, Hole, GameType, TeeBox } from '@/types';
+import { Platform } from 'react-native';
 import type { HandicapSource } from '@/types/database';
 import type { NineType } from '@/types/database/enums';
 import { isSingleBallScore } from '@/types/database/base';
@@ -188,7 +189,9 @@ export async function initializeRound(
         createdAt: new Date(),
         updatedAt: new Date(),
         isStandalone,
-        ...(shape.holesPlayed == null && { syncHandicapSource: handicapSource }),
+        ...(Platform.OS !== 'web' && shape.holesPlayed == null && {
+          syncHandicapSource: handicapSource,
+        }),
         ...(shape.holesPlayed != null && {
           holesPlayed: shape.holesPlayed,
           teeData: effectivePlayerTees.get(player.id) ?? effectiveSelectedTee,
@@ -628,7 +631,9 @@ export async function ensureTeamMemberScorecards(
       totalGross: 0,
       totalNet: 0,
       status: 'in-progress',
-      ...(state.holesPlayed == null && { syncHandicapSource: state.handicapSource }),
+      ...(Platform.OS !== 'web' && state.holesPlayed == null && {
+        syncHandicapSource: state.handicapSource,
+      }),
       createdAt: new Date(),
       updatedAt: new Date(),
       // Match initializeRound's behaviour: inherit isStandalone from any

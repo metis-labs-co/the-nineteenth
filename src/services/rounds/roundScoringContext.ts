@@ -4,6 +4,7 @@ import type { HandicapSource } from '@/types/database';
 import { calculatePlayerTotals } from '@/store/utils/scorecardCalculations';
 import { getBaseHandicap } from '@/utils/scorecardCalculations';
 import { filterPlayableHoles } from '@/utils/holeTransformers';
+import { gameTypes } from '@/schemas/competition';
 import { RoundScoringWriteError } from './roundScoringErrors';
 import { shapeHoleNumbers, type RebuildRoundShapeCard } from './roundScoringWrite';
 import { readSyncHandicapSource } from './scorecardScoringMetadata';
@@ -223,7 +224,7 @@ export function createRoundScoringContext(
     )
       fail('captured planned par disagrees', true);
     const gameType = resolved.syncGameType ?? evidence.gameType;
-    if (!gameType) fail('missing game type');
+    if (!gameType || !gameTypes.includes(gameType)) fail('missing or invalid game type');
     let handicapSource: HandicapSource | undefined;
     try {
       handicapSource = readSyncHandicapSource(resolved.syncHandicapSource);

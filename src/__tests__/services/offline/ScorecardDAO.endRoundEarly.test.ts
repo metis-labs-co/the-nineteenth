@@ -121,6 +121,22 @@ describe('persistRoundEarlyEnd', () => {
 });
 
 describe('ordinary save after a durable end', () => {
+  it('web refuses genuine recorded-source replacement before any write', async () => {
+    const originalOS = Platform.OS;
+    Object.defineProperty(Platform, 'OS', { configurable: true, value: 'web' });
+    try {
+      await expect(saveScorecard(card, { replaceProvisionalHandicapSource: 'none' })).rejects.toThrow(
+        /native/i
+      );
+      expect(db.runAsync).not.toHaveBeenCalled();
+      expect(db.withExclusiveTransactionAsync).not.toHaveBeenCalled();
+      expect(db.withTransactionAsync).not.toHaveBeenCalled();
+      expect(bulkSaveHoleScores).not.toHaveBeenCalled();
+    } finally {
+      Object.defineProperty(Platform, 'OS', { configurable: true, value: originalOS });
+    }
+  });
+
   it.each([null, 4, 8])(
     'protects durable marker, tee and nine from stale incoming N=%s in the row UPSERT',
     async (holesPlayed) => {
