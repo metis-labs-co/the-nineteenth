@@ -606,6 +606,7 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
         <WolfTabContent
           wolfGameId={wolfGame.id}
           totalHoles={holeCount}
+          holeNumbers={playedHoleNumbers}
           isRefreshing={isRefreshing}
           onRefresh={handleRefresh}
           bottomInset={insets.bottom}

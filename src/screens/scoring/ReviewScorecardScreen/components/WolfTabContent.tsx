@@ -9,21 +9,26 @@ import { useWolfSummary } from '@/hooks/wolf';
 
 interface WolfTabContentProps {
   wolfGameId: string;
-  /** Holes the round actually plays (9 for front/back nine, 18 for full).
+  /** Holes the round actually plays, including the played count once ended early.
    *  Drives the "x of N holes" copy and the in-progress gate. */
   totalHoles: number;
+  /** Physical holes played, e.g. 10–15 for a back nine ended after six.
+   * Omitted keeps the full grid; explicit [] keeps empty rows. Both leave the summary uncut. */
+  holeNumbers?: number[];
   isRefreshing: boolean;
   onRefresh: () => void;
   bottomInset: number;
 }
 
-export function WolfTabContent({ wolfGameId, totalHoles, isRefreshing, onRefresh, bottomInset }: WolfTabContentProps) {
+export function WolfTabContent({ wolfGameId, totalHoles, holeNumbers, isRefreshing, onRefresh, bottomInset }: WolfTabContentProps) {
   const colors = useThemeColors();
+  // Removed-hole decisions can linger until the queued server trim syncs.
+  const lastHoleNumber = holeNumbers && holeNumbers.length > 0 ? Math.max(...holeNumbers) : null;
   const {
     data: summary,
     isLoading: isSummaryLoading,
     refetch: refetchSummary,
-  } = useWolfSummary(wolfGameId);
+  } = useWolfSummary(wolfGameId, { lastHoleNumber });
 
   const handleRefresh = useCallback(async () => {
     await refetchSummary();
@@ -93,6 +98,7 @@ export function WolfTabContent({ wolfGameId, totalHoles, isRefreshing, onRefresh
       <WolfResultsCard
         wolfGame={game}
         decisions={decisions}
+        holeNumbers={holeNumbers}
         testID="wolf-results-card"
       />
 

@@ -470,6 +470,7 @@ export default function ViewRoundScreen(props: Props) {
           <WolfTab
             wolfSummary={vm.wolfSummary}
             hasWolfGame={vm.hasWolfGame}
+            holeNumbers={playableHoleNumbers}
           />
         )}
         {vm.activeTab === 'payouts' && vm.hasPayoutsTab && vm.payoutsMode && (

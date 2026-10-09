@@ -13,6 +13,8 @@ import { spacing, borderRadius, typography, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useSkinsSummary } from '@/hooks/useSkins';
 import { useWolfSummary } from '@/hooks/wolf';
+import { useScorecardStore } from '@/store/scorecardStore';
+import { lastPlayedHoleNumber } from '@/utils/roundShape';
 import { resolveSkinsNetResults } from '@/utils/skins/payouts';
 import type { SkinsHoleCounts } from '@/utils/skins';
 import { calculateWolfPayouts } from '@/utils/wolf/payouts';
@@ -43,11 +45,17 @@ export function PayoutsTabContent({ mode, skinsGameId, wolfGameId, holeCounts, i
     isLoading: isLoadingSkins,
     refetch: refetchSkins,
   } = useSkinsSummary(mode !== 'wolf-only' ? skinsGameId : undefined, holeCounts);
+  // Preview only retained Wolf standings while the queued server trim is pending.
+  const wolfLastHoleNumber = useScorecardStore((s) =>
+    s.holesPlayed != null ? lastPlayedHoleNumber(s.nineType, s.holesPlayed) : null
+  );
   const {
     data: wolfSummary,
     isLoading: isLoadingWolf,
     refetch: refetchWolf,
-  } = useWolfSummary(mode !== 'skins-only' ? wolfGameId : undefined);
+  } = useWolfSummary(mode !== 'skins-only' ? wolfGameId : undefined, {
+    lastHoleNumber: wolfLastHoleNumber,
+  });
 
   const handleRefresh = useCallback(async () => {
     const promises: Promise<unknown>[] = [];

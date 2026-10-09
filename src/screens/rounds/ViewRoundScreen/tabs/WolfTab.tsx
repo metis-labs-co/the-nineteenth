@@ -15,10 +15,14 @@ import type { WolfGameSummary } from '@/types/database/wolf.types';
 interface WolfTabProps {
   wolfSummary: WolfGameSummary | null | undefined;
   hasWolfGame: boolean;
+  /** Physical holes played; omitted or empty falls back to holes 1–18. */
+  holeNumbers?: number[];
 }
 
-export function WolfTab({ wolfSummary, hasWolfGame }: WolfTabProps) {
+export function WolfTab({ wolfSummary, hasWolfGame, holeNumbers }: WolfTabProps) {
   const colors = useThemeColors();
+  const playedHoleNumbers = holeNumbers && holeNumbers.length > 0 ? holeNumbers : undefined;
+  const totalHoles = playedHoleNumbers?.length ?? 18;
 
   if (hasWolfGame && !wolfSummary) {
     return (
@@ -38,6 +42,7 @@ export function WolfTab({ wolfSummary, hasWolfGame }: WolfTabProps) {
       <WolfResultsCard
         wolfGame={wolfSummary.game}
         decisions={wolfSummary.decisions}
+        holeNumbers={playedHoleNumbers}
         testID="wolf-results-card"
       />
 
@@ -63,7 +68,7 @@ export function WolfTab({ wolfSummary, hasWolfGame }: WolfTabProps) {
         )}
 
       {/* In-Progress Info */}
-      {wolfSummary.game.status === 'active' && wolfSummary.holes_completed < 18 && (
+      {wolfSummary.game.status === 'active' && wolfSummary.holes_completed < totalHoles && (
         <View style={[styles.wolfInProgressCard, { backgroundColor: colors.surface }]}>
           <View style={styles.wolfInProgressHeader}>
             <IconDog size={20} color={wolfColor} />
@@ -72,7 +77,7 @@ export function WolfTab({ wolfSummary, hasWolfGame }: WolfTabProps) {
             </Text>
           </View>
           <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.sm }]}>
-            {wolfSummary.holes_completed} of 18 holes completed
+            {wolfSummary.holes_completed} of {totalHoles} holes completed
           </Text>
         </View>
       )}

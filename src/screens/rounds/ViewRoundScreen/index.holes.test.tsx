@@ -166,7 +166,7 @@ describe('ViewRound ordinary routing', () => {
   it('preserves the Wolf summary branch', () => {
     setVm('wolf', 'back9', 6);
     render(<ViewRoundScreen {...props} />);
-    expect(lastProps(mockWolfProps)).toEqual({ wolfSummary: mockVm.wolfSummary, hasWolfGame: true });
+    expect(lastProps(mockWolfProps)).toMatchObject({ wolfSummary: mockVm.wolfSummary, hasWolfGame: true });
   });
 
   it('keeps the C5a current shape, current card and original full course metadata through cutoff changes', () => {
@@ -264,4 +264,24 @@ describe('ViewRound played display context', () => {
       expect(receivedNumbers()).toEqual(fullNumbers);
     }
   );
+});
+
+
+describe('ViewRound Wolf played-hole routing', () => {
+  it('forwards the actual played numbers through cutoff-only changes while preserving the uncut summary', () => {
+    setVm('wolf', 'back9', 6);
+    const { rerender } = render(<ViewRoundScreen {...props} />);
+    expect(lastProps(mockWolfProps).holeNumbers).toEqual([10, 11, 12, 13, 14, 15]);
+    expect(lastProps(mockWolfProps).wolfSummary).toBe(mockVm.wolfSummary);
+    setVm('wolf', 'back9', 2);
+    rerender(<ViewRoundScreen {...props} />);
+    expect(lastProps(mockWolfProps).holeNumbers).toEqual([10, 11]);
+    expect(lastProps(mockWolfProps).wolfSummary).toBe(mockVm.wolfSummary);
+    setVm('wolf', 'back9');
+    rerender(<ViewRoundScreen {...props} />);
+    expect(lastProps(mockWolfProps).holeNumbers).toEqual(backNumbers);
+    setVm('wolf');
+    rerender(<ViewRoundScreen {...props} />);
+    expect(lastProps(mockWolfProps).holeNumbers).toEqual(fullNumbers);
+  });
 });

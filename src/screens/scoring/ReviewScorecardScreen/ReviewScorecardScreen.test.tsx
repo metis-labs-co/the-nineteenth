@@ -397,3 +397,33 @@ describe('Review skins preview', () => {
     expect(lastProps(mockSkins).holeCounts).toEqual({ plannedHoles: 9, holesPlayed: 9 });
   });
 });
+
+
+describe('Review Wolf played-hole routing', () => {
+  it.each(['full', 'back9'] as const)('forwards physical %s rows through cutoff-only changes', nineType => {
+    const state = setupStore(nineType);
+    mockTabs.mockReturnValue({ ...defaultTabs, activeTab: 'wolf', wolfGame: { id: 'wolf-1' }, hasWolfGame: true });
+    const { rerender } = render(review());
+    expect(lastProps(mockWolf).holeNumbers).toEqual(state.holes.map(h => h.number));
+    expect(lastProps(mockWolf).totalHoles).toBe(nineType === 'full' ? 18 : 9);
+    state.holesPlayed = 6;
+    rerender(review());
+    expect(lastProps(mockWolf).holeNumbers).toEqual(nineType === 'full' ? [1, 2, 3, 4, 5, 6] : [10, 11, 12, 13, 14, 15]);
+    expect(lastProps(mockWolf).totalHoles).toBe(6);
+    state.holesPlayed = 2;
+    rerender(review());
+    expect(lastProps(mockWolf).holeNumbers).toEqual(nineType === 'full' ? [1, 2] : [10, 11]);
+    expect(lastProps(mockWolf).totalHoles).toBe(2);
+    state.holesPlayed = null;
+    rerender(review());
+    expect(lastProps(mockWolf).holeNumbers).toEqual(state.holes.map(h => h.number));
+  });
+  it('forwards the existing generated eighteen-hole fallback when store holes are absent', () => {
+    const state = setupStore();
+    state.holes = [];
+    mockTabs.mockReturnValue({ ...defaultTabs, activeTab: 'wolf', wolfGame: { id: 'wolf-1' }, hasWolfGame: true });
+    render(review());
+    expect(lastProps(mockWolf).holeNumbers).toEqual(Array.from({ length: 18 }, (_, i) => i + 1));
+    expect(lastProps(mockWolf).totalHoles).toBe(18);
+  });
+});
