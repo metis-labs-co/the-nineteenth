@@ -5,6 +5,7 @@
  */
 
 import { supabase } from '@/services/supabase/client';
+import { isEndedEarly } from '@/utils/roundShape';
 import type {
   LeaguePartnership,
   PartnershipRound,
@@ -302,4 +303,80 @@ export async function untagPartnershipRound(roundId: string): Promise<void> {
     console.error('[PartnershipLeagues] Error untagging round:', error);
     throw new Error(`Failed to untag round: ${error.message}`);
   }
+}
+
+// =====================================================
+// ELIGIBLE SCORECARDS (tagging flow)
+// =====================================================
+
+/** A completed scorecard that can be tagged to a partnership league. */
+export interface PartnershipEligibleCard {
+  id: string;
+  playerId: string;
+  totalGross: number;
+  courseName: string;
+  courseId: string | null;
+  courseRating: number | null;
+  slopeRating: number | null;
+  par: number | null;
+  datePlayed: string | null;
+  dailyHandicap: number | null;
+}
+
+/**
+ * Completed scorecards for the given players, newest first, for the
+ * TagPartnershipRound flow. Throws the PostgREST error on failure.
+ */
+export async function getPartnershipEligibleCards(
+  playerIds: string[]
+): Promise<PartnershipEligibleCard[]> {
+  const { data, error } = await supabase
+    .from('scorecards')
+    .select(`
+      id, player_id, total_gross, status, daily_handicap_used,
+      course_rating_used, slope_rating_used,
+      rounds!inner ( date, course_id, par, holes_played, courses ( name ) )
+    `)
+    .in('player_id', playerIds)
+    .in('status', ['completed', 'confirmed'])
+    .not('total_gross', 'is', null)
+    .is('rounds.deleted_at', null)
+    // Early-ended rounds never carry a handicap differential (I12).
+    .is('rounds.holes_played', null)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+
+  interface ScorecardRow {
+    id: string;
+    player_id: string;
+    total_gross: number;
+    status: string;
+    daily_handicap_used: number | null;
+    course_rating_used: number | null;
+    slope_rating_used: number | null;
+    rounds: {
+      date: string | null;
+      course_id: string | null;
+      par: number | null;
+      holes_played?: number | null;
+      courses: { name: string } | null;
+    };
+  }
+
+  return ((data ?? []) as unknown as ScorecardRow[])
+    // Belt: never offer an early-ended round, even if the filter above is missed.
+    .filter((sc) => !isEndedEarly(sc.rounds))
+    .map((sc) => ({
+      id: sc.id,
+      playerId: sc.player_id,
+      totalGross: sc.total_gross,
+      courseName: sc.rounds?.courses?.name ?? 'Unknown',
+      courseId: sc.rounds?.course_id ?? null,
+      courseRating: sc.course_rating_used ?? null,
+      slopeRating: sc.slope_rating_used ?? null,
+      par: sc.rounds?.par ?? null,
+      datePlayed: sc.rounds?.date ?? null,
+      dailyHandicap: sc.daily_handicap_used ?? null,
+    }));
 }

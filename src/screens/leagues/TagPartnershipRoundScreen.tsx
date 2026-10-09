@@ -23,7 +23,8 @@ import { useLeague } from '@/hooks/useLeagues';
 import { useMyPartnership, useTagPartnershipRound } from '@/hooks/usePartnershipLeague';
 import { useAuth } from '@/hooks/useAuth';
 import { formatDateDisplay } from '@/utils/formatting';
-import { supabase } from '@/services/supabase/client';
+import { getPartnershipEligibleCards } from '@/services/api/partnershipLeagues';
+import type { PartnershipEligibleCard } from '@/services/api/partnershipLeagues';
 import {
   calculatePartnershipTarget,
   getTargetLevels,
@@ -35,18 +36,7 @@ import type { TargetLevel } from '@/utils/partnershipTarget';
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type RouteProps = RouteProp<RootStackParamList, 'TagPartnershipRound'>;
 
-interface EligibleCard {
-  id: string;
-  playerId: string;
-  totalGross: number;
-  courseName: string;
-  courseId: string | null;
-  courseRating: number | null;
-  slopeRating: number | null;
-  par: number | null;
-  datePlayed: string | null;
-  dailyHandicap: number | null;
-}
+type EligibleCard = PartnershipEligibleCard;
 
 export default function TagPartnershipRoundScreen() {
   const colors = useThemeColors();
@@ -84,45 +74,7 @@ export default function TagPartnershipRoundScreen() {
       try {
         const playerIds = isScramble ? [user.id] : [user.id, partnerId];
 
-        const { data, error } = await supabase
-          .from('scorecards')
-          .select(`
-            id, player_id, total_gross, status, daily_handicap_used,
-            course_rating_used, slope_rating_used,
-            rounds!inner ( date, course_id, par, courses ( name ) )
-          `)
-          .in('player_id', playerIds)
-          .in('status', ['completed', 'confirmed'])
-          .not('total_gross', 'is', null)
-          .is('rounds.deleted_at', null)
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-
-        interface ScorecardRow {
-          id: string;
-          player_id: string;
-          total_gross: number;
-          status: string;
-          daily_handicap_used: number | null;
-          course_rating_used: number | null;
-          slope_rating_used: number | null;
-          rounds: { date: string | null; course_id: string | null; par: number | null; courses: { name: string } | null };
-        }
-
-        const cards: EligibleCard[] = ((data ?? []) as unknown as ScorecardRow[]).map((sc) => ({
-          id: sc.id,
-          playerId: sc.player_id,
-          totalGross: sc.total_gross,
-          courseName: sc.rounds?.courses?.name ?? 'Unknown',
-          courseId: sc.rounds?.course_id ?? null,
-          courseRating: sc.course_rating_used ?? null,
-          slopeRating: sc.slope_rating_used ?? null,
-          par: sc.rounds?.par ?? null,
-          datePlayed: sc.rounds?.date ?? null,
-          dailyHandicap: sc.daily_handicap_used ?? null,
-        }));
-
+        const cards = await getPartnershipEligibleCards(playerIds);
         setEligibleCards(cards);
       } catch (err) {
         console.error('[TagPartnershipRound] Error loading cards:', err);
