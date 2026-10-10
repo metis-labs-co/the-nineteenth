@@ -41,7 +41,7 @@
       </dict>
     </array>
     <key>CFBundleVersion</key>
-    <string>3</string>
+    <string>4</string>
     <key>GMSApiKey</key>
     <string>__GMS_KEY__</string>
     <key>ITSAppUsesNonExemptEncryption</key>
