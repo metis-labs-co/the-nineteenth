@@ -23,6 +23,7 @@ import { PageHeader } from '@/components/common/PageHeader';
 import { ErrorState, LoadingSpinner } from '@/components/common';
 import { FeatureLock } from '@/components/subscription';
 import type { HandicapRound, CombinableNinePair } from '@/types';
+import type { HandicapRoundLink } from '@/types/handicap.types';
 
 import {
   HandicapIndexCard,
@@ -104,15 +105,46 @@ export default function HandicapHistoryScreen({ navigation }: Props) {
     [uncombineMutation, user?.id],
   );
 
+  const openScorecard = useCallback(
+    (link: HandicapRoundLink) => {
+      navigation.navigate('ViewRound', {
+        roundId: link.roundId,
+        competitionId: link.competitionId ?? undefined,
+        initialTab: 'scorecard',
+      });
+    },
+    [navigation],
+  );
+
+  const handleRoundPress = useCallback(
+    (round: HandicapRound) => {
+      if (!round.isCombined) {
+        openScorecard({ roundId: round.roundId, competitionId: round.competitionId ?? null });
+        return;
+      }
+      // A combined entry is two 9-hole rounds: let the player pick which card.
+      const front = round.combinedFrontRound;
+      const back = round.combinedBackRound;
+      if (!front || !back) return;
+      Alert.alert('Open scorecard', 'This entry combines two 9-hole rounds.', [
+        { text: 'Front 9', onPress: () => openScorecard(front) },
+        { text: 'Back 9', onPress: () => openScorecard(back) },
+        { text: 'Cancel', style: 'cancel' },
+      ]);
+    },
+    [openScorecard],
+  );
+
   const renderRound = useCallback(
     ({ item }: { item: HandicapRound }) => (
       <HandicapRoundRow
         round={item}
+        onPress={handleRoundPress}
         onUncombine={item.isCombined ? handleUncombine : undefined}
         isUncombining={uncombineMutation.isPending}
       />
     ),
-    [handleUncombine, uncombineMutation.isPending],
+    [handleRoundPress, handleUncombine, uncombineMutation.isPending],
   );
 
   const keyExtractor = useCallback(

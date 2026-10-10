@@ -43,6 +43,7 @@ interface ScorecardWithRound {
   rounds: {
     id: string;
     date: string;
+    competition_id: string | null;
     game_type: string | null;
     team_format: string | null;
     courses: {
@@ -107,6 +108,7 @@ async function fetchHandicapHistory(playerId: string): Promise<HandicapSummary> 
       rounds!inner (
         id,
         date,
+        competition_id,
         nine_type,
         game_type,
         team_format,
@@ -165,6 +167,7 @@ async function fetchHandicapHistory(playerId: string): Promise<HandicapSummary> 
           rounds!inner (
             id,
             date,
+            competition_id,
             nine_type,
             courses (
               id,
@@ -214,6 +217,7 @@ async function fetchHandicapHistory(playerId: string): Promise<HandicapSummary> 
   const eighteenRounds: HandicapRound[] = validScorecards.map((sc) => ({
     scorecardId: sc.id,
     roundId: sc.round_id,
+    competitionId: sc.rounds?.competition_id ?? null,
     roundDate: sc.rounds?.date ?? sc.submitted_at ?? '',
     courseName: sc.rounds?.courses?.name ?? 'Unknown Course',
     clubName: sc.rounds?.courses?.clubs?.name ?? '',
