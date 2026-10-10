@@ -120,16 +120,23 @@ export default function HomeScreen() {
         }
         return;
       }
-      navigation.navigate('Scorecard', { roundId, competitionId: '' });
+      // Same as the Rounds list: the section only hands back the round id, so
+      // look up the competition. An empty id made the scorecard treat
+      // competition rounds as standalone.
+      const competitionId =
+        home.inProgressRounds.find((r) => r.id === roundId)?.competition_id ?? 'standalone';
+      navigation.navigate('Scorecard', { roundId, competitionId });
     },
-    [navigation]
+    [navigation, home.inProgressRounds]
   );
 
   const handleViewRound = useCallback(
     (roundId: string) => {
-      navigation.navigate('ViewRound', { roundId });
+      const competitionId =
+        home.inProgressRounds.find((r) => r.id === roundId)?.competition_id ?? undefined;
+      navigation.navigate('ViewRound', { roundId, competitionId });
     },
-    [navigation]
+    [navigation, home.inProgressRounds]
   );
 
   const handleViewAllRounds = useCallback(() => {

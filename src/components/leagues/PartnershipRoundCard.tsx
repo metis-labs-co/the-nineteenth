@@ -9,6 +9,7 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { formatDateDisplay } from '@/utils/formatting';
 import type { PartnershipRound, DifficultyLevel } from '@/types/database';
+import { getPartnershipRoundLinks, usePartnershipRoundOpener } from './partnershipRoundLinks';
 
 interface PartnershipRoundCardProps {
   round: PartnershipRound;
@@ -46,8 +47,18 @@ export const PartnershipRoundCard = React.memo(function PartnershipRoundCard({
     onUntag?.(round.id);
   }, [onUntag, round.id]);
 
+  const openPartnershipRound = usePartnershipRoundOpener();
+  const canOpen = getPartnershipRoundLinks(round).length > 0;
+
   return (
-    <View style={[styles.container, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+    <TouchableOpacity
+      style={[styles.container, { backgroundColor: colors.surface, borderColor: colors.border }]}
+      onPress={canOpen ? () => openPartnershipRound(round) : undefined}
+      disabled={!canOpen}
+      activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel={`${round.course_name}, ${formatDate(round.played_at)}, ${round.combined_gross} gross. Opens round`}
+    >
       {/* Differential Badge */}
       <View style={[styles.diffBadge, { backgroundColor: isUnderTarget ? colors.successBackground : colors.errorBackground }]}>
         <Text style={[styles.diffValue, { color: isUnderTarget ? colors.success : colors.error }]}>
@@ -83,7 +94,7 @@ export const PartnershipRoundCard = React.memo(function PartnershipRoundCard({
           <Icon source="close-circle-outline" size={20} color={colors.gray400} />
         </TouchableOpacity>
       )}
-    </View>
+    </TouchableOpacity>
   );
 });
 

@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
@@ -15,6 +15,8 @@ import type { CombinedGameHistoryEntry } from '@/hooks/useGameResults';
 
 interface GameHistoryRowProps {
   entry: CombinedGameHistoryEntry;
+  /** Opens the round on its skins/wolf tab */
+  onPress?: (entry: CombinedGameHistoryEntry) => void;
 }
 
 function formatDate(dateStr: string | null): string {
@@ -33,6 +35,7 @@ function formatCurrency(value: number): string {
 
 export const GameHistoryRow = React.memo(function GameHistoryRow({
   entry,
+  onPress,
 }: GameHistoryRowProps) {
   const colors = useThemeColors();
 
@@ -48,7 +51,14 @@ export const GameHistoryRow = React.memo(function GameHistoryRow({
     : colors.textSecondary;
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.surface }]}>
+    <TouchableOpacity
+      style={[styles.container, { backgroundColor: colors.surface }]}
+      onPress={onPress ? () => onPress(entry) : undefined}
+      disabled={!onPress}
+      activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel={`${badgeLabel}, ${entry.courseName ?? 'Unknown Course'}, ${formatDate(entry.date)}, ${formatCurrency(entry.netResult)}. Opens round`}
+    >
       {/* Game type badge */}
       <View style={[styles.badge, { backgroundColor: badgeColor }]}>
         <Icon source={badgeIcon} size={14} color={colors.white} />
@@ -84,7 +94,8 @@ export const GameHistoryRow = React.memo(function GameHistoryRow({
       <Text style={[styles.result, { color: resultColor }]}>
         {formatCurrency(entry.netResult)}
       </Text>
-    </View>
+      {onPress && <Icon source="chevron-right" size={20} color={colors.textTertiary} />}
+    </TouchableOpacity>
   );
 });
 

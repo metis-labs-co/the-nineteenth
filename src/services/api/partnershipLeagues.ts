@@ -150,7 +150,11 @@ export async function getPartnershipCourseBests(leagueId: string): Promise<Partn
  */
 export async function getPartnershipRounds(partnershipId: string): Promise<PartnershipRound[]> {
   const { data, error } = await from('partnership_rounds')
-    .select('*')
+    .select(
+      `*,
+      scorecard_1:scorecards!scorecard_1_id(round_id, rounds(competition_id)),
+      scorecard_2:scorecards!scorecard_2_id(round_id, rounds(competition_id))`
+    )
     .eq('partnership_id', partnershipId)
     .order('tagged_at', { ascending: false });
 
@@ -159,7 +163,16 @@ export async function getPartnershipRounds(partnershipId: string): Promise<Partn
     throw new Error(`Failed to fetch partnership rounds: ${error.message}`);
   }
 
-  return (data ?? []) as PartnershipRound[];
+  type SourceScorecard = { round_id: string | null; rounds: { competition_id: string | null } | null } | null;
+  type Row = PartnershipRound & { scorecard_1?: SourceScorecard; scorecard_2?: SourceScorecard };
+  // Flatten the scorecard → round links so rows can open the round(s)
+  return ((data ?? []) as Row[]).map(({ scorecard_1, scorecard_2, ...round }) => ({
+    ...round,
+    round_1_id: scorecard_1?.round_id ?? null,
+    round_1_competition_id: scorecard_1?.rounds?.competition_id ?? null,
+    round_2_id: scorecard_2?.round_id ?? null,
+    round_2_competition_id: scorecard_2?.rounds?.competition_id ?? null,
+  }));
 }
 
 // =====================================================

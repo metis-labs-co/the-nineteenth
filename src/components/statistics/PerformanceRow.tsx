@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { spacing, typography } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -25,6 +25,8 @@ export interface PerformanceRowProps {
   value: string | number;
   /** Optional subtitle below the value */
   subtitle?: string;
+  /** When set, the row is tappable (e.g. opens the round) and shows a chevron */
+  onPress?: () => void;
 }
 
 // =====================================================
@@ -37,11 +39,12 @@ export const PerformanceRow = React.memo(function PerformanceRow({
   label,
   value,
   subtitle,
+  onPress,
 }: PerformanceRowProps) {
   const colors = useThemeColors();
 
-  return (
-    <View style={styles.row}>
+  const content = (
+    <>
       <View
         style={[
           styles.iconContainer,
@@ -57,7 +60,28 @@ export const PerformanceRow = React.memo(function PerformanceRow({
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{subtitle}</Text>
         )}
       </View>
-    </View>
+      {onPress && (
+        <View style={styles.chevron}>
+          <Icon source="chevron-right" size={20} color={colors.textTertiary} />
+        </View>
+      )}
+    </>
+  );
+
+  if (!onPress) {
+    return <View style={styles.row}>{content}</View>;
+  }
+
+  return (
+    <TouchableOpacity
+      style={styles.row}
+      onPress={onPress}
+      activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel={[label, value, subtitle].filter(Boolean).join(', ')}
+    >
+      {content}
+    </TouchableOpacity>
   );
 });
 
@@ -81,6 +105,10 @@ const styles = StyleSheet.create({
   },
   details: {
     flex: 1,
+  },
+  chevron: {
+    alignSelf: 'center',
+    marginLeft: spacing.sm,
   },
   label: {
     ...typography.caption,

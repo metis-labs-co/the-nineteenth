@@ -17,6 +17,7 @@ import {
   PerformanceChart,
 } from '@/components/statistics';
 import { formatDateLong } from '@/utils/formatting';
+import { useOpenRound } from '@/navigation/openRound';
 import type { CourseStatisticsData } from '@/hooks/playerStatistics';
 
 interface CourseOverviewTabProps {
@@ -27,6 +28,7 @@ export const CourseOverviewTab = React.memo(function CourseOverviewTab({
   stats,
 }: CourseOverviewTabProps) {
   const colors = useThemeColors();
+  const openRound = useOpenRound();
 
   // Build chart data from recent rounds (ordered by date ascending)
   const chartRounds = [...stats.recentRounds]
@@ -101,6 +103,9 @@ export const CourseOverviewTab = React.memo(function CourseOverviewTab({
                 isLast={index === stats.recentRounds.length - 1}
                 isPracticeRound={round.isPracticeRound}
                 isHandicapRound={round.isHandicapRound}
+                onPress={() =>
+                  openRound({ roundId: round.roundId, competitionId: round.competitionId })
+                }
               />
             ))}
           </View>
