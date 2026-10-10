@@ -1,4 +1,4 @@
-const { withEntitlementsPlist } = require('@expo/config-plugins');
+const { withEntitlementsPlist } = require('expo/config-plugins');
 
 /**
  * Adds the Declared Age Range entitlement to the iOS app.
