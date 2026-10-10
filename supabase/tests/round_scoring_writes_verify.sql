@@ -1,4 +1,5 @@
--- AUTHORED ONLY. Not executed by C3. Disposable staging, after A7/B1/C3.
+-- Rollback-contained verification after A7/B1/C3. Executed by the local-only
+-- competition_compatibility/run.py suite; staging execution remains separate.
 -- Known pooler port 6543. Human recipe:
 -- psql "$DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
 -- SET default_transaction_read_only = off;
@@ -306,6 +307,9 @@ RESET ROLE;
 -- Identity-only lifecycle operations and deleted-parent metadata. This block
 -- uses fixture-admin privilege to isolate guard behavior from RPC authorization.
 -- Existing link_placeholder_player/delete_user_account authorization is unchanged.
+-- RESET ROLE above does not reset JWT claims. The ownership trigger still
+-- requires the round owner's identity for the deleted-parent fixture change.
+SET LOCAL request.jwt.claims = '{"sub":"ec000000-0000-0000-0000-000000000001","role":"authenticated"}';
 DO $$
 DECLARE v_c UUID := 'ec000000-0000-0000-0007-000000000004'; v_before JSONB;
 BEGIN

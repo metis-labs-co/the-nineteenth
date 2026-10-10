@@ -128,6 +128,20 @@ BEGIN
     RAISE EXCEPTION 'Not authenticated' USING ERRCODE = '42501';
   END IF;
 
+  -- Reject competitions without taking a lock that could delay ordinary scoring.
+  SELECT competition_id INTO v_competition_id
+  FROM rounds
+  WHERE id = p_round_id AND deleted_at IS NULL;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Round % not found', p_round_id USING ERRCODE = 'P0002';
+  END IF;
+
+  IF v_competition_id IS NOT NULL THEN
+    RAISE EXCEPTION 'Only social rounds can be ended early' USING ERRCODE = '42501';
+  END IF;
+
+  -- Re-read and recheck under lock: the round may have changed since preflight.
   SELECT user_id, competition_id, nine_type, status, holes_played
     INTO v_owner, v_competition_id, v_nine_type, v_status, v_existing
   FROM rounds

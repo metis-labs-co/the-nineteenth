@@ -1,11 +1,50 @@
 # End Round Early: build handoff
 
-**Checkpoint:** implementation and local verification recorded below; scope acceptance and ordinary-round compatibility validation reopened after Sam’s review. Do not treat the earlier source-review passes or task counts as release approval.
+**Checkpoint:** C1–C5 scope documented, C3 narrowed and real local competition compatibility tests added after Sam's review. Staging, production and native/device rollout checks remain pending. Earlier source-review passes or task counts are not release approval.
 **Worktree:** `.claude/worktrees/end-round-early`, branch `worktree-end-round-early`.
 **Plan:** `docs/superpowers/plans/2026-10-07-end-round-early.md`, 76 tasks run in Task Index order.
 **Spec:** `docs/superpowers/specs/2026-10-07-end-round-early-design.md`. Revision 3 and R22 override everything earlier in the spec.
 
-## Review reopened after Sam’s scope audit
+## Scope correction after Sam's audit — 2026-10-10
+
+Sam authorized resolving C1–C5/C3 scope and proving ordinary competition
+compatibility, including simultaneous groups without an early-end operation.
+Local database tests are authorized; production and staging are not.
+
+The [scope decision](../../guides/END_ROUND_SCORING_SCOPE.md) keeps the client
+durability/adoption/upload adapters needed by R12–R16 and narrows C3. Inserts,
+identity moves and entry writes take compatible parent `FOR KEY SHARE NOWAIT`
+locks; the exclusive writer lock and conflict-card probe are removed. New range
+validation applies only to ended rounds. The first real replay also exposed and
+fixed two unparenthesized CASE expressions that prevented C3 compilation.
+
+The [local database runner](../../../supabase/tests/competition_compatibility/README.md)
+uses real authenticated RLS, separate sessions and repository notification
+triggers, including legacy and ordinary-group writes. The initial compiled C3
+failed 10 of 12 compatibility checks; the narrowed guard passed those checks
+and end/write interlocks. Targeted client regressions passed 25 suites / 696 tests
+(15 existing skips). See the scope document for final evidence and limitations.
+Earlier lock descriptions and unexecuted-SQL statements below are historical.
+
+**Recorded local evidence, 2026-10-11:** clean PostgreSQL 17.4 runner exited 0:
+234 migration replays, 21 compatibility/end-race checks, three SQL scripts and
+14 pre-C3 ordinary-write controls passed. Test containers were removed.
+A7's existing Test 10f also exposed a real empty-history NULL bug; the minimal
+fix preserves NULL instead of producing 54. Two SQL fixture setup bugs were
+corrected. Full handicap formula parity and native/device/target rollout QA
+remain outside those local checks.
+
+**Follow-up before commit/apply:** B1 and C3 now reject competitions before
+taking the round lock, retaining a locked recheck for concurrent changes. A
+regression check covers rejection while an ordinary snapshot or entry writer
+holds its transaction open. The pre-commit rerun passed with the revised SQL
+and added check; the recorded result above includes both. Migrations ran only
+in the disposable local container, which was removed afterward. Python caches
+are ignored, and the blanket source-review claim has been removed from the
+scope document. Sam authorized committing and merging this work to local main;
+production/staging migration application and pushing remain outside that request.
+
+## Historical reopening after Sam’s scope audit
 
 The earlier “no blocking findings” conclusion was too broad. Its Spec review treated agent-written C1–C5 controller rulings as accepted requirements. That establishes consistency with the expanded implementation contract, not Sam’s acceptance of that additional scope. Historical review results remain evidence of what was checked; they do not close this new scope/compatibility review.
 

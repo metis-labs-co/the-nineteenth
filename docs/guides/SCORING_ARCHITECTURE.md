@@ -278,8 +278,13 @@ cannot establish a synthesized prerequisite; unidentifiable noncanonical invalid
 JSON retains strict decoding. See [OFFLINE_ARCHITECTURE.md](OFFLINE_ARCHITECTURE.md).
 
 Jest controlled promises/mock transactions do not establish real SQLite crash
-atomicity or PostgreSQL compilation/RLS/locks/concurrency. All database, device
-and rollout checks remain pending in the [1.15.0 QA/runbook](END_ROUND_EARLY_ROLLOUT.md).
+atomicity or PostgreSQL compilation/RLS/locks/concurrency. The separate
+[local database suite](../../supabase/tests/competition_compatibility/README.md)
+exercises PostgreSQL migrations, RLS and simultaneous ordinary-group/end-write
+schedules. C3 uses compatible parent key-share locks and applies new range
+validation only to ended rounds; see the [scope decision](END_ROUND_SCORING_SCOPE.md).
+Device, staging/production and rollout checks remain pending in the
+[1.15.0 QA/runbook](END_ROUND_EARLY_ROLLOUT.md).
 Known follow-ups remain: team skins uses the individual settlement calculator;
 Wolf finalization is not wired; nine-hole per-hole net uses 18-hole stroke
 indexes; plus-handicap per-hole net floors returned strokes at zero; dedicated

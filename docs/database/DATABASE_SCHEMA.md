@@ -5451,12 +5451,14 @@ callers remain subject to RLS. EXECUTE on helpers is revoked from PUBLIC,
 anon and authenticated, with fixed `public, pg_temp` search_path. Existing-card
 UPDATE holds its card lock; end obtains all-card NOWAIT before changing shape.
 INSERT (including ON CONFLICT), destination moves and actual card/player key
-changes acquire destination round FOR UPDATE NOWAIT, then a separate fresh
-conflict-card FOR UPDATE NOWAIT probe, covering both primary and round/player
-unique identities before a separate shape read. This avoids waiting for a
-completing card while holding its round. It adds no unconditional INVOKER
-round lock or SHARE lock upgrade and does not assume competition linkage is
-immutable. Ordinary competition scorers need no new round UPDATE permission.
+changes acquire destination round FOR KEY SHARE NOWAIT before a separate fresh
+shape read. These locks are compatible between independent writers and with
+completion's non-key round UPDATE, but conflict with ending's FOR UPDATE.
+There is no extra conflict-card probe: same-card upserts wait normally without
+blocking the holder's completion trigger. The guard does not assume competition
+linkage is immutable. Ordinary competition scorers need no new round UPDATE
+permission. Numeric score range validation applies only when `holes_played`
+is set; legacy ordinary-round payloads retain their previous behavior.
 
 `scorecards_a_round_scoring_write` runs before
 `scorecards_full_card_differential`, so eligibility nulling cannot disguise a
@@ -5482,20 +5484,22 @@ Narrow direct-write exceptions compare actual OLD/NEW values:
   delete/restore under a soft-deleted parent.
 
 `score_entries_round_scoring_write` guards every entry INSERT/UPDATE using a
-private round FOR UPDATE NOWAIT and fresh planned/played physical range; entries
-do not need a parent-card FK. Out-of-play entries reject wholly. Stable `22023`
+private round FOR KEY SHARE NOWAIT; after a fresh read, only ended rounds enforce
+the played physical range. Entries do not need a parent-card FK. Out-of-play
+ended entries reject wholly. Stable `22023`
 hints are `invalid_round_shape`, `round_shape_changed`, `round_score_out_of_play`
 and `round_scoring_busy`; no authoritative shape is leaked in DETAIL. Clients
 obtain it through an authorized read, adopt and freshly prepare rather than
 relabeling an old payload. Accepted snapshot revision survives a subsequent
 blocking entry/repair/ack failure without implying local acknowledgment.
 
-Verification authored in `supabase/tests/round_scoring_writes_verify.sql` and
-the C3-adapted `supabase/tests/end_round_early_verify.sql` is rollback-contained.
-Real lock/fresh-read/RLS/completion/upsert/combination schedules are separately
-authored in `supabase/tests/round_scoring_writes_two_session.md`. See the
-[release runbook](../guides/END_ROUND_EARLY_ROLLOUT.md) for pending execution,
-prerequisites and results recording.
+The [local database suite](../../supabase/tests/competition_compatibility/README.md)
+replays migrations and executes real independent-group and end/write schedules,
+plus the rollback-contained C3/B1/A7 verification scripts. Manual supplementary
+schedules remain in `supabase/tests/round_scoring_writes_two_session.md`.
+See the [scope decision](../guides/END_ROUND_SCORING_SCOPE.md) and
+[release runbook](../guides/END_ROUND_EARLY_ROLLOUT.md) for evidence limits and
+the separate staging/production rollout.
 
 ---
 

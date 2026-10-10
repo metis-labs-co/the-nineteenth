@@ -22,10 +22,13 @@ ON CONFLICT (id) DO NOTHING;
 INSERT INTO clubs (id, source, name)
   VALUES ('fc000000-0000-0000-0000-0000000000c1', 'manual', 'Verify Club');
 
-INSERT INTO courses (id, club_id, name)
+-- The audit assertion below expects a physical 18-hole course. Seed its
+-- holes explicitly; the schema's default [] describes no physical holes.
+INSERT INTO courses (id, club_id, name, holes)
   VALUES ('fc000000-0000-0000-0000-0000000000c2',
           'fc000000-0000-0000-0000-0000000000c1',
-          'Verify Course');
+          'Verify Course',
+          (SELECT jsonb_agg(jsonb_build_object('number', n, 'par', 4)) FROM generate_series(1, 18) n));
 
 -- One round per card (scorecards are unique per round + player).
 INSERT INTO rounds (id, course_id, user_id, status, nine_type) VALUES

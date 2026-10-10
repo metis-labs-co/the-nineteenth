@@ -1,6 +1,7 @@
--- Shape declarations protect scores AND client-owned totals. Authoring only.
+-- Shape declarations protect ended-round scores AND client-owned totals.
 -- Deploy after 20261007000200, alongside the C4/C5 client adapters.
--- Human staging recipe (known pooler port 6543; NEVER run during implementation):
+-- Local proof: supabase/tests/competition_compatibility/run.py (isolated container).
+-- Human staging recipe (known pooler port 6543; separate rollout authorization):
 -- psql "$DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
 -- SET default_transaction_read_only = off;
 -- show transaction_read_only; -- must be off
@@ -46,7 +47,7 @@ BEGIN
         IF jsonb_typeof(v_value) <> 'number' THEN RETURN FALSE; END IF;
         IF (v_value::TEXT)::NUMERIC <> trunc((v_value::TEXT)::NUMERIC)
            OR (v_value::TEXT)::NUMERIC < 0
-           OR (v_value::TEXT)::NUMERIC > CASE v_stat WHEN 'putts' THEN 6 ELSE 5 END THEN
+           OR (v_value::TEXT)::NUMERIC > (CASE v_stat WHEN 'putts' THEN 6 ELSE 5 END) THEN
           RETURN FALSE;
         END IF;
       ELSIF v_stat IN ('fairwayHit', 'greenInRegulation') THEN
@@ -85,29 +86,20 @@ DECLARE
   v_metadata TEXT[] := ARRAY['updated_at', 'created_at', 'synced_at', 'device_id', 'deleted_at'];
   v_delta BOOLEAN; v_expected_trim JSONB;
 BEGIN
-  -- An existing UPDATE already holds its card lock. B1 locks ALL cards
-  -- NOWAIT before ending. Missing cards / destination moves / unique-key
-  -- transfers need the round lock too. Even metadata-only player transfers
-  -- must not introduce a conflict after another INSERT's fresh card probe.
-  -- Never infer lock safety from competition_id.
+  -- Existing UPDATEs already hold their card lock; ending locks all cards
+  -- NOWAIT. Missing cards and identity moves also need a parent interlock.
+  -- KEY SHARE is compatible between ordinary writers AND with completion's
+  -- non-key round UPDATE. It conflicts with end_round_early's FOR UPDATE.
+  -- Keep NOWAIT for row-first writes racing a round-first end. Do not skip
+  -- by competition_id: a round can be reclassified before ending.
   IF TG_OP = 'INSERT' OR NEW.round_id IS DISTINCT FROM OLD.round_id
      OR NEW.player_id IS DISTINCT FROM OLD.player_id
      OR NEW.id IS DISTINCT FROM OLD.id THEN
     BEGIN
-      PERFORM r.id FROM public.rounds r WHERE r.id = NEW.round_id FOR UPDATE NOWAIT;
-      -- BEFORE INSERT also runs for ON CONFLICT DO UPDATE. Never hold this
-      -- round while later waiting for a conflict card: a completing snapshot
-      -- may already own that card and need the round in its AFTER trigger.
-      -- Fresh after the round lock, include hidden/deleted unique rows and
-      -- both the primary key and round/player constraint. RLS still governs
-      -- the caller's subsequent INSERT/UPDATE; this helper only locks/reads.
-      -- A pair created before this lock is visible here. An uncommitted
-      -- guarded pair INSERT still owns the same round and fails NOWAIT above.
-      PERFORM sc.id FROM public.scorecards sc
-       WHERE sc.id = NEW.id
-          OR (sc.round_id = NEW.round_id AND sc.player_id = NEW.player_id)
-       ORDER BY sc.id
-       FOR UPDATE NOWAIT;
+      PERFORM r.id FROM public.rounds r WHERE r.id = NEW.round_id FOR KEY SHARE NOWAIT;
+      -- ON CONFLICT can wait normally for its own card: this parent lock
+      -- cannot block the holder's completion notification. No extra conflict
+      -- card probe or round-wide exclusive writer lock is needed.
     EXCEPTION WHEN lock_not_available THEN
       RAISE EXCEPTION 'Round scoring is busy; try again'
         USING ERRCODE = '22023', HINT = 'round_scoring_busy';
@@ -152,7 +144,7 @@ BEGIN
       IF v_context->'expected_round_shape'->'holes_played' <> 'null'::JSONB THEN
         IF (v_context->'expected_round_shape'->>'holes_played')::NUMERIC < 1
            OR (v_context->'expected_round_shape'->>'holes_played')::NUMERIC >=
-              CASE WHEN v_context->'expected_round_shape'->>'nine_type' = 'full' THEN 18 ELSE 9 END
+              (CASE WHEN v_context->'expected_round_shape'->>'nine_type' = 'full' THEN 18 ELSE 9 END)
            OR (v_context->'expected_round_shape'->>'holes_played')::NUMERIC <>
               trunc((v_context->'expected_round_shape'->>'holes_played')::NUMERIC) THEN
           RAISE EXCEPTION 'Invalid round scoring shape'
@@ -201,9 +193,10 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  -- Numeric hole keys, including retained-only JSON, are checked before the
-  -- stats exception. Do not strip invalid keys and then accept stale totals.
-  IF jsonb_typeof(NEW.scores) = 'object' AND EXISTS (
+  -- Enforce the early-end cutoff, not a new validation policy for ordinary
+  -- rounds or legacy clients. Check before the stats exception; never silently
+  -- strip scores and accept stale totals.
+  IF v_played IS NOT NULL AND jsonb_typeof(NEW.scores) = 'object' AND EXISTS (
     SELECT 1 FROM jsonb_object_keys(NEW.scores) k
      WHERE CASE WHEN k ~ '^[0-9]+$' THEN
        CASE WHEN length(k) > 3 THEN TRUE ELSE k::INT < v_first OR k::INT > v_last END
@@ -255,14 +248,14 @@ AS $$
 DECLARE v_nine TEXT; v_played INT; v_first INT; v_last INT;
 BEGIN
   BEGIN
-    PERFORM r.id FROM public.rounds r WHERE r.id = NEW.round_id FOR UPDATE NOWAIT;
+    PERFORM r.id FROM public.rounds r WHERE r.id = NEW.round_id FOR KEY SHARE NOWAIT;
   EXCEPTION WHEN lock_not_available THEN
     RAISE EXCEPTION 'Round scoring is busy; try again'
       USING ERRCODE = '22023', HINT = 'round_scoring_busy';
   END;
   SELECT r.nine_type, r.holes_played INTO v_nine, v_played
     FROM public.rounds r WHERE r.id = NEW.round_id;
-  IF NOT FOUND THEN RETURN NEW; END IF;
+  IF NOT FOUND OR v_played IS NULL THEN RETURN NEW; END IF;
   v_first := CASE WHEN v_nine = 'back9' THEN 10 ELSE 1 END;
   v_last := v_first + COALESCE(v_played, CASE WHEN v_nine = 'full' THEN 18 ELSE 9 END) - 1;
   IF NEW.hole_number < v_first OR NEW.hole_number > v_last THEN
@@ -448,6 +441,20 @@ BEGIN
     RAISE EXCEPTION 'Not authenticated' USING ERRCODE = '42501';
   END IF;
 
+  -- Reject competitions without taking a lock that could delay ordinary scoring.
+  SELECT competition_id INTO v_competition_id
+  FROM rounds
+  WHERE id = p_round_id AND deleted_at IS NULL;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Round % not found', p_round_id USING ERRCODE = 'P0002';
+  END IF;
+
+  IF v_competition_id IS NOT NULL THEN
+    RAISE EXCEPTION 'Only social rounds can be ended early' USING ERRCODE = '42501';
+  END IF;
+
+  -- Re-read and recheck under lock: the round may have changed since preflight.
   SELECT user_id, competition_id, nine_type, status, holes_played
     INTO v_owner, v_competition_id, v_nine_type, v_status, v_existing
   FROM rounds

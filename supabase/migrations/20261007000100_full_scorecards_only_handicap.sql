@@ -311,8 +311,10 @@ AS $$
            ROW_NUMBER() OVER (ORDER BY differential ASC) AS brn
       FROM recent20
   )
-  -- AVG over no rows is NULL, so a player with nothing qualifying gets NULL.
-  SELECT ROUND(LEAST(AVG(b.differential) * 0.96, 54.0)::NUMERIC, 1)
+  -- PostgreSQL LEAST ignores NULL, so applying the cap to an empty AVG
+  -- would manufacture 54.0. Preserve the app's no-qualifying-cards NULL.
+  SELECT CASE WHEN COUNT(b.differential) = 0 THEN NULL
+         ELSE ROUND(LEAST(AVG(b.differential) * 0.96, 54.0)::NUMERIC, 1) END
     FROM best b
     CROSS JOIN qualifying q
    WHERE b.brn <= q.count_to_use;

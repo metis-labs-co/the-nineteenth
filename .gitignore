@@ -61,6 +61,7 @@ dist/
 !.env.example
 
 # Caches
+__pycache__/
 .cache/
 .parcel-cache/
 .npm/
