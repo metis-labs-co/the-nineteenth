@@ -39,6 +39,7 @@ import {
 import { useCourseDetails } from '@/hooks/useCourseDetails';
 import { getLocalDateString } from '@/utils/formatting';
 import type { LeagueLeaderboardEntry, LeagueSortMode, PartnershipLeaderboardEntry } from '@/types/database';
+import { viewRoundParams } from '@/navigation/openRound';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type DetailRoute = RouteProp<RootStackParamList, 'LeagueDetail'>;
@@ -347,10 +348,12 @@ export function useLeagueDetail() {
   }, []);
 
   const handleRoundPress = useCallback(
-    (scorecardId: string, roundId: string, _playerId: string) => {
+    (scorecardId: string, roundId: string, _playerId: string, competitionId: string | null) => {
       if (!roundId) return;
       setSelectedPlayer(null);
-      navigation.navigate('ViewRound', { roundId });
+      // competitionId is null for standalone rounds, and on servers that
+      // predate migration 20261010000000 (then it opens as before).
+      navigation.navigate('ViewRound', viewRoundParams({ roundId, competitionId }));
     },
     [navigation]
   );

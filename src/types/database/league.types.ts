@@ -90,6 +90,10 @@ export interface LeagueRound {
   handicap_differential: number; // WHS differential, -10 to 80, 1 decimal
   tagged_at: string; // ISO timestamp
   created_at: string; // ISO timestamp
+  /** Round the tagged scorecard belongs to (joined in getMyLeagueRounds) */
+  round_id?: string | null;
+  /** Competition of that round, null for standalone rounds */
+  competition_id?: string | null;
 }
 
 /**
@@ -107,6 +111,7 @@ export interface LeagueRoundDetail {
   daily_handicap_used: number | null;  // from scorecards
   course_name: string;                 // from rounds → courses
   date_played: string | null;          // from rounds
+  competition_id?: string | null;      // from rounds (absent on servers before 20261010000000)
 }
 
 /**
@@ -291,6 +296,11 @@ export interface PartnershipRound {
   player_2_handicap: number | null;
   played_at: string | null; // DATE
   tagged_at: string; // ISO timestamp
+  /** Rounds behind scorecard_1/scorecard_2 (joined in getPartnershipRounds; null if not visible) */
+  round_1_id?: string | null;
+  round_1_competition_id?: string | null;
+  round_2_id?: string | null;
+  round_2_competition_id?: string | null;
 }
 
 /**

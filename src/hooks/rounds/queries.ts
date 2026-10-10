@@ -66,6 +66,8 @@ export interface CombinedGameHistoryEntry {
   id: string;
   gameType: GameType;
   roundId: string;
+  /** Competition the round belongs to (null for standalone rounds) */
+  competitionId: string | null;
   courseName: string | null;
   competitionName: string | null;
   date: string | null;
@@ -402,6 +404,7 @@ export function useGameResults() {
         id: entry.id,
         gameType: 'skins',
         roundId: entry.round_id,
+        competitionId: entry.round?.competition?.id ?? null,
         courseName: entry.round?.course?.name ?? null,
         competitionName: entry.round?.competition?.name ?? null,
         date: entry.round?.date ?? entry.completed_at,
@@ -416,6 +419,7 @@ export function useGameResults() {
         id: entry.id,
         gameType: 'wolf',
         roundId: entry.round_id,
+        competitionId: entry.round?.competition?.id ?? null,
         courseName: entry.round?.course?.name ?? null,
         competitionName: entry.round?.competition?.name ?? null,
         date: entry.round?.date ?? entry.completed_at,

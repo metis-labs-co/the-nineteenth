@@ -31,7 +31,12 @@ export interface LeaguePlayerRoundsModalProps {
   roundsCounting: number;
   rounds: LeagueRoundDetail[] | undefined;
   isLoading: boolean;
-  onRoundPress: (scorecardId: string, roundId: string, playerId: string) => void;
+  onRoundPress: (
+    scorecardId: string,
+    roundId: string,
+    playerId: string,
+    competitionId: string | null
+  ) => void;
   playerId: string;
 }
 
@@ -140,7 +145,9 @@ export function LeaguePlayerRoundsModal({
                 <View key={round.id}>
                   <TouchableOpacity
                     style={styles.roundRow}
-                    onPress={() => onRoundPress(round.scorecard_id, round.round_id, playerId)}
+                    onPress={() =>
+                      onRoundPress(round.scorecard_id, round.round_id, playerId, round.competition_id ?? null)
+                    }
                     activeOpacity={0.7}
                     accessibilityRole="button"
                     accessibilityLabel={`${round.course_name}, ${formatDate(round.date_played)}, Gross ${round.total_gross}, Differential ${round.handicap_differential.toFixed(1)}`}

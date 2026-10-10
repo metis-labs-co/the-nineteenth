@@ -5,8 +5,8 @@
  */
 
 import React from 'react';
-import { View, StyleSheet, FlatList } from 'react-native';
-import { Text } from 'react-native-paper';
+import { View, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { BottomSheet } from '@/components/common/BottomSheet';
@@ -14,6 +14,7 @@ import { LoadingSpinner } from '@/components/common';
 import { PlayerAvatar } from '@/components/common/PlayerAvatar';
 import { formatDateDisplay } from '@/utils/formatting';
 import type { PartnershipRound, PartnershipLeaderboardEntry, DifficultyLevel } from '@/types/database';
+import { getPartnershipRoundLinks, usePartnershipRoundOpener } from './partnershipRoundLinks';
 
 interface PartnershipRoundsModalProps {
   visible: boolean;
@@ -49,6 +50,7 @@ export const PartnershipRoundsModal = React.memo(function PartnershipRoundsModal
   isLoading,
 }: PartnershipRoundsModalProps) {
   const colors = useThemeColors();
+  const openPartnershipRound = usePartnershipRoundOpener();
 
   if (!entry) return null;
 
@@ -121,9 +123,18 @@ export const PartnershipRoundsModal = React.memo(function PartnershipRoundsModal
             renderItem={({ item }) => {
               const isUnder = item.target_differential <= 0;
               const diffColor = DIFFICULTY_COLORS[item.difficulty_level];
+              const canOpen = getPartnershipRoundLinks(item).length > 0;
 
               return (
-                <View style={[styles.roundRow, { borderBottomColor: colors.border }]}>
+                <TouchableOpacity
+                  style={[styles.roundRow, { borderBottomColor: colors.border }]}
+                  // Close the sheet first, as the league player-rounds sheet does
+                  onPress={canOpen ? () => openPartnershipRound(item, onClose) : undefined}
+                  disabled={!canOpen}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${item.course_name}, ${formatDate(item.played_at)}, gross ${item.combined_gross}. Opens round`}
+                >
                   <View style={[styles.diffBadge, { backgroundColor: isUnder ? colors.successBackground : colors.errorBackground }]}>
                     <Text style={[styles.diffText, { color: isUnder ? colors.success : colors.error }]}>
                       {item.target_differential > 0 ? '+' : ''}{item.target_differential}
@@ -142,7 +153,8 @@ export const PartnershipRoundsModal = React.memo(function PartnershipRoundsModal
                       {item.difficulty_level.charAt(0).toUpperCase() + item.difficulty_level.slice(1)}
                     </Text>
                   </View>
-                </View>
+                  {canOpen && <Icon source="chevron-right" size={20} color={colors.textTertiary} />}
+                </TouchableOpacity>
               );
             }}
             ListEmptyComponent={

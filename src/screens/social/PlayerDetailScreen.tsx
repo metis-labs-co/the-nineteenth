@@ -30,6 +30,7 @@ import {
 import { Text, Icon } from 'react-native-paper';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
+import { viewRoundParams } from '@/navigation/openRound';
 import { usePlayerStatistics } from '@/hooks/usePlayerStatistics';
 import { usePlayer } from '@/hooks/usePlayer';
 import { useAuth } from '@/hooks/useAuth';
@@ -538,8 +539,18 @@ export default function PlayerDetailScreen({ navigation, route }: Props) {
             {/* Best Performances */}
             <SectionHeader title="Best Performances" icon="medal" />
             <View style={[styles.performanceCard, { backgroundColor: cardBg }, shadows.sm]}>
+              {/* Only rendered for friends/self (showsFullProfile), who can
+                  see each other's rounds, so these open the round. */}
               {stats.bestRound && (
-                <View style={styles.performanceRow}>
+                <TouchableOpacity
+                  style={styles.performanceRow}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Best gross score ${stats.bestRound.totalGross} at ${stats.bestRound.courseName}. Opens round`}
+                  onPress={() =>
+                    stats.bestRound && navigation.navigate('ViewRound', viewRoundParams(stats.bestRound))
+                  }
+                >
                   <View
                     style={[
                       styles.performanceIcon,
@@ -559,11 +570,21 @@ export default function PlayerDetailScreen({ navigation, route }: Props) {
                       {stats.bestRound.courseName} • {formatDateAustralian(stats.bestRound.date)}
                     </Text>
                   </View>
-                </View>
+                  <Icon source="chevron-right" size={20} color={colors.textTertiary} />
+                </TouchableOpacity>
               )}
 
               {stats.bestStablefordRound && (
-                <View style={styles.performanceRow}>
+                <TouchableOpacity
+                  style={styles.performanceRow}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Best Stableford ${stats.bestStablefordRound.totalPoints} points at ${stats.bestStablefordRound.courseName}. Opens round`}
+                  onPress={() =>
+                    stats.bestStablefordRound &&
+                    navigation.navigate('ViewRound', viewRoundParams(stats.bestStablefordRound))
+                  }
+                >
                   <View
                     style={[
                       styles.performanceIcon,
@@ -584,7 +605,8 @@ export default function PlayerDetailScreen({ navigation, route }: Props) {
                       {formatDateAustralian(stats.bestStablefordRound.date)}
                     </Text>
                   </View>
-                </View>
+                  <Icon source="chevron-right" size={20} color={colors.textTertiary} />
+                </TouchableOpacity>
               )}
 
               {stats.birdieOrBetterPercentage > 0 && (
@@ -619,8 +641,12 @@ export default function PlayerDetailScreen({ navigation, route }: Props) {
                 <SectionHeader title="Recent Activity" icon="history" />
                 <View style={[styles.recentCard, { backgroundColor: cardBg }, shadows.sm]}>
                   {stats.recentRounds.map((round, index) => (
-                    <View
+                    <TouchableOpacity
                       key={round.roundId}
+                      activeOpacity={0.7}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${round.courseName}, ${formatDateAustralian(round.date)}, gross ${round.totalGross}. Opens round`}
+                      onPress={() => navigation.navigate('ViewRound', viewRoundParams(round))}
                       style={[
                         styles.recentRow,
                         { borderBottomColor: colors.borderLight },
@@ -656,7 +682,7 @@ export default function PlayerDetailScreen({ navigation, route }: Props) {
                           {round.totalPoints} pts
                         </Text>
                       </View>
-                    </View>
+                    </TouchableOpacity>
                   ))}
                 </View>
               </>

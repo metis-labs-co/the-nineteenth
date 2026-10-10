@@ -50,6 +50,15 @@ export interface ScoreDifferentialParams {
 }
 
 /**
+ * Where a round's scorecard can be opened (ViewRound needs the competition id
+ * for competition rounds; null for standalone rounds).
+ */
+export interface HandicapRoundLink {
+  roundId: string;
+  competitionId: string | null;
+}
+
+/**
  * A round in the handicap history
  * Used to display rounds in the Handicap History screen
  */
@@ -58,6 +67,8 @@ export interface HandicapRound {
   scorecardId: string;
   /** Round ID (UUID) — for combined rounds this is the front-9 source round ID */
   roundId: string;
+  /** Competition the round belongs to, or null for a standalone round */
+  competitionId?: string | null;
   /** Date of the round (ISO string) */
   roundDate: string;
   /** Name of the course played */
@@ -83,6 +94,9 @@ export interface HandicapRound {
   /** Combined-only: source 9-hole scorecard IDs */
   combinedFrontScorecardId?: string;
   combinedBackScorecardId?: string;
+  /** Combined-only: the two 9-hole rounds, for opening their scorecards */
+  combinedFrontRound?: HandicapRoundLink | null;
+  combinedBackRound?: HandicapRoundLink | null;
 }
 
 /**

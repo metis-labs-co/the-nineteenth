@@ -37,7 +37,12 @@ export function LastRoundTile({ round }: Props) {
       headline={headline}
       subtext={subtext}
       onPress={() => {
-        if (round) navigation.navigate('ViewRound', { roundId: round.id });
+        if (round) {
+          navigation.navigate('ViewRound', {
+            roundId: round.id,
+            competitionId: round.competition?.id ?? undefined,
+          });
+        }
       }}
     />
   );

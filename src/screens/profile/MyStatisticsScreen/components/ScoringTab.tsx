@@ -16,6 +16,7 @@ import { Text, Icon } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
+import { useOpenRound } from '@/navigation/openRound';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, shadows, borderRadius } from '@/constants/theme';
 import { SectionHeader } from '@/components/social';
@@ -49,6 +50,7 @@ export const ScoringTab = React.memo(function ScoringTab({
   onUpgradePress,
 }: ScoringTabProps) {
   const colors = useThemeColors();
+  const openRound = useOpenRound();
   const cardBg = colors.surface;
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
@@ -149,6 +151,7 @@ export const ScoringTab = React.memo(function ScoringTab({
               label="Best Gross Score"
               value={`${stats.bestRound.totalGross} strokes`}
               subtitle={`${stats.bestRound.courseName} • ${formatDateAustralian(stats.bestRound.date)}`}
+              onPress={() => stats.bestRound && openRound(stats.bestRound)}
             />
           )}
 
@@ -159,6 +162,7 @@ export const ScoringTab = React.memo(function ScoringTab({
               label="Best Stableford"
               value={`${stats.bestStablefordRound.totalPoints} points`}
               subtitle={`${stats.bestStablefordRound.courseName} • ${formatDateAustralian(stats.bestStablefordRound.date)}`}
+              onPress={() => stats.bestStablefordRound && openRound(stats.bestStablefordRound)}
             />
           )}
 
@@ -169,6 +173,7 @@ export const ScoringTab = React.memo(function ScoringTab({
               label="Best 9-Hole Round"
               value={`${stats.bestNineHoleRound.totalGross} strokes`}
               subtitle={`${stats.bestNineHoleRound.courseName} • ${formatDateAustralian(stats.bestNineHoleRound.date)}`}
+              onPress={() => stats.bestNineHoleRound && openRound(stats.bestNineHoleRound)}
             />
           )}
 
