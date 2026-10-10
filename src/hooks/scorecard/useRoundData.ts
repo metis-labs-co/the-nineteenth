@@ -13,6 +13,7 @@ import { captureRoundPersistenceSource, isRoundPersistenceSourceCurrent, withRou
  */
 
 import { hydratedSyncHandicapSource } from '@/services/rounds/scorecardScoringMetadata';
+import { deriveScoringMode } from '@/utils/scoringMode';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { getOfflinePlayersForRound } from '@/store/initializeRoundSlice';
@@ -33,6 +34,7 @@ import { useRoundPlayers } from './useRoundPlayers';
 import { useRoundCourse } from './useRoundCourse';
 import { useRoundTeams } from './useRoundTeams';
 import { useRoundScoringPairs } from './useRoundScoringPairs';
+import { pullOnOpenIfSocial } from './pullOnOpenIfSocial';
 import type { TeeBox } from '@/types';
 
 interface RoundDataState {
@@ -408,6 +410,15 @@ export function useRoundData({
       metadata.data?.nineType ?? 'full', // nine_type — slice filters holes accordingly
       courseHook.startHole ?? 1, // start_hole — display offset for combo courses
       metadata.data?.holesPlayed ?? null, // holes_played — round ended early (fresh device)
+      deriveScoringMode(
+        metadata.data
+          ? {
+              competition_id: metadata.data.competitionId,
+              handicap_source: metadata.data.handicapSource,
+              scoring_pairs_required: metadata.data.scoringPairsRequired,
+            }
+          : null,
+      ),
     );
     pushDiagnostic('round_data.initialize_round_returned', { roundId });
   }, [
@@ -609,6 +620,8 @@ export function useRoundData({
           durableRecoveryRef.current = null;
           if (!needsRemote) return;
         } else durableRecoveryRef.current = null;
+        if (await pullOnOpenIfSocial()) return;
+
         // Fetch scorecards from Supabase for this round
         interface RemoteScorecard {
           player_id: string;

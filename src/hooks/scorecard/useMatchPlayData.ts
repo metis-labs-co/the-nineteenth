@@ -15,6 +15,7 @@ import { captureRoundPersistenceSource, isRoundPersistenceSourceCurrent, withRou
  */
 
 import { hydratedSyncHandicapSource } from '@/services/rounds/scorecardScoringMetadata';
+import { deriveScoringMode } from '@/utils/scoringMode';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { supabase } from '@/services/supabase/client';
@@ -25,6 +26,7 @@ import { filterHolesByNineType } from '@/utils/holeTransformers';
 import { isHoleAfterEarlyEnd, resolveRoundShape } from '@/utils/roundShape';
 import { useRoundDetails, useRoundPlayers } from '@/hooks/useRoundDetails';
 import { useRoundCourse } from './useRoundCourse';
+import { pullOnOpenIfSocial } from './pullOnOpenIfSocial';
 import type { Player, Scorecard, Hole, TeeBox } from '@/types';
 import type { HandicapSource } from '@/types/database';
 import type { NineType } from '@/types/database/enums';
@@ -317,7 +319,8 @@ export function useMatchPlayData({
       new Map(),
       roundNineType,
       undefined, // startHole → slice default (1)
-      serverHolesPlayed
+      serverHolesPlayed,
+      deriveScoringMode(roundData)
     );
   }, [
     roundId,
@@ -380,6 +383,8 @@ export function useMatchPlayData({
           durableRecoveryRef.current = null;
           if (!needsRemote) return;
         } else durableRecoveryRef.current = null;
+        if (await pullOnOpenIfSocial()) return;
+
         interface RemoteScorecard {
           player_id: string;
           revision: number;

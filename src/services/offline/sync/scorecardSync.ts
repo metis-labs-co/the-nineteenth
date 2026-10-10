@@ -5,6 +5,7 @@
  * Includes handicap calculation and score entry sync.
  */
 
+import { resolveScorecardConflict } from './scorecardConflictResolver';
 import { supabase } from '@/services/supabase/client';
 import { Platform } from 'react-native';
 import { pendingSyncRecoveryVersion } from '../dao/pendingSyncRecovery';
@@ -441,6 +442,7 @@ async function syncLocalScorecard(
   scorecard: Scorecard,
   options: ScorecardUploadOptions = {}
 ): Promise<ScorecardSyncResult> {
+  let mergedConflictCard: Scorecard | undefined;
   const proof = options.capture ?? captureScorecardUpload(scorecard.roundId);
   const { ownerId, source, session } = proof;
   const assertCurrent = () => {
@@ -522,7 +524,7 @@ async function syncLocalScorecard(
           'Current scoring source changed'
         );
       const current =
-        options.readCurrent?.() ?? (queued?.data as Scorecard | undefined) ?? live ?? disk;
+        options.readCurrent?.() ?? (mergedConflictCard ? live ?? mergedConflictCard : (queued?.data as Scorecard | undefined) ?? live ?? disk);
       if (!current && !isRoundPersistenceSourceCurrent(source))
         throw new RoundScoringWriteError(
           'context_changed',
@@ -737,8 +739,26 @@ async function syncLocalScorecard(
             if (error instanceof ScorecardConflictError) revisionOverride = error.serverRevision;
             else if (error instanceof RoundScoringWriteError && error.acceptedWrite)
               revisionOverride = error.acceptedWrite.serverRevision;
-            continue; // Reread repaired CURRENT queue/disk/store under the same coordinator.
           }
+          if (error instanceof ScorecardConflictError) {
+            const resolution = await resolveScorecardConflict(prepared, error);
+            assertCurrent();
+            if (resolution?.kind === 'final') {
+              // The resolver durably adopted the final card. Remove only the
+              // captured queue generation; a later edit keeps its own work.
+              if (queued) await removePendingSync(queued.id!, queued.revision ?? 1,
+                () => { assertCurrent(); return isRoundPersistenceSourceCurrent(currentSource); },
+                { scorecardId: selected.id, roundId: selected.roundId,
+                  playerId: selected.playerId, expectedRecovery: selectedOperation! });
+              return { serverRevision: error.serverRevision };
+            }
+            if (resolution?.kind === 'retry') {
+              mergedConflictCard = resolution.scorecard;
+              continue;
+            }
+          }
+          // A shape repair must not skip the social per-hole conflict merge.
+          if (changed) continue; // Reread repaired CURRENT queue/disk/store.
           if (error instanceof ScorecardConflictError && options.adoptServerRevisionOnConflict) {
             assertCurrent();
             revisionOverride = error.serverRevision;
@@ -902,6 +922,10 @@ async function uploadScorecardWithinBoundary(scorecard: ScoringUploadCard, owner
         fairwayHit: score.fairwayHit,
         greenInRegulation: score.greenInRegulation,
         penalties: score.penalties || 0,
+        ...(score.editedAt && { editedAt: score.editedAt }),
+        ...(score.scoredBy && { scoredBy: score.scoredBy }),
+        ...(score.pickedUp && { pickedUp: true }),
+        ...(score.didNotAttempt && { didNotAttempt: true }),
         // Include shot contributions if present (scramble/shamble formats)
         ...(score.shotContributions && { shotContributions: score.shotContributions }),
         // Include detailed stats if present

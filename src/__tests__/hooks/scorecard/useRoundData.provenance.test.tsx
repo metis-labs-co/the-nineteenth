@@ -19,6 +19,7 @@ jest.mock('@/services/offline/database', () => ({
   persistAuthoritativeRoundShape: jest.fn(async () => ({ cards: [], priorLocalShapes: new Map() })),
 }));
 jest.mock('@/services/offline/sync', () => ({
+  setScorecardConflictResolver: jest.fn(),
   syncScorecard: jest.fn(async () => ({ serverRevision: 4 })),
   queueScorecardSync: jest.fn(async () => undefined),
   getIsOnline: jest.fn(() => true),

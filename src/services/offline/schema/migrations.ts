@@ -127,6 +127,7 @@ export const MIGRATIONS: Migration[] = [
     name: 'add_scorecard_server_revision',
     up: `ALTER TABLE scorecards ADD COLUMN server_revision INTEGER`,
   },
+  { version: 19, name: 'add_hole_score_edited_at', up: `ALTER TABLE hole_scores ADD COLUMN edited_at TEXT` },
   // Sync metadata stamped by submitScorecards, persisted so the fallback sync
   // path (getUnsyncedScorecards → syncScorecard) builds the same snapshot as
   // the queued path: nine-aware ratings / daily handicap, points, par score
@@ -135,30 +136,30 @@ export const MIGRATIONS: Migration[] = [
   // runMigration treats any error as "already applied", so a multi-statement
   // up killed half-way would never add its remaining columns.
   {
-    version: 19,
+    version: 20,
     name: 'add_scorecard_sync_nine_type',
     up: `ALTER TABLE scorecards ADD COLUMN sync_nine_type TEXT`,
   },
   {
-    version: 20,
+    version: 21,
     name: 'add_scorecard_sync_game_type',
     up: `ALTER TABLE scorecards ADD COLUMN sync_game_type TEXT`,
   },
   {
     // JSON-encoded Hole[] (the round's planned holes at submit)
-    version: 21,
+    version: 22,
     name: 'add_scorecard_sync_holes',
     up: `ALTER TABLE scorecards ADD COLUMN sync_holes TEXT`,
   },
   {
     // End round early (R15): set on every local card of a round when it is
     // ended, so a relaunch keeps the end before the server knows about it.
-    version: 22,
+    version: 23,
     name: 'add_scorecard_holes_played',
     up: `ALTER TABLE scorecards ADD COLUMN holes_played INTEGER`,
   },
   {
-    version: 23,
+    version: 24,
     name: 'add_scorecard_sync_handicap_source',
     up: `ALTER TABLE scorecards ADD COLUMN sync_handicap_source TEXT`,
   },

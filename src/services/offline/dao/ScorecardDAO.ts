@@ -104,7 +104,7 @@ export async function rowToScorecard(
     syncGameType: (row.sync_game_type as GameType | null | undefined) ?? undefined,
     syncHoles,
     syncHandicapSource: readSyncHandicapSource(row.sync_handicap_source),
-    // End round early marker (local migration 22)
+    // End round early marker (local migration 23)
     holesPlayed: row.holes_played ?? null,
   };
 }
@@ -113,6 +113,8 @@ export async function rowToScorecard(
  * Save or update a scorecard locally
  */
 export interface SaveScorecardOptions extends RoundPersistenceOptions {
+  /** Persist remote content and its synced revision in the same write. */
+  syncedAtRevision?: number;
   /** Remote hydration only: expected source of an otherwise untouched blank live row. */
   replaceProvisionalHandicapSource?: HandicapSource;
 }
@@ -226,13 +228,13 @@ async function saveScorecardLocal(scorecard: Scorecard, options: SaveScorecardOp
           scorecard.submittedBy || null,
           scorecard.createdAt.toISOString(),
           now,
-          0,
+          options?.syncedAtRevision != null ? 1 : 0,
           scorecard.isStandalone ? 1 : 0,
           scorecard.teeData ? JSON.stringify(scorecard.teeData) : null,
           scorecard.coursePar ?? null,
           scorecard.playerGender ?? null,
           scorecard.playerHandicap ?? null,
-          scorecard.serverRevision ?? null,
+          options.syncedAtRevision ?? scorecard.serverRevision ?? null,
           scorecard.syncNineType ?? null,
           scorecard.syncGameType ?? null,
           scorecard.syncHoles ? JSON.stringify(scorecard.syncHoles) : null,

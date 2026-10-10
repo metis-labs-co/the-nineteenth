@@ -42,11 +42,15 @@ export async function checkSubmissionReadiness(
   scoringPairsEnabled: boolean,
   holeCount: number = 18,
   groupPlayerIds?: string[],
-  playedHoleNumbers?: number[]
+  playedHoleNumbers?: number[],
+  options: { socialRound?: boolean } = {}
 ): Promise<SubmissionReadiness> {
   if (!roundId || !userId) {
     throw createError('Round ID and User ID are required', 'VALIDATION');
   }
+
+  // Social rounds: anyone may score, last edit wins — no multi-scorer gate.
+  if (options.socialRound && !scoringPairsEnabled) return { canSubmit: true };
 
   return scoringPairsEnabled
     ? checkPairsReadiness(roundId, userId, holeCount, groupPlayerIds)

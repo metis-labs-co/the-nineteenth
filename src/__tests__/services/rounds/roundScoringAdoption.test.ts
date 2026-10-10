@@ -35,6 +35,7 @@ jest.mock('@/services/offline/sync/networkState', () => ({
   getSyncAuthUserId: jest.fn(() => 'owner'),
 }));
 jest.mock('@/services/offline/sync', () => ({
+  setScorecardConflictResolver: jest.fn(),
   subscribeSyncState: jest.fn(),
   subscribeScorecardSynced: jest.fn(),
 }));

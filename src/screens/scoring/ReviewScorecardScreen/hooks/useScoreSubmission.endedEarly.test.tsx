@@ -112,7 +112,7 @@ describe('useScoreSubmission — readiness over the played holes', () => {
     await submit(result);
 
     expect(mockCheckSubmissionReadiness.mock.calls[0]).toEqual([
-      'round-1', 'user-1', false, 6, ['p1', 'p2'], [1, 2, 3, 4, 5, 6],
+      'round-1', 'user-1', false, 6, ['p1', 'p2'], [1, 2, 3, 4, 5, 6], { socialRound: false },
     ]);
     expect(result.current.dialogConfig.title).toBe('Submit Scorecard');
   });
@@ -152,10 +152,10 @@ describe('useScoreSubmission — readiness over the played holes', () => {
     // All other callback dependencies stay fixed: the cutoff is the only change.
     expect(result.current.handleSubmit).toBe(originalSubmit);
     await submit(result);
-    expect(mockCheckSubmissionReadiness.mock.calls[0].slice(3)).toEqual([6, ['p1', 'p2'], initial]);
+    expect(mockCheckSubmissionReadiness.mock.calls[0].slice(3)).toEqual([6, ['p1', 'p2'], initial, { socialRound: false }]);
     rerender({ holeCount: 18, playedHoleNumbers: [10, 11, 12] });
     await submit(result);
-    expect(mockCheckSubmissionReadiness.mock.calls[1].slice(3)).toEqual([3, ['p1', 'p2'], [10, 11, 12]]);
+    expect(mockCheckSubmissionReadiness.mock.calls[1].slice(3)).toEqual([3, ['p1', 'p2'], [10, 11, 12], { socialRound: false }]);
   });
 
   it('keeps played-hole mismatch verification blocking submission', async () => {

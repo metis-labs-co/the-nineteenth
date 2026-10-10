@@ -60,6 +60,7 @@ jest.mock('@/services/offline/sync', () => {
     readonly serverRevision = 0;
   }
   return {
+    setScorecardConflictResolver: jest.fn(),
     queueScorecardSync: jest.fn(() => Promise.resolve()),
     syncScorecard: jest.fn(() => Promise.resolve({ serverRevision: 1 })),
     subscribeSyncState: jest.fn(() => jest.fn()),

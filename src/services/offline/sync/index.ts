@@ -46,5 +46,10 @@ export {
   listFailedSyncs,
   discardFailedSync,
   clearSyncQueue,
+  setScorecardConflictResolver,
 } from './syncOrchestrator';
-export type { ScorecardSyncedEvent } from './syncOrchestrator';
+export type {
+  ScorecardSyncedEvent,
+  ScorecardConflictResolution,
+  ScorecardConflictResolver,
+} from './syncOrchestrator';

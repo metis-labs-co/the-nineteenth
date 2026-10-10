@@ -80,6 +80,9 @@ jest.mock('@/hooks', () => ({
   useConfirmationDialog: () => ({}),
 }));
 jest.mock('@/hooks/scorecard', () => ({
+  useLiveScorecardMerge: jest.fn(),
+  useSubmittedElsewhereRedirect: jest.fn(),
+  pullOnOpenIfSocial: jest.fn(async () => false),
   usePlayedHoleRange: jest.requireActual('@/hooks/scorecard/usePlayedHoleRange').usePlayedHoleRange,
   useOfflineSync: () => ({}),
   useActiveSubMatch: () => ({}),

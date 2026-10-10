@@ -19,6 +19,9 @@ jest.mock('@/hooks/useScoreMismatch', () => ({
   usePartnerStatus: (...args: unknown[]) => mockPartnerStatus(...args),
 }));
 jest.mock('@/hooks/scorecard', () => ({
+  useLiveScorecardMerge: jest.fn(),
+  useSubmittedElsewhereRedirect: jest.fn(),
+  pullOnOpenIfSocial: jest.fn(async () => false),
   useRoundScoringPairs: () => ({ scoringPairsEnabled: false, myScorer: null }),
   useScorecardsRealtime: jest.fn(),
 }));

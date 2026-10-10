@@ -22,6 +22,7 @@ import {
   transformHolesIfNeeded,
 } from '@/utils/holeTransformers';
 import { resolveRoundShape } from '@/utils/roundShape';
+import { deriveScoringMode, type ScoringMode } from '@/utils/scoringMode';
 import { isValidUUID } from './utils/scorecardCalculations';
 import { captureRoundPersistenceSource, isRoundPersistenceSourceCurrent, withRoundPersistence, waitForRoundPersistenceReady, RoundPersistenceSourceChangedError } from '@/services/offline/roundPersistenceBarrier';
 import { repairRoundShapeForInitialization } from '@/services/rounds/roundScoringAdoption';
@@ -130,6 +131,7 @@ export async function initializeRound(
   nineType: NineType = 'full',
   startHole: number = 1,
   holesPlayed: number | null = null,
+  scoringMode: ScoringMode = 'standard',
   options: InitSessionOptions = {},
 ): Promise<void> {
   // Refuse end actions throughout the cached-marker read as well as writes.
@@ -257,6 +259,8 @@ export async function initializeRound(
       nineType,
       holesPlayed: shape.holesPlayed,
       startHole,
+      scoringMode,
+      submittedElsewhereRoundId: null,
       isLoading: false,
       isInitialized: true,
     });
@@ -456,6 +460,7 @@ export async function loadFromOffline(
     let nineType: NineType = 'full';
     let nineTypeKnown = false;
     let serverHolesPlayed: number | null = null;
+    let scoringMode: ScoringMode = 'standard';
     let startHole = 1;
 
     let courseId: string | null = null;
@@ -474,7 +479,7 @@ export async function loadFromOffline(
       // useRoundData's hook-driven init use useRoundMetadata's value.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase typed query workaround
       const fetchMetadata = (supabase.from('rounds') as any)
-        .select('game_type, handicap_source, nine_type, holes_played, selected_tee, course_id')
+        .select('game_type, handicap_source, nine_type, holes_played, selected_tee, course_id, competition_id, scoring_pairs_required')
         .eq('id', roundId)
         .maybeSingle();
 
@@ -487,6 +492,7 @@ export async function loadFromOffline(
       ])) as { data: any };
 
       if (roundData) {
+        scoringMode = deriveScoringMode(roundData);
         if (roundData.game_type) gameType = roundData.game_type as GameType;
         if (roundData.handicap_source) handicapSource = roundData.handicap_source as HandicapSource;
         if (roundData.nine_type) {
@@ -606,6 +612,8 @@ export async function loadFromOffline(
       nineType,
       holesPlayed: shape.holesPlayed,
       startHole,
+      scoringMode,
+      submittedElsewhereRoundId: null,
       isLoading: false,
       isInitialized: true,
     });

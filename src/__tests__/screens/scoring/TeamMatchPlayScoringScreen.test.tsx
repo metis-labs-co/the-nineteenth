@@ -72,6 +72,9 @@ jest.mock('@/hooks', () => ({
   useOnlineStatus: () => true,
 }));
 jest.mock('@/hooks/scorecard', () => ({
+  useLiveScorecardMerge: jest.fn(),
+  useSubmittedElsewhereRedirect: jest.fn(),
+  pullOnOpenIfSocial: jest.fn(async () => false),
   usePlayedHoleRange: jest.requireActual('@/hooks/scorecard/usePlayedHoleRange').usePlayedHoleRange,
   useOfflineSync: () => ({ triggerSync: jest.fn() }),
   useEndRoundEarly: (args: UseEndRoundEarlyArgs) => {

@@ -284,3 +284,19 @@ it('debounce queue reuses its admitted lease while closing and releases it befor
   await ending;
   network.resolve();
 });
+
+it('persists a remote acknowledgment with the lease but never transfers it to a rebased card', async () => {
+  const old = card('remote-ack-rebase');
+  let current = old;
+  await persistScorecardUpdate({ source: capture(old.roundId),
+    scorecard: { scorecardId: old.id, scorecard: old, syncedAtRevision: 9 } });
+  expect(saveScorecard).toHaveBeenLastCalledWith(old, expect.objectContaining({ lease: expect.any(Object), syncedAtRevision: 9 }));
+  const source = capture(old.roundId);
+  await transition(old.roundId, shape, async () => {}, () => {
+    current = { ...old, holesPlayed: 6, scores: { 3: { strokes: 7 } } };
+  });
+  await persistScorecardUpdate({ source, resolveCurrentScorecard: () => current,
+    scorecard: { scorecardId: old.id, scorecard: old, syncedAtRevision: 9 } });
+  expect(saveScorecard).toHaveBeenLastCalledWith(current, expect.objectContaining({ lease: expect.any(Object) }));
+  expect((saveScorecard as jest.Mock).mock.calls.at(-1)[1]).not.toHaveProperty('syncedAtRevision');
+});

@@ -14,6 +14,7 @@
  * - Submit match result button when complete
  */
 
+import { deriveScoringMode } from '@/utils/scoringMode';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
@@ -34,7 +35,7 @@ import { useCompetitionInfo } from '@/hooks/competitions';
 import { useAuth } from '@/hooks/useAuth';
 import { calculatePlayingHandicap } from '@/hooks/usePlayingHandicap';
 import { useProcessSkinsIfNeeded, useOnlineStatus } from '@/hooks';
-import { useOfflineSync, useEndRoundEarly, usePlayedHoleRange } from '@/hooks/scorecard';
+import { useOfflineSync, useEndRoundEarly, usePlayedHoleRange, useLiveScorecardMerge, useSubmittedElsewhereRedirect, pullOnOpenIfSocial } from '@/hooks/scorecard';
 import { teamMatchPlayLogger } from '@/utils/debugLogger';
 import type { EndEarlyMatchContext } from '@/utils/endRoundEarly';
 import type { RootStackScreenProps } from '@/navigation/types';
@@ -56,6 +57,7 @@ type Props = RootStackScreenProps<'MatchPlayScoring'>;
 
 export default function TeamMatchPlayScoringScreen({ navigation, route }: Props) {
   const { roundId, team1Id, team2Id } = route.params;
+  useLiveScorecardMerge(roundId);
   const colors = useThemeColors();
 
   // Super admin check
@@ -92,6 +94,7 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
 
   // Fetch teams for the round
   const competitionId = roundData?.competition_id ?? undefined;
+  useSubmittedElsewhereRedirect(roundId, competitionId ?? null);
   const isTeamRound = roundData?.team_format !== null && roundData?.team_format !== undefined;
   const {
     teams: teamsData,
@@ -262,7 +265,8 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
         new Map(),
         roundNineType,
         undefined, // startHole → slice default (1)
-        roundShape.holesPlayed
+        roundShape.holesPlayed,
+        deriveScoringMode(roundData)
       );
     })();
 
@@ -284,6 +288,16 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
     loadFromOffline,
     resetRound,
   ]);
+
+  // Merge-on-open for social rounds: runs once per round, in its own effect so
+  // the init effect's cleanup (triggered by the store update that sets
+  // isInitialized) can never cancel it.
+  const pulledRoundRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isInitialized || currentRoundId !== roundId || pulledRoundRef.current === roundId) return;
+    pulledRoundRef.current = roundId;
+    void pullOnOpenIfSocial();
+  }, [isInitialized, currentRoundId, roundId]);
 
   // Determine handicap label for display
   const handicapLabel = selectedTeeBox ? 'DHC' : 'HC';

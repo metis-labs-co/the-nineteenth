@@ -34,6 +34,7 @@
  * regardless of invitation_status.
  */
 
+import { deriveScoringMode } from '@/utils/scoringMode';
 import { useState, useCallback } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -275,7 +276,17 @@ export function useStartScheduledRound(
           mySelectedTee ?? null,
           handicapSource,
           playerTeeMap,
-          effectiveNineType
+          effectiveNineType,
+          1,
+          null, // no early-end marker for a new round
+          deriveScoringMode({
+            // Scheduled rounds are standalone (no competition). Mirror what the
+            // UPDATE above wrote; an unset handicap source stays unknown ->
+            // 'standard' (safe default).
+            competition_id: null,
+            handicap_source: handicapSource ?? null,
+            scoring_pairs_required: scoringPairsConfig?.enabled ?? false,
+          })
         );
 
         // -----------------------------------------------------------------------

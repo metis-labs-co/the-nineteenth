@@ -22,7 +22,12 @@ export interface PersistOptions {
   /** Save a single hole score to SQLite */
   holeScore?: { scorecardId: string; holeNumber: number; score: HoleScore | MultiBallHoleScore };
   /** Save the full scorecard to SQLite */
-  scorecard?: { scorecardId: string; scorecard: Scorecard };
+  scorecard?: {
+    scorecardId: string;
+    scorecard: Scorecard;
+    /** Save the card already synced at this server revision, in the same write. */
+    syncedAtRevision?: number;
+  };
   /** Queue the scorecard for background sync */
   sync?: { scorecard: Scorecard };
   /** Descriptive label for error logging (e.g. 'setPlayerScore') */
@@ -56,7 +61,10 @@ export async function persistScorecardUpdate(options: PersistOptions): Promise<b
       await saveHoleScore(holeScore.scorecardId, holeScore.holeNumber, holeScore.score, proof);
     }
     if (!sessionIsCurrent()) return false;
-    if (scorecard) await saveScorecard(current ?? scorecard.scorecard, proof);
+    if (scorecard) await saveScorecard(current ?? scorecard.scorecard,
+      !current && scorecard.syncedAtRevision != null
+        ? { ...proof, syncedAtRevision: scorecard.syncedAtRevision }
+        : proof);
     if (!sessionIsCurrent()) return false;
     if (sync) await queueScorecardSync(current ?? sync.scorecard, 'update', proof);
     return sessionIsCurrent();

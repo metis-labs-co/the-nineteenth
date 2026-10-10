@@ -20,8 +20,9 @@ The retained coordination supports this feature's durability and existing write
 paths. It does not authorize a general sync redesign, per-hole multi-device
 merge, a new ordinary-round validation policy or additional gameplay rules.
 R12 explicitly defers multi-scorer coordination. The three large client files
-remain maintainability debt; this change does not expand them or claim to have
-completed the separate eight-item standards cleanup.
+remain maintainability debt; the SQL scope correction does not claim to have
+completed the separate eight-item standards cleanup. The later merge with
+main integrates its separately approved social multi-scorer feature, below.
 
 The all-card submitted/combined checks in the end operation remain as interlocks
 on ending a social round: a stale device must not invalidate another device's
@@ -103,3 +104,22 @@ complete before either transaction commits: each sees the other's older status.
 The pre-C3 control checks this same limitation. Both scorecards must still commit.
 Fixing that notification race is separate work; it is not evidence that ordinary
 scoring should be serialized with an exclusive parent-round lock.
+
+## Local integration with main
+
+Sam subsequently requested committing all work and merging to local main.
+Main at `94e84139` already included social-round per-hole merging; the merge
+preserves that behavior alongside early-end durability. Remote merges retain
+the played-hole cutoff and captured session, remote synced revisions stay
+inside the persistence lease, and social conflict retries use the common
+upload boundary. Shape recovery still merges the other phone's retained scores
+before retrying. SQLite keeps main's `edited_at` migration 19 and appends the
+early-end metadata columns as versions 20–24.
+
+The combined source passed TypeScript, lint on 352 changed TypeScript files
+(zero errors, 22 warnings), and the affected scoring/store/offline/hook/screen
+subset: **145 suites, 3,348 tests and 15 snapshots**, with 15 existing skips.
+New regressions cover full/back-nine cutoffs during live and final remote merges,
+delayed pulls after a same-round reset, late realtime callbacks, remote
+acknowledgment across a source change, and conflict merging after shape recovery.
+These local checks do not replace the device and rollout checks above.

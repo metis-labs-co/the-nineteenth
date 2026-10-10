@@ -103,6 +103,9 @@ function notifyScorecardSynced(scorecardId: string, serverRevision: number): voi
   scorecardSyncedListeners.forEach((listener) => listener({ scorecardId, serverRevision }));
 }
 
+export { setScorecardConflictResolver } from './scorecardConflictResolver';
+export type { ScorecardConflictResolution, ScorecardConflictResolver } from './scorecardConflictResolver';
+
 /**
  * Update and notify listeners of state changes
  */

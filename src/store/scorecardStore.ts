@@ -34,8 +34,10 @@ import {
 import {
   queueScorecardSync,
   syncScorecard,
+  ScorecardConflictError,
   subscribeSyncState,
   subscribeScorecardSynced,
+  setScorecardConflictResolver,
   getIsOnline,
 } from '@/services/offline/sync';
 import { storeLogger } from '@/utils/debugLogger';
@@ -46,6 +48,10 @@ import { persistScorecardUpdate } from './scorecardPersistence';
 import * as multiBall from './multiBallSlice';
 import * as scoreUpdate from './scoreUpdateSlice';
 import * as initSlice from './initializeRoundSlice';
+import type { ScoringMode } from '@/utils/scoringMode';
+import { supabase } from '@/services/supabase/client';
+import { applyRemoteScorecard, isFinalStatus, type RemoteScorecardRow } from './remoteScorecardMerge';
+import { debouncedQueueScorecardSync } from './scorecardSyncDebounce';
 import * as endEarly from './endRoundEarlySlice';
 import { EndRoundEarlyError } from '@/services/rounds/applyEndRoundEarly';
 
@@ -89,6 +95,10 @@ interface ScorecardState {
   /** Display offset for hole numbers (1 = standard 1..18). See
    *  displayHoleNumber() in src/utils/holeTransformers.ts. */
   startHole: number;
+  scoringMode: ScoringMode;
+  /** Round whose last open group card a remote row turned final (another phone
+   *  submitted). Round-scoped so it can never fire for a different round. */
+  submittedElsewhereRoundId: string | null;
 
   // Multi-ball scoring (solo rounds only)
   ballCount: BallCount;
@@ -125,7 +135,8 @@ interface ScorecardState {
     nineType?: NineType,
     startHole?: number,
     /** Server rounds.holes_played; local durable markers survive server NULL. */
-    holesPlayed?: number | null
+    holesPlayed?: number | null,
+    scoringMode?: ScoringMode
   ) => Promise<void>;
   setAllowedPlayers: (playerIds: string[]) => void;
   setSelectedTeeData: (teeData: TeeBox | null) => void;
@@ -152,8 +163,15 @@ interface ScorecardState {
   /** Private generation proof also covers an originally absent remote-only session. */
   captureRoundScoringOperation: (roundId: string) => () => boolean;
   captureRoundEndEarlyOperation: (roundId: string) => CapturedRoundEndEarly | null;
-  submitScorecards: (options?: { bypassed?: boolean; playerIds?: string[] }) => Promise<void>;
+  submitScorecards: (options?: { bypassed?: boolean; playerIds?: string[] }) => Promise<{ alreadySubmitted: boolean }>;
   resetRound: () => void;
+  /** Social rounds: apply one server scorecard row (realtime) to the local card. */
+  mergeRemoteScorecard: (row: RemoteScorecardRow) => Promise<void>;
+  /** Social rounds: fetch + apply every server card of currentRoundId; returns the rows. */
+  /** Pull and merge every server card of the loaded social round. `queueUpload:
+   *  false` stops cards with local holes ahead from scheduling a debounced upload
+   *  (submit uploads them itself). */
+  pullServerScorecards: (opts?: { queueUpload?: boolean }) => Promise<RemoteScorecardRow[]>;
 
   // Multi-ball scoring functions
   setMultiBallConfig: (ballCount: BallCount) => void;
@@ -231,6 +249,77 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
     }
   };
 
+  /** True while this phone runs submitScorecards; remote rows are ignored meanwhile (submit pulls itself). */
+  let submitting = false;
+
+  /** Apply a remote row to the loaded social round. Returns the resulting card, or null if not applicable. */
+  const applyRemoteToStore = async (
+    row: RemoteScorecardRow,
+    opts: { queueUpload?: boolean } = {},
+  ): Promise<Scorecard | null> => {
+    const initial = get();
+    const roundId = initial.currentRoundId;
+    const generation = roundSession;
+    const ownerId = getSyncAuthUserId();
+    if (!roundId || initial.scoringMode !== 'social' || (row.round_id && row.round_id !== roundId)) return null;
+    const source = captureRoundPersistenceSource(roundId);
+    const isCurrent = () => roundSession === generation && get().currentRoundId === roundId && getSyncAuthUserId() === ownerId;
+    const queueUpload = opts.queueUpload ?? true;
+    return withRoundPersistence(source, async lease => {
+      if (!isCurrent()) return null;
+      const state = get();
+      const local = state.groupScorecards.get(row.player_id);
+      if (!local) return null;
+      const getCurrentCard = () => isCurrent() ? get().groupScorecards.get(row.player_id) : undefined;
+      const result = applyRemoteScorecard(local, row);
+      if (!result.changed) {
+        if (result.needsUpload && queueUpload && !local.isStandalone) debouncedQueueScorecardSync(local.id, getCurrentCard);
+        return local;
+      }
+      const shape = { nine_type: state.nineType, holes_played: state.holesPlayed ?? local.holesPlayed ?? null };
+      let next: Scorecard;
+      let needsUpload = result.needsUpload;
+      if (shape.holes_played != null) {
+        const keep = shapeHoleNumbers(shape);
+        needsUpload ||= Object.keys(result.scorecard.scores).some(h => !keep.has(Number(h)));
+        next = createRoundScoringContext(roundId, {
+          getLiveContext: state.captureRoundScoringSession(roundId)?.getLiveContext,
+        })(result.scorecard, keep, shape);
+      } else {
+        const totals = calculatePlayerTotals(result.scorecard, state.holes, state.gameType, {
+          selectedTee: state.playerTeeMap.get(row.player_id) ?? state.selectedTeeData,
+          handicapSource: state.handicapSource, nineType: state.nineType,
+        });
+        next = { ...result.scorecard, totalGross: totals.gross, totalNet: totals.net, total_par_score: totals.parScore };
+      }
+      const cards = new Map(state.groupScorecards);
+      cards.set(row.player_id, next);
+      const allFinal = [...cards.values()].every(c => isFinalStatus(c.status));
+      set({ groupScorecards: cards,
+        ...(result.becameFinal && allFinal && !submitting ? { submittedElsewhereRoundId: roundId } : {}),
+      });
+      // The lease keeps end/adoption from passing this write. Only exactly the
+      // accepted remote content may be marked synced, never a trimmed snapshot.
+      await saveScorecard(next, { lease,
+        ...(!needsUpload && next.serverRevision != null ? { syncedAtRevision: next.serverRevision } : {}),
+      });
+      if (!isCurrent()) return null;
+      if (needsUpload && queueUpload && !next.isStandalone) debouncedQueueScorecardSync(next.id, getCurrentCard);
+      return getCurrentCard() ?? null;
+    });
+  };
+
+  /** Fetch every server card of the current round. */
+  const fetchServerScorecards = async (roundId: string): Promise<RemoteScorecardRow[]> => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- generated types workaround
+    const { data, error } = await (supabase.from('scorecards') as any)
+      .select('player_id, scores, revision, status')
+      .eq('round_id', roundId)
+      .is('deleted_at', null);
+    if (error) throw new Error(`Could not fetch the latest scorecards: ${error.message}`);
+    return (data ?? []) as RemoteScorecardRow[];
+  };
+
   const initSyncListener = () => {
     if (unsubscribe) return;
     unsubscribe = subscribeSyncState((syncState) => {
@@ -258,6 +347,39 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
         return;
       }
     });
+
+    // Social rounds merge revision conflicts per hole instead of retaining them
+    // as failures. Anything else declines → today's behaviour.
+    setScorecardConflictResolver(async (queued, conflict) => {
+      const state = get();
+      if (state.scoringMode !== 'social' || queued.roundId !== state.currentRoundId) return null;
+      const next = await applyRemoteToStore(
+        {
+          player_id: queued.playerId,
+          scores: conflict.serverScores as Record<string, HoleScore>,
+          revision: conflict.serverRevision,
+          status: conflict.serverStatus ?? 'in-progress',
+        },
+        { queueUpload: false } // the drain retries immediately
+      );
+      if (!next) return null;
+      if (isFinalStatus(next.status) && isFinalStatus(conflict.serverStatus ?? undefined)) {
+        return { kind: 'final' };
+      }
+      // An older server row left the card untouched: retrying would conflict again.
+      if (next.serverRevision !== conflict.serverRevision) return null;
+      return {
+        kind: 'retry',
+        scorecard: {
+          ...queued,
+          scores: next.scores,
+          totalGross: next.totalGross,
+          totalNet: next.totalNet,
+          total_par_score: next.total_par_score,
+          serverRevision: next.serverRevision,
+        },
+      };
+    });
   };
 
   return {
@@ -273,6 +395,8 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
     nineType: 'full' as NineType,
     holesPlayed: null,
     startHole: 1,
+    scoringMode: 'standard' as ScoringMode,
+    submittedElsewhereRoundId: null,
     ballCount: 1,
     isMultiBall: false,
     groupScorecards: new Map(),
@@ -288,11 +412,11 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
     // Initialization (delegated to initializeRoundSlice)
     // The failure recount runs after the slice resolves: it is scoped to
     // `currentRoundId`, which the slice only sets once the round has loaded.
-    initializeRound: async (roundId, players, holes, gameType, isStandalone, allowedPlayerIds, selectedTeeData, handicapSource, playerTeeMap, nineType, startHole, holesPlayed) => {
+    initializeRound: async (roundId, players, holes, gameType, isStandalone, allowedPlayerIds, selectedTeeData, handicapSource, playerTeeMap, nineType, startHole, holesPlayed, scoringMode) => {
       const session = ++roundSession;
       liveScorecardOrigins.clear();
       liveRoundSession = false;
-      await initSlice.initializeRound(set, initSyncListener, roundId, players, holes, gameType, isStandalone, allowedPlayerIds, selectedTeeData, handicapSource, playerTeeMap, nineType, startHole, holesPlayed, {
+      await initSlice.initializeRound(set, initSyncListener, roundId, players, holes, gameType, isStandalone, allowedPlayerIds, selectedTeeData, handicapSource, playerTeeMap, nineType, startHole, holesPlayed, scoringMode, {
         getSessionGeneration: () => roundSession,
         onLiveCardsReady: cards => registerLiveOrigins(session, cards),
       });
@@ -685,84 +809,118 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
         if (generation !== roundSession || !session?.isCurrent() || getSyncAuthUserId() !== ownerId) throw new Error('Scoring session changed during submission');
       };
       const ids = [...initial.groupScorecards.keys()].filter(id => !options?.playerIds?.length || options.playerIds.includes(id));
-      const submittedAt = new Date(); // Keep completion intent only across waits.
-      let errorCount = 0;
-      for (const playerId of ids) {
-        try {
-          const prepare = (requireTerminalContext = false) => {
-            assertSession();
-            const state = get();
-            if (!state.holes.length) throw new Error('No holes data available for submission');
-            const card = state.groupScorecards.get(playerId);
-            if (!card) throw new Error('Scorecard missing during submission');
-            const preserveContext = hasFrozenScoringContext(card) || state.holesPlayed != null;
-            const shape = { nine_type: state.nineType, holes_played: state.holesPlayed ?? card.holesPlayed ?? null };
-            const basis = (requireTerminalContext && preserveContext) || shape.holes_played != null
-              ? createRoundScoringContext(currentRoundId, { getLiveContext: session!.getLiveContext })(card, shapeHoleNumbers(shape), shape)
-              : card;
-            return {
-              ...basis,
-              status: card.status === 'confirmed' ? 'confirmed' as const : 'completed' as const,
-              submittedAt: card.submittedAt ?? submittedAt,
-              updatedAt: new Date(),
-              ...(preserveContext ? {} : {
-                teeData: state.getPlayerTee(playerId), playerGender: card.player?.gender || null,
-                playerHandicap: card.player?.handicap || null,
-                coursePar: state.holes.reduce((sum, h) => sum + (h.par || 0), 0),
-                syncHoles: state.holes, syncGameType: state.gameType, syncNineType: state.nineType,
-              }),
-              syncHandicapSource: preserveContext ? basis.syncHandicapSource : state.handicapSource,
-            };
-          };
-          const persist = () => withRoundPersistence(source, async lease => {
-            const wasTerminal = hasFrozenScoringContext(get().groupScorecards.get(playerId)!);
-            const prepared = prepare();
-            await saveScorecard(prepared, { lease });
-            assertSession();
-            if (!getIsOnline()) await queueScorecardSync(prepare(!wasTerminal), 'update', { lease });
-            assertSession();
-            // Capture CURRENT scoring context before applying completion intent.
-            // A retained edit/revision notification may have replaced the active
-            // object while save waited, without having captured a scoring bundle.
-            const completed = prepare(!wasTerminal);
-            const next = new Map(get().groupScorecards);
-            next.set(playerId, completed);
-            set({ groupScorecards: next });
-            return completed;
-          });
-          let prepared: Scorecard;
-          try { prepared = await persist(); }
-          catch (error) {
-            if (!(error instanceof RoundPersistenceSourceChangedError)) throw error;
-            assertSession(); source = captureRoundPersistenceSource(currentRoundId);
-            prepared = await persist();
-          }
-          // The local lease is released before any network/coordinator acquisition.
-          if (getIsOnline()) {
-            assertSession();
-            if (!isRoundPersistenceSourceCurrent(source)) throw new RoundPersistenceSourceChangedError(currentRoundId);
-            // Reprepare CURRENT retained edits before network; common post-network recovery is C4.
-            prepared = prepare();
-            await syncScorecard(prepared, {
-              capture: { ownerId, source, session }, readCurrent: () => prepare(),
-              adoptServerRevisionOnConflict: true, markSynced: true,
-              onSynced: (uploaded, serverRevision) => {
-                assertSession();
-                const current = get().groupScorecards.get(playerId);
-                if (current?.id === uploaded.id) {
-                  const next = new Map(get().groupScorecards);
-                  next.set(playerId, { ...current, serverRevision: Math.max(current.serverRevision ?? 0, serverRevision) });
-                  set({ groupScorecards: next });
-                }
-              },
-            });
-          }
-        } catch (error) {
-          errorCount++;
-          storeLogger.error('Failed to submit scorecard', error, { playerId, roundId: currentRoundId });
+      const social = initial.scoringMode === 'social';
+      submitting = true;
+      try {
+        const serverFinalIds = new Set<string>();
+        if (social && getIsOnline()) {
+          let rows: RemoteScorecardRow[] = [];
+          try { rows = await get().pullServerScorecards({ queueUpload: false }); }
+          catch (error) { storeLogger.warn('Pre-submit pull failed; submitting without it', { error: String(error) }); }
+          assertSession();
+          for (const row of rows) if (isFinalStatus(row.status)) serverFinalIds.add(row.player_id);
+          if (ids.length && ids.every(id => serverFinalIds.has(id))) return { alreadySubmitted: true };
         }
-      }
-      if (errorCount) throw new Error(`Failed to submit ${errorCount} scorecard(s)`);
+        const submittedAt = new Date(); // Keep completion intent only across waits.
+        let errorCount = 0;
+        for (const playerId of ids) {
+          if (serverFinalIds.has(playerId)) continue;
+          try {
+            const prepare = (requireTerminalContext = false) => {
+              assertSession();
+              const state = get();
+              if (!state.holes.length) throw new Error('No holes data available for submission');
+              const card = state.groupScorecards.get(playerId);
+              if (!card) throw new Error('Scorecard missing during submission');
+              const preserveContext = hasFrozenScoringContext(card) || state.holesPlayed != null;
+              const shape = { nine_type: state.nineType, holes_played: state.holesPlayed ?? card.holesPlayed ?? null };
+              const basis = (requireTerminalContext && preserveContext) || shape.holes_played != null
+                ? createRoundScoringContext(currentRoundId, { getLiveContext: session!.getLiveContext })(card, shapeHoleNumbers(shape), shape)
+                : card;
+              return {
+                ...basis,
+                status: card.status === 'confirmed' ? 'confirmed' as const : 'completed' as const,
+                submittedAt: card.submittedAt ?? submittedAt,
+                updatedAt: new Date(),
+                ...(preserveContext ? {} : {
+                  teeData: state.getPlayerTee(playerId), playerGender: card.player?.gender || null,
+                  playerHandicap: card.player?.handicap || null,
+                  coursePar: state.holes.reduce((sum, h) => sum + (h.par || 0), 0),
+                  syncHoles: state.holes, syncGameType: state.gameType, syncNineType: state.nineType,
+                }),
+                syncHandicapSource: preserveContext ? basis.syncHandicapSource : state.handicapSource,
+              };
+            };
+            const persist = () => withRoundPersistence(source, async lease => {
+              const wasTerminal = hasFrozenScoringContext(get().groupScorecards.get(playerId)!);
+              const prepared = prepare();
+              await saveScorecard(prepared, { lease });
+              assertSession();
+              if (!getIsOnline()) await queueScorecardSync(prepare(!wasTerminal), 'update', { lease });
+              assertSession();
+              // Capture CURRENT scoring context before applying completion intent.
+              // A retained edit/revision notification may have replaced the active
+              // object while save waited, without having captured a scoring bundle.
+              const completed = prepare(!wasTerminal);
+              const next = new Map(get().groupScorecards);
+              next.set(playerId, completed);
+              set({ groupScorecards: next });
+              return completed;
+            });
+            let prepared: Scorecard;
+            try { prepared = await persist(); }
+            catch (error) {
+              if (!(error instanceof RoundPersistenceSourceChangedError)) throw error;
+              assertSession(); source = captureRoundPersistenceSource(currentRoundId);
+              prepared = await persist();
+            }
+            // The local lease is released before any network/coordinator acquisition.
+            if (getIsOnline()) {
+              assertSession();
+              if (!isRoundPersistenceSourceCurrent(source)) throw new RoundPersistenceSourceChangedError(currentRoundId);
+              // Reprepare CURRENT retained edits before network; common post-network recovery is C4.
+              prepared = prepare();
+              const uploadOptions = {
+                capture: { ownerId, source, session }, readCurrent: () => prepare(),
+                adoptServerRevisionOnConflict: !social, markSynced: true,
+                onSynced: (uploaded: Scorecard, serverRevision: number) => {
+                  assertSession();
+                  const current = get().groupScorecards.get(playerId);
+                  if (current?.id === uploaded.id) {
+                    const next = new Map(get().groupScorecards);
+                    next.set(playerId, { ...current, serverRevision: Math.max(current.serverRevision ?? 0, serverRevision) });
+                    set({ groupScorecards: next });
+                  }
+                },
+              };
+              try {
+                const result = await syncScorecard(prepared, uploadOptions);
+                uploadOptions.onSynced(prepared, result.serverRevision);
+              } catch (error) {
+                if (!social || !(error instanceof ScorecardConflictError)) throw error;
+                assertSession();
+                await applyRemoteToStore({ player_id: playerId,
+                  scores: error.serverScores as Record<string, HoleScore>,
+                  revision: error.serverRevision, status: error.serverStatus ?? 'in-progress',
+                }, { queueUpload: false });
+                assertSession();
+                if (isFinalStatus(error.serverStatus ?? undefined)) continue;
+                prepared = await persist();
+                const result = await syncScorecard(prepared, uploadOptions);
+                uploadOptions.onSynced(prepared, result.serverRevision);
+              }
+            }
+          } catch (error) {
+            errorCount++;
+            storeLogger.error('Failed to submit scorecard', error, { playerId, roundId: currentRoundId });
+          }
+        }
+        if (errorCount) throw new Error(`Failed to submit ${errorCount} scorecard(s)`);
+        if (social && getIsOnline()) await get().pullServerScorecards({ queueUpload: false }).catch(() => undefined);
+        assertSession();
+        return { alreadySubmitted: false };
+      } finally { submitting = false; }
+
     },
 
     resetRound: () => {
@@ -780,6 +938,8 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
         nineType: 'full' as NineType,
         holesPlayed: null,
         startHole: 1,
+        scoringMode: 'standard' as ScoringMode,
+        submittedElsewhereRoundId: null,
         ballCount: 1,
         isMultiBall: false,
         groupScorecards: new Map(),
@@ -790,6 +950,26 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
         // Round-scoped, so it cannot outlive the round it belongs to.
         failedSyncCount: 0,
       });
+    },
+
+    mergeRemoteScorecard: async (row) => {
+      if (submitting) return;
+      await applyRemoteToStore(row);
+    },
+
+    pullServerScorecards: async (opts) => {
+      const { currentRoundId, scoringMode } = get();
+      if (!currentRoundId || scoringMode !== 'social') return [];
+      const generation = roundSession;
+      const ownerId = getSyncAuthUserId();
+      const isCurrent = () => generation === roundSession && get().currentRoundId === currentRoundId && getSyncAuthUserId() === ownerId;
+      const rows = await fetchServerScorecards(currentRoundId);
+      for (const row of rows) {
+        if (!isCurrent()) return [];
+        await applyRemoteToStore({ ...row, round_id: currentRoundId }, opts);
+      }
+      if (!isCurrent()) return [];
+      return rows;
     },
 
     // Multi-ball scoring functions (delegated to multiBallSlice)

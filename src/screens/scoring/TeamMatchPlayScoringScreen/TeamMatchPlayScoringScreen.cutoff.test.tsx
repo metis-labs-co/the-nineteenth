@@ -24,6 +24,9 @@ jest.mock('@/hooks/useAuth', () => ({ useAuth: () => ({}) }));
 jest.mock('@/hooks/usePlayingHandicap', () => ({ calculatePlayingHandicap: jest.fn() }));
 jest.mock('@/hooks', () => ({ useOnlineStatus: () => true, useProcessSkinsIfNeeded: () => ({}) }));
 jest.mock('@/hooks/scorecard', () => ({
+  useLiveScorecardMerge: jest.fn(),
+  useSubmittedElsewhereRedirect: jest.fn(),
+  pullOnOpenIfSocial: jest.fn(async () => false),
   usePlayedHoleRange: jest.requireActual('@/hooks/scorecard/usePlayedHoleRange').usePlayedHoleRange,
   useOfflineSync: () => ({}),
   useEndRoundEarly: () => ({ canEndRoundEarly: false, sheetProps: {} }),

@@ -44,6 +44,15 @@ are ignored, and the blanket source-review claim has been removed from the
 scope document. Sam authorized committing and merging this work to local main;
 production/staging migration application and pushing remain outside that request.
 
+**Local main integration:** the corrections are committed at `fb70558c`.
+Main at `94e84139` added social-round multi-scorer behavior. The integration
+resolves 20 conflicting files while preserving per-hole merging, source/session
+guards, early-end cutoffs and guarded upload acknowledgment. The combined
+source passed TypeScript, lint with zero errors (22 warnings), and 145 affected
+suites / 3,348 tests / 15 snapshots (15 existing skips). Regression coverage
+includes remote merges after an end, reset-session pulls and conflict merging
+after shape recovery. See the scope document for detail and remaining QA limits.
+
 ## Historical reopening after Sam’s scope audit
 
 The earlier “no blocking findings” conclusion was too broad. Its Spec review treated agent-written C1–C5 controller rulings as accepted requirements. That establishes consistency with the expanded implementation contract, not Sam’s acceptance of that additional scope. Historical review results remain evidence of what was checked; they do not close this new scope/compatibility review.

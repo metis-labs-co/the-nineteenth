@@ -55,6 +55,7 @@ export {
   getFailedSyncCountForRound,
   hasUnsyncedScorecardsForRound,
   removePendingSyncByEntityKey,
+  resetFailedSyncsForRound,
   getFailedSyncs,
   discardPendingSync,
   updatePendingSyncData,

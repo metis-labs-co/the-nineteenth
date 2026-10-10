@@ -26,6 +26,7 @@ import {
   getFailedSyncCountForRound,
   hasUnsyncedScorecardsForRound,
   removePendingSyncByEntityKey,
+  resetFailedSyncsForRound,
   getFailedSyncs,
   discardPendingSync,
   updatePendingSyncData,
@@ -1163,6 +1164,30 @@ describe('Pending Sync Operations', () => {
     });
   });
 
+  describe('resetFailedSyncsForRound()', () => {
+    it('should re-queue only failed scorecard rows of the given round', async () => {
+      mockRunAsync.mockResolvedValueOnce({ lastInsertRowId: 0, changes: 2 });
+
+      const result = await resetFailedSyncsForRound('round-abc');
+
+      expect(result).toBe(2);
+      const [sql, params] = mockRunAsync.mock.calls[mockRunAsync.mock.calls.length - 1];
+      expect(sql).toContain("SET status = 'pending', retry_count = 0, last_error = NULL");
+      expect(sql).toContain("status = 'failed'");
+      expect(sql).toContain('entity_key LIKE');
+      expect(params).toEqual(['scorecard:round-abc:%']);
+    });
+
+    it('should do nothing when no round id is given', async () => {
+      mockRunAsync.mockClear();
+
+      const result = await resetFailedSyncsForRound('');
+
+      expect(result).toBe(0);
+      expect(mockRunAsync).not.toHaveBeenCalled();
+    });
+  });
+
   describe('getFailedSyncs()', () => {
     it('should return retained failures with their error detail', async () => {
       mockGetAllAsync.mockResolvedValueOnce([
@@ -1229,6 +1254,18 @@ describe('Pending Sync Operations', () => {
       expect(mockRunAsync).toHaveBeenCalledWith(
         expect.stringContaining('SET data = ?'),
         [JSON.stringify({ id: 'sc-1', serverRevision: 9 }), 7]
+      );
+    });
+
+    it('only overwrites the row at the expected revision when one is given', async () => {
+      mockRunAsync.mockResolvedValueOnce({ changes: 0 });
+
+      const updated = await updatePendingSyncData(7, { id: 'sc-1', serverRevision: 9 }, 3);
+
+      expect(updated).toBe(false);
+      expect(mockRunAsync).toHaveBeenCalledWith(
+        expect.stringContaining('WHERE id = ? AND revision = ?'),
+        [JSON.stringify({ id: 'sc-1', serverRevision: 9 }), 7, 3]
       );
     });
   });
@@ -1561,5 +1598,5 @@ describe('End round early: SQLite marker and hole removal', () => {
 
 it('registers the next source migration as one nullable column without backfill', () => {
   const { MIGRATIONS } = jest.requireActual('@/services/offline/schema/migrations');
-  expect(MIGRATIONS.at(-1)).toEqual({ version: 23, name: 'add_scorecard_sync_handicap_source', up: 'ALTER TABLE scorecards ADD COLUMN sync_handicap_source TEXT' });
+  expect(MIGRATIONS.at(-1)).toEqual({ version: 24, name: 'add_scorecard_sync_handicap_source', up: 'ALTER TABLE scorecards ADD COLUMN sync_handicap_source TEXT' });
 });

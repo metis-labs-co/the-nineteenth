@@ -64,7 +64,7 @@ function renderSubmission(isOnline: boolean) {
   const wrapper = ({ children }: { children: React.ReactNode }) => (
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   );
-  const submitScorecards = jest.fn().mockResolvedValue(undefined);
+  const submitScorecards = jest.fn().mockResolvedValue({ alreadySubmitted: false });
   const navigation = { reset: jest.fn(), popToTop: jest.fn() } as any;
   const resetRound = jest.fn(() => {
     mockStoreState.holesPlayed = null;

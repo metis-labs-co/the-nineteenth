@@ -1332,6 +1332,17 @@ describe('Submission Readiness', () => {
       expect(result.mismatchCount).toBe(1);
     });
 
+    it('skips the multi-scorer gate for social rounds', async () => {
+      const entries: ScoreEntry[] = [
+        createScoreEntry({ player_id: PLAYER_A_ID, hole_number: 1, scorer_id: PLAYER_A_ID, strokes: 4 }),
+        createScoreEntry({ player_id: PLAYER_A_ID, hole_number: 1, scorer_id: PLAYER_B_ID, strokes: 5 }),
+      ];
+      mockEntriesAndMismatches(entries, [createMismatchRecord({ hole_number: 1 })]);
+
+      const readiness = await checkSubmissionReadiness(ROUND_ID, PLAYER_A_ID, false, 18, undefined, undefined, { socialRound: true });
+      expect(readiness).toEqual({ canSubmit: true });
+    });
+
     it('blocks submission with waiting_for_other_scorers when another scorer has incomplete entries', async () => {
       // Player A scored everything; Player B started but only filled hole 1.
       const entries: ScoreEntry[] = [

@@ -2,6 +2,7 @@
  * useStartNewRound - Handles creating a new standalone round
  */
 
+import { deriveScoringMode } from '@/utils/scoringMode';
 import { useState, useCallback } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -307,7 +308,7 @@ export function useStartNewRound(onStarted?: () => void, pendingLeagueId?: strin
         const filteredHoles = filterHolesByNineType(holes, effectiveNineType);
 
         // Initialize the scorecard store
-        await initializeRound(roundId, players, filteredHoles, gameType, false, [], selectedTee ?? null, handicapSource, playerTeeMap, effectiveNineType);
+        await initializeRound(roundId, players, filteredHoles, gameType, false, [], selectedTee ?? null, handicapSource, playerTeeMap, effectiveNineType, 1, null, deriveScoringMode({ competition_id: null, handicap_source: handicapSource ?? null, scoring_pairs_required: scoringPairsConfig?.enabled ?? false }));
 
         // Navigate to appropriate scoring screen
         navigateToScoring(navigation, {

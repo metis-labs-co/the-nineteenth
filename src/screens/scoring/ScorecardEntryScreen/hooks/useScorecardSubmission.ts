@@ -26,7 +26,7 @@ export interface UseScorecardSubmissionParams {
   holes: Hole[];
   playerCount: number;
   getCompletedHolesCount: () => number;
-  submitScorecards: (options?: { bypassed?: boolean; playerIds?: string[] }) => Promise<void>;
+  submitScorecards: (options?: { bypassed?: boolean; playerIds?: string[] }) => Promise<{ alreadySubmitted: boolean }>;
   resetRound: () => void;
   onIncompleteRound: (completedCount: number) => void;
   onSubmitError: () => void;

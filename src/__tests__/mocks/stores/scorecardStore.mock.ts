@@ -6,6 +6,7 @@
  */
 
 import type { Player, Hole, HoleScore } from '@/types/database.types';
+import type { ScoringMode } from '@/utils/scoringMode';
 import { create18Holes, createTestPlayer } from '../../utils/testFixtures';
 
 // ============================================================================
@@ -16,6 +17,10 @@ export interface MockScorecardState {
   // Round info
   roundId: string | null;
   competitionId: string | null;
+  scoringMode: ScoringMode;
+  submittedElsewhereRoundId: string | null;
+  mergeRemoteScorecard: (...args: any[]) => Promise<void>; // eslint-disable-line @typescript-eslint/no-explicit-any
+  pullServerScorecards: (...args: any[]) => Promise<void>; // eslint-disable-line @typescript-eslint/no-explicit-any
   courseName: string | null;
 
   // Hole navigation
@@ -69,6 +74,10 @@ export function createMockScorecardStore(
     // Round info
     roundId: 'round-1',
     competitionId: 'comp-1',
+    scoringMode: 'standard',
+    submittedElsewhereRoundId: null,
+    mergeRemoteScorecard: jest.fn(() => Promise.resolve()),
+    pullServerScorecards: jest.fn(() => Promise.resolve()),
     courseName: 'Test Golf Course',
 
     // Hole navigation

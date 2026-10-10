@@ -55,7 +55,7 @@ interface UseScoreReviewReturn {
   // Actions
   setCurrentHole: (hole: number) => void;
   resetRound: () => void;
-  submitScorecards: () => Promise<void>;
+  submitScorecards: (options?: { bypassed?: boolean; playerIds?: string[] }) => Promise<{ alreadySubmitted: boolean }>;
 }
 
 export function useScoreReview({ routeHoles }: UseScoreReviewParams): UseScoreReviewReturn {

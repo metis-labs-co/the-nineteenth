@@ -1,3 +1,5 @@
+import * as adoption from '@/services/rounds/roundScoringAdoption';
+import { setScorecardConflictResolver } from '@/services/offline/sync/scorecardConflictResolver';
 import { syncScorecard } from '@/services/offline/sync/scorecardSync';
 import { setSyncAuthUser } from '@/services/offline/sync/networkState';
 import { supabase } from '@/services/supabase/client';
@@ -692,4 +694,35 @@ describe('common scorecard upload boundary', () => {
       '12',
     ]);
   });
+});
+
+it('merges social conflict scores after adopting a changed round shape before retrying', async () => {
+  const local = card({ scores: { 1: { strokes: 4 } }, totalGross: 4, totalNet: 4 });
+  mockLive = [local];
+  const serverShape = { nine_type: 'front9', holes_played: null } as const;
+  const chain = { select: () => chain, eq: () => chain, is: () => chain, abortSignal: () => chain,
+    maybeSingle: async () => ({ data: serverShape, error: null }) };
+  (supabase.from as jest.Mock).mockReturnValue(chain);
+  const adopt = jest.spyOn(adoption, 'adoptRoundShapeWithinScoringWrite').mockImplementation(async () => {
+    mockLive = [{ ...local, syncNineType: 'front9' }];
+  });
+  const resolve = jest.fn(async () => {
+    const merged = { ...mockLive[0], scores: { 1: { strokes: 4 }, 2: { strokes: 5 } },
+      totalGross: 9, totalNet: 9, serverRevision: 6 };
+    mockLive = [merged];
+    return { kind: 'retry' as const, scorecard: merged };
+  });
+  setScorecardConflictResolver(resolve);
+  (supabase.rpc as jest.Mock).mockResolvedValueOnce({ data: [{ applied: false, conflict: true,
+    server_revision: 6, server_status: 'in-progress', server_scores: { '2': { strokes: 5 } } }], error: null });
+  try {
+    await expect(syncScorecard(local)).resolves.toMatchObject({ serverRevision: 7 });
+    expect(resolve).toHaveBeenCalledTimes(1);
+    const writes = (supabase.rpc as jest.Mock).mock.calls.filter(([name]) => name === 'write_scorecard_snapshot');
+    expect(writes[1][1]).toMatchObject({ p_expected_revision: 6,
+      p_snapshot: { scores: { '1': { strokes: 4 }, '2': { strokes: 5 } }, expected_round_shape: serverShape } });
+  } finally {
+    setScorecardConflictResolver(null);
+    adopt.mockRestore();
+  }
 });
