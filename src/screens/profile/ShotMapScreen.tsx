@@ -28,12 +28,15 @@ import {
   buildTeeOptions,
   type TeeOption,
 } from '@/components/scorecard/HoleMap';
-import { CLUBS_BY_KEY } from '@/constants/clubs';
+import { CLUBS_BY_KEY, type ClubKey } from '@/constants/clubs';
+import { BagClubPickerSheet } from '@/components/features/bag/BagClubPickerSheet';
+import { useAuth } from '@/hooks/useAuth';
+import { useBag } from '@/hooks/queries/useBag';
 import { calculateDistance, metersToYards } from '@/utils/gpsCalculations';
 import { holeOrientedCamera } from '@/utils/holeOrientation';
 import { formatDisplayDate } from '@/utils/locale';
 import { useSettingsStore } from '@/store/settingsStore';
-import { useShotLog, useUpdateShot } from '@/hooks/shots';
+import { useDeleteShot, useSetShotClub, useShotLog, useUpdateShot } from '@/hooks/shots';
 import { useHoleCoordinatesByHole } from '@/hooks/coordinates';
 import { useTeeOverrideStore, type TeeOverride } from '@/store/teeOverrideStore';
 import { useCourseTeeColors } from '@/hooks/useCourseTeeColors';
@@ -131,6 +134,12 @@ function ShotMapScreenContent({ route, navigation }: Props) {
     setCurrentLat(shotLatitude);
     setCurrentLng(shotLongitude);
   }, [shotId, shotLatitude, shotLongitude]);
+
+  // Live club — updated locally after a successful "Change club" save.
+  const [currentClubKey, setCurrentClubKey] = useState<ClubKey>(clubKey);
+  useEffect(() => {
+    setCurrentClubKey(clubKey);
+  }, [shotId, clubKey]);
 
   const shot = useMemo(
     () => ({ latitude: currentLat, longitude: currentLng }),
@@ -652,7 +661,66 @@ function ShotMapScreenContent({ route, navigation }: Props) {
     setPreviewTeeCoord(null);
   }, []);
 
-  const club = CLUBS_BY_KEY[clubKey];
+  // ----- Change club / delete shot ---------------------------------------
+  const { player } = useAuth();
+  const { data: bag = [] } = useBag(player?.id);
+  const setShotClub = useSetShotClub();
+  const deleteShot = useDeleteShot();
+  const [isPickingClub, setIsPickingClub] = useState(false);
+
+  // Keep the shot's current club pickable even if it has since left the bag.
+  const pickerBag = useMemo<ClubKey[]>(
+    () => (bag.includes(currentClubKey) ? bag : [currentClubKey, ...bag]),
+    [bag, currentClubKey]
+  );
+
+  const handlePickClub = useCallback(
+    (nextClubKey: ClubKey) => {
+      setIsPickingClub(false);
+      if (nextClubKey === currentClubKey) return;
+      setShotClub.mutate(
+        { shotId, roundId, holeNumber, clubKey: nextClubKey },
+        {
+          onSuccess: () => setCurrentClubKey(nextClubKey),
+          onError: (err: unknown) => {
+            const message = err instanceof Error ? err.message : 'Unknown error';
+            Alert.alert("Couldn't change club", message);
+          },
+        }
+      );
+    },
+    [currentClubKey, setShotClub, shotId, roundId, holeNumber]
+  );
+
+  const handleDeleteShot = useCallback(() => {
+    Alert.alert(
+      'Delete shot?',
+      `This removes the shot from hole ${holeNumber} and your club distances.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () =>
+            deleteShot.mutate(
+              { shotId, roundId, holeNumber },
+              {
+                onSuccess: () => navigation.goBack(),
+                onError: (err: unknown) => {
+                  const message = err instanceof Error ? err.message : 'Unknown error';
+                  Alert.alert("Couldn't delete shot", message);
+                },
+              }
+            ),
+        },
+      ]
+    );
+  }, [deleteShot, shotId, roundId, holeNumber, navigation]);
+
+  const isEditBusy = setShotClub.isPending || deleteShot.isPending;
+  const showShotActions = !isMoving && !isPlacingTee && !movingTeeId;
+
+  const club = CLUBS_BY_KEY[currentClubKey];
   const playedAt = formatPlayedAt(roundPlayedAt);
 
   return (
@@ -1009,7 +1077,7 @@ function ShotMapScreenContent({ route, navigation }: Props) {
               {playedAt ?? 'Date unknown'}
             </Text>
             <Text style={[typography.h3, { color: colors.textPrimary }]}>
-              {club?.label ?? clubKey}
+              {club?.label ?? currentClubKey}
             </Text>
           </View>
           <View style={styles.footerRight}>
@@ -1033,8 +1101,51 @@ function ShotMapScreenContent({ route, navigation }: Props) {
             can&apos;t be shown.
           </Text>
         )}
+        {showShotActions && (
+          <View style={styles.actionsRow}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Change club"
+              disabled={isEditBusy}
+              onPress={() => setIsPickingClub(true)}
+              style={({ pressed }) => [
+                styles.actionButton,
+                {
+                  borderColor: colors.border,
+                  opacity: pressed || isEditBusy ? 0.6 : 1,
+                },
+              ]}
+            >
+              <Icon source="golf" size={18} color={colors.textPrimary} />
+              <Text style={[typography.bodyBold, { color: colors.textPrimary }]}>Change club</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Delete shot"
+              disabled={isEditBusy}
+              onPress={handleDeleteShot}
+              style={({ pressed }) => [
+                styles.actionButton,
+                {
+                  borderColor: colors.error,
+                  opacity: pressed || isEditBusy ? 0.6 : 1,
+                },
+              ]}
+            >
+              <Icon source="trash-can-outline" size={18} color={colors.error} />
+              <Text style={[typography.bodyBold, { color: colors.error }]}>Delete</Text>
+            </Pressable>
+          </View>
+        )}
       </View>
 
+      <BagClubPickerSheet
+        visible={isPickingClub}
+        bag={pickerBag}
+        title="Which club did you hit?"
+        onPick={handlePickClub}
+        onCancel={() => setIsPickingClub(false)}
+      />
     </View>
   );
 }
@@ -1076,6 +1187,21 @@ const styles = StyleSheet.create({
   },
   note: {
     marginTop: spacing.sm,
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginTop: spacing.lg,
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    height: 48,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
   },
   recenter: {
     position: 'absolute',

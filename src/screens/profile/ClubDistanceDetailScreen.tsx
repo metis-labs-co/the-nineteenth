@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { Icon, Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -10,8 +10,10 @@ import type { RootStackParamList } from '@/navigation/types';
 import { useThemeColors } from '@/context/ThemeContext';
 import { borderRadius, spacing, typography } from '@/constants/theme';
 import { PageHeader } from '@/components/common/PageHeader';
+import { SwipeableRow } from '@/components/common';
 import { useAuth } from '@/hooks/useAuth';
 import { usePerClubStats, type ShotWithContext } from '@/hooks/queries/usePerClubStats';
+import { useDeleteShot } from '@/hooks/shots';
 import { useSettingsStore } from '@/store/settingsStore';
 import { CLUBS_BY_KEY } from '@/constants/clubs';
 import { metersToYards } from '@/utils/gpsCalculations';
@@ -37,6 +39,7 @@ export default function ClubDistanceDetailScreen() {
 
   const { player } = useAuth();
   const { data: stats, isLoading } = usePerClubStats(player?.id);
+  const deleteShot = useDeleteShot();
   const club = CLUBS_BY_KEY[clubKey];
   const entry = stats?.[clubKey];
 
@@ -81,41 +84,73 @@ export default function ClubDistanceDetailScreen() {
     [navigation, clubKey]
   );
 
+  const handleDeleteShot = useCallback(
+    (shot: ShotWithContext) => {
+      Alert.alert(
+        'Delete shot?',
+        `This removes the shot from hole ${shot.hole_number} and your club distances.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: () =>
+              deleteShot.mutate(
+                { shotId: shot.id, roundId: shot.round_id, holeNumber: shot.hole_number },
+                {
+                  onError: (err: unknown) => {
+                    const message = err instanceof Error ? err.message : 'Unknown error';
+                    Alert.alert("Couldn't delete shot", message);
+                  },
+                }
+              ),
+          },
+        ]
+      );
+    },
+    [deleteShot]
+  );
+
   const renderItem = useCallback(
     ({ item }: { item: ShotWithContext }) => (
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`View shot on map at ${item.courseName ?? 'course'} hole ${item.hole_number}`}
-        accessibilityHint="Opens a map focused on this shot"
-        onPress={() => handleViewOnMap(item)}
-        style={({ pressed }) => [
-          styles.row,
-          {
-            backgroundColor: colors.surface,
-            opacity: pressed ? 0.7 : 1,
-          },
-        ]}
+      <SwipeableRow
+        onDelete={() => handleDeleteShot(item)}
+        deleteAccessibilityLabel={`Delete shot at ${item.courseName ?? 'course'} hole ${item.hole_number}`}
       >
-        <View style={styles.rowLeft}>
-          <Text style={[typography.body, { color: colors.textPrimary }]}>
-            {item.courseName ?? 'Unknown course'}
-          </Text>
-          <Text style={[typography.caption, { color: colors.textSecondary }]}>
-            Hole {item.hole_number} · {formatPlayedAt(item.roundPlayedAt)}
-          </Text>
-        </View>
-        <Text
-          style={[
-            typography.body,
-            { color: colors.textPrimary, fontWeight: '600' },
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`View shot on map at ${item.courseName ?? 'course'} hole ${item.hole_number}`}
+          accessibilityHint="Opens a map focused on this shot"
+          onPress={() => handleViewOnMap(item)}
+          style={({ pressed }) => [
+            styles.row,
+            {
+              backgroundColor: colors.surface,
+              opacity: pressed ? 0.7 : 1,
+            },
           ]}
         >
-          {formatDistance(item.distanceMeters)}
-        </Text>
-        <Icon source="chevron-right" size={20} color={colors.textSecondary} />
-      </Pressable>
+          <View style={styles.rowLeft}>
+            <Text style={[typography.body, { color: colors.textPrimary }]}>
+              {item.courseName ?? 'Unknown course'}
+            </Text>
+            <Text style={[typography.caption, { color: colors.textSecondary }]}>
+              Hole {item.hole_number} · {formatPlayedAt(item.roundPlayedAt)}
+            </Text>
+          </View>
+          <Text
+            style={[
+              typography.body,
+              { color: colors.textPrimary, fontWeight: '600' },
+            ]}
+          >
+            {formatDistance(item.distanceMeters)}
+          </Text>
+          <Icon source="chevron-right" size={20} color={colors.textSecondary} />
+        </Pressable>
+      </SwipeableRow>
     ),
-    [colors, formatDistance, handleViewOnMap]
+    [colors, formatDistance, handleViewOnMap, handleDeleteShot]
   );
 
   return (
