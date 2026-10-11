@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@/__tests__/utils/renderHelpers';
+import { fireEvent, render, screen, within } from '@/__tests__/utils/renderHelpers';
 import ViewRoundScreen from './index';
 import { useViewRoundScreen } from './useViewRoundScreen';
 
@@ -72,5 +72,20 @@ describe('ViewRound "End round early" shortcut', () => {
     setVm(round, vm);
     render(<ViewRoundScreen {...props} />);
     expect(screen.queryByLabelText('End round early')).toBeNull();
+  });
+
+  it('renders End round early and Continue Scoring as children of one row', () => {
+    setVm();
+    render(<ViewRoundScreen {...props} />);
+    const row = screen.getByTestId('score-actions-row');
+    expect(within(row).getByLabelText('End round early')).toBeTruthy();
+    expect(within(row).getByLabelText('Score this round')).toBeTruthy();
+  });
+
+  it('renders Continue Scoring on its own, with no row, when End round early is hidden', () => {
+    setVm({ competition_id: 'comp-1' });
+    render(<ViewRoundScreen {...props} />);
+    expect(screen.queryByTestId('score-actions-row')).toBeNull();
+    expect(screen.getByLabelText('Score this round')).toBeTruthy();
   });
 });

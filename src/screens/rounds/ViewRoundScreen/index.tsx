@@ -230,6 +230,32 @@ export default function ViewRoundScreen(props: Props) {
   const { plannedHoles, playedHoles: playableHoles, holesPlayed } = getViewRoundHoles(round);
   const playableHoleNumbers = playableHoles.map((h) => h.number);
 
+  const showEndEarly =
+    round.competition_id == null && round.status === 'in-progress' && !isEndedEarly(round);
+  const scoreButton = (
+    <TouchableOpacity
+      style={[
+        styles.scoreButton,
+        showEndEarly && styles.scoreButtonInRow,
+        { backgroundColor: colors.primary },
+      ]}
+      onPress={vm.handleScoreRound}
+      activeOpacity={0.8}
+      accessibilityLabel="Score this round"
+      accessibilityRole="button"
+    >
+      <Icon source="golf" size={20} color={colors.textInverse} />
+      <Text
+        style={[styles.scoreButtonText, { color: colors.textInverse }]}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.85}
+      >
+        {round.status === 'in-progress' ? 'Continue Scoring' : 'Score Round'}
+      </Text>
+    </TouchableOpacity>
+  );
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
@@ -264,33 +290,31 @@ export default function ViewRoundScreen(props: Props) {
         ]}
       />
 
-      {/* Score Round Button */}
+      {/* Score Round Button (+ "End round early" side by side for in-progress standalone rounds) */}
       {vm.isUserPlaying && vm.roundReadyToScore && !vm.userScorecardSubmitted && round.status !== 'completed' && (
         <View style={[styles.scoreButtonContainer, { backgroundColor: colors.surface }]}>
-          <TouchableOpacity
-            style={[styles.scoreButton, { backgroundColor: colors.primary }]}
-            onPress={vm.handleScoreRound}
-            activeOpacity={0.8}
-            accessibilityLabel="Score this round"
-            accessibilityRole="button"
-          >
-            <Icon source="golf" size={20} color={colors.textInverse} />
-            <Text style={[styles.scoreButtonText, { color: colors.textInverse }]}>
-              {round.status === 'in-progress' ? 'Continue Scoring' : 'Score Round'}
-            </Text>
-          </TouchableOpacity>
-          {round.competition_id == null && round.status === 'in-progress' && !isEndedEarly(round) && (
-            <TouchableOpacity
-              style={[styles.endEarlyButton, { borderColor: colors.primary }]}
-              onPress={vm.handleEndRoundEarlyPress}
-              activeOpacity={0.8}
-              accessibilityLabel="End round early"
-              accessibilityRole="button"
-            >
-              <Text style={[styles.scoreButtonText, { color: colors.primary }]}>
-                End round early
-              </Text>
-            </TouchableOpacity>
+          {showEndEarly ? (
+            <View style={styles.scoreActionsRow} testID="score-actions-row">
+              <TouchableOpacity
+                style={[styles.endEarlyButton, { borderColor: colors.primary }]}
+                onPress={vm.handleEndRoundEarlyPress}
+                activeOpacity={0.8}
+                accessibilityLabel="End round early"
+                accessibilityRole="button"
+              >
+                <Text
+                  style={[styles.scoreButtonText, { color: colors.primary }]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.85}
+                >
+                  End round early
+                </Text>
+              </TouchableOpacity>
+              {scoreButton}
+            </View>
+          ) : (
+            scoreButton
           )}
         </View>
       )}
@@ -686,12 +710,20 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     borderWidth: 1.5,
   },
+  scoreActionsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  scoreButtonInRow: {
+    flex: 1,
+  },
   endEarlyButton: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: borderRadius.lg,
-    minHeight: 48,
-    marginTop: spacing.sm,
+    height: 48,
+    paddingHorizontal: spacing.sm,
     borderWidth: 1.5,
     backgroundColor: 'transparent',
   },
