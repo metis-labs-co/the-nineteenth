@@ -17,6 +17,7 @@ import {
   PerformanceChart,
 } from '@/components/statistics';
 import { formatDateLong } from '@/utils/formatting';
+import { useOpenRound } from '@/navigation/openRound';
 import type { CourseStatisticsData } from '@/hooks/playerStatistics';
 import { excludeEndedEarly, recentRoundEndedEarlyLabel } from '@/hooks/playerStatistics/recentRounds';
 
@@ -28,6 +29,7 @@ export const CourseOverviewTab = React.memo(function CourseOverviewTab({
   stats,
 }: CourseOverviewTabProps) {
   const colors = useThemeColors();
+  const openRound = useOpenRound();
 
   // Ended rounds stay in recent activity but not in the score trend.
   const chartRounds = excludeEndedEarly(stats.recentRounds)
@@ -103,6 +105,9 @@ export const CourseOverviewTab = React.memo(function CourseOverviewTab({
                 isPracticeRound={round.isPracticeRound}
                 isHandicapRound={round.isHandicapRound}
                 endedEarlyLabel={recentRoundEndedEarlyLabel(round)}
+                onPress={() =>
+                  openRound({ roundId: round.roundId, competitionId: round.competitionId })
+                }
               />
             ))}
           </View>

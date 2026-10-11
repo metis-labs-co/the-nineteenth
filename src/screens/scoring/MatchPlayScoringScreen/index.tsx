@@ -471,7 +471,10 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
 
       // Close dialog and navigate to round details
       setShowSubmitDialog(false);
-      navigation.navigate('ViewRound', { roundId });
+      navigation.navigate('ViewRound', {
+        roundId,
+        competitionId: isStandalone ? undefined : competitionId,
+      });
     } catch (error) {
       matchPlayLogger.error('Failed to submit match', { error });
       showAlert('Error', 'Failed to submit match result. Please try again.');
@@ -491,6 +494,8 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
     updateSubMatchResult,
     finalizeRound,
     showAlert,
+    isStandalone,
+    competitionId,
   ]);
 
   // Cancel submit dialog

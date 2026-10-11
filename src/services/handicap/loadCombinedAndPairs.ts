@@ -10,6 +10,7 @@ import { supabase } from '@/services/supabase/client';
 import { isCompleteForHandicap } from '@/utils/handicapEligibility';
 import { isEndedEarly } from '@/utils/roundShape';
 import type { HandicapRound, CombinableNinePair, NinePieceSummary } from '@/types';
+import type { HandicapRoundLink } from '@/types/handicap.types';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const from = (table: string) => (supabase as any).from(table);
@@ -33,14 +34,30 @@ interface CombinedRow {
   } | null;
 }
 
+interface SourceScorecardRow {
+  id: string;
+  round_id: string;
+  rounds: { competition_id: string | null } | null;
+}
+
+/** Scorecard id → the round (and competition) it belongs to. */
+type RoundLinksByScorecard = Map<string, HandicapRoundLink>;
+
 /**
  * Convert a combined-round row into a HandicapRound entry suitable for the
  * history list. The combined row's effective_date drives ordering.
  */
-function combinedRowToHandicapRound(row: CombinedRow): HandicapRound {
+function combinedRowToHandicapRound(
+  row: CombinedRow,
+  links: RoundLinksByScorecard = new Map(),
+): HandicapRound {
+  const front = links.get(row.front_scorecard_id) ?? null;
+  const back = links.get(row.back_scorecard_id) ?? null;
   return {
     scorecardId: row.id,
-    roundId: row.front_scorecard_id, // placeholder — combined entries aren't tied to a single round
+    // Combined entries span two rounds; the front 9 stands in for list keys etc.
+    roundId: front?.roundId ?? row.front_scorecard_id,
+    competitionId: front?.competitionId ?? null,
     roundDate: row.effective_date,
     courseName: row.courses?.name ?? 'Unknown Course',
     clubName: row.courses?.clubs?.name ?? '',
@@ -54,6 +71,8 @@ function combinedRowToHandicapRound(row: CombinedRow): HandicapRound {
     isCombined: true,
     combinedFrontScorecardId: row.front_scorecard_id,
     combinedBackScorecardId: row.back_scorecard_id,
+    combinedFrontRound: front,
+    combinedBackRound: back,
   };
 }
 
@@ -96,7 +115,35 @@ export async function fetchCombinedHandicapRounds(
     return [];
   }
 
-  return (data as CombinedRow[]).map(combinedRowToHandicapRound);
+  const rows = data as CombinedRow[];
+  const links = await fetchSourceRoundLinks(
+    rows.flatMap((row) => [row.front_scorecard_id, row.back_scorecard_id]),
+  );
+  return rows.map((row) => combinedRowToHandicapRound(row, links));
+}
+
+/**
+ * Look up which round each source 9-hole scorecard belongs to, so a combined
+ * entry can open either half's scorecard. Failure only loses the links; the
+ * combined entries still show.
+ */
+async function fetchSourceRoundLinks(scorecardIds: string[]): Promise<RoundLinksByScorecard> {
+  const links: RoundLinksByScorecard = new Map();
+  if (scorecardIds.length === 0) return links;
+
+  const { data, error } = await from('scorecards')
+    .select('id, round_id, rounds ( competition_id )')
+    .in('id', scorecardIds);
+
+  if (error) {
+    console.error('[handicap] Failed to fetch combined source rounds:', error);
+    return links;
+  }
+
+  for (const sc of data as SourceScorecardRow[]) {
+    links.set(sc.id, { roundId: sc.round_id, competitionId: sc.rounds?.competition_id ?? null });
+  }
+  return links;
 }
 
 /**

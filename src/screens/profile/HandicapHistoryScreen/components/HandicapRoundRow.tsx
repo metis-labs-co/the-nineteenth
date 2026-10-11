@@ -16,6 +16,8 @@ import type { HandicapRound } from '@/types';
 
 interface HandicapRoundRowProps {
   round: HandicapRound;
+  /** Called when the row is tapped (opens the round's scorecard) */
+  onPress?: (round: HandicapRound) => void;
   /** Called when the user taps the unlink button on a combined entry */
   onUncombine?: (round: HandicapRound) => void;
   /** When true, the unlink button is disabled (in-flight) */
@@ -40,6 +42,7 @@ function formatDate(dateString: string): string {
 
 export function HandicapRoundRow({
   round,
+  onPress,
   onUncombine,
   isUncombining,
 }: HandicapRoundRowProps) {
@@ -61,8 +64,15 @@ export function HandicapRoundRow({
     );
   }, [onUncombine, round]);
 
+  const handlePress = useCallback(() => onPress?.(round), [onPress, round]);
+
   return (
-    <View
+    <TouchableOpacity
+      onPress={handlePress}
+      disabled={!onPress}
+      activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel={`${round.courseName}, ${formatDate(round.roundDate)}, gross ${round.totalGross}, differential ${round.handicapDifferential.toFixed(1)}. Opens scorecard`}
       style={[
         styles.container,
         { backgroundColor: colors.surface },
@@ -116,7 +126,7 @@ export function HandicapRoundRow({
         </Text>
         {round.dailyHandicapUsed !== 0 && (
           <Text style={[styles.handicapUsed, { color: colors.textTertiary }]}>
-            HC: {formatHandicapIndex(round.dailyHandicapUsed, 0)}
+            DHC: {formatHandicapIndex(round.dailyHandicapUsed, 0)}
           </Text>
         )}
       </View>
@@ -135,11 +145,21 @@ export function HandicapRoundRow({
           Differential
         </Text>
       </View>
-    </View>
+
+      {onPress && (
+        <View style={styles.chevron}>
+          <Icon source="chevron-right" size={20} color={colors.textTertiary} />
+        </View>
+      )}
+    </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
+  chevron: {
+    marginLeft: spacing.xs,
+    justifyContent: 'center',
+  },
   container: {
     flexDirection: 'row',
     alignItems: 'center',

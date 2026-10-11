@@ -56,8 +56,14 @@ import {
   matchesRoundScope,
   isCompetitionRoundItem,
   selectUpcomingRounds,
+  inProgressRoundToItem,
 } from './hooks';
-import { RoundListEmpty, RoundListHeader, RoundListSections } from './components';
+import {
+  DeleteRoundDialog,
+  RoundListEmpty,
+  RoundListHeader,
+  RoundListSections,
+} from './components';
 import type { RoundItem, RoundPlayerInfo } from './types';
 
 export default function RoundsScreen() {
@@ -154,21 +160,7 @@ export default function RoundsScreen() {
       }
       // The carousel and list queries load independently; build a minimal
       // item so the confirm dialog still works if they're briefly out of sync.
-      handleDeleteRound({
-        id: round.id,
-        course: {
-          id: round.course?.id ?? '',
-          name: round.course?.name ?? 'Unknown Course',
-        },
-        competition: round.competition ?? undefined,
-        status: round.status,
-        gameType: round.game_type,
-        isStandalone: !round.competition_id,
-        roundNumber: round.round_number ?? 1,
-        totalRounds: 1,
-        holesCompleted: 0,
-        totalHoles: 18,
-      });
+      handleDeleteRound(inProgressRoundToItem(round));
     },
     [activeRounds, handleDeleteRound]
   );
@@ -369,21 +361,13 @@ export default function RoundsScreen() {
       />
 
       {/* Delete Confirmation Dialog */}
-      <ConfirmationDialog
+      <DeleteRoundDialog
         visible={deleteDialogVisible}
-        title={pendingDeleteIsCancel ? 'Cancel Round' : 'Delete Round'}
-        message={
-          pendingDeleteIsCancel
-            ? `Cancel this round at ${roundToDelete?.course.name ?? 'this course'}? All invited players will be notified and it will be removed for everyone. This can't be undone.`
-            : `Are you sure you want to delete this round at ${roundToDelete?.course.name ?? 'this course'}? This action cannot be undone.`
-        }
-        confirmLabel={pendingDeleteIsCancel ? 'Cancel Round' : 'Delete'}
-        cancelLabel={pendingDeleteIsCancel ? 'Keep Round' : 'Cancel'}
-        confirmVariant="destructive"
+        round={roundToDelete}
+        isCancel={pendingDeleteIsCancel}
+        loading={isDeleting}
         onConfirm={handleConfirmDelete}
         onCancel={handleCancelDelete}
-        loading={isDeleting}
-        icon="delete"
       />
 
       {/* Round Actions Error Dialog */}

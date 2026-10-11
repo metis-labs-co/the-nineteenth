@@ -13,6 +13,7 @@ import { View, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
+import { useOpenRound } from '@/navigation/openRound';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, shadows, borderRadius } from '@/constants/theme';
 import { SectionHeader } from '@/components/social';
@@ -41,13 +42,7 @@ export const OverviewStats = React.memo(function OverviewStats({ stats }: Overvi
   const colors = useThemeColors();
   const cardBg = colors.surface;
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-
-  const handleCoursePress = useCallback(
-    (courseId: string, courseName: string) => {
-      navigation.navigate('CourseStatistics', { courseId, courseName });
-    },
-    [navigation]
-  );
+  const openRound = useOpenRound();
 
   const handleRoundsPlayedPress = useCallback(() => {
     navigation.navigate('AllRounds');
@@ -222,7 +217,9 @@ export const OverviewStats = React.memo(function OverviewStats({ stats }: Overvi
                 isPracticeRound={round.isPracticeRound}
                 isHandicapRound={round.isHandicapRound}
                 endedEarlyLabel={recentRoundEndedEarlyLabel(round)}
-                onPress={() => handleCoursePress(round.courseId, round.courseName)}
+                onPress={() =>
+                  openRound({ roundId: round.roundId, competitionId: round.competitionId })
+                }
               />
             ))}
           </View>

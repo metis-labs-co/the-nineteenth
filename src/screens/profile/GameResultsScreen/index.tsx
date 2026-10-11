@@ -15,6 +15,7 @@ import { spacing } from '@/constants/theme';
 import { useGameResults } from '@/hooks/useGameResults';
 import type { GameTypeFilter as GameTypeFilterValue, CombinedGameHistoryEntry } from '@/hooks/useGameResults';
 import { GameResultsSummary, GameHistoryRow, GameTypeFilter } from './components';
+import { useOpenRound } from '@/navigation/openRound';
 
 export default function GameResultsScreen() {
   const navigation = useNavigation();
@@ -39,11 +40,22 @@ export default function GameResultsScreen() {
     }
   }, [refetch]);
 
+  const openRound = useOpenRound();
+  const handleEntryPress = useCallback(
+    (entry: CombinedGameHistoryEntry) =>
+      openRound({
+        roundId: entry.roundId,
+        competitionId: entry.competitionId,
+        initialTab: entry.gameType === 'skins' ? 'skins' : 'wolf',
+      }),
+    [openRound]
+  );
+
   const renderItem = useCallback(
     ({ item }: { item: CombinedGameHistoryEntry }) => (
-      <GameHistoryRow entry={item} />
+      <GameHistoryRow entry={item} onPress={handleEntryPress} />
     ),
-    []
+    [handleEntryPress]
   );
 
   const keyExtractor = useCallback(

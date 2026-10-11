@@ -17,6 +17,7 @@ import { LoadingSpinner } from '@/components/common';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
+import { viewRoundParams } from '@/navigation/openRound';
 import AddPlayersBottomSheet from '@/components/competitionWizard/AddPlayersBottomSheet';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -609,6 +610,14 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
             currentUserId={user?.id}
             isOrganizer={isOrganizer}
             rounds={rounds}
+            onMatchPress={(match) => {
+              // Byes and undrawn matches have nothing to show yet
+              if (!match.player1_id || !match.player2_id) return;
+              navigation.navigate(
+                'ViewRound',
+                viewRoundParams({ roundId: match.round_id, competitionId: id, initialTab: 'match' }),
+              );
+            }}
           />
         )}
 
@@ -725,7 +734,11 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
           rounds={rounds}
           onRoundPress={
             selectedLeaderboardEntry.isTeam
-              ? undefined
+              ? (roundId) => {
+                  // Teams have no single player card: open the round itself
+                  handleClosePointsBreakdown();
+                  navigation.navigate('ViewRound', viewRoundParams({ roundId, competitionId: id }));
+                }
               : (roundId) => {
                   const playerId = selectedLeaderboardEntry.participantId;
                   handleClosePointsBreakdown();

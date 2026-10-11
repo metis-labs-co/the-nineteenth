@@ -10,6 +10,7 @@ import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useUntagRound } from '@/hooks/useLeagues';
 import { ConfirmationDialog } from '@/components/common';
 import { DifferentialBadge } from './DifferentialBadge';
+import { useOpenRound } from '@/navigation/openRound';
 import type { LeagueRound } from '@/types/database';
 
 interface Props {
@@ -20,6 +21,8 @@ interface Props {
 export default React.memo(function LeagueRoundCard({ round, leagueId }: Props) {
   const colors = useThemeColors();
   const untagMutation = useUntagRound(leagueId);
+  const openRound = useOpenRound();
+  const roundId = round.round_id;
   const [showRemoveDialog, setShowRemoveDialog] = useState(false);
 
   const handleUntag = useCallback(() => {
@@ -36,7 +39,18 @@ export default React.memo(function LeagueRoundCard({ round, leagueId }: Props) {
 
   return (
     <>
-      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      <TouchableOpacity
+        style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
+        onPress={
+          roundId
+            ? () => openRound({ roundId, competitionId: round.competition_id })
+            : undefined
+        }
+        disabled={!roundId}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel={`Differential ${round.handicap_differential}, tagged ${formattedDate}. Opens round`}
+      >
         <View style={styles.leftSection}>
           <DifferentialBadge value={round.handicap_differential} variant="block" />
         </View>
@@ -58,7 +72,7 @@ export default React.memo(function LeagueRoundCard({ round, leagueId }: Props) {
         >
           <Icon source="close-circle-outline" size={22} color={colors.textSecondary} />
         </TouchableOpacity>
-      </View>
+      </TouchableOpacity>
 
       <ConfirmationDialog
         visible={showRemoveDialog}

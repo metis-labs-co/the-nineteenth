@@ -166,7 +166,7 @@ export async function getMyLeagueRounds(leagueId: string): Promise<LeagueRound[]
   if (authError || !user) throw new Error('You must be logged in');
 
   const { data, error } = await from('league_rounds')
-    .select('*')
+    .select('*, scorecard:scorecards!scorecard_id(round_id, rounds(competition_id))')
     .eq('league_id', leagueId)
     .eq('player_id', user.id)
     .order('tagged_at', { ascending: false });
@@ -176,7 +176,15 @@ export async function getMyLeagueRounds(leagueId: string): Promise<LeagueRound[]
     throw new Error(`Failed to fetch league rounds: ${error.message}`);
   }
 
-  return (data ?? []) as LeagueRound[];
+  type Row = LeagueRound & {
+    scorecard?: { round_id: string | null; rounds: { competition_id: string | null } | null } | null;
+  };
+  // Flatten the scorecard → round link so cards can open the round
+  return ((data ?? []) as Row[]).map(({ scorecard, ...round }) => ({
+    ...round,
+    round_id: scorecard?.round_id ?? null,
+    competition_id: scorecard?.rounds?.competition_id ?? null,
+  }));
 }
 
 /**
