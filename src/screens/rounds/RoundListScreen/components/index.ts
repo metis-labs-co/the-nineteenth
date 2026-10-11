@@ -1,3 +1,4 @@
 export { RoundListEmpty } from './RoundListEmpty';
 export { RoundListHeader } from './RoundListHeader';
 export { RoundListSections } from './RoundListSections';
+export { DeleteRoundDialog } from './DeleteRoundDialog';

@@ -34,11 +34,18 @@ import {
 } from '@/components/common';
 import { InProgressRoundSection } from '@/components/competitions/detail/sections';
 import CreateRoundBottomSheet from '@/screens/rounds/CreateRoundBottomSheet';
-import { useStartNewRound, useScheduleRound } from '@/screens/rounds/RoundListScreen/hooks';
+import {
+  useStartNewRound,
+  useScheduleRound,
+  useRoundActions,
+  inProgressRoundToItem,
+} from '@/screens/rounds/RoundListScreen/hooks';
+import { DeleteRoundDialog } from '@/screens/rounds/RoundListScreen/components';
 import { useHomeData } from '@/hooks/home';
 import { useDevFlagsStore } from '@/store/devFlagsStore';
 import type { RootStackParamList } from '@/navigation/types';
 import type { GameType } from '@/types/database.types';
+import type { RoundWithCourse } from '@/components/competitions/detail/types';
 
 import {
   PendingActionsSection,
@@ -84,6 +91,25 @@ export default function HomeScreen() {
     dialogConfig: scheduleRoundDialogConfig,
     dismissDialog: dismissScheduleRoundDialog,
   } = useScheduleRound(() => setBottomSheetVisible(false));
+
+  const {
+    handleDeleteRound,
+    handleConfirmDelete,
+    handleCancelDelete,
+    deleteDialogVisible,
+    roundToDelete,
+    isDeleting,
+    pendingDeleteIsCancel,
+    dialogConfig: deleteErrorDialogConfig,
+    dismissDialog: dismissDeleteErrorDialog,
+  } = useRoundActions(home.refetchAll);
+
+  // Swipe-to-delete on the Continue scoring carousel (standalone rounds only —
+  // the card itself gates competition rounds out).
+  const handleDeleteInProgressRound = useCallback(
+    (round: RoundWithCourse) => handleDeleteRound(inProgressRoundToItem(round)),
+    [handleDeleteRound]
+  );
 
   // Refresh data when returning to the screen.
   useFocusEffect(
@@ -173,20 +199,13 @@ export default function HomeScreen() {
           <HomeSkeleton />
         ) : (
           <View>
-            {/* Hide the social-round CTA when the user already has an actionable
-                round to look at (mid-round or scheduled within 24h). The
-                bottom sheet is still reachable from the FAB / nav. */}
-            {!home.inProgressRounds.length && !home.upcomingWithin24h ? (
-              <FeatureButton
-                title="Score Social Round"
-                subtitle="Start scoring a round at any course"
-                icon={
-                  <IconPlus size={24} color={colors.white} strokeWidth={2.5} />
-                }
-                onPress={openCreateRound}
-                accessibilityLabel="Score new round"
-              />
-            ) : null}
+            <FeatureButton
+              title="Score Social Round"
+              subtitle="Start scoring a round at any course"
+              icon={<IconPlus size={24} color={colors.white} strokeWidth={2.5} />}
+              onPress={openCreateRound}
+              accessibilityLabel="Score new round"
+            />
 
             <View style={styles.body}>
               {!home.gettingStarted.allCompleted ? (
@@ -207,6 +226,7 @@ export default function HomeScreen() {
                     rounds={home.inProgressRounds}
                     onScoreRound={handleScoreRound}
                     onViewRound={handleViewRound}
+                    onDeleteRound={handleDeleteInProgressRound}
                     roundDisplayNumbers={roundDisplayNumbers}
                   />
                 </View>
@@ -375,6 +395,20 @@ export default function HomeScreen() {
         onClose={closeCreateRound}
         onStartRound={handleStartNewRound}
         onScheduleRound={handleScheduleRound}
+      />
+
+      <DeleteRoundDialog
+        visible={deleteDialogVisible}
+        round={roundToDelete}
+        isCancel={pendingDeleteIsCancel}
+        loading={isDeleting}
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCancelDelete}
+      />
+
+      <ConfirmationDialog
+        {...deleteErrorDialogConfig}
+        onCancel={dismissDeleteErrorDialog}
       />
 
       <ConfirmationDialog
