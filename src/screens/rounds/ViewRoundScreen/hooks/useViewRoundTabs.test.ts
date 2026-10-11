@@ -53,3 +53,38 @@ describe('useViewRoundTabs — alt-shot hides Contributions', () => {
     expect(keys).toContain('scrambleContributions');
   });
 });
+
+describe('useViewRoundTabs — Groups tab visibility', () => {
+  const keysFor = (over: Record<string, unknown>) =>
+    renderHook(() =>
+      useViewRoundTabs({
+        ...base,
+        isTeamRound: false,
+        isSplitRound: false,
+        isScrambleRound: false,
+        isAltShotSplitRound: false,
+        isAltShotRound: false,
+        teamCount: 0,
+        ...over,
+      } as never)
+    ).result.current.map((t: { key: string }) => t.key);
+
+  it('hides Groups for a 2-player match play round', () => {
+    expect(keysFor({ isMatchPlayRound: true, playerCount: 2 })).not.toContain('subMatches');
+  });
+  it('shows Groups for a 4-player match play round', () => {
+    expect(keysFor({ isMatchPlayRound: true, playerCount: 4 })).toContain('subMatches');
+  });
+  it('shows Groups for a 6-player stroke play round', () => {
+    expect(keysFor({ isStrokePlayRound: true, playerCount: 6 })).toContain('subMatches');
+  });
+  it('hides Groups for a 3-player stroke play round', () => {
+    expect(keysFor({ isStrokePlayRound: true, playerCount: 3 })).not.toContain('subMatches');
+  });
+  it('still shows Groups for a split round regardless of player count', () => {
+    expect(keysFor({ isSplitRound: true, isTeamRound: true, playerCount: 2 })).toContain('subMatches');
+  });
+  it('still shows Groups for a team round with 2+ teams', () => {
+    expect(keysFor({ isTeamRound: true, teamCount: 2, playerCount: 2 })).toContain('subMatches');
+  });
+});
