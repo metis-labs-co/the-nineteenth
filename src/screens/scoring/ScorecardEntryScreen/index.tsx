@@ -525,10 +525,11 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
   });
   const { wrapCancel: wrapEndEarlyCancel } = useOpenEndRoundEarlyOnArrival({
     requested: openEndRoundEarly === true,
-    ready: isInitialized && currentRoundId === roundId && !isLoading && roundDetails != null,
+    ready: isInitialized && currentRoundId === roundId && currentPlayers.length > 0 && !isLoading && roundDetails != null,
     canEndRoundEarly: endEarly.canEndRoundEarly,
     isEnded: endEarly.isEnded,
     open: endEarly.open,
+    sheetVisible: endEarly.sheetProps.visible,
     onUnavailable: () =>
       showToast({ variant: 'info', title: END_EARLY_UNAVAILABLE_TITLE, message: END_EARLY_UNAVAILABLE_MESSAGE }),
     goBack: () => navigation.goBack(),
