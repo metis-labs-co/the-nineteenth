@@ -298,6 +298,7 @@ export function useViewRoundScreen({ route, navigation }: Props) {
     // Handlers
     handleBack: handlers.handleBack,
     handleScoreRound: handlers.handleScoreRound,
+    handleEndRoundEarlyPress: handlers.handleEndRoundEarlyPress,
     handleSettingsPress: handlers.handleSettingsPress,
     handleCourseSelectPress: handlers.handleCourseSelectPress,
     handleCourseSelect: handlers.handleCourseSelect,

@@ -24,6 +24,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
+import {
+  useOpenEndRoundEarlyOnArrival,
+  END_EARLY_UNAVAILABLE_TITLE,
+  END_EARLY_UNAVAILABLE_MESSAGE,
+} from '@/hooks/scorecard/useOpenEndRoundEarlyOnArrival';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { useIsSuperAdmin } from '@/store/subscriptionStore';
 import { useMatchPlayData, useMatchPlayScoring, useOfflineSync, useEndRoundEarly, usePlayedHoleRange, useLiveScorecardMerge, useSubmittedElsewhereRedirect } from '@/hooks/scorecard';
@@ -49,7 +54,7 @@ import { buildSinglesSubMatchResult } from './utils/subMatchResult';
 type Props = RootStackScreenProps<'MatchPlayScoring'>;
 
 export default function MatchPlayScoringScreen({ navigation, route }: Props) {
-  const { roundId, player1Id, player2Id, team1Id, team2Id, initialHole, competitionId } = route.params;
+  const { roundId, player1Id, player2Id, team1Id, team2Id, initialHole, competitionId, openEndRoundEarly } = route.params;
   useLiveScorecardMerge(roundId);
   useSubmittedElsewhereRedirect(roundId, competitionId ?? null);
   const colors = useThemeColors();
@@ -65,12 +70,12 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
   // Online status (header sync indicator; the sub-match result write)
   const isOnline = useOnlineStatus();
 
-  const { handicapSource, selectedTeeData: storeTeeData, playerTeeMap, startHole, currentPlayers } = useScorecardStore();
+  const { handicapSource, selectedTeeData: storeTeeData, playerTeeMap, startHole, currentPlayers, currentRoundId } = useScorecardStore();
 
   // Change-tees permission gate + state. Round owner (standalone) /
   // competition organizer / super admin may switch a player's tee.
   const { user } = useAuth();
-  const { showErrorToast } = useToast();
+  const { showErrorToast, showToast } = useToast();
   const isSuperAdmin = useIsSuperAdmin();
   const isStandalone = !competitionId || competitionId === 'standalone';
   const { data: roundDetails } = useRoundDetails(roundId);
@@ -541,6 +546,17 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
     getMatchContext: getEndEarlyMatchContext,
     onEnded: handleRoundEndedEarly,
   });
+  const { wrapCancel: wrapEndEarlyCancel } = useOpenEndRoundEarlyOnArrival({
+    requested: openEndRoundEarly === true,
+    ready: isInitialized && currentRoundId === roundId && !isLoading && roundDetails != null,
+    canEndRoundEarly: endEarly.canEndRoundEarly,
+    isEnded: endEarly.isEnded,
+    open: endEarly.open,
+    onUnavailable: () =>
+      showToast({ variant: 'info', title: END_EARLY_UNAVAILABLE_TITLE, message: END_EARLY_UNAVAILABLE_MESSAGE }),
+    goBack: () => navigation.goBack(),
+    onHandled: () => navigation.setParams({ openEndRoundEarly: undefined }),
+  });
 
   // Get hole result display
   const getHoleResultDisplay = useCallback((result: HoleResult | undefined): { text: string; color: string } | null => {
@@ -839,7 +855,10 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
         availableTees={availableTees}
       />
 
-      <EndRoundEarlySheet {...endEarly.sheetProps} />
+      <EndRoundEarlySheet
+        {...endEarly.sheetProps}
+        onCancel={wrapEndEarlyCancel(endEarly.sheetProps.onCancel)}
+      />
     </SafeAreaView>
   );
 }

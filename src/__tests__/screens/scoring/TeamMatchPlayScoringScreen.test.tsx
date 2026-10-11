@@ -95,7 +95,10 @@ jest.mock('@/hooks/scorecard', () => ({
 }));
 jest.mock('@/store/subscriptionStore', () => ({ useIsSuperAdmin: () => false }));
 jest.mock('@/context/ThemeContext', () => ({ useThemeColors: () => ({}), useIsDark: () => false }));
-jest.mock('@/context/ToastContext', () => ({ useToast: () => ({ showErrorToast: jest.fn() }) }));
+const mockShowToast = jest.fn();
+jest.mock('@/context/ToastContext', () => ({
+  useToast: () => ({ showErrorToast: jest.fn(), showToast: mockShowToast }),
+}));
 jest.mock('@/components/skins', () => ({ SkinsIndicator: () => null }));
 jest.mock('@/components/wolf', () => ({ WolfIndicator: () => null }));
 jest.mock('@/components/scorecard/HoleHeader/DistanceToPin', () => ({ DistanceToPin: () => null }));
@@ -140,7 +143,7 @@ jest.mock('@/screens/scoring/TeamMatchPlayScoringScreen/hooks', () => ({
 jest.mock('@/hooks/rounds/mutations', () => ({ useDeleteRound: () => ({}) }));
 
 const props = {
-  navigation: { goBack: jest.fn(), navigate: jest.fn() },
+  navigation: { goBack: jest.fn(), navigate: jest.fn(), setParams: jest.fn() },
   route: { params: { roundId: 'round-team' } },
 } as unknown as RootStackScreenProps<'MatchPlayScoring'>;
 
@@ -347,5 +350,56 @@ describe('TeamMatchPlayScoringScreen round-shape boundary', () => {
     expect(args[9]).toBe('back9');
     expect(args[10]).toBeUndefined();
     expect(args[11]).toBe(6);
+  });
+});
+
+describe('TeamMatchPlayScoringScreen openEndRoundEarly shortcut', () => {
+  const shortcutProps = {
+    ...props,
+    route: { params: { roundId: 'round-team', openEndRoundEarly: true } },
+  } as unknown as RootStackScreenProps<'MatchPlayScoring'>;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockStore.currentRoundId = 'round-team';
+    mockStore.isInitialized = true;
+    mockStore.holesPlayed = null;
+    mockRound.holes_played = null;
+    mockRoundLoading = false;
+    mockHasRound = true;
+    mockRound.competition_id = null;
+    mockRound.scoring_pairs_required = false;
+  });
+
+  it('opens the end-early sheet once ready, clears the param, and goes back on cancel', () => {
+    const view = render(<TeamMatchPlayScoringScreen {...shortcutProps} />);
+    expect(view.getByLabelText('Keep playing')).toBeTruthy();
+    expect(props.navigation.setParams).toHaveBeenCalledWith({ openEndRoundEarly: undefined });
+    view.rerender(<TeamMatchPlayScoringScreen {...shortcutProps} />);
+    expect(props.navigation.setParams).toHaveBeenCalledTimes(1);
+    fireEvent.press(view.getByLabelText('Keep playing'));
+    expect(props.navigation.goBack).toHaveBeenCalledTimes(1);
+  });
+
+  it('waits until the store holds this round', () => {
+    mockStore.currentRoundId = 'other-round';
+    const view = render(<TeamMatchPlayScoringScreen {...shortcutProps} />);
+    expect(view.queryByLabelText('Keep playing')).toBeNull();
+    expect(mockShowToast).not.toHaveBeenCalled();
+    mockStore.currentRoundId = 'round-team';
+    view.rerender(<TeamMatchPlayScoringScreen {...shortcutProps} />);
+    expect(view.getByLabelText('Keep playing')).toBeTruthy();
+  });
+
+  it('shows the info toast and goes back when the round cannot be ended', () => {
+    mockRound.competition_id = 'competition';
+    const view = render(<TeamMatchPlayScoringScreen {...shortcutProps} />);
+    expect(view.queryByLabelText('Keep playing')).toBeNull();
+    expect(mockShowToast).toHaveBeenCalledWith({
+      variant: 'info',
+      title: "Can't end this round yet",
+      message: 'Every player needs a completed hole, and this phone must be scoring all players.',
+    });
+    expect(props.navigation.goBack).toHaveBeenCalledTimes(1);
   });
 });

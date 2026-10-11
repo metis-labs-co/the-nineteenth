@@ -89,7 +89,13 @@ export type RootStackParamList = {
   SubMatchDetail: { subMatchId: string; roundId: string; competitionId?: string }; // Sub-match details + skins setup
 
   // Scorecard
-  Scorecard: { roundId: string; competitionId: string; isBuildAsYouPlay?: boolean };
+  Scorecard: {
+    roundId: string;
+    competitionId: string;
+    isBuildAsYouPlay?: boolean;
+    /** Open the end-round-early sheet on arrival (round details shortcut). */
+    openEndRoundEarly?: boolean;
+  };
   ReviewScorecard: {
     roundId?: string;
     competitionId?: string;
@@ -223,6 +229,8 @@ export type RootStackParamList = {
     team2Id?: string;
     initialHole?: number; // Starting hole number (1-18)
     competitionId?: string;
+    /** Open the end-round-early sheet on arrival (round details shortcut). */
+    openEndRoundEarly?: boolean;
   };
 
   // Team Match Play Scoring
@@ -230,6 +238,8 @@ export type RootStackParamList = {
     roundId: string;
     team1Id?: string;
     team2Id?: string;
+    /** Open the end-round-early sheet on arrival (round details shortcut). */
+    openEndRoundEarly?: boolean;
   };
 
   // Match Play Scorecard (full 18-hole view)

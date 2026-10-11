@@ -25,6 +25,7 @@ import { PageHeader } from '@/components/common/PageHeader';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { ErrorState } from '@/components/common/ErrorState';
 import { Tabs } from '@/components/common/Tabs';
+import { isEndedEarly } from '@/utils/roundShape';
 import {
   RoundDetailsTab,
   RoundScorecardTab,
@@ -278,6 +279,19 @@ export default function ViewRoundScreen(props: Props) {
               {round.status === 'in-progress' ? 'Continue Scoring' : 'Score Round'}
             </Text>
           </TouchableOpacity>
+          {round.competition_id == null && round.status === 'in-progress' && !isEndedEarly(round) && (
+            <TouchableOpacity
+              style={[styles.endEarlyButton, { borderColor: colors.primary }]}
+              onPress={vm.handleEndRoundEarlyPress}
+              activeOpacity={0.8}
+              accessibilityLabel="End round early"
+              accessibilityRole="button"
+            >
+              <Text style={[styles.scoreButtonText, { color: colors.primary }]}>
+                End round early
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
       )}
 
@@ -671,6 +685,15 @@ const styles = StyleSheet.create({
     height: 48,
     gap: spacing.sm,
     borderWidth: 1.5,
+  },
+  endEarlyButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: borderRadius.lg,
+    minHeight: 48,
+    marginTop: spacing.sm,
+    borderWidth: 1.5,
+    backgroundColor: 'transparent',
   },
   scoreButtonText: {
     ...typography.bodyBold,

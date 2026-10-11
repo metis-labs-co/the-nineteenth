@@ -119,6 +119,68 @@ describe('ordinary header compatibility', () => {
   });
 });
 
+describe('useViewRoundHandlers — scoring routes', () => {
+  function handlers(overrides: Partial<Parameters<typeof useViewRoundHandlers>[0]> = {}) {
+    const navigate = jest.fn();
+    const noop = jest.fn();
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <QueryClientProvider client={new QueryClient()}>{children}</QueryClientProvider>
+    );
+    const { result } = renderHook(
+      () =>
+        useViewRoundHandlers({
+          roundId: 'round-1',
+          navigation: { navigate } as unknown as NativeStackNavigationProp<RootStackParamList, 'ViewRound'>,
+          isStandalone: true,
+          isMatchPlayRound: false,
+          isTeamMatchPlayRound: false,
+          hasSkinsGame: false,
+          hasWolfGame: false,
+          round: makeRound({ status: 'in-progress', team1_id: 't1', team2_id: 't2' } as Partial<RoundWithCourse>),
+          scorecards: [],
+          roundPlayers: [],
+          refetchRound: noop,
+          refetchScorecards: noop,
+          refetchPlayers: noop,
+          refetchMatchPlay: noop,
+          refetchSkinsResults: noop,
+          refetchSkinsGame: noop,
+          refetchWolfSummary: noop,
+          setShowCourseModal: noop,
+          setCourseSearchQuery: noop,
+          setShowTagLeagueSheet: noop,
+          ...overrides,
+        }),
+      { wrapper }
+    );
+    return { result, navigate };
+  }
+
+  it('keeps handleScoreRound params unchanged (no openEndRoundEarly)', () => {
+    const { result, navigate } = handlers();
+    result.current.handleScoreRound();
+    expect(navigate).toHaveBeenCalledWith('Scorecard', { roundId: 'round-1', competitionId: 'standalone' });
+  });
+
+  it.each([
+    ['Scorecard', {}, { roundId: 'round-1', competitionId: 'standalone' }],
+    [
+      'MatchPlayScoring',
+      { isMatchPlayRound: true },
+      { roundId: 'round-1', player1Id: undefined, player2Id: undefined },
+    ],
+    [
+      'TeamMatchPlayScoring',
+      { isTeamMatchPlayRound: true },
+      { roundId: 'round-1', team1Id: 't1', team2Id: 't2' },
+    ],
+  ])('handleEndRoundEarlyPress routes to %s with openEndRoundEarly', (screenName, overrides, params) => {
+    const { result, navigate } = handlers(overrides);
+    result.current.handleEndRoundEarlyPress();
+    expect(navigate).toHaveBeenCalledWith(screenName, { ...params, openEndRoundEarly: true });
+  });
+});
+
 describe('ended solo round header title', () => {
   it.each(['profile', 'calculated', 'none', null, undefined] as const)(
     'titles valid ended source %s Practice',
