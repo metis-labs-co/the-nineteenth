@@ -6,7 +6,7 @@ import { deleteScorecardsByRound, removePendingSyncByEntityKey } from '@/service
 jest.mock('@react-navigation/native', () => ({ useFocusEffect: jest.fn() }));
 jest.mock('@/services/supabase/client', () => {
   const channel = { on: jest.fn().mockReturnThis(), subscribe: jest.fn().mockReturnThis(), send: jest.fn() };
-  return { supabase: { channel: jest.fn(() => channel), removeChannel: jest.fn() } };
+  return { supabase: { channel: jest.fn(() => channel), removeChannel: jest.fn(), auth: { getSession: jest.fn() } } };
 });
 jest.mock('@/services/rounds/roundRoster', () => ({ fetchRoundRoster: jest.fn() }));
 jest.mock('@/services/offline/database', () => ({
@@ -33,7 +33,15 @@ const player = (id: string) => ({ id, name: id });
 const fetchMock = fetchRoundRoster as jest.Mock;
 const args = { roundId: 'r', enabled: true, isOnline: true, currentUserId: 'me', onExit: jest.fn() };
 
-beforeEach(() => jest.clearAllMocks());
+const { supabase } = jest.requireMock('@/services/supabase/client');
+const sessionMock = supabase.auth.getSession as jest.Mock;
+const removedSnapshot = { round: { id: 'r', userId: 'owner', deletedAt: null }, players: [player('owner'), player('b')] };
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  args.onExit = jest.fn();
+  sessionMock.mockResolvedValue({ data: { session: { user: { id: 'me' } } } });
+});
 
 it('removes a player the server no longer has', async () => {
   fetchMock.mockResolvedValue({ round: { id: 'r', userId: 'owner', deletedAt: null }, players: [player('owner'), player('me')] });
@@ -70,4 +78,30 @@ it('ignores fetch errors', async () => {
   await act(() => result.current.refresh());
   expect(mockState.removePlayerFromRound).not.toHaveBeenCalled();
   expect(args.onExit).not.toHaveBeenCalled();
+  expect(deleteScorecardsByRound).not.toHaveBeenCalled();
+});
+
+it('deduplicates overlapping refreshes that exit', async () => {
+  fetchMock.mockResolvedValue(removedSnapshot);
+  const { result } = renderHook(() => useRoundRosterSync(args));
+  await act(async () => { await Promise.all([result.current.refresh(), result.current.refresh()]); });
+  expect(deleteScorecardsByRound).toHaveBeenCalledTimes(1);
+  expect(args.onExit).toHaveBeenCalledTimes(1);
+});
+
+it('does not exit on exit_unavailable without a matching session', async () => {
+  fetchMock.mockResolvedValue({ round: null, players: [] });
+  sessionMock.mockResolvedValue({ data: { session: null } });
+  const { result } = renderHook(() => useRoundRosterSync(args));
+  await act(() => result.current.refresh());
+  expect(deleteScorecardsByRound).not.toHaveBeenCalled();
+  expect(args.onExit).not.toHaveBeenCalled();
+});
+
+it('exits on exit_unavailable with a matching session', async () => {
+  fetchMock.mockResolvedValue({ round: null, players: [] });
+  const { result } = renderHook(() => useRoundRosterSync(args));
+  await act(() => result.current.refresh());
+  expect(deleteScorecardsByRound).toHaveBeenCalledWith('r');
+  expect(args.onExit).toHaveBeenCalledWith('This round is no longer available');
 });

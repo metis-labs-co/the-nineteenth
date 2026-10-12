@@ -44,8 +44,12 @@ export function useRoundRosterSync({ roundId, enabled, isOnline, currentUserId, 
     editSeq.current += 1;
   }, []);
 
-  const refresh = useCallback(async () => {
-    if (!enabled || !currentUserId) return;
+  const exited = useRef(false);
+  const inFlight = useRef<Promise<void> | null>(null);
+  const rerun = useRef(false);
+
+  const runOnce = useCallback(async () => {
+    if (!enabled || !currentUserId || exited.current) return;
     const startedAt = editSeq.current;
     let snapshot;
     try {
@@ -61,9 +65,26 @@ export function useRoundRosterSync({ roundId, enabled, isOnline, currentUserId, 
 
     if (decision.kind === 'ignore') return;
 
+    if (decision.kind !== 'apply') {
+      // A null round is also what a lost session reads as under RLS: confirm identity first.
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (data.session?.user?.id !== currentUserId) return;
+      } catch {
+        return;
+      }
+      if (editSeq.current !== startedAt) return;
+    }
+
+    const stillValid = () =>
+      !exited.current &&
+      editSeq.current === startedAt &&
+      useScorecardStore.getState().currentRoundId === roundId;
+
     if (decision.kind === 'apply') {
       if (!decision.added.length && !decision.removed.length) return;
       await withRoundScoringWrite(roundId, async () => {
+        if (!stillValid()) return;
         for (const removed of decision.removed) {
           const card = useScorecardStore.getState().groupScorecards.get(removed.id);
           if (card) cancelPendingScorecardSync(card.id);
@@ -78,16 +99,40 @@ export function useRoundRosterSync({ roundId, enabled, isOnline, currentUserId, 
       return;
     }
 
+    let proceed = false;
     await withRoundScoringWrite(roundId, async () => {
+      if (!stillValid()) return;
+      proceed = true;
+      exited.current = true;
       for (const card of useScorecardStore.getState().groupScorecards.values()) {
         cancelPendingScorecardSync(card.id);
       }
       await deleteScorecardsByRound(roundId);
     });
+    if (!proceed) return;
     await activeRoundSession.clear();
     useScorecardStore.getState().resetRound();
     onExitRef.current(EXIT_MESSAGES[decision.kind]);
   }, [enabled, currentUserId, roundId, showToast]);
+
+  const refresh = useCallback((): Promise<void> => {
+    if (inFlight.current) {
+      rerun.current = true;
+      return inFlight.current;
+    }
+    const run = (async () => {
+      try {
+        do {
+          rerun.current = false;
+          await runOnce();
+        } while (rerun.current && !exited.current);
+      } finally {
+        inFlight.current = null;
+      }
+    })();
+    inFlight.current = run;
+    return run;
+  }, [runOnce]);
 
   const refreshRef = useRef(refresh);
   refreshRef.current = refresh;
