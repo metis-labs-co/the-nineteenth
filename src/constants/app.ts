@@ -138,7 +138,7 @@ export const FAQ_DATA: FAQItem[] = [
     id: '15',
     question: 'Can I change a round while I\'m playing it?',
     answer:
-      'Yes, if you started the round. In score entry tap the ⋮ menu and choose Round options to switch between full 18, front 9 and back 9, add or remove players, change tees, end the round early or delete it. Adding and removing players works for Stableford, Stroke Play and Par rounds without Skins, Wolf or scoring pairs. Removing a player deletes their scores for that round. These changes need an internet connection; anyone else scoring the round sees them automatically.',
+      'Yes, if you started the round. In score entry tap the ⋮ menu and choose Round options to switch between full 18, front 9 and back 9, add or remove players, change tees, end the round early or delete it. Adding and removing players works for Stableford, Stroke Play and Par rounds without Skins, Wolf or scoring pairs. Removing a player deletes their scores for that round. Apart from ending the round early, these changes need an internet connection; anyone else scoring the round sees them automatically.',
     category: 'scoring',
   },
   {
