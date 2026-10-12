@@ -38,6 +38,7 @@ import { useScorecardStore } from '@/store/scorecardStore';
 import { flushPendingScorecardSyncs } from '@/store/scorecardSyncDebounce';
 import { getDb } from '@/services/offline/DatabaseManager';
 import type { Scorecard, PendingSync } from '@/types';
+import { notifyRoundAccessLost } from '@/services/rounds/roundAccessEvents';
 import { syncScorecard, ScorecardConflictError } from '@/services/offline/sync/scorecardSync';
 import { finalizeSubmittedRound, RoundNotReadyError } from '@/services/rounds/finalizeSubmittedRound';
 import { registerSyncDrainHandler } from '@/services/offline/sync/drain';
@@ -57,6 +58,7 @@ jest.mock('@/services/rounds/applyEndRoundEarly', () => ({
 }));
 
 // Mock the database module
+jest.mock('@/services/rounds/roundAccessEvents');
 jest.mock('@/services/offline/DatabaseManager', () => ({ getDb: jest.fn() }));
 jest.mock('@/services/offline/database', () => ({
   saveScorecard: jest.fn(), saveHoleScore: jest.fn(),
@@ -1414,6 +1416,36 @@ describe('Retained failure recovery', () => {
 
     expect(database.raisePendingSyncServerRevision).toHaveBeenCalledWith(55, 9, expect.objectContaining({ scorecardId: pendingSync.data.id, isCurrent: expect.any(Function) }));
     expect(database.markPendingSyncFailed).toHaveBeenCalledWith(55, 1, expect.any(String), expect.objectContaining({ isCurrent: expect.any(Function), expectedRecovery: expect.objectContaining({ id: 55 }) }));
+  });
+
+  it('signals round access lost when a queued scorecard conflicts', async () => {
+    const pendingSync = createPendingSync({
+      id: 57,
+      data: createTestScorecard({ serverRevision: 2 }),
+    });
+    (database.getPendingSyncs as jest.Mock).mockResolvedValue([pendingSync]);
+    (supabase.rpc as jest.Mock).mockResolvedValueOnce(conflictResponse(9));
+
+    await syncAll();
+
+    expect(notifyRoundAccessLost).toHaveBeenCalledWith(pendingSync.data.roundId);
+  });
+
+  it('signals round access lost when a queued scorecard hits an RLS error', async () => {
+    const pendingSync = createPendingSync({
+      id: 58,
+      data: createTestScorecard({ serverRevision: 2 }),
+    });
+    (database.getPendingSyncs as jest.Mock).mockResolvedValue([pendingSync]);
+    (supabase.rpc as jest.Mock).mockResolvedValueOnce({
+      data: null,
+      error: { message: 'new row violates row-level security policy for table "scorecards"', code: '42501' },
+    });
+
+    await syncAll();
+
+    expect(database.markPendingSyncFailed).toHaveBeenCalledWith(58, 1, expect.any(String), expect.anything());
+    expect(notifyRoundAccessLost).toHaveBeenCalledWith(pendingSync.data.roundId);
   });
 
   it('does not overwrite the server during an automatic background drain', async () => {

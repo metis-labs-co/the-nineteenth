@@ -59,6 +59,7 @@ import { withRoundScoringWrite, getRoundEndPrerequisite } from '@/services/round
 import { fetchRoundScoringShape } from '@/services/rounds/roundScoringShape';
 import { pendingSyncRecoveryVersion, roundEndIntentRoundId, capturePendingEndIntentSnapshot } from '../dao/pendingSyncRecovery';
 import { roundKeys, skinsKeys } from '@/hooks/queryKeys';
+import { notifyRoundAccessLost } from '@/services/rounds/roundAccessEvents';
 
 function scoringStore() {
   // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires -- scoring store imports the sync barrel
@@ -350,6 +351,7 @@ export async function syncAll(options: SyncAllOptions = {}): Promise<boolean> {
           // so the next explicit retry starts from a winnable expectation.
           await refreshQueuedRevision(sync, error, selection);
           await markPendingSyncFailed(sync.id!, sync.revision ?? 1, errorMessage, ...recoveryGuard);
+          if (sync.type === 'scorecard' && sync.data?.roundId) notifyRoundAccessLost(sync.data.roundId);
           failCount++;
           conflictCount++;
           return;
@@ -372,6 +374,7 @@ export async function syncAll(options: SyncAllOptions = {}): Promise<boolean> {
             playerId: sync.data?.playerId?.substring(0, 8) + '...',
           });
           await markPendingSyncFailed(sync.id!, sync.revision ?? 1, errorMessage, ...recoveryGuard);
+          if (sync.type === 'scorecard' && sync.data?.roundId) notifyRoundAccessLost(sync.data.roundId);
           failCount++;
           return;
         }
