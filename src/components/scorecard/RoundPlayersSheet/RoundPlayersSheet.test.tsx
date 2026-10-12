@@ -1,6 +1,6 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react-native';
 import { RoundPlayersSheet } from './RoundPlayersSheet';
-import { removePlayerFromRound, RoundRosterError } from '@/services/rounds/roundRoster';
+import { addPlayerToRound, removePlayerFromRound, RoundRosterError } from '@/services/rounds/roundRoster';
 
 jest.mock('@/services/rounds/roundRoster', () => {
   class RoundRosterError extends Error {
@@ -21,7 +21,24 @@ jest.mock('./useAddablePlayers', () => ({
     setSearchQuery: jest.fn(),
   }),
 }));
-jest.mock('@/components/common/AddPlaceholderModal', () => ({ AddPlaceholderModal: () => null }));
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let mockPicker: any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let mockGuestModal: any;
+jest.mock('@/screens/rounds/CreateRoundBottomSheet/steps/FriendSelectorBottomSheet', () => ({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  FriendSelectorBottomSheet: (p: any) => {
+    mockPicker = p;
+    return null;
+  },
+}));
+jest.mock('@/components/common/AddPlaceholderModal', () => ({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  AddPlaceholderModal: (p: any) => {
+    mockGuestModal = p;
+    return null;
+  },
+}));
 const mockShowToast = jest.fn();
 jest.mock('@/context/ToastContext', () => ({ useToast: () => ({ showToast: mockShowToast }) }));
 
@@ -82,4 +99,64 @@ it('hides Add player when the round is full', () => {
   const four = ['owner', 'b', 'c', 'd'].map((id) => ({ id, name: id })) as never[];
   render(<RoundPlayersSheet {...props} players={four} />);
   expect(screen.queryByText('Add player')).toBeNull();
+});
+
+describe('add flow', () => {
+  const alice = { id: 'a', name: 'Alice' };
+  const cara = { id: 'c', name: 'Cara' };
+
+  beforeEach(() => {
+    (addPlayerToRound as jest.Mock).mockResolvedValue({});
+  });
+
+  it('adds each selected player when the picker closes, notifying once', async () => {
+    render(<RoundPlayersSheet {...props} />);
+    act(() => mockPicker.onSelectionChange([alice, cara]));
+    await act(async () => mockPicker.onClose());
+    expect(addPlayerToRound).toHaveBeenCalledTimes(2);
+    expect(addPlayerToRound).toHaveBeenCalledWith('r', 'a');
+    expect(addPlayerToRound).toHaveBeenCalledWith('r', 'c');
+    expect(props.onRosterChanged).toHaveBeenCalledTimes(1);
+  });
+
+  it('makes no add call when closed with an empty selection', async () => {
+    render(<RoundPlayersSheet {...props} />);
+    await act(async () => mockPicker.onClose());
+    expect(addPlayerToRound).not.toHaveBeenCalled();
+    expect(props.onRosterChanged).not.toHaveBeenCalled();
+  });
+
+  it('toasts the failed player and still reports the successful add', async () => {
+    (addPlayerToRound as jest.Mock)
+      .mockRejectedValueOnce(new RoundRosterError('Round is full'))
+      .mockResolvedValueOnce({});
+    render(<RoundPlayersSheet {...props} />);
+    act(() => mockPicker.onSelectionChange([alice, cara]));
+    await act(async () => mockPicker.onClose());
+    expect(mockShowToast).toHaveBeenCalledWith(
+      expect.objectContaining({ variant: 'error', title: "Couldn't add Alice", message: 'Round is full' }),
+    );
+    expect(props.onRosterChanged).toHaveBeenCalledTimes(1);
+  });
+
+  it('adds a newly created guest exactly once', async () => {
+    render(<RoundPlayersSheet {...props} />);
+    act(() => mockPicker.onAddPlaceholderPress());
+    act(() => mockGuestModal.onPlayerCreated({ id: 'g', name: 'Guest', handicap: 20 }));
+    await act(async () => mockPicker.onClose());
+    expect(addPlayerToRound).toHaveBeenCalledTimes(1);
+    expect(addPlayerToRound).toHaveBeenCalledWith('r', 'g');
+  });
+
+  it('ignores a second close while the first commit is in flight', async () => {
+    render(<RoundPlayersSheet {...props} />);
+    act(() => mockPicker.onSelectionChange([alice, cara]));
+    const closePicker = mockPicker.onClose;
+    await act(async () => {
+      closePicker();
+      closePicker();
+    });
+    expect(addPlayerToRound).toHaveBeenCalledTimes(2);
+    expect(props.onRosterChanged).toHaveBeenCalledTimes(1);
+  });
 });

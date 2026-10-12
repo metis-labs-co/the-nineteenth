@@ -3,7 +3,7 @@
  * Server first via roundRoster; the store updates inside those calls.
  */
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Icon, ActivityIndicator } from 'react-native-paper';
 import { BottomSheet } from '@/components/common/BottomSheet';
@@ -54,6 +54,8 @@ function RoundPlayersContent({
   const [pickerVisible, setPickerVisible] = useState(false);
   const [guestModalVisible, setGuestModalVisible] = useState(false);
   const [pending, setPending] = useState<SelectedPlayer[]>([]);
+  // Ref (not state) so a second close in the same frame sees the guard immediately.
+  const committingRef = useRef(false);
 
   const maxPlayers = getStandaloneMaxPlayers(gameType);
   const slots = Math.max(0, maxPlayers - players.length);
@@ -79,25 +81,31 @@ function RoundPlayersContent({
   }, [confirmRemove, roundId, onRosterChanged, showToast]);
 
   const addPending = useCallback(async () => {
+    if (committingRef.current) return;
     const toAdd = pending;
     setPending([]);
     setPickerVisible(false);
     if (!toAdd.length) return;
+    committingRef.current = true;
     setBusy(true);
     let added = 0;
-    for (const player of toAdd) {
-      try {
-        await addPlayerToRound(roundId, player.id);
-        added += 1;
-      } catch (error) {
-        showToast({
-          variant: 'error',
-          title: `Couldn't add ${player.name}`,
-          message: errorMessage(error),
-        });
+    try {
+      for (const player of toAdd) {
+        try {
+          await addPlayerToRound(roundId, player.id);
+          added += 1;
+        } catch (error) {
+          showToast({
+            variant: 'error',
+            title: `Couldn't add ${player.name}`,
+            message: errorMessage(error),
+          });
+        }
       }
+    } finally {
+      committingRef.current = false;
+      setBusy(false);
     }
-    setBusy(false);
     if (added) onRosterChanged();
   }, [pending, roundId, onRosterChanged, showToast]);
 
