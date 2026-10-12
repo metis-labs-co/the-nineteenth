@@ -133,7 +133,11 @@ describe('EditNineTypeSheet', () => {
     mockScorecards = [{ scores: { '10': { strokes: 5 }, '11': { strokes: 4 } } }];
     const { props, invalidate } = renderSheet();
     fireEvent.press(screen.getByTestId('edit-nine-type-option-front9'));
-    expect(screen.getByText(/Holes 10–11 have scores entered/)).toBeTruthy();
+    expect(
+      screen.getByText(
+        'Holes 10–11 have scores entered. Switching to Front 9 will remove those scores from this round.'
+      )
+    ).toBeTruthy();
     expectNoChange(invalidate);
     fireEvent.press(screen.getByText('Cancel'));
     expect(screen.queryByTestId('hide-scores-confirmation')).toBeNull();
@@ -145,7 +149,9 @@ describe('EditNineTypeSheet', () => {
     mockScorecards = [{ scores: { '10': { balls: [{ strokes: 5 }] } } }];
     const { props } = renderSheet();
     fireEvent.press(screen.getByTestId('edit-nine-type-option-front9'));
-    expect(screen.getByText(/Hole 10 has scores entered/)).toBeTruthy();
+    expect(
+      screen.getByText('Hole 10 has scores entered. Switching to Front 9 will remove those scores from this round.')
+    ).toBeTruthy();
     expect(mockUpdateRound).not.toHaveBeenCalled();
     fireEvent.press(screen.getByText('Switch to Front 9'));
     await waitFor(() => expect(props.onDismiss).toHaveBeenCalled());

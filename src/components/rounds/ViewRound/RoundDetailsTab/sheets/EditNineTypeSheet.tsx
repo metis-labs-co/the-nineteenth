@@ -7,10 +7,11 @@
  * simply stops surfacing the back nine afterwards. Switching front9 → full
  * exposes holes 10–18 again ready to be scored.
  *
- * When the new selection would hide holes that already have scores entered
+ * When the new selection would drop holes that already have scores entered
  * (e.g. switching to Front 9 after holes 10–13 have been played) we surface
  * a confirmation dialog so the user can back out before the change applies.
- * Scores aren't deleted — the dialog wording reflects that.
+ * Confirming removes those holes' scores from the round — the dialog wording
+ * says so.
  */
 
 import React, { useCallback, useMemo, useRef, useState } from 'react';
@@ -302,10 +303,10 @@ export function EditNineTypeSheet({
 
       <ConfirmationDialog
         visible={!!pendingChange}
-        title="Hide scored holes?"
+        title="Remove scored holes?"
         message={
           pendingChange
-            ? `Hole${pendingChange.hiddenHoles.length === 1 ? '' : 's'} ${formatHoleList(pendingChange.hiddenHoles)} ${pendingChange.hiddenHoles.length === 1 ? 'has' : 'have'} scores entered. Switching to ${NINE_TYPE_LABEL[pendingChange.nineType]} will hide ${pendingChange.hiddenHoles.length === 1 ? 'it' : 'them'} from this round's scorecard. Your scores stay saved and become visible again if you switch back.`
+            ? `Hole${pendingChange.hiddenHoles.length === 1 ? '' : 's'} ${formatHoleList(pendingChange.hiddenHoles)} ${pendingChange.hiddenHoles.length === 1 ? 'has' : 'have'} scores entered. Switching to ${NINE_TYPE_LABEL[pendingChange.nineType]} will remove those scores from this round.`
             : ''
         }
         confirmLabel={
