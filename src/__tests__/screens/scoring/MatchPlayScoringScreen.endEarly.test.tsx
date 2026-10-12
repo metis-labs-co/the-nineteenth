@@ -62,6 +62,9 @@ jest.mock('@/hooks/usePlayingHandicap', () => ({
   calculatePlayingHandicap: (args: any) => mockCalculateHandicap(args),
 }));
 jest.mock('@/hooks/competitions', () => ({ useCompetitionInfo: () => ({}) }));
+jest.mock('@/hooks/skins/queries', () => ({ useSkinsGamesByRound: () => ({ data: [] }) }));
+jest.mock('@/hooks/wolf/queries', () => ({ useWolfGameByRound: () => ({ data: null }) }));
+jest.mock('@/services/rounds/roundRosterChannel', () => ({ sendRoundEvent: jest.fn() }));
 jest.mock('@/hooks/rounds', () => ({
   useRoundDetails: () => ({ data: mockRound }),
   useTeams: () => ({}),
@@ -90,6 +93,7 @@ jest.mock('@/hooks/scorecard', () => ({
   useBuildAsYouPlay: () => ({ enabled: false }),
   useTeamScoring: () => ({}),
   useGroupFilter: () => ({ groupPlayers: mockPlayers }),
+  useRoundRosterSync: () => ({ refresh: jest.fn(), markLocalEdit: jest.fn() }),
   useRoundData: () => ({
     courseTees: [],
     teams: [],
