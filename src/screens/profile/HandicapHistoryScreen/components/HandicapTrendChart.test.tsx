@@ -1,5 +1,5 @@
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { render, fireEvent, act } from '@testing-library/react-native';
 import { LineChart } from 'react-native-gifted-charts';
 import { HandicapTrendChart } from './HandicapTrendChart';
 import type { HandicapRound } from '@/types';
@@ -23,6 +23,8 @@ beforeEach(() => {
 function makeRounds(n: number): HandicapRound[] {
   return Array.from({ length: n }, (_, i) => ({
     scorecardId: `s${i}`,
+    roundId: `r${i}`,
+    courseName: `Course ${i}`,
     roundDate: `2026-01-0${(i % 9) + 1}`,
     handicapDifferential: 10 + i,
     isQualifying: i % 2 === 0,
@@ -74,5 +76,24 @@ describe('HandicapTrendChart', () => {
     // The average line uses a different colour from the trend line.
     expect(typeof props.color2).toBe('string');
     expect(props.color2).not.toBe(props.color1);
+  });
+
+  it('opens the focused point\'s round via onRoundPress (full mode)', () => {
+    const onRoundPress = jest.fn();
+    const rounds = makeRounds(3);
+    const { getByLabelText, queryByLabelText } = render(
+      <HandicapTrendChart rounds={rounds} onRoundPress={onRoundPress} />,
+    );
+    expect(queryByLabelText(/View round/)).toBeNull();
+
+    // Rounds are newest-first; chart index 0 is the oldest (last) round.
+    act(() => lastLineChartProps().onFocus({}, 0));
+    fireEvent.press(getByLabelText(/View round at Course 2/));
+    expect(onRoundPress).toHaveBeenCalledWith(rounds[2]);
+  });
+
+  it('does not enable point focus in compact mode', () => {
+    render(<HandicapTrendChart rounds={makeRounds(5)} variant="compact" />);
+    expect(lastLineChartProps().focusEnabled).toBeUndefined();
   });
 });

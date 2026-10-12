@@ -65,6 +65,7 @@ export default function PlayerScorecardScreen({ navigation, route }: Props) {
     refetch,
     isReadOnly,
     startHole,
+    courseId,
     // Multi-ball support
     isMultiBall,
     ballCount,
@@ -101,6 +102,22 @@ export default function PlayerScorecardScreen({ navigation, route }: Props) {
     },
     [navigation, setCurrentHole]
   );
+
+  // Read-only: open the hole map in review mode (needs a linked course)
+  const handleViewHoleOnMap = useCallback(
+    (holeNumber: number) => {
+      if (!courseId || !roundId) return;
+      navigation.navigate('HoleMap', { courseId, holeNumber, roundId, mode: 'review' });
+    },
+    [navigation, courseId, roundId]
+  );
+
+  // Editable → back to score entry; read-only → hole map review (when a course exists)
+  const onHolePress = !isReadOnly
+    ? handleHolePress
+    : courseId && roundId
+      ? handleViewHoleOnMap
+      : undefined;
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
@@ -253,7 +270,7 @@ export default function PlayerScorecardScreen({ navigation, route }: Props) {
           // Stats visibility (Premium-only)
           showFIR={showFairwayHit}
           showGIR={showGreenInRegulation}
-          onHolePress={isReadOnly ? undefined : handleHolePress}
+          onHolePress={onHolePress}
           startHole={startHole}
         />
       </ScrollView>

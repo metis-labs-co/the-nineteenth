@@ -28,6 +28,11 @@ import { LayoutAnimation } from 'react-native';
 // MOCKS
 // =====================================================
 
+const mockOpenRound = jest.fn();
+jest.mock('@/navigation/openRound', () => ({
+  useOpenRound: () => mockOpenRound,
+}));
+
 // Mock icons - use require inside factory to avoid hoisting issues
 jest.mock('@tabler/icons-react-native', () => {
   const { View, Text } = require('react-native');
@@ -672,6 +677,29 @@ describe('TeamLeaderboardTable', () => {
         expect(breakdown.getByText('30')).toBeTruthy();
         expect(breakdown.getByText('20')).toBeTruthy();
       });
+    });
+
+    it('opens a breakdown round in ViewRound with the competition id', async () => {
+      mockOpenRound.mockClear();
+      const teams = [
+        createTeamEntry(
+          'team-1',
+          'Team Alpha',
+          15,
+          50,
+          [createTeamMember('p1', 'Alice', 12)],
+          [createRoundBreakdown('round-1', 'R1', 1, 30, 'Pebble Beach')]
+        ),
+      ];
+
+      render(<TeamLeaderboardTable leaderboard={teams} competitionId="comp-1" testID="leaderboard" />);
+      fireEvent.press(screen.getByText('Team Alpha'));
+
+      const row = await screen.findByTestId('leaderboard-round-team-1-round-1');
+      fireEvent.press(row);
+      expect(mockOpenRound).toHaveBeenCalledWith({ roundId: 'round-1', competitionId: 'comp-1' });
+      // Row press doesn't collapse the team
+      expect(screen.getByTestId('leaderboard-breakdown-team-1')).toBeTruthy();
     });
 
     it('shows "No rounds played yet" when the breakdown is empty', async () => {

@@ -3,12 +3,15 @@
  */
 
 import React, { useMemo } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { EmptyState } from '@/components/common';
 import type { PartnershipCourseBest } from '@/types/database';
+import type { RootStackParamList } from '@/navigation/types';
 
 interface PartnershipCourseBestsTabProps {
   courseBests: PartnershipCourseBest[];
@@ -24,6 +27,7 @@ export default function PartnershipCourseBestsTab({
   courseBests,
 }: PartnershipCourseBestsTabProps) {
   const colors = useThemeColors();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   // Group by course
   const grouped = useMemo((): GroupedCourse[] => {
@@ -55,9 +59,19 @@ export default function PartnershipCourseBestsTab({
           key={group.courseName}
           style={[styles.courseCard, { backgroundColor: colors.surface }, shadows.sm]}
         >
-          <Text style={[styles.courseTitle, { color: colors.textPrimary }]}>
-            {group.courseName}
-          </Text>
+          <TouchableOpacity
+            onPress={() => {
+              if (group.courseId) navigation.navigate('Course', { courseId: group.courseId });
+            }}
+            disabled={!group.courseId}
+            accessibilityRole={group.courseId ? 'button' : undefined}
+            accessibilityLabel={group.courseId ? `View ${group.courseName} details` : undefined}
+            testID={`course-bests-course-link-${group.courseName}`}
+          >
+            <Text style={[styles.courseTitle, { color: colors.textPrimary }]}>
+              {group.courseName}
+            </Text>
+          </TouchableOpacity>
 
           {/* Column headers */}
           <View style={styles.headerRow}>

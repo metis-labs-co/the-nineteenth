@@ -67,6 +67,7 @@ describe('useCourseStatistics — early-ended rounds', () => {
     expect(stats.timesPlayed).toBe(3);
     expect(stats.averageGrossScore).toBe(90);
     expect(stats.bestGrossScore).toBe(90);
+    expect(stats.bestRound).toMatchObject({ roundId: 'round-full', competitionId: null, totalGross: 90 });
     expect(stats.averageScorePerHole).toBe(4.82);
     expect(stats.averagePuttsPerHole).toBe(1.82);
     expect(stats.bunkerStats.totalBunkerShots).toBe(6);
@@ -113,10 +114,12 @@ describe('useCourseStatistics — early-ended rounds', () => {
       bestScore: 4, worstScore: 5, averagePutts: 1.67, girPercentage: 0,
       fairwayPercentage: 0, timesPlayed: 3, birdieOrBetterPercentage: 0,
       parPercentage: 33.3, bogeyPercentage: 66.7, doublePlusPercentage: 0,
+      bestRound: { roundId: 'round-ended', competitionId: null },
+      worstRound: { roundId: 'round-full', competitionId: null },
       scoreTrend: [
-        { date: FULL_CARD.rounds.date, score: 5 },
-        { date: NINE_CARD.rounds.date, score: 5 },
-        { date: ENDED_EARLY_CARD.rounds.date, score: 4 },
+        { date: FULL_CARD.rounds.date, score: 5, roundId: 'round-full', competitionId: null },
+        { date: NINE_CARD.rounds.date, score: 5, roundId: 'round-nine', competitionId: null },
+        { date: ENDED_EARLY_CARD.rounds.date, score: 4, roundId: 'round-ended', competitionId: null },
       ],
     });
   });
@@ -216,7 +219,9 @@ describe('useCourseStatistics — early-ended rounds', () => {
     expect(stats.averageStablefordPoints).toBe(30);
     expect(stats.roundTrends.map((r) => r.roundId)).toEqual(['round-full', 'round-nine']);
     expect(stats.recentRounds[0]).toMatchObject({ roundId: 'round-ended-nine', holesPlayed: 9 });
-    expect(stats.holeStats[0].scoreTrend[2]).toEqual({ date: endedNine.rounds.date, score: 3 });
+    expect(stats.holeStats[0].scoreTrend[2]).toEqual({
+      date: endedNine.rounds.date, score: 3, roundId: 'round-ended-nine', competitionId: null,
+    });
     expect(stats.averagePuttsPerRound).toBe(27);
     expect(stats.bunkerStats.averageBunkerShotsPerRound).toBe(0);
     expect(stats.hazardStats.averageHazardsPerRound).toBe(0);
@@ -257,7 +262,10 @@ describe('useCourseStatistics — early-ended rounds', () => {
     expect(stats.averageStablefordPoints).toBe(0);
     expect(stats.roundTrends).toEqual([]);
     expect(stats.recentRounds.map((r) => r.roundId)).toEqual(['round-ended']);
-    expect(stats.holeStats[0].scoreTrend).toEqual([{ date: ENDED_EARLY_CARD.rounds.date, score: 4 }]);
+    expect(stats.holeStats[0].scoreTrend).toEqual([
+      { date: ENDED_EARLY_CARD.rounds.date, score: 4, roundId: 'round-ended', competitionId: null },
+    ]);
+    expect(stats.bestRound).toBeNull();
   });
 
   it('leaves ended tracking out of averages with eligible tracked and untracked rounds', async () => {

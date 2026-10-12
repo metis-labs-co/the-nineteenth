@@ -152,14 +152,29 @@ export const BagSummarySection = React.memo(function BagSummarySection() {
         </View>
         {!isEmpty && (
           <View style={styles.pillRow}>
-            {sortedBag.map((key) => (
-              <Pill
-                key={key}
-                label={CLUB_SHORT_LABELS[key] ?? key}
-                size="sm"
-                accessibilityLabel={CLUBS_BY_KEY[key]?.label ?? key}
-              />
-            ))}
+            {sortedBag.map((key) => {
+              const label = CLUB_SHORT_LABELS[key] ?? key;
+              const fullLabel = CLUBS_BY_KEY[key]?.label ?? key;
+              // Same rule as WhatsInTheBag: only clubs with logged shots
+              // open the distance detail. Others fall through to the card tap.
+              const hasShots = (stats?.[key]?.totalShots ?? 0) > 0;
+              if (!hasShots) {
+                return (
+                  <Pill key={key} label={label} size="sm" accessibilityLabel={fullLabel} />
+                );
+              }
+              return (
+                <TouchableOpacity
+                  key={key}
+                  onPress={() => navigation.navigate('ClubDistanceDetail', { clubKey: key })}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${fullLabel}. Opens club distances`}
+                  hitSlop={4}
+                >
+                  <Pill label={label} size="sm" variant="primary" />
+                </TouchableOpacity>
+              );
+            })}
           </View>
         )}
       </TouchableOpacity>

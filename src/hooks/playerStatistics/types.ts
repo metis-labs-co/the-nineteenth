@@ -311,8 +311,24 @@ export interface HoleStatistics {
   bogeyPercentage: number;
   doublePlusPercentage: number;
 
+  /** Rounds that produced bestScore / worstScore (null when unplayed). */
+  bestRound: HoleRoundRef | null;
+  worstRound: HoleRoundRef | null;
+
   // Per-round scores at this hole (for sparkline, ordered by date)
-  scoreTrend: { date: string; score: number }[];
+  scoreTrend: HoleScoreTrendPoint[];
+}
+
+/** The round a per-hole score came from, for opening that round. */
+export interface HoleRoundRef {
+  roundId: string;
+  competitionId: string | null;
+}
+
+/** One round's score at a hole. */
+export interface HoleScoreTrendPoint extends HoleRoundRef {
+  date: string;
+  score: number;
 }
 
 /**
@@ -335,6 +351,8 @@ export interface CourseStatisticsData {
   par4Stats: ParTypeStats;
   par5Stats: ParTypeStats;
   recentRounds: RoundSummary[];
+  /** Full round that set bestGrossScore (null when none qualifies). */
+  bestRound: RoundSummary | null;
 
   // Advanced stats (course-level)
   shortGame: ShortGameStats;

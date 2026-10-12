@@ -558,6 +558,7 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
               rounds={rounds}
               pointsAvailable={teamPointsToWin?.total}
               pointsToWin={teamPointsToWin?.toWin}
+              competitionId={competitionId}
               testID="competition-team-headtohead"
             />
           ) : (
@@ -573,6 +574,7 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
                 currentUserId={currentUserId}
                 isLoading={false}
                 showTiedIndicator
+                competitionId={competitionId}
                 testID="competition-team-leaderboard"
               />
             </>

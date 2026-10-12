@@ -90,8 +90,8 @@ describe('statistics recent activity and chart callers', () => {
     const original = [...courseStats.recentRounds];
     render(<CourseOverviewTab stats={courseStats} />);
     expect(mockChart).toHaveBeenLastCalledWith({ rounds: [
-      { date: '2026-09-01', totalGross: 90, totalPoints: 30 },
-      { date: '2026-09-05', totalGross: 45, totalPoints: 15 },
+      { date: '2026-09-01', totalGross: 90, totalPoints: 30, roundId: 'round-full', competitionId: null },
+      { date: '2026-09-05', totalGross: 45, totalPoints: 15, roundId: 'round-nine', competitionId: null },
     ] });
     expect(courseStats.recentRounds).toEqual(original);
     expect(screen.getByText('24')).toBeTruthy();

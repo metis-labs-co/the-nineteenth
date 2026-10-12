@@ -26,6 +26,11 @@ import type { PlayerStatistics } from '@/hooks/usePlayerStatistics';
 import { recentRoundEndedEarlyLabel } from '@/hooks/playerStatistics/recentRounds';
 import type { RoundTypeFilter } from '@/screens/rounds/RoundListScreen/types';
 
+/** Game types the All Rounds list can filter to; others stay non-tappable. */
+const GAME_TYPE_ROUND_FILTERS: Partial<Record<string, RoundTypeFilter>> = {
+  'match-play': 'matchplay',
+};
+
 // =====================================================
 // TYPES
 // =====================================================
@@ -149,16 +154,22 @@ export const OverviewStats = React.memo(function OverviewStats({ stats }: Overvi
           <View style={styles.statsGrid}>
             {Object.entries(stats.gameTypeBreakdown)
               .sort(([, a], [, b]) => b - a)
-              .map(([gameType, count]) => (
-                <StatCard
-                  key={gameType}
-                  title={GAME_TYPE_LABELS[gameType as GameType] ?? gameType}
-                  value={count}
-                  subtitle="rounds"
-                  icon={GAME_TYPE_DESCRIPTIONS[gameType as GameType]?.icon ?? 'golf'}
-                  iconColor={colors.primary}
-                />
-              ))}
+              .map(([gameType, count]) => {
+                const label = GAME_TYPE_LABELS[gameType as GameType] ?? gameType;
+                const filter = GAME_TYPE_ROUND_FILTERS[gameType];
+                return (
+                  <StatCard
+                    key={gameType}
+                    title={label}
+                    value={count}
+                    subtitle="rounds"
+                    icon={GAME_TYPE_DESCRIPTIONS[gameType as GameType]?.icon ?? 'golf'}
+                    iconColor={colors.primary}
+                    onPress={filter ? () => handleFilteredRoundsPress(filter) : undefined}
+                    accessibilityHint={filter ? `Opens your ${label} rounds` : undefined}
+                  />
+                );
+              })}
           </View>
         </>
       )}

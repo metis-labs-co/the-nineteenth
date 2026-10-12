@@ -3,7 +3,9 @@
  */
 
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Text } from 'react-native-paper';
 import { IconCalendar, IconClock } from '@tabler/icons-react-native';
 import { format, parseISO } from 'date-fns';
@@ -12,9 +14,12 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { Pill } from '@/components/common/Pill';
 import { ROUND_PRESETS, type RoundPresetId } from '@/constants/roundPresets';
 import type { NineType } from '@/types/database/enums';
+import type { RootStackParamList } from '@/navigation/types';
 
 interface RoundHeaderCardProps {
   courseName: string;
+  /** When set, the course name links to the Course page */
+  courseId?: string | null;
   /** YYYY-MM-DD */
   date: string | null;
   /** HH:MM:SS or null */
@@ -35,12 +40,14 @@ function nineTypeLabel(nineType: string | null): string {
 
 export function RoundHeaderCard({
   courseName,
+  courseId,
   date,
   teeTime,
   presetId,
   nineType,
 }: RoundHeaderCardProps) {
   const colors = useThemeColors();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const preset = ROUND_PRESETS[presetId];
 
   const formattedDate = date
@@ -53,9 +60,17 @@ export function RoundHeaderCard({
 
   return (
     <View style={[styles.card, shadows.sm, { backgroundColor: colors.surface }]}>
-      <Text style={[styles.courseName, { color: colors.textPrimary }]} numberOfLines={2}>
-        {courseName}
-      </Text>
+      <TouchableOpacity
+        onPress={() => courseId && navigation.navigate('Course', { courseId })}
+        disabled={!courseId}
+        accessibilityRole={courseId ? 'button' : undefined}
+        accessibilityLabel={courseId ? `View ${courseName} details` : undefined}
+        testID="scheduled-round-course-link"
+      >
+        <Text style={[styles.courseName, { color: colors.textPrimary }]} numberOfLines={2}>
+          {courseName}
+        </Text>
+      </TouchableOpacity>
 
       <View style={styles.metaRow}>
         <IconCalendar size={16} color={colors.textSecondary} />

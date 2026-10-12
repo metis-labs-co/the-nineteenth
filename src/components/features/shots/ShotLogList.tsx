@@ -22,11 +22,12 @@ import { useTeeOverrideStore } from '@/store/teeOverrideStore';
 import {
   computeShotDistances,
   resolveTeeAnchor,
+  shotOrigin,
   type ShotWithDistance,
 } from '@/utils/shotDistances';
 import { useCustomHoleTeesByCourse } from '@/hooks/customTees';
 import { metersToYards } from '@/utils/gpsCalculations';
-import { clubLabel } from '@/constants/clubs';
+import { clubLabel, isClubKey } from '@/constants/clubs';
 import type { ShotLogEntry } from '@/types/database/shotLog.types';
 import type { RootStackParamList } from '@/navigation/types';
 
@@ -83,10 +84,15 @@ interface ShotLogListProps {
    * these holes. Falls back to `1..totalHoles` when omitted.
    */
   holeNumbers?: number[];
+  /** Course name / round date for the ShotMap header opened from a shot row. */
+  courseName?: string | null;
+  roundPlayedAt?: string | null;
 }
 
 interface HoleGroup {
   holeNumber: number;
+  /** Tee anchor used as shot 1's origin (null when the hole has no tee coords). */
+  tee: { latitude: number; longitude: number } | null;
   perPlayer: { playerId: string; shots: ShotWithDistance[] }[];
 }
 
@@ -105,6 +111,8 @@ export function ShotLogList({
   holeStrokeCounts,
   totalHoles = 18,
   holeNumbers,
+  courseName = null,
+  roundPlayedAt = null,
 }: ShotLogListProps) {
   const colors = useThemeColors();
   const navigation =
@@ -125,6 +133,29 @@ export function ShotLogList({
       });
     },
     [courseId, navigation, roundId]
+  );
+
+  const handleViewShotOnMap = useCallback(
+    (shot: ShotWithDistance, shotIdx: number, shots: ShotWithDistance[], tee: HoleGroup['tee']) => {
+      if (!isClubKey(shot.club_used)) return;
+      const origin = shotOrigin(shots, shotIdx, tee);
+      navigation.navigate('ShotMap', {
+        shotId: shot.id,
+        roundId: shot.round_id,
+        courseId,
+        sequence: shot.sequence,
+        shotLatitude: shot.latitude,
+        shotLongitude: shot.longitude,
+        originLatitude: origin?.latitude ?? null,
+        originLongitude: origin?.longitude ?? null,
+        distanceMeters: shot.distanceMeters,
+        clubKey: shot.club_used,
+        holeNumber: shot.hole_number,
+        courseName,
+        roundPlayedAt,
+      });
+    },
+    [navigation, courseId, courseName, roundPlayedAt]
   );
 
   const handleAddShotForHole = useCallback(
@@ -203,7 +234,7 @@ export function ShotLogList({
             shots: computeShotDistances(playerShots, tee),
           }))
         : [];
-      holes.push({ holeNumber, perPlayer });
+      holes.push({ holeNumber, tee, perPlayer });
     }
     return holes;
   }, [
@@ -288,9 +319,23 @@ export function ShotLogList({
       {grouped.map((hole) => (
         <View key={hole.holeNumber} style={styles.holeBlock}>
           <View style={styles.holeHeaderRow}>
-            <Text style={[typography.h4, { color: colors.textPrimary }]}>
-              Hole {hole.holeNumber}
-            </Text>
+            {courseId ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`View hole ${hole.holeNumber} on map`}
+                onPress={() => handleViewHoleOnMap(hole.holeNumber)}
+                hitSlop={8}
+                style={({ pressed }) => pressed && { opacity: 0.6 }}
+              >
+                <Text style={[typography.h4, { color: colors.textPrimary }]}>
+                  Hole {hole.holeNumber}
+                </Text>
+              </Pressable>
+            ) : (
+              <Text style={[typography.h4, { color: colors.textPrimary }]}>
+                Hole {hole.holeNumber}
+              </Text>
+            )}
             <View style={styles.holeHeaderActions}>
               {canAddShotForHole(hole.holeNumber) && (
                 <Pressable
@@ -348,15 +393,23 @@ export function ShotLogList({
           {hole.perPlayer.map((group, groupIdx) => (
             <View key={group.playerId} style={[styles.playerBlock, groupIdx > 0 && { marginTop: spacing.sm }]}>
               {showPlayerHeaders && (
-                <Text
-                  style={[
-                    typography.caption,
-                    styles.playerHeader,
-                    { color: colors.textSecondary },
-                  ]}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`View profile of ${playerNameMap?.[group.playerId] ?? 'player'}`}
+                  onPress={() => navigation.navigate('PlayerDetail', { id: group.playerId })}
+                  hitSlop={8}
+                  style={({ pressed }) => [styles.playerHeaderPressable, pressed && { opacity: 0.6 }]}
                 >
-                  {playerNameMap?.[group.playerId] ?? group.playerId.slice(0, 8)}
-                </Text>
+                  <Text
+                    style={[
+                      typography.caption,
+                      styles.playerHeader,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    {playerNameMap?.[group.playerId] ?? group.playerId.slice(0, 8)}
+                  </Text>
+                </Pressable>
               )}
               <View style={[styles.shotGroup, shadows.sm, { backgroundColor: colors.surface }]}>
                 {group.shots.map((shot, shotIdx) => {
@@ -365,15 +418,26 @@ export function ShotLogList({
                   const isOwnShot = !currentPlayerId || group.playerId === currentPlayerId;
                   const canEditClub = isOwnShot && !!onChangeClubForShot;
                   const canDelete = isOwnShot && !!onDeleteShot;
+                  // ShotMap needs a canonical club key; legacy/unknown clubs stay inert.
+                  const canViewOnMap = isClubKey(shot.club_used);
                   return (
-                    <View
+                    <Pressable
                       key={shot.id}
-                      style={[
+                      accessibilityRole={canViewOnMap ? 'button' : undefined}
+                      accessibilityLabel={
+                        canViewOnMap
+                          ? `View shot ${shot.sequence}, ${clubLabel(shot.club_used)}, on map`
+                          : undefined
+                      }
+                      disabled={!canViewOnMap}
+                      onPress={() => handleViewShotOnMap(shot, shotIdx, group.shots, hole.tee)}
+                      style={({ pressed }) => [
                         styles.shotRow,
                         shotIdx > 0 && {
                           borderTopWidth: StyleSheet.hairlineWidth,
                           borderTopColor: colors.border,
                         },
+                        pressed && { opacity: 0.7 },
                       ]}
                     >
                       <View style={styles.shotLeft}>
@@ -435,7 +499,7 @@ export function ShotLogList({
                           </Pressable>
                         )}
                       </View>
-                    </View>
+                    </Pressable>
                   );
                 })}
               </View>
@@ -551,6 +615,9 @@ const styles = StyleSheet.create({
     minHeight: 32,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  playerHeaderPressable: {
+    alignSelf: 'flex-start',
   },
   holeHeaderActions: {
     flexDirection: 'row',

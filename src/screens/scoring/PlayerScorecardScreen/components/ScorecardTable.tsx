@@ -76,6 +76,7 @@ export function ScorecardTable({
           playerHandicap={playerHandicap}
           showFIR={showFIR}
           showGIR={showGIR}
+          onHolePress={onHolePress}
         />
       );
     } else {
@@ -145,6 +146,8 @@ export function ScorecardTable({
           onPress={() => onHolePress?.(hole.number)}
           disabled={!onHolePress}
           activeOpacity={onHolePress ? 0.6 : 1}
+          accessibilityRole={onHolePress ? 'button' : undefined}
+          accessibilityLabel={onHolePress ? `Open hole ${displayHoleNumber(hole, startHole)}` : undefined}
         >
           <Text style={[styles.holeCellText, { color: onHolePress ? colors.primary : colors.textPrimary }]}>
             {displayHoleNumber(hole, startHole)}

@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { spacing, typography } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -57,11 +57,51 @@ export interface ComparisonRowProps {
   suffix?: string;
   /** Number of decimal places for the difference */
   decimals?: number;
+  /** Optional tap handler for player 1's value (left side) */
+  onLeftPress?: () => void;
+  /** Optional tap handler for player 2's value (right side) */
+  onRightPress?: () => void;
+  /** Accessibility label for the left value when tappable */
+  leftAccessibilityLabel?: string;
+  /** Accessibility label for the right value when tappable */
+  rightAccessibilityLabel?: string;
 }
 
 // =====================================================
 // COMPONENT
 // =====================================================
+
+interface ValueCellProps {
+  value: number | string;
+  suffix: string;
+  color: string;
+  onPress?: () => void;
+  accessibilityLabel: string;
+}
+
+function ValueCell({ value, suffix, color, onPress, accessibilityLabel }: ValueCellProps) {
+  const text = (
+    <Text style={[styles.valueText, { color }]}>
+      {value}{suffix}
+    </Text>
+  );
+
+  if (!onPress) {
+    return <View style={styles.value}>{text}</View>;
+  }
+
+  return (
+    <TouchableOpacity
+      style={styles.value}
+      onPress={onPress}
+      activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+    >
+      {text}
+    </TouchableOpacity>
+  );
+}
 
 export const ComparisonRow = React.memo(function ComparisonRow({
   label,
@@ -71,6 +111,10 @@ export const ComparisonRow = React.memo(function ComparisonRow({
   higherIsBetter = true,
   suffix = '',
   decimals = 0,
+  onLeftPress,
+  onRightPress,
+  leftAccessibilityLabel,
+  rightAccessibilityLabel,
 }: ComparisonRowProps) {
   const colors = useThemeColors();
   const diffColor = diff !== undefined ? getComparisonColor(diff, higherIsBetter, colors) : colors.textSecondary;
@@ -78,11 +122,13 @@ export const ComparisonRow = React.memo(function ComparisonRow({
 
   return (
     <View style={[styles.container, { borderBottomColor: colors.border }]}>
-      <View style={styles.value}>
-        <Text style={[styles.valueText, { color: colors.textPrimary }]}>
-          {value1}{suffix}
-        </Text>
-      </View>
+      <ValueCell
+        value={value1}
+        suffix={suffix}
+        onPress={onLeftPress}
+        accessibilityLabel={leftAccessibilityLabel ?? `${label}: ${value1}${suffix}`}
+        color={onLeftPress ? colors.primary : colors.textPrimary}
+      />
       <View style={styles.label}>
         <Text style={[styles.labelText, { color: colors.textSecondary }]}>{label}</Text>
         {diff !== undefined && (
@@ -91,11 +137,13 @@ export const ComparisonRow = React.memo(function ComparisonRow({
           </Text>
         )}
       </View>
-      <View style={styles.value}>
-        <Text style={[styles.valueText, { color: colors.textPrimary }]}>
-          {value2}{suffix}
-        </Text>
-      </View>
+      <ValueCell
+        value={value2}
+        suffix={suffix}
+        onPress={onRightPress}
+        accessibilityLabel={rightAccessibilityLabel ?? `${label}: ${value2}${suffix}`}
+        color={onRightPress ? colors.primary : colors.textPrimary}
+      />
     </View>
   );
 });

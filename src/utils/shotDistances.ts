@@ -100,6 +100,23 @@ export function resolveTeeAnchor(
 }
 
 /**
+ * Position shot `index` was struck from: the prior shot's landing spot, or
+ * the tee anchor for the first shot. `null` when shot 1 has no tee anchor.
+ * Input shots must be one (round, hole, player) sequence ordered by `sequence`.
+ */
+export function shotOrigin(
+  shots: readonly LatLng[],
+  index: number,
+  teeCoord: LatLng | null
+): LatLng | null {
+  if (index === 0) {
+    return teeCoord ? { latitude: teeCoord.latitude, longitude: teeCoord.longitude } : null;
+  }
+  const prior = shots[index - 1];
+  return prior ? { latitude: prior.latitude, longitude: prior.longitude } : null;
+}
+
+/**
  * Annotate each shot with its travelled distance.
  * Input shots must already be ordered by `sequence` ascending.
  *
@@ -111,12 +128,7 @@ export function computeShotDistances(
   teeCoord: LatLng | null
 ): ShotWithDistance[] {
   return shots.map((shot, idx) => {
-    const prior =
-      idx === 0
-        ? teeCoord
-          ? { latitude: teeCoord.latitude, longitude: teeCoord.longitude }
-          : null
-        : { latitude: shots[idx - 1].latitude, longitude: shots[idx - 1].longitude };
+    const prior = shotOrigin(shots, idx, teeCoord);
 
     const distanceMeters = prior
       ? calculateDistance(prior.latitude, prior.longitude, shot.latitude, shot.longitude)

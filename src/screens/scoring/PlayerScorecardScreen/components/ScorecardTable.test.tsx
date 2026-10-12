@@ -10,7 +10,7 @@
  */
 
 import React from 'react';
-import { render, screen } from '@/__tests__/utils/renderHelpers';
+import { render, screen, fireEvent } from '@/__tests__/utils/renderHelpers';
 import { ScorecardTable } from './ScorecardTable';
 import type { HoleRowData, PlayerStats, MultiBallHoleRowData, MultiBallStats } from '../hooks';
 import type { Hole } from '@/types';
@@ -508,6 +508,60 @@ describe('ScorecardTable FIR/GIR columns', () => {
       // Should render without error
       expect(screen.getByText('FIR')).toBeTruthy();
       expect(screen.getByText('GIR')).toBeTruthy();
+    });
+  });
+
+  // ===========================================================================
+  // HOLE PRESS
+  // ===========================================================================
+
+  describe('Hole press', () => {
+    it('calls onHolePress with the hole number when a hole cell is pressed', () => {
+      const onHolePress = jest.fn();
+      render(<ScorecardTable {...defaultProps} onHolePress={onHolePress} />);
+
+      fireEvent.press(screen.getByLabelText('Open hole 3'));
+
+      expect(onHolePress).toHaveBeenCalledWith(3);
+    });
+
+    it('exposes no hole buttons without onHolePress', () => {
+      render(<ScorecardTable {...defaultProps} />);
+
+      expect(screen.queryByLabelText('Open hole 3')).toBeNull();
+    });
+
+    it('passes onHolePress through to the multi-ball table', () => {
+      const onHolePress = jest.fn();
+      const ball = { strokes: 4, stablefordPoints: 2, isPickup: false, fairwayHit: true, greenInRegulation: true };
+      const multiBallHole = (number: number): MultiBallHoleRowData => ({
+        hole: createHole(number, 4, number),
+        strokesReceived: 1,
+        balls: [ball, ball],
+      });
+      const totals = { front9Gross: 36, back9Gross: 36, front9Stableford: 18, back9Stableford: 18, totalGross: 72, totalStableford: 36 };
+      const multiBallStats = {
+        ballStats: { 1: totals, 2: totals },
+        front9Par: 36,
+        back9Par: 36,
+        totalPar: 72,
+      } as MultiBallStats;
+
+      render(
+        <ScorecardTable
+          {...defaultProps}
+          isMultiBall={true}
+          ballCount={2}
+          multiBallFront9={[multiBallHole(1)]}
+          multiBallBack9={[multiBallHole(10)]}
+          multiBallStats={multiBallStats}
+          onHolePress={onHolePress}
+        />
+      );
+
+      fireEvent.press(screen.getByLabelText('Open hole 10'));
+
+      expect(onHolePress).toHaveBeenCalledWith(10);
     });
   });
 });

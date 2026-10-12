@@ -456,6 +456,18 @@ describe('MatchPlayScorecardScreen', () => {
 
       expect(screen.getByText('Test Golf Course')).toBeTruthy();
     });
+
+    it('opens the Course page when the course name is pressed', () => {
+      setupSuccessfulMock();
+      mockNavigation.navigate.mockClear();
+
+      render(
+        <MatchPlayScorecardScreen navigation={mockNavigation} route={mockRoute} />
+      );
+
+      fireEvent.press(screen.getByTestId('match-scorecard-course-link'));
+      expect(mockNavigation.navigate).toHaveBeenCalledWith('Course', { courseId: 'course-1' });
+    });
   });
 
   describe('Navigation', () => {

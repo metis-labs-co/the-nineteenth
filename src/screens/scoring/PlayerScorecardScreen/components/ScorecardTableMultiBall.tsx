@@ -13,7 +13,7 @@
  */
 
 import React from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
@@ -31,6 +31,8 @@ interface ScorecardTableMultiBallProps {
   // Stats visibility (Premium-only)
   showFIR?: boolean;
   showGIR?: boolean;
+  // Hole press handler (same contract as ScorecardTable)
+  onHolePress?: (holeNumber: number) => void;
 }
 
 export function ScorecardTableMultiBall({
@@ -41,6 +43,7 @@ export function ScorecardTableMultiBall({
   playerHandicap: _playerHandicap,
   showFIR = false,
   showGIR = false,
+  onHolePress,
 }: ScorecardTableMultiBallProps) {
   const colors = useThemeColors();
 
@@ -116,9 +119,18 @@ export function ScorecardTableMultiBall({
     return (
       <View key={hole.number} style={[styles.tableRow, { borderBottomColor: colors.border }]}>
         {/* Fixed columns */}
-        <View style={[styles.tableCell, styles.holeCell, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.holeCellText, { color: colors.textPrimary }]}>{hole.number}</Text>
-        </View>
+        <TouchableOpacity
+          style={[styles.tableCell, styles.holeCell, { backgroundColor: colors.surface }]}
+          onPress={() => onHolePress?.(hole.number)}
+          disabled={!onHolePress}
+          activeOpacity={onHolePress ? 0.6 : 1}
+          accessibilityRole={onHolePress ? 'button' : undefined}
+          accessibilityLabel={onHolePress ? `Open hole ${hole.number}` : undefined}
+        >
+          <Text style={[styles.holeCellText, { color: onHolePress ? colors.primary : colors.textPrimary }]}>
+            {hole.number}
+          </Text>
+        </TouchableOpacity>
         <View style={[styles.tableCell, styles.narrowCell, { backgroundColor: colors.surface }]}>
           <Text style={[styles.smallText, { color: colors.textSecondary }]}>{hole.strokeIndex}</Text>
         </View>

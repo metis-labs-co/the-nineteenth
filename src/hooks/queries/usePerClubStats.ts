@@ -18,6 +18,7 @@ import { bagKeys } from '@/hooks/queryKeys';
 import { CACHE_TIMES } from '@/constants/cacheConfig';
 import {
   computeShotDistances,
+  shotOrigin,
   resolveTeeAnchor,
   type ShotWithDistance,
 } from '@/utils/shotDistances';
@@ -191,12 +192,7 @@ function computePerClubStats(
       const shot = annotated[i];
       const original = group[i];
       if (!isClubKey(shot.club_used)) continue;
-      const origin =
-        i === 0
-          ? tee
-            ? { latitude: tee.latitude, longitude: tee.longitude }
-            : null
-          : { latitude: group[i - 1].latitude, longitude: group[i - 1].longitude };
+      const origin = shotOrigin(group, i, tee);
       const enriched: ShotWithContext = {
         ...shot,
         roundPlayedAt: original.rounds?.date ?? null,

@@ -487,6 +487,7 @@ export default function ScheduledRoundScreen({ route, navigation }: Props) {
         {/* Header card */}
         <RoundHeaderCard
           courseName={round.course?.name ?? 'Unknown Course'}
+          courseId={round.course_id}
           date={round.date}
           teeTime={round.tee_time}
           presetId={presetId}

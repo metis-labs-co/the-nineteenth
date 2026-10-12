@@ -20,3 +20,4 @@ export { BunkerStatsSection, type BunkerStatsSectionProps } from './BunkerStatsS
 export { HazardStatsSection, type HazardStatsSectionProps } from './HazardStatsSection';
 export { DrivingSection, type DrivingSectionProps } from './DrivingSection';
 export { ApproachSection, type ApproachSectionProps } from './ApproachSection';
+export { ChartPointChip, type ChartPointChipProps } from './ChartPointChip';

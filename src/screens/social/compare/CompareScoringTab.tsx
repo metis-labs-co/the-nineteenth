@@ -18,6 +18,7 @@ import {
   ParTypeComparison,
 } from '@/components/social/comparison';
 import type { PlayerStatistics } from '@/hooks/usePlayerStatistics';
+import { useOpenRound } from '@/navigation/openRound';
 
 // =====================================================
 // TYPES
@@ -41,6 +42,10 @@ export const CompareScoringTab = React.memo(function CompareScoringTab({
   player2Name,
 }: CompareScoringTabProps) {
   const colors = useThemeColors();
+  const openRound = useOpenRound();
+
+  const { bestRound: bestRound1, bestStablefordRound: bestStablefordRound1 } = stats1;
+  const { bestRound: bestRound2, bestStablefordRound: bestStablefordRound2 } = stats2;
 
   return (
     <>
@@ -102,6 +107,10 @@ export const CompareScoringTab = React.memo(function CompareScoringTab({
               : undefined
           }
           higherIsBetter={false}
+          onLeftPress={bestRound1 ? () => openRound(bestRound1) : undefined}
+          onRightPress={bestRound2 ? () => openRound(bestRound2) : undefined}
+          leftAccessibilityLabel={`${player1Name} best score ${stats1.lowestGrossScore}. Opens round`}
+          rightAccessibilityLabel={`${player2Name} best score ${stats2.lowestGrossScore}. Opens round`}
         />
         <ComparisonRow
           label="Best Stableford"
@@ -114,6 +123,10 @@ export const CompareScoringTab = React.memo(function CompareScoringTab({
           }
           higherIsBetter
           suffix=" pts"
+          onLeftPress={bestStablefordRound1 ? () => openRound(bestStablefordRound1) : undefined}
+          onRightPress={bestStablefordRound2 ? () => openRound(bestStablefordRound2) : undefined}
+          leftAccessibilityLabel={`${player1Name} best Stableford ${stats1.highestStablefordPoints} points. Opens round`}
+          rightAccessibilityLabel={`${player2Name} best Stableford ${stats2.highestStablefordPoints} points. Opens round`}
         />
         <ComparisonRow
           label="Birdie Rate"
