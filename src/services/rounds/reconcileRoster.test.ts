@@ -6,9 +6,15 @@ const round = { id: 'r', userId: 'owner', deletedAt: null };
 const store = [{ id: 'owner', name: 'Owner' }, { id: 'me', name: 'Me' }, { id: 'b', name: 'Ben' }];
 
 describe('reconcileRoster', () => {
-  it('ignores an empty list or one without the owner (Review Focus #4)', () => {
-    expect(reconcileRoster({ round, players: [] }, store, 'me')).toEqual({ kind: 'ignore' });
+  it('ignores an empty list or one without the owner for the owner (Review Focus #4)', () => {
+    expect(reconcileRoster({ round, players: [] }, store, 'owner')).toEqual({ kind: 'ignore' });
+    expect(reconcileRoster({ round, players: [p('me'), p('b')] }, store, 'owner')).toEqual({ kind: 'ignore' });
+  });
+  it('ignores an owner-missing list for a non-owner who is still listed', () => {
     expect(reconcileRoster({ round, players: [p('me'), p('b')] }, store, 'me')).toEqual({ kind: 'ignore' });
+  });
+  it('exits a removed non-owner who sees an empty list under RLS', () => {
+    expect(reconcileRoster({ round, players: [] }, store, 'me')).toEqual({ kind: 'exit_removed' });
   });
   it('exits when the round is not visible (Review Focus #1)', () => {
     expect(reconcileRoster({ round: null, players: [] }, store, 'me')).toEqual({ kind: 'exit_unavailable' });

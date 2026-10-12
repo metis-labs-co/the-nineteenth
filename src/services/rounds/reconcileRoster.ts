@@ -10,8 +10,10 @@ export type RosterDecision =
 
 /**
  * Decide what a scoring device should do with a fresh roster read.
- * Never removes from a doubtful read: an empty list or one missing the owner
- * is ignored (fetch errors never reach here — fetchRoundRoster throws).
+ * A non-owner missing from the list (including an empty list, which is what a
+ * removed non-owner sees under RLS) exits. Otherwise never removes from a
+ * doubtful read: an empty list or one missing the owner is ignored (fetch
+ * errors never reach here — fetchRoundRoster throws).
  */
 export function reconcileRoster(
   snapshot: RoundRosterSnapshot,
@@ -22,8 +24,13 @@ export function reconcileRoster(
   if (snapshot.round.deletedAt) return { kind: 'exit_deleted' };
 
   const serverIds = new Set(snapshot.players.map((p) => p.id));
+  // A removed non-owner can still see the round but, under RLS, none of its
+  // round_players rows (they only ever see their own) — so an empty list means
+  // removed for them. Check this before the doubtful-read guard.
+  const isOwner = currentUserId === snapshot.round.userId;
+  if (!isOwner && !serverIds.has(currentUserId)) return { kind: 'exit_removed' };
+  // The owner never acts on an empty or owner-missing read, so their data is never wiped.
   if (serverIds.size === 0 || !serverIds.has(snapshot.round.userId)) return { kind: 'ignore' };
-  if (!serverIds.has(currentUserId)) return { kind: 'exit_removed' };
 
   const storeIds = new Set(storePlayers.map((p) => p.id));
   return {
