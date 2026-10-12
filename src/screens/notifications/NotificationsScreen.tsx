@@ -27,6 +27,7 @@ import {
   useMarkAllNotificationsRead,
 } from '@/hooks/useNotifications';
 import type { Notification } from '@/types/database.types';
+import { getNotificationRoute } from '@/services/notifications/notificationRoute';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -60,30 +61,11 @@ export default function NotificationsScreen() {
         markRead.mutate(notification.id);
       }
 
-      // Navigate based on notification data
-      // Invitation/response types go to the scheduled-round detail screen.
-      if (
-        (notification.type === 'social_round_invitation' ||
-          notification.type === 'social_round_response') &&
-        notification.round_id
-      ) {
-        navigation.navigate('ScheduledRound', { roundId: notification.round_id });
-      } else if (notification.round_id) {
-        // round_id first: round-specific notifications should land on the round
-        navigation.navigate('ViewRound', {
-          roundId: notification.round_id,
-          competitionId: notification.competition_id ?? undefined,
-        });
-      } else if (notification.competition_id) {
-        navigation.navigate('CompetitionDetail', {
-          id: notification.competition_id,
-        });
-      } else if (notification.league_id) {
-        navigation.navigate('LeagueDetail', {
-          id: notification.league_id,
-        });
-      } else if (notification.friendship_id) {
-        navigation.navigate('Friends', { fromProfile: true });
+      // Navigate based on notification data (mirrors push/toast routing).
+      // No route → stay on the Notifications list.
+      const route = getNotificationRoute(notification);
+      if (route) {
+        navigation.navigate(route);
       }
     },
     [navigation, markRead]

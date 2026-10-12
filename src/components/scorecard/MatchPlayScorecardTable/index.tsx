@@ -43,6 +43,7 @@ export const MatchPlayScorecardTable = React.memo(function MatchPlayScorecardTab
   player2,
   getPlayerScore,
   onHolePress,
+  onPlayerPress,
   holesPlayed = null,
   player1Handicap = 0,
   player2Handicap = 0,
@@ -78,7 +79,12 @@ export const MatchPlayScorecardTable = React.memo(function MatchPlayScorecardTab
   return (
     <View style={[styles.container, { backgroundColor: colors.surface }]}>
       {/* Header */}
-      <HeaderRow player1Name={player1.name} player2Name={player2.name} />
+      <HeaderRow
+        player1Name={player1.name}
+        player2Name={player2.name}
+        onPlayer1Press={onPlayerPress ? () => onPlayerPress(player1.id) : undefined}
+        onPlayer2Press={onPlayerPress ? () => onPlayerPress(player2.id) : undefined}
+      />
 
       {/* Front 9 */}
       {front9Holes.map((hole) => (

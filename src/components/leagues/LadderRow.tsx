@@ -34,6 +34,14 @@ export default React.memo(function LadderRow({
     <TouchableOpacity
       onPress={onPress}
       disabled={!onPress}
+      accessibilityRole={onPress ? 'button' : undefined}
+      accessibilityLabel={
+        onPress
+          ? entry.active_challenge_id
+            ? `View ${entry.name}'s active challenge`
+            : `View ${entry.name}'s profile`
+          : undefined
+      }
       style={[
         styles.row,
         {

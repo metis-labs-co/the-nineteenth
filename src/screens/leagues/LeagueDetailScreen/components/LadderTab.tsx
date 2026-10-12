@@ -17,6 +17,10 @@ interface LadderTabProps {
   challengeRange: number;
   hasActiveChallenge: boolean;
   onChallenge: (playerId: string) => void;
+  /** Row tap when the player is in an active challenge. */
+  onChallengePress?: (challengeId: string) => void;
+  /** Row tap otherwise — opens the player's profile. */
+  onPlayerPress?: (playerId: string) => void;
 }
 
 export default function LadderTab({
@@ -26,6 +30,8 @@ export default function LadderTab({
   challengeRange,
   hasActiveChallenge,
   onChallenge,
+  onChallengePress,
+  onPlayerPress,
 }: LadderTabProps) {
   const _colors = useThemeColors();
 
@@ -51,6 +57,13 @@ export default function LadderTab({
           currentUserPosition > entry.ladder_position &&
           currentUserPosition - entry.ladder_position <= challengeRange &&
           !entry.active_challenge_id;
+        const activeChallengeId = entry.active_challenge_id;
+        const handleRowPress =
+          activeChallengeId && onChallengePress
+            ? () => onChallengePress(activeChallengeId)
+            : onPlayerPress
+              ? () => onPlayerPress(entry.player_id)
+              : undefined;
 
         return (
           <LadderRow
@@ -60,6 +73,7 @@ export default function LadderTab({
             canChallenge={canChallenge}
             hasActiveChallenge={hasActiveChallenge}
             onChallenge={() => onChallenge(entry.player_id)}
+            onPress={handleRowPress}
           />
         );
       })}

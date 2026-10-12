@@ -11,7 +11,10 @@
  */
 
 import React, { useMemo } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, Pressable, StyleSheet } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '@/navigation/types';
 import { IconSwords, IconTrophy, IconClock, IconCheck } from '@tabler/icons-react-native';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
@@ -48,6 +51,14 @@ export interface MatchPlayLeaderboardProps {
    * text and completion are judged against it. Defaults to 18.
    */
   totalHoles?: number;
+  /**
+   * When provided, individual (player vs player) match cards become tappable
+   * and open the head-to-head MatchPlayScorecard. Team match cards stay
+   * non-interactive. Omit to render the cards as before.
+   */
+  roundId?: string;
+  /** Optional competition id forwarded to MatchPlayScorecard. */
+  competitionId?: string;
 }
 
 interface ProcessedMatch {
@@ -64,8 +75,11 @@ export const MatchPlayLeaderboard = React.memo(function MatchPlayLeaderboard({
   roundStatus = 'in-progress',
   isTeamRound = false,
   totalHoles = 18,
+  roundId,
+  competitionId,
 }: MatchPlayLeaderboardProps) {
   const colors = useThemeColors();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   // Calculate team aggregate for team rounds
   const teamAggregate = useMemo(() => {
@@ -249,14 +263,37 @@ export const MatchPlayLeaderboard = React.memo(function MatchPlayLeaderboard({
           return colors.error;
         };
 
+        // Only player-vs-player matches map onto MatchPlayScorecard.
+        const opponentId = scoreData.opponentId;
+        const onPress =
+          roundId && opponentId && !isTeamEntry(entry)
+            ? () =>
+                navigation.navigate('MatchPlayScorecard', {
+                  roundId,
+                  player1Id: (entry as PlayerLeaderboardEntry).playerId,
+                  player2Id: opponentId,
+                  competitionId,
+                })
+            : undefined;
+        const cardStyle = [
+          styles.matchCard,
+          { backgroundColor: colors.surface },
+          isCurrentUser && { borderColor: colors.primary, borderWidth: 2 },
+        ];
+        const CardContainer = onPress ? Pressable : View;
+        const cardProps = onPress
+          ? {
+              onPress,
+              accessibilityRole: 'button' as const,
+              accessibilityLabel: `${name} vs ${scoreData.opponentName || 'opponent'}. View match scorecard`,
+            }
+          : {};
+
         return (
-          <View
+          <CardContainer
             key={id}
-            style={[
-              styles.matchCard,
-              { backgroundColor: colors.surface },
-              isCurrentUser && { borderColor: colors.primary, borderWidth: 2 },
-            ]}
+            style={cardStyle}
+            {...cardProps}
           >
             {/* Match Header with Status */}
             <View style={[styles.matchHeader, localStyles.matchHeaderWithStatus]}>
@@ -364,7 +401,7 @@ export const MatchPlayLeaderboard = React.memo(function MatchPlayLeaderboard({
                 {scoreData.holesWon}W - {scoreData.holesLost}L - {scoreData.holesHalved}H
               </ScaledText>
             </View>
-          </View>
+          </CardContainer>
         );
       })}
     </View>

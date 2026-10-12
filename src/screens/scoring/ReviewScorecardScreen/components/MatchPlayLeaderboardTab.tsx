@@ -217,6 +217,8 @@ export function MatchPlayLeaderboardTab({
           roundStatus={roundStatus}
           isTeamRound
           totalHoles={holes.length}
+          roundId={roundId}
+          competitionId={competitionId}
         />
       ) : (
         <View style={styles.emptyContainer}>

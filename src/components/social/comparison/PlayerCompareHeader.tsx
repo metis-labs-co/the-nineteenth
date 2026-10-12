@@ -6,8 +6,11 @@
  */
 
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '@/navigation/types';
 import { PlayerAvatar } from '@/components/common';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -40,13 +43,26 @@ export interface PlayerCompareHeaderProps {
 interface SinglePlayerProps {
   player: PlayerInfo;
   displayName: string;
+  /** When provided, the player's avatar/name/handicap become pressable */
+  onPress?: () => void;
 }
 
-const SinglePlayer = React.memo(function SinglePlayer({ player, displayName }: SinglePlayerProps) {
+const SinglePlayer = React.memo(function SinglePlayer({
+  player,
+  displayName,
+  onPress,
+}: SinglePlayerProps) {
   const colors = useThemeColors();
 
   return (
-    <View style={styles.playerSection}>
+    <TouchableOpacity
+      style={styles.playerSection}
+      onPress={onPress}
+      disabled={!onPress}
+      activeOpacity={0.7}
+      accessibilityRole={onPress ? 'button' : undefined}
+      accessibilityLabel={onPress ? `View ${player.name}'s profile` : undefined}
+    >
       <PlayerAvatar
         photoUrl={player.photo_url}
         name={player.name}
@@ -60,7 +76,7 @@ const SinglePlayer = React.memo(function SinglePlayer({ player, displayName }: S
           HC: {player.handicap}
         </Text>
       )}
-    </View>
+    </TouchableOpacity>
   );
 });
 
@@ -74,6 +90,7 @@ export const PlayerCompareHeader = React.memo(function PlayerCompareHeader({
   isPlayer1You = false,
 }: PlayerCompareHeaderProps) {
   const colors = useThemeColors();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   return (
     <View style={[styles.container, { backgroundColor: colors.surface }]}>
@@ -87,6 +104,7 @@ export const PlayerCompareHeader = React.memo(function PlayerCompareHeader({
       <SinglePlayer
         player={player2}
         displayName={player2.name}
+        onPress={() => navigation.navigate('PlayerDetail', { id: player2.id })}
       />
     </View>
   );

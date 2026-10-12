@@ -7,6 +7,9 @@
 import React from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '@/navigation/types';
 import { useThemeColors, useIsDark } from '@/context/ThemeContext';
 import { spacing, borderRadius, typography, shadows } from '@/constants/theme';
 import type { SubMatch } from '@/types/database/round.types';
@@ -140,18 +143,29 @@ interface SideColumnProps {
 
 function SideColumn({ label, playerIds, playerNames }: SideColumnProps) {
   const colors = useThemeColors();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   return (
     <View style={styles.sideColumn}>
       <Text style={[typography.captionBold, { color: colors.textSecondary }]}>{label}</Text>
-      {playerIds.map((id) => (
-        <Text
-          key={id}
-          style={[typography.body, { color: colors.textPrimary, marginTop: spacing.xs }]}
-          numberOfLines={1}
-        >
-          {playerNames.get(id) ?? id.slice(0, 8)}
-        </Text>
-      ))}
+      {playerIds.map((id) => {
+        const name = playerNames.get(id) ?? id.slice(0, 8);
+        return (
+          <TouchableOpacity
+            key={id}
+            onPress={() => navigation.navigate('PlayerDetail', { id })}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={`View ${name}'s profile`}
+          >
+            <Text
+              style={[typography.body, { color: colors.textPrimary, marginTop: spacing.xs }]}
+              numberOfLines={1}
+            >
+              {name}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
     </View>
   );
 }

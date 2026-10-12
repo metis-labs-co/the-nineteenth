@@ -89,7 +89,7 @@ describe('MatchTab planned behavior', () => {
     expect(screen.getByText('Match Results')).toBeTruthy();
     expect(screen.getByTestId('match-leaderboard')).toBeTruthy();
     expect(mockLeaderboardProps).toHaveBeenCalledWith({ entries: leaderboard.entries,
-      currentUserId: 'p1', roundStatus: 'completed', isTeamRound: false });
+      currentUserId: 'p1', roundStatus: 'completed', isTeamRound: false, roundId: 'round-1' });
     expect(mockUseSubMatches).not.toHaveBeenCalled();
   });
 

@@ -71,6 +71,8 @@ export default function EclecticLeaderboardTab({
             key={entry.player_id}
             onPress={() => onRowPress?.(entry)}
             disabled={!onRowPress}
+            accessibilityRole={onRowPress ? 'button' : undefined}
+            accessibilityLabel={onRowPress ? `View ${entry.name}'s profile` : undefined}
             style={[
               styles.row,
               {

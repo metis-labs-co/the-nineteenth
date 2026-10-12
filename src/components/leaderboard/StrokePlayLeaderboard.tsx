@@ -17,6 +17,7 @@ import {
   type RoundLeaderboardEntry,
   isStrokeScore,
   isTeamScore,
+  isTeamEntry,
 } from '@/hooks/useRoundLeaderboard';
 import { LeaderboardRow, type PlayerTeamLookup } from './LeaderboardRow';
 import { styles } from './RoundLeaderboard.styles';
@@ -34,6 +35,11 @@ export interface StrokePlayLeaderboardProps {
   showCompetitionPoints?: boolean;
   /** Optional team-membership lookup forwarded to each row. */
   playerTeamLookup?: PlayerTeamLookup;
+  /**
+   * Optional press handler for individual player rows (team rows stay
+   * non-interactive). Rows render unchanged when omitted.
+   */
+  onPlayerPress?: (playerId: string) => void;
 }
 
 export const StrokePlayLeaderboard = React.memo(function StrokePlayLeaderboard({
@@ -41,6 +47,7 @@ export const StrokePlayLeaderboard = React.memo(function StrokePlayLeaderboard({
   currentUserId,
   showCompetitionPoints = true,
   playerTeamLookup,
+  onPlayerPress,
 }: StrokePlayLeaderboardProps) {
   const colors = useThemeColors();
 
@@ -103,6 +110,11 @@ export const StrokePlayLeaderboard = React.memo(function StrokePlayLeaderboard({
             secondaryLabel="gross"
             showCompetitionPoints={showCompetitionPoints}
             playerTeamLookup={playerTeamLookup}
+            onPress={
+              onPlayerPress && !isTeamEntry(entry)
+                ? () => onPlayerPress(entry.playerId)
+                : undefined
+            }
           />
         );
       })}

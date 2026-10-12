@@ -15,8 +15,11 @@
  */
 
 import React from 'react';
-import { View, StyleSheet, FlatList, ListRenderItem } from 'react-native';
+import { View, StyleSheet, FlatList, ListRenderItem, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '@/navigation/types';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, borderRadius, typography, shadows, wolfColor, medalColors } from '@/constants/theme';
 import { formatWolfNetResult } from '@/utils/wolf';
@@ -32,6 +35,8 @@ export interface WolfStandingsCardProps {
   standings: WolfStandingEntry[];
   /** Whether pot is enabled (shows net results) */
   potEnabled: boolean;
+  /** Round ID - when set, rows open that player's scorecard */
+  roundId?: string;
   /** Test ID for testing */
   testID?: string;
 }
@@ -60,6 +65,7 @@ interface StandingRowProps {
   entry: WolfStandingEntry;
   potEnabled: boolean;
   index: number;
+  roundId?: string;
 }
 
 /**
@@ -69,8 +75,11 @@ const StandingRow = React.memo(function StandingRow({
   entry,
   potEnabled,
   index,
+  roundId,
 }: StandingRowProps) {
   const colors = useThemeColors();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const canOpenScorecard = !!roundId && !!entry.player_id;
 
   const rank = entry.rank;
   const isTopThree = rank >= 1 && rank <= 3;
@@ -82,8 +91,17 @@ const StandingRow = React.memo(function StandingRow({
   // Get first initial for leader indicator
   const initial = entry.name.charAt(0).toUpperCase();
 
+  const summaryLabel = `Rank ${rank}, ${entry.name}, ${entry.total_points} points${potEnabled ? `, ${formatWolfNetResult(netResult)}` : ''}`;
+
   return (
-    <View
+    <TouchableOpacity
+      disabled={!canOpenScorecard}
+      activeOpacity={0.7}
+      onPress={
+        canOpenScorecard && roundId
+          ? () => navigation.navigate('PlayerScorecard', { playerId: entry.player_id, roundId })
+          : undefined
+      }
       style={[
         styles.row,
         {
@@ -91,8 +109,10 @@ const StandingRow = React.memo(function StandingRow({
           borderBottomColor: colors.border,
         },
       ]}
-      accessibilityRole="none"
-      accessibilityLabel={`Rank ${rank}, ${entry.name}, ${entry.total_points} points${potEnabled ? `, ${formatWolfNetResult(netResult)}` : ''}`}
+      accessibilityRole={canOpenScorecard ? 'button' : 'none'}
+      accessibilityLabel={
+        canOpenScorecard ? `${summaryLabel}. View scorecard` : summaryLabel
+      }
     >
       {/* Rank */}
       <View style={styles.rankContainer}>
@@ -170,7 +190,7 @@ const StandingRow = React.memo(function StandingRow({
           </Text>
         </View>
       )}
-    </View>
+    </TouchableOpacity>
   );
 });
 
@@ -200,6 +220,7 @@ function EmptyState() {
 export const WolfStandingsCard = React.memo(function WolfStandingsCard({
   standings,
   potEnabled,
+  roundId,
   testID,
 }: WolfStandingsCardProps) {
   const colors = useThemeColors();
@@ -210,6 +231,7 @@ export const WolfStandingsCard = React.memo(function WolfStandingsCard({
       entry={item}
       potEnabled={potEnabled}
       index={index}
+      roundId={roundId}
     />
   );
 

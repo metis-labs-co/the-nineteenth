@@ -17,6 +17,7 @@ import {
   isStablefordScore,
   isParScore,
   isTeamScore,
+  isTeamEntry,
 } from '@/hooks/useRoundLeaderboard';
 import { LeaderboardRow, type PlayerTeamLookup } from './LeaderboardRow';
 import { styles } from './RoundLeaderboard.styles';
@@ -40,6 +41,11 @@ export interface StablefordLeaderboardProps {
   showCompetitionPoints?: boolean;
   /** Optional team-membership lookup forwarded to each row. */
   playerTeamLookup?: PlayerTeamLookup;
+  /**
+   * Optional press handler for individual player rows (team rows stay
+   * non-interactive). Rows render unchanged when omitted.
+   */
+  onPlayerPress?: (playerId: string) => void;
 }
 
 export const StablefordLeaderboard = React.memo(function StablefordLeaderboard({
@@ -50,6 +56,7 @@ export const StablefordLeaderboard = React.memo(function StablefordLeaderboard({
   formatScore,
   showCompetitionPoints = true,
   playerTeamLookup,
+  onPlayerPress,
 }: StablefordLeaderboardProps) {
   const colors = useThemeColors();
 
@@ -109,6 +116,11 @@ export const StablefordLeaderboard = React.memo(function StablefordLeaderboard({
             scoreLabel={scoreLabel ?? 'points'}
             showCompetitionPoints={showCompetitionPoints}
             playerTeamLookup={playerTeamLookup}
+            onPress={
+              onPlayerPress && !isTeamEntry(entry)
+                ? () => onPlayerPress(entry.playerId)
+                : undefined
+            }
           />
         );
       })}

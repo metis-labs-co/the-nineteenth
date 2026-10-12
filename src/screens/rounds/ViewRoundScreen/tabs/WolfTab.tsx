@@ -51,6 +51,7 @@ export function WolfTab({ wolfSummary, hasWolfGame, holeNumbers }: WolfTabProps)
         <WolfStandingsCard
           standings={wolfSummary.standings}
           potEnabled={wolfSummary.game.pot_enabled}
+          roundId={wolfSummary.game.round_id}
           testID="wolf-standings-card"
         />
       )}

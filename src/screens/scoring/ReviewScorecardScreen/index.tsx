@@ -473,6 +473,11 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
           scrambleTeams={scrambleTeams}
           getPlayerScore={getPlayerScore}
           onHolePress={handleHolePress}
+          onPlayerPress={
+            roundId
+              ? (playerId) => navigation.navigate('PlayerScorecard', { playerId, roundId })
+              : undefined
+          }
           isRefreshing={isRefreshing}
           onRefresh={handleRefresh}
           bottomInset={insets.bottom}

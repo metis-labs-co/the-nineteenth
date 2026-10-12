@@ -43,6 +43,8 @@ export interface SkinsResultsCardProps {
   teams?: SkinsTeamParticipant[];
   /** Holes planned (prices each hole) and played (header label, last hole); defaults to 18/18 */
   holeCounts?: SkinsHoleCounts;
+  /** Round ID - when set, player rows open that player's scorecard */
+  roundId?: string;
   /** Test ID for testing */
   testID?: string;
 }

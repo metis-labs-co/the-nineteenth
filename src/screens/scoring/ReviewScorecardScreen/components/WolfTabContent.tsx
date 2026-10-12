@@ -108,6 +108,7 @@ export function WolfTabContent({ wolfGameId, totalHoles, holeNumbers, isRefreshi
           <WolfStandingsCard
             standings={standings}
             potEnabled={game.pot_enabled}
+            roundId={game.round_id}
             testID="wolf-standings-card"
           />
         </View>

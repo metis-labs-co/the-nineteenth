@@ -9,6 +9,9 @@ import React, { useCallback, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { formatDistanceToNow } from 'date-fns';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '@/navigation/types';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography } from '@/constants/theme';
 import { SectionHeader, PlayerAvatar } from '@/components/common';
@@ -34,6 +37,7 @@ export function RoundComments({ roundId }: RoundCommentsProps) {
   const colors = useThemeColors();
   const { user } = useAuth();
   const { data: comments, isLoading } = useRoundComments(roundId);
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   // Reporting hides the comment from this viewer via RLS, so the list simply
   // stops returning it - there is no local "hidden" state to maintain.
@@ -101,20 +105,31 @@ export function RoundComments({ roundId }: RoundCommentsProps) {
       <View style={styles.list}>
         {items.map((comment) => {
           const isOwn = comment.author_id === user?.id;
+          const authorName = comment.author?.name ?? 'Player';
+          const openAuthor = () => navigation.navigate('PlayerDetail', { id: comment.author_id });
           return (
             <View key={comment.id} style={styles.commentRow}>
-              <PlayerAvatar
-                photoUrl={comment.author?.photo_url}
-                name={comment.author?.name}
-                size={32}
-              />
+              <TouchableOpacity
+                onPress={openAuthor}
+                accessibilityRole="button"
+                accessibilityLabel={`View ${authorName}'s profile`}
+              >
+                <PlayerAvatar
+                  photoUrl={comment.author?.photo_url}
+                  name={comment.author?.name}
+                  size={32}
+                />
+              </TouchableOpacity>
               <View style={styles.commentBody}>
                 <View style={styles.commentMeta}>
                   <Text
                     style={[styles.commentName, { color: colors.textPrimary }]}
                     numberOfLines={1}
+                    onPress={openAuthor}
+                    accessibilityRole="button"
+                    accessibilityLabel={`View ${authorName}'s profile`}
                   >
-                    {comment.author?.name ?? 'Player'}
+                    {authorName}
                   </Text>
                   <Text style={[styles.commentTime, { color: colors.textSecondary }]}>
                     {timeAgo(comment.created_at)}

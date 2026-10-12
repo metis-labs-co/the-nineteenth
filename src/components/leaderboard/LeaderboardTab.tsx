@@ -665,6 +665,7 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
                   ) : (
                     <RoundLeaderboard
                       roundId={round.id}
+                      competitionId={competitionId}
                       gameType={gameType}
                       isTeamRound={round.is_team_round || false}
                       currentUserId={currentUserId}
@@ -687,6 +688,7 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
               <View key={round.id} style={styles.roundLeaderboardContainer}>
                 <RoundLeaderboard
                   roundId={round.id}
+                  competitionId={competitionId}
                   gameType={gameType}
                   isTeamRound={round.is_team_round || false}
                   currentUserId={currentUserId}

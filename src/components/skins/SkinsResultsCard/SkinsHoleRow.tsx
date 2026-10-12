@@ -6,8 +6,11 @@
  */
 
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '@/navigation/types';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, skinsColor } from '@/constants/theme';
 import { formatCurrency } from '@/utils/skins';
@@ -26,6 +29,8 @@ interface SkinsHoleRowProps {
   isTeamSkins: boolean;
   teams?: SkinsTeamParticipant[];
   perHoleValue: number;
+  /** Round ID - when set, an individual winner opens their scorecard */
+  roundId?: string;
 }
 
 export const SkinsHoleRow = React.memo(function SkinsHoleRow({
@@ -36,8 +41,10 @@ export const SkinsHoleRow = React.memo(function SkinsHoleRow({
   isTeamSkins,
   teams,
   perHoleValue,
+  roundId,
 }: SkinsHoleRowProps) {
   const colors = useThemeColors();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const isPlayed = result.calculated_at !== '';
   const isCarryover = result.is_carryover;
@@ -112,8 +119,25 @@ export const SkinsHoleRow = React.memo(function SkinsHoleRow({
     }
   }
 
+  const winnerPlayerId =
+    isPlayed && !isCarryover && !hasTeamWinner && hasIndividualWinner ? result.winner_id : null;
+  const canOpenScorecard = !!winnerPlayerId && !!roundId;
+
   return (
-    <View
+    <TouchableOpacity
+      disabled={!canOpenScorecard}
+      activeOpacity={0.7}
+      onPress={
+        canOpenScorecard && winnerPlayerId && roundId
+          ? () => navigation.navigate('PlayerScorecard', { playerId: winnerPlayerId, roundId })
+          : undefined
+      }
+      accessibilityRole={canOpenScorecard ? 'button' : undefined}
+      accessibilityLabel={
+        canOpenScorecard
+          ? `Hole ${result.hole_number}, won by ${winnerText}. View scorecard`
+          : undefined
+      }
       style={[
         styles.holeRow,
         {
@@ -204,7 +228,7 @@ export const SkinsHoleRow = React.memo(function SkinsHoleRow({
       >
         {notesText}
       </Text>
-    </View>
+    </TouchableOpacity>
   );
 });
 

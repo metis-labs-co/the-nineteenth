@@ -8,6 +8,9 @@ import {
   ScrollView,
   RefreshControl,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '@/navigation/types';
 import { useThemeColors } from '@/context/ThemeContext';
 import { ScrambleTeamLeaderboard } from '@/components/scorecard';
 import type { Player, Hole, HoleScore, MultiBallHoleScore } from '@/types';
@@ -35,6 +38,11 @@ export function ScrambleLeaderboardTab({
   bottomInset,
 }: ScrambleLeaderboardTabProps) {
   const colors = useThemeColors();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const openPlayer = useCallback(
+    (playerId: string) => navigation.navigate('PlayerDetail', { id: playerId }),
+    [navigation]
+  );
 
   // Get team score for a specific team by index
   const getScrambleTeamScoreByIndex = useCallback((teamIndex: number, holeNumber: number): HoleScore | MultiBallHoleScore | undefined => {
@@ -68,6 +76,7 @@ export function ScrambleLeaderboardTab({
         holes={holes}
         getTeamScore={getScrambleTeamScoreByIndex}
         currentUserId={currentUserId}
+        onPlayerPress={openPlayer}
         testID="scramble-team-leaderboard"
       />
     </ScrollView>

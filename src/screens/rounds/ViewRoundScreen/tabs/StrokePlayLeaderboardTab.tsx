@@ -15,6 +15,8 @@ interface StrokePlayLeaderboardTabProps {
   currentUserId: string | undefined;
   /** Map of playerId → daily handicap so net matches the scorecard. */
   dailyHandicaps?: Record<string, number>;
+  /** Tap a row to open that player's scorecard. */
+  onPlayerPress?: (playerId: string) => void;
 }
 
 export function StrokePlayLeaderboardTab({
@@ -23,6 +25,7 @@ export function StrokePlayLeaderboardTab({
   getPlayerScore,
   currentUserId,
   dailyHandicaps,
+  onPlayerPress,
 }: StrokePlayLeaderboardTabProps) {
   return (
     <View style={styles.leaderboardTabContent}>
@@ -32,6 +35,7 @@ export function StrokePlayLeaderboardTab({
         getPlayerScore={getPlayerScore}
         currentUserId={currentUserId}
         dailyHandicaps={dailyHandicaps}
+        onPlayerPress={onPlayerPress}
       />
     </View>
   );

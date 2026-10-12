@@ -32,6 +32,11 @@ export interface SearchResultCardProps {
    */
   isAdding?: boolean;
   /**
+   * Callback when the player's avatar/name is pressed (e.g. open their profile).
+   * When omitted, the player info is not pressable.
+   */
+  onOpenProfile?: () => void;
+  /**
    * Test ID for testing
    */
   testID?: string;
@@ -67,6 +72,7 @@ export const SearchResultCard = React.memo(function SearchResultCard({
   player,
   onAddFriend,
   isAdding = false,
+  onOpenProfile,
   testID,
 }: SearchResultCardProps) {
   const colors = useThemeColors();
@@ -84,21 +90,30 @@ export const SearchResultCard = React.memo(function SearchResultCard({
 
   return (
     <View style={styles.container} testID={testID}>
-      <PlayerAvatar
-        photoUrl={player.photo_url}
-        name={player.name}
-        size={48}
-      />
-      <View style={styles.info}>
-        <Text style={[styles.name, { color: colors.textPrimary }]} numberOfLines={1}>
-          {player.name}
-        </Text>
-        {player.handicap !== null && player.handicap !== undefined && (
-          <Text style={[styles.handicap, { color: colors.primary }]}>
-            HC: {player.handicap}
+      <TouchableOpacity
+        style={styles.profileArea}
+        onPress={onOpenProfile}
+        disabled={!onOpenProfile}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel={`View ${player.name}'s profile`}
+      >
+        <PlayerAvatar
+          photoUrl={player.photo_url}
+          name={player.name}
+          size={48}
+        />
+        <View style={styles.info}>
+          <Text style={[styles.name, { color: colors.textPrimary }]} numberOfLines={1}>
+            {player.name}
           </Text>
-        )}
-      </View>
+          {player.handicap !== null && player.handicap !== undefined && (
+            <Text style={[styles.handicap, { color: colors.primary }]}>
+              HC: {player.handicap}
+            </Text>
+          )}
+        </View>
+      </TouchableOpacity>
       {statusText ? (
         <View style={[styles.statusBadge, { backgroundColor: colors.gray100 }]}>
           <Text style={[styles.statusBadgeText, { color: colors.textSecondary }]}>
@@ -134,6 +149,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: spacing.sm,
+  },
+  profileArea: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
   },
   info: {
     flex: 1,

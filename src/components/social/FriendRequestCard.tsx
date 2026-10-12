@@ -7,6 +7,9 @@
 
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '@/navigation/types';
 import { Text, Icon } from 'react-native-paper';
 import { GolfBallLoader, PlayerAvatar } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -74,10 +77,17 @@ export const FriendRequestCard = React.memo(function FriendRequestCard({
   testID,
 }: FriendRequestCardProps) {
   const colors = useThemeColors();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   return (
     <View style={styles.container} testID={testID}>
-      <View style={styles.info}>
+      <TouchableOpacity
+        style={styles.info}
+        onPress={() => navigation.navigate('PlayerDetail', { id: request.requester.id })}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel={`View ${request.requester.name}'s profile`}
+      >
         <PlayerAvatar
           photoUrl={request.requester.photo_url}
           name={request.requester.name}
@@ -88,7 +98,7 @@ export const FriendRequestCard = React.memo(function FriendRequestCard({
             {request.requester.name}
           </Text>
         </View>
-      </View>
+      </TouchableOpacity>
       <View style={styles.actions}>
         <TouchableOpacity
           style={[styles.actionButton, { backgroundColor: colors.gray100 }]}

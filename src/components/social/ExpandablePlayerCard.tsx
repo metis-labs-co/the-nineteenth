@@ -9,7 +9,7 @@
  */
 
 import React, { useCallback, useState } from 'react';
-import { View, StyleSheet, LayoutAnimation, UIManager, Platform } from 'react-native';
+import { View, StyleSheet, LayoutAnimation, UIManager, Platform, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -82,6 +82,10 @@ export const ExpandablePlayerCard = React.memo(function ExpandablePlayerCard({
     navigation.navigate('Subscription');
   }, [navigation]);
 
+  const handleViewProfile = useCallback(() => {
+    navigation.navigate('PlayerDetail', { id: player.id });
+  }, [navigation, player.id]);
+
   // Current user doesn't get expand functionality
   if (isCurrentUser) {
     return (
@@ -148,22 +152,38 @@ export const ExpandablePlayerCard = React.memo(function ExpandablePlayerCard({
             </View>
           )}
 
-          {/* Compare button */}
-          {onCompare && (
-            <FeatureLockButton
-              feature="compare_stats_filtered"
-              onPress={onCompare}
-              onUpgradePress={handleUpgrade}
-              upgradeConfig={UPGRADE_CONFIG}
-              showLockBadge={false}
-              accessibilityLabel={`Compare stats with ${player.name}`}
+          <View style={styles.actionsRow}>
+            {/* View profile button */}
+            <TouchableOpacity
+              style={[styles.actionItem, styles.compareButton, { backgroundColor: colors.primaryLighter }]}
+              onPress={handleViewProfile}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={`View ${player.name}'s profile`}
             >
-              <View style={[styles.compareButton, { backgroundColor: colors.primary }]}>
-                <Icon source="chart-bar" size={16} color={colors.white} />
-                <Text style={[styles.compareButtonText, { color: colors.white }]}>Compare</Text>
+              <Icon source="account-outline" size={16} color={colors.primary} />
+              <Text style={[styles.compareButtonText, { color: colors.primary }]}>View profile</Text>
+            </TouchableOpacity>
+
+            {/* Compare button */}
+            {onCompare && (
+              <View style={styles.actionItem}>
+                <FeatureLockButton
+                  feature="compare_stats_filtered"
+                  onPress={onCompare}
+                  onUpgradePress={handleUpgrade}
+                  upgradeConfig={UPGRADE_CONFIG}
+                  showLockBadge={false}
+                  accessibilityLabel={`Compare stats with ${player.name}`}
+                >
+                  <View style={[styles.compareButton, { backgroundColor: colors.primary }]}>
+                    <Icon source="chart-bar" size={16} color={colors.white} />
+                    <Text style={[styles.compareButtonText, { color: colors.white }]}>Compare</Text>
+                  </View>
+                </FeatureLockButton>
               </View>
-            </FeatureLockButton>
-          )}
+            )}
+          </View>
         </View>
       )}
     </View>
@@ -201,6 +221,13 @@ const styles = StyleSheet.create({
   statLabel: {
     ...typography.caption,
     marginTop: 2,
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  actionItem: {
+    flex: 1,
   },
   compareButton: {
     flexDirection: 'row',

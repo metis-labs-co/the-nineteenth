@@ -142,6 +142,7 @@ export const StatCategoryCard = React.memo(function StatCategoryCard({
                 key={`${rank.rank}-${player.playerId}`}
                 rankLabel={formatRank(rank.rank, tied)}
                 showRank={idx === 0}
+                playerId={player.playerId}
                 playerName={player.playerName}
                 displayValue={player.displayValue}
                 highlight={rank.rank === 1}

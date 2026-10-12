@@ -10,7 +10,7 @@
  */
 
 import React from 'react';
-import { render, screen } from '@/__tests__/utils/renderHelpers';
+import { fireEvent, render, screen } from '@/__tests__/utils/renderHelpers';
 import { MatchPlayScorecardTable } from './index';
 import { PICKUP_SCORE } from '@/constants/scoring';
 import type { Hole } from '@/types';
@@ -742,4 +742,32 @@ describe('MatchPlayScorecardTable cutoff rerenders', () => {
       expect(toJSON()).toEqual(baseline);
     }
   );
+  describe('Player header press', () => {
+    it('renders names as plain text when no onPlayerPress is given', () => {
+      render(
+        <MatchPlayScorecardTable
+          holes={defaultHoles}
+          player1={defaultPlayer1}
+          player2={defaultPlayer2}
+          getPlayerScore={createScoreGetter({})}
+        />
+      );
+      expect(screen.queryByRole('button', { name: /View John Smith/ })).toBeNull();
+    });
+
+    it('calls onPlayerPress with the tapped player id', () => {
+      const onPlayerPress = jest.fn();
+      render(
+        <MatchPlayScorecardTable
+          holes={defaultHoles}
+          player1={defaultPlayer1}
+          player2={defaultPlayer2}
+          getPlayerScore={createScoreGetter({})}
+          onPlayerPress={onPlayerPress}
+        />
+      );
+      fireEvent.press(screen.getByRole('button', { name: /View Jane Doe/ }));
+      expect(onPlayerPress).toHaveBeenCalledWith('player-2');
+    });
+  });
 });

@@ -69,6 +69,12 @@ export interface TeamCardProps {
   onMemberPress?: (player: Player) => void;
 
   /**
+   * What a member-row press does, for accessibility copy. Defaults to 'move'
+   * (organizer move sheet); 'profile' when the press opens the player's profile.
+   */
+  memberPressAction?: 'move' | 'profile';
+
+  /**
    * The currently logged-in user's player ID. When provided:
    *   - Member rows for this player display a "You" pill next to the name.
    *   - The card itself gets a primary-coloured border to visually
@@ -107,6 +113,7 @@ export const TeamCard = React.memo(function TeamCard({
   onNameChange,
   onPress,
   onMemberPress,
+  memberPressAction = 'move',
   currentUserId,
   testID,
 }: TeamCardProps) {
@@ -215,6 +222,7 @@ export const TeamCard = React.memo(function TeamCard({
                 isLast={index === memberCount - 1}
                 colors={colors}
                 onPress={onMemberPress}
+                pressAction={memberPressAction}
                 isCurrentUser={!!currentUserId && member.player_id === currentUserId}
               />
             ))
@@ -237,6 +245,7 @@ interface MemberRowProps {
   isLast: boolean;
   colors: ColorPalette;
   onPress?: (player: Player) => void;
+  pressAction?: 'move' | 'profile';
   isCurrentUser?: boolean;
 }
 
@@ -245,6 +254,7 @@ const MemberRow = React.memo(function MemberRow({
   isLast,
   colors,
   onPress,
+  pressAction = 'move',
   isCurrentUser = false,
 }: MemberRowProps) {
   if (!player) {
@@ -294,8 +304,16 @@ const MemberRow = React.memo(function MemberRow({
         onPress={() => onPress(player)}
         activeOpacity={0.7}
         accessibilityRole="button"
-        accessibilityLabel={`Move ${player.name}. Handicap ${player.handicap ?? 'N/A'}.`}
-        accessibilityHint="Opens a menu to move this player to a different team"
+        accessibilityLabel={
+          pressAction === 'profile'
+            ? `View ${player.name}'s profile. Handicap ${player.handicap ?? 'N/A'}.`
+            : `Move ${player.name}. Handicap ${player.handicap ?? 'N/A'}.`
+        }
+        accessibilityHint={
+          pressAction === 'profile'
+            ? undefined
+            : 'Opens a menu to move this player to a different team'
+        }
       >
         {rowContent}
       </TouchableOpacity>
