@@ -53,6 +53,14 @@ describe('findBackfillGaps', () => {
     expect(findBackfillGaps({ holes: create18Holes(), nineType: 'back9', players, scorecards: scorecards as any }))
       .toEqual([{ playerId: 'b', playerName: 'Dave', holes: [11] }]);
   });
+  it('treats a card with null scores as having nothing scored', () => {
+    const scorecards = new Map<string, { scores: Record<number, { strokes: number }> | null }>([
+      ['a', { scores: { 1: s(4), 2: s(5) } }],
+      ['b', { scores: null }],
+    ]);
+    expect(findBackfillGaps({ holes: create18Holes(), nineType: 'full', players, scorecards: scorecards as any }))
+      .toEqual([{ playerId: 'b', playerName: 'Dave', holes: [1, 2] }]);
+  });
 });
 
 describe('formatHoleRange', () => {

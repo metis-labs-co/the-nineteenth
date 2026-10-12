@@ -41,7 +41,7 @@ export function findBackfillGaps(input: {
 }): { playerId: string; playerName: string; holes: number[] }[] {
   const planned = filterHolesByNineType(input.holes, input.nineType).map((h) => h.number).sort((a, b) => a - b);
   const scored = (playerId: string, hole: number) =>
-    isHoleScored(input.scorecards.get(playerId)?.scores[hole]);
+    isHoleScored((input.scorecards.get(playerId)?.scores ?? {})[hole]);
 
   const furthest = planned.filter((hole) => input.players.some((p) => scored(p.id, hole))).pop();
   if (furthest == null) return [];
