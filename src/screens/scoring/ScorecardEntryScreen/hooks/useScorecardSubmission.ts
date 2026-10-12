@@ -33,8 +33,6 @@ export interface UseScorecardSubmissionParams {
   onIncompleteRound: (completedCount: number) => void;
   onSubmitError: () => void;
   onCloseIncompleteDialog: () => void;
-  /** Called after the round has been deleted (before navigating away) */
-  onDeleted?: () => void;
 }
 
 export interface UseScorecardSubmissionReturn {
@@ -59,7 +57,6 @@ export function useScorecardSubmission({
   onIncompleteRound,
   onSubmitError,
   onCloseIncompleteDialog,
-  onDeleted,
 }: UseScorecardSubmissionParams): UseScorecardSubmissionReturn {
   // Confirmation dialog hook
   const { dialogConfig, showDialog, showAlert, dismissDialog } = useConfirmationDialog();
@@ -128,13 +125,12 @@ export function useScorecardSubmission({
       await sendRoundEvent(roundId, 'round_deleted');
       await activeRoundSession.clear();
       resetRound();
-      onDeleted?.();
       navigation.goBack();
     } catch (error) {
       console.error('[ScorecardEntryScreen] Error deleting round:', error);
       showAlert('Error', 'Failed to delete round. Please try again.');
     }
-  }, [roundId, deleteRoundMutation, navigation, resetRound, onDeleted, showAlert]);
+  }, [roundId, deleteRoundMutation, navigation, resetRound, showAlert]);
 
   // Push the latest scores first so the Undo toast restores everything
   const syncThenDelete = useCallback(async () => {
