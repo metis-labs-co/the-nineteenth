@@ -93,11 +93,15 @@ in the round is submitted.
   card would block re-adding), then `round_players` (a surviving row would
   let any device re-insert the card). Single transaction.
 
-Notification trigger `trigger_notify_round_player_invited`: today it says
-"invited you to play" for every insert and does not skip placeholder
-players. Change it so that an `accepted` insert on an in-progress round reads
-"<owner> added you to a round at <course>", and placeholder players (no auth
-user) never get a notification.
+Notification trigger `trigger_notify_round_player_invited`: `add_round_player`
+sets a transaction-local flag (`app.round_player_added_mid_round`) around its
+insert; only then does the notification read "<owner> added you to a round at
+<course>". Every other insert (round creation, scheduled-round invites) and the
+existing placeholder handling stay unchanged — round creation also inserts
+accepted rows into an in-progress round, so status can't be the signal.
+
+`add_round_player` also rejects blocked pairs (`is_blocked_pair`, 1.15.0),
+since SECURITY DEFINER bypasses RLS.
 
 ### Add (client)
 

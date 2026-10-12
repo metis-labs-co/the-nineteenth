@@ -32,6 +32,28 @@
 4. **A reconcile read that comes back empty or without the owner** (RLS hiccup, partial data) must never delete local cards. Test: Task 6 `reconcileRoster` `ignore` cases.
 5. **Delete while scores are still uploading and the sync times out** → user is asked "Delete anyway?"; cancelling leaves the round and local scores untouched. Test: Task 8 `useScorecardSubmission` test.
 
+## 1.15.0 Compatibility (checked 2026-10-12 against local main 2083fb62)
+
+Every change below is additive or scoped to the new owner-only menu; the rest of 1.15.0 behaves exactly as before.
+
+| 1.15.0 area | Touch point in this plan | Outcome |
+|---|---|---|
+| Round invite notifications (`notify_round_player_invited`, latest def 20260327000000; scheduled rounds and age-gate migrations don't redefine it) | Task 1 trigger edit | New copy only when `add_round_player` sets a transaction-local flag. Round creation (also accepted + in-progress) and scheduled-round invites unchanged; placeholder handling unchanged. Regression assert 3b. |
+| Blocking (`is_blocked_pair`, 20260905000000) | `add_round_player` is SECURITY DEFINER | Explicit block check added (HINT `player_blocked`). |
+| Player privacy column lock (pending) | `fetchRoundRoster` | Uses `COMPETITION_PLAYERS_SELECT` (public columns only: name, handicap, handicap_index, gender). No email/phone. |
+| End round early + scoring-write guard (20261007000200/0300) | Locks, RPC lock order, ⋮ | RPCs lock the round row then cards `NOWAIT`, same order as `end_round_early`; refuse when `holes_played` set. Scorecard guard trigger is INSERT/UPDATE only, so the hard DELETE needs no write context. Non-owners and match-play screens keep the direct End-early ⋮. |
+| Scorecard FKs (league tags, combined 9s) | `remove_round_player` DELETE | Only possible on submitted cards, which the RPC refuses first. No DELETE triggers on `scorecards`. |
+| Rounds-tab / Home swipe delete, Round Settings delete (`useDeleteRound` → `deleteRound`) | Task 8 | `deleteRound` untouched. Only shared change: `deleteScorecardsByRound` also clears queued `type:'round'` items (finalize / end-early intents) for the deleted round — they could only fail forever against a deleted round. Its only caller is `deleteRound`. |
+| ViewRound holes sheet (`EditNineTypeSheet`, only used by RoundDetailsTab) | Task 7 | New props optional. One behaviour change: `deleteHoles` is awaited before `resetRound()` instead of fire-and-forget — strictly safer; ViewRound rarely holds that round in the store. |
+| `RoundHeader` (also MatchPlay, TeamMatchPlay, ScheduledRound) | Task 9 | Optional prop; existing ⋮ path unchanged when it isn't passed. Tests cover the fallback. |
+| Sync orchestrator retention (1.14.1 self-conflict fix, contention fix) | Task 4 | Adds a notify call only; retention/marking logic unchanged. No listener exists unless score entry mounts the hook. |
+| `useRoundPlayers` / `useRoundData` | Tasks 5, 7, 11 | `useRoundPlayers` untouched; `useRoundData` only gains returned fields (`refetchMetadata`, `refetchPlayers`, `courseHoleCount`). |
+| Watch bridge | none | Re-sends its snapshot when `currentPlayers` changes; a missing card makes watch writes a no-op. |
+
+**Release gating:** keep `feat/round-options-menu` unmerged until you decide which release it ships in. If it goes into 1.15.0, `20261012000000_round_roster_rpcs.sql` must reach prod before the 1.15.0 binary is released; otherwise it ships in the next release. Run `pnpm verify:gate` on the merge result either way.
+
+**Not in 1.15.0, will conflict later:** the blocked live multi-scorer worktree (`useLiveScorecardMerge`, social scoring mode). Whichever lands second must re-run Task 6's tests against the other's merge logic.
+
 ---
 
 ### Task 0: Scoring guardrails and characterisation
@@ -110,8 +132,8 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Produces (SQL):
   - `public.add_round_player(p_round_id UUID, p_player_id UUID) RETURNS VOID`
   - `public.remove_round_player(p_round_id UUID, p_player_id UUID) RETURNS VOID`
-  - Error HINTs: `not_owner`, `round_not_editable`, `round_ended`, `round_has_submitted_scorecards`, `player_already_in_round`, `round_full`, `cannot_remove_owner`, `player_not_in_round`, `round_scorecards_busy`
-  - Notification data key `added_mid_round: true` on `social_round_invitation` rows created by an accepted insert into an in-progress round.
+  - Error HINTs: `not_owner`, `round_not_editable`, `round_ended`, `round_has_submitted_scorecards`, `player_already_in_round`, `round_full`, `player_blocked`, `cannot_remove_owner`, `player_not_in_round`, `round_scorecards_busy`
+  - Notification data key `added_mid_round: true` on `social_round_invitation` rows created by `add_round_player` only (transaction-local flag). Every other insert path is byte-for-byte unchanged.
 
 - [ ] **Step 1: Write the migration.**
 
@@ -190,9 +212,18 @@ BEGIN
   IF (SELECT COUNT(*) FROM round_players WHERE round_id = p_round_id) >= 4 THEN
     RAISE EXCEPTION 'This round is full' USING ERRCODE = '22023', HINT = 'round_full';
   END IF;
+  -- SECURITY DEFINER bypasses RLS, so honour 1.15.0 blocking explicitly.
+  IF is_blocked_pair(auth.uid(), p_player_id) THEN
+    RAISE EXCEPTION 'This player can''t be added' USING ERRCODE = '42501', HINT = 'player_blocked';
+  END IF;
 
+  -- Transaction-local flag read by notify_round_player_invited so only this
+  -- path gets "added you to a round" copy. Normal round creation also inserts
+  -- accepted rows into an in-progress round and must keep "invited you to play".
+  PERFORM set_config('app.round_player_added_mid_round', 'on', true);
   INSERT INTO round_players (round_id, player_id, added_by, invitation_status, responded_at)
   VALUES (p_round_id, p_player_id, auth.uid(), 'accepted', NOW());
+  PERFORM set_config('app.round_player_added_mid_round', 'off', true);
 END;
 $$;
 REVOKE ALL ON FUNCTION public.add_round_player(UUID, UUID) FROM PUBLIC, anon;
@@ -240,16 +271,9 @@ Append the notification change: copy the full `notify_round_player_invited()` bo
 
 ```sql
 -- in DECLARE, add:
-  round_status TEXT;
-  is_placeholder_player BOOLEAN;
-  added_mid_round BOOLEAN;
--- in the round SELECT, add r.status to the column list and round_status to INTO.
--- after the owner check, add:
-  SELECT p.is_placeholder INTO is_placeholder_player FROM players p WHERE p.id = NEW.player_id;
-  IF COALESCE(is_placeholder_player, FALSE) THEN
-    RETURN NEW;  -- guests have no account to notify
-  END IF;
-  added_mid_round := NEW.invitation_status = 'accepted' AND round_status = 'in-progress';
+  added_mid_round BOOLEAN := COALESCE(current_setting('app.round_player_added_mid_round', true), '') = 'on';
+-- (no other logic changes: owner skip, placeholder handling and the
+--  invite path stay exactly as in 20260327000000)
 -- in the create_notification jsonb_build_object, add:
       'added_mid_round', added_mid_round,
 -- replace the push title/body arguments with:
@@ -277,12 +301,21 @@ SET LOCAL request.jwt.claims = '{"sub":"<O>","role":"authenticated"}';
 SELECT add_round_player('<R>', '<F>');
 DO $$ BEGIN ASSERT (SELECT invitation_status FROM round_players WHERE round_id='<R>' AND player_id='<F>') = 'accepted', 'F accepted'; END $$;
 
--- 3. Notification for F has added_mid_round = true; none for guest G.
-SELECT add_round_player('<R>', '<G>');
+-- 3. Notification for F has added_mid_round = true.
 DO $$ BEGIN
   ASSERT (SELECT (data->>'added_mid_round')::BOOLEAN FROM notifications WHERE user_id='<F>' ORDER BY created_at DESC LIMIT 1), 'F notified as added';
-  ASSERT NOT EXISTS (SELECT 1 FROM notifications WHERE user_id='<G>'), 'guest not notified';
 END $$;
+
+-- 3b. Regression: a plain owner INSERT (how round creation adds partners,
+--     also accepted + in-progress) still produces added_mid_round = false.
+INSERT INTO round_players (round_id, player_id, added_by, invitation_status) VALUES ('<R2>', '<F>', '<O>', 'accepted');
+DO $$ BEGIN
+  ASSERT NOT (SELECT (data->>'added_mid_round')::BOOLEAN FROM notifications WHERE user_id='<F>' AND round_id='<R2>' LIMIT 1), 'normal invite unchanged';
+END $$;
+
+-- 3c. Blocked pair rejected (insert user_blocks O->X as fixture admin first).
+DO $$ BEGIN PERFORM add_round_player('<R>', '<X>'); RAISE EXCEPTION 'expected player_blocked';
+EXCEPTION WHEN insufficient_privilege THEN NULL; END $$;
 
 -- 4. Duplicate add rejected.
 DO $$ BEGIN PERFORM add_round_player('<R>', '<F>'); RAISE EXCEPTION 'expected duplicate';
@@ -819,7 +852,6 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Modify: `src/store/initializeRoundSlice.ts` (add `removePlayerScorecard` after `ensureTeamMemberScorecards`)
 - Modify: `src/store/scorecardStore.ts` (interface ~line 145, implementation ~line 440)
 - Create: `src/services/rounds/roundRoster.ts`
-- Modify: `src/hooks/scorecard/useRoundPlayers.ts:113-125` (use shared row mapper)
 - Test: `src/__tests__/store/scorecardStore.roster.test.ts`, `src/services/rounds/roundRoster.test.ts`
 
 **Interfaces:**
@@ -1041,8 +1073,8 @@ export function rowToPlayer(row: SupabaseCompetitionPlayerData): Player | null {
   return {
     id: p.id,
     name: getDisplayName(p.name, 'Unknown'),
-    email: p.email || '',
-    phone: p.phone ?? null,
+    email: '',
+    phone: null,
     handicap: p.handicap || 0,
     handicapIndex: p.handicap_index ?? null,
     gender: p.gender ?? null,
@@ -1111,9 +1143,9 @@ export async function removePlayerFromRound(roundId: string, playerId: string): 
 }
 ```
 
-Check `SupabaseCompetitionPlayerData` is exported from `@/types/supabase/roundQueries` (it's used in `useRoundPlayers.ts`); if `players` lacks `email`/`phone` in that type, drop those two lines and use `email: ''`, `phone: null` to match `useRoundPlayers.ts:113-125` exactly. `getDisplayName`'s import path: copy it from `useRoundPlayers.ts`.
+Check `SupabaseCompetitionPlayerData` is exported from `@/types/supabase/roundQueries` (it's used in `useRoundPlayers.ts`). `getDisplayName`'s import path: copy it from `useRoundPlayers.ts`.
 
-- [ ] **Step 8: DRY `useRoundPlayers`.** Replace its inline `.filter((cp) => cp.players).map((cp) => ({ ... }))` with `.map(rowToPlayer).filter((p): p is Player => p !== null)` imported from `@/services/rounds/roundRoster`. Behaviour must be identical.
+- [ ] **Step 8: Leave `useRoundPlayers` untouched** (1.15.0 safety: no refactor of the shared score-entry player fetch). `rowToPlayer` mirrors its mapping; keep them in step. Do not add `email`/`phone` to `COMPETITION_PLAYERS_SELECT` — they are private under the pending player column lock (`supabase/migrations_pending/player_column_privileges.sql`); `rowToPlayer` sets `email: ''`, `phone: null`.
 
 - [ ] **Step 9: Run.** `pnpm test src/services/rounds/roundRoster.test.ts src/__tests__/hooks/scorecard/useRoundData.test.tsx` → PASS.
 
@@ -1125,7 +1157,7 @@ Expected: PASS apart from the known flaky tests listed in the "Jest baseline noi
 - [ ] **Step 11: Commit**
 
 ```bash
-git add src/store/initializeRoundSlice.ts src/store/scorecardStore.ts src/services/rounds/roundRoster.ts src/services/rounds/roundRoster.test.ts src/hooks/scorecard/useRoundPlayers.ts src/__tests__/store/scorecardStore.roster.test.ts
+git add src/store/initializeRoundSlice.ts src/store/scorecardStore.ts src/services/rounds/roundRoster.ts src/services/rounds/roundRoster.test.ts src/__tests__/store/scorecardStore.roster.test.ts
 git commit -m "feat(scoring): add/remove players mid-round on social rounds
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
@@ -1724,13 +1756,7 @@ and assert `runAsync` was called with `DELETE FROM pending_syncs WHERE id = ?` f
       if (data.roundId === roundId || data.id === roundId) {
 ```
 
-Also, in `src/hooks/rounds/mutations.ts` `deleteRound`, run the local cleanup under the persistence barrier so an in-flight local write can't land after it:
-
-```ts
-    await withRoundPersistence(captureRoundPersistenceSource(roundId), () => deleteScorecardsByRound(roundId));
-```
-
-(import both from `@/services/offline/roundPersistenceBarrier`; add `src/hooks/rounds/mutations.ts` to this task's commit).
+Do **not** change `deleteRound` in `src/hooks/rounds/mutations.ts` — it is shared with the Rounds-tab and Home swipe deletes and Round Settings in 1.15.0. The score-entry path already cancels timers and syncs before calling it.
 
 - [ ] **Step 7: Failing submission-hook delete tests** `useScorecardSubmission.delete.test.ts`. Render the hook with `renderHook` and mocks for `useDeleteRound` (`mutateAsync: jest.fn()`), `activeRoundSession.clear`, `syncRoundNow`, `sendRoundEvent`, navigation (`goBack: jest.fn()`), and `useConfirmationDialog` (copy the mocking approach from any existing `useScorecardSubmission` test: `grep -rl useScorecardSubmission src | grep test`). Cases:
 
