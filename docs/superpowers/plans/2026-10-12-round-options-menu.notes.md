@@ -17,3 +17,5 @@ Classification: shared-math (store slice). No math change, but it changes round 
 3. A removed player must not be resurrected by a later `ensureTeamMemberScorecards` / remote merge unless re-added.
 4. Removing a player with scores; removing when only one other player remains.
 5. `RoundPersistenceSourceChangedError` path for removal.
+
+Task 1 verify script: deferred to deploy (not run)
