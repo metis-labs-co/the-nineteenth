@@ -388,9 +388,7 @@ export async function deleteScorecardsByRound(roundId: string): Promise<void> {
   for (const sync of pendingSyncs) {
     try {
       const data = JSON.parse(sync.data);
-      // Scorecard items carry data.roundId; round-level items (finalize /
-      // end-early intents) carry data.id.
-      if (data.roundId === roundId || data.id === roundId) {
+      if (data.roundId === roundId) {
         await database.runAsync(
           `DELETE FROM ${TABLE_NAMES.PENDING_SYNCS} WHERE id = ?`,
           [sync.id]
@@ -402,6 +400,32 @@ export async function deleteScorecardsByRound(roundId: string): Promise<void> {
   }
 
   dbLogger.debug('All data deleted for round', { roundId: roundId.substring(0, 8) + '...' });
+}
+
+/**
+ * Delete this round's round-level queue items (finalise / end-early intents:
+ * pending_syncs rows of type 'round' whose data.id is the round). Used when a
+ * device leaves a round it no longer has access to.
+ */
+export async function deleteRoundIntents(roundId: string): Promise<void> {
+  const database = await getDb();
+  const pendingSyncs = await database.getAllAsync<{ id: number; data: string }>(
+    `SELECT id, data FROM ${TABLE_NAMES.PENDING_SYNCS} WHERE type = ?`,
+    ['round']
+  );
+
+  for (const sync of pendingSyncs) {
+    try {
+      if (JSON.parse(sync.data).id === roundId) {
+        await database.runAsync(
+          `DELETE FROM ${TABLE_NAMES.PENDING_SYNCS} WHERE id = ?`,
+          [sync.id]
+        );
+      }
+    } catch {
+      // Ignore JSON parse errors
+    }
+  }
 }
 
 /**

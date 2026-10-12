@@ -14,11 +14,12 @@ import { reconcileRoster } from '@/services/rounds/reconcileRoster';
 import { registerRoundChannel, roundChannelName } from '@/services/rounds/roundRosterChannel';
 import { onRoundAccessLost } from '@/services/rounds/roundAccessEvents';
 import { withRoundScoringWrite } from '@/services/rounds/roundScoringCoordinator';
-import { deleteScorecardsByRound, removePendingSyncByEntityKey } from '@/services/offline/database';
+import { deleteRoundIntents, deleteScorecardsByRound, removePendingSyncByEntityKey } from '@/services/offline/database';
 import { activeRoundSession } from '@/services/activeRoundSession';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { cancelPendingScorecardSync } from '@/store/scorecardSyncDebounce';
 import { useToast } from '@/context/ToastContext';
+import { syncLogger } from '@/utils/debugLogger';
 
 const EXIT_MESSAGES = {
   exit_removed: 'You were removed from this round',
@@ -104,10 +105,16 @@ export function useRoundRosterSync({ roundId, enabled, isOnline, currentUserId, 
       if (!stillValid()) return;
       proceed = true;
       exited.current = true;
-      for (const card of useScorecardStore.getState().groupScorecards.values()) {
-        cancelPendingScorecardSync(card.id);
+      // Leaving must not depend on local cleanup succeeding.
+      try {
+        for (const card of useScorecardStore.getState().groupScorecards.values()) {
+          cancelPendingScorecardSync(card.id);
+        }
+        await deleteScorecardsByRound(roundId);
+        await deleteRoundIntents(roundId);
+      } catch (error) {
+        syncLogger.error('Round exit: local cleanup failed', error, { roundId });
       }
-      await deleteScorecardsByRound(roundId);
     });
     if (!proceed) return;
     await activeRoundSession.clear();
