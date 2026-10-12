@@ -84,6 +84,7 @@ function expectNoChange(invalidate: ReturnType<typeof renderSheet>['invalidate']
 describe('EditNineTypeSheet', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockResetRound.mockReset();
     mockScorecards = [];
     mockCurrentRoundId = 'round-1';
     mockUpdateRound.mockResolvedValue(undefined);
@@ -218,5 +219,23 @@ describe('EditNineTypeSheet', () => {
     rerender(<EditNineTypeSheet {...props} holesPlayed={6} />);
     await act(async () => { staleConfirm(); });
     expectNoChange(invalidate);
+  });
+  it('uses scoredHoleNumbers instead of server cards for the hidden-holes warning', async () => {
+    mockScorecards = [];
+    renderSheet({ currentNineType: 'full', scoredHoleNumbers: [10, 11] });
+    fireEvent.press(screen.getByText('Front 9'));
+    expect(await screen.findByText(/10–11/)).toBeTruthy();
+  });
+
+  it('awaits beforeReset before resetting the store, then calls onChanged', async () => {
+    const order: string[] = [];
+    const beforeReset = jest.fn(async () => { order.push('beforeReset'); });
+    const onChanged = jest.fn(() => order.push('onChanged'));
+    mockResetRound.mockImplementation(() => { order.push('reset'); });
+    mockCurrentRoundId = 'round-1';
+    renderSheet({ currentNineType: 'full', scoredHoleNumbers: [], beforeReset, onChanged });
+    fireEvent.press(screen.getByText('Front 9'));
+    await waitFor(() => expect(onChanged).toHaveBeenCalledWith('front9'));
+    expect(order).toEqual(['beforeReset', 'reset', 'onChanged']);
   });
 });

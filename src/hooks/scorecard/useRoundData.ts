@@ -66,6 +66,8 @@ interface UseRoundDataParams {
 
 interface UseRoundDataResult extends RoundDataState {
   retryFetch: () => void;
+  refetchMetadata: () => Promise<void>;
+  refetchPlayers: () => Promise<void>;
 }
 
 /**
@@ -974,5 +976,7 @@ export function useRoundData({
   return {
     ...state,
     retryFetch,
+    refetchMetadata: metadata.refetch,
+    refetchPlayers: playersHook.refetch,
   };
 }
