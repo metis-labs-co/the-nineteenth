@@ -131,95 +131,102 @@ export const FAQ_DATA: FAQItem[] = [
     id: '14',
     question: 'How do I delete a round?',
     answer:
-      'Swipe left on a social round in the Rounds tab, or on its card under "Continue scoring" on the Home screen, and tap delete. If it\'s a scheduled round with invited players, deleting it cancels the round and notifies them. Competition rounds are managed by the organiser from the competition.',
+      'Swipe left on a social round in the Rounds tab, or on its card under "Continue scoring" on the Home screen, and tap delete (or use Round options while scoring). If it\'s a scheduled round with invited players, deleting it cancels the round and notifies them. Competition rounds are managed by the organiser from the competition.',
     category: 'scoring',
   },
   {
     id: '15',
+    question: 'Can I change a round while I\'m playing it?',
+    answer:
+      'Yes, if you started the round. In score entry tap the ⋮ menu and choose Round options to switch between full 18, front 9 and back 9, add or remove players, change tees, end the round early or delete it. Adding and removing players works for Stableford, Stroke Play and Par rounds without Skins, Wolf or scoring pairs. Removing a player deletes their scores for that round. These changes need an internet connection; anyone else scoring the round sees them automatically.',
+    category: 'scoring',
+  },
+  {
+    id: '16',
     question: 'Does the app show distances on the course?',
     answer:
       'Yes. While scoring, the distance to the green appears in the round header — tap it to open the hole map. If you have an Apple Watch, the companion app lets you score, check distances and see the leaderboard from your wrist.',
     category: 'scoring',
   },
   {
-    id: '16',
+    id: '17',
     question: 'How do I update my handicap?',
     answer:
       'Go to Profile and tap "Edit Profile". You can update your handicap (between -5 and 54) there. It\'s used to calculate the strokes you receive on each hole based on the course stroke index.',
     category: 'account',
   },
   {
-    id: '17',
+    id: '18',
     question: 'What is my Social Handicap?',
     answer:
       'Your Social Handicap is calculated by The Nineteenth from your best recent rounds in the app (up to your last 20). It is unique to The Nineteenth and is not an official golf handicap. Only completed 18-hole rounds count; shared-ball formats like Scramble and Alt Shot, and rounds ended early, are left out. You can combine two 9-hole rounds into an 18 on the Social Handicap screen (Profile > Social Handicap). Social and Premium members also get the full history and trend chart.',
     category: 'account',
   },
   {
-    id: '18',
+    id: '19',
     question: 'What are guest players?',
     answer:
       'Guests are players without an app account that you add to a round, using "Create Guest" when choosing partners. If that person joins later, link their guest history to their account from Profile > Manage Guest Players (Social and Premium) so their past rounds carry over.',
     category: 'account',
   },
   {
-    id: '19',
+    id: '20',
     question: 'Can I control push notifications?',
     answer:
       'Yes. Open Profile > Push Notifications and switch on "Enable Push Notifications", then choose the types you want: Competition Updates, Friend Requests, Scorecard Updates, League Updates, Side Games & Payouts, Tee Time Reminders and Social Activity. If notifications are blocked for the app, you\'ll be prompted to turn them on in your phone\'s settings first.',
     category: 'account',
   },
   {
-    id: '20',
+    id: '21',
     question: 'Why do I need to confirm my age?',
     answer:
       'Social features like the activity feed, comments, photos and public leagues are only available to players aged 13 and over. Confirm your date of birth from the "Confirm your age" card on your Profile. We only store whether you\'re over 13, not your date of birth. Until you confirm, social features stay switched off.',
     category: 'account',
   },
   {
-    id: '21',
+    id: '22',
     question: 'How do I block or report someone?',
     answer:
       'Open the player\'s profile and tap "Block" or "Report". Blocking removes any friendship between you and hides each other\'s comments, photos and activity. Comments and photos can also be reported individually. To unblock someone, go to Profile > Blocked players.',
     category: 'account',
   },
   {
-    id: '22',
+    id: '23',
     question: 'How do I customise the app\'s look?',
     answer:
       'Open Profile > Appearance to choose Light, Dark or System theme, a solid or translucent surface style, and whether to show a background image. To personalise your profile, use Profile > Customize Profile to equip badges, frames and titles earned through achievements.',
     category: 'account',
   },
   {
-    id: '23',
+    id: '24',
     question: 'What subscription plans are available?',
     answer:
       'There are three plans. Free: 3 competitions, 1 league, 20 social rounds, 5 friends, Stableford and Stroke Play. Social: 8 competitions, 3 leagues, unlimited social rounds, 15 friends, Match Play and Par, detailed stats, Social Handicap history and guest management. Premium: 50 competitions and leagues, all team formats, Skins, Wolf, prize pools, scoring pairs, Game Results and unlimited friends. Open Profile > My Subscription for the full feature list.',
     category: 'subscription',
   },
   {
-    id: '24',
+    id: '25',
     question: 'Who can see my details?',
     answer:
       'Other players never see your email address or phone number. On the global achievement leaderboard, players who aren\'t your friends appear under an anonymous nickname. Blocking someone hides your activity from them.',
     category: 'privacy',
   },
   {
-    id: '25',
+    id: '26',
     question: 'How do I download my data?',
     answer:
       'Go to Profile > Privacy & Data > Download My Data. This exports your account data (profile, rounds, scores, competitions, friends and more) as a JSON file that you can save or share. This is your right under data protection laws (GDPR Article 20).',
     category: 'privacy',
   },
   {
-    id: '26',
+    id: '27',
     question: 'How do I delete my account?',
     answer:
       'Go to Profile > Privacy & Data > Delete Account. You\'ll be asked to confirm twice, including typing "DELETE" and tapping "Delete Forever". This permanently removes your account and personal data straight away. Your historical scores are anonymised to preserve competition and round records.',
     category: 'privacy',
   },
   {
-    id: '27',
+    id: '28',
     question: 'What happens to my data if I delete my account?',
     answer:
       'Your profile, friends, notifications, subscription and preferences are deleted immediately, and you\'re removed from all competitions and leagues. Scores from rounds you played with others stay, but are anonymised so they\'re no longer linked to you. Social rounds where you were the only player are deleted. Copies in backups are cleared within 30 days.',

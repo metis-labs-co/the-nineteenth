@@ -19,3 +19,25 @@ Classification: shared-math (store slice). No math change, but it changes round 
 5. `RoundPersistenceSourceChangedError` path for removal.
 
 Task 1 verify script: deferred to deploy (not run)
+
+## Task 12 verification results (2026-10-12)
+
+- Scoring subset (`pnpm test --testPathPattern='(golden|services/scoring|utils/(scoring|dailyHandicap|subMatches)|components/scorecard|store/scorecardStore|services/offline|services/scoreMismatch)'`): 98 suites passed / 98; 2448 tests passed, 15 skipped, 0 failed; 15 snapshots passed.
+- `pnpm verify:gate`: PASSED (type-check, tests green subset 77 suites / 1541 tests, lint on 48 changed files: 0 errors, 3 warnings).
+- Lint warnings (all in files this branch touches): `useScorecardSubmission.ts:122` missing dep `holes.length`; `ScorecardEntryScreen/index.tsx:57-58` unused imports `resolvePlayerTee`, `getTeeColor`.
+- No failures, so no flake comparison was needed.
+
+## Manual QA checklist (two devices, staging, after the migration is applied)
+
+1. Owner adds a friend mid-round: friend's phone gets "added you to a round"; card appears on owner's and other scorer's phones; End round early shows "Needs scores for <name> on holes 1-N" until back-filled.
+2. Owner removes a player who is also scoring on their own phone: that phone shows "You were removed from this round" and leaves; no "not uploaded" banner anywhere.
+3. Repeat 2 with the removed player's phone offline, then bring it online.
+4. Owner switches full -> front 9 while the other phone is on hole 12: both show front 9; scores 10-12 hidden, not lost.
+5. Owner deletes the round mid-round: other phone shows "This round was deleted"; Undo restores the round with all scores.
+6. Offline: menu rows grey out with "Needs a connection"; End round early still works.
+7. Non-owner: the ⋮ opens End round early directly.
+8. Skins/Wolf/scoring-pairs/match-play round: Players row locked "Not available for this format".
+
+## Deploy order (NOT executed; needs the user's go-ahead)
+
+Apply `20261012000000_round_roster_rpcs.sql` to staging -> QA -> prod -> then ship the client (release or OTA). The client relies on the RPCs existing.
