@@ -42,6 +42,7 @@ export interface MockScorecardState {
 
   // Actions
   initializeRound: jest.Mock;
+  removePlayerFromRound: jest.Mock;
   setCurrentHole: jest.Mock;
   setPlayerScore: jest.Mock;
   updatePlayerHoleScore: jest.Mock;
@@ -99,6 +100,7 @@ export function createMockScorecardStore(
 
     // Actions
     initializeRound: jest.fn(),
+    removePlayerFromRound: jest.fn(),
     setCurrentHole: jest.fn(),
     setPlayerScore: jest.fn(),
     updatePlayerHoleScore: jest.fn(),

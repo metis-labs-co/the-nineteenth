@@ -12,6 +12,7 @@ import {
   getScorecardsByRound,
   saveHoles,
   getHoles,
+  deleteScorecard,
 } from '@/services/offline/database';
 import { supabase } from '@/services/supabase/client';
 import { storeLogger } from '@/utils/debugLogger';
@@ -43,6 +44,7 @@ type GetFn = () => {
   selectedTeeData?: TeeBox | null;
   playerTeeMap?: Map<string, TeeBox>;
   groupScorecards: Map<string, Scorecard>;
+  allowedPlayerIds: string[];
 };
 
 /**
@@ -724,4 +726,31 @@ export async function ensureTeamMemberScorecards(
     if (!cached) options.onLiveCardsReady?.([card]);
     set({ groupScorecards: cards, currentPlayers: latest.currentPlayers.some(p => p.id === player.id) ? latest.currentPlayers : [...latest.currentPlayers, player] });
   }
+}
+
+/**
+ * Remove a player's card from this device after the server removed them
+ * (owner action or roster reconcile). Deletes the local card + hole scores so
+ * a later re-add can't revive old scores from SQLite.
+ */
+export async function removePlayerScorecard(set: SetFn, get: GetFn, playerId: string): Promise<string | null> {
+  const state = get();
+  const roundId = state.currentRoundId;
+  const card = state.groupScorecards.get(playerId);
+  if (!roundId || !card) return null;
+
+  await withRoundPersistence(captureRoundPersistenceSource(roundId), async () => {
+    await deleteScorecard(card.id);
+  });
+
+  const latest = get();
+  if (latest.currentRoundId !== roundId) return card.id;
+  const cards = new Map(latest.groupScorecards);
+  cards.delete(playerId);
+  set({
+    groupScorecards: cards,
+    currentPlayers: latest.currentPlayers.filter((p) => p.id !== playerId),
+    allowedPlayerIds: latest.allowedPlayerIds.filter((id) => id !== playerId),
+  });
+  return card.id;
 }

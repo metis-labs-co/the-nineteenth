@@ -4,19 +4,11 @@
  * @see docs/superpowers/specs/2026-10-12-round-options-menu-design.md §2
  */
 
-import { withRoundScoringWrite } from '@/services/rounds/roundScoringCoordinator';
-import { adoptAuthoritativeRoundShape } from '@/services/rounds/roundScoringAdoption';
-import { endRoundEarly as endWithIntent } from '@/store/endRoundEarlySlice';
-import { requestSyncDrain } from '@/services/offline/sync/drain';
-import { getSyncAuthUserId } from '@/services/offline/sync/networkState';
 import { useScorecardStore } from '@/store/scorecardStore';
-import { debouncedQueueScorecardSync } from '@/store/scorecardSyncDebounce';
 import { createTestPlayer, create18Holes } from '../utils/testFixtures';
-import type { Player, Scorecard, TeeBox } from '@/types';
+import type { Player, TeeBox } from '@/types';
 import {
   saveScorecard,
-  saveHoleScore,
-  saveHoles,
   persistRoundEarlyEnd,
   persistAuthoritativeRoundShape,
   getHoles,
@@ -25,17 +17,7 @@ import {
   getPendingSyncByEntityKey,
   deleteScorecard,
 } from '@/services/offline/database';
-import { syncScorecard, queueScorecardSync } from '@/services/offline/sync';
-import { supabase } from '@/services/supabase/client';
-import { createRoundScoringContext } from '@/services/rounds/roundScoringContext';
-import { calculateHandicapData } from '@/services/offline/sync/scorecardSync';
 import { shapeHoleNumbers } from '@/services/rounds/roundScoringWrite';
-import { withRoundPersistenceTransition } from '@/services/offline/roundPersistenceBarrier';
-import { Platform } from 'react-native';
-import { persistRoundEarlyEnd as persistNativeEarlyEnd, getScorecardsByRound as decodeNativeScorecards } from '@/services/offline/dao/ScorecardDAO';
-import { getDb } from '@/services/offline/DatabaseManager';
-import { getHoleScores } from '@/services/offline/dao/HoleScoreDAO';
-import type { ScorecardRow } from '@/services/offline/types';
 
 jest.mock('@/services/offline/DatabaseManager', () => ({ getDb: jest.fn() }));
 jest.mock('@/services/offline/dao/HoleScoreDAO', () => ({
@@ -152,34 +134,11 @@ const ROUND_ID = '123e4567-e89b-42d3-a456-426614174000';
 const P1: Player = createTestPlayer({ id: '11111111-1111-4111-a111-111111111111', name: 'Sam', handicap: 0 });
 const P2: Player = createTestPlayer({ id: '22222222-2222-4222-a222-222222222222', name: 'Dave', handicap: 0 });
 
-const P3: Player = createTestPlayer({ id: '33333333-3333-4333-a333-333333333333', name: 'Ben', handicap: 0 });
 const TEE_WHITE: TeeBox = { name: 'White', color: 'white', slopeRating: 113, courseRating: 72 };
-const TEE_RED: TeeBox = { name: 'Red', color: 'red', slopeRating: 113, courseRating: 70 };
 
 let mockOwnedIntent: unknown = null;
 const getStore = () => useScorecardStore.getState();
 const cardId = (playerId: string) => `scorecard-${ROUND_ID}-${playerId}`;
-const range = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, i) => from + i);
-const scoredHoles = (playerId: string): number[] =>
-  Object.keys(getStore().groupScorecards.get(playerId)?.scores ?? {})
-    .map(Number)
-    .sort((a, b) => a - b);
-
-async function score(playerId: string, holeNumbers: number[], strokes = 4): Promise<void> {
-  for (const holeNumber of holeNumbers) {
-    await getStore().setPlayerScore(playerId, holeNumber, strokes);
-  }
-}
-
-// The payload `syncScorecard` received for a player at submit.
-const submittedPayload = (playerId: string): Scorecard => {
-  const call = (syncScorecard as jest.Mock).mock.calls.find(
-    (args) => (args[0] as Scorecard).playerId === playerId
-  );
-  if (!call) throw new Error(`no submit payload for ${playerId}`);
-  return call[0] as Scorecard;
-};
-
 beforeEach(() => {
   getStore().resetRound();
   supabaseMock.__resetRoundsResult();
@@ -201,9 +160,6 @@ beforeEach(() => {
   (saveScorecard as jest.Mock).mockReset().mockResolvedValue(undefined);
   (deleteHoleScoresForCards as jest.Mock).mockReset().mockResolvedValue(undefined);
 });
-
-// deleteScorecard is imported for Task 5 (removal tests); referenced so lint stays quiet.
-void deleteScorecard;
 
 describe('characterization: ensureTeamMemberScorecards on a standalone round', () => {
   it('adds a blank in-progress card for a non-team player and persists it', async () => {
@@ -232,5 +188,55 @@ describe('characterization: ensureTeamMemberScorecards on a standalone round', (
     await getStore().ensureTeamMemberScorecards([P2]);
 
     expect(getStore().groupScorecards.get(P2.id)?.isStandalone).toBe(true);
+  });
+});
+
+describe('removePlayerFromRound', () => {
+  it('deletes the local card and drops the player from the store', async () => {
+    await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes(), 'stroke', false, [], TEE_WHITE);
+    useScorecardStore.setState({ allowedPlayerIds: [P1.id, P2.id] });
+
+    await getStore().removePlayerFromRound(P2.id);
+
+    expect(deleteScorecard).toHaveBeenCalledWith(cardId(P2.id));
+    expect(getStore().groupScorecards.has(P2.id)).toBe(false);
+    expect(getStore().currentPlayers.map((p) => p.id)).toEqual([P1.id]);
+    expect(getStore().allowedPlayerIds).toEqual([P1.id]);
+  });
+
+  it('re-adding after removal creates a fresh blank card (Review Focus #2)', async () => {
+    await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes(), 'stroke', false, [], TEE_WHITE);
+    await getStore().setPlayerScore(P2.id, 1, 5);
+    await getStore().removePlayerFromRound(P2.id);
+    (getScorecardsByRound as jest.Mock).mockResolvedValue([]); // SQLite card is gone
+
+    await getStore().ensureTeamMemberScorecards([P2]);
+
+    expect(getStore().groupScorecards.get(P2.id)?.scores).toEqual({});
+  });
+
+  it('is a no-op for an unknown player', async () => {
+    await getStore().initializeRound(ROUND_ID, [P1], create18Holes(), 'stroke', false, [], TEE_WHITE);
+    await getStore().removePlayerFromRound('nobody');
+    expect(deleteScorecard).not.toHaveBeenCalled();
+    expect(getStore().currentPlayers).toHaveLength(1);
+  });
+
+  it('removing a scored player with one other left keeps that card and the roster views consistent', async () => {
+    await getStore().initializeRound(ROUND_ID, [P1, P2], create18Holes(), 'stroke', false, [], TEE_WHITE);
+    useScorecardStore.setState({ allowedPlayerIds: [P1.id, P2.id] });
+    await getStore().setPlayerScore(P1.id, 1, 4);
+    await getStore().setPlayerScore(P2.id, 1, 5);
+    const remaining = getStore().groupScorecards.get(P1.id);
+
+    await getStore().removePlayerFromRound(P2.id);
+
+    const { currentPlayers, groupScorecards, allowedPlayerIds } = getStore();
+    expect(groupScorecards.get(P1.id)).toBe(remaining);
+    expect(currentPlayers.map((p) => p.id)).toEqual([P1.id]);
+    expect([...groupScorecards.keys()]).toEqual([P1.id]);
+    expect(allowedPlayerIds).toEqual([P1.id]);
+    expect(getStore().isHoleComplete(1)).toBe(true);
+    expect(getStore().isHoleComplete(2)).toBe(false);
   });
 });
