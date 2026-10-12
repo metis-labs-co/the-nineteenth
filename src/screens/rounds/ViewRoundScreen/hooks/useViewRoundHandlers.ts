@@ -117,7 +117,10 @@ export function useViewRoundHandlers({
     navigation.goBack();
   }, [navigation, round?.competition?.id, competitionId]);
 
-  const handleScoreRound = useCallback(() => {
+  // Route to the round's scoring screen. `openEndRoundEarly` asks that screen
+  // to open its end-early sheet on arrival (the round-details shortcut).
+  const navigateToScoring = useCallback((openEndRoundEarly?: true) => {
+    const extra = openEndRoundEarly ? { openEndRoundEarly } : {};
     if (isTeamMatchPlayRound) {
       // Prefer the organizer-picked matchup on the rounds row. Falls back
       // to undefined so the scoring screen uses its legacy "first two teams"
@@ -126,20 +129,26 @@ export function useViewRoundHandlers({
         roundId,
         team1Id: round?.team1_id ?? undefined,
         team2Id: round?.team2_id ?? undefined,
+        ...extra,
       });
     } else if (isMatchPlayRound) {
       navigation.navigate('MatchPlayScoring', {
         roundId,
         player1Id: undefined,
         player2Id: undefined,
+        ...extra,
       });
     } else {
       navigation.navigate('Scorecard', {
         roundId,
         competitionId: competitionId || 'standalone',
+        ...extra,
       });
     }
   }, [navigation, roundId, competitionId, isMatchPlayRound, isTeamMatchPlayRound, round?.team1_id, round?.team2_id]);
+
+  const handleScoreRound = useCallback(() => navigateToScoring(), [navigateToScoring]);
+  const handleEndRoundEarlyPress = useCallback(() => navigateToScoring(true), [navigateToScoring]);
 
   const handleSettingsPress = useCallback(() => {
     navigation.navigate('RoundSettings', {
@@ -235,6 +244,7 @@ export function useViewRoundHandlers({
     // Handlers
     handleBack,
     handleScoreRound,
+    handleEndRoundEarlyPress,
     handleSettingsPress,
     handleCourseSelectPress,
     handleCourseSelect,

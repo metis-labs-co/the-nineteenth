@@ -84,14 +84,15 @@ export function useViewRoundTabs({
     // groups (pairings). Team rounds with 2+ teams always need this tab
     // so organisers can assign tee times even before pairings exist —
     // playerCount can transiently read <5 while scorecards/round_players
-    // are still loading. Individual 1v1 match-play also always needs this
-    // tab — pairings are *the* matchups, and a 4-player round (2 matches)
-    // would otherwise have nowhere to display them.
+    // are still loading. Match-play shows it only when there is more than
+    // one match (more than 2 players) — a 4-player round holds two 1v1
+    // matches and this tab is the only place those matchups appear; a
+    // 2-player match has a single matchup, so no Groups tab.
     const showGroupsTab =
       isSplitRound ||
       playerCount > 4 ||
       (isTeamRound && (teamCount ?? 0) >= 2) ||
-      isMatchPlayRound;
+      (isMatchPlayRound && playerCount > 2);
     if (showGroupsTab) {
       result.push({
         key: 'subMatches',

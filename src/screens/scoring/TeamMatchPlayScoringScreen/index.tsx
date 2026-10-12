@@ -24,6 +24,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
+import {
+  useOpenEndRoundEarlyOnArrival,
+  END_EARLY_UNAVAILABLE_TITLE,
+  END_EARLY_UNAVAILABLE_MESSAGE,
+} from '@/hooks/scorecard/useOpenEndRoundEarlyOnArrival';
 import { useIsSuperAdmin } from '@/store/subscriptionStore';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { getHoleCount } from '@/constants/scoring';
@@ -56,7 +61,7 @@ import { toMatchTeam } from './types';
 type Props = RootStackScreenProps<'MatchPlayScoring'>;
 
 export default function TeamMatchPlayScoringScreen({ navigation, route }: Props) {
-  const { roundId, team1Id, team2Id } = route.params;
+  const { roundId, team1Id, team2Id, openEndRoundEarly } = route.params;
   useLiveScorecardMerge(roundId);
   const colors = useThemeColors();
 
@@ -157,7 +162,7 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
   const selectedTeeColor = selectedTeeBox?.color ?? 'white';
 
   // Change-tees: organizer/owner/super admin may switch a player's tee.
-  const { showErrorToast } = useToast();
+  const { showErrorToast, showToast } = useToast();
   const [showChangeTeesSheet, setShowChangeTeesSheet] = useState(false);
   const availableTees = roundData?.course?.tees ?? [];
 
@@ -519,6 +524,18 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
     scoringPairsEnabled: roundData?.scoring_pairs_required ?? false,
     getMatchContext: getEndEarlyMatchContext,
     onEnded: handleRoundEndedEarly,
+  });
+  const { wrapCancel: wrapEndEarlyCancel } = useOpenEndRoundEarlyOnArrival({
+    requested: openEndRoundEarly === true,
+    ready: isInitialized && currentRoundId === roundId && currentPlayers.length > 0 && !isRoundLoading && !isTeamsLoading && roundData != null,
+    canEndRoundEarly: endEarly.canEndRoundEarly,
+    isEnded: endEarly.isEnded,
+    open: endEarly.open,
+    sheetVisible: endEarly.sheetProps.visible,
+    onUnavailable: () =>
+      showToast({ variant: 'info', title: END_EARLY_UNAVAILABLE_TITLE, message: END_EARLY_UNAVAILABLE_MESSAGE }),
+    goBack: () => navigation.goBack(),
+    onHandled: () => navigation.setParams({ openEndRoundEarly: undefined }),
   });
 
   // Skins processing hook
@@ -972,7 +989,10 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
         availableTees={availableTees}
       />
 
-      <EndRoundEarlySheet {...endEarly.sheetProps} />
+      <EndRoundEarlySheet
+        {...endEarly.sheetProps}
+        onCancel={wrapEndEarlyCancel(endEarly.sheetProps.onCancel)}
+      />
     </SafeAreaView>
   );
 }

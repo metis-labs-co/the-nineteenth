@@ -19,6 +19,7 @@ export * from './useGroupFilter';
 export * from './useActiveSubMatch';
 
 export * from './useEndRoundEarly';
+export * from './useOpenEndRoundEarlyOnArrival';
 export * from './usePlayedHoleRange';
 export * from './useLiveScorecardMerge';
 export * from './pullOnOpenIfSocial';

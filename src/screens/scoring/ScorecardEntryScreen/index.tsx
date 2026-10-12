@@ -43,6 +43,11 @@ import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useAuth } from '@/hooks';
 import { useToast } from '@/context/ToastContext';
+import {
+  useOpenEndRoundEarlyOnArrival,
+  END_EARLY_UNAVAILABLE_TITLE,
+  END_EARLY_UNAVAILABLE_MESSAGE,
+} from '@/hooks/scorecard/useOpenEndRoundEarlyOnArrival';
 import { useAddRoundPhotos } from '@/hooks/activity';
 import type { RootStackScreenProps } from '@/navigation/types';
 import type { Hole } from '@/types';
@@ -71,12 +76,12 @@ import type { PlayerHandicapDisplay } from './components/ScorecardScoreContent';
 type Props = RootStackScreenProps<'Scorecard'>;
 
 export default function ScorecardEntryScreen({ navigation, route }: Props) {
-  const { roundId, competitionId, isBuildAsYouPlay: isBuildAsYouPlayParam } = route.params;
+  const { roundId, competitionId, isBuildAsYouPlay: isBuildAsYouPlayParam, openEndRoundEarly } = route.params;
   useLiveScorecardMerge(roundId);
   useSubmittedElsewhereRedirect(roundId, competitionId ?? null);
   const colors = useThemeColors();
   const { user } = useAuth();
-  const { showSuccessToast, showErrorToast } = useToast();
+  const { showSuccessToast, showErrorToast, showToast } = useToast();
   const handlePhotosUploaded = useCallback(
     (n: number) => showSuccessToast(n === 1 ? 'Photo added' : `${n} photos added`),
     [showSuccessToast]
@@ -518,6 +523,18 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
     scoringPairsEnabled: roundDetails?.scoring_pairs_required ?? scoringPairsEnabled,
     onEnded: handleRoundEndedEarly,
   });
+  const { wrapCancel: wrapEndEarlyCancel } = useOpenEndRoundEarlyOnArrival({
+    requested: openEndRoundEarly === true,
+    ready: isInitialized && currentRoundId === roundId && currentPlayers.length > 0 && !isLoading && roundDetails != null,
+    canEndRoundEarly: endEarly.canEndRoundEarly,
+    isEnded: endEarly.isEnded,
+    open: endEarly.open,
+    sheetVisible: endEarly.sheetProps.visible,
+    onUnavailable: () =>
+      showToast({ variant: 'info', title: END_EARLY_UNAVAILABLE_TITLE, message: END_EARLY_UNAVAILABLE_MESSAGE }),
+    goBack: () => navigation.goBack(),
+    onHandled: () => navigation.setParams({ openEndRoundEarly: undefined }),
+  });
 
   // Render content for any hole number (used by SwipeableHoleNavigator for transitions)
   const renderHoleContent = useCallback(
@@ -905,7 +922,10 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
         availableTees={courseTees}
       />
 
-      <EndRoundEarlySheet {...endEarly.sheetProps} />
+      <EndRoundEarlySheet
+        {...endEarly.sheetProps}
+        onCancel={wrapEndEarlyCancel(endEarly.sheetProps.onCancel)}
+      />
 
       <ConfirmationDialog {...submissionDialogConfig} onCancel={dismissSubmissionDialog} />
     </SafeAreaView>

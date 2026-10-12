@@ -51,7 +51,8 @@ jest.mock('@/store/scorecardStore', () => ({
 }));
 jest.mock('@/store/subscriptionStore', () => ({ useIsSuperAdmin: () => false }));
 jest.mock('@/context/ThemeContext', () => ({ useThemeColors: () => ({}), useIsDark: () => false }));
-jest.mock('@/context/ToastContext', () => ({ useToast: () => ({}) }));
+const mockShowToast = jest.fn();
+jest.mock('@/context/ToastContext', () => ({ useToast: () => ({ showToast: mockShowToast }) }));
 jest.mock('@/services/diagnostics', () => ({ pushDiagnostic: jest.fn() }));
 jest.mock('@/services/activeRoundSession', () => ({ activeRoundSession: { set: jest.fn() } }));
 jest.mock('@/hooks/useStatsVisibilityWithTier', () => ({ useStatsVisibilityWithTier: () => ({}) }));
@@ -173,20 +174,25 @@ jest.mock('@/screens/scoring/MatchPlayScoringScreen/components', () => ({
   MatchProgress: (props: any) => { mockProgress = props; return null; },
 }));
 
-const navigation = { navigate: jest.fn(), goBack: jest.fn() };
-function screen(kind: 'general' | 'singles', competitionId = '', initialHole?: number) {
+const navigation = { navigate: jest.fn(), goBack: jest.fn(), setParams: jest.fn() };
+function screen(
+  kind: 'general' | 'singles',
+  competitionId = '',
+  initialHole?: number,
+  openEndRoundEarly?: boolean
+) {
   return kind === 'general' ? (
     <ScorecardEntryScreen
       {...({
         navigation,
-        route: { params: { roundId: 'round', competitionId, initialHole } },
+        route: { params: { roundId: 'round', competitionId, initialHole, openEndRoundEarly } },
       } as unknown as React.ComponentProps<typeof ScorecardEntryScreen>)}
     />
   ) : (
     <MatchPlayScoringScreen
       {...({
         navigation,
-        route: { params: { roundId: 'round', competitionId, initialHole } },
+        route: { params: { roundId: 'round', competitionId, initialHole, openEndRoundEarly } },
       } as unknown as React.ComponentProps<typeof MatchPlayScoringScreen>)}
     />
   );
@@ -205,8 +211,51 @@ describe.each(['general', 'singles'] as const)('%s end-early caller', (kind) => 
     mockProgress = undefined;
     mockRenderedHeaders = [];
     mockStore.isInitialized = true;
+    mockStore.currentRoundId = 'round';
     mockRound = { competition_id: null, scoring_pairs_required: false };
     mockPairsFallback = false;
+  });
+
+  describe('openEndRoundEarly shortcut', () => {
+    it('opens the sheet once the round is ready, clears the param, and goes back on cancel', () => {
+      const view = render(screen(kind, '', undefined, true));
+      expect(view.getByLabelText('Keep playing')).toBeTruthy();
+      expect(navigation.setParams).toHaveBeenCalledWith({ openEndRoundEarly: undefined });
+      view.rerender(screen(kind, '', undefined, true));
+      expect(navigation.setParams).toHaveBeenCalledTimes(1);
+      expect(navigation.goBack).not.toHaveBeenCalled();
+      fireEvent.press(view.getByLabelText('Keep playing'));
+      expect(mockCancel).toHaveBeenCalledTimes(1);
+      expect(navigation.goBack).toHaveBeenCalledTimes(1);
+    });
+
+    it('waits while the store is not initialised for this round', () => {
+      mockStore.currentRoundId = 'other';
+      const view = render(screen(kind, '', undefined, true));
+      expect(view.queryByLabelText('Keep playing')).toBeNull();
+      expect(mockShowToast).not.toHaveBeenCalled();
+      mockStore.currentRoundId = 'round';
+      view.rerender(screen(kind, '', undefined, true));
+      expect(view.getByLabelText('Keep playing')).toBeTruthy();
+    });
+
+    it('shows the info toast and goes back when the round cannot be ended', () => {
+      mockRound = { competition_id: 'comp-1', scoring_pairs_required: false };
+      const view = render(screen(kind, 'comp-1', undefined, true));
+      expect(view.queryByLabelText('Keep playing')).toBeNull();
+      expect(mockShowToast).toHaveBeenCalledWith({
+        variant: 'info',
+        title: "Can't end this round yet",
+        message: 'Every player needs a completed hole, and this phone must be scoring all players.',
+      });
+      expect(navigation.goBack).toHaveBeenCalledTimes(1);
+    });
+
+    it('does nothing without the route param', () => {
+      const view = render(screen(kind));
+      expect(view.queryByLabelText('Keep playing')).toBeNull();
+      expect(mockShowToast).not.toHaveBeenCalled();
+    });
   });
 
   it('characterization: preserves loading followed by ordinary review navigation', () => {
