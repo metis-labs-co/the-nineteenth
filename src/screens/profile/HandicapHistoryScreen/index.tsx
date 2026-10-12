@@ -159,7 +159,7 @@ export default function HandicapHistoryScreen({ navigation }: Props) {
       <View>
         {/* Differential trend chart */}
         {summary.rounds.length > 0 && (
-          <HandicapTrendChart rounds={summary.rounds} />
+          <HandicapTrendChart rounds={summary.rounds} onRoundPress={handleRoundPress} />
         )}
 
         {/* Combinable 9-hole pairs (if any) */}
@@ -185,6 +185,7 @@ export default function HandicapHistoryScreen({ navigation }: Props) {
     user?.id,
     combineMutation.isPending,
     handleCombine,
+    handleRoundPress,
     colors.textSecondary,
   ]);
 

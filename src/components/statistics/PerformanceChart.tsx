@@ -4,12 +4,14 @@
  * Displays stroke scores and stableford points over recent rounds.
  */
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { LineChart } from 'react-native-gifted-charts';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
+import { useOpenRound } from '@/navigation/openRound';
+import { ChartPointChip } from './ChartPointChip';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -24,6 +26,10 @@ export interface RoundDataPoint {
   totalGross: number;
   /** Total stableford points */
   totalPoints: number;
+  /** Round to open when the point is tapped (omit for a non-tappable point) */
+  roundId?: string;
+  /** Competition the round belongs to, if any */
+  competitionId?: string | null;
 }
 
 export interface PerformanceChartProps {
@@ -39,6 +45,9 @@ export const PerformanceChart = React.memo(function PerformanceChart({
   rounds,
 }: PerformanceChartProps) {
   const colors = useThemeColors();
+  const openRound = useOpenRound();
+  // Index into the chart's oldest → newest order; -1 when nothing is focused.
+  const [focusedIndex, setFocusedIndex] = useState(-1);
 
   // Format date for chart labels (DD/MM)
   const formatDateLabel = (dateString: string) => {
@@ -80,8 +89,11 @@ export const PerformanceChart = React.memo(function PerformanceChart({
       dataPointText: round.totalPoints.toString(),
     }));
 
-    return { strokeData, stablefordData };
+    return { strokeData, stablefordData, orderedRounds: reversedRounds };
   }, [rounds]);
+
+  const focusedRound = chartData.orderedRounds[focusedIndex];
+  const focusedRoundId = focusedRound?.roundId;
 
   // Calculate chart width based on data points
   const chartWidth = SCREEN_WIDTH - spacing.lg * 2 - spacing.lg * 2 - 50;
@@ -146,36 +158,34 @@ export const PerformanceChart = React.memo(function PerformanceChart({
           }}
           noOfSections={4}
           maxValue={100}
-          pointerConfig={{
-            pointerStripHeight: 150,
-            pointerStripColor: colors.border,
-            pointerStripWidth: 1,
-            pointerColor: colors.primary,
-            radius: 6,
-            pointerLabelWidth: 100,
-            pointerLabelHeight: 90,
-            activatePointersOnLongPress: true,
-            autoAdjustPointerLabelPosition: true,
-            pointerLabelComponent: (items: { value: number; dataPointText?: string; label?: string }[]) => {
-              return (
-                <View
-                  style={[
-                    styles.tooltip,
-                    { backgroundColor: colors.surfaceVariant },
-                  ]}
-                >
-                  <Text style={[styles.tooltipText, { color: colors.textPrimary }]}>
-                    Stroke: {items[0]?.dataPointText}
-                  </Text>
-                  <Text style={[styles.tooltipText, { color: colors.textPrimary }]}>
-                    Points: {items[1]?.dataPointText}
-                  </Text>
-                </View>
-              );
-            },
-          }}
+          // Tapping anywhere in a point's column focuses it (full-height hit
+          // area, unlike the small data points); the chip below opens it.
+          focusEnabled
+          focusedDataPointIndex={focusedIndex}
+          onFocus={(_item: unknown, index: number) => setFocusedIndex(index)}
+          unFocusOnPressOut={false}
+          showStripOnFocus
+          stripColor={colors.border}
+          stripWidth={1}
+          stripHeight={150}
         />
       </View>
+
+      {focusedRound ? (
+        <ChartPointChip
+          summary={`${formatDateLabel(focusedRound.date)} · ${focusedRound.totalGross} strokes · ${focusedRound.totalPoints} pts`}
+          onViewRound={
+            focusedRoundId
+              ? () => openRound({ roundId: focusedRoundId, competitionId: focusedRound.competitionId })
+              : undefined
+          }
+          viewRoundAccessibilityLabel={`View round from ${formatDateLabel(focusedRound.date)}, ${focusedRound.totalGross} strokes`}
+        />
+      ) : (
+        <Text style={[styles.description, { color: colors.textTertiary }]}>
+          Tap a point to see that round
+        </Text>
+      )}
 
       {/* Chart description */}
       <Text style={[styles.description, { color: colors.textTertiary }]}>
@@ -232,14 +242,6 @@ const styles = StyleSheet.create({
     ...typography.small,
     textAlign: 'center',
     paddingHorizontal: spacing.lg,
-  },
-  tooltip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.md,
-  },
-  tooltipText: {
-    ...typography.small,
   },
 });
 

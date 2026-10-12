@@ -34,7 +34,14 @@ export const CourseOverviewTab = React.memo(function CourseOverviewTab({
   // Ended rounds stay in recent activity but not in the score trend.
   const chartRounds = excludeEndedEarly(stats.recentRounds)
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-    .map((r) => ({ date: r.date, totalGross: r.totalGross, totalPoints: r.totalPoints }));
+    .map((r) => ({
+      date: r.date,
+      totalGross: r.totalGross,
+      totalPoints: r.totalPoints,
+      roundId: r.roundId,
+      competitionId: r.competitionId,
+    }));
+  const { bestRound } = stats;
 
   return (
     <>
@@ -52,7 +59,14 @@ export const CourseOverviewTab = React.memo(function CourseOverviewTab({
       <View style={styles.statsGrid}>
         <StatCard title="Rounds Played" value={stats.timesPlayed} icon="flag-checkered" iconColor={colors.primary} />
         <StatCard title="Avg Score" value={stats.averageGrossScore || '-'} subtitle="per round" icon="counter" iconColor={colors.info} />
-        <StatCard title="Best Score" value={stats.bestGrossScore || '-'} icon="trophy" iconColor={colors.success} />
+        <StatCard
+          title="Best Score"
+          value={stats.bestGrossScore || '-'}
+          icon="trophy"
+          iconColor={colors.success}
+          onPress={bestRound ? () => openRound(bestRound) : undefined}
+          accessibilityHint={bestRound ? 'Opens your best round at this course' : undefined}
+        />
         <StatCard title="Worst Score" value={stats.worstGrossScore || '-'} icon="flag-variant" iconColor={colors.error} />
       </View>
 

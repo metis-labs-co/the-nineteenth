@@ -19,6 +19,7 @@ import { IconTrophy, IconChevronDown, IconChevronUp, IconFlag } from '@tabler/ic
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { withOpacity } from '@/constants/colors';
 import { useThemeColors } from '@/context/ThemeContext';
+import { useOpenRound } from '@/navigation/openRound';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -76,6 +77,8 @@ export interface TeamLeaderboardTableProps {
   showTiedIndicator?: boolean;
   /** Custom empty state message */
   emptyMessage?: string;
+  /** Competition ID, passed through when a breakdown round is opened */
+  competitionId?: string;
   /** Test ID for testing */
   testID?: string;
 }
@@ -152,9 +155,11 @@ export function TeamLeaderboardTable({
   isLoading = false,
   showTiedIndicator = true,
   emptyMessage = 'Team standings will appear here once scores are submitted.',
+  competitionId,
   testID,
 }: TeamLeaderboardTableProps) {
   const colors = useThemeColors();
+  const openRound = useOpenRound();
   const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set());
 
   // Calculate positions with tie handling
@@ -380,7 +385,7 @@ export function TeamLeaderboardTable({
 
                     {/* Breakdown rows */}
                     {entry.roundBreakdown.map((round, roundIndex) => (
-                      <View
+                      <TouchableOpacity
                         key={round.roundId}
                         style={[
                           styles.breakdownRow,
@@ -389,8 +394,12 @@ export function TeamLeaderboardTable({
                             borderBottomColor: colors.border,
                           },
                         ]}
-                        accessibilityRole="text"
-                        accessibilityLabel={`${round.roundLabel}${round.courseName ? `, ${round.courseName}` : ''}, finished ${ordinal(round.position)}, ${round.points} points`}
+                        onPress={() => openRound({ roundId: round.roundId, competitionId })}
+                        disabled={!round.roundId}
+                        activeOpacity={0.7}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${round.roundLabel}${round.courseName ? `, ${round.courseName}` : ''}, finished ${ordinal(round.position)}, ${round.points} points. Opens round`}
+                        testID={testID ? `${testID}-round-${entry.teamId}-${round.roundId}` : undefined}
                       >
                         <View style={[styles.breakdownCell, styles.breakdownRoundCol]}>
                           <View style={styles.roundLabelRow}>
@@ -430,7 +439,7 @@ export function TeamLeaderboardTable({
                             {round.points}
                           </ScaledText>
                         </View>
-                      </View>
+                      </TouchableOpacity>
                     ))}
                   </View>
                 ) : (

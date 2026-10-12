@@ -55,6 +55,7 @@ export default function MatchPlayScorecardScreen({ navigation, route }: Props) {
     player1,
     player2,
     holes,
+    courseId,
     courseName,
     selectedTee,
     isLoading: isDataLoading,
@@ -157,6 +158,27 @@ export default function MatchPlayScorecardScreen({ navigation, route }: Props) {
   const handleGoBack = useCallback(() => {
     navigation.goBack();
   }, [navigation]);
+
+  // Header subtitle: the course name links to the Course page when known.
+  const headerSubtitle = useMemo(() => {
+    if (!courseName) return undefined;
+    if (!courseId) return courseName;
+    return (
+      <TouchableOpacity
+        onPress={() => navigation.navigate('Course', { courseId })}
+        accessibilityRole="button"
+        accessibilityLabel={`View ${courseName} details`}
+        testID="match-scorecard-course-link"
+      >
+        <Text
+          style={[styles.headerSubtitle, { color: colors.textSecondary }]}
+          numberOfLines={1}
+        >
+          {courseName}
+        </Text>
+      </TouchableOpacity>
+    );
+  }, [courseId, courseName, navigation, colors.textSecondary]);
 
   // Handle pull-to-refresh
   const handleRefresh = useCallback(async () => {
@@ -331,7 +353,7 @@ export default function MatchPlayScorecardScreen({ navigation, route }: Props) {
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <PageHeader
           title="Match Scorecard"
-          subtitle={courseName || undefined}
+          subtitle={headerSubtitle}
           showBack
           onBack={handleGoBack}
         />
@@ -349,7 +371,7 @@ export default function MatchPlayScorecardScreen({ navigation, route }: Props) {
       {/* Header */}
       <PageHeader
         title="Match Scorecard"
-        subtitle={courseName || undefined}
+        subtitle={headerSubtitle}
         showBack
         onBack={handleGoBack}
       />
@@ -544,6 +566,9 @@ export default function MatchPlayScorecardScreen({ navigation, route }: Props) {
 }
 
 const styles = StyleSheet.create({
+  headerSubtitle: {
+    ...typography.caption,
+  },
   container: {
     flex: 1,
   },

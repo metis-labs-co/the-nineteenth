@@ -24,6 +24,7 @@ import type { TeamLeaderboardEntry } from './TeamLeaderboardTable';
 import type { RoundWithCourse } from '@/components/competitions/detail/types';
 import { mergeHeadToHeadRounds } from './teamHeadToHead';
 import { buildPositionalRoundNumbers } from './roundNumbering';
+import { useOpenRound } from '@/navigation/openRound';
 
 export interface TeamHeadToHeadCardProps {
   /** The two teams, in any order */
@@ -40,6 +41,8 @@ export interface TeamHeadToHeadCardProps {
   pointsToWin?: number;
   /** Optional centered eyebrow on the board (e.g. "Overall"). */
   headlineLabel?: string;
+  /** Competition ID, passed through when a breakdown round is opened */
+  competitionId?: string;
   /** Test ID for testing */
   testID?: string;
 }
@@ -60,9 +63,11 @@ export function TeamHeadToHeadCard({
   pointsAvailable,
   pointsToWin,
   headlineLabel,
+  competitionId,
   testID,
 }: TeamHeadToHeadCardProps) {
   const colors = useThemeColors();
+  const openRound = useOpenRound();
   const [expanded, setExpanded] = useState(false);
 
   const [leader, other] = useMemo(
@@ -108,95 +113,96 @@ export function TeamHeadToHeadCard({
     : `${leader.teamName} ${clinched ? 'win' : 'lead'}`;
 
   return (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={() => setExpanded((v) => !v)}
-      activeOpacity={0.85}
-      accessibilityRole="button"
-      accessibilityState={{ expanded }}
-      accessibilityLabel={`${leader.teamName} ${formatPoints(leader.totalPoints)}, ${other.teamName} ${formatPoints(other.totalPoints)}. ${outcomeText}.`}
-      testID={testID ? `${testID}-card` : undefined}
-    >
-      <LinearGradient
-        colors={[colors.scoreboardGradientStart, colors.scoreboardGradientEnd]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.board}
+    <View style={styles.card}>
+      <TouchableOpacity
+        onPress={() => setExpanded((v) => !v)}
+        activeOpacity={0.85}
+        accessibilityRole="button"
+        accessibilityState={{ expanded }}
+        accessibilityLabel={`${leader.teamName} ${formatPoints(leader.totalPoints)}, ${other.teamName} ${formatPoints(other.totalPoints)}. ${outcomeText}.`}
+        testID={testID ? `${testID}-card` : undefined}
       >
-        {headlineLabel && (
-          <Text style={[styles.headline, { color: colors.scoreboardLabel }]}>
-            {headlineLabel.toUpperCase()}
-          </Text>
-        )}
-
-        <View style={styles.scoreRow}>
-          {/* Left column - leader */}
-          <View style={styles.teamCol} testID={testID ? `${testID}-team-left` : undefined}>
-            <View style={styles.teamNameRow}>
-              <View style={[styles.dot, { backgroundColor: leftColor }]} />
-              <Text style={[styles.teamName, { color: colors.white }]} numberOfLines={1}>
-                {leader.teamName}
-              </Text>
-              {leaderHasCurrentUser && <Badge label="You" variant="primary" size="sm" />}
-            </View>
-          </View>
-
-          <View style={styles.scores}>
-            <Text style={[styles.scoreNum, { color: colors.white }]}>
-              {formatPoints(leader.totalPoints)}
+        <LinearGradient
+          colors={[colors.scoreboardGradientStart, colors.scoreboardGradientEnd]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.board}
+        >
+          {headlineLabel && (
+            <Text style={[styles.headline, { color: colors.scoreboardLabel }]}>
+              {headlineLabel.toUpperCase()}
             </Text>
-            <Text style={[styles.scoreDash, { color: colors.scoreboardLabel }]}>–</Text>
-            <Text style={[styles.scoreNum, { color: colors.white }]}>
-              {formatPoints(other.totalPoints)}
-            </Text>
-          </View>
+          )}
 
-          {/* Right column - other team */}
-          <View
-            style={[styles.teamCol, styles.teamColRight]}
-            testID={testID ? `${testID}-team-right` : undefined}
-          >
-            <View style={[styles.teamNameRow, styles.teamNameRowRight]}>
-              {otherHasCurrentUser && <Badge label="You" variant="primary" size="sm" />}
-              <Text style={[styles.teamName, styles.textRight, { color: colors.white }]} numberOfLines={1}>
-                {other.teamName}
-              </Text>
-              <View style={[styles.dot, { backgroundColor: rightColor }]} />
-            </View>
-          </View>
-        </View>
-
-        {showBar && (
-          <View style={styles.barWrap}>
-            <View style={[styles.barTrack, { backgroundColor: colors.scoreboardTrack }]}>
-              <View style={[styles.barFillLeft, { width: leftPct, backgroundColor: leftColor }]} />
-              <View style={[styles.barFillRight, { width: rightPct, backgroundColor: rightColor }]} />
-            </View>
-            {markerPct && (
-              <View style={[styles.marker, { left: markerPct }]}>
-                <View style={[styles.markerLine, { backgroundColor: colors.scoreboardMarker }]} />
-                <Text style={[styles.markerLabel, { color: colors.scoreboardLabel }]}>
-                  {formatPoints(pointsToWin!)} to win
+          <View style={styles.scoreRow}>
+            {/* Left column - leader */}
+            <View style={styles.teamCol} testID={testID ? `${testID}-team-left` : undefined}>
+              <View style={styles.teamNameRow}>
+                <View style={[styles.dot, { backgroundColor: leftColor }]} />
+                <Text style={[styles.teamName, { color: colors.white }]} numberOfLines={1}>
+                  {leader.teamName}
                 </Text>
+                {leaderHasCurrentUser && <Badge label="You" variant="primary" size="sm" />}
               </View>
+            </View>
+
+            <View style={styles.scores}>
+              <Text style={[styles.scoreNum, { color: colors.white }]}>
+                {formatPoints(leader.totalPoints)}
+              </Text>
+              <Text style={[styles.scoreDash, { color: colors.scoreboardLabel }]}>–</Text>
+              <Text style={[styles.scoreNum, { color: colors.white }]}>
+                {formatPoints(other.totalPoints)}
+              </Text>
+            </View>
+
+            {/* Right column - other team */}
+            <View
+              style={[styles.teamCol, styles.teamColRight]}
+              testID={testID ? `${testID}-team-right` : undefined}
+            >
+              <View style={[styles.teamNameRow, styles.teamNameRowRight]}>
+                {otherHasCurrentUser && <Badge label="You" variant="primary" size="sm" />}
+                <Text style={[styles.teamName, styles.textRight, { color: colors.white }]} numberOfLines={1}>
+                  {other.teamName}
+                </Text>
+                <View style={[styles.dot, { backgroundColor: rightColor }]} />
+              </View>
+            </View>
+          </View>
+
+          {showBar && (
+            <View style={styles.barWrap}>
+              <View style={[styles.barTrack, { backgroundColor: colors.scoreboardTrack }]}>
+                <View style={[styles.barFillLeft, { width: leftPct, backgroundColor: leftColor }]} />
+                <View style={[styles.barFillRight, { width: rightPct, backgroundColor: rightColor }]} />
+              </View>
+              {markerPct && (
+                <View style={[styles.marker, { left: markerPct }]}>
+                  <View style={[styles.markerLine, { backgroundColor: colors.scoreboardMarker }]} />
+                  <Text style={[styles.markerLabel, { color: colors.scoreboardLabel }]}>
+                    {formatPoints(pointsToWin!)} to win
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
+
+          <View style={styles.outcomeRow}>
+            <View style={[styles.outcomePill, { backgroundColor: colors.scoreboardTrack }]}>
+              <Text style={[styles.outcomeText, { color: colors.white }]}>{outcomeText}</Text>
+            </View>
+          </View>
+
+          <View style={styles.expandIconRow}>
+            {expanded ? (
+              <IconChevronUp size={18} color={colors.scoreboardLabel} />
+            ) : (
+              <IconChevronDown size={18} color={colors.scoreboardLabel} />
             )}
           </View>
-        )}
-
-        <View style={styles.outcomeRow}>
-          <View style={[styles.outcomePill, { backgroundColor: colors.scoreboardTrack }]}>
-            <Text style={[styles.outcomeText, { color: colors.white }]}>{outcomeText}</Text>
-          </View>
-        </View>
-
-        <View style={styles.expandIconRow}>
-          {expanded ? (
-            <IconChevronUp size={18} color={colors.scoreboardLabel} />
-          ) : (
-            <IconChevronDown size={18} color={colors.scoreboardLabel} />
-          )}
-        </View>
-      </LinearGradient>
+        </LinearGradient>
+      </TouchableOpacity>
 
       {expanded && (
         <View
@@ -210,12 +216,17 @@ export function TeamHeadToHeadCard({
               const leftWins = row.pointsLeft > row.pointsRight;
               const rightWins = row.pointsRight > row.pointsLeft;
               return (
-                <View
+                <TouchableOpacity
                   key={row.roundId}
                   style={[
                     styles.roundRow,
                     index < roundRows.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border },
                   ]}
+                  onPress={() => openRound({ roundId: row.roundId, competitionId })}
+                  disabled={!row.roundId}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${row.roundLabel}${row.courseName ? `, ${row.courseName}` : ''}: ${leader.teamName} ${formatPoints(row.pointsLeft)}, ${other.teamName} ${formatPoints(row.pointsRight)}. Opens round`}
                   testID={testID ? `${testID}-round-${row.roundId}` : undefined}
                 >
                   <Text
@@ -241,7 +252,7 @@ export function TeamHeadToHeadCard({
                   >
                     {formatPoints(row.pointsRight)}
                   </Text>
-                </View>
+                </TouchableOpacity>
               );
             })
           ) : (
@@ -249,7 +260,7 @@ export function TeamHeadToHeadCard({
           )}
         </View>
       )}
-    </TouchableOpacity>
+    </View>
   );
 }
 

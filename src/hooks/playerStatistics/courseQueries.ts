@@ -31,6 +31,8 @@ import type {
   RoundSummary,
   RoundStatPoint,
   HoleStatistics,
+  HoleRoundRef,
+  HoleScoreTrendPoint,
   CourseStatisticsData,
 } from './types';
 
@@ -129,6 +131,7 @@ export function useCourseStatistics(
       let endedEarlyHolesWithPutts = 0;
       let totalPointsSum = 0;
       let bestGross = Infinity;
+      let bestGrossRoundId: string | null = null;
       let worstGross = 0;
       let courseName = '';
 
@@ -179,7 +182,9 @@ export function useCourseStatistics(
         pars: number;
         bogeys: number;
         doublePlus: number;
-        scoreTrend: { date: string; score: number }[];
+        bestRound: HoleRoundRef | null;
+        worstRound: HoleRoundRef | null;
+        scoreTrend: HoleScoreTrendPoint[];
       }>();
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -193,6 +198,7 @@ export function useCourseStatistics(
         const endedEarly = isEndedEarly(round);
         courseName = course.name;
         const isStandaloneRound = !competition;
+        const roundRef: HoleRoundRef = { roundId: round.id, competitionId: competition?.id ?? null };
         // Mirror the logic in queries.ts: a standalone round is a "handicap
         // round" when its effective handicap source isn't 'none', otherwise
         // it's a "practice round". Competition rounds fall into neither.
@@ -233,7 +239,10 @@ export function useCourseStatistics(
           totalGrossSum += scorecard.total_gross || 0;
           totalPointsSum += scorecard.total_points || 0;
 
-          if (scorecard.total_gross && scorecard.total_gross < bestGross) bestGross = scorecard.total_gross;
+          if (scorecard.total_gross && scorecard.total_gross < bestGross) {
+            bestGross = scorecard.total_gross;
+            bestGrossRoundId = round.id;
+          }
           if (scorecard.total_gross && scorecard.total_gross > worstGross) worstGross = scorecard.total_gross;
         } else {
           nineHoleGrossSum += scorecard.total_gross || 0;
@@ -270,14 +279,21 @@ export function useCourseStatistics(
               girHit: 0, girOpps: 0,
               fwHit: 0, fwOpps: 0,
               birdieOrBetter: 0, pars: 0, bogeys: 0, doublePlus: 0,
+              bestRound: null, worstRound: null,
               scoreTrend: [],
             });
           }
           const agg = holeAgg.get(holeNumber)!;
           agg.totalStrokes += holeScore.strokes;
           agg.count++;
-          if (holeScore.strokes < agg.best) agg.best = holeScore.strokes;
-          if (holeScore.strokes > agg.worst) agg.worst = holeScore.strokes;
+          if (holeScore.strokes < agg.best) {
+            agg.best = holeScore.strokes;
+            agg.bestRound = roundRef;
+          }
+          if (holeScore.strokes > agg.worst) {
+            agg.worst = holeScore.strokes;
+            agg.worstRound = roundRef;
+          }
 
           if (typeof holeScore.putts === 'number') {
             agg.puttsSum += holeScore.putts;
@@ -321,6 +337,7 @@ export function useCourseStatistics(
           agg.scoreTrend.push({
             date: round.date || scorecard.submitted_at || '',
             score: holeScore.strokes,
+            ...roundRef,
           });
         });
 
@@ -420,6 +437,8 @@ export function useCourseStatistics(
             scoreToPar: Math.round((avg - agg.par) * 100) / 100,
             bestScore: agg.best === Infinity ? 0 : agg.best,
             worstScore: agg.worst,
+            bestRound: agg.bestRound,
+            worstRound: agg.worstRound,
             averagePutts: agg.puttsCount > 0
               ? Math.round((agg.puttsSum / agg.puttsCount) * 100) / 100 : null,
             girPercentage: agg.girOpps > 0
@@ -504,6 +523,7 @@ export function useCourseStatistics(
         par4Stats,
         par5Stats,
         recentRounds,
+        bestRound: roundSummaries.find((r) => r.roundId === bestGrossRoundId) ?? null,
         shortGame,
         puttingDepth,
         fairwayMissDirection,
@@ -552,6 +572,7 @@ function createEmptyCourseStatistics(courseId: string): CourseStatisticsData {
     par4Stats: emptyParTypeStats,
     par5Stats: emptyParTypeStats,
     recentRounds: [],
+    bestRound: null,
     shortGame: { scramblingPercentage: null, scrambleAttempts: 0, scramblesMade: 0, bogeyAvoidanceRate: 0, doubleBogeyOrWorseRate: 0 },
     puttingDepth: { onePuttPercentage: null, threePuttPercentage: null, puttsPerGIR: null },
     fairwayMissDirection: { leftCount: 0, rightCount: 0, longCount: 0, shortCount: 0, totalMisses: 0, leftPercentage: null, rightPercentage: null, longPercentage: null, shortPercentage: null },

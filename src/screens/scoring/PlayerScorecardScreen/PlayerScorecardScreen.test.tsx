@@ -33,6 +33,7 @@ jest.mock('@/hooks/useStatsVisibilityWithTier', () => ({
   useStatsVisibilityWithTier: () => ({ showFairwayHit: false, showGreenInRegulation: false }),
 }));
 
+const mockHookOverrides: { isReadOnly?: boolean; courseId?: string | null } = {};
 jest.mock('./hooks', () => ({
   usePlayerScorecard: () => ({
     player: { id: 'player-1', name: 'Ann', handicap: 10 },
@@ -51,12 +52,19 @@ jest.mock('./hooks', () => ({
     multiBallFront9: [],
     multiBallBack9: [],
     multiBallStats: null,
+    courseId: null,
+    ...mockHookOverrides,
   }),
 }));
 
+const mockTableProps: { onHolePress?: (holeNumber: number) => void } = {};
+
 jest.mock('./components', () => ({
   ScorecardPlayerHeader: () => null,
-  ScorecardTable: () => null,
+  ScorecardTable: (props: { onHolePress?: (holeNumber: number) => void }) => {
+    mockTableProps.onHolePress = props.onHolePress;
+    return null;
+  },
   ScorecardLoadingState: () => null,
   ScorecardLoadError: () => null,
   ScorecardPlayerNotFound: () => null,
@@ -130,5 +138,49 @@ describe('PlayerScorecardScreen submit', () => {
     expect(mockFinalizeRound).toHaveBeenCalledWith('round-1');
     expect(supabase.from).not.toHaveBeenCalledWith('rounds');
     expect(mockNavigation.reset).toHaveBeenCalled();
+  });
+});
+
+describe('PlayerScorecardScreen hole press', () => {
+  beforeEach(() => {
+    mockNavigation.navigate.mockClear();
+    mockNavigation.goBack.mockClear();
+    mockStoreState.setCurrentHole.mockClear();
+    delete mockHookOverrides.isReadOnly;
+    delete mockHookOverrides.courseId;
+  });
+
+  it('returns to score entry at the hole while live scoring', () => {
+    render(<PlayerScorecardScreen navigation={mockNavigation} route={mockRoute} />);
+
+    act(() => mockTableProps.onHolePress?.(5));
+
+    expect(mockStoreState.setCurrentHole).toHaveBeenCalledWith(5);
+    expect(mockNavigation.goBack).toHaveBeenCalled();
+    expect(mockNavigation.navigate).not.toHaveBeenCalled();
+  });
+
+  it('opens the hole map in review mode when read-only', () => {
+    mockHookOverrides.isReadOnly = true;
+    mockHookOverrides.courseId = 'course-1';
+    render(<PlayerScorecardScreen navigation={mockNavigation} route={mockRoute} />);
+
+    act(() => mockTableProps.onHolePress?.(7));
+
+    expect(mockNavigation.navigate).toHaveBeenCalledWith('HoleMap', {
+      courseId: 'course-1',
+      holeNumber: 7,
+      roundId: 'round-1',
+      mode: 'review',
+    });
+    expect(mockStoreState.setCurrentHole).not.toHaveBeenCalled();
+  });
+
+  it('leaves holes inert when read-only without a linked course', () => {
+    mockHookOverrides.isReadOnly = true;
+    mockHookOverrides.courseId = null;
+    render(<PlayerScorecardScreen navigation={mockNavigation} route={mockRoute} />);
+
+    expect(mockTableProps.onHolePress).toBeUndefined();
   });
 });

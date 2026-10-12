@@ -89,6 +89,7 @@ describe('usePlayerScorecard — read-only (from leaderboard)', () => {
     mockedUseRoundDetails.mockReturnValue({
       data: {
         id: 'r1',
+        course_id: 'c1',
         nine_type: 'full',
         selected_tee: { slopeRating: 113, courseRating: 72 },
         course: { holes },
@@ -104,6 +105,7 @@ describe('usePlayerScorecard — read-only (from leaderboard)', () => {
     expect(result.current.isReadOnly).toBe(true);
     expect(result.current.player?.name).toBe('Alice');
     expect(result.current.scorecard).toBeDefined();
+    expect(result.current.courseId).toBe('c1');
   });
 
   it('computes gross and stableford totals from the fetched scores', () => {
@@ -155,6 +157,7 @@ describe('usePlayerScorecard — read-only (from leaderboard)', () => {
     const { result } = renderHook(() => usePlayerScorecard('p1', 'r1'));
 
     expect(result.current.isReadOnly).toBe(false);
+    expect(result.current.courseId).toBeNull();
     expect(result.current.player?.name).toBe('Bob');
     // Read-only queries are gated off while the store owns the round.
     expect(mockedUseRoundScorecards).toHaveBeenCalledWith('r1', { enabled: false });

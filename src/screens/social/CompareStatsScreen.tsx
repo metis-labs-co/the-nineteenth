@@ -13,7 +13,7 @@
  */
 
 import React, { useCallback, useState } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, Icon } from 'react-native-paper';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -88,6 +88,14 @@ export default function CompareStatsScreen({ navigation, route }: Props) {
   const handleGoBack = useCallback(() => {
     navigation.goBack();
   }, [navigation]);
+
+  const handleFilterBadgePress = useCallback(() => {
+    if (leagueId) {
+      navigation.navigate('LeagueDetail', { id: leagueId });
+    } else if (competitionId) {
+      navigation.navigate('CompetitionDetail', { id: competitionId });
+    }
+  }, [navigation, leagueId, competitionId]);
 
   // Navigate to subscription screen
   const handleNavigateToSubscription = useCallback(() => {
@@ -202,7 +210,14 @@ export default function CompareStatsScreen({ navigation, route }: Props) {
 
           {/* Filter context badge */}
           {filterLabel && (
-            <View style={[styles.filterBadge, { backgroundColor: colors.primaryBackground }]}>
+            <TouchableOpacity
+              style={[styles.filterBadge, { backgroundColor: colors.primaryBackground }]}
+              onPress={handleFilterBadgePress}
+              disabled={!leagueId && !competitionId}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={`${filterLabel}. Opens ${leagueId ? 'league' : 'competition'}`}
+            >
               <Icon
                 source={leagueId ? 'trophy-outline' : 'flag-outline'}
                 size={16}
@@ -211,7 +226,7 @@ export default function CompareStatsScreen({ navigation, route }: Props) {
               <Text style={[styles.filterBadgeText, { color: colors.primary }]}>
                 {filterLabel}
               </Text>
-            </View>
+            </TouchableOpacity>
           )}
 
           {/* No stats warning */}

@@ -13,6 +13,7 @@ import MapView, {
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import type { RootStackParamList } from '@/navigation/types';
+import { viewRoundParams } from '@/navigation/openRound';
 import { useThemeColors } from '@/context/ThemeContext';
 import { borderRadius, spacing, typography, shadows } from '@/constants/theme';
 import { PageHeader } from '@/components/common/PageHeader';
@@ -751,6 +752,11 @@ function ShotMapScreenContent({ route, navigation }: Props) {
                     setPreviewCoord(null);
                   },
                   accessibilityLabel: 'Move shot on map',
+                },
+                {
+                  icon: 'card-text-outline',
+                  onPress: () => navigation.navigate('ViewRound', viewRoundParams({ roundId })),
+                  accessibilityLabel: 'Open round scorecard',
                 },
               ]
         }

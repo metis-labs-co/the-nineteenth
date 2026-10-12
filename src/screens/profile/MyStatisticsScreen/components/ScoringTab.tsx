@@ -204,6 +204,10 @@ export const ScoringTab = React.memo(function ScoringTab({
               timesPlayed={stats.favouriteCourse.timesPlayed}
               averageScore={stats.favouriteCourse.averageScore}
               bestScore={stats.favouriteCourse.bestScore}
+              onPress={() =>
+                stats.favouriteCourse &&
+                handleCoursePress(stats.favouriteCourse.courseId, stats.favouriteCourse.courseName)
+              }
             />
           </FeatureLock>
         </>

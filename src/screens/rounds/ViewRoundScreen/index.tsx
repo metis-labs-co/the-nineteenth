@@ -621,6 +621,8 @@ export default function ViewRoundScreen(props: Props) {
           <ShotLogList
             roundId={vm.roundId}
             courseId={round?.course_id ?? null}
+            courseName={round?.course?.name ?? null}
+            roundPlayedAt={round?.date ?? null}
             playerNameMap={vm.playerNameMap}
             noScroll
             currentPlayerId={vm.user?.id}

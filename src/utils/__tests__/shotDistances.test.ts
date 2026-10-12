@@ -1,4 +1,4 @@
-import { computeShotDistances, pickTeeCoord, recomputeAfterMove } from '../shotDistances';
+import { computeShotDistances, pickTeeCoord, recomputeAfterMove, shotOrigin } from '../shotDistances';
 import type { HoleCoordinate } from '@/types/database/course.types';
 import type { ShotLogEntry } from '@/types/database/shotLog.types';
 
@@ -177,5 +177,26 @@ describe('recomputeAfterMove', () => {
     expect(result.movedOriginal).toBeNull();
     expect(result.nextNew).toBeNull();
     expect(result.nextOriginal).toBeNull();
+  });
+});
+
+describe('shotOrigin', () => {
+  const tee = { latitude: -37.8, longitude: 144.9 };
+  const shots = [
+    { latitude: -37.801, longitude: 144.901 },
+    { latitude: -37.802, longitude: 144.902 },
+  ];
+
+  it('uses the tee anchor for the first shot', () => {
+    expect(shotOrigin(shots, 0, tee)).toEqual(tee);
+  });
+
+  it('is null for the first shot when no tee anchor exists', () => {
+    expect(shotOrigin(shots, 0, null)).toBeNull();
+  });
+
+  it("uses the prior shot's landing for later shots", () => {
+    expect(shotOrigin(shots, 1, tee)).toEqual(shots[0]);
+    expect(shotOrigin(shots, 1, null)).toEqual(shots[0]);
   });
 });

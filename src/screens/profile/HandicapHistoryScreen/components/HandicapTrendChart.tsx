@@ -5,12 +5,13 @@
  * with qualifying rounds (those counted in the index) emphasised.
  */
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { LineChart } from 'react-native-gifted-charts';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, borderRadius, shadows, typography } from '@/constants/theme';
+import { ChartPointChip } from '@/components/statistics/ChartPointChip';
 import type { HandicapRound } from '@/types';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -19,14 +20,22 @@ interface HandicapTrendChartProps {
   rounds: HandicapRound[];
   variant?: 'full' | 'compact';
   width?: number;
+  /**
+   * Full variant: opens a focused point's round. The caller owns the
+   * combined 9+9 case (which half to open), as for the history rows.
+   */
+  onRoundPress?: (round: HandicapRound) => void;
 }
 
 export const HandicapTrendChart = React.memo(function HandicapTrendChart({
   rounds,
   variant = 'full',
   width,
+  onRoundPress,
 }: HandicapTrendChartProps) {
   const colors = useThemeColors();
+  // Index into the chart's oldest → newest order; -1 when nothing is focused.
+  const [focusedIndex, setFocusedIndex] = useState(-1);
 
   const chartData = useMemo(() => {
     if (rounds.length < 2) return null;
@@ -63,6 +72,10 @@ export const HandicapTrendChart = React.memo(function HandicapTrendChart({
       max: Math.ceil(maxVal + padding),
     };
   }, [chartData]);
+
+  // Rounds come in newest-first; the chart (and focusedIndex) runs oldest → newest.
+  const focusedRound =
+    focusedIndex >= 0 ? rounds[rounds.length - 1 - focusedIndex] : undefined;
 
   const chartWidth = SCREEN_WIDTH - spacing.lg * 2 - spacing.xl * 2 - 40;
 
@@ -157,8 +170,25 @@ export const HandicapTrendChart = React.memo(function HandicapTrendChart({
           noOfSections={4}
           maxValue={yAxisConfig.max}
           yAxisOffset={yAxisConfig.min}
+          // Tapping a point's column focuses it; the chip below opens it.
+          focusEnabled
+          focusedDataPointIndex={focusedIndex}
+          onFocus={(_item: unknown, index: number) => setFocusedIndex(index)}
+          unFocusOnPressOut={false}
+          showStripOnFocus
+          stripColor={colors.border}
+          stripWidth={1}
+          stripHeight={160}
         />
       </View>
+
+      {focusedRound && (
+        <ChartPointChip
+          summary={`${formatPointDate(focusedRound.roundDate)} · ${focusedRound.courseName} · ${focusedRound.handicapDifferential.toFixed(1)}`}
+          onViewRound={onRoundPress ? () => onRoundPress(focusedRound) : undefined}
+          viewRoundAccessibilityLabel={`View round at ${focusedRound.courseName} on ${formatPointDate(focusedRound.roundDate)}, differential ${focusedRound.handicapDifferential.toFixed(1)}`}
+        />
+      )}
 
       <View style={styles.legend}>
         <View style={styles.legendItem}>
@@ -184,11 +214,17 @@ export const HandicapTrendChart = React.memo(function HandicapTrendChart({
       </View>
 
       <Text style={[styles.footer, { color: colors.textTertiary }]}>
-        Lower is better
+        Lower is better{onRoundPress ? ' · Tap a point to see that round' : ''}
       </Text>
     </View>
   );
 });
+
+function formatPointDate(dateString: string): string {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  return `${date.getDate()}/${date.getMonth() + 1}`;
+}
 
 const styles = StyleSheet.create({
   card: {

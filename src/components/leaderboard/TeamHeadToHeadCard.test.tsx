@@ -4,6 +4,11 @@ import { TeamHeadToHeadCard } from './TeamHeadToHeadCard';
 import type { TeamLeaderboardEntry } from './TeamLeaderboardTable';
 import type { RoundWithCourse } from '@/components/competitions/detail/types';
 
+const mockOpenRound = jest.fn();
+jest.mock('@/navigation/openRound', () => ({
+  useOpenRound: () => mockOpenRound,
+}));
+
 const rounds = [
   { id: 'r1', display_order: 1, course: { name: 'Old Course' } },
   { id: 'r2', display_order: 2, course: { name: 'West Course' } },
@@ -74,5 +79,23 @@ describe('TeamHeadToHeadCard', () => {
     // R1: England 12 vs Australia 8 aligned in the row
     expect(getByTestId('h2h-round-r1')).toHaveTextContent('12', { exact: false });
     expect(getByTestId('h2h-round-r1')).toHaveTextContent('8', { exact: false });
+  });
+
+  it('opens a breakdown round in ViewRound with the competition id', () => {
+    mockOpenRound.mockClear();
+    const { getByTestId } = render(
+      <TeamHeadToHeadCard
+        entries={[england, australia]}
+        teamColors={colors}
+        rounds={rounds}
+        competitionId="comp-1"
+        testID="h2h"
+      />
+    );
+    fireEvent.press(getByTestId('h2h-card'));
+    fireEvent.press(getByTestId('h2h-round-r2'));
+    expect(mockOpenRound).toHaveBeenCalledWith({ roundId: 'r2', competitionId: 'comp-1' });
+    // The board stays expanded - the row press does not bubble to the toggle
+    expect(getByTestId('h2h-breakdown')).toBeTruthy();
   });
 });

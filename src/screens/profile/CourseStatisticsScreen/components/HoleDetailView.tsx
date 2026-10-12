@@ -8,6 +8,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
+import { useOpenRound } from '@/navigation/openRound';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { SectionHeader } from '@/components/social';
 import { StatCard, SparklineChart, ScoreDistributionBar } from '@/components/statistics';
@@ -21,6 +22,8 @@ export const HoleDetailView = React.memo(function HoleDetailView({
   hole,
 }: HoleDetailViewProps) {
   const colors = useThemeColors();
+  const openRound = useOpenRound();
+  const { bestRound, worstRound } = hole;
 
   const scoreToParColor = hole.scoreToPar < -0.05 ? colors.birdie
     : hole.scoreToPar > 0.05 ? colors.bogey : colors.par;
@@ -93,8 +96,22 @@ export const HoleDetailView = React.memo(function HoleDetailView({
         {hole.fairwayPercentage !== null && (
           <StatCard title="Fairway" value={`${hole.fairwayPercentage}%`} icon="golf-tee" iconColor={colors.primary} />
         )}
-        <StatCard title="Best" value={hole.bestScore} icon="trophy" iconColor={colors.success} />
-        <StatCard title="Worst" value={hole.worstScore} icon="flag-variant" iconColor={colors.error} />
+        <StatCard
+          title="Best"
+          value={hole.bestScore}
+          icon="trophy"
+          iconColor={colors.success}
+          onPress={bestRound ? () => openRound(bestRound) : undefined}
+          accessibilityHint={bestRound ? `Opens the round with your best score on hole ${hole.holeNumber}` : undefined}
+        />
+        <StatCard
+          title="Worst"
+          value={hole.worstScore}
+          icon="flag-variant"
+          iconColor={colors.error}
+          onPress={worstRound ? () => openRound(worstRound) : undefined}
+          accessibilityHint={worstRound ? `Opens the round with your worst score on hole ${hole.holeNumber}` : undefined}
+        />
       </View>
     </>
   );

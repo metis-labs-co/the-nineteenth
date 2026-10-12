@@ -9,6 +9,7 @@
 import React, { useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
+import { useOpenRound } from '@/navigation/openRound';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { formatHandicapIndex } from '@/utils/displayHelpers';
@@ -36,6 +37,7 @@ export function CombinablePairsSection({
   onCombine,
 }: CombinablePairsSectionProps) {
   const colors = useThemeColors();
+  const openRound = useOpenRound();
 
   const handleCombinePress = useCallback(
     (pair: CombinableNinePair) => {
@@ -86,23 +88,37 @@ export function CombinablePairsSection({
 
           {/* Front / Back summary */}
           <View style={styles.pieceRow}>
-            <View style={styles.piece}>
+            <TouchableOpacity
+              style={styles.piece}
+              onPress={() => openRound({ roundId: pair.front.roundId })}
+              disabled={!pair.front.roundId}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={`Front 9, ${formatDate(pair.front.roundDate)}, gross ${pair.front.totalGross}. Opens scorecard`}
+            >
               <Text style={[styles.pieceLabel, { color: colors.textSecondary }]}>
                 Front 9 · {formatDate(pair.front.roundDate)}
               </Text>
               <Text style={[styles.pieceGross, { color: colors.textPrimary }]}>
                 {pair.front.totalGross}
               </Text>
-            </View>
+            </TouchableOpacity>
             <Icon source="plus" size={16} color={colors.textTertiary} />
-            <View style={styles.piece}>
+            <TouchableOpacity
+              style={styles.piece}
+              onPress={() => openRound({ roundId: pair.back.roundId })}
+              disabled={!pair.back.roundId}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={`Back 9, ${formatDate(pair.back.roundDate)}, gross ${pair.back.totalGross}. Opens scorecard`}
+            >
               <Text style={[styles.pieceLabel, { color: colors.textSecondary }]}>
                 Back 9 · {formatDate(pair.back.roundDate)}
               </Text>
               <Text style={[styles.pieceGross, { color: colors.textPrimary }]}>
                 {pair.back.totalGross}
               </Text>
-            </View>
+            </TouchableOpacity>
           </View>
 
           {/* Projected combined values */}

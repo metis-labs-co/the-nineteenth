@@ -72,6 +72,15 @@ export default function CourseStatisticsScreen({ route, navigation }: Props) {
     refetch();
   }, [refetch]);
 
+  const courseAction = useMemo(
+    () => ({
+      icon: 'information-outline',
+      onPress: () => navigation.navigate('Course', { courseId }),
+      accessibilityLabel: `View course details for ${courseName}`,
+    }),
+    [navigation, courseId, courseName],
+  );
+
   if (isLoading) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -101,7 +110,7 @@ export default function CourseStatisticsScreen({ route, navigation }: Props) {
   if (!stats || stats.timesPlayed === 0) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <PageHeader title={courseName} showBack onBack={handleGoBack} />
+        <PageHeader title={courseName} showBack onBack={handleGoBack} rightActions={[courseAction]} />
         <View style={styles.centeredContainer}>
           <EmptyState
             title="No rounds at this course"
@@ -120,6 +129,7 @@ export default function CourseStatisticsScreen({ route, navigation }: Props) {
         showBack
         onBack={handleGoBack}
         rightActions={[
+          courseAction,
           { icon: 'refresh', onPress: handleRefresh, accessibilityLabel: 'Refresh statistics' },
         ]}
       />

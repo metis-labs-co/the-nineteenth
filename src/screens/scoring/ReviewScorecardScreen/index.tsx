@@ -636,6 +636,8 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
         <ShotLogList
           roundId={roundId}
           courseId={roundDetails?.course_id ?? null}
+          courseName={roundDetails?.course?.name ?? null}
+          roundPlayedAt={roundDetails?.date ?? null}
           playerNameMap={playerNamesById}
           isRefreshing={isRefreshing}
           onRefresh={handleRefresh}

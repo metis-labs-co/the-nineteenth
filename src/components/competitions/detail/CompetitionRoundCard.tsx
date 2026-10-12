@@ -7,6 +7,8 @@
 
 import React, { useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Text, Icon, Divider } from 'react-native-paper';
 import Animated, {
   cancelAnimation,
@@ -24,6 +26,7 @@ import type { StatusVariant } from '@/components/common';
 import { type RoundWithCourse, GAME_TYPE_LABELS } from './types';
 import type { SkinsConfig, GameType } from '@/types';
 import { inferPresetIdFromRound, ROUND_PRESETS } from '@/constants/roundPresets';
+import type { RootStackParamList } from '@/navigation/types';
 
 /** Amber/gold color for skins indicator */
 const SKINS_COLOR = skinsColor;
@@ -104,6 +107,7 @@ export const CompetitionRoundCard = React.memo(function CompetitionRoundCard({
   onForceSubmit,
 }: CompetitionRoundCardProps) {
   const isDark = useIsDark();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   // One-shot wiggle on drag start to acknowledge the long-press, then the
   // card settles into a stable elevated state (scale + drop shadow) for
@@ -159,6 +163,10 @@ export const CompetitionRoundCard = React.memo(function CompetitionRoundCard({
   const isCompleted = round.status === 'completed';
   const isScoringDisabled = isCompleted || !hasCourse || !hasEnoughPlayers || !!allPlayersScored;
 
+  // Completed cards are one tap target (opens the round), so only the
+  // plain-View body of a non-completed card links the course name.
+  const courseLinkId = !isCompleted ? round.course?.id : undefined;
+
   // Build disabled reason for accessibility
   const getDisabledReason = (): string | undefined => {
     if (isCompleted) return 'Round is completed';
@@ -195,7 +203,16 @@ export const CompetitionRoundCard = React.memo(function CompetitionRoundCard({
         </View>
 
         {/* Course Name + Club Name */}
-        <View style={styles.titleRow}>
+        <TouchableOpacity
+          style={styles.titleRow}
+          onPress={() => courseLinkId && navigation.navigate('Course', { courseId: courseLinkId })}
+          disabled={!courseLinkId}
+          accessible={!!courseLinkId}
+          accessibilityRole={courseLinkId ? 'button' : undefined}
+          accessibilityLabel={courseLinkId ? `View ${round.course?.name} details` : undefined}
+          activeOpacity={0.7}
+          testID={`round-card-course-link-${round.id}`}
+        >
           <Text style={[styles.title, { color: colors.textPrimary }]} numberOfLines={1}>
             {round.course?.name || 'Course TBD'}
           </Text>
@@ -207,7 +224,7 @@ export const CompetitionRoundCard = React.memo(function CompetitionRoundCard({
               {` · ${round.course.clubs.name}`}
             </Text>
           )}
-        </View>
+        </TouchableOpacity>
 
         {/* Location */}
         {(round.course?.clubs?.city || round.course?.clubs?.state) && (

@@ -91,6 +91,9 @@ interface UsePlayerScorecardResult {
    *  courses, e.g. 10 for a combo course whose internal hole 1 is "10").
    *  Not the round's first hole — back-9 hole numbers are already 10..18. */
   startHole: number;
+  /** The round's course id — read-only path only (null while live scoring or
+   *  when the round has no linked course). Used to open the hole map in review. */
+  courseId: string | null;
   // Multi-ball support
   isMultiBall: boolean;
   ballCount: BallCount;
@@ -439,6 +442,7 @@ export function usePlayerScorecard(playerId: string, roundId?: string): UsePlaye
     refetch,
     isReadOnly,
     startHole,
+    courseId: isLive ? null : roRound?.course_id ?? null,
     // Multi-ball support
     isMultiBall,
     ballCount,
