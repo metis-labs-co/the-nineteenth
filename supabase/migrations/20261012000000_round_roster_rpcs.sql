@@ -2,8 +2,9 @@
 -- Round roster RPCs (round options menu)
 -- =====================================================
 -- Owner-only add/remove of players on an in-progress social round.
--- Both lock the round row FOR UPDATE (same order as end_round_early) so a
--- concurrent end-early or submission can't interleave.
+-- Both run an unlocked owner/competition preflight, then lock the round row
+-- FOR UPDATE (same order as end_round_early) so a concurrent end-early or
+-- submission can't interleave.
 -- Spec: docs/superpowers/specs/2026-10-12-round-options-menu-design.md §2
 
 CREATE OR REPLACE FUNCTION public.assert_round_roster_editable(p_round_id UUID)
@@ -19,6 +20,29 @@ DECLARE
   v_status TEXT;
   v_holes_played INT;
 BEGIN
+  IF v_user IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated' USING ERRCODE = '42501';
+  END IF;
+
+  -- Unlocked preflight (mirrors end_round_early): reject outsiders and
+  -- competition rounds without taking a lock that could delay ordinary scoring.
+  SELECT user_id, competition_id
+    INTO v_owner, v_competition_id
+  FROM rounds
+  WHERE id = p_round_id AND deleted_at IS NULL;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Round % not found', p_round_id USING ERRCODE = 'P0002';
+  END IF;
+  IF v_owner IS DISTINCT FROM v_user THEN
+    RAISE EXCEPTION 'Only the round owner can change players' USING ERRCODE = '42501', HINT = 'not_owner';
+  END IF;
+  IF v_competition_id IS NOT NULL THEN
+    RAISE EXCEPTION 'Players can only be changed on a social round in play'
+      USING ERRCODE = '22023', HINT = 'round_not_editable';
+  END IF;
+
+  -- Re-read and recheck under lock: the round may have changed since preflight.
   SELECT user_id, competition_id, status, holes_played
     INTO v_owner, v_competition_id, v_status, v_holes_played
   FROM rounds
@@ -213,6 +237,6 @@ BEGIN
 
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
 
 COMMENT ON FUNCTION notify_round_player_invited IS 'Sends in-app notification AND push notification when a player is invited to a social round.';
