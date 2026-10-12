@@ -1,5 +1,8 @@
 import React, { useMemo } from 'react';
-import { StyleSheet, ScrollView, RefreshControl, View } from 'react-native';
+import { StyleSheet, ScrollView, RefreshControl, View, Pressable } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '@/navigation/types';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing } from '@/constants/theme';
 import { useSubMatches } from '@/hooks/rounds';
@@ -81,6 +84,7 @@ export function SubMatchLeaderboardTab({
   holesPlayed = null,
 }: SubMatchLeaderboardTabProps) {
   const colors = useThemeColors();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { data: subMatches, isLoading: smLoading } = useSubMatches(roundId);
   const { teams, isLoading: teamsLoading } = useRoundTeams(competitionId ?? undefined, true, roundId);
 
@@ -187,6 +191,31 @@ export function SubMatchLeaderboardTab({
 
   const { leaders, content } = useMemo(() => {
     const leaders: TeamMatchLeader[] = [];
+    // Real sub-match rows open SubMatchDetail; the synthesized whole-team
+    // 'combined' row has no sub-match record, so it stays non-interactive.
+    const wrapPressable = (row: (typeof rows)[number], node: React.ReactElement) => {
+      if (row.key === 'combined') {
+        return <React.Fragment key={row.key}>{node}</React.Fragment>;
+      }
+      return (
+        <Pressable
+          key={row.key}
+          onPress={() =>
+            navigation.navigate('SubMatchDetail', {
+              subMatchId: row.key,
+              roundId,
+              competitionId: competitionId ?? undefined,
+            })
+          }
+          style={({ pressed }) => pressed && { opacity: 0.6 }}
+          accessibilityRole="button"
+          accessibilityLabel={`Match ${row.index + 1}: ${row.leftName} vs ${row.rightName}. View match details`}
+          testID={`submatch-press-${row.index}`}
+        >
+          {node}
+        </Pressable>
+      );
+    };
     const content = rows.map((row) => {
       const teamA = row.sides.a[0] ? teamNameByPlayer.get(row.sides.a[0].id) ?? null : null;
       const teamB = row.sides.b[0] ? teamNameByPlayer.get(row.sides.b[0].id) ?? null : null;
@@ -202,9 +231,9 @@ export function SubMatchLeaderboardTab({
         const live = computeMatchPlaySubMatch(row.sides, holes, getStrokes, holesPlayed);
         const data = selectMatchSource(live, row.persisted ?? null);
         pushLeader(data);
-        return (
+        return wrapPressable(
+          row,
           <MatchPlayMatchRow
-            key={row.key}
             leftName={row.leftName}
             rightName={row.rightName}
             leftColor={row.leftColor}
@@ -219,9 +248,9 @@ export function SubMatchLeaderboardTab({
       }
       const data = computeNetSubMatch(model, row.sides, holes, getStrokes);
       pushLeader(data);
-      return (
+      return wrapPressable(
+        row,
         <SubMatchNetCard
-          key={row.key}
           index={row.index}
           leftLabel={row.leftLabel}
           rightLabel={row.rightLabel}
@@ -235,7 +264,18 @@ export function SubMatchLeaderboardTab({
       );
     });
     return { leaders, content };
-  }, [rows, model, holes, getStrokes, currentUserId, teamNameByPlayer, holesPlayed]);
+  }, [
+    rows,
+    model,
+    holes,
+    getStrokes,
+    currentUserId,
+    teamNameByPlayer,
+    holesPlayed,
+    navigation,
+    roundId,
+    competitionId,
+  ]);
 
   const isLoading = smLoading || teamsLoading;
   // The Ryder-cup tally header only makes sense across real sub-matches; a

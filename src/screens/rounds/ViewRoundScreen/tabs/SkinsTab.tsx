@@ -66,6 +66,7 @@ export function SkinsTab({
         teams={teams}
         parValues={parValues}
         holeCounts={skinsHoleCounts}
+        roundId={roundId}
       />
     </View>
   );

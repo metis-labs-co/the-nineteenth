@@ -303,6 +303,7 @@ export default function LeagueDetailScreen() {
             leaderboard={eclecticLeaderboard}
             currentUserId={userId}
             scoring={league.eclectic_scoring ?? 'gross'}
+            onRowPress={(entry) => navigation.navigate('PlayerDetail', { id: entry.player_id })}
           />
         )}
 
@@ -328,6 +329,8 @@ export default function LeagueDetailScreen() {
             challengeRange={league.challenge_range ?? 3}
             hasActiveChallenge={hasActiveChallenge}
             onChallenge={handleChallenge}
+            onChallengePress={handleChallengePress}
+            onPlayerPress={(playerId) => navigation.navigate('PlayerDetail', { id: playerId })}
           />
         )}
 

@@ -12,6 +12,9 @@
 import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Icon, Text } from 'react-native-paper';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '@/navigation/types';
 
 import { ConfirmationDialog, SectionHeader, StatusBadge } from '@/components/common';
 import type { StatusVariant } from '@/components/common';
@@ -373,12 +376,26 @@ interface PlacementCardProps {
 
 function PlacementCard({ view, currency, isSettled }: PlacementCardProps) {
   const colors = useThemeColors();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { placement, previewWinner, tiedAt } = view;
   const hasTie = tiedAt.length > 1;
   const isPaid = placement.paid_at !== null;
+  // Team pools have no single player to open
+  const winnerPlayerId = previewWinner && !previewWinner.isTeam ? previewWinner.participantId : null;
 
   return (
-    <View
+    <TouchableOpacity
+      disabled={!winnerPlayerId}
+      activeOpacity={0.7}
+      onPress={
+        winnerPlayerId
+          ? () => navigation.navigate('PlayerDetail', { id: winnerPlayerId })
+          : undefined
+      }
+      accessibilityRole={winnerPlayerId ? 'button' : undefined}
+      accessibilityLabel={
+        winnerPlayerId ? `View ${previewWinner?.participantName}'s profile` : undefined
+      }
       style={[
         styles.placementCard,
         { backgroundColor: colors.surface, borderColor: colors.border },
@@ -424,7 +441,7 @@ function PlacementCard({ view, currency, isSettled }: PlacementCardProps) {
           )}
         </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 

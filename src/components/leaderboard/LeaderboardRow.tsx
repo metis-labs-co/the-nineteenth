@@ -56,6 +56,11 @@ export interface LeaderboardRowProps {
    * player's name (mirroring the competition individual standings).
    */
   playerTeamLookup?: PlayerTeamLookup;
+  /**
+   * Optional press handler. When provided the row becomes a button (e.g. to
+   * open the entry's scorecard); when absent it renders as plain text.
+   */
+  onPress?: () => void;
 }
 
 export const LeaderboardRow = React.memo(function LeaderboardRow({
@@ -68,6 +73,7 @@ export const LeaderboardRow = React.memo(function LeaderboardRow({
   secondaryLabel,
   showCompetitionPoints = false,
   playerTeamLookup,
+  onPress,
 }: LeaderboardRowProps) {
   const colors = useThemeColors();
 
@@ -88,18 +94,15 @@ export const LeaderboardRow = React.memo(function LeaderboardRow({
   const compPtsText = showCompetitionPoints ? `, ${entry.competitionPoints} competition points` : '';
   const accessibilityLabel = `Position ${entry.position}${isTied ? ' tied' : ''}: ${name}, Handicap ${handicap}, ${scoreDisplay} ${scoreLabel}${secondaryScore ? `, ${secondaryScore} ${secondaryLabel}` : ''}${compPtsText}${bypassedText}`;
 
-  return (
-    <View
-      key={id}
-      style={[
-        styles.tableRow,
-        { borderBottomColor: colors.borderLight },
-        isCurrentUser && { backgroundColor: `${colors.primary}15` },
-        isFirstPlace && { backgroundColor: `${colors.warning}10` },
-      ]}
-      accessibilityRole="text"
-      accessibilityLabel={accessibilityLabel}
-    >
+  const rowStyle = [
+    styles.tableRow,
+    { borderBottomColor: colors.borderLight },
+    isCurrentUser && { backgroundColor: `${colors.primary}15` },
+    isFirstPlace && { backgroundColor: `${colors.warning}10` },
+  ];
+
+  const cells = (
+    <>
       {/* Position */}
       <View style={[styles.cell, styles.positionCol]}>
         {isFirstPlace ? (
@@ -237,6 +240,31 @@ export const LeaderboardRow = React.memo(function LeaderboardRow({
           </ScaledText>
         </View>
       )}
+    </>
+  );
+
+  if (onPress) {
+    return (
+      <Pressable
+        key={id}
+        onPress={onPress}
+        style={({ pressed }) => [...rowStyle, pressed && { opacity: 0.6 }]}
+        accessibilityRole="button"
+        accessibilityLabel={`${accessibilityLabel}. View scorecard`}
+      >
+        {cells}
+      </Pressable>
+    );
+  }
+
+  return (
+    <View
+      key={id}
+      style={rowStyle}
+      accessibilityRole="text"
+      accessibilityLabel={accessibilityLabel}
+    >
+      {cells}
     </View>
   );
 });

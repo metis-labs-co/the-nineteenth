@@ -7,7 +7,10 @@
  * suppressed for split rounds because its meaning changes per-sub-match.
  */
 
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '@/navigation/types';
 import { View, StyleSheet } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { MatchPlayLeaderboard } from '@/components/leaderboard/MatchPlayLeaderboard';
@@ -59,6 +62,11 @@ export function MatchTab({
   startHole = 1,
   holesPlayed = null,
 }: MatchTabProps) {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const openPlayer = useCallback(
+    (playerId: string) => navigation.navigate('PlayerDetail', { id: playerId }),
+    [navigation]
+  );
   const colors = useThemeColors();
 
   // Ryder-Cup-style team aggregate only applies to *team* split rounds. A
@@ -97,6 +105,7 @@ export function MatchTab({
             player2={matchPlayPlayers!.player2}
             getPlayerScore={getPlayerScore}
             startHole={startHole}
+            onPlayerPress={openPlayer}
           />
         </>
       )}
@@ -114,6 +123,7 @@ export function MatchTab({
             currentUserId={currentUserId}
             roundStatus={roundStatus}
             isTeamRound={isTeamRound}
+            roundId={roundId}
           />
         </>
       )}

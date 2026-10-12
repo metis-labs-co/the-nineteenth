@@ -528,6 +528,7 @@ export default function ViewRoundScreen(props: Props) {
               getPlayerScore={vm.getStrokePlayPlayerScore}
               currentUserId={vm.user?.id}
               dailyHandicaps={vm.leaderboardDailyHandicaps}
+              onPlayerPress={vm.handlePlayerPress}
             />
           ) : vm.isStablefordRound ? (
             <StablefordLeaderboardFull
@@ -536,6 +537,7 @@ export default function ViewRoundScreen(props: Props) {
               getPlayerScore={vm.getStrokePlayPlayerScore}
               currentUserId={vm.user?.id}
               dailyHandicaps={vm.leaderboardDailyHandicaps}
+              onPlayerPress={vm.handlePlayerPress}
             />
           ) : (
             <ParLeaderboardFull
@@ -544,6 +546,7 @@ export default function ViewRoundScreen(props: Props) {
               getPlayerScore={vm.getStrokePlayPlayerScore}
               currentUserId={vm.user?.id}
               dailyHandicaps={vm.leaderboardDailyHandicaps}
+              onPlayerPress={vm.handlePlayerPress}
             />
           );
 

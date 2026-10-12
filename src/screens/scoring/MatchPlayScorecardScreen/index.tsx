@@ -172,6 +172,11 @@ export default function MatchPlayScorecardScreen({ navigation, route }: Props) {
   }, [refetch, refetchSkinsResults, hasSkinsEnabled]);
 
   // Handle hole press - navigate to scoring screen for that hole
+  const handlePlayerPress = useCallback(
+    (playerId: string) => navigation.navigate('PlayerDetail', { id: playerId }),
+    [navigation]
+  );
+
   const handleHolePress = useCallback(
     (holeNumber: number) => {
       navigation.navigate('MatchPlayScoring', {
@@ -393,6 +398,7 @@ export default function MatchPlayScorecardScreen({ navigation, route }: Props) {
             player2={{ id: player2.id, name: player2.name }}
             getPlayerScore={getPlayerScoreForTable}
             onHolePress={handleHolePress}
+            onPlayerPress={handlePlayerPress}
             player1Handicap={player1PlayingHandicap}
             player2Handicap={player2PlayingHandicap}
             startHole={startHole}
@@ -408,6 +414,7 @@ export default function MatchPlayScorecardScreen({ navigation, route }: Props) {
               scoringType={skinsGame.scoring_type}
               parValues={parValues}
               holeCounts={skinsHoleCounts}
+              roundId={roundId}
             />
           ) : (
             <LoadingSpinner size="lg" message="Loading skins results..." />

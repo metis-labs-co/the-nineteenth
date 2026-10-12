@@ -8,6 +8,9 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { Text, Icon, Divider } from 'react-native-paper';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '@/navigation/types';
 import { LoadingSpinner } from '@/components/common';
 import { spacing, borderRadius, typography, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -110,6 +113,7 @@ function PayoutsTabContentLoaded({
   bottomInset: number;
 }) {
   const colors = useThemeColors();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const isCombined = mode === 'combined';
 
   // Build player name map from available summaries
@@ -253,8 +257,12 @@ function PayoutsTabContentLoaded({
           const medals: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
 
           return (
-            <View
+            <TouchableOpacity
               key={item.player_id}
+              activeOpacity={0.7}
+              onPress={() => navigation.navigate('PlayerDetail', { id: item.player_id })}
+              accessibilityRole="button"
+              accessibilityLabel={`View ${item.name}'s profile`}
               style={[
                 styles.standingRow,
                 {
@@ -310,7 +318,7 @@ function PayoutsTabContentLoaded({
               >
                 {formatNetResult(item.total_net)}
               </Text>
-            </View>
+            </TouchableOpacity>
           );
         })}
       </View>

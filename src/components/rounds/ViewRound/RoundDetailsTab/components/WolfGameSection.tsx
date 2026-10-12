@@ -232,6 +232,7 @@ export function WolfGameSection({
           <WolfStandingsCard
             standings={standings}
             potEnabled={wolfGame.pot_enabled}
+            roundId={roundId}
             testID="wolf-standings-card"
           />
 

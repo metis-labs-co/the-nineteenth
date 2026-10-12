@@ -8,6 +8,9 @@
 import React, { useState, useCallback } from 'react';
 import { StyleSheet, View, FlatList } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '@/navigation/types';
 import { useConfirmationDialog } from '@/hooks';
 import { useToast } from '@/context/ToastContext';
 import { LoadingSpinner, SearchBar, BottomSheet, ConfirmationDialog } from '@/components/common';
@@ -110,6 +113,16 @@ export function AddFriendModal({
     onClose();
   }, [onClose]);
 
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  // Close the sheet first so the profile isn't pushed underneath it.
+  const handleOpenProfile = useCallback(
+    (playerId: string) => {
+      handleClose();
+      navigation.navigate('PlayerDetail', { id: playerId });
+    },
+    [handleClose, navigation]
+  );
+
   return (
     <BottomSheet
       visible={visible}
@@ -150,6 +163,7 @@ export function AddFriendModal({
                 player={item}
                 onAddFriend={() => handleAddFriend(item.id, item.name)}
                 isAdding={addingPlayerId === item.id}
+                onOpenProfile={() => handleOpenProfile(item.id)}
               />
             )}
             ItemSeparatorComponent={() => (

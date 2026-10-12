@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography } from '@/constants/theme';
@@ -18,6 +18,39 @@ import { getFirstName } from '@/utils/displayHelpers';
 export interface HeaderRowProps {
   player1Name: string;
   player2Name: string;
+  /** Optional — makes player 1's name tappable */
+  onPlayer1Press?: () => void;
+  /** Optional — makes player 2's name tappable */
+  onPlayer2Press?: () => void;
+}
+
+function PlayerHeaderCell({
+  name,
+  onPress,
+  color,
+}: {
+  name: string;
+  onPress?: () => void;
+  color: string;
+}) {
+  const label = (
+    <Text style={[styles.headerText, { color }]} numberOfLines={1}>
+      {getFirstName(name)}
+    </Text>
+  );
+  if (!onPress) {
+    return <View style={[styles.cell, styles.playerCell]}>{label}</View>;
+  }
+  return (
+    <TouchableOpacity
+      style={[styles.cell, styles.playerCell]}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`View ${name}`}
+    >
+      {label}
+    </TouchableOpacity>
+  );
 }
 
 // ============================================================================
@@ -27,6 +60,8 @@ export interface HeaderRowProps {
 export const HeaderRow = React.memo(function HeaderRow({
   player1Name,
   player2Name,
+  onPlayer1Press,
+  onPlayer2Press,
 }: HeaderRowProps) {
   const colors = useThemeColors();
 
@@ -38,16 +73,8 @@ export const HeaderRow = React.memo(function HeaderRow({
       <View style={[styles.cell, styles.parCell]}>
         <Text style={[styles.headerText, { color: colors.textPrimary }]}>Par</Text>
       </View>
-      <View style={[styles.cell, styles.playerCell]}>
-        <Text style={[styles.headerText, { color: colors.textPrimary }]} numberOfLines={1}>
-          {getFirstName(player1Name)}
-        </Text>
-      </View>
-      <View style={[styles.cell, styles.playerCell]}>
-        <Text style={[styles.headerText, { color: colors.textPrimary }]} numberOfLines={1}>
-          {getFirstName(player2Name)}
-        </Text>
-      </View>
+      <PlayerHeaderCell name={player1Name} onPress={onPlayer1Press} color={colors.textPrimary} />
+      <PlayerHeaderCell name={player2Name} onPress={onPlayer2Press} color={colors.textPrimary} />
       <View style={[styles.cell, styles.statusCell]}>
         <Text style={[styles.headerText, { color: colors.textPrimary }]}>Status</Text>
       </View>

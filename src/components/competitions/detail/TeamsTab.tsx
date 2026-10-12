@@ -17,6 +17,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Icon, ActivityIndicator } from 'react-native-paper';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '@/navigation/types';
 import { LoadingSpinner, EmptyState, ConfirmationDialog } from '@/components/common';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import type { ColorPalette } from '@/context/ThemeContext';
@@ -127,6 +130,7 @@ export const TeamsTab = React.memo(function TeamsTab({
   // Lock all team mutations for organisers once scoring has started — mirrors
   // the `structureLocked` pattern used by SettingsSection.
   const teamsLocked = isOrganizer && hasStartedRound;
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const { min: minTeams, max: maxTeams } = useMemo(
     () => teamCountRange(playerCount),
@@ -477,8 +481,9 @@ export const TeamsTab = React.memo(function TeamsTab({
               onMemberPress={
                 isOrganizer && !teamsLocked
                   ? (player) => handleMemberPress(team, player)
-                  : undefined
+                  : (player) => navigation.navigate('PlayerDetail', { id: player.id })
               }
+              memberPressAction={isOrganizer && !teamsLocked ? 'move' : 'profile'}
               currentUserId={currentUserId}
               testID={`team-card-${team.id}`}
             />

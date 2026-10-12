@@ -186,6 +186,7 @@ export function SkinsTabContent({ skinsGameId, holeCounts, isRefreshing, onRefre
         potValue={game.pot_value}
         scoringType={game.scoring_type}
         holeCounts={holeCounts}
+        roundId={game.round_id}
         testID="skins-results-card"
       />
 

@@ -13,8 +13,11 @@
  * - Auto-refresh support via useRoundLeaderboard hook
  */
 
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '@/navigation/types';
 import { IconAlertTriangle } from '@tabler/icons-react-native';
 import { LoadingSpinner, ScaledText } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -77,6 +80,8 @@ export interface RoundLeaderboardProps {
   roundNumber?: number;
   /** Optional right-aligned points/status badge (e.g. "Dinner bet · 0 points"). */
   pointsBadge?: string;
+  /** Optional competition id, forwarded when opening a match scorecard. */
+  competitionId?: string;
 }
 
 // =====================================================
@@ -97,8 +102,16 @@ export const RoundLeaderboard = React.memo(function RoundLeaderboard({
   roundName,
   roundNumber,
   pointsBadge,
+  competitionId,
 }: RoundLeaderboardProps) {
   const colors = useThemeColors();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+
+  // Individual rows open that player's scorecard for this round.
+  const handlePlayerPress = useCallback(
+    (playerId: string) => navigation.navigate('PlayerScorecard', { playerId, roundId }),
+    [navigation, roundId]
+  );
 
   const { data, isLoading, isError, error, refetch } = useRoundLeaderboard(
     roundId,
@@ -232,6 +245,8 @@ export const RoundLeaderboard = React.memo(function RoundLeaderboard({
             currentUserId={currentUserId}
             isTeamRound={metadata.isTeamRound}
             roundStatus={metadata.status}
+            roundId={roundId}
+            competitionId={competitionId}
           />
         );
       case 'stroke':
@@ -241,6 +256,7 @@ export const RoundLeaderboard = React.memo(function RoundLeaderboard({
             currentUserId={currentUserId}
             showCompetitionPoints={false}
             playerTeamLookup={playerTeamLookup}
+            onPlayerPress={handlePlayerPress}
           />
         );
       case 'par':
@@ -253,6 +269,7 @@ export const RoundLeaderboard = React.memo(function RoundLeaderboard({
             formatScore={formatParScore}
             showCompetitionPoints={false}
             playerTeamLookup={playerTeamLookup}
+            onPlayerPress={handlePlayerPress}
           />
         );
       case 'stableford':
@@ -266,6 +283,7 @@ export const RoundLeaderboard = React.memo(function RoundLeaderboard({
             currentUserId={currentUserId}
             showCompetitionPoints={false}
             playerTeamLookup={playerTeamLookup}
+            onPlayerPress={handlePlayerPress}
           />
         );
     }

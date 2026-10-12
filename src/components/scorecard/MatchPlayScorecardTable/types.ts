@@ -21,6 +21,8 @@ export interface MatchPlayScorecardTableProps {
   getPlayerScore: (playerId: string, holeNumber: number) => number | undefined;
   /** Optional callback when a hole row is pressed */
   onHolePress?: (holeNumber: number) => void;
+  /** Optional callback when a player's header name is pressed */
+  onPlayerPress?: (playerId: string) => void;
   /** Player 1's playing handicap for the round (defaults to 0 — gross scoring). */
   player1Handicap?: number;
   /** Player 2's playing handicap for the round (defaults to 0 — gross scoring). */

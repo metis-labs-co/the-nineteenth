@@ -17,8 +17,11 @@
  */
 
 import React, { useMemo } from 'react';
-import { View, StyleSheet, FlatList, ListRenderItem } from 'react-native';
+import { View, StyleSheet, FlatList, ListRenderItem, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '@/navigation/types';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, borderRadius, typography, shadows, skinsColor } from '@/constants/theme';
 import { formatCurrency, DEFAULT_SKINS_HOLE_COUNTS } from '@/utils/skins';
@@ -38,9 +41,11 @@ export const SkinsResultsCard = React.memo(function SkinsResultsCard({
   isTeamSkins: isTeamSkinsProp = false,
   teams,
   holeCounts = DEFAULT_SKINS_HOLE_COUNTS,
+  roundId,
   testID,
 }: SkinsResultsCardProps) {
   const colors = useThemeColors();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   // Auto-detect team skins from results if prop is not set but results have team_winner_id
   const isTeamSkins = useMemo(() => {
@@ -111,6 +116,7 @@ export const SkinsResultsCard = React.memo(function SkinsResultsCard({
             isTeamSkins={isTeamSkins}
             teams={teams}
             perHoleValue={perHoleValueDisplay}
+            roundId={roundId}
           />
         );
 
@@ -171,47 +177,65 @@ export const SkinsResultsCard = React.memo(function SkinsResultsCard({
                 {item.isTeamSkins ? 'TEAM TOTALS' : 'PLAYER TOTALS'}
               </Text>
             </View>
-            {item.totals.map((participant, idx) => (
-              <View
-                key={participant.id}
-                style={[
-                  styles.playerTotalRow,
-                  {
-                    backgroundColor: idx % 2 === 0 ? colors.surface : colors.background,
-                    borderBottomColor: colors.border,
-                  },
-                ]}
-              >
-                <View style={styles.playerTotalLeft}>
-                  <Text
-                    style={[styles.playerTotalName, { color: colors.textPrimary }]}
-                    numberOfLines={1}
-                  >
-                    {participant.name}
-                  </Text>
-                  <View style={styles.playerTotalMeta}>
-                    <Text style={[styles.playerTotalSkins, { color: colors.textSecondary }]}>
-                      {participant.holesWon} skin{participant.holesWon !== 1 ? 's' : ''} won
-                    </Text>
-                    {item.isTeamSkins && participant.memberCount && participant.totalWinnings > 0 && (
-                      <Text style={[styles.perMemberSplit, { color: colors.textTertiary }]}>
-                        ({formatCurrency(participant.totalWinnings / participant.memberCount)}/ea)
-                      </Text>
-                    )}
-                  </View>
-                </View>
-                <Text
+            {item.totals.map((participant, idx) => {
+              const canOpenScorecard = !item.isTeamSkins && !!roundId;
+              return (
+                <TouchableOpacity
+                  key={participant.id}
+                  disabled={!canOpenScorecard}
+                  activeOpacity={0.7}
+                  onPress={
+                    canOpenScorecard && roundId
+                      ? () =>
+                          navigation.navigate('PlayerScorecard', {
+                            playerId: participant.id,
+                            roundId,
+                          })
+                      : undefined
+                  }
+                  accessibilityRole={canOpenScorecard ? 'button' : undefined}
+                  accessibilityLabel={
+                    canOpenScorecard ? `View ${participant.name}'s scorecard` : undefined
+                  }
                   style={[
-                    styles.playerTotalAmount,
+                    styles.playerTotalRow,
                     {
-                      color: participant.totalWinnings > 0 ? colors.success : colors.textSecondary,
+                      backgroundColor: idx % 2 === 0 ? colors.surface : colors.background,
+                      borderBottomColor: colors.border,
                     },
                   ]}
                 >
-                  {formatCurrency(participant.totalWinnings)}
-                </Text>
-              </View>
-            ))}
+                  <View style={styles.playerTotalLeft}>
+                    <Text
+                      style={[styles.playerTotalName, { color: colors.textPrimary }]}
+                      numberOfLines={1}
+                    >
+                      {participant.name}
+                    </Text>
+                    <View style={styles.playerTotalMeta}>
+                      <Text style={[styles.playerTotalSkins, { color: colors.textSecondary }]}>
+                        {participant.holesWon} skin{participant.holesWon !== 1 ? 's' : ''} won
+                      </Text>
+                      {item.isTeamSkins && participant.memberCount && participant.totalWinnings > 0 && (
+                        <Text style={[styles.perMemberSplit, { color: colors.textTertiary }]}>
+                          ({formatCurrency(participant.totalWinnings / participant.memberCount)}/ea)
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                  <Text
+                    style={[
+                      styles.playerTotalAmount,
+                      {
+                        color: participant.totalWinnings > 0 ? colors.success : colors.textSecondary,
+                      },
+                    ]}
+                  >
+                    {formatCurrency(participant.totalWinnings)}
+                  </Text>
+                </TouchableOpacity>
+                );
+            })}
           </View>
         );
 

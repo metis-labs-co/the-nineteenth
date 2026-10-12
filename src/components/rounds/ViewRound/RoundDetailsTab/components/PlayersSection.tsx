@@ -6,8 +6,11 @@
  */
 
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '@/navigation/types';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { Badge, GolfBallLoader } from '@/components/common';
@@ -17,6 +20,7 @@ import type { PlayersSectionProps } from '../types';
 export function PlayersSection({ roundId, cardBackground, currentUserId }: PlayersSectionProps) {
   const colors = useThemeColors();
   const { data: players, isLoading } = useRoundPlayers(roundId);
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   return (
     <View style={styles.section}>
@@ -54,13 +58,17 @@ export function PlayersSection({ roundId, cardBackground, currentUserId }: Playe
         ) : (
           <View style={styles.playersList}>
             {players.map((player, index) => (
-              <View
+              <TouchableOpacity
                 key={player.id}
                 style={[
                   styles.playerRow,
                   { borderBottomColor: colors.border },
                   index === players.length - 1 && styles.lastRow,
                 ]}
+                onPress={() => navigation.navigate('PlayerDetail', { id: player.id })}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel={`View ${player.name}'s profile`}
               >
                 <View style={[styles.playerAvatar, { backgroundColor: colors.primaryLighter }]}>
                   <Text style={[styles.playerInitial, { color: colors.primary }]}>
@@ -87,7 +95,7 @@ export function PlayersSection({ roundId, cardBackground, currentUserId }: Playe
                     <Icon source="check" size={14} color={colors.success} />
                   </View>
                 )}
-              </View>
+              </TouchableOpacity>
             ))}
           </View>
         )}

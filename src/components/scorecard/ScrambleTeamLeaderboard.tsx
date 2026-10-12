@@ -50,6 +50,8 @@ interface ScrambleTeamLeaderboardProps {
   getTeamScore: (teamIndex: number, holeNumber: number) => HoleScore | MultiBallHoleScore | undefined;
   /** Current user ID for highlighting */
   currentUserId?: string;
+  /** Optional — makes other team members' names tappable */
+  onPlayerPress?: (playerId: string) => void;
   /** Test ID for testing */
   testID?: string;
 }
@@ -89,6 +91,7 @@ export function ScrambleTeamLeaderboard({
   holes,
   getTeamScore,
   currentUserId,
+  onPlayerPress,
   testID,
 }: ScrambleTeamLeaderboardProps) {
   const colors = useThemeColors();
@@ -385,9 +388,14 @@ export function ScrambleTeamLeaderboard({
                 </View>
                 {team.members.map((member, idx) => {
                   const isCurrentUser = member.id === currentUserId;
+                  const canOpen = !!onPlayerPress && !isCurrentUser;
                   return (
-                    <View
+                    <TouchableOpacity
                       key={member.id}
+                      disabled={!canOpen}
+                      onPress={canOpen ? () => onPlayerPress(member.id) : undefined}
+                      accessibilityRole={canOpen ? 'button' : undefined}
+                      accessibilityLabel={canOpen ? `View ${member.name}` : undefined}
                       style={[
                         styles.memberRow,
                         idx < team.members.length - 1 && {
@@ -410,7 +418,10 @@ export function ScrambleTeamLeaderboard({
                       <Text style={[styles.memberHandicap, { color: colors.textSecondary }]}>
                         HC: {member.handicap ?? 0}
                       </Text>
-                    </View>
+                      {canOpen && (
+                        <Icon source="chevron-right" size={16} color={colors.textTertiary} />
+                      )}
+                    </TouchableOpacity>
                   );
                 })}
               </View>

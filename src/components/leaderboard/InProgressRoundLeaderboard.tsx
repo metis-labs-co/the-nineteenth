@@ -24,6 +24,9 @@
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { Animated, Easing, View, StyleSheet } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '@/navigation/types';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useRoundDetails, useRoundScorecards, useRoundPlayers } from '@/hooks/useRoundDetails';
@@ -136,6 +139,12 @@ export const InProgressRoundLeaderboard = React.memo(function InProgressRoundLea
   testID,
 }: InProgressRoundLeaderboardProps) {
   const colors = useThemeColors();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+
+  const handlePlayerPress = useCallback(
+    (playerId: string) => navigation.navigate('PlayerScorecard', { playerId, roundId }),
+    [navigation, roundId],
+  );
 
   const { data: round } = useRoundDetails(roundId);
   const { data: scorecards } = useRoundScorecards(roundId);
@@ -211,6 +220,7 @@ export const InProgressRoundLeaderboard = React.memo(function InProgressRoundLea
           getPlayerScore={getPlayerScore}
           currentUserId={currentUserId}
           dailyHandicaps={dailyHandicaps}
+          onPlayerPress={handlePlayerPress}
           testID={testID ? `${testID}-stableford` : undefined}
         />
       );
@@ -223,6 +233,7 @@ export const InProgressRoundLeaderboard = React.memo(function InProgressRoundLea
           getPlayerScore={getPlayerScore}
           currentUserId={currentUserId}
           dailyHandicaps={dailyHandicaps}
+          onPlayerPress={handlePlayerPress}
           testID={testID ? `${testID}-par` : undefined}
         />
       );
@@ -234,6 +245,7 @@ export const InProgressRoundLeaderboard = React.memo(function InProgressRoundLea
         getPlayerScore={getPlayerScore}
         currentUserId={currentUserId}
         dailyHandicaps={dailyHandicaps}
+        onPlayerPress={handlePlayerPress}
         testID={testID ? `${testID}-stroke` : undefined}
       />
     );

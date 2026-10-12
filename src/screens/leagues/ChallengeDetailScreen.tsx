@@ -124,7 +124,13 @@ export default function ChallengeDetailScreen() {
         {/* Players */}
         <View style={styles.playersSection}>
           {/* Challenger */}
-          <View style={[styles.playerCard, { backgroundColor: colors.surface, borderColor: isChallenger ? colors.primary : colors.border }]}>
+          <TouchableOpacity
+            style={[styles.playerCard, { backgroundColor: colors.surface, borderColor: isChallenger ? colors.primary : colors.border }]}
+            onPress={() => navigation.navigate('PlayerDetail', { id: challenge.challenger_id })}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={`View ${challenge.challenger_name}'s profile`}
+          >
             <View style={styles.playerHeader}>
               <Text style={[styles.playerRole, { color: colors.textSecondary }]}>Challenger</Text>
               <Text style={[styles.position, { color: colors.textSecondary }]}>
@@ -143,14 +149,20 @@ export default function ChallengeDetailScreen() {
             ) : challenge.status === 'accepted' ? (
               <Text style={[styles.pendingLabel, { color: colors.warning }]}>Round not yet submitted</Text>
             ) : null}
-          </View>
+          </TouchableOpacity>
 
           <View style={styles.vsSection}>
             <Text style={[styles.vsText, { color: colors.textSecondary }]}>VS</Text>
           </View>
 
           {/* Challenged */}
-          <View style={[styles.playerCard, { backgroundColor: colors.surface, borderColor: isChallenged ? colors.primary : colors.border }]}>
+          <TouchableOpacity
+            style={[styles.playerCard, { backgroundColor: colors.surface, borderColor: isChallenged ? colors.primary : colors.border }]}
+            onPress={() => navigation.navigate('PlayerDetail', { id: challenge.challenged_id })}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={`View ${challenge.challenged_name}'s profile`}
+          >
             <View style={styles.playerHeader}>
               <Text style={[styles.playerRole, { color: colors.textSecondary }]}>Defender</Text>
               <Text style={[styles.position, { color: colors.textSecondary }]}>
@@ -169,7 +181,7 @@ export default function ChallengeDetailScreen() {
             ) : challenge.status === 'accepted' ? (
               <Text style={[styles.pendingLabel, { color: colors.warning }]}>Round not yet submitted</Text>
             ) : null}
-          </View>
+          </TouchableOpacity>
         </View>
 
         {/* Winner */}

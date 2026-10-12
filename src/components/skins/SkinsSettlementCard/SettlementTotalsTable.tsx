@@ -5,8 +5,11 @@
  */
 
 import React from 'react';
-import { View, StyleSheet, type TextStyle } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, type TextStyle } from 'react-native';
 import { Text } from 'react-native-paper';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '@/navigation/types';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, borderRadius, typography } from '@/constants/theme';
 import { formatCurrency, formatNetResult } from '@/utils/skins';
@@ -35,6 +38,7 @@ export const SettlementTotalsTable = React.memo(function SettlementTotalsTable({
   getNetResultColor,
 }: SettlementTotalsTableProps) {
   const colors = useThemeColors();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   return (
     <View style={styles.section}>
@@ -59,44 +63,52 @@ export const SettlementTotalsTable = React.memo(function SettlementTotalsTable({
         </View>
 
         {/* Table Rows - Individual */}
-        {!isTeamSkins && (sortedPayouts as SkinsPayoutWithPlayer[]).map((payout, index) => (
-          <View
-            key={payout.player_id}
-            style={[
-              styles.tableRow,
-              {
-                backgroundColor: index % 2 === 0 ? colors.surface : colors.background,
-                borderBottomColor: colors.border,
-              },
-              index === sortedPayouts.length - 1 && styles.lastRow,
-            ]}
-          >
-            <View style={[styles.tableCell, styles.playerColumn]}>
-              <Text
-                style={[styles.playerName, { color: colors.textPrimary }]}
-                numberOfLines={1}
-              >
-                {payout.player?.name ?? 'Unknown'}
-              </Text>
-            </View>
-            <Text style={[styles.tableCell, styles.holesColumn, { color: colors.textSecondary }]}>
-              {payout.holes_won}
-            </Text>
-            <Text style={[styles.tableCell, styles.wonColumn, { color: colors.textPrimary }]}>
-              {formatCurrency(payout.total_winnings)}
-            </Text>
-            <Text
+        {!isTeamSkins && (sortedPayouts as SkinsPayoutWithPlayer[]).map((payout, index) => {
+          const playerId = payout.player_id;
+          return (
+            <TouchableOpacity
+              key={payout.player_id}
+              disabled={!playerId}
+              activeOpacity={0.7}
+              onPress={playerId ? () => navigation.navigate('PlayerDetail', { id: playerId }) : undefined}
+              accessibilityRole={playerId ? 'button' : undefined}
+              accessibilityLabel={playerId ? `View ${payout.player?.name ?? 'player'}'s profile` : undefined}
               style={[
-                styles.tableCell,
-                styles.netColumn,
-                styles.netValue,
-                { color: getNetResultColor(payout.net_result) },
+                styles.tableRow,
+                {
+                  backgroundColor: index % 2 === 0 ? colors.surface : colors.background,
+                  borderBottomColor: colors.border,
+                },
+                index === sortedPayouts.length - 1 && styles.lastRow,
               ]}
             >
-              {formatNetResult(payout.net_result)}
-            </Text>
-          </View>
-        ))}
+              <View style={[styles.tableCell, styles.playerColumn]}>
+                <Text
+                  style={[styles.playerName, { color: colors.textPrimary }]}
+                  numberOfLines={1}
+                >
+                  {payout.player?.name ?? 'Unknown'}
+                </Text>
+              </View>
+              <Text style={[styles.tableCell, styles.holesColumn, { color: colors.textSecondary }]}>
+                {payout.holes_won}
+              </Text>
+              <Text style={[styles.tableCell, styles.wonColumn, { color: colors.textPrimary }]}>
+                {formatCurrency(payout.total_winnings)}
+              </Text>
+              <Text
+                style={[
+                  styles.tableCell,
+                  styles.netColumn,
+                  styles.netValue,
+                  { color: getNetResultColor(payout.net_result) },
+                ]}
+              >
+                {formatNetResult(payout.net_result)}
+              </Text>
+            </TouchableOpacity>
+            );
+        })}
 
         {/* Table Rows - Team */}
         {isTeamSkins && (sortedPayouts as SkinsPayoutWithTeam[]).map((payout, index) => {

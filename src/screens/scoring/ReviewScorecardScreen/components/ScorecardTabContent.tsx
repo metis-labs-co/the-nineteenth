@@ -56,6 +56,8 @@ interface ScorecardTabContentProps {
   nineType?: NineType;
   /** Played-hole count after an early end. Keep holes planned for the daily handicap. */
   holesPlayed?: number | null;
+  /** Tap a player header to open that player's scorecard. */
+  onPlayerPress?: (playerId: string) => void;
 }
 
 export function ScorecardTabContent({
@@ -67,6 +69,7 @@ export function ScorecardTabContent({
   scrambleTeams,
   getPlayerScore,
   onHolePress,
+  onPlayerPress,
   isRefreshing,
   onRefresh,
   bottomInset,
@@ -256,6 +259,7 @@ export function ScorecardTabContent({
             holes={holes}
             screenWidth={screenWidth}
             onHolePress={onHolePress}
+            onPlayerPress={onPlayerPress}
             gameType={effectiveGameType}
             scoreDisplayMode={scoreDisplayMode}
             selectedTeeData={selectedTeeData}

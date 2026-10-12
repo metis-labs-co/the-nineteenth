@@ -7,6 +7,9 @@
 
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '@/navigation/types';
 import { Text } from 'react-native-paper';
 import { GolfBallLoader, PlayerAvatar } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -45,13 +48,20 @@ export const SentRequestCard = React.memo(function SentRequestCard({
   testID,
 }: SentRequestCardProps) {
   const colors = useThemeColors();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   // The "requester" field actually contains the person we sent TO (addressee)
   const recipient = request.requester;
 
   return (
     <View style={styles.container} testID={testID}>
-      <View style={styles.info}>
+      <TouchableOpacity
+        style={styles.info}
+        onPress={() => navigation.navigate('PlayerDetail', { id: recipient.id })}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel={`View ${recipient.name}'s profile`}
+      >
         <PlayerAvatar
           photoUrl={recipient.photo_url}
           name={recipient.name}
@@ -65,7 +75,7 @@ export const SentRequestCard = React.memo(function SentRequestCard({
             Request pending
           </Text>
         </View>
-      </View>
+      </TouchableOpacity>
       <TouchableOpacity
         style={[styles.cancelButton, { borderColor: colors.gray300 }]}
         onPress={onCancel}

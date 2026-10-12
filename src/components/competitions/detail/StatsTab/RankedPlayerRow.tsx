@@ -7,8 +7,11 @@
  */
 
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '@/navigation/types';
 import { spacing, typography } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 
@@ -17,6 +20,8 @@ export interface RankedPlayerRowProps {
   rankLabel: string;
   /** Whether to show the rank label (only the first row in a tied group shows it) */
   showRank: boolean;
+  /** When provided, the row opens this player's profile on press */
+  playerId?: string;
   playerName: string;
   displayValue: string;
   highlight?: boolean;
@@ -25,14 +30,23 @@ export interface RankedPlayerRowProps {
 export const RankedPlayerRow = React.memo(function RankedPlayerRow({
   rankLabel,
   showRank,
+  playerId,
   playerName,
   displayValue,
   highlight = false,
 }: RankedPlayerRowProps) {
   const colors = useThemeColors();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   return (
-    <View style={styles.row}>
+    <TouchableOpacity
+      style={styles.row}
+      onPress={playerId ? () => navigation.navigate('PlayerDetail', { id: playerId }) : undefined}
+      disabled={!playerId}
+      activeOpacity={0.7}
+      accessibilityRole={playerId ? 'button' : undefined}
+      accessibilityLabel={playerId ? `View ${playerName}'s profile` : undefined}
+    >
       <View style={styles.rankColumn}>
         {showRank && (
           <Text
@@ -59,7 +73,7 @@ export const RankedPlayerRow = React.memo(function RankedPlayerRow({
       >
         {displayValue}
       </Text>
-    </View>
+    </TouchableOpacity>
   );
 });
 

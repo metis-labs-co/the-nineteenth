@@ -3,8 +3,11 @@
  */
 
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '@/navigation/types';
 import { spacing, borderRadius, shadows, typography } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import type { ScheduledRoundPlayer } from '@/hooks/rounds/scheduledRounds';
@@ -34,9 +37,19 @@ function PlayerRow({ player, isMe }: PlayerRowProps) {
   const status = player.invitation_status;
   const sc = statusColors(status, colors);
   const isDeclined = status === 'declined';
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  // Placeholder rows (no joined player record) have no profile to open.
+  const canOpenProfile = !!player.player;
 
   return (
-    <View style={[styles.playerRow, { borderBottomColor: colors.border }]}>
+    <TouchableOpacity
+      style={[styles.playerRow, { borderBottomColor: colors.border }]}
+      onPress={() => navigation.navigate('PlayerDetail', { id: player.player_id })}
+      disabled={!canOpenProfile}
+      activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel={`View ${name}'s profile`}
+    >
       {/* Avatar circle */}
       <View style={[styles.avatar, { backgroundColor: isMe ? colors.primary : colors.surfaceVariant }]}>
         <Text style={[styles.avatarText, { color: isMe ? colors.white : colors.textSecondary }]}>
@@ -75,7 +88,7 @@ function PlayerRow({ player, isMe }: PlayerRowProps) {
         )}
         <Text style={[styles.statusLabel, { color: sc.text }]}>{sc.label}</Text>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 

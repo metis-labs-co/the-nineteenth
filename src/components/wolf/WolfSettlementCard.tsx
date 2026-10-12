@@ -22,6 +22,9 @@
 import React, { useMemo, useCallback } from 'react';
 import { View, StyleSheet, Share, TouchableOpacity } from 'react-native';
 import { Text, Icon, Divider } from 'react-native-paper';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '@/navigation/types';
 import { useConfirmationDialog } from '@/hooks';
 import { ConfirmationDialog } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -61,6 +64,7 @@ export const WolfSettlementCard = React.memo(function WolfSettlementCard({
   testID,
 }: WolfSettlementCardProps) {
   const colors = useThemeColors();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { dialogConfig, showAlert, dismissDialog } = useConfirmationDialog();
 
   // Sort payouts by total points (descending)
@@ -180,8 +184,12 @@ export const WolfSettlementCard = React.memo(function WolfSettlementCard({
 
           {/* Table Rows */}
           {sortedPayouts.map((payout, index) => (
-            <View
+            <TouchableOpacity
               key={payout.player_id}
+              activeOpacity={0.7}
+              onPress={() => navigation.navigate('PlayerDetail', { id: payout.player_id })}
+              accessibilityRole="button"
+              accessibilityLabel={`View ${payout.player.name}'s profile`}
               style={[
                 styles.tableRow,
                 {
@@ -215,7 +223,7 @@ export const WolfSettlementCard = React.memo(function WolfSettlementCard({
               >
                 {formatWolfNetResult(payout.net_result)}
               </Text>
-            </View>
+            </TouchableOpacity>
           ))}
 
           {/* Total Row */}
