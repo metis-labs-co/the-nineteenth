@@ -95,6 +95,8 @@ DO $$ BEGIN
 END $$;
 
 -- 3. Notification for F has added_mid_round = true.
+--    Read as fixture admin: notifications RLS only lets F see F's rows.
+RESET ROLE;
 DO $$ BEGIN
   ASSERT (SELECT (data->>'added_mid_round')::BOOLEAN FROM notifications
            WHERE user_id='ab000000-0000-0000-0000-000000000002' AND round_id='ab000000-0000-0000-0001-000000000001' AND type='social_round_invitation'
@@ -171,6 +173,8 @@ INSERT INTO shot_log (round_id, hole_number, player_id, sequence, latitude, long
 SET LOCAL role authenticated;
 SET LOCAL request.jwt.claims = '{"sub":"ab000000-0000-0000-0000-000000000001","role":"authenticated"}';
 SELECT remove_round_player('ab000000-0000-0000-0001-000000000001', 'ab000000-0000-0000-0000-000000000002');
+-- Assert as fixture admin: RLS would hide rows from O and pass vacuously.
+RESET ROLE;
 DO $$ BEGIN
   ASSERT NOT EXISTS (SELECT 1 FROM scorecards WHERE round_id='ab000000-0000-0000-0001-000000000001' AND player_id='ab000000-0000-0000-0000-000000000002'), 'card gone';
   ASSERT NOT EXISTS (SELECT 1 FROM score_entries WHERE round_id='ab000000-0000-0000-0001-000000000001' AND (player_id='ab000000-0000-0000-0000-000000000002' OR scorer_id='ab000000-0000-0000-0000-000000000002')), 'entries gone';
@@ -179,6 +183,8 @@ DO $$ BEGIN
   ASSERT NOT EXISTS (SELECT 1 FROM shot_log WHERE round_id='ab000000-0000-0000-0001-000000000001' AND player_id='ab000000-0000-0000-0000-000000000002'), 'shots gone';
   ASSERT NOT EXISTS (SELECT 1 FROM round_players WHERE round_id='ab000000-0000-0000-0001-000000000001' AND player_id='ab000000-0000-0000-0000-000000000002'), 'row gone';
 END $$;
+SET LOCAL role authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"ab000000-0000-0000-0000-000000000001","role":"authenticated"}';
 
 -- Test 5b
 DO $$
@@ -194,6 +200,17 @@ BEGIN
   ASSERT v_hint = 'player_not_in_round', 'Test 5b: expected hint player_not_in_round, got ' || COALESCE(v_hint, '<null>');
 END $$;
 
+-- 5c. The internal helper is not callable by authenticated users.
+DO $$
+DECLARE v_raised BOOLEAN := FALSE;
+BEGIN
+  BEGIN
+    PERFORM public.assert_round_roster_editable('ab000000-0000-0000-0001-000000000001');
+  EXCEPTION WHEN insufficient_privilege THEN
+    v_raised := TRUE;
+  END;
+  ASSERT v_raised, 'Test 5c: authenticated caller must not execute assert_round_roster_editable';
+END $$;
 -- 6. Re-add after remove works (hard-deleted card does not block).
 SELECT add_round_player('ab000000-0000-0000-0001-000000000001', 'ab000000-0000-0000-0000-000000000002');
 
