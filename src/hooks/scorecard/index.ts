@@ -24,3 +24,4 @@ export * from './usePlayedHoleRange';
 export * from './useLiveScorecardMerge';
 export * from './pullOnOpenIfSocial';
 export * from './useSubmittedElsewhereRedirect';
+export * from './useRoundRosterSync';
