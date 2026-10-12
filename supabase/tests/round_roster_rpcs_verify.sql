@@ -42,8 +42,8 @@ INSERT INTO players (id, name, email) VALUES
   ('ab000000-0000-0000-0000-000000000006', 'RR Z', 'rr-verify-z@example.com')
 ON CONFLICT (id) DO NOTHING;
 -- Guest (placeholder) player: no auth user.
-INSERT INTO players (id, name, is_placeholder, created_by)
-  VALUES ('ab000000-0000-0000-0000-000000000003', 'RR Guest', TRUE, 'ab000000-0000-0000-0000-000000000001')
+INSERT INTO players (id, name, email, is_placeholder, created_by)
+  VALUES ('ab000000-0000-0000-0000-000000000003', 'RR Guest', 'rr-verify-guest@example.com', TRUE, 'ab000000-0000-0000-0000-000000000001')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO clubs (id, source, name)
