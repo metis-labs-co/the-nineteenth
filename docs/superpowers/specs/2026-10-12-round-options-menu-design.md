@@ -1,156 +1,158 @@
 # Round Options Menu (score entry) — Design
 
-**Date:** 2026-10-12
-**Status:** Approved in conversation, awaiting written-spec review
+**Date:** 2026-10-12 (rev 2, after code review)
+**Status:** Awaiting written-spec review
 **Branch:** `feat/round-options-menu`
 
 ## Goal
 
 While scoring a social or practice (standalone) round, the round owner can
 fix the round without leaving score entry: change holes (full / front 9 /
-back 9), add or remove players, set a player's handicap for this round,
-change tees, rename the round, end it early, or delete it.
+back 9), add or remove players, change tees, end the round early, or delete
+it.
 
-## Decisions (from brainstorming)
+## Decisions
 
 | # | Decision |
 |---|---|
 | D1 | Player editing = add and remove. Added players start with blank earlier holes; removing deletes their scorecard. No swap. |
-| D2 | Player and handicap editing only for Stableford, Stroke Play and Par rounds with no Skins, Wolf, scoring pairs or multi-ball practice. Other rounds show the rows locked with a reason. |
-| D3 | Round owner only (`rounds.user_id`). End round early keeps its current rule (owner or participant). |
-| D4 | Menu also includes Change tees, End round early, Round name, Per-player handicap. |
-| D5 | Approach A: edits are online-only (except End round early, which already works offline); other devices reconcile the roster live. |
+| D2 | Player editing only for Stableford, Stroke Play and Par rounds with no Skins, Wolf, scoring pairs or multi-ball practice. Other rounds show the row locked with a reason. |
+| D3 | New actions (Holes, Players, Delete) are round owner only (`rounds.user_id`). Change tees and End round early keep their existing permission rules. |
+| D4 | Approach A: edits are online-only (End round early keeps working offline); other devices reconcile the roster. |
+| D5 | Late joiners must back-fill: no special casing of earlier holes. End round early and submission stay blocked until every player has a score (or pickup) on the holes they require, and say why. |
+| D6 | Delete syncs pending scores first and keeps the Undo toast. |
+| D7 | Deferred to phase 2 (separate spec): per-round handicap overrides. Cut: Round name row (rename stays in Round Settings; the name isn't shown in score entry). |
 
 ## Scope
 
-In: `ScorecardEntryScreen` for standalone rounds.
+In: `ScorecardEntryScreen` for standalone rounds (`competitionId === 'standalone'`).
 
-Out: competition rounds; `MatchPlayScoringScreen` and
-`TeamMatchPlayScoringScreen` (their ⋮ keeps opening End round early
-directly); offline queuing of structural edits; swapping a player's scores to
-another player; team/side-game roster editing.
+Out: competition rounds; `MatchPlayScoringScreen` / `TeamMatchPlayScoringScreen`
+(unchanged); offline queuing of structural edits; swapping scores between
+players; team or side-game roster editing; per-round handicaps; rename.
+
+Naming note: `Scorecard.isStandalone` means "local-only card"
+(`syncOrchestrator.ts`), not "non-competition round". This feature never
+sets it.
 
 ## 1. Entry point and menu
 
-`RoundHeader` gains an optional `onMorePress` prop. When provided, the ⋮
-opens it; otherwise the ⋮ keeps its current End-round-early behaviour. Only
-`ScorecardEntryScreen` passes `onMorePress`, and only for standalone rounds.
+`RoundHeader` gains an optional `onMorePress` prop. The ⋮ renders when
+`onMorePress` is passed **or** when the existing
+`canEndRoundEarly && onEndRoundEarlyPress` holds; `onMorePress` wins when
+both are present.
 
-New `RoundOptionsSheet` (`src/components/scorecard/RoundOptionsSheet/`),
-a `BottomSheet` with icon + label rows, following the `PhotoSourceMenu`
-row pattern. Presentational: it receives a row model and callbacks.
+`ScorecardEntryScreen` passes `onMorePress` only when the current user is the
+round owner. Non-owners keep today's behaviour (⋮ opens End round early
+directly), so nobody sees a one-row sheet.
 
-Row model is computed by a pure function `getRoundOptionsRows(input)` so the
-visibility matrix is unit-testable:
+New `RoundOptionsSheet` (`src/components/scorecard/RoundOptionsSheet/`): a
+`BottomSheet` with icon + label rows in the `PhotoSourceMenu` row style.
+Presentational; rows come from a pure `getRoundOptionsRows(input)`:
 
-| Row | Visible to | Locked when | Online only |
-|---|---|---|---|
-| Holes | owner | hidden if course has ≤ 9 holes; locked if `holes_played` set (ended early) | yes |
-| Players | owner | format not stableford/stroke/par, or skins/wolf/scoring pairs on, or multi-ball | yes |
-| Handicaps | owner | same as Players; hidden when `handicap_source = 'none'` or the `handicap_override` column is unavailable | yes |
-| Change tees | owner | existing rules | yes |
-| Round name | owner | — | yes |
-| End round early | owner + participants | existing `useEndRoundEarly` gate | no |
-| Delete round | owner | — | yes |
+| Row | Locked when (reason shown) | Online only |
+|---|---|---|
+| Holes | hidden on ≤ 9-hole courses; locked when `holes_played` is set or a local end-early is pending ("Round has been ended") | yes |
+| Players | format not stableford/stroke/par, or skins/wolf/scoring pairs/multi-ball ("Not available for this format"); `holes_played` set or end-early pending ("Round has been ended"); any card submitted ("Scores have been submitted") | yes |
+| Change tees | existing `canChangeTees` rule | yes |
+| End round early | existing `useEndRoundEarly` gate; when unavailable because a player is missing scores, show "Needs scores for <name> on holes 1–N" | no |
+| Delete round | — | yes |
 
-- Non-owners see only End round early.
-- Online-only rows render disabled with the caption "Needs a connection"
-  when offline.
-- Locked rows render disabled with a one-line reason
-  (e.g. "Not available with Skins or Wolf").
-- The header tee-name tap for Change tees stays.
+Online-only rows render disabled with "Needs a connection" when offline.
+The header tee-name tap for Change tees stays.
 
 ## 2. Players
 
-`RoundPlayersSheet`: lists players (name, tee, round handicap). Every row
-except the owner shows a remove action. "Add player" opens the existing
-`FriendSelectorBottomSheet` (friends + Create Guest). Max 4 players.
+### Sheet
 
-### Add
+`RoundPlayersSheet` lists players (name, tee). Every row except the owner's
+has a remove action. "Add player" opens a picker built on
+`FriendSelectorBottomSheet`. Its host state (friends, search, placeholders,
+Add Guest modal, auto-add of a just-created guest) currently lives in
+`PartnersStep`; extract it into a reusable hook used by both. The picker
+excludes current players and allows at most `preset max players − current
+count` (Stableford/Stroke/Par standalone max is 4 in `roundPresets.ts`; read
+it from the preset). New players use the round's default tee; change it
+afterwards with Change tees.
 
-1. Online check, then inside `withRoundScoringWrite(roundId)`:
-   insert `round_players` (`invitation_status = 'accepted'`,
-   `added_by = owner`, `selected_tee = null` → round default tee).
-2. Store action `addPlayerToRound(player)` — generalised from
-   `ensureTeamMemberScorecards` (`src/store/initializeRoundSlice.ts`):
-   build the local card (`scorecard-${roundId}-${playerId}`), persist under
-   `withRoundPersistence`, call `onLiveCardsReady`, append to
-   `groupScorecards` and `currentPlayers`. `ensureTeamMemberScorecards` is
-   refactored to call the same helper.
-3. The server scorecard row is created on first sync by
-   `write_scorecard_snapshot`, as today.
-4. `allowedPlayerIds` (derived from `playersToRender`) includes the new
-   player.
+### Server functions (one migration)
 
-Notification: `trigger_notify_round_player_invited` fires on insert. Check
-its copy; when the inserted row is `accepted` on an in-progress round, the
-notification must read as "<owner> added you to a round at <course>", not
-an invite. Guests have no user, so no notification.
+Both functions are SECURITY DEFINER with pinned `search_path`, take
+`SELECT … FROM rounds WHERE id = p_round_id FOR UPDATE` (same locking as
+`end_round_early`) and reject unless: caller is `rounds.user_id`; round is
+standalone, not deleted, not completed; `holes_played IS NULL`; no scorecard
+in the round is submitted.
 
-### Remove
+- `add_round_player(p_round_id, p_player_id)`: rejects if the player is
+  already in the round or the preset cap is reached; inserts `round_players`
+  (`invitation_status = 'accepted'`, `added_by = auth.uid()`).
+- `remove_round_player(p_round_id, p_player_id)`: rejects removing the
+  owner; deletes by `(round_id, player_id)` from `score_entries`,
+  `score_mismatches`, `score_submission_status`, `scorecards` (hard delete —
+  `unique_scorecard_per_player_round` is a full constraint, so a soft-deleted
+  card would block re-adding), then `round_players` (a surviving row would
+  let any device re-insert the card). Single transaction.
+
+Notification trigger `trigger_notify_round_player_invited`: today it says
+"invited you to play" for every insert and does not skip placeholder
+players. Change it so that an `accepted` insert on an in-progress round reads
+"<owner> added you to a round at <course>", and placeholder players (no auth
+user) never get a notification.
+
+### Add (client)
+
+Inside one `withRoundScoringWrite(roundId)` block (no `manualSync` inside —
+it is non-reentrant):
+
+1. `add_round_player` RPC.
+2. `ensureTeamMemberScorecards([player])` (`initializeRoundSlice.ts`) —
+   already idempotent, creates and persists the local card, calls
+   `onLiveCardsReady`, appends to `groupScorecards` / `currentPlayers`. Reused
+   as-is (it isn't team-specific despite the name).
+
+Then `refetchPlayers()` (see §3) and broadcast `roster_changed` (§4). The
+server scorecard row appears on the new card's first sync, as today.
+`allowedPlayerIds` is derived from `playersToRender`, which must include the
+new player.
+
+### Remove (client)
 
 1. Confirm: "Remove <name>? Their scores for this round will be deleted."
-2. Flush debounced writes (`flushPendingScorecardSyncs`) and drop that
-   player's pending `scorecard` queue items.
-3. New RPC `remove_round_player(p_round_id uuid, p_player_id uuid)`:
-   - caller must be `rounds.user_id`; round must be standalone and not
-     completed; player must not be the owner; player's card must not be
-     submitted;
-   - hard-deletes the player's `scorecards` row and dependent
-     `score_entries`; deletes the `round_players` row; one transaction.
-   - Hard delete is required: `unique_scorecard_per_player_round` is a full
-     constraint, so a soft-deleted card would block re-adding; and a
-     surviving `round_players` row would let any device re-insert the card.
-4. Store action `removePlayerFromRound(playerId)`: delete local SQLite card
-   + hole scores under `withRoundPersistence`, remove from
-   `groupScorecards` / `currentPlayers`.
+2. Inside one `withRoundScoringWrite(roundId)` block:
+   - new `cancelPendingScorecardSync(scorecardId)` in
+     `scorecardSyncDebounce.ts` (cancel that card's debounce timer only —
+     `flushPendingScorecardSyncs` cancels every timer and must not be used);
+   - remove that card's pending `scorecard` queue items;
+   - `remove_round_player` RPC;
+   - store action `removePlayerFromRound(playerId)`: `deleteScorecard` (local
+     card + hole scores) under `withRoundPersistence`, remove from
+     `groupScorecards` / `currentPlayers`.
+3. `refetchPlayers()` and broadcast `roster_changed`.
 
-Guards: owner cannot be removed; at least one player remains; players with
-a submitted card cannot be removed. Derived checks (scores-every-player,
-submission readiness, end-early plan) recompute from the store.
+If the RPC fails, nothing local changes (the cancelled debounce is re-armed by
+re-queuing the card's current state).
 
-## 3. Handicaps, holes, name, tees, delete
-
-### Per-round handicap
-
-- Migration: `round_players.handicap_override numeric(3,1) NULL`,
-  `CHECK (handicap_override BETWEEN -5 AND 54)`. Owner UPDATE policy
-  already exists.
-- Single rule: `getBaseHandicap` (`src/utils/scorecardCalculations.ts`)
-  returns the override when set, else current behaviour (profile /
-  calculated). With `handicap_source = 'none'` it stays 0.
-- Initialisation and the resume refresh in `initializeRoundSlice`
-  (live-profile handicap overwrite for unsubmitted cards) apply the
-  override on top, so edits survive app restarts.
-- Store action `setPlayerHandicap(playerId, value | null)`, modelled on
-  `setPlayerTee`: update `card.player.handicap`, recompute totals across all
-  holes, persist, and queue the normal scorecard write.
-- Submission snapshot (`ga_handicap_used` / `daily_handicap_used`) uses the
-  effective handicap (it already reads `card.player.handicap`).
-- UI: `RoundHandicapsSheet` lists players; tapping one opens the existing
-  `HandicapEditSheet` (−5..54, one decimal) plus "Use profile handicap",
-  which clears the override.
-- Write order: server `round_players` update first, then
-  `setPlayerHandicap`.
+## 3. Holes, tees, delete
 
 ### Holes
 
-Reuse `EditNineTypeSheet` logic with two changes for live use:
+Reuse the `EditNineTypeSheet` mutation with these changes for live use:
 
 - The "will hide scored holes" warning reads the live store, not
   `useRoundScorecards`.
-- On success, also call `metadata.refetch()` (from `useRoundMetadata`) so
-  re-init doesn't use the stale `nineType` and trigger a second
-  shape-mismatch reset.
+- `useRoundData` exposes `refetchMetadata()` and `refetchPlayers()`
+  (`useRoundMetadata` / `useRoundPlayers` state is internal today; only
+  `retryFetch` is exposed). After saving: `refetchPlayers()` and
+  `refetchMetadata()` complete **before** `resetRound()`, so re-init never
+  runs with a stale `nineType` (second shape-mismatch reset) or a stale
+  roster (which `initializeRound` would write over SQLite cards).
+- Broadcast `roster_changed` so peers refetch.
 
-Hidden-hole scores are kept (current behaviour). The scorecard shows a
-spinner briefly while it re-initialises. Other devices adopt the new shape
-through the existing `shape_changed` handling on sync.
-
-### Round name
-
-Reuse `EditRoundNameSheet` unchanged; the header title refreshes from the
-invalidated `roundKeys.detail`.
+Hidden-hole scores are kept (current behaviour); a brief spinner shows while
+the scorecard re-initialises. Peers adopt the new shape through the existing
+`round_shape_changed` handling. Add a test that a **nine_type-only** change
+(no `holes_played`) is adopted by `repairWithinBoundary` /
+`createRoundScoringContext`, since those were built for `holes_played`.
 
 ### Tees
 
@@ -158,67 +160,123 @@ Existing `ChangeTeesSheet`, unchanged.
 
 ### Delete
 
-1. Confirmation dialog (existing delete copy).
-2. `flushPendingScorecardSyncs()`.
-3. `soft_delete_round` via `useDeleteRound`.
-4. On success: `activeRoundSession.clear()`, `resetRound()`, local cleanup
-   via `deleteScorecardsByRound`, extended to also remove `type: 'round'`
-   queue items keyed by `data.id`.
-5. `navigation.goBack()`. The existing 6-second Undo toast stays.
+Reuse `useScorecardSubmission.handleDeleteRound` / `performDelete` (already
+in score entry, currently unused).
 
-## 4. Other devices, errors, testing, rollout
+1. Confirmation dialog. Fix the copy: it says "cannot be undone", which
+   contradicts the Undo toast — use "Delete this round? You can undo for a
+   few seconds afterwards."
+2. Sync the round's pending scores first (cancel debounce timers by
+   re-queuing their current state, then run the round's sync) with a 5 s
+   timeout. If it doesn't finish, ask "Some scores haven't uploaded. Delete
+   anyway?" — if yes, Undo will restore only what reached the server.
+3. `useDeleteRound` (`soft_delete_round`). `deleteRound` already calls
+   `deleteScorecardsByRound`; extend that to also remove `type: 'round'`
+   queue items keyed by `data.id` (finalize / end-early intents), and run it
+   under `withRoundPersistence`.
+4. `activeRoundSession.clear()`, `resetRound()`, broadcast `round_deleted`,
+   `navigation.goBack()`. The existing 6 s Undo toast stays.
 
-### Roster reconcile
+## 4. Other devices
 
-New hook `useRoundRosterSync(roundId)` mounted by `ScorecardEntryScreen`
-for standalone rounds:
+Realtime Postgres changes can't be used: on RLS tables DELETE payloads carry
+only the primary key (no `round_id` filter), and a removed player loses
+SELECT on `round_players` entirely.
 
-- Triggers: realtime changes on `round_players` filtered by `round_id`
-  (migration adds `round_players` to the `supabase_realtime` publication;
-  existing SELECT RLS limits visibility), plus screen open/focus while
-  online.
-- Fetch accepted `round_players` (incl. `handicap_override`), diff against
-  the store:
-  - added → `addPlayerToRound`;
-  - removed → drop that player's queued writes, `removePlayerFromRound`,
-    toast "<name> was removed from the round";
-  - override changed → `setPlayerHandicap`.
-- Pure diff function `diffRoundRoster(serverRows, storePlayers)` for unit
-  tests.
+### Triggers
 
-Sync safety net: in `syncOrchestrator`, a scorecard write that fails
-(RLS 42501, or conflict with no live row) for a player no longer in
-`round_players` is discarded instead of kept as a failed item, so the
-"changes not uploaded" banner doesn't appear for removed players.
+New hook `useRoundRosterSync(roundId)`, mounted by `ScorecardEntryScreen` for
+standalone rounds, refetches the roster when:
 
-### Error handling
+- a Broadcast message (`roster_changed` / `round_deleted`) arrives on channel
+  `round:{roundId}` (the owner sends it after Add, Remove, Holes, Delete);
+- the screen opens or regains focus while online;
+- a scorecard upload for this round fails with RLS `42501` or a conflict with
+  no live server row.
+
+### Reconcile
+
+Fetch: the round (`deleted_at`, `holes_played`, `nine_type`) and its
+`round_players` rows, with the **same filter `useRoundPlayers` uses** (no
+status filter — after start, standalone rows are all accepted).
+
+Pure `reconcileRoster(serverState, storePlayers, currentUserId, ownerId)`
+returns one of:
+
+- `ignore` — fetch errored, or the list is empty, or it lacks the owner.
+  Never apply removals from a doubtful read.
+- `exit_removed` — the current user isn't in the list.
+- `exit_deleted` — the round is deleted or not visible.
+- `apply { added, removed }`.
+
+Actions:
+
+- `apply`: inside `withRoundScoringWrite`, for added players call
+  `ensureTeamMemberScorecards`; for removed players cancel their debounce,
+  drop their queued writes, `removePlayerFromRound`, and toast "<name> was
+  removed from the round". This is a discard after a **confirmed** server
+  read with the caller still a participant, so it doesn't break the
+  "conflicts are never silently dropped" invariant (OFFLINE_ARCHITECTURE.md);
+  both upload paths (queue and unsynced-SQLite fallback) are covered because
+  the local card is deleted.
+- `exit_removed` / `exit_deleted`: inside `withRoundScoringWrite`, clear this
+  round's local cards and queue items, `activeRoundSession.clear()`,
+  `resetRound()`, leave the screen, toast "You were removed from this round"
+  / "This round was deleted".
+
+Sequence guard: each reconcile records a sequence number at fetch time;
+results from a fetch that started before the device's latest local roster
+edit are dropped, so a slow fetch can't re-add a player the owner just
+removed.
+
+A participant who loses SELECT can't receive Broadcast on a private channel
+either; the channel is public-by-round-id (no data in the payload beyond the
+event name), and the upload-failure trigger is the backstop.
+
+## 5. Errors
 
 All online-only edits are server-first; on failure the store and SQLite are
 untouched and a toast explains the failure. If the server add succeeds but
-local card creation fails, the next roster reconcile creates it.
+local card creation fails, the next reconcile creates it.
 
-### Testing
+## 6. Testing
 
 Scoring guardrails apply (CLAUDE.md): read
 `docs/guides/SCORING_ARCHITECTURE.md`, run `scoring-impact-analyst` on
-`src/utils/scorecardCalculations.ts`, `src/store/initializeRoundSlice.ts`
-and `src/store/scorecardStore.ts`, and add characterisation tests for any
+`src/store/initializeRoundSlice.ts`, `src/store/scorecardStore.ts` and
+`src/hooks/scorecard/useRoundData.ts`, and add characterisation tests for
 unprotected behaviour before changing it.
 
-- Unit: `getBaseHandicap` override; resume refresh respects override;
-  `addPlayerToRound` / `removePlayerFromRound` / `setPlayerHandicap`;
-  `diffRoundRoster`; `getRoundOptionsRows` matrix; sync safety net.
-- Component: `RoundOptionsSheet`, `RoundPlayersSheet`,
-  `RoundHandicapsSheet`.
+- Unit: `getRoundOptionsRows` matrix; `reconcileRoster` (incl. `ignore`
+  cases, self-removed, deleted, sequence guard); `removePlayerFromRound`;
+  `ensureTeamMemberScorecards` for a standalone add; `cancelPendingScorecardSync`;
+  `deleteScorecardsByRound` removing `type: 'round'` items; nine_type-only
+  shape adoption; End round early lock reason for a late joiner.
+- SQL: `add_round_player` / `remove_round_player` permission and guard
+  cases, cascade of `score_entries` / `score_mismatches` /
+  `score_submission_status`, re-add after remove.
+- Component: `RoundOptionsSheet`, `RoundPlayersSheet`, `RoundHeader` ⋮
+  visibility.
 - Run the scoring subset and `pnpm verify:gate`.
-- Manual QA on two devices: add, remove, handicap edit, holes change and
-  delete while both are scoring; offline greys out rows; non-owner sees only
-  End round early.
+- Manual QA on two devices: add, remove (including removing the other
+  device's user), holes change and delete while both are scoring; offline
+  greys out rows; non-owner ⋮ still opens End round early.
 
-### Rollout
+## 7. Rollout
 
-One migration: `handicap_override` column, `remove_round_player` RPC,
-`round_players` realtime publication, notification copy if needed. Deploy to
-staging, then prod, before the client release. The client hides Handicaps
-when the column is unavailable and Players' remove when the RPC is missing,
-so an OTA on an un-migrated server degrades rather than breaks.
+One migration: `add_round_player`, `remove_round_player`, notification
+trigger change. Deploy to staging, then prod, before the client release
+(no runtime probing for an un-migrated server).
+
+## Phase 2 (separate spec)
+
+Per-round handicap overrides. Review findings to carry forward: the override
+must flow through `Player` → every `getBaseHandicap` caller
+(`store/utils/scorecardCalculations.ts`, `roundScoringContext.ts`,
+`playingHandicap.ts`, `ScrollableCells.tsx`, `usePlayerScorecard.ts`) and
+both `'profile'` and `'calculated'` sources; a local SQLite column; the
+resume refresh; a standalone-specific `round_players` select (the current one
+is shared with competitions); only the editing device queues the write;
+in-progress views outside score entry; a trigger so only the owner can set
+it; and protecting real players' Social Handicap history (limit to guests and
+the owner, or exclude overridden cards from differentials).
