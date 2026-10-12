@@ -94,9 +94,14 @@ const notificationConfig: Record<NotificationType, NotificationConfig> = {
   },
   social_round_invitation: {
     icon: 'golf-tee',
-    getTitle: (_data) => 'Round Invitation',
-    getMessage: (data) =>
-      `${data.inviter_name || 'Someone'} invited you to play${data.venue_name ? ` at ${data.venue_name}` : ''}`,
+    getTitle: (data) => (data.added_mid_round ? 'Added to a Round' : 'Round Invitation'),
+    getMessage: (data) => {
+      const venue = data.venue_name ? ` at ${data.venue_name}` : '';
+      const who = data.inviter_name || 'Someone';
+      return data.added_mid_round
+        ? `${who} added you to a round${venue}`
+        : `${who} invited you to play${venue}`;
+    },
   },
   social_round_response: {
     icon: 'golf-tee',
