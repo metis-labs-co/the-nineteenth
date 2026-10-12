@@ -422,6 +422,17 @@ describe('NotificationItem', () => {
         render(<NotificationItem notification={notification} onPress={jest.fn()} />);
         expect(screen.getByTestId('icon-golf-tee')).toBeTruthy();
       });
+
+      it('shows "added you to a round" when added mid-round', () => {
+        const notification = createMockNotification('social_round_invitation', {
+          inviter_name: 'Golf Buddy',
+          venue_name: 'Kingston Heath',
+          added_mid_round: true,
+        });
+        render(<NotificationItem notification={notification} onPress={jest.fn()} />);
+        expect(screen.getByText('Added to a Round')).toBeTruthy();
+        expect(screen.getByText('Golf Buddy added you to a round at Kingston Heath')).toBeTruthy();
+      });
     });
 
     describe('skins_game_completed', () => {

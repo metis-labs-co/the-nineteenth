@@ -81,6 +81,8 @@ export interface RoundHeaderProps {
   canEndRoundEarly?: boolean;
   /** Called when the end-round-early action is tapped — opens the sheet. */
   onEndRoundEarlyPress?: () => void;
+  /** When passed, ⋮ opens the round options menu instead of End round early. */
+  onMorePress?: () => void;
 }
 
 export function RoundHeader({
@@ -105,6 +107,7 @@ export function RoundHeader({
   onChangeTeesBlockedOffline,
   canEndRoundEarly = false,
   onEndRoundEarlyPress,
+  onMorePress,
 }: RoundHeaderProps) {
   const colors = useThemeColors();
 
@@ -208,7 +211,13 @@ export function RoundHeader({
       )}
       <SkinsIndicator roundId={roundId} size="sm" variant="minimal" />
       <WolfIndicator roundId={roundId} currentHole={currentHole} size="sm" variant="minimal" />
-      {canEndRoundEarly && onEndRoundEarlyPress ? (
+      {onMorePress ? (
+        <HeaderIconButton
+          icon="dots-vertical"
+          onPress={onMorePress}
+          accessibilityLabel="Round options"
+        />
+      ) : canEndRoundEarly && onEndRoundEarlyPress ? (
         <HeaderIconButton
           icon="dots-vertical"
           onPress={onEndRoundEarlyPress}

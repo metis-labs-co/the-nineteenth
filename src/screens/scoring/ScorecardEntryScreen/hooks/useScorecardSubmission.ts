@@ -12,6 +12,8 @@ import { useCallback } from 'react';
 import { useConfirmationDialog } from '@/hooks/useConfirmationDialog';
 import type { DialogConfig } from '@/hooks/useConfirmationDialog';
 import { useDeleteRound } from '@/hooks/rounds/mutations';
+import { syncRoundNow } from '@/services/rounds/syncRoundNow';
+import { sendRoundEvent } from '@/services/rounds/roundRosterChannel';
 import { activeRoundSession } from '@/services/activeRoundSession';
 import { scoringLogger } from '@/utils/debugLogger';
 import { useScorecardStore } from '@/store/scorecardStore';
@@ -120,6 +122,7 @@ export function useScorecardSubmission({
   const performDelete = useCallback(async () => {
     try {
       await deleteRoundMutation.mutateAsync({ roundId });
+      await sendRoundEvent(roundId, 'round_deleted');
       await activeRoundSession.clear();
       resetRound();
       navigation.goBack();
@@ -129,20 +132,41 @@ export function useScorecardSubmission({
     }
   }, [roundId, deleteRoundMutation, navigation, resetRound, showAlert]);
 
-  // Delete a standalone round
-  const handleDeleteRound = useCallback(() => {
+  // Push the latest scores first so the Undo toast restores everything
+  const syncThenDelete = useCallback(async () => {
+    const cards = [...useScorecardStore.getState().groupScorecards.values()];
+    const synced = await syncRoundNow(roundId, cards);
+    if (synced) {
+      await performDelete();
+      return;
+    }
     showDialog({
       title: 'Delete Round',
-      message: 'Are you sure you want to delete this round? This action cannot be undone.',
+      message: "Some scores haven't uploaded. Delete anyway?",
       confirmLabel: 'Delete',
       confirmVariant: 'destructive',
       icon: 'trash-can-outline',
       onConfirm: () => {
         dismissDialog();
-        performDelete();
+        void performDelete();
       },
     });
-  }, [showDialog, dismissDialog, performDelete]);
+  }, [roundId, performDelete, showDialog, dismissDialog]);
+
+  // Delete a standalone round
+  const handleDeleteRound = useCallback(() => {
+    showDialog({
+      title: 'Delete Round',
+      message: 'Delete this round? You can undo for a few seconds afterwards.',
+      confirmLabel: 'Delete',
+      confirmVariant: 'destructive',
+      icon: 'trash-can-outline',
+      onConfirm: () => {
+        dismissDialog();
+        void syncThenDelete();
+      },
+    });
+  }, [showDialog, dismissDialog, syncThenDelete]);
 
   return {
     handleSubmit,

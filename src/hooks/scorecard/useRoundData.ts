@@ -56,6 +56,8 @@ interface RoundDataState {
   playersToScore: Player[];
   ballCount: BallCount;
   isSoloRound: boolean;
+  /** Full course hole count, before any nine_type filtering (a front-9 round on an 18-hole course is 18). */
+  courseHoleCount: number;
 }
 
 interface UseRoundDataParams {
@@ -66,6 +68,8 @@ interface UseRoundDataParams {
 
 interface UseRoundDataResult extends RoundDataState {
   retryFetch: () => void;
+  refetchMetadata: () => Promise<void>;
+  refetchPlayers: () => Promise<void>;
 }
 
 /**
@@ -94,6 +98,7 @@ export function useRoundData({
     playersToScore: [],
     ballCount: 1,
     isSoloRound: false,
+    courseHoleCount: 0,
   });
 
   const {
@@ -936,6 +941,7 @@ export function useRoundData({
       playersToScore: scoringPairsHook.playersToScore,
       ballCount: metadata.data?.ballCount || 1,
       isSoloRound,
+      courseHoleCount: courseHook.holes.length,
     });
   }, [
     metadata.data,
@@ -945,6 +951,7 @@ export function useRoundData({
     playersHook.isLoading,
     playersHook.error,
     courseHook.course,
+    courseHook.holes,
     courseHook.isLoading,
     courseHook.error,
     teamsHook.teams,
@@ -974,5 +981,7 @@ export function useRoundData({
   return {
     ...state,
     retryFetch,
+    refetchMetadata: metadata.refetch,
+    refetchPlayers: playersHook.refetch,
   };
 }

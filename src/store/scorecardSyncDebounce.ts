@@ -110,3 +110,16 @@ export function flushPendingScorecardSyncs(): void {
   }
   timers.clear();
 }
+
+/**
+ * Cancel one card's pending debounced sync. Used when that player is removed
+ * from the round; unlike flushPendingScorecardSyncs it leaves other cards'
+ * pending uploads alone.
+ */
+export function cancelPendingScorecardSync(scorecardId: string): boolean {
+  const timer = timers.get(scorecardId);
+  if (!timer) return false;
+  clearTimeout(timer);
+  timers.delete(scorecardId);
+  return true;
+}

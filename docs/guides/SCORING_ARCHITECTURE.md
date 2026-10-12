@@ -291,6 +291,20 @@ indexes; plus-handicap per-hole net floors returned strokes at zero; dedicated
 nine-rating/live nine-aware handicap work is separate; Home continue-scoring
 copy and raw multi-ball course-offset labels retain their existing limitations.
 
+### Roster edits mid-round
+
+Social-round owners can add or remove players from Round options while scoring.
+
+- `remove_round_player` hard-deletes the player's scorecard and score rows rather
+  than soft-deleting them. Leaving orphan rows would keep them in sync payloads,
+  stats, handicap and leaderboard readers that do not filter on roster membership.
+- `reconcileRoster` is the only path that discards a removed player's local
+  (offline queue/SQLite) writes. Do not drop local writes for a removed player
+  anywhere else, or a legitimate unsynced score can be lost.
+- `ensureTeamMemberScorecards` doubles as the standalone add path: it creates
+  missing cards for players newly on the roster, so changes to it affect both
+  team-round mounts and mid-round adds.
+
 ## Extending this pattern to another domain
 
 See `docs/guides/DOMAIN_GUARDRAILS_PATTERN.md`.

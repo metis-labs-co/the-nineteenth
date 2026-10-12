@@ -23,6 +23,7 @@ export {
   getScorecardsByRound,
   deleteScorecard,
   deleteScorecardsByRound,
+  deleteRoundIntents,
   markScorecardsAsSynced,
   markScorecardAsSynced,
   recordScorecardServerRevision,

@@ -84,6 +84,7 @@ function expectNoChange(invalidate: ReturnType<typeof renderSheet>['invalidate']
 describe('EditNineTypeSheet', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockResetRound.mockReset();
     mockScorecards = [];
     mockCurrentRoundId = 'round-1';
     mockUpdateRound.mockResolvedValue(undefined);
@@ -132,7 +133,11 @@ describe('EditNineTypeSheet', () => {
     mockScorecards = [{ scores: { '10': { strokes: 5 }, '11': { strokes: 4 } } }];
     const { props, invalidate } = renderSheet();
     fireEvent.press(screen.getByTestId('edit-nine-type-option-front9'));
-    expect(screen.getByText(/Holes 10–11 have scores entered/)).toBeTruthy();
+    expect(
+      screen.getByText(
+        'Holes 10–11 have scores entered. Switching to Front 9 will remove those scores from this round.'
+      )
+    ).toBeTruthy();
     expectNoChange(invalidate);
     fireEvent.press(screen.getByText('Cancel'));
     expect(screen.queryByTestId('hide-scores-confirmation')).toBeNull();
@@ -144,7 +149,9 @@ describe('EditNineTypeSheet', () => {
     mockScorecards = [{ scores: { '10': { balls: [{ strokes: 5 }] } } }];
     const { props } = renderSheet();
     fireEvent.press(screen.getByTestId('edit-nine-type-option-front9'));
-    expect(screen.getByText(/Hole 10 has scores entered/)).toBeTruthy();
+    expect(
+      screen.getByText('Hole 10 has scores entered. Switching to Front 9 will remove those scores from this round.')
+    ).toBeTruthy();
     expect(mockUpdateRound).not.toHaveBeenCalled();
     fireEvent.press(screen.getByText('Switch to Front 9'));
     await waitFor(() => expect(props.onDismiss).toHaveBeenCalled());
@@ -218,5 +225,23 @@ describe('EditNineTypeSheet', () => {
     rerender(<EditNineTypeSheet {...props} holesPlayed={6} />);
     await act(async () => { staleConfirm(); });
     expectNoChange(invalidate);
+  });
+  it('uses scoredHoleNumbers instead of server cards for the hidden-holes warning', async () => {
+    mockScorecards = [];
+    renderSheet({ currentNineType: 'full', scoredHoleNumbers: [10, 11] });
+    fireEvent.press(screen.getByText('Front 9'));
+    expect(await screen.findByText(/10–11/)).toBeTruthy();
+  });
+
+  it('awaits beforeReset before resetting the store, then calls onChanged', async () => {
+    const order: string[] = [];
+    const beforeReset = jest.fn(async () => { order.push('beforeReset'); });
+    const onChanged = jest.fn(() => order.push('onChanged'));
+    mockResetRound.mockImplementation(() => { order.push('reset'); });
+    mockCurrentRoundId = 'round-1';
+    renderSheet({ currentNineType: 'full', scoredHoleNumbers: [], beforeReset, onChanged });
+    fireEvent.press(screen.getByText('Front 9'));
+    await waitFor(() => expect(onChanged).toHaveBeenCalledWith('front9'));
+    expect(order).toEqual(['beforeReset', 'reset', 'onChanged']);
   });
 });

@@ -41,6 +41,7 @@ export interface NotificationData {
   inviter_name?: string;
   venue_name?: string;
   game_type?: string;
+  added_mid_round?: boolean;
 
   // Generic - allow additional fields
   [key: string]: string | number | boolean | undefined;

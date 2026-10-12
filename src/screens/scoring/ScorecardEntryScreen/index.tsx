@@ -26,7 +26,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { useStatsVisibilityWithTier } from '@/hooks/useStatsVisibilityWithTier';
 import { useIsSuperAdmin } from '@/store/subscriptionStore';
-import { useOfflineSync, useRoundData, useTeamScoring, useBuildAsYouPlay, useGroupFilter, useActiveSubMatch, useEndRoundEarly, usePlayedHoleRange, useLiveScorecardMerge, useSubmittedElsewhereRedirect } from '@/hooks/scorecard';
+import { useOfflineSync, useRoundData, useTeamScoring, useBuildAsYouPlay, useGroupFilter, useActiveSubMatch, useEndRoundEarly, usePlayedHoleRange, useLiveScorecardMerge, useSubmittedElsewhereRedirect, useRoundRosterSync } from '@/hooks/scorecard';
 import { usePairings, useTeams as useCompetitionTeams, useRoundDetails } from '@/hooks/rounds';
 import { useCompetitionInfo } from '@/hooks/competitions';
 import {
@@ -56,6 +56,14 @@ import { calculatePlayingHandicap } from '@/hooks/usePlayingHandicap';
 import { useApplyAutoTeeOverrides } from '@/hooks/useApplyAutoTeeOverrides';
 import { resolvePlayerTee } from '@/utils/teeResolution';
 import { getTeeColor } from '@/services/courses';
+import { RoundOptionsSheet, getRoundOptionsRows, type RoundOptionKey } from '@/components/scorecard/RoundOptionsSheet';
+import { RoundPlayersSheet } from '@/components/scorecard/RoundPlayersSheet';
+import { EditNineTypeSheet } from '@/components/rounds/ViewRound/RoundDetailsTab/sheets';
+import { sendRoundEvent } from '@/services/rounds/roundRosterChannel';
+import { findBackfillGaps, formatHoleRange, isRosterEditableFormat } from '@/utils/roundRoster';
+import { isHoleScored } from '@/utils/endRoundEarly';
+import { useSkinsGamesByRound } from '@/hooks/skins/queries';
+import { useWolfGameByRound } from '@/hooks/wolf/queries';
 
 // Local hooks and components
 import {
@@ -118,6 +126,11 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
     return competitionInfo?.organizer_id === user.id;
   }, [user?.id, isSuperAdmin, isStandaloneRound, roundDetails?.user_id, competitionInfo?.organizer_id]);
 
+  const isRoundOwner = isStandaloneRound && !!user?.id && roundDetails?.user_id === user.id;
+  const { data: skinsGames } = useSkinsGamesByRound(isStandaloneRound ? roundId : undefined);
+  const { data: wolfGame } = useWolfGameByRound(isStandaloneRound ? roundId : undefined);
+  const [roundSheet, setRoundSheet] = useState<'options' | 'players' | 'holes' | null>(null);
+
   const [editingHole, setEditingHole] = useState<Hole | null>(null);
   const [detailedStatsPlayerId, setDetailedStatsPlayerId] = useState<string | null>(null);
   const [isQuickViewScrolling, setIsQuickViewScrolling] = useState(false);
@@ -157,6 +170,7 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
     nineType,
     startHole,
     currentRoundId,
+    groupScorecards,
     setAllowedPlayers,
   } = useScorecardStore();
 
@@ -222,6 +236,9 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
     playersToScore,
     ballCount,
     isSoloRound,
+    courseHoleCount,
+    refetchMetadata,
+    refetchPlayers,
   } = useRoundData({ roundId, competitionId, currentUserId: user?.id });
 
   // Pre-populate per-hole tee origin overrides based on the player's chosen
@@ -536,6 +553,84 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
     onHandled: () => navigation.setParams({ openEndRoundEarly: undefined }),
   });
 
+  // Round options ⋮ (social round owner): roster sync, menu rows and sheet routing.
+  const rosterSync = useRoundRosterSync({
+    roundId,
+    enabled: isStandaloneRound && isInitialized && currentRoundId === roundId,
+    isOnline,
+    currentUserId: user?.id,
+    onExit: (message) => {
+      showToast({ variant: 'info', title: message });
+      navigation.goBack();
+    },
+  });
+
+  const handleRosterChanged = useCallback(() => {
+    rosterSync.markLocalEdit();
+    void refetchPlayers();
+    void sendRoundEvent(roundId, 'roster_changed');
+  }, [rosterSync, refetchPlayers, roundId]);
+
+  const endEarlyBlockedReason = useMemo(() => {
+    if (endEarly.canEndRoundEarly) return null;
+    const gap = findBackfillGaps({ holes, nineType, players: currentPlayers, scorecards: groupScorecards })[0];
+    return gap ? `Needs scores for ${gap.playerName} on holes ${formatHoleRange(gap.holes)}` : null;
+  }, [endEarly.canEndRoundEarly, holes, nineType, currentPlayers, groupScorecards]);
+
+  const anyCardSubmitted = useMemo(
+    () => [...groupScorecards.values()].some((c) =>
+      c.status === 'completed' || c.status === 'confirmed' || !!c.submittedAt || !!c.submittedBy),
+    [groupScorecards]
+  );
+
+  const roundOptionRows = useMemo(() => getRoundOptionsRows({
+    isOnline,
+    courseHoleCount,
+    isEnded: endEarly.isEnded || playedRange.isEnded,
+    anyCardSubmitted,
+    rosterEditableFormat: isRosterEditableFormat({
+      gameType,
+      teamFormat,
+      hasSkins: (skinsGames?.length ?? 0) > 0,
+      hasWolf: wolfGame != null,
+      scoringPairsEnabled: roundDetails?.scoring_pairs_required ?? scoringPairsEnabled,
+      isMultiBall,
+    }),
+    canChangeTees,
+    canEndRoundEarly: endEarly.canEndRoundEarly,
+    endEarlyBlockedReason,
+  }), [isOnline, courseHoleCount, endEarly.isEnded, endEarly.canEndRoundEarly, playedRange.isEnded,
+       anyCardSubmitted, gameType, teamFormat, skinsGames, wolfGame, roundDetails?.scoring_pairs_required,
+       scoringPairsEnabled, isMultiBall, canChangeTees, endEarlyBlockedReason]);
+
+  const handleRoundOption = useCallback((key: RoundOptionKey) => {
+    setRoundSheet(null);
+    if (key === 'players') setRoundSheet('players');
+    else if (key === 'holes') setRoundSheet('holes');
+    else if (key === 'tees') setShowChangeTeesSheet(true);
+    else if (key === 'endEarly') endEarly.open();
+    else if (key === 'delete') submission.handleDeleteRound();
+  }, [endEarly, submission]);
+
+  const scoredHoleNumbers = useMemo(() => {
+    const set = new Set<number>();
+    for (const card of groupScorecards.values()) {
+      for (const [hole, score] of Object.entries(card.scores ?? {})) {
+        if (isHoleScored(score)) set.add(Number(hole));
+      }
+    }
+    return [...set];
+  }, [groupScorecards]);
+
+  const playerTeeNames = useMemo(() => {
+    const names = new Map<string, string>();
+    for (const player of currentPlayers) {
+      const name = playerTeeMap.get(player.id)?.name ?? selectedTeeData?.name;
+      if (name) names.set(player.id, name);
+    }
+    return names;
+  }, [currentPlayers, playerTeeMap, selectedTeeData]);
+
   // Render content for any hole number (used by SwipeableHoleNavigator for transitions)
   const renderHoleContent = useCallback(
     (holeNumber: number) => {
@@ -793,6 +888,7 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
         onChangeTeesBlockedOffline={() =>
           showErrorToast('Offline', 'Connect to the internet to change tees')
         }
+        onMorePress={isRoundOwner ? () => setRoundSheet('options') : undefined}
       />
 
       {playedRange.isEnded && playedRange.holesPlayed != null ? (
@@ -921,6 +1017,40 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
         players={currentPlayers}
         availableTees={courseTees}
       />
+
+      {isRoundOwner ? (
+        <>
+          <RoundOptionsSheet
+            visible={roundSheet === 'options'}
+            onClose={() => setRoundSheet(null)}
+            rows={roundOptionRows}
+            onSelect={handleRoundOption}
+          />
+          <RoundPlayersSheet
+            visible={roundSheet === 'players'}
+            onClose={() => setRoundSheet(null)}
+            roundId={roundId}
+            ownerId={user!.id}
+            gameType={gameType}
+            players={currentPlayers}
+            playerTeeNames={playerTeeNames}
+            onRosterChanged={handleRosterChanged}
+          />
+          <EditNineTypeSheet
+            visible={roundSheet === 'holes'}
+            onDismiss={() => setRoundSheet(null)}
+            roundId={roundId}
+            currentNineType={nineType}
+            holesPlayed={playedRange.holesPlayed}
+            scoredHoleNumbers={scoredHoleNumbers}
+            beforeReset={async () => {
+              rosterSync.markLocalEdit();
+              await Promise.all([refetchMetadata(), refetchPlayers()]);
+            }}
+            onChanged={() => void sendRoundEvent(roundId, 'roster_changed')}
+          />
+        </>
+      ) : null}
 
       <EndRoundEarlySheet
         {...endEarly.sheetProps}

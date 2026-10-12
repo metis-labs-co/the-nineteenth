@@ -143,6 +143,8 @@ interface ScorecardState {
   setPlayerTee: (playerId: string, tee: TeeBox) => Promise<void>;
   loadFromOffline: (roundId: string) => Promise<boolean>;
   ensureTeamMemberScorecards: (teamMemberPlayers: Player[]) => Promise<void>;
+  /** Drop a removed player's card from this device (memory + SQLite). */
+  removePlayerFromRound: (playerId: string) => Promise<void>;
   setCurrentHole: (hole: number) => void;
   setPlayerScore: (playerId: string, hole: number, strokes: number, scoredBy?: string) => Promise<void>;
   updatePlayerHoleScore: (playerId: string, hole: number, updates: Partial<HoleScore>) => Promise<void>;
@@ -451,6 +453,11 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
           },
         }
       );
+    },
+
+    removePlayerFromRound: async (playerId) => {
+      const removedId = await initSlice.removePlayerScorecard(set, get, playerId);
+      if (removedId) liveScorecardOrigins.delete(removedId);
     },
 
     // Simple setters

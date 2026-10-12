@@ -403,6 +403,32 @@ export async function deleteScorecardsByRound(roundId: string): Promise<void> {
 }
 
 /**
+ * Delete this round's round-level queue items (finalise / end-early intents:
+ * pending_syncs rows of type 'round' whose data.id is the round). Used when a
+ * device leaves a round it no longer has access to.
+ */
+export async function deleteRoundIntents(roundId: string): Promise<void> {
+  const database = await getDb();
+  const pendingSyncs = await database.getAllAsync<{ id: number; data: string }>(
+    `SELECT id, data FROM ${TABLE_NAMES.PENDING_SYNCS} WHERE type = ?`,
+    ['round']
+  );
+
+  for (const sync of pendingSyncs) {
+    try {
+      if (JSON.parse(sync.data).id === roundId) {
+        await database.runAsync(
+          `DELETE FROM ${TABLE_NAMES.PENDING_SYNCS} WHERE id = ?`,
+          [sync.id]
+        );
+      }
+    } catch {
+      // Ignore JSON parse errors
+    }
+  }
+}
+
+/**
  * Get the number of scored holes per round from offline storage.
  * Efficiently counts holes with valid scores (strokes > 0 or multi-ball data)
  * for a specific player across multiple rounds in a single query.

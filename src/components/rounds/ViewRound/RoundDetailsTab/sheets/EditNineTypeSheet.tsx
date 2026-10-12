@@ -7,10 +7,11 @@
  * simply stops surfacing the back nine afterwards. Switching front9 → full
  * exposes holes 10–18 again ready to be scored.
  *
- * When the new selection would hide holes that already have scores entered
+ * When the new selection would drop holes that already have scores entered
  * (e.g. switching to Front 9 after holes 10–13 have been played) we surface
  * a confirmation dialog so the user can back out before the change applies.
- * Scores aren't deleted — the dialog wording reflects that.
+ * Confirming removes those holes' scores from the round — the dialog wording
+ * says so.
  */
 
 import React, { useCallback, useMemo, useRef, useState } from 'react';
@@ -37,6 +38,12 @@ export interface EditNineTypeSheetProps {
   currentNineType: NineType;
   /** Any non-null rounds.holes_played marker fixes the round's hole count. */
   holesPlayed?: number | null;
+  /** Live scored holes (score entry); when set, server cards aren't read. */
+  scoredHoleNumbers?: number[];
+  /** Awaited before resetRound(): refetch metadata + players so re-init isn't stale. */
+  beforeReset?: () => Promise<void>;
+  /** Called after a successful change (e.g. to broadcast to peers). */
+  onChanged?: (nineType: NineType) => void;
 }
 
 interface OptionMeta {
@@ -119,6 +126,9 @@ export function EditNineTypeSheet({
   roundId,
   currentNineType,
   holesPlayed = null,
+  scoredHoleNumbers,
+  beforeReset,
+  onChanged,
 }: EditNineTypeSheetProps) {
   const colors = useThemeColors();
   const isEndedEarly = holesPlayed != null;
@@ -128,11 +138,17 @@ export function EditNineTypeSheet({
   const queryClient = useQueryClient();
 
   // Scorecards drive the data-loss check. Cheap to share a query with the
-  // scorecard tab — same key, no extra fetch when both are mounted.
-  const { data: scorecards } = useRoundScorecards(roundId);
+  // scorecard tab — same key, no extra fetch when both are mounted. Score
+  // entry passes its live scored holes instead, so the query stays idle.
+  const { data: scorecards } = useRoundScorecards(roundId, {
+    enabled: !scoredHoleNumbers,
+  });
   const scoredHoles = useMemo(
-    () => collectScoredHoles(scorecards ?? []),
-    [scorecards]
+    () =>
+      scoredHoleNumbers
+        ? new Set(scoredHoleNumbers)
+        : collectScoredHoles(scorecards ?? []),
+    [scoredHoleNumbers, scorecards]
   );
 
   const [pendingChange, setPendingChange] = useState<{
@@ -147,7 +163,7 @@ export function EditNineTypeSheet({
       }
       await updateRound(roundId, { nine_type: nineType });
     },
-    onSuccess: () => {
+    onSuccess: async (_data, nineType) => {
       // Invalidate detail + lists so the visible row, scorecard, and
       // leaderboards all repaint against the new hole count.
       queryClient.invalidateQueries({ queryKey: roundKeys.detail(roundId) });
@@ -166,14 +182,18 @@ export function EditNineTypeSheet({
       //      window when widening (front9 → full) or repointing (front9
       //      → back9). Deleting forces the next open to fetch fresh course
       //      holes and re-filter against the new nine_type.
+      // The holes cache is cleared (awaited) BEFORE the store reset so the
+      // re-init can't read the old window. Cache clear is best-effort —
+      // useRoundData's nine_type-mismatch path will still re-init from the
+      // network if SQLite isn't writable. `beforeReset` lets live score entry
+      // refetch metadata + roster first so the re-init isn't built on stale data.
+      await deleteHoles(roundId).catch(() => undefined);
+      await beforeReset?.().catch(() => undefined);
       const scorecardState = useScorecardStore.getState();
       if (scorecardState.currentRoundId === roundId) {
         scorecardState.resetRound();
       }
-      void deleteHoles(roundId).catch(() => {
-        // Cache clear is best-effort — useRoundData's nine_type-mismatch
-        // path will still re-init from the network if SQLite isn't writable.
-      });
+      onChanged?.(nineType);
 
       setPendingChange(null);
       onDismiss();
@@ -283,10 +303,10 @@ export function EditNineTypeSheet({
 
       <ConfirmationDialog
         visible={!!pendingChange}
-        title="Hide scored holes?"
+        title="Remove scored holes?"
         message={
           pendingChange
-            ? `Hole${pendingChange.hiddenHoles.length === 1 ? '' : 's'} ${formatHoleList(pendingChange.hiddenHoles)} ${pendingChange.hiddenHoles.length === 1 ? 'has' : 'have'} scores entered. Switching to ${NINE_TYPE_LABEL[pendingChange.nineType]} will hide ${pendingChange.hiddenHoles.length === 1 ? 'it' : 'them'} from this round's scorecard. Your scores stay saved and become visible again if you switch back.`
+            ? `Hole${pendingChange.hiddenHoles.length === 1 ? '' : 's'} ${formatHoleList(pendingChange.hiddenHoles)} ${pendingChange.hiddenHoles.length === 1 ? 'has' : 'have'} scores entered. Switching to ${NINE_TYPE_LABEL[pendingChange.nineType]} will remove those scores from this round.`
             : ''
         }
         confirmLabel={

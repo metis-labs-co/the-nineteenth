@@ -188,3 +188,37 @@ describe('RoundHeader end action gating', () => {
     expect(getByText('Retry')).toBeTruthy();
   });
 });
+
+describe('RoundHeader round options entry', () => {
+  it('shows ⋮ and opens the menu when onMorePress is passed', () => {
+    const onMorePress = jest.fn();
+    const onEndRoundEarlyPress = jest.fn();
+    const { getByLabelText } = render(
+      <RoundHeader
+        {...baseProps}
+        onMorePress={onMorePress}
+        canEndRoundEarly
+        onEndRoundEarlyPress={onEndRoundEarlyPress}
+      />
+    );
+    fireEvent.press(getByLabelText('Round options'));
+    expect(onMorePress).toHaveBeenCalled();
+    expect(onEndRoundEarlyPress).not.toHaveBeenCalled();
+  });
+
+  it('shows ⋮ for the menu even when end-early is unavailable', () => {
+    const { getByLabelText } = render(
+      <RoundHeader {...baseProps} onMorePress={jest.fn()} canEndRoundEarly={false} />
+    );
+    expect(getByLabelText('Round options')).toBeTruthy();
+  });
+
+  it('keeps the direct end-early ⋮ without onMorePress', () => {
+    const onEndRoundEarlyPress = jest.fn();
+    const { getByLabelText } = render(
+      <RoundHeader {...baseProps} canEndRoundEarly onEndRoundEarlyPress={onEndRoundEarlyPress} />
+    );
+    fireEvent.press(getByLabelText('End round early'));
+    expect(onEndRoundEarlyPress).toHaveBeenCalled();
+  });
+});
