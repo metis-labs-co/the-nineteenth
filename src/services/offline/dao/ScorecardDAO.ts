@@ -388,7 +388,9 @@ export async function deleteScorecardsByRound(roundId: string): Promise<void> {
   for (const sync of pendingSyncs) {
     try {
       const data = JSON.parse(sync.data);
-      if (data.roundId === roundId) {
+      // Scorecard items carry data.roundId; round-level items (finalize /
+      // end-early intents) carry data.id.
+      if (data.roundId === roundId || data.id === roundId) {
         await database.runAsync(
           `DELETE FROM ${TABLE_NAMES.PENDING_SYNCS} WHERE id = ?`,
           [sync.id]
