@@ -77,3 +77,16 @@ it('removePlayerFromRound re-arms the debounce when the RPC fails', async () => 
   expect(debouncedQueueScorecardSync).toHaveBeenCalledWith('card-p2', expect.any(Function));
   expect(useScorecardStore.getState().removePlayerFromRound).not.toHaveBeenCalled();
 });
+
+it('removePlayerFromRound resolves when the RPC succeeded but local cleanup throws', async () => {
+  rpc.mockResolvedValue({ error: null });
+  (removePendingSyncByEntityKey as jest.Mock).mockRejectedValueOnce(new Error('sqlite busy'));
+  await expect(removePlayerFromRound('r1', 'p2')).resolves.toBeUndefined();
+  expect(debouncedQueueScorecardSync).not.toHaveBeenCalled();
+});
+
+it('removePlayerFromRound resolves when the store removal throws after the RPC succeeded', async () => {
+  rpc.mockResolvedValue({ error: null });
+  (useScorecardStore.getState().removePlayerFromRound as jest.Mock).mockRejectedValueOnce(new Error('store'));
+  await expect(removePlayerFromRound('r1', 'p2')).resolves.toBeUndefined();
+});

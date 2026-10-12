@@ -11,6 +11,7 @@ import { useScorecardStore } from '@/store/scorecardStore';
 import { cancelPendingScorecardSync, debouncedQueueScorecardSync } from '@/store/scorecardSyncDebounce';
 import { COMPETITION_PLAYERS_SELECT, type SupabaseCompetitionPlayerData } from '@/types/supabase/roundQueries';
 import { getDisplayName } from '@/utils/displayHelpers';
+import { syncLogger } from '@/utils/debugLogger';
 import type { Player } from '@/types';
 
 export class RoundRosterError extends Error {
@@ -96,7 +97,12 @@ export async function removePlayerFromRound(roundId: string, playerId: string): 
       throw rpcError(error);
     }
 
-    await removePendingSyncByEntityKey(`scorecard:${roundId}:${playerId}`);
-    await useScorecardStore.getState().removePlayerFromRound(playerId);
+    // The server removal stands; a local cleanup failure is fixed by the next reconcile.
+    try {
+      await removePendingSyncByEntityKey(`scorecard:${roundId}:${playerId}`);
+      await useScorecardStore.getState().removePlayerFromRound(playerId);
+    } catch (cleanupError) {
+      syncLogger.error('Remove player: local cleanup failed', cleanupError, { roundId, playerId });
+    }
   });
 }
