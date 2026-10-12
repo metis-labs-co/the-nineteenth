@@ -226,11 +226,11 @@ describe('characterization: ensureTeamMemberScorecards on a standalone round', (
   });
 
   it('gives the added card the same isStandalone as the existing group card (inference lock)', async () => {
-    await getStore().initializeRound(ROUND_ID, [P1], create18Holes(), 'stroke', false, [], TEE_WHITE);
-    const p1Standalone = getStore().groupScorecards.get(P1.id)?.isStandalone;
+    await getStore().initializeRound(ROUND_ID, [P1], create18Holes(), 'stroke', true, [], TEE_WHITE);
+    expect(getStore().groupScorecards.get(P1.id)?.isStandalone).toBe(true);
 
     await getStore().ensureTeamMemberScorecards([P2]);
 
-    expect(getStore().groupScorecards.get(P2.id)?.isStandalone).toBe(p1Standalone ?? false);
+    expect(getStore().groupScorecards.get(P2.id)?.isStandalone).toBe(true);
   });
 });
