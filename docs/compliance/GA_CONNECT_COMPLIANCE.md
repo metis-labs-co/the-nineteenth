@@ -174,7 +174,7 @@ These are not GA-specific, but GA assessment category 5 will find them.
 
 | # | Item | Severity | Status |
 |---|---|---|---|
-| X1 | `players` table readable by every signed-in user (email, phone, handicap) | High | 🟡 `feat/player-privacy`: app reads only public columns; leaking RPCs closed (20261008000000). Column lock held in `supabase/migrations_pending/` until the force-update release. |
+| X1 | `players` table readable by every signed-in user (email, phone, handicap) | High | 🟡 `feat/player-privacy`: app reads only public columns; leaking RPCs closed (20261008000000). Column lock (20261014000000) applied to prod 2026-10-14 with 1.15.0. |
 | X2 | Course and tee tables writable by any signed-in user | High | ❌ Open |
 | X3 | GolfAPI key in git history and old app builds | High | 🟡 Proxy live. Rotate after the force-update minimum version is raised. |
 | X4 | Account deletion broken for all users | High | 🟡 Migration `20261007000000_fix_account_deletion.sql` written, not deployed. |

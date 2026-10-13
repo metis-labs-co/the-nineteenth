@@ -6,7 +6,7 @@
 --    opaque player_id, so real identities never leave the server.
 -- 2. get_my_player(): the caller's own full players row (incl. private
 --    columns), for when column-level grants hide them from direct selects
---    (supabase/migrations_pending/player_column_privileges.sql).
+--    (supabase/migrations/20261014000000_player_column_privileges.sql).
 -- 3. Close RPCs that leaked other players' emails or push tokens.
 --
 -- Everything here is backward compatible with installed app builds.

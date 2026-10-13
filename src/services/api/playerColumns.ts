@@ -7,8 +7,8 @@
  * hooks/auth/utils.ts).
  *
  * The server enforces the same split with column-level grants
- * (supabase/migrations_pending/player_column_privileges.sql). Never use
- * select('*') or players(*) on `players`: once those grants are live it fails
+ * (supabase/migrations/20261014000000_player_column_privileges.sql). Never use
+ * select('*') or players(*) on `players`: under those grants it fails
  * with a permission error.
  *
  * `gender` stays public because the daily handicap of playing partners

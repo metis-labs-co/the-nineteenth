@@ -1,11 +1,10 @@
 -- =====================================================
 -- Player privacy: column-level read lock on players
 -- =====================================================
--- HELD BACK. Do not move into supabase/migrations until the app release that
--- stops using select('*') on players (feat/player-privacy) is the force-update
--- minimum. Installed builds before that release read players with select('*')
--- and will fail with "permission denied" once this is applied.
--- Release steps: supabase/migrations_pending/README.md.
+-- Applied to prod 2026-10-14, after 1.15.0 (the release that stops using
+-- select('*') on players) went live. Builds before 1.15.0 read players with
+-- select('*') and fail with "permission denied" under this lock.
+-- Rollback: GRANT SELECT ON players TO authenticated;
 --
 -- Other users' rows stay visible (RLS "Authenticated users can search players"
 -- is unchanged) but only these columns can be read directly. Private columns
