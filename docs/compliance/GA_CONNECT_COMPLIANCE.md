@@ -58,8 +58,8 @@ to create members, or manage members, or manage handicaps" (BRS 3A), and only
 GA CONNECT creates Golf IDs (BRS 4A). We read members; we never create them.
 
 **The biggest risks are contractual, not technical** (see section 6): the
-LSPA has no limitation of liability, Support Hours run every day, the licence
-can't be assigned to a company formed later, and the Australian-storage rule
+LSPA has no limitation of liability, Support Hours run every day, a change in
+control of the company lets GA terminate, and the Australian-storage rule
 covers player data we collect, not just data from GA.
 
 **Accreditation stage:** Pre-Stage 1. Intake has not been submitted.
@@ -88,7 +88,7 @@ Scores below are our own estimates.
 
 | Category | Weight | Self-estimate | Evidence we have | Main gaps |
 |---|---|---|---|---|
-| 1. Organisation and delivery capability | 15 | Low | Working app in the stores; CI gate (`verify:gate`). | One developer, no company yet. Support Hours are every day, 6am Melbourne to 6pm Perth (A7). No written support model, SLA process or incident process. No cyber insurance. |
+| 1. Organisation and delivery capability | 15 | Low | Working app in the stores; CI gate (`verify:gate`). | One developer (single-director Pty Ltd). Support Hours are every day, 6am Melbourne to 6pm Perth (A7). No written support model, SLA process or incident process. No cyber insurance. |
 | 2. Strategic alignment (Big Swings: EVOLVE / BELONG / CONNECT) | 25 | Medium | Social golf, groups, leagues: a "more people play more golf" story. | Haven't obtained *Big Swings 2026–2030*. Need a feature-to-pillar mapping and metrics (venues committed, % who feel they belong, new people connected). |
 | 3. Participation growth and engagement | 15 | Medium | Usage data in Supabase (rounds, comps, retention). | Package conversion and retention evidence. |
 | 4. Technical integration and platform compliance | 30 | Low | Strong scoring engine with characterization/golden tests. 9-hole daily handicap now matches the BRS formula. | No integration. Stored results rank on net, not net-vs-par (D5). Allowance stacking (D6). Women get men's ratings in sync (H5). |
@@ -180,7 +180,7 @@ own cross-references. Sub-numbers inside clauses 2.5–2.8 and 6 are inferred.
 | A9 | LSPA 9 | Notify users of disclosure to "GA and its service providers" (9.2.1). Return or destroy data on exit **or at any other time on GA's written request** (9.2.4) | 🟡 | Privacy policy needs a GA disclosure section once licensed. The Platform Provider is DotGolf NZ LP, so add overseas-disclosure (APP 8) wording. See L5 for the effect of 9.2.4 on our own copy. |
 | A10 | LSPA 10.1.2–10.1.3 | Industry-standard security controls | 🟡 | GolfAPI key moved server-side (deployed 2026-10-07). Player column lock on prod (2026-10-14). Still open: course/tee write RLS, key rotation. |
 | A11 | LSPA 11 | Confidentiality of GA data, API, credentials **and the agreement's own terms** (employees and advisors only) | ⬜ | Per-club GA secrets in Supabase Vault, never on the client. Keep the signed agreement and this tracker's contract notes private. |
-| A12 | LSPA 12.1 | One-way indemnity to GA for breach of clauses 8–11, **including consequential losses**. The agreement has **no limitation-of-liability clause** | ➖ | Uncapped and, for a sole trader, personal. Lawyer review (L1). |
+| A12 | LSPA 12.1 | One-way indemnity to GA for breach of clauses 8–11, **including consequential losses**. The agreement has **no limitation-of-liability clause** | ➖ | Uncapped; falls on the company. Lawyer review (L1). |
 | A13 | LSPA 13 | **$2M cyber insurance** per claim and in the aggregate; mutual ("each party"); certificates on request (13.2) | ❌ | Only cyber is required. Ask a broker whether the policy covers the contractual indemnity (often excluded). |
 | A14 | LSPA 3, Sch 3 | Fees: accreditation $10,000 / $7,500 / $4,000 by integration level; **annual fee $10,000** in advance; re-certification quoted per qualifying release; transaction fees per active member per quarter and per booking / % of booking value (amounts blank) | ⬜ | Factor into club pricing. Ask whether paid comp entries count as "Bookings" (section 8, Q7). |
 | A15 | LSPA 3.3, 3.5, 14.2.4 | Pay each invoice within 14 days. Late interest at RBA cash rate + 3%. GA can suspend access and, if unpaid 14 days after notice, terminate | ⬜ | — |
@@ -203,7 +203,7 @@ These need to be settled before Stage 2, when the LSPA is signed.
 |---|---|---|
 | L1 | Liability | Clause 12 indemnity is uncapped, one-way and includes consequential loss; there is no limitation-of-liability clause. Negotiate a cap. |
 | L2 | Product definition | "Licensee Products and Services" means software "that provides Required Player Data and Course Data to the GA Central Database". If that covers the whole app, the Rules of Handicapping (4.4.1), SLAs and goodwill clause (2.7) reach social features. Define it narrowly as the club-competition module. |
-| L3 | Entity | The licence is "personal, non-assignable" (2.1). Incorporating later is probably an assignment (18.1.1) or a change in control, which lets GA terminate immediately (14.2.5). **Form the Pty Ltd before signing.** The "reasonable opinion" limb of Insolvency Event could arguably be triggered by a sole operator's illness. |
+| L3 | Entity | The operator is an existing Pty Ltd. Make sure the company, with its ACN, is the signing party, not the director personally. The licence is "personal, non-assignable" (2.1), and a change in control lets GA terminate immediately (14.2.5), so any future share sale or outside investment needs GA's consent first. With a single director, the "reasonable opinion" limb of Insolvency Event could arguably be triggered if the director is unavailable; ask the lawyer. |
 | L4 | Course data upload | Course Data covers every course "using any Licensee's Products and Services", and 4.3.2 requires uploading course data entered by any user. That could push GolfAPI.io-derived and user-edited tee data to GA, which may breach GolfAPI.io's terms. |
 | L5 | Our copy of uploaded data | Uploaded data is assigned to GA (2.4.5); no right in it is granted to us once uploaded (2.6); GA can demand return or destruction at any time (9.2.4). Negotiate a carve-out for our own copy, held with player consent, so GA-comp scores can still feed history, stats, the Social Handicap and leagues. |
 | L6 | Capture scope | Clause 4.3.1 requires capturing "all Required Player Data". Get written confirmation that this excludes members' social rounds. |
@@ -217,7 +217,7 @@ These need to be settled before Stage 2, when the LSPA is signed.
 
 | Area | Item | Status | Where |
 |---|---|---|---|
-| Organisational | Company profile, ownership, insurance | ⬜ | No company yet (L3). Entity, ABN and address still TODO in the privacy policy. |
+| Organisational | Company profile, ownership, insurance | ⬜ | Pty Ltd exists (L3). Company name, ACN/ABN and address still TODO in the privacy policy. |
 | Organisational | Implementation and change-management plan | ⬜ | — |
 | Organisational | Support model, SLAs, incident process | ⬜ | Must cover every-day Support Hours (A7). |
 | Product | Collateral and demo | 🟡 | `docs/APP_STORE_METADATA.md` |
@@ -272,7 +272,7 @@ These are not GA-specific, but GA assessment category 5 will find them.
 ## 10. Roadmap to application
 
 1. **Clean up (no GA access needed):** X2, X3, X5–X8, D1/D3 decision, D4 check, D5, D6, H5, publish the privacy policy.
-2. **Commercial readiness:** form the company (L3), lawyer review of section 6, cyber insurance (A13), support/SLA model covering every-day Support Hours (A7), club terms (A6).
+2. **Commercial readiness:** lawyer review of section 6, cyber insurance (A13), support/SLA model covering every-day Support Hours (A7), club terms (A6).
 3. **Data residency:** run the Sydney migration (A1, `docs/guides/SUPABASE_SYDNEY_MIGRATION.md`).
 4. **Stage 1 intake:** product overview to GA Digital Product; request CMS classification; declare course-data use cases (C2); ask section 8; request the missing documents (Q9).
 5. **Stage 2:** evidence pack (section 7), negotiate and sign the LSPA, pay the accreditation fee.
@@ -296,3 +296,4 @@ These are not GA-specific, but GA assessment category 5 will find them.
 | 2026-10-12 | Account-deletion fix applied to prod (X4). | 20261007000000 |
 | 2026-10-14 | Player column lock applied to prod with 1.15.0 (X1). | 20261014000000 |
 | 2026-10-27 | Full re-review of Guide, BRS and LSPA. Corrected: CMS can never submit CSSs (Summary, S4); not-attempted holes and pickups use `didNotAttempt` / `pickedUp`, not nulls (H6, H7); batches are independent (S1); G2 and G3 basis; A1, A5, A7, A8, A9, A12, A13, A14 wording; H1 rounding; H3 citation; E2 reserved functions. Refreshed X1, X4, G1, H5, E5. Added D8, D9, H9, S6–S9, C4, C5, G4, G5, A15–A23, section 6 (lawyer/entity/insurance), section 8 (questions for GA), missing source documents and BRS numbering note. | — |
+| 2026-10-27 | Corrected entity: the operator is an existing single-director Pty Ltd, not a sole trader (Summary, category 1, A12, L3, evidence pack, roadmap). | — |
