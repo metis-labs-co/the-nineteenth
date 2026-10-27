@@ -73,7 +73,7 @@ LSPA has no limitation of liability, Support Hours run every day, a change in
 control of the company lets GA terminate, and the Australian-storage rule
 covers player data we collect, not just data from GA.
 
-**Accreditation stage:** Pre-Stage 1. Intake has not been submitted.
+**Accreditation stage:** Pre-Stage 1. Licensing questions (section 8, I1–I9) emailed to GA on 2026-10-28; awaiting a reply.
 
 ---
 
@@ -325,3 +325,4 @@ These are not GA-specific, but GA assessment category 5 will find them.
 | 2026-10-27 | Full re-review of Guide, BRS and LSPA. Corrected: CMS can never submit CSSs (Summary, S4); not-attempted holes and pickups use `didNotAttempt` / `pickedUp`, not nulls (H6, H7); batches are independent (S1); G2 and G3 basis; A1, A5, A7, A8, A9, A12, A13, A14 wording; H1 rounding; H3 citation; E2 reserved functions. Refreshed X1, X4, G1, H5, E5. Added D8, D9, H9, S6–S9, C4, C5, G4, G5, A15–A23, section 6 (lawyer/entity/insurance), section 8 (questions for GA), missing source documents and BRS numbering note. | — |
 | 2026-10-27 | Corrected entity: the operator is an existing single-director Pty Ltd, not a sole trader (Summary, category 1, A12, L3, evidence pack, roadmap). | — |
 | 2026-10-27 | Product direction revised: golfer-facing app with no affiliated clubs as customers; ask GA about an "Other" licence instead of CMS. Added intake questions I1–I9; club-product questions kept as follow-up detail (Summary, E1, L2, section 8, roadmap). | — |
+| 2026-10-28 | Licensing questions I1–I9 emailed to GA (GA first sent the documents on 2026-08-21). | — |
