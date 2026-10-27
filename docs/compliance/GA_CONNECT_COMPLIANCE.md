@@ -39,23 +39,34 @@ The Nineteenth has **no GA CONNECT integration**. It would currently fail
 the Stage 2 eligibility gate (Guide §3) on data location, display of GA
 handicaps / use of WHS, webhook security (nothing built) and consent capture.
 
-**Product direction (agreed 2026-10-07):** GA integration is a club-level
-product, not a per-user subscription tier. It supports paid daily
-competitions run by affiliated clubs and stays separate from the existing
-social competitions. The reasons:
+**Product direction (revised 2026-10-27):** a golfer-facing app, not a club
+product. We don't expect affiliated clubs as customers. The goals are:
 
-- GA credentials (`client_id` / `client_secret`) are issued per club (BRS 3C).
-- Score batches need committee approval by a club administrator (BRS 6C).
-- A competition-only (CMS) licence can **never** submit Conforming Social
-  Scores: "CSSs are not permitted to be submitted either directly or
-  indirectly via a GA-Licenced CMS (including via an associated app)" (BRS 6A).
+1. Players link their GA Handicap so friends' competitions use accurate
+   Daily Handicaps.
+2. Later, players submit rounds (Conforming Social Scores) through the app.
+
+Neither licence type the documents describe in detail fits:
+
+- A **CMS** can **never** submit Conforming Social Scores: "CSSs are not
+  permitted to be submitted either directly or indirectly via a GA-Licenced
+  CMS (including via an associated app)" (BRS 6A). A CMS is also built around
+  club-run competitions.
+- A **VMS** manages club members and handicaps. The only third-party CSS route
+  the BRS describes is "an app approved by GA to integrate with a GA-Licenced
+  VMS" (6A), with the player's home club approving each score.
+- API credentials are issued per club (BRS 3C). No golfer-level access is
+  described.
 - GA Handicaps may only be shown when the software is operated by an
-  affiliated club or a GA-approved organisation; anyone may show a Daily
-  Handicap (BRS 9B Notes iii–iv).
+  affiliated club or a GA-approved organisation. Any software may show the
+  Daily Handicap for a specific round (BRS 9B Notes iii–iv).
+- GA's own app already offers handicap look-up and score lodgement.
 
-**Likely licence type:** GA-Licenced **CMS**. A CMS has "no agreement with GA
-to create members, or manage members, or manage handicaps" (BRS 3A), and only
-GA CONNECT creates Golf IDs (BRS 4A). We read members; we never create them.
+**Likely licence type:** **"Other"** (Guide §3), which the documents don't
+define. Stage 1 intake asks GA whether it covers this use case (section 8).
+Rows written for the earlier club-product direction (2026-10-07), such as
+S1–S9, D2, G5, A6 and A8, stay as reference until GA says which licence
+applies.
 
 **The biggest risks are contractual, not technical** (see section 6): the
 LSPA has no limitation of liability, Support Hours run every day, a change in
@@ -72,7 +83,7 @@ Every row must pass. A single fail means the application is "Not eligible".
 
 | # | Requirement | Status | Current state | Gap / next action |
 |---|---|---|---|---|
-| E1 | Licence type and scope accepted (VMS / CMS / Other) | ⬜ | Direction chosen (CMS, club product). Not yet discussed with GA. | Stage 1 intake: describe the club competition product and request CMS classification. Ask whether a multi-club consumer app counts as "club environs" (section 8, Q1). |
+| E1 | Licence type and scope accepted (VMS / CMS / Other) | ⬜ | Direction revised 2026-10-27: golfer-facing app, "Other" licence. Not yet discussed with GA. | Stage 1 intake: describe the consumer use case and ask whether an "Other" licence covers it (section 8, I1). |
 | E2 | GA "reserved functions" and link-out (BRS 2A/2B) | ❌ | No link-out exists. The app edits course and tee data itself. | Reserved functions include: course data editing; the Daily Handicap look-up chart generator (golf.com.au); setting Conforming Social Score status; Home Club transfers; club contacts and golf.com.au display info. For GA comps, read course data from GA CONNECT only. Add the menu link plus a GA-approved page that says the user is leaving our ecosystem and "will need to login… using different credentials" (2B). |
 | E3 | Commit to GA testing, including the trouble-free period (Guide §6, BRS 3B) | ⬜ | No monitoring or logging evidence (no Sentry). Test procedure document not obtained. | Get the API Integration Test Procedure. Add error tracking and structured logs for the GA integration before Stage 4. Minor defects must be fixed before the trouble-free period starts. |
 | E4 | Webhook security: HTTPS listener plus HMAC verification (BRS 13) | ❌ | Nothing built. | Edge function verifies `X-DotGolf-Signature: hmacsha256=…` over the raw request body. Return **401** on a bad signature; GA sends deliberately bad calls every day and disables any webhook that accepts them. Return 200 quickly (GA retries up to 15 times with backoff). Unclear: whether the key is a provider secret or each club's `client_secret`, and the signature encoding (section 8, Q2). |
@@ -202,7 +213,7 @@ These need to be settled before Stage 2, when the LSPA is signed.
 | # | Item | Notes |
 |---|---|---|
 | L1 | Liability | Clause 12 indemnity is uncapped, one-way and includes consequential loss; there is no limitation-of-liability clause. Negotiate a cap. |
-| L2 | Product definition | "Licensee Products and Services" means software "that provides Required Player Data and Course Data to the GA Central Database". If that covers the whole app, the Rules of Handicapping (4.4.1), SLAs and goodwill clause (2.7) reach social features. Define it narrowly as the club-competition module. |
+| L2 | Product definition | "Licensee Products and Services" means software "that provides Required Player Data and Course Data to the GA Central Database". If that covers the whole app, the Rules of Handicapping (4.4.1), SLAs and goodwill clause (2.7) reach social features. Define it narrowly as the GA-integrated features. |
 | L3 | Entity | The operator is an existing Pty Ltd. Make sure the company, with its ACN, is the signing party, not the director personally. The licence is "personal, non-assignable" (2.1), and a change in control lets GA terminate immediately (14.2.5), so any future share sale or outside investment needs GA's consent first. With a single director, the "reasonable opinion" limb of Insolvency Event could arguably be triggered if the director is unavailable; ask the lawyer. |
 | L4 | Course data upload | Course Data covers every course "using any Licensee's Products and Services", and 4.3.2 requires uploading course data entered by any user. That could push GolfAPI.io-derived and user-edited tee data to GA, which may breach GolfAPI.io's terms. |
 | L5 | Our copy of uploaded data | Uploaded data is assigned to GA (2.4.5); no right in it is granted to us once uploaded (2.6); GA can demand return or destruction at any time (9.2.4). Negotiate a carve-out for our own copy, held with player consent, so GA-comp scores can still feed history, stats, the Social Handicap and leagues. |
@@ -235,7 +246,23 @@ leagues as using "WHS handicap differentials".
 
 ---
 
-## 8. Questions for GA at intake
+## 8. Questions for GA
+
+### Stage 1 intake (consumer direction, 2026-10-27)
+
+| # | Question | Rows |
+|---|---|---|
+| I1 | Is there an "Other" licence for a golfer-facing app with no affiliated clubs as customers? What would it allow, what are the fees, and how does the assessment differ from a CMS or VMS? | E1 |
+| I2 | Can a licensed provider read an individual golfer's GA Handicap with that golfer's consent, without per-club credentials (BRS 3C)? How would the golfer authorise it? | G1, G4 |
+| I3 | In a friends' competition, may we show each player's Daily Handicap for the round (9B Note iii)? Could GA approve showing the GA Handicap itself (9B Note i)? | D2, D4 |
+| I4 | Is there a route for a golfer-facing app to submit Conforming Social Scores: approval from GA directly, or only by integrating with a GA-Licenced VMS (6A)? How would home-club approval work? | S4 |
+| I5 | Is a clearly-labelled app-only Social Handicap acceptable alongside a licence? | D1 |
+| I6 | Until licensed, is it acceptable for players to enter their own handicap so we can calculate Daily Handicaps for social games? Should we change how it's displayed? | D4 |
+| I7 | Can a golfer-facing app use GA course data for social rounds anywhere in Australia? | C1, C2 |
+| I8 | Please send the API Integration Test Procedure, the WHS Official Reference Guide for Australian administrators, *Big Swings 2026–2030*, and any documentation for the "Other" licence. | Sources |
+| I9 | What should the Stage 1 product overview include? | — |
+
+### Follow-up detail (written for the club-product direction, 2026-10-27)
 
 | # | Question | Rows |
 |---|---|---|
@@ -274,9 +301,9 @@ These are not GA-specific, but GA assessment category 5 will find them.
 1. **Clean up (no GA access needed):** X2, X3, X5–X8, D1/D3 decision, D4 check, D5, D6, H5, publish the privacy policy.
 2. **Commercial readiness:** lawyer review of section 6, cyber insurance (A13), support/SLA model covering every-day Support Hours (A7), club terms (A6).
 3. **Data residency:** run the Sydney migration (A1, `docs/guides/SUPABASE_SYDNEY_MIGRATION.md`).
-4. **Stage 1 intake:** product overview to GA Digital Product; request CMS classification; declare course-data use cases (C2); ask section 8; request the missing documents (Q9).
+4. **Stage 1 intake:** product overview to GA Digital Product describing the consumer use case; ask the intake questions in section 8 (I1–I9), including the missing documents.
 5. **Stage 2:** evidence pack (section 7), negotiate and sign the LSPA, pay the accreditation fee.
-6. **Stage 3:** staging credentials. Build the GA comp type: Golf ID and memberUID linking, GA course data, score intents and batches, webhooks, admin approval, display gating.
+6. **Stage 3:** staging credentials. Build to the licence GA grants: handicap linking, display gating, GA course data and, if approved, round submission.
 7. **Stage 4:** accreditation test suite and trouble-free period.
 8. **Stage 5:** annual fee, production credentials, pilot club.
 
@@ -297,3 +324,4 @@ These are not GA-specific, but GA assessment category 5 will find them.
 | 2026-10-14 | Player column lock applied to prod with 1.15.0 (X1). | 20261014000000 |
 | 2026-10-27 | Full re-review of Guide, BRS and LSPA. Corrected: CMS can never submit CSSs (Summary, S4); not-attempted holes and pickups use `didNotAttempt` / `pickedUp`, not nulls (H6, H7); batches are independent (S1); G2 and G3 basis; A1, A5, A7, A8, A9, A12, A13, A14 wording; H1 rounding; H3 citation; E2 reserved functions. Refreshed X1, X4, G1, H5, E5. Added D8, D9, H9, S6–S9, C4, C5, G4, G5, A15–A23, section 6 (lawyer/entity/insurance), section 8 (questions for GA), missing source documents and BRS numbering note. | — |
 | 2026-10-27 | Corrected entity: the operator is an existing single-director Pty Ltd, not a sole trader (Summary, category 1, A12, L3, evidence pack, roadmap). | — |
+| 2026-10-27 | Product direction revised: golfer-facing app with no affiliated clubs as customers; ask GA about an "Other" licence instead of CMS. Added intake questions I1–I9; club-product questions kept as follow-up detail (Summary, E1, L2, section 8, roadmap). | — |
