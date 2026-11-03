@@ -11,7 +11,8 @@
         "simulator": true,
         "image": "macos-tahoe-26.4-xcode-26.4"
       },
-      "channel": "development"
+      "channel": "development",
+      "node": "24.22.2"
     },
     "preview": {
       "distribution": "internal",
@@ -31,7 +32,8 @@
         "EXPO_PUBLIC_REVENUECAT_IOS_API_KEY": "appl_NAnUuRZUiyoQcOxCBiQkvTjzwxY",
         "EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY": "test_EUzwJGhjDCnDbhKcDTUiEreNPFT"
       },
-      "channel": "preview"
+      "channel": "preview",
+      "node": "24.22.2"
     },
     "staging": {
       "distribution": "store",
@@ -51,7 +53,8 @@
         "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_QwCPKDBBRSUCThqxt6yIlQ_-OyuV-jw",
         "EXPO_PUBLIC_REVENUECAT_IOS_API_KEY": "appl_NAnUuRZUiyoQcOxCBiQkvTjzwxY",
         "EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY": "test_EUzwJGhjDCnDbhKcDTUiEreNPFT"
-      }
+      },
+      "node": "24.22.2"
     },
     "production": {
       "channel": "production",
@@ -72,7 +75,8 @@
         "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_M3UqmkM-AmXoz3gnn8jtPA_rNFFnGZo",
         "EXPO_PUBLIC_REVENUECAT_IOS_API_KEY": "appl_NAnUuRZUiyoQcOxCBiQkvTjzwxY",
         "EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY": "goog_hWpnIqrtmJlRsQMWdrYmhiRPFha"
-      }
+      },
+      "node": "24.22.2"
     }
   },
   "submit": {
