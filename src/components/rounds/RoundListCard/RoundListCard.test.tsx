@@ -440,6 +440,15 @@ describe('RoundListCard', () => {
       expect(screen.getByText('Diff 12.3')).toBeTruthy();
     });
 
+    it('shows a plus Daily Handicap with "+", not "-"', () => {
+      const round = createCompletedRound({
+        userScore: { hasScorecard: true, totalPoints: 38, dailyHandicap: -2 },
+      });
+      render(<RoundListCard round={round} onPress={defaultOnPress} />);
+
+      expect(screen.getByText('HC +2')).toBeTruthy();
+    });
+
     it('omits handicap and differential when not recorded', () => {
       const round = createCompletedRound({
         userScore: { hasScorecard: true, totalPoints: 34 },

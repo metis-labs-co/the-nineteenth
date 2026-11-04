@@ -216,6 +216,17 @@ export function formatHandicapIndex(
 }
 
 /**
+ * Format a Daily Handicap (a whole number) with the plus-handicap convention.
+ * Plus golfers show "+2", never "-2" (GA CONNECT Test Procedure 14 ii).
+ *
+ * @param dailyHandicap The Daily Handicap (negative for plus golfers)
+ * @returns Formatted string, or "—" if null/undefined
+ */
+export function formatDailyHandicap(dailyHandicap: number | undefined | null): string {
+  return formatHandicapIndex(dailyHandicap, 0);
+}
+
+/**
  * Format handicap for display with "HC:" prefix.
  * Uses the plus-handicap sign convention for negative values.
  *

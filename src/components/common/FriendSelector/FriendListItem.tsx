@@ -10,6 +10,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Divider } from 'react-native-paper';
 import { IconCheck, IconPlus } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius } from '@/constants/theme';
+import { formatDailyHandicap } from '@/utils/displayHelpers';
 import { useThemeColors } from '@/context/ThemeContext';
 import { StatusBadge } from '@/components/common/StatusBadge';
 import { PlayerAvatar } from '@/components/common/PlayerAvatar';
@@ -105,7 +106,7 @@ export const FriendListItem = memo(function FriendListItem({
                 ]}
               >
                 {dailyHandicap != null
-                  ? `DHC: ${dailyHandicap}`
+                  ? `DHC: ${formatDailyHandicap(dailyHandicap)}`
                   : friend.handicap != null
                     ? `HC: ${friend.handicap}`
                     : `${SOCIAL_HANDICAP_SHORT_LABEL}: ${friend.handicap_index}`}

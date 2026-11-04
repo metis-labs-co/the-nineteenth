@@ -11,6 +11,7 @@ import React, { memo, useCallback, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { IconGolf, IconCircle, IconCircleCheck, IconPencil, IconRefresh, IconInfoCircle } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { formatDailyHandicap } from '@/utils/displayHelpers';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useIsPremium } from '@/context/SubscriptionContext';
 import { Pill } from '@/components/common';
@@ -148,7 +149,7 @@ export const YourSetupStep = memo(function YourSetupStep({
       value: 'profile',
       label: 'Handicap',
       description: gaHandicap != null
-        ? `HC: ${formatHC(gaHandicap)}  ·  DHC: ${dailyHC.profile ?? 'N/A'}  ·  Social: ${socialIndex != null ? formatHC(socialIndex) : 'N/A'}`
+        ? `HC: ${formatHC(gaHandicap)}  ·  DHC: ${dailyHC.profile != null ? formatDailyHandicap(dailyHC.profile) : 'N/A'}  ·  Social: ${socialIndex != null ? formatHC(socialIndex) : 'N/A'}`
         : 'No handicap set in profile',
       dailyHandicap: dailyHC.profile,
     },
@@ -156,7 +157,7 @@ export const YourSetupStep = memo(function YourSetupStep({
       value: 'calculated',
       label: SOCIAL_HANDICAP_NAME,
       description: socialIndex != null
-        ? `Social: ${formatHC(socialIndex)}  ·  DHC: ${dailyHC.calculated ?? 'N/A'}  ·  HC: ${gaHandicap != null ? formatHC(gaHandicap) : 'N/A'}`
+        ? `Social: ${formatHC(socialIndex)}  ·  DHC: ${dailyHC.calculated != null ? formatDailyHandicap(dailyHC.calculated) : 'N/A'}  ·  HC: ${gaHandicap != null ? formatHC(gaHandicap) : 'N/A'}`
         : 'No rounds recorded yet',
       dailyHandicap: dailyHC.calculated,
       premium: !isPremium,

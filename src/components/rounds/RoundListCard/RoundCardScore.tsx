@@ -4,6 +4,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
+import { formatDailyHandicap } from '@/utils/displayHelpers';
 import { spacing, typography } from '@/constants/theme';
 import { RoundListCardData, getUserScoreDisplay } from './types';
 
@@ -45,7 +46,7 @@ export const RoundCardScore = React.memo(function RoundCardScore({
       </View>
       {dailyHandicap != null && (
         <Text style={[styles.meta, { color: colors.textSecondary }]} testID="round-card-handicap">
-          HC {dailyHandicap}
+          HC {formatDailyHandicap(dailyHandicap)}
         </Text>
       )}
       {differential != null && (

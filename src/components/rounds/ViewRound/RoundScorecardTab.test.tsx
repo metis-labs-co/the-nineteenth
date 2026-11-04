@@ -1083,6 +1083,17 @@ describe('RoundScorecardTab', () => {
       expect(screen.getByText('IN')).toBeTruthy();
     });
 
+    it('shows a plus Daily Handicap with "+" in the individual view', () => {
+      mockUseRealScorecardTable = true;
+      render(<RoundScorecardTab
+        scorecards={[createScorecardWithPlayer('player-1', 'John', -2, generateScores(holes))]}
+        roundPlayers={[]} holes={holes} handicapSource="none"
+      />);
+      fireEvent.press(screen.UNSAFE_getAllByType(require('react-native').TouchableOpacity)[1]);
+      expect(screen.getByText('DHC: +2')).toBeTruthy();
+      expect(screen.queryByText('DHC: -2')).toBeNull();
+    });
+
     it('keeps tee-derived daily handicap and totals equal across the real table and individual view', () => {
       mockUseRealScorecardTable = true;
       const card = createScorecardWithPlayer('player-1', 'John', 18,

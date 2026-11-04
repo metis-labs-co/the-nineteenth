@@ -248,6 +248,25 @@ describe('StrokePlayScoreCard', () => {
       expect(screen.getByText('HC: 12')).toBeTruthy();
     });
 
+    it('renders plus Daily and base handicaps with "+", not "-"', () => {
+      const player = createMockPlayer({ handicap: -1.5 });
+      const hole = createMockHole();
+
+      render(
+        <StrokePlayScoreCard
+          player={player}
+          currentHole={hole}
+          currentScore={undefined}
+          onScoreSelect={defaultOnScoreSelect}
+          dailyHandicap={-2}
+          baseHandicap={-1.5}
+          baseLabel="Social"
+        />
+      );
+
+      expect(screen.getByText('DHC: +2 / Social: +1.5')).toBeTruthy();
+    });
+
     it('renders par information in section label', () => {
       const player = createMockPlayer();
       const hole = createMockHole({ par: 5 });

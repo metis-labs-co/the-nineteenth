@@ -11,6 +11,7 @@ import React, { useMemo } from 'react';
 import { StyleSheet, View, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { PlayerAvatar } from '@/components/common';
+import { formatDailyHandicap } from '@/utils/displayHelpers';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { formatTeeTimeForDisplay } from '@/utils';
@@ -247,7 +248,7 @@ export const PlayerGroupCard = React.memo(function PlayerGroupCard({
                         style={[styles.handicapText, { color: colors.textSecondary }]}
                       >
                         {dailyHandicap != null
-                          ? `DHC: ${dailyHandicap}`
+                          ? `DHC: ${formatDailyHandicap(dailyHandicap)}`
                           : player.handicap != null
                             ? `HC: ${player.handicap}`
                             : `${SOCIAL_HANDICAP_SHORT_LABEL}: ${player.handicapIndex}`}

@@ -13,7 +13,7 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useTeeSelector } from './hooks/useTeeSelector';
 import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
-import { getFirstName } from '@/utils/displayHelpers';
+import { formatDailyHandicap, getFirstName } from '@/utils/displayHelpers';
 import type { TeeSelectorListProps } from './types';
 import type { TeeBox } from '@/types/database.types';
 
@@ -198,7 +198,7 @@ export const TeeSelectorList = memo(function TeeSelectorList({
                 <Text style={[styles.previewValue, { color: colors.textPrimary }]}>
                   <Text style={{ color: colors.textTertiary }}>HC {preview.baseHC}</Text>
                   <Text style={{ color: colors.textTertiary }}> → </Text>
-                  <Text style={[styles.previewDHC, { color: colors.primary }]}>DHC {preview.dailyHC}</Text>
+                  <Text style={[styles.previewDHC, { color: colors.primary }]}>DHC {formatDailyHandicap(preview.dailyHC)}</Text>
                 </Text>
               </View>
             ))}
