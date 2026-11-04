@@ -119,8 +119,8 @@ answers are in section 8.
   a committed test).
 
 **Accreditation stage:** Pre-Stage 1. Intake questions (I1–I9) emailed
-2026-10-28; GA replied by 2026-11-04. Next: catch-up call with GA (agenda in
-section 8).
+2026-10-28; GA replied by 2026-11-04. Catch-up call booked for Friday 2026-11-06
+(agenda K1–K10 in section 8; questions not sent in advance).
 
 ---
 
