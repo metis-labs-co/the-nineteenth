@@ -11,6 +11,7 @@ import { useEffect, useCallback } from 'react';
 import { BackHandler } from 'react-native';
 import { scoringLogger } from '@/utils/debugLogger';
 import { activeRoundSession } from '@/services/activeRoundSession';
+import { resolveScoringBackAction } from '@/navigation/competitionBackNavigation';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import type { Hole } from '@/types';
@@ -49,12 +50,18 @@ export function useScorecardNavigation({
   // Handle back button press (both header and Android). Scores are auto-persisted
   // to SQLite on each entry, so there's nothing to save on exit. For competition
   // rounds, route back to ViewRound regardless of how the user reached scoring
-  // (deep link, cold-start resume, etc.) — navigate() pops to an existing
-  // ViewRound instance if one is in the stack, otherwise pushes a fresh one.
+  // (Rounds tab, deep link, cold-start resume). Pop to a ViewRound below if one
+  // exists; otherwise replace the scorecard so it can't be popped back into
+  // (see resolveScoringBackAction).
   const handleBackPress = useCallback(() => {
     void activeRoundSession.clear();
     if (!isStandaloneRound) {
-      navigation.navigate('ViewRound', { roundId, competitionId });
+      const params = { roundId, competitionId };
+      if (resolveScoringBackAction(navigation.getState()).type === 'navigate') {
+        navigation.navigate('ViewRound', params);
+      } else {
+        navigation.replace('ViewRound', params);
+      }
       return;
     }
     navigation.goBack();

@@ -72,3 +72,28 @@ export function resolveCompetitionBackAction(
     },
   };
 }
+
+export type ScoringBackAction = { type: 'navigate' } | { type: 'replace' };
+
+/**
+ * Decide how the scorecard should back out to `ViewRound` on a competition round.
+ *
+ * - **`navigate`** — a `ViewRound` already sits below (scoring was opened from
+ *   the round). The stack router pops back to it.
+ *
+ * - **`replace`** — no `ViewRound` below (opened straight from the Rounds tab,
+ *   Home or a cold-start resume). `navigate` would *push* `ViewRound` on top of
+ *   the scorecard; `ViewRound` then replaces itself with `CompetitionDetail`,
+ *   whose `goBack()` pops into the scorecard again — a loop. Replacing removes
+ *   the scorecard from the stack, so back continues ViewRound → competition →
+ *   the list the round came from.
+ *
+ * @see resolveCompetitionBackAction — the next hop of the same back path.
+ */
+export function resolveScoringBackAction(state: BackStackSnapshot): ScoringBackAction {
+  const hasViewRoundBelow = state.routes
+    .slice(0, state.index)
+    .some((route) => route.name === 'ViewRound');
+
+  return hasViewRoundBelow ? { type: 'navigate' } : { type: 'replace' };
+}
