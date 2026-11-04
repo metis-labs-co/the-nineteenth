@@ -13,6 +13,7 @@ import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useWindowDimensions } from 'react-native';
 import { useThemeColors } from '@/context/ThemeContext';
+import { formatDailyHandicap } from '@/utils/displayHelpers';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { EmptyState } from '@/components/common/EmptyState';
 import { getScoreColor, getStrokesReceived, calculateStablefordPointsNet } from '@/utils/scoring';
@@ -233,7 +234,7 @@ const IndividualScorecardView = React.memo(function IndividualScorecardView({
               {player?.name || 'Unknown'}
             </Text>
             <Text style={[individualStyles.playerHandicap, { color: colors.textSecondary }]}>
-              DHC: {dailyHandicap}
+              DHC: {formatDailyHandicap(dailyHandicap)}
             </Text>
           </View>
           <View style={individualStyles.playerTotals}>

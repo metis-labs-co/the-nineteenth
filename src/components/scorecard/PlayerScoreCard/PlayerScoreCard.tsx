@@ -22,6 +22,7 @@ import {
   shadows,
 } from '@/constants/theme';
 import { useThemeColors, type ColorPalette } from '@/context/ThemeContext';
+import { formatDailyHandicap, formatHandicapIndex } from '@/utils/displayHelpers';
 import { ScaledText } from '@/components/common/ScaledText';
 import type { Player, Hole, HoleScore, MultiBallHoleScore } from '@/types';
 import { isSingleBallScore } from '@/types/database';
@@ -225,7 +226,7 @@ export const PlayerScoreCard = React.memo(function PlayerScoreCard({
           )}
           <ScaledText category="caption" style={[styles.handicapLabel, { color: colors.textSecondary }]}>
             {dailyHandicap != null
-              ? `DHC: ${dailyHandicap} / ${baseLabel ?? 'HC'}: ${baseHandicap ?? handicap}`
+              ? `DHC: ${formatDailyHandicap(dailyHandicap)} / ${baseLabel ?? 'HC'}: ${formatHandicapIndex(baseHandicap ?? handicap)}`
               : `HC: ${handicap}`}
           </ScaledText>
         </TouchableOpacity>

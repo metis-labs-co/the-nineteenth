@@ -9,6 +9,7 @@ import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { spacing, typography, borderRadius } from '@/constants/theme';
+import { formatDailyHandicap, formatHandicapIndex } from '@/utils/displayHelpers';
 import { useThemeColors } from '@/context/ThemeContext';
 import { formatRelativeToPar, formatParScoreDisplay } from './scoreCardHelpers';
 
@@ -86,7 +87,7 @@ export const PlayerHeader = React.memo(function PlayerHeader({
         <View style={styles.handicapRow}>
           <Text style={[styles.handicapLabel, { color: colors.textSecondary }]}>
             {dailyHandicap != null
-              ? `DHC: ${dailyHandicap} / ${baseLabel ?? 'HC'}: ${baseHandicap ?? handicap}`
+              ? `DHC: ${formatDailyHandicap(dailyHandicap)} / ${baseLabel ?? 'HC'}: ${formatHandicapIndex(baseHandicap ?? handicap)}`
               : `HC: ${handicap}`}
           </Text>
           {strokesReceived > 0 && (

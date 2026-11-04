@@ -148,6 +148,26 @@ describe('PlayerScoreCard', () => {
       expect(screen.getByText('HC: 18')).toBeTruthy();
     });
 
+    it('renders the Daily Handicap header with the base handicap', () => {
+      const props = createDefaultProps({
+        player: createTestPlayer({ handicap: 12 }),
+      });
+      render(<PlayerScoreCard {...props} dailyHandicap={14} />);
+
+      expect(screen.getByText('DHC: 14 / HC: 12.0')).toBeTruthy();
+    });
+
+    it('renders plus Daily and base handicaps with "+", not "-"', () => {
+      const props = createDefaultProps({
+        player: createTestPlayer({ handicap: -1.5 }),
+      });
+      render(
+        <PlayerScoreCard {...props} dailyHandicap={-2} baseHandicap={-1.5} baseLabel="Social" />
+      );
+
+      expect(screen.getByText('DHC: +2 / Social: +1.5')).toBeTruthy();
+    });
+
     it('renders shots received label', () => {
       const props = createDefaultProps();
       render(<PlayerScoreCard {...props} />);
