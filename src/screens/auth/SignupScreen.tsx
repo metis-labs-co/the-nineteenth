@@ -215,7 +215,6 @@ export default function SignupScreen({ navigation }: Props) {
         title="Sign Up"
         showBack={true}
         onBack={handleBackToLogin}
-        skipTopInset
       />
 
       <KeyboardAvoidingView
